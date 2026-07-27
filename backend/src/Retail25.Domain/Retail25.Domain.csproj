@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Domain has NO project references. Only logging abstractions are permitted so that
+    pure calculation engines can emit diagnostics. Enforced by Retail25.ArchitectureTests.
+  -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+</Project>

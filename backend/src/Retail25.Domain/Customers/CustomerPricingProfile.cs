@@ -1,0 +1,45 @@
+using Retail25.Domain.Common;
+
+namespace Retail25.Domain.Customers;
+
+/// <summary>
+/// Customer-specific pricing overrides (guide p.51–52). When a customer is attached to a cart,
+/// their usual discount and assigned price level are applied automatically.
+/// </summary>
+public sealed class CustomerPricingProfile : Entity, IAuditable
+{
+    private CustomerPricingProfile()
+    {
+    }
+
+    public Guid CustomerId { get; set; }
+
+    /// <summary>Default discount % applied to every sale for this customer (guide p.51).</summary>
+    public decimal UsualDiscountPct { get; set; }
+
+    /// <summary>Price level 1–4 assigned to this customer (guide p.52).</summary>
+    public int PriceLevel { get; set; } = 1;
+
+    public bool ExemptTax1 { get; set; }
+
+    public bool ExemptTax2 { get; set; }
+
+    /// <summary>Customer's reward points balance (guide p.83).</summary>
+    public int RewardPoints { get; set; }
+
+    public DateTimeOffset CreatedAt { get; set; }
+
+    public Guid? CreatedBy { get; set; }
+
+    public DateTimeOffset? ModifiedAt { get; set; }
+
+    public Guid? ModifiedBy { get; set; }
+
+    public static CustomerPricingProfile Create(Guid customerId)
+    {
+        return new CustomerPricingProfile
+        {
+            CustomerId = customerId,
+        };
+    }
+}

@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore backend/Retail25.sln
+
+      - name: Build (warnings are errors)
+        run: dotnet build backend/Retail25.sln --no-restore -c Release
+
+      - name: Unit + architecture tests
+        run: |
+          dotnet test backend/tests/Retail25.Domain.UnitTests --no-build -c Release --logger trx
+          dotnet test backend/tests/Retail25.Application.UnitTests --no-build -c Release --logger trx
+          dotnet test backend/tests/Retail25.ArchitectureTests --no-build -c Release --logger trx
+
+      - name: Integration tests (Testcontainers)
+        run: dotnet test backend/tests/Retail25.IntegrationTests --no-build -c Release --logger trx
+
+      - name: Vulnerable package scan
+        run: dotnet list backend/Retail25.sln package --vulnerable --include-transitive
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: '**/TestResults/*.trx'
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend/retail25-web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/retail25-web/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm audit --audit-level=high
+        continue-on-error: true

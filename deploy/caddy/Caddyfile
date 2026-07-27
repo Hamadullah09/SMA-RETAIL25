@@ -1,0 +1,39 @@
+# Single origin for the browser: the web app and the API share a host, so the BFF
+# session cookie is same-site and SignalR needs no CORS exception.
+{$PUBLIC_HOST:localhost} {
+	encode zstd gzip
+
+	# API and auth endpoints
+	handle /api/* {
+		reverse_proxy api:8080
+	}
+	handle /connect/* {
+		reverse_proxy api:8080
+	}
+	handle /.well-known/* {
+		reverse_proxy api:8080
+	}
+	handle /health/* {
+		reverse_proxy api:8080
+	}
+
+	# SignalR — WebSockets must not be buffered or timed out early.
+	handle /hubs/* {
+		reverse_proxy api:8080 {
+			flush_interval -1
+		}
+	}
+
+	# Everything else is the Next.js app.
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), serial=(self)"
+		-Server
+	}
+}

@@ -1,0 +1,31 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.nupkg
+*.snupkg
+.vs/
+TestResults/
+appsettings.Development.json
+
+## Node
+node_modules/
+.next/
+out/
+.env*.local
+
+## IDE
+.idea/
+*.swp
+*.swo
+*~
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store

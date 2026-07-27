@@ -1,0 +1,54 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+insert_final_newline = true
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+
+[*.{json,yml,yaml,csproj,props,targets,xml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+# Usings
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+csharp_using_directive_placement = outside_namespace:warning
+
+# Modern C#
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_var_for_built_in_types = false:suggestion
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_prefer_braces = true:warning
+csharp_style_prefer_primary_constructors = true:suggestion
+csharp_style_expression_bodied_methods = when_on_single_line:suggestion
+csharp_style_expression_bodied_properties = true:suggestion
+
+# Nullability and immutability
+dotnet_style_readonly_field = true:warning
+csharp_prefer_static_local_function = true:suggestion
+dotnet_style_prefer_auto_properties = true:warning
+
+# Naming: private fields _camelCase
+dotnet_naming_rule.private_fields_underscore.symbols = private_fields
+dotnet_naming_rule.private_fields_underscore.style = underscore_camel
+dotnet_naming_rule.private_fields_underscore.severity = warning
+dotnet_naming_symbols.private_fields.applicable_kinds = field
+dotnet_naming_symbols.private_fields.applicable_accessibilities = private
+dotnet_naming_style.underscore_camel.required_prefix = _
+dotnet_naming_style.underscore_camel.capitalization = camel_case
+
+# Analyzer severities that matter for this codebase
+dotnet_diagnostic.CA1062.severity = none      # null checks: nullable reference types cover this
+dotnet_diagnostic.CA1848.severity = none      # LoggerMessage: applied on hot paths only
+dotnet_diagnostic.CA2007.severity = none      # ConfigureAwait: no sync context
+dotnet_diagnostic.CA1707.severity = none      # underscores in test method names
+dotnet_diagnostic.CA1515.severity = none      # public types in an app assembly
+
+# Money must never be a float
+dotnet_diagnostic.CS0675.severity = error

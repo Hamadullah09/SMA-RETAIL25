@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: retail25
+      POSTGRES_USER: retail25
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U retail25"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: ../deploy/Dockerfile.api
+    environment:
+      - ConnectionStrings__DefaultConnection=Host=postgres;Database=retail25;Username=retail25;Password=${POSTGRES_PASSWORD:-devpassword123}
+      - ConnectionStrings__Redis=localhost:6379
+      - Database__AutoMigrate=true
+      - ASPNETCORE_ENVIRONMENT=Development
+    ports:
+      - "5000:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ../frontend/retail25-web
+      dockerfile: ../deploy/Dockerfile.web
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:5000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  redisdata:
