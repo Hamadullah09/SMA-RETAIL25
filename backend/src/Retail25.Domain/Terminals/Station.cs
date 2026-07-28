@@ -14,6 +14,9 @@ public sealed class Station : AggregateRoot, IAuditable
 
     public string StationCode { get; set; } = string.Empty;
 
+    /// <summary>What staff call this till, e.g. "Front Counter". Shown on the station picker.</summary>
+    public string Name { get; set; } = string.Empty;
+
     public Guid LocationId { get; set; }
 
     public bool FastScanMode { get; set; }
@@ -41,16 +44,19 @@ public sealed class Station : AggregateRoot, IAuditable
 
     public Guid? ModifiedBy { get; set; }
 
-    public static Result<Station> Create(Guid locationId, string stationCode)
+    public static Result<Station> Create(Guid locationId, string stationCode, string? name = null)
     {
         if (string.IsNullOrWhiteSpace(stationCode) || stationCode.Trim().Length > 3
             || !stationCode.Trim().All(char.IsDigit))
             return Result.Failure<Station>(new Error("station.code_invalid", "A station code must be 1–3 digits."));
 
+        var code = stationCode.Trim().PadLeft(3, '0');
+
         return Result.Success(new Station
         {
             LocationId = locationId,
-            StationCode = stationCode.Trim().PadLeft(3, '0'),
+            StationCode = code,
+            Name = string.IsNullOrWhiteSpace(name) ? $"Station {code}" : name.Trim(),
         });
     }
 }

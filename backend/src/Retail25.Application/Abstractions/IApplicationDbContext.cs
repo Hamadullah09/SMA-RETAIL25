@@ -86,6 +86,7 @@ public interface IApplicationDbContext
     DbSet<Currency> Currencies { get; }
     DbSet<LoyaltyPolicy> LoyaltyPolicies { get; }
     DbSet<LateChargePolicy> LateChargePolicies { get; }
+    DbSet<PriceLevelDefinition> PriceLevelDefinitions { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

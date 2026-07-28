@@ -1,0 +1,13 @@
+# EF Core writes these files. They are build output that happens to live in source control, so they
+# are exempted from analysis rather than the rules being weakened for hand-written code.
+#
+# Editing a migration by hand is legitimate — adding an index, a data fix-up — but style rules about
+# array allocation in a one-shot schema script buy nothing.
+
+[*.cs]
+generated_code = true
+
+dotnet_diagnostic.CA1861.severity = none   # constant array arguments
+dotnet_diagnostic.CA1825.severity = none   # zero-length array allocations
+dotnet_diagnostic.CA1062.severity = none   # null checks on generated parameters
+dotnet_diagnostic.IDE0300.severity = none  # collection expression preference

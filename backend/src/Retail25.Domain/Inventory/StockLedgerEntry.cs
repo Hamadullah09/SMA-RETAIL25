@@ -52,4 +52,35 @@ public sealed class StockLedgerEntry : Entity
     public DateTimeOffset OccurredAt { get; set; }
 
     public Guid? StaffId { get; set; }
+
+    /// <summary>
+    /// Records a movement. The sign of <paramref name="quantity"/> carries the direction — negative
+    /// leaves the building — so replaying the ledger is a plain sum and needs no knowledge of
+    /// movement semantics.
+    /// </summary>
+    public static StockLedgerEntry Create(
+        Guid productId,
+        Guid locationId,
+        MovementType movementType,
+        decimal quantity,
+        decimal unitCost,
+        DateTimeOffset occurredAt,
+        Guid? variantId = null,
+        string? referenceType = null,
+        Guid? referenceId = null,
+        string? reason = null,
+        Guid? staffId = null) => new()
+        {
+            ProductId = productId,
+            LocationId = locationId,
+            MovementType = movementType,
+            Quantity = quantity,
+            UnitCost = unitCost,
+            OccurredAt = occurredAt,
+            VariantId = variantId,
+            ReferenceType = referenceType,
+            ReferenceId = referenceId,
+            Reason = reason,
+            StaffId = staffId,
+        };
 }

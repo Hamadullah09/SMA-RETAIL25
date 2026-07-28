@@ -15,6 +15,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The registry is read at runtime; keep it beside the test binaries. -->
+    <None Update="Benchmark\capabilities.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The domain test assembly is referenced so capabilities can cite the test that proves them. -->
+    <ProjectReference Include="..\Retail25.Domain.UnitTests\Retail25.Domain.UnitTests.csproj" />
     <ProjectReference Include="..\..\src\Retail25.Domain\Retail25.Domain.csproj" />
     <ProjectReference Include="..\..\src\Retail25.Application\Retail25.Application.csproj" />
     <ProjectReference Include="..\..\src\Retail25.Infrastructure\Retail25.Infrastructure.csproj" />

@@ -23,4 +23,21 @@ public sealed class CartTaxOverride : Entity
 
     /// <summary>The line sequence from which this override takes effect.</summary>
     public int AppliesFromSequence { get; set; }
+
+    /// <summary>
+    /// Raises an override that takes effect from <paramref name="appliesFromSequence"/> onward.
+    /// The caller passes the cart's next line sequence, which is what makes the change apply to
+    /// what is rung up next rather than to what is already on the screen (guide p.11).
+    /// </summary>
+    /// <param name="cartId">Cart the override belongs to.</param>
+    /// <param name="appliesFromSequence">First line sequence the override reaches.</param>
+    /// <param name="tax1">Tax 1 forced on or off; null leaves it to the usual rules.</param>
+    /// <param name="tax2">Tax 2 forced on or off; null leaves it to the usual rules.</param>
+    public static CartTaxOverride Create(Guid cartId, int appliesFromSequence, bool? tax1, bool? tax2) => new()
+    {
+        CartId = cartId,
+        AppliesFromSequence = appliesFromSequence,
+        Tax1 = tax1,
+        Tax2 = tax2,
+    };
 }

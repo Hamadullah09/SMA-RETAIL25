@@ -45,12 +45,22 @@ public static class RandomWeightBarcodeParser
 
         // Embedded price = positions 7–10 (DDDD), format 99.99
         var priceString = trimmed.Substring(6, 4);
-        if (!decimal.TryParse(priceString, out var embeddedPrice))
+        if (!decimal.TryParse(priceString, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var embeddedPrice))
             return null;
 
         // Normalise: DDDD is in cents, so 0123 = $1.23
         embeddedPrice = embeddedPrice / 100m;
 
         return new RandomWeightParseResult(stockCode, embeddedPrice, true);
+    }
+
+    /// <summary>
+    /// Attempts to parse, in the try-pattern callers expect. Returns false for anything that is not
+    /// a Type 2 barcode, which is the common case — most scans are ordinary UPCs.
+    /// </summary>
+    public static bool TryParse(string? barcode, out RandomWeightParseResult? result)
+    {
+        result = barcode is null ? null : Parse(barcode);
+        return result is { IsValid: true };
     }
 }

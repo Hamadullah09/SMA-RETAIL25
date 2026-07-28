@@ -47,4 +47,12 @@ public sealed class LoyaltyPolicy : AggregateRoot, IAuditable
     public DateTimeOffset? ModifiedAt { get; set; }
 
     public Guid? ModifiedBy { get; set; }
+
+    /// <summary>
+    /// The policy a location has before anyone configures one: points off. Keeps "never set up"
+    /// and "deliberately switched off" behaving identically at the till without the engine having
+    /// to reason about a missing row.
+    /// </summary>
+    public static LoyaltyPolicy CreateDisabled(Guid locationId)
+        => new() { LocationId = locationId, IsEnabled = false };
 }

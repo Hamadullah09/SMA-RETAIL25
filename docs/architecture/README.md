@@ -93,7 +93,26 @@ Seed data supplies working defaults on day one; an administrator can change any 
 
 ## Status
 
-**In development.** Phase 0 started 2026-07-27 per [11-delivery-roadmap.md](11-delivery-roadmap.md).
+**In development** per [11-delivery-roadmap.md](11-delivery-roadmap.md).
+
+### Verified working (2026-07-27)
+
+| Area | State |
+|---|---|
+| Solution build | ✅ `dotnet build` clean, 0 errors, warnings-as-errors on |
+| Pricing & tax engine | ✅ Rebuilt to doc 04. 54 tests green, including 6 property tests × 500 random carts |
+| Engine wired to the till | ✅ `ICartPricingService` is the single path to a total; `GET /api/v1/carts/{id}/quote` |
+| Sale commit | ✅ Prices from configuration at commit time; writes frozen sale lines, stock ledger, loyalty ledger |
+
+### Known gaps — next up
+
+| # | Gap | Why it matters |
+|---|---|---|
+| G1 | **No EF migrations.** `Program.cs` calls `EnsureCreatedAsync`, which cannot evolve a schema. | Phase 0 exit criterion is unmet; blocks any deploy that outlives its first schema change. |
+| G2 | **No authentication.** OpenIddict and ASP.NET Core Identity are referenced but not wired; no `UseAuthentication`/`UseAuthorization`; SignalR hubs exist but are not mapped. | Every endpoint is anonymous. Permission checks in the pricing path therefore always see an empty permission set. |
+| G3 | **~13 EF entity configurations for ~45 entities.** | The unconfigured ones fall back to convention; decimal precision and indexes are unspecified. |
+| G4 | **Application / Architecture / Integration test projects are empty.** | CI is green on those projects for no reason. |
+| G5 | **Seed data does not exist yet.** No permissions, tender types, currency, tax configuration or pricing defaults. | A fresh database cannot price a sale — `CartPricingService` fails with `tax.not_configured` by design. |
 
 ### Local toolchain gaps (2026-07-27)
 

@@ -36,4 +36,31 @@ public sealed class CartAdjustment : Entity
 
     /// <summary>Serial number for gift certificates.</summary>
     public string? Serial { get; set; }
+
+    /// <summary>
+    /// Records a credit against the sale. Amount and percent are mutually exclusive by convention:
+    /// a coupon has a face value, a subtotal discount is usually a rate, and the pricing engine
+    /// reads whichever is set.
+    /// </summary>
+    /// <param name="cartId">Cart the credit belongs to.</param>
+    /// <param name="type">Which kind of credit.</param>
+    /// <param name="label">What to print on the receipt.</param>
+    /// <param name="amount">Fixed value credited.</param>
+    /// <param name="percent">Percentage of the subtotal credited.</param>
+    /// <param name="serial">Serial number, for gift certificates.</param>
+    public static CartAdjustment Create(
+        Guid cartId,
+        AdjustmentType type,
+        string label,
+        decimal amount = 0m,
+        decimal percent = 0m,
+        string? serial = null) => new()
+        {
+            CartId = cartId,
+            Type = type,
+            Label = label?.Trim() ?? string.Empty,
+            Amount = amount,
+            Percent = percent,
+            Serial = serial,
+        };
 }

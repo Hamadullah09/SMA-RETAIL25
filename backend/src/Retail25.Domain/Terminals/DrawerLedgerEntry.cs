@@ -35,4 +35,30 @@ public sealed class DrawerLedgerEntry : Entity
     public Guid StaffId { get; set; }
 
     public DateTimeOffset OccurredAt { get; set; }
+
+    /// <summary>
+    /// Records a movement. The sign carries the direction, so the drawer's expected cash is the
+    /// plain sum of its entries and no reader needs to know what each entry type means.
+    /// </summary>
+    /// <param name="drawerSessionId">Session the movement belongs to.</param>
+    /// <param name="entryType">What kind of movement.</param>
+    /// <param name="signedAmount">Positive brings cash in, negative takes it out.</param>
+    /// <param name="staffId">Who did it.</param>
+    /// <param name="occurredAt">When.</param>
+    /// <param name="reason">Why — required for pay-ins and pay-outs, which are otherwise unexplained.</param>
+    public static DrawerLedgerEntry Create(
+        Guid drawerSessionId,
+        DrawerEntryType entryType,
+        decimal signedAmount,
+        Guid staffId,
+        DateTimeOffset occurredAt,
+        string? reason = null) => new()
+        {
+            DrawerSessionId = drawerSessionId,
+            EntryType = entryType,
+            Amount = signedAmount,
+            StaffId = staffId,
+            OccurredAt = occurredAt,
+            Reason = reason,
+        };
 }

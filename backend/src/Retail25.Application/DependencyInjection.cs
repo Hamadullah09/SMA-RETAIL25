@@ -2,7 +2,9 @@ using System.Reflection;
 using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
+using Retail25.Application.Abstractions;
 using Retail25.Application.Behaviors;
+using Retail25.Application.Carts.Services;
 
 namespace Retail25.Application;
 
@@ -22,6 +24,10 @@ public static class DependencyInjection
         });
 
         services.AddValidatorsFromAssembly(assembly);
+
+        // The one supported way to total a cart. Registered here rather than in Infrastructure
+        // because it is orchestration over the domain engine, not an external dependency.
+        services.AddScoped<ICartPricingService, CartPricingService>();
 
         return services;
     }
