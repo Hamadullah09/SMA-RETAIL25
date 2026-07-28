@@ -4,7 +4,7 @@
 > Do not edit by hand — every row is verified by reflection against the compiled
 > assemblies. A feature counts as delivered only when the code it names exists.
 
-Generated 2026-07-28 05:13 UTC
+Generated 2026-07-28 05:50 UTC
 
 ## Summary
 

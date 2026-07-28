@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Retail25.Application.Abstractions;
+using Retail25.Application.Behaviors;
 using Retail25.Infrastructure.Carts;
 using Retail25.Infrastructure.Identity;
 using Retail25.Infrastructure.Persistence;
@@ -44,6 +45,10 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddSingleton<IDateTime, SystemDateTime>();
+
+        // Backs the MediatR idempotency behaviour. Without it every command that goes through the
+        // pipeline fails to resolve, which is a start-up-clean but request-time fatal error.
+        services.AddSingleton<IIdempotencyStore, MemoryIdempotencyStore>();
 
         AddCartStore(services, configuration);
 
