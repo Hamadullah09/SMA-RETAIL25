@@ -57,17 +57,17 @@ public sealed class MigrationTests
     {
         using var db = _postgres.CreateContext();
 
-        var snapshot = db.GetService<IMigrationsAssembly>().ModelSnapshot;
-        snapshot.Should().NotBeNull("the model snapshot is what the next migration is generated against");
-
-        // The snapshot is a design-time model and has to be finalised before it can be compared with
-        // the live one, or every table reads as a difference.
-        var snapshotModel = db.GetService<IModelRuntimeInitializer>()
-            .Initialize(((IMutableModel)snapshot!.Model).FinalizeModel(), designTime: true, validationLogger: null);
+        // This is the same comparison `dotnet ef migrations add` makes internally to decide whether
+        // there is anything to scaffold (see MigrationsScaffolder.HasDifferences in EF Core's own
+        // source) — the snapshot's model as EF built it at scaffold time, against the context's
+        // design-time model now. GetPendingModelChanges() would be the one-line version of this, but
+        // it only exists from EF Core 9; this project is pinned to 8 for .NET 8 LTS.
+        var snapshotModel = db.GetService<IMigrationsAssembly>().ModelSnapshot?.Model;
+        var currentModel = db.GetService<IDesignTimeModel>().Model;
 
         var differences = db.GetService<IMigrationsModelDiffer>().GetDifferences(
-            snapshotModel.GetRelationalModel(),
-            db.GetService<IDesignTimeModel>().Model.GetRelationalModel());
+            snapshotModel?.GetRelationalModel(),
+            currentModel.GetRelationalModel());
 
         // The failure this catches: someone edits an entity, the unit tests still pass because the
         // in-memory provider builds its model from code, and the schema silently drifts from the
