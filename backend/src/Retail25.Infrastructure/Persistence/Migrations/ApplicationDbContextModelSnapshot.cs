@@ -692,7 +692,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("base_stock");
 
                     b.Property<string>("BinLocation")
-                        .HasColumnType("text")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("bin_location");
 
                     b.Property<decimal>("CaseQty")
@@ -757,7 +758,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
                         .HasColumnName("name");
 
                     b.Property<string>("Notes")
@@ -802,7 +804,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("StockCode")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
                         .HasColumnName("stock_code");
 
                     b.Property<Guid?>("SubstituteProductId")
@@ -826,11 +829,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("type");
 
                     b.Property<string>("Upc")
-                        .HasColumnType("text")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
                         .HasColumnName("upc");
 
                     b.HasKey("Id")
                         .HasName("pk_products");
+
+                    b.HasIndex("LocationId", "StockCode")
+                        .IsUnique()
+                        .HasDatabaseName("ix_products_location_id_stock_code")
+                        .HasFilter("NOT is_deleted");
 
                     b.ToTable("products", (string)null);
                 });

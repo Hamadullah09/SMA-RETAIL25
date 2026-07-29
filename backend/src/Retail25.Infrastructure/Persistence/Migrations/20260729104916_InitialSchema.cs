@@ -984,11 +984,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 {
                     id = table.Column<Guid>(type: "uuid", nullable: false),
                     location_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    stock_code = table.Column<string>(type: "text", nullable: false),
-                    name = table.Column<string>(type: "text", nullable: false),
+                    stock_code = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     description = table.Column<string>(type: "text", nullable: true),
                     type = table.Column<int>(type: "integer", nullable: false),
-                    upc = table.Column<string>(type: "text", nullable: true),
+                    upc = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
                     tax1applies = table.Column<bool>(type: "boolean", nullable: false),
                     tax2applies = table.Column<bool>(type: "boolean", nullable: false),
                     regular_price = table.Column<decimal>(type: "numeric", nullable: false),
@@ -1002,7 +1002,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     on_order = table.Column<decimal>(type: "numeric", nullable: false),
                     case_qty = table.Column<decimal>(type: "numeric", nullable: false),
                     ship_weight = table.Column<decimal>(type: "numeric", nullable: false),
-                    bin_location = table.Column<string>(type: "text", nullable: true),
+                    bin_location = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     pos_message = table.Column<string>(type: "text", nullable: true),
                     invoice_message = table.Column<string>(type: "text", nullable: true),
                     notes = table.Column<string>(type: "text", nullable: true),
@@ -1993,6 +1993,13 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "ix_printer_profiles_location_id_station_id",
                 table: "printer_profiles",
                 columns: new[] { "location_id", "station_id" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_products_location_id_stock_code",
+                table: "products",
+                columns: new[] { "location_id", "stock_code" },
+                unique: true,
+                filter: "NOT is_deleted");
 
             migrationBuilder.CreateIndex(
                 name: "ix_reader_profiles_location_id_station_id",

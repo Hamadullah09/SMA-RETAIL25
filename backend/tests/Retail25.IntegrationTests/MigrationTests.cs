@@ -57,12 +57,22 @@ public sealed class MigrationTests
     {
         using var db = _postgres.CreateContext();
 
-        // This is the same comparison `dotnet ef migrations add` makes internally to decide whether
-        // there is anything to scaffold (see MigrationsScaffolder.HasDifferences in EF Core's own
-        // source) — the snapshot's model as EF built it at scaffold time, against the context's
-        // design-time model now. GetPendingModelChanges() would be the one-line version of this, but
-        // it only exists from EF Core 9; this project is pinned to 8 for .NET 8 LTS.
-        var snapshotModel = db.GetService<IMigrationsAssembly>().ModelSnapshot?.Model;
+        // Mirrors MigrationsScaffolder.HasDifferences — the same comparison `dotnet ef migrations
+        // add` runs internally to decide whether there is anything to scaffold. The snapshot model
+        // is design-time only; RelationalModelExtensions.GetRelationalModel demands a *finalized*
+        // model (conventions run, runtime annotations attached) or it throws, so it has to go through
+        // FinalizeModel and IModelRuntimeInitializer.Initialize before comparison, exactly as the
+        // scaffolder's own ModelSnapshot handling does.
+        //
+        // GetPendingModelChanges() would be the one-line version of this, but it only exists from
+        // EF Core 9; this project is pinned to 8 for .NET 8 LTS.
+        var snapshot = db.GetService<IMigrationsAssembly>().ModelSnapshot;
+
+        var snapshotModel = snapshot is null
+            ? null
+            : db.GetService<IModelRuntimeInitializer>()
+                .Initialize(((IMutableModel)snapshot.Model).FinalizeModel(), designTime: true, validationLogger: null);
+
         var currentModel = db.GetService<IDesignTimeModel>().Model;
 
         var differences = db.GetService<IMigrationsModelDiffer>().GetDifferences(

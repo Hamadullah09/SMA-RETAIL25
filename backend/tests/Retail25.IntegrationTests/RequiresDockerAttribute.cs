@@ -20,9 +20,12 @@ public sealed class RequiresDockerFactAttribute : FactAttribute
 {
     public RequiresDockerFactAttribute()
     {
-        if (!DockerProbe.IsAvailable)
+        var hasExternalServer = !string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable("RETAIL25_TEST_PG_CONNECTION"));
+
+        if (!DockerProbe.IsAvailable && !hasExternalServer)
         {
-            Skip = "Needs a running Docker daemon. Start Docker Desktop and re-run.";
+            Skip = "Needs a running Docker daemon, or RETAIL25_TEST_PG_CONNECTION pointed at a real PostgreSQL. Start Docker Desktop and re-run.";
         }
     }
 }
