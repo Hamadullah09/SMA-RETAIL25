@@ -1,0 +1,40 @@
+{
+  "name": "A per-sale tax override does not reach lines already rung",
+  "source": "User Guide p.11, doc 04 §3",
+  "description": "The cashier suspended both taxes partway through the sale, stamped at sequence 2. The first line keeps the tax it was rung with; the second and third are exempt. The guide is exact — the change applies 'only for the items that are not already on the POS screen' — and making it retroactive would silently reprice items whose total the cashier has already read out.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": { "allowTaxOverride": true },
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": { "tax1": false, "tax2": false, "appliesFromSequence": 2 },
+    "rounding": null
+  },
+  "lines": [
+    { "stockCode": "ITEM01", "name": "Rung before the override", "regularPrice": 100.00, "quantity": 1 },
+    { "stockCode": "ITEM02", "name": "Rung after the override", "regularPrice": 100.00, "quantity": 1 },
+    { "stockCode": "ITEM03", "name": "Also rung after", "regularPrice": 50.00, "quantity": 1 }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": 250.00,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": 250.00,
+    "addOnCharge": 0,
+    "tax1Total": 5.00,
+    "tax2Total": 7.00,
+    "grandTotal": 262.00,
+    "lines": [
+      { "unitPrice": 100.00, "chargeableQuantity": 1, "lineNet": 100.00, "tax1Amount": 5.00, "tax2Amount": 7.00, "priceOrigin": "Regular" },
+      { "unitPrice": 100.00, "chargeableQuantity": 1, "lineNet": 100.00, "tax1Amount": 0, "tax2Amount": 0, "priceOrigin": "Regular" },
+      { "unitPrice": 50.00, "chargeableQuantity": 1, "lineNet": 50.00, "tax1Amount": 0, "tax2Amount": 0, "priceOrigin": "Regular" }
+    ]
+  }
+}

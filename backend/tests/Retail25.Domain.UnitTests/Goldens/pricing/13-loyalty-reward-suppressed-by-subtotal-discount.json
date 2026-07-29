@@ -1,0 +1,46 @@
+{
+  "name": "A subtotal discount suppresses the loyalty reward",
+  "source": "User Guide p.84",
+  "description": "The customer has enough points and asks to redeem, but a 5% subtotal discount has already been applied. The legacy rule is that the two do not stack, so no reward is granted and no points are spent — the customer keeps their balance rather than paying points for nothing. Points are still earned on the 95.00 they actually spent.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": { "staffMayDiscount": true },
+    "customer": { "priceLevel": 1, "usualDiscountPct": 0, "exemptTax1": false, "exemptTax2": false, "rewardPoints": 500 },
+    "loyalty": {
+      "isEnabled": true, "pointsPerDollar": 1, "minimumRequired": 100,
+      "percentEnabled": true, "rewardPercent": 10,
+      "fixedEnabled": false, "rewardFixedAmount": 0,
+      "suppressIfSubtotalDiscountApplied": true
+    },
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    { "stockCode": "BOOT01", "name": "Work boots", "regularPrice": 100.00, "quantity": 1 }
+  ],
+  "adjustments": [
+    { "type": "SubtotalDiscount", "label": "Staff 5%", "amount": 0, "percent": 5 },
+    { "type": "LoyaltyReward", "label": "Reward", "amount": 0, "percent": 0 }
+  ],
+  "expected": {
+    "subtotal": 100.00,
+    "adjustmentTotal": 5.00,
+    "discountedSubtotal": 95.00,
+    "addOnCharge": 0,
+    "tax1Total": 4.75,
+    "tax2Total": 6.65,
+    "grandTotal": 106.40,
+    "loyaltyPointsEarned": 95,
+    "loyaltyPointsRedeemed": 0,
+    "lines": [
+      { "unitPrice": 100.00, "chargeableQuantity": 1, "lineNet": 100.00, "tax1Amount": 4.75, "tax2Amount": 6.65, "priceOrigin": "Regular" }
+    ]
+  }
+}

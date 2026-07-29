@@ -158,4 +158,11 @@ public sealed class SerializedUnit : Entity, IAuditable
     }
 
     public void UpdateLastSeen(DateTimeOffset timestamp) => LastSeenAt = timestamp;
+
+    /// <summary>
+    /// Binds the unit to a matrix variant. A tagged shirt is a specific colour and size, and the tag
+    /// has to say which — otherwise a bulk read tells you a shirt left the shop but not which one to
+    /// deduct from stock.
+    /// </summary>
+    public void AssignVariant(Guid? variantId) => VariantId = variantId;
 }

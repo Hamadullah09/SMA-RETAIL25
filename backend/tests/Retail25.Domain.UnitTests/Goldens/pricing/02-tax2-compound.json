@@ -1,0 +1,36 @@
+{
+  "name": "Tax 2 compounds on tax 1",
+  "source": "User Guide p.77",
+  "description": "Some jurisdictions charge the second tax on the first. The base for PST is 100.00 + 5.00 GST = 105.00, so PST is 7.35 rather than 7.00. The guide flags this as unusual but required, which is exactly why it is a configuration row and not an assumption.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": true,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": {},
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    { "stockCode": "JACKET", "name": "Rain jacket", "regularPrice": 100.00, "quantity": 1 }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": 100.00,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": 100.00,
+    "addOnCharge": 0,
+    "tax1Total": 5.00,
+    "tax2Total": 7.35,
+    "grandTotal": 112.35,
+    "lines": [
+      { "unitPrice": 100.00, "chargeableQuantity": 1, "lineNet": 100.00, "tax1Amount": 5.00, "tax2Amount": 7.35, "priceOrigin": "Regular" }
+    ]
+  }
+}

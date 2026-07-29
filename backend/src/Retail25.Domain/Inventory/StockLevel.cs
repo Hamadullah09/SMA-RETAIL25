@@ -8,7 +8,7 @@ namespace Retail25.Domain.Inventory;
 /// </summary>
 public sealed class StockLevel : Entity
 {
-    private StockLevel()
+    public StockLevel()
     {
     }
 

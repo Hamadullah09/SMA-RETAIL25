@@ -1,0 +1,1110 @@
+'use client';
+
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { usePosStore } from '@/stores/pos-store';
+import { posApi } from '@/lib/pos-api';
+import { useHotkey, useHotkeyBindings, useHotkeyScope } from '@/lib/hotkeys';
+import { money } from '@/components/pos/panels';
+import type { ProductVariant, SerializedUnit, SuspendedCart, TenderType } from '@/types/pos';
+import { cn } from '@/lib/utils';
+
+/**
+ * Every dialog pushes the `dialog` hotkey scope, so the sale screen's F-keys stop firing while one
+ * is open. That is what lets F4 mean Pay outside and Copies inside the payment window, matching the
+ * legacy contract at guide p.8.
+ */
+function Shell({
+  title,
+  hint,
+  onClose,
+  children,
+  wide,
+}: {
+  title: string;
+  hint?: string;
+  onClose: () => void;
+  children: ReactNode;
+  wide?: boolean;
+}) {
+  useHotkeyScope('dialog');
+  useHotkey('Escape', onClose, { scope: 'dialog', label: 'Close', hidden: true });
+  useHotkey('F12', onClose, { scope: 'dialog', label: 'F12 Cancel' });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={cn('pos-panel w-full shadow-lg', wide ? 'max-w-3xl' : 'max-w-md')}
+      >
+        <div className="pos-panel-header">
+          <span>{title}</span>
+          {hint ? <span className="normal-case">{hint}</span> : null}
+        </div>
+        <div className="p-3">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function MenuButton({
+  hotkey,
+  label,
+  onSelect,
+  disabled,
+}: {
+  hotkey: string;
+  label: string;
+  onSelect: () => void;
+  disabled?: boolean;
+}) {
+  useHotkey(hotkey, () => !disabled && onSelect(), { scope: 'dialog', label: `${hotkey} ${label}` });
+
+  return (
+    <button type="button" className="pos-button w-full px-3 text-left text-sm" disabled={disabled} onClick={onSelect}>
+      <span className="pos-fkey pl-0"><kbd>{hotkey}</kbd></span>
+      {label}
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------- line detail drawer */
+
+/**
+ * The legacy Item Detail window (guide p.6), in the legacy tab order: quantity → price → discount →
+ * level → tax 1 → tax 2. Muscle memory is fifteen years deep, so the order is not ours to improve.
+ */
+export function LineDetailDialog() {
+  const { cart, selectedLineId, closeDialog, updateLine, removeLine, policy } = usePosStore();
+  const line = cart?.lines.find((l) => l.id === selectedLineId);
+
+  const [quantity, setQuantity] = useState('1');
+  const [price, setPrice] = useState('');
+  const [discount, setDiscount] = useState('');
+  const [level, setLevel] = useState('');
+
+  const quantityRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!line) return;
+    setQuantity(String(line.quantity));
+    setPrice(line.hasManualPrice ? String(line.unitPrice) : '');
+    setDiscount(line.discountPct ? String(line.discountPct) : '');
+    setLevel(line.requestedPriceLevel ? String(line.requestedPriceLevel) : '');
+    // Quantity is focused on open, because changing it is the overwhelmingly common reason to be here.
+    quantityRef.current?.select();
+  }, [line]);
+
+  if (!line) return null;
+
+  const commit = () => {
+    void updateLine(line.id, {
+      quantity: Number(quantity) || line.quantity,
+      manualPrice: price === '' ? null : Number(price),
+      manualDiscountPct: discount === '' ? null : Number(discount),
+      priceLevel: level === '' ? null : Number(level),
+      clear: [price === '' ? 'price' : '', discount === '' ? 'discount' : '', level === '' ? 'level' : ''].filter(Boolean),
+    });
+    closeDialog();
+  };
+
+  return (
+    <Shell title={line.name} hint="Enter accepts · F12 cancels" onClose={closeDialog}>
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          commit();
+        }}
+      >
+        <Field label="Quantity">
+          <input
+            ref={quantityRef}
+            value={quantity}
+            onChange={(event) => setQuantity(event.target.value)}
+            inputMode="decimal"
+            className="pos-amount w-full bg-transparent text-right outline-none"
+          />
+        </Field>
+
+        <Field label={`Price (${policy?.currencySymbol ?? '$'})`} hint={line.hasManualPrice ? 'overridden' : 'automatic'}>
+          <input
+            value={price}
+            onChange={(event) => setPrice(event.target.value)}
+            inputMode="decimal"
+            placeholder={line.unitPrice.toFixed(2)}
+            className="pos-amount w-full bg-transparent text-right outline-none"
+          />
+        </Field>
+
+        <Field label="Discount %">
+          <input
+            value={discount}
+            onChange={(event) => setDiscount(event.target.value)}
+            inputMode="decimal"
+            placeholder="0"
+            className="pos-amount w-full bg-transparent text-right outline-none"
+          />
+        </Field>
+
+        <Field label="Price level" hint="F5">
+          <input
+            value={level}
+            onChange={(event) => setLevel(event.target.value)}
+            inputMode="numeric"
+            placeholder="auto"
+            className="pos-amount w-full bg-transparent text-right outline-none"
+          />
+        </Field>
+
+        <div className="grid grid-cols-2 gap-2">
+          <TaxToggle
+            label={`${cart?.totals.tax1Name || 'Tax 1'}`}
+            hotkey="F6"
+            active={line.tax1Applies}
+            disabled={!policy?.allowTaxOverride}
+            onToggle={() => void updateLine(line.id, { tax1Override: !line.tax1Applies })}
+          />
+          <TaxToggle
+            label={`${cart?.totals.tax2Name || 'Tax 2'}`}
+            hotkey="F7"
+            active={line.tax2Applies}
+            disabled={!policy?.allowTaxOverride}
+            onToggle={() => void updateLine(line.id, { tax2Override: !line.tax2Applies })}
+          />
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button type="submit" className="pos-button-primary flex-1 text-sm">Accept</button>
+          <button
+            type="button"
+            className="pos-button px-3 text-sm"
+            style={{ color: 'rgb(var(--negative))' }}
+            onClick={() => {
+              void removeLine(line.id);
+              closeDialog();
+            }}
+          >
+            Delete line
+          </button>
+        </div>
+      </form>
+    </Shell>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
+      <span className="text-sm text-[rgb(var(--text-muted))]">
+        {label}
+        {hint ? <span className="ml-1 text-xs">({hint})</span> : null}
+      </span>
+      <span className="w-32">{children}</span>
+    </label>
+  );
+}
+
+function TaxToggle({
+  label,
+  hotkey,
+  active,
+  disabled,
+  onToggle,
+}: {
+  label: string;
+  hotkey: string;
+  active: boolean;
+  disabled?: boolean;
+  onToggle: () => void;
+}) {
+  useHotkey(hotkey, () => !disabled && onToggle(), { scope: 'dialog', label: `${hotkey} ${label}`, disabled });
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      disabled={disabled}
+      aria-pressed={active}
+      className="pos-button px-2 text-sm"
+      style={active ? { borderColor: 'rgb(var(--positive))', color: 'rgb(var(--positive))' } : undefined}
+    >
+      <span className="pos-fkey pl-0"><kbd>{hotkey}</kbd></span>
+      {label} {active ? 'on' : 'off'}
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------------ payment window */
+
+export function PaymentDialog() {
+  const { cart, policy, closeDialog, complete, busy } = usePosStore();
+  const [tenders, setTenders] = useState<TenderType[]>([]);
+  const [selected, setSelected] = useState<TenderType | null>(null);
+  const [tendered, setTendered] = useState('');
+  const [copies, setCopies] = useState(1);
+
+  const due = cart?.totals.grandTotal ?? 0;
+  const symbol = policy?.currencySymbol ?? '$';
+
+  useEffect(() => {
+    posApi
+      .tenderTypes()
+      .then((list) => {
+        const active = list.filter((t) => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+        setTenders(active);
+        setSelected(active.find((t) => t.id === policy?.defaultTenderTypeId) ?? active[0] ?? null);
+      })
+      .catch(() => setTenders([]));
+  }, [policy?.defaultTenderTypeId]);
+
+  // Inside this window F4 means Copies, not Pay — the legacy contract at guide p.8.
+  useHotkey('F4', () => setCopies((c) => (c >= 3 ? 1 : c + 1)), { scope: 'dialog', label: 'F4 Copies' });
+
+  const amount = Number(tendered) || due;
+  const change = selected?.allowsOverTender ? Math.max(0, amount - due) : 0;
+
+  const submit = async () => {
+    if (!selected) return;
+
+    const ok = await complete([
+      {
+        tenderTypeId: selected.id,
+        amount: due,
+        amountTendered: selected.roundsToMinimumTender ? amount : due,
+      },
+    ]);
+
+    if (ok) closeDialog();
+  };
+
+  return (
+    <Shell title="Payment" hint={`${copies} cop${copies === 1 ? 'y' : 'ies'} · F4 changes`} onClose={closeDialog}>
+      <div className="mb-3 flex items-baseline justify-between border-b border-[rgb(var(--border))] pb-2">
+        <span className="text-sm text-[rgb(var(--text-muted))]">Amount due</span>
+        <span className="pos-amount text-2xl font-semibold">{money(due, symbol)}</span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {tenders.map((tender) => (
+          <button
+            key={tender.id}
+            type="button"
+            onClick={() => setSelected(tender)}
+            aria-pressed={selected?.id === tender.id}
+            className="pos-button px-2 text-sm"
+            style={selected?.id === tender.id ? { borderColor: 'rgb(var(--accent))', borderWidth: 2 } : undefined}
+          >
+            {tender.displayName}
+          </button>
+        ))}
+      </div>
+
+      {selected?.allowsOverTender ? (
+        <label className="mt-3 flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
+          <span className="text-sm text-[rgb(var(--text-muted))]">Tendered</span>
+          <input
+            value={tendered}
+            onChange={(event) => setTendered(event.target.value)}
+            inputMode="decimal"
+            placeholder={due.toFixed(2)}
+            autoFocus
+            className="pos-amount w-32 bg-transparent text-right text-lg outline-none"
+          />
+        </label>
+      ) : null}
+
+      {change > 0 ? (
+        <div className="mt-2 flex justify-between text-sm">
+          <span className="text-[rgb(var(--text-muted))]">Change</span>
+          <span className="pos-amount text-lg font-semibold" style={{ color: 'rgb(var(--positive))' }}>
+            {money(change, symbol)}
+          </span>
+        </div>
+      ) : null}
+
+      <button
+        type="button"
+        className="pos-button-primary mt-4 w-full text-base"
+        disabled={busy || !selected}
+        onClick={() => void submit()}
+      >
+        {busy ? 'Saving…' : `Take ${money(due, symbol)}`}
+      </button>
+    </Shell>
+  );
+}
+
+/* ------------------------------------------------------------------------- credits menu */
+
+/** F3 Credits (guide p.7). Returns and trade-ins are lines, not sale-level credits. */
+export function CreditsDialog() {
+  const { closeDialog, addAdjustment, openDialog } = usePosStore();
+  const [mode, setMode] = useState<null | 'discount' | 'coupon' | 'bottle'>(null);
+
+  if (mode) {
+    return <AmountPrompt mode={mode} onCancel={() => setMode(null)} onSubmit={addAdjustment} />;
+  }
+
+  return (
+    <Shell title="Credits" onClose={closeDialog}>
+      <div className="space-y-2">
+        <MenuButton hotkey="F2" label="Subtotal discount" onSelect={() => setMode('discount')} />
+        <MenuButton hotkey="F3" label="Coupon" onSelect={() => setMode('coupon')} />
+        <MenuButton hotkey="F4" label="Return an item" onSelect={() => openDialog('find')} />
+        <MenuButton hotkey="F6" label="Bottle return" onSelect={() => setMode('bottle')} />
+        <MenuButton
+          hotkey="F8"
+          label="Redeem loyalty reward"
+          onSelect={() => void addAdjustment({ type: 'LoyaltyReward', label: 'Loyalty reward' })}
+        />
+      </div>
+    </Shell>
+  );
+}
+
+function AmountPrompt({
+  mode,
+  onCancel,
+  onSubmit,
+}: {
+  mode: 'discount' | 'coupon' | 'bottle';
+  onCancel: () => void;
+  onSubmit: (body: { type: string; label: string; amount?: number; percent?: number }) => Promise<void>;
+}) {
+  const [value, setValue] = useState('');
+  const [asPercent, setAsPercent] = useState(mode === 'discount');
+
+  const titles = { discount: 'Subtotal discount', coupon: 'Coupon', bottle: 'Bottle return' } as const;
+  const types = { discount: 'SubtotalDiscount', coupon: 'Coupon', bottle: 'BottleReturn' } as const;
+
+  return (
+    <Shell title={titles[mode]} onClose={onCancel}>
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const numeric = Number(value);
+          if (!numeric) return;
+
+          void onSubmit({
+            type: types[mode],
+            label: titles[mode],
+            amount: asPercent ? 0 : numeric,
+            percent: asPercent ? numeric : 0,
+          });
+        }}
+      >
+        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
+          <span className="text-sm text-[rgb(var(--text-muted))]">{asPercent ? 'Percent' : 'Amount'}</span>
+          <input
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            inputMode="decimal"
+            autoFocus
+            className="pos-amount w-32 bg-transparent text-right text-lg outline-none"
+          />
+        </label>
+
+        {mode === 'discount' ? (
+          <button type="button" className="pos-button w-full text-sm" onClick={() => setAsPercent((p) => !p)}>
+            Switch to {asPercent ? 'a fixed amount' : 'a percentage'}
+          </button>
+        ) : null}
+
+        <button type="submit" className="pos-button-primary w-full text-sm">Apply</button>
+      </form>
+    </Shell>
+  );
+}
+
+/* ------------------------------------------------------------------------- special menu */
+
+/** F11 Special (guide p.11). */
+export function SpecialDialog() {
+  const { cart, closeDialog, setTaxOverride, suspend, openDialog, policy } = usePosStore();
+
+  return (
+    <Shell title="Special" onClose={closeDialog}>
+      <div className="space-y-2">
+        <MenuButton hotkey="F2" label="Unknown item" onSelect={() => openDialog('unknownItem')} />
+        <MenuButton hotkey="F4" label="Suspend this sale" onSelect={() => void suspend()} disabled={!cart} />
+        <MenuButton hotkey="F5" label="Recall a suspended sale" onSelect={() => openDialog('suspended')} />
+        <MenuButton
+          hotkey="F6"
+          label={cart?.taxOverride1 === false ? 'Restore taxes for this sale' : 'Suspend taxes for the rest of this sale'}
+          disabled={!policy?.allowTaxOverride || !cart}
+          onSelect={() =>
+            void setTaxOverride(
+              cart?.taxOverride1 === false ? null : false,
+              cart?.taxOverride2 === false ? null : false,
+            )
+          }
+        />
+        <MenuButton hotkey="F9" label="Keyboard shortcuts" onSelect={() => openDialog('cheatSheet')} />
+      </div>
+
+      {cart?.taxOverride1 === false ? (
+        <p className="mt-3 text-xs" style={{ color: 'rgb(var(--warning))' }}>
+          Taxes are suspended for items rung from here on. Lines already on the screen keep the tax they were rung with.
+        </p>
+      ) : null}
+    </Shell>
+  );
+}
+
+/* -------------------------------------------------------------------------- drawer menu */
+
+/** F10 Drawer (guide p.10–11). */
+export function DrawerDialog() {
+  const { drawer, closeDialog, stationId, refreshDrawer, policy } = usePosStore();
+  const [mode, setMode] = useState<null | 'float' | 'payIn' | 'payOut' | 'close'>(null);
+  const [value, setValue] = useState('');
+  const [reason, setReason] = useState('');
+  const symbol = policy?.currencySymbol ?? '$';
+
+  const run = async () => {
+    if (!stationId) return;
+    const amount = Number(value);
+
+    try {
+      if (mode === 'float') await posApi.drawer.open(stationId, amount);
+      if (mode === 'payIn') await posApi.drawer.payIn(stationId, amount, reason);
+      if (mode === 'payOut') await posApi.drawer.payOut(stationId, amount, reason);
+      if (mode === 'close') await posApi.drawer.close(stationId, amount);
+    } finally {
+      setMode(null);
+      setValue('');
+      setReason('');
+      await refreshDrawer();
+    }
+  };
+
+  if (mode) {
+    const needsReason = mode === 'payIn' || mode === 'payOut';
+
+    return (
+      <Shell title={{ float: 'Opening float', payIn: 'Pay in', payOut: 'Pay out', close: 'Close drawer' }[mode]} onClose={() => setMode(null)}>
+        <form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void run();
+          }}
+        >
+          <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
+            <span className="text-sm text-[rgb(var(--text-muted))]">
+              {mode === 'close' ? 'Cash counted' : 'Amount'}
+            </span>
+            <input
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              inputMode="decimal"
+              autoFocus
+              className="pos-amount w-32 bg-transparent text-right text-lg outline-none"
+            />
+          </label>
+
+          {needsReason ? (
+            <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
+              <span className="text-sm text-[rgb(var(--text-muted))]">Reason</span>
+              <input
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                required
+                className="w-48 bg-transparent text-right outline-none"
+              />
+            </label>
+          ) : null}
+
+          <button type="submit" className="pos-button-primary w-full text-sm">Confirm</button>
+        </form>
+      </Shell>
+    );
+  }
+
+  return (
+    <Shell title="Drawer" onClose={closeDialog} wide>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <MenuButton hotkey="F2" label="Opening float" onSelect={() => setMode('float')} disabled={drawer?.status === 'Open'} />
+          <MenuButton hotkey="F5" label="Pay in" onSelect={() => setMode('payIn')} disabled={drawer?.status !== 'Open'} />
+          <MenuButton hotkey="F6" label="Pay out" onSelect={() => setMode('payOut')} disabled={drawer?.status !== 'Open'} />
+          <MenuButton
+            hotkey="F7"
+            label="Pop drawer (no sale)"
+            disabled={drawer?.status !== 'Open'}
+            onSelect={() => stationId && void posApi.drawer.pop(stationId).then(refreshDrawer)}
+          />
+          <MenuButton hotkey="F8" label="Close drawer" onSelect={() => setMode('close')} disabled={drawer?.status !== 'Open'} />
+        </div>
+
+        <dl className="space-y-1 text-sm">
+          {drawer ? (
+            <>
+              <DrawerRow label="Opening float" value={money(drawer.openingFloat, symbol)} />
+              <DrawerRow label="Cash sales" value={money(drawer.cashSales, symbol)} />
+              <DrawerRow label="Refunds" value={money(drawer.cashRefunds, symbol)} />
+              <DrawerRow label="Pay ins" value={money(drawer.payIns, symbol)} />
+              <DrawerRow label="Pay outs" value={money(drawer.payOuts, symbol)} />
+              <div className="border-t border-[rgb(var(--border))] pt-1">
+                <DrawerRow label="Expected cash" value={money(drawer.expectedCash, symbol)} strong />
+              </div>
+              {drawer.countedCash !== null ? (
+                <>
+                  <DrawerRow label="Counted" value={money(drawer.countedCash, symbol)} />
+                  <DrawerRow
+                    label="Variance"
+                    value={money(drawer.variance ?? 0, symbol)}
+                    tone={(drawer.variance ?? 0) === 0 ? 'positive' : 'negative'}
+                    strong
+                  />
+                </>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-[rgb(var(--text-muted))]">No drawer session is open at this till.</p>
+          )}
+        </dl>
+      </div>
+    </Shell>
+  );
+}
+
+function DrawerRow({
+  label,
+  value,
+  tone,
+  strong,
+}: {
+  label: string;
+  value: string;
+  tone?: 'positive' | 'negative';
+  strong?: boolean;
+}) {
+  const colour = tone === 'positive' ? 'rgb(var(--positive))' : tone === 'negative' ? 'rgb(var(--negative))' : undefined;
+
+  return (
+    <div className="flex justify-between">
+      <dt className="text-[rgb(var(--text-muted))]">{label}</dt>
+      <dd className={cn('pos-amount', strong && 'font-semibold')} style={colour ? { color: colour } : undefined}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------------ find / recall */
+
+export function FindDialog() {
+  const { closeDialog, scan, locationId } = usePosStore();
+  const [term, setTerm] = useState('');
+  const [results, setResults] = useState<Array<{ id: string; stockCode: string; name: string; regularPrice: number }>>([]);
+
+  useEffect(() => {
+    if (term.length < 2 || !locationId) {
+      setResults([]);
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      posApi
+        .searchProducts(term, locationId)
+        .then((products) => setResults(products as never))
+        .catch(() => setResults([]));
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [term, locationId]);
+
+  return (
+    <Shell title="Find item" hint="Enter picks the first result" onClose={closeDialog} wide>
+      <input
+        value={term}
+        onChange={(event) => setTerm(event.target.value)}
+        autoFocus
+        placeholder="Stock code or name"
+        className="mb-2 w-full border-b border-[rgb(var(--border))] bg-transparent pb-1 outline-none"
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && results[0]) {
+            void scan(results[0].stockCode);
+            closeDialog();
+          }
+        }}
+      />
+
+      <ul className="max-h-72 overflow-y-auto">
+        {results.map((product) => (
+          <li key={product.id}>
+            <button
+              type="button"
+              className="flex w-full items-center justify-between px-1 py-1.5 text-left text-sm hover:bg-[rgb(var(--surface))]"
+              onClick={() => {
+                void scan(product.stockCode);
+                closeDialog();
+              }}
+            >
+              <span className="flex gap-3">
+                <span className="tabular w-24 text-[rgb(var(--text-muted))]">{product.stockCode}</span>
+                <span>{product.name}</span>
+              </span>
+              <span className="pos-amount">{money(product.regularPrice)}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </Shell>
+  );
+}
+
+export function SuspendedCartsDialog() {
+  const { closeDialog, recall, locationId } = usePosStore();
+  const [carts, setCarts] = useState<SuspendedCart[]>([]);
+
+  useEffect(() => {
+    if (!locationId) return;
+    posApi.listSuspended(locationId).then(setCarts).catch(() => setCarts([]));
+  }, [locationId]);
+
+  return (
+    <Shell title="Suspended sales" onClose={closeDialog} wide>
+      {carts.length === 0 ? (
+        <p className="py-4 text-center text-sm text-[rgb(var(--text-muted))]">Nothing is on hold.</p>
+      ) : (
+        <ul className="max-h-72 overflow-y-auto">
+          {carts.map((cart) => (
+            <li key={cart.id}>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between px-1 py-2 text-left text-sm hover:bg-[rgb(var(--surface))]"
+                onClick={() => void recall(cart.id)}
+              >
+                <span>
+                  <span className="font-medium">{cart.label ?? 'Unlabelled hold'}</span>
+                  <span className="ml-2 text-xs text-[rgb(var(--text-muted))]">
+                    {cart.customerName ?? 'Walk-in'} · {cart.lineCount} lines
+                  </span>
+                </span>
+                <span className="pos-amount">{money(cart.grandTotal)}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Shell>
+  );
+}
+
+/* ------------------------------------------------------------- staff switch and supervisor step-up */
+
+/**
+ * Ctrl+I staff switch (guide p.13, doc 07 §POS fast user switching).
+ *
+ * A cashier cannot type a full password between customers, so a PIN re-attributes the sale inside
+ * the station's existing session. It is not a login: the station is already authenticated, and the
+ * PIN only decides whose name goes on the receipt and the commission report.
+ */
+export function StaffSwitchDialog() {
+  const { closeDialog, switchStaff, stationId, busy, error } = usePosStore();
+  const [staffCode, setStaffCode] = useState('');
+  const [pin, setPin] = useState('');
+
+  return (
+    <Shell title="Staff" hint="Ctrl+I" onClose={closeDialog}>
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (stationId) void switchStaff(staffCode, pin);
+        }}
+      >
+        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
+          <span className="text-sm text-[rgb(var(--text-muted))]">Staff code</span>
+          <input
+            value={staffCode}
+            onChange={(event) => setStaffCode(event.target.value.toUpperCase())}
+            autoFocus
+            autoComplete="off"
+            className="w-32 bg-transparent text-right uppercase outline-none"
+          />
+        </label>
+
+        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
+          <span className="text-sm text-[rgb(var(--text-muted))]">PIN</span>
+          <input
+            value={pin}
+            onChange={(event) => setPin(event.target.value)}
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            className="pos-amount w-32 bg-transparent text-right text-lg outline-none"
+          />
+        </label>
+
+        {error ? (
+          <p className="text-sm" role="alert" style={{ color: 'rgb(var(--negative))' }}>
+            {error.message}
+          </p>
+        ) : null}
+
+        <button type="submit" className="pos-button-primary w-full text-sm" disabled={busy}>
+          Switch
+        </button>
+      </form>
+    </Shell>
+  );
+}
+
+/**
+ * The supervisor override prompt (doc 07 §Step-up).
+ *
+ * Opened when a command answers 428. A supervisor either types their PIN here, or approves from
+ * whichever till they are standing at — the request is broadcast to the whole location, which is the
+ * improvement over a legacy prompt that required them to walk over and type into someone else's
+ * session.
+ */
+export function SupervisorApprovalDialog() {
+  const { closeDialog, pendingApproval, approveWithPin, busy, error } = usePosStore();
+  const [staffCode, setStaffCode] = useState('');
+  const [pin, setPin] = useState('');
+
+  if (!pendingApproval) return null;
+
+  return (
+    <Shell title="Supervisor approval" hint={pendingApproval.context ?? undefined} onClose={closeDialog}>
+      <p className="mb-3 text-sm text-[rgb(var(--text-muted))]">
+        This needs a supervisor. Enter a PIN here, or ask one to approve from any till.
+      </p>
+
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void approveWithPin(staffCode, pin);
+        }}
+      >
+        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
+          <span className="text-sm text-[rgb(var(--text-muted))]">Supervisor code</span>
+          <input
+            value={staffCode}
+            onChange={(event) => setStaffCode(event.target.value.toUpperCase())}
+            autoFocus
+            autoComplete="off"
+            className="w-32 bg-transparent text-right uppercase outline-none"
+          />
+        </label>
+
+        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
+          <span className="text-sm text-[rgb(var(--text-muted))]">PIN</span>
+          <input
+            value={pin}
+            onChange={(event) => setPin(event.target.value)}
+            type="password"
+            inputMode="numeric"
+            autoComplete="off"
+            className="pos-amount w-32 bg-transparent text-right text-lg outline-none"
+          />
+        </label>
+
+        {error ? (
+          <p className="text-sm" role="alert" style={{ color: 'rgb(var(--negative))' }}>
+            {error.message}
+          </p>
+        ) : null}
+
+        <button type="submit" className="pos-button-primary w-full text-sm" disabled={busy}>
+          Approve
+        </button>
+      </form>
+    </Shell>
+  );
+}
+
+/* ----------------------------------------------------------- matrix and serial pickers (Phase 4) */
+
+/**
+ * Which colour and size (guide p.39–40).
+ *
+ * Opened automatically when a matrix parent is scanned, because the parent code identifies a grid
+ * rather than a thing. Out-of-stock cells are hidden by default: offering a variant the shop does
+ * not have is how a cashier promises a customer something that is not there.
+ */
+export function VariantPickerDialog() {
+  const { closeDialog, addVariant, pendingSelection, locationId } = usePosStore();
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  const [showAll, setShowAll] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!pendingSelection || !locationId) return;
+
+    setLoading(true);
+    posApi
+      .listVariants(pendingSelection.productId, locationId, !showAll)
+      .then(setVariants)
+      .catch(() => setVariants([]))
+      .finally(() => setLoading(false));
+  }, [pendingSelection, locationId, showAll]);
+
+  return (
+    <Shell title="Choose a variant" hint={pendingSelection?.identifier} onClose={closeDialog} wide>
+      {loading ? (
+        <p className="py-4 text-center text-sm text-[rgb(var(--text-muted))]">Loading…</p>
+      ) : variants.length === 0 ? (
+        <p className="py-4 text-center text-sm text-[rgb(var(--text-muted))]">
+          {showAll ? 'This item has no variants configured.' : 'Nothing in stock at this location.'}
+        </p>
+      ) : (
+        <ul className="grid max-h-72 grid-cols-2 gap-1 overflow-y-auto">
+          {variants.map((variant) => (
+            <li key={variant.id}>
+              <button
+                type="button"
+                className="pos-button w-full px-2 text-left text-sm"
+                disabled={!showAll && variant.onHand <= 0}
+                onClick={() => void addVariant(variant.id)}
+              >
+                <span className="flex items-center justify-between gap-2">
+                  <span>{[variant.dim1Value, variant.dim2Value, variant.dim3Value].filter(Boolean).join(' / ')}</span>
+                  <span
+                    className="tabular text-xs"
+                    style={{ color: variant.onHand > 0 ? 'rgb(var(--text-muted))' : 'rgb(var(--negative))' }}
+                  >
+                    {variant.onHand}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <button type="button" className="mt-3 text-xs underline text-[rgb(var(--text-muted))]" onClick={() => setShowAll((s) => !s)}>
+        {showAll ? 'Show only what is in stock' : 'Show every variant, including out of stock'}
+      </button>
+    </Shell>
+  );
+}
+
+/**
+ * Which physical unit (guide p.42).
+ *
+ * A serialized product is N distinct things, and which one leaves the shop matters for warranty,
+ * recall and theft. The list is oldest-received first, which is what a store wants to shift.
+ */
+export function SerialPickerDialog() {
+  const { closeDialog, addUnit, pendingSelection, locationId } = usePosStore();
+  const [units, setUnits] = useState<SerializedUnit[]>([]);
+  const [filter, setFilter] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!pendingSelection || !locationId) return;
+
+    setLoading(true);
+    posApi
+      .listAvailableUnits(pendingSelection.productId, locationId)
+      .then(setUnits)
+      .catch(() => setUnits([]))
+      .finally(() => setLoading(false));
+  }, [pendingSelection, locationId]);
+
+  const visible = useMemo(() => {
+    const needle = filter.trim().toUpperCase();
+    if (!needle) return units;
+
+    return units.filter(
+      (unit) => unit.serialNumber?.toUpperCase().includes(needle) || unit.epc?.toUpperCase().includes(needle),
+    );
+  }, [units, filter]);
+
+  return (
+    <Shell title="Choose a unit" hint={pendingSelection?.identifier} onClose={closeDialog} wide>
+      <input
+        value={filter}
+        onChange={(event) => setFilter(event.target.value)}
+        autoFocus
+        placeholder="Serial number or tag"
+        className="mb-2 w-full border-b border-[rgb(var(--border))] bg-transparent pb-1 outline-none"
+      />
+
+      {loading ? (
+        <p className="py-4 text-center text-sm text-[rgb(var(--text-muted))]">Loading…</p>
+      ) : visible.length === 0 ? (
+        <p className="py-4 text-center text-sm text-[rgb(var(--text-muted))]">
+          No units of this item are in stock at this location.
+        </p>
+      ) : (
+        <ul className="max-h-72 overflow-y-auto">
+          {visible.map((unit) => (
+            <li key={unit.id}>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between px-1 py-1.5 text-left text-sm hover:bg-[rgb(var(--surface))]"
+                onClick={() => void addUnit(unit.id)}
+              >
+                <span className="font-mono text-xs">{unit.serialNumber ?? unit.epc}</span>
+                <span className="text-xs text-[rgb(var(--text-muted))]">
+                  {unit.variantLabel ?? ''}
+                  {unit.epc && unit.serialNumber ? ' · tagged' : ''}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Shell>
+  );
+}
+
+/** F5 Client (guide p.9). Attaching a customer reprices the whole sale, including lines already rung. */
+export function ClientDialog() {
+  const { closeDialog, setCustomer, locationId, cart } = usePosStore();
+  const [term, setTerm] = useState('');
+  const [results, setResults] = useState<Array<{ id: string; customerNumber: number; fullName: string }>>([]);
+
+  useEffect(() => {
+    if (term.length < 2 || !locationId) {
+      setResults([]);
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      posApi
+        .searchCustomers(term, locationId)
+        .then((customers) => setResults(customers as never))
+        .catch(() => setResults([]));
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [term, locationId]);
+
+  return (
+    <Shell title="Client" hint="Attaching reprices the whole sale" onClose={closeDialog} wide>
+      <input
+        value={term}
+        onChange={(event) => setTerm(event.target.value)}
+        autoFocus
+        placeholder="Name, company or account number"
+        className="mb-2 w-full border-b border-[rgb(var(--border))] bg-transparent pb-1 outline-none"
+      />
+
+      <ul className="max-h-72 overflow-y-auto">
+        {results.map((customer) => (
+          <li key={customer.id}>
+            <button
+              type="button"
+              className="flex w-full items-center justify-between px-1 py-1.5 text-left text-sm hover:bg-[rgb(var(--surface))]"
+              onClick={() => void setCustomer(customer.id)}
+            >
+              <span>{customer.fullName}</span>
+              <span className="tabular text-xs text-[rgb(var(--text-muted))]">#{customer.customerNumber}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {cart?.customer ? (
+        <button
+          type="button"
+          className="pos-button mt-3 w-full text-sm"
+          onClick={() => void setCustomer(null)}
+        >
+          Remove {cart.customer.name} from this sale
+        </button>
+      ) : null}
+    </Shell>
+  );
+}
+
+export function UnknownItemDialog() {
+  const { closeDialog, addUnknownItem } = usePosStore();
+  const [description, setDescription] = useState('');
+  const [price, setPrice] = useState('');
+  const [qty, setQty] = useState('1');
+
+  return (
+    <Shell title="Unknown item" hint="Rings now; tidy up the catalogue later" onClose={closeDialog}>
+      <form
+        className="space-y-3"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void addUnknownItem(description, Number(price), Number(qty) || 1);
+        }}
+      >
+        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
+          <span className="text-sm text-[rgb(var(--text-muted))]">Description</span>
+          <input
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            required
+            autoFocus
+            className="w-48 bg-transparent text-right outline-none"
+          />
+        </label>
+
+        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
+          <span className="text-sm text-[rgb(var(--text-muted))]">Price</span>
+          <input
+            value={price}
+            onChange={(event) => setPrice(event.target.value)}
+            inputMode="decimal"
+            required
+            className="pos-amount w-32 bg-transparent text-right outline-none"
+          />
+        </label>
+
+        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
+          <span className="text-sm text-[rgb(var(--text-muted))]">Quantity</span>
+          <input
+            value={qty}
+            onChange={(event) => setQty(event.target.value)}
+            inputMode="decimal"
+            className="pos-amount w-32 bg-transparent text-right outline-none"
+          />
+        </label>
+
+        <button type="submit" className="pos-button-primary w-full text-sm">Add to sale</button>
+      </form>
+    </Shell>
+  );
+}
+
+/**
+ * The cheat sheet is generated from the live hotkey registry, so it can never describe a key that
+ * is not actually bound.
+ */
+export function CheatSheetDialog() {
+  const closeDialog = usePosStore((s) => s.closeDialog);
+  const bindings = useHotkeyBindings();
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, typeof bindings>();
+    bindings.forEach((binding) => {
+      const group = binding.group ?? 'Sale';
+      map.set(group, [...(map.get(group) ?? []), binding]);
+    });
+    return [...map.entries()];
+  }, [bindings]);
+
+  return (
+    <Shell title="Keyboard shortcuts" onClose={closeDialog} wide>
+      <div className="grid grid-cols-2 gap-6">
+        {grouped.map(([group, entries]) => (
+          <div key={group}>
+            <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[rgb(var(--text-muted))]">{group}</h3>
+            <ul className="space-y-0.5 text-sm">
+              {entries.map((entry) => (
+                <li key={`${group}-${entry.combo}`} className="flex justify-between gap-3">
+                  <span className="text-[rgb(var(--text-muted))]">{entry.label}</span>
+                  <kbd className="rounded-sm border border-[rgb(var(--border))] px-1 font-mono text-xs">{entry.combo}</kbd>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </Shell>
+  );
+}

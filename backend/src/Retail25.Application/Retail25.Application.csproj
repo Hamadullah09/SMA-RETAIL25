@@ -1,6 +1,8 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\Retail25.Domain\Retail25.Domain.csproj" />
+    <!-- Wire contracts shared with the terminal agent: tag reads, device profiles, receipts. -->
+    <ProjectReference Include="..\Retail25.Contracts\Retail25.Contracts.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="MediatR" />

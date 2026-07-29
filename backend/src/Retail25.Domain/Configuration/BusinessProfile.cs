@@ -17,9 +17,9 @@ public sealed class BusinessProfile : AggregateRoot, IAuditable
 
     public string BusinessName { get; set; } = string.Empty;
 
-    public Address Address { get; set; } = Address.Empty;
+    public Address Address { get; set; } = new();
 
-    public ContactDetails Contact { get; set; } = ContactDetails.Empty;
+    public ContactDetails Contact { get; set; } = new();
 
     public string? LicenceNumber { get; set; }
 

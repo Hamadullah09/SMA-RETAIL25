@@ -1,0 +1,40 @@
+{
+  "name": "Volume break point applies the level price",
+  "source": "User Guide p.34",
+  "description": "Twelve units qualifies for the level-2 break at ten, so the whole line prices at 8.00 rather than 10.00. The origin is recorded as Break so a receipt can explain the price months later.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": {},
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    {
+      "stockCode": "SOCK01", "name": "Wool socks", "regularPrice": 10.00, "quantity": 12,
+      "priceLevels": { "2": 8.00 },
+      "priceBreaks": { "2": 10 }
+    }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": 96.00,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": 96.00,
+    "addOnCharge": 0,
+    "tax1Total": 4.80,
+    "tax2Total": 6.72,
+    "grandTotal": 107.52,
+    "lines": [
+      { "unitPrice": 8.00, "chargeableQuantity": 12, "lineNet": 96.00, "tax1Amount": 4.80, "tax2Amount": 6.72, "priceOrigin": "Break" }
+    ]
+  }
+}

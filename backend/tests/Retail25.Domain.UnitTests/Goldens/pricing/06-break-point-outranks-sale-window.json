@@ -1,0 +1,41 @@
+{
+  "name": "Break point outranks an active sale window",
+  "source": "User Guide p.35, decision P1",
+  "description": "The item is on a 20% promotion (which would price it at 8.00) and also qualifies for the level-2 break at 7.50. The guide says a sale price applies unless another pricing feature does, so the break wins. This is the decision that is reversible from the pricing_rule_setting table without a code change — if a store expects sale price to always win, the two rows swap order and this file is what proves the change took effect.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": {},
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    {
+      "stockCode": "MUG01", "name": "Stoneware mug", "regularPrice": 10.00, "quantity": 10,
+      "priceLevels": { "2": 7.50 },
+      "priceBreaks": { "2": 10 },
+      "sale": { "discountPct": 20, "startsOn": "2026-07-01", "endsOn": "2026-08-31" }
+    }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": 75.00,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": 75.00,
+    "addOnCharge": 0,
+    "tax1Total": 3.75,
+    "tax2Total": 5.25,
+    "grandTotal": 84.00,
+    "lines": [
+      { "unitPrice": 7.50, "chargeableQuantity": 10, "lineNet": 75.00, "tax1Amount": 3.75, "tax2Amount": 5.25, "priceOrigin": "Break" }
+    ]
+  }
+}

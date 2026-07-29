@@ -1,0 +1,36 @@
+{
+  "name": "A return produces a negative line and negative tax",
+  "source": "User Guide p.7, doc 04 §2",
+  "description": "A refund-only sale. The line net and both taxes go negative, and the discounted subtotal stays negative rather than being floored at zero — flooring it would turn a refund into a zero-value transaction and quietly keep the customer's money.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": {},
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    { "stockCode": "SHIRT01", "name": "Cotton shirt", "regularPrice": 20.00, "quantity": 1, "lineType": "Return" }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": -20.00,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": -20.00,
+    "addOnCharge": 0,
+    "tax1Total": -1.00,
+    "tax2Total": -1.40,
+    "grandTotal": -22.40,
+    "lines": [
+      { "unitPrice": 20.00, "chargeableQuantity": 1, "lineNet": -20.00, "tax1Amount": -1.00, "tax2Amount": -1.40, "priceOrigin": "Regular" }
+    ]
+  }
+}

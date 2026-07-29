@@ -1,153 +1,764 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Behaviors;
+using Retail25.Application.Carts.Services;
+using Retail25.Application.Common;
+using Retail25.Application.Receipts;
+using Retail25.Contracts.Terminals;
+using Retail25.Domain.Catalog;
+using Retail25.Domain.Common;
+using Retail25.Domain.Configuration;
+using Retail25.Domain.Customers;
+using Retail25.Domain.Inventory;
+using Retail25.Domain.Receivables;
 using Retail25.Domain.Sales;
+using Retail25.Domain.Sales.Pricing;
+using Retail25.Domain.Terminals;
 
 namespace Retail25.Application.Carts.Commands;
 
-/// <summary>
-/// Complete a sale: validate totals, create SalesTransaction, create ledgers,
-/// open receipt, update stock.
-/// </summary>
-public sealed record CompleteSaleCommand(
-    Guid CartId,
-    Guid StaffId,
-    List<TenderInput> Tenders,
-    bool PrintReceipt = true,
-    int CopyCount = 1) : ICommand<CompleteSaleResult>;
-
-public sealed record TenderInput(
+/// <summary>One leg of the split payment as the till sends it (guide p.8).</summary>
+public sealed record TenderRequest(
     Guid TenderTypeId,
     decimal Amount,
     decimal AmountTendered = 0m,
-    string? AuthCode = null,
-    string? CardLast4 = null,
-    string? GatewayReference = null);
+    string? Reference = null,
+    string? CardToken = null,
+    Guid? CurrencyId = null,
+    decimal ExchangeRate = 1m);
 
 public sealed record CompleteSaleResult(
-    bool Success,
-    Guid? TransactionId,
-    long? TransactionNumber,
-    string? Error);
+    Guid TransactionId,
+    long TransactionNumber,
+    decimal GrandTotal,
+    decimal ChangeGiven,
+    decimal RoundingAdjustment,
+    int LoyaltyPointsEarned,
+    Guid? InvoiceId,
+    ReceiptDocument? Receipt);
 
-public class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, CompleteSaleResult>
+/// <summary>
+/// Turns a cart into a sale: prices it one last time, settles the tenders, writes the transaction and
+/// every ledger it touches, then releases the till.
+/// <para>
+/// All of it happens in one database transaction, and the money is recomputed here rather than
+/// trusted from the client. A till that has been sitting on a quote for ten minutes may be quoting a
+/// price that expired at midnight, and the customer pays what the engine says now.
+/// </para>
+/// </summary>
+[RequiresPermission(PermissionKeys.Pos.Sell)]
+public sealed record CompleteSaleCommand(
+    Guid CartId,
+    IReadOnlyList<TenderRequest> Tenders,
+    string IdempotencyKey,
+    bool PrintReceipt = true,
+    int Copies = 1,
+    ReceiptFormat Format = ReceiptFormat.Slip40) : IRequest<Result<CompleteSaleResult>>, IIdempotentCommand;
+
+public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, Result<CompleteSaleResult>>
 {
-    private readonly ICartStore _cartStore;
-    private readonly IApplicationDbContext _db;
-    private readonly IPosNotifier _notifier;
+    public static readonly Error TenderTypeUnknown = new("tender.type_unknown", "That tender type is not configured.");
+    public static readonly Error CreditLimitExceeded = new("credit.limit_exceeded", "This sale would take the customer past their credit limit.");
+    public static readonly Error AccountRequired = new("credit.account_required", "An on-account tender needs a customer with an account.");
+    public static readonly Error DrawerRequired = new("drawer.not_open", "Open a drawer before taking cash.");
+    public static readonly Error PaymentDeclined = new("payment.declined", "The card was declined.");
 
-    public CompleteSaleHandler(ICartStore cartStore, IApplicationDbContext db, IPosNotifier notifier)
+    private readonly ICartStore _store;
+    private readonly IApplicationDbContext _db;
+    private readonly PosContextLoader _contextLoader;
+    private readonly CartPricingService _pricing;
+    private readonly ISequenceGenerator _sequences;
+    private readonly IPaymentGateway _payments;
+    private readonly IPosNotifier _notifier;
+    private readonly ITerminalNotifier _terminals;
+    private readonly ITagDebouncer _debouncer;
+    private readonly ReceiptBuilder _receipts;
+    private readonly ICurrentUser _currentUser;
+    private readonly IDateTime _clock;
+
+    public CompleteSaleHandler(
+        ICartStore store,
+        IApplicationDbContext db,
+        PosContextLoader contextLoader,
+        CartPricingService pricing,
+        ISequenceGenerator sequences,
+        IPaymentGateway payments,
+        IPosNotifier notifier,
+        ITerminalNotifier terminals,
+        ITagDebouncer debouncer,
+        ReceiptBuilder receipts,
+        ICurrentUser currentUser,
+        IDateTime clock)
     {
-        _cartStore = cartStore;
+        _store = store;
         _db = db;
+        _contextLoader = contextLoader;
+        _pricing = pricing;
+        _sequences = sequences;
+        _payments = payments;
         _notifier = notifier;
+        _terminals = terminals;
+        _debouncer = debouncer;
+        _receipts = receipts;
+        _currentUser = currentUser;
+        _clock = clock;
     }
 
-    public async Task<CompleteSaleResult> Handle(CompleteSaleCommand request, CancellationToken ct)
+    public async Task<Result<CompleteSaleResult>> Handle(CompleteSaleCommand request, CancellationToken ct)
     {
-        var cart = await _cartStore.GetAsync(request.CartId, ct);
-        if (cart is null || cart.Status != CartStatus.Active)
-            return new CompleteSaleResult(false, null, null, "cart.not_active");
-
-        var lines = await _cartStore.GetLinesAsync(request.CartId, ct);
-        if (!lines.Any())
-            return new CompleteSaleResult(false, null, null, "cart.empty");
-
-        // Calculate totals
-        var subtotal = lines.Sum(l => l.UnitPrice * l.Quantity * (1 - l.LineDiscountPct / 100m));
-        var tax1Total = 0m;
-        var tax2Total = 0m;
-
-        foreach (var line in lines)
+        var snapshot = await _store.GetAsync(request.CartId, ct);
+        if (snapshot is null || !snapshot.Cart.IsActive)
         {
-            var lineNet = line.UnitPrice * line.Quantity * (1 - line.LineDiscountPct / 100m);
-            if (line.Tax1Applies)
-                tax1Total += lineNet * 0.05m; // TODO: use actual tax config
-            if (line.Tax2Applies)
-                tax2Total += lineNet * 0.07m;
+            return Result.Failure<CompleteSaleResult>(Cart.NotActive.With("cartId", request.CartId));
         }
 
-        var grandTotal = subtotal + tax1Total + tax2Total;
-
-        // Validate tender sum
-        var tenderSum = request.Tenders.Sum(t => t.Amount);
-        if (Math.Abs(tenderSum - grandTotal) > 0.01m)
-            return new CompleteSaleResult(false, null, null, "tender.mismatch");
-
-        // Create SalesTransaction
-        var txn = new SalesTransaction
+        if (snapshot.Lines.Count == 0)
         {
-            Id = Guid.NewGuid(),
-            TransactionNumber = await GetNextTransactionNumber(cart.LocationId, ct),
-            LocationId = cart.LocationId,
-            StationId = cart.StationId,
-            StaffId = request.StaffId,
-            CustomerId = cart.CustomerId,
-            Subtotal = subtotal,
-            Tax1Total = tax1Total,
-            Tax2Total = tax2Total,
-            GrandTotal = grandTotal,
+            return Result.Failure<CompleteSaleResult>(Cart.Empty);
+        }
+
+        var contextResult = await _contextLoader.LoadAsync(snapshot.Cart.StationId, ct);
+        if (contextResult.IsFailure)
+        {
+            return Result.Failure<CompleteSaleResult>(contextResult.Error);
+        }
+
+        var context = contextResult.Value;
+        var quote = await _pricing.QuoteAsync(snapshot, context, ct);
+        var pricing = quote.Pricing;
+
+        var tenderTypes = await _db.TenderTypes.AsNoTracking().ToDictionaryAsync(t => t.Id, ct);
+
+        var settlement = await SettleAsync(request, pricing, tenderTypes, context, snapshot, ct);
+        if (settlement.IsFailure)
+        {
+            return Result.Failure<CompleteSaleResult>(settlement.Error);
+        }
+
+        var settled = settlement.Value;
+
+        var drawerSession = await _db.DrawerSessions
+            .FirstOrDefaultAsync(d => d.StationId == snapshot.Cart.StationId && d.Status == DrawerSessionStatus.Open, ct);
+
+        var needsDrawer = settled.Tenders.Any(t => tenderTypes[t.TenderTypeId].CountsTowardsDrawerCash);
+        if (needsDrawer && drawerSession is null)
+        {
+            return Result.Failure<CompleteSaleResult>(DrawerRequired);
+        }
+
+        var now = _clock.Now;
+        var staffId = _currentUser.StaffId ?? snapshot.Cart.StaffId;
+
+        var transaction = new SalesTransaction
+        {
+            TransactionNumber = await _sequences.NextTransactionNumberAsync(context.Location.Id, ct),
+            LocationId = context.Location.Id,
+            StationId = snapshot.Cart.StationId,
+            StaffId = staffId,
+            CustomerId = snapshot.Cart.CustomerId,
+            DrawerSessionId = drawerSession?.Id,
+            BusinessDate = context.BusinessDate,
+            Subtotal = pricing.Subtotal,
+            DiscountTotal = pricing.AdjustmentTotal,
+            AddOnChargeTotal = pricing.AddOnCharge,
+            Tax1Total = pricing.Tax1Total,
+            Tax2Total = pricing.Tax2Total,
+            GrandTotal = pricing.GrandTotal,
+            RoundingAdjustment = settled.RoundingAdjustment,
+            ChangeGiven = settled.ChangeDue,
+            CostOfGoodsSold = pricing.CostOfGoodsSold,
+            LoyaltyPointsEarned = pricing.LoyaltyPointsEarned,
+            LoyaltyPointsRedeemed = pricing.LoyaltyPointsRedeemed,
             Status = TransactionStatus.Completed,
-            CompletedAt = DateTimeOffset.UtcNow,
-            CreatedAt = DateTimeOffset.UtcNow,
+            CompletedAt = now,
+            CreatedAt = now,
+            CreatedBy = _currentUser.UserId,
         };
 
-        _db.SalesTransactions.Add(txn);
+        _db.SalesTransactions.Add(transaction);
+        _db.SaleTaxSnapshots.Add(SaleTaxSnapshot.From(transaction.Id, context.Tax));
 
-        // Create SaleLines
-        foreach (var line in lines)
+        WriteLines(transaction, snapshot, pricing);
+        WriteAdjustments(transaction, snapshot, pricing);
+        WriteTenders(transaction, settled, tenderTypes);
+
+        await ApplyStockEffectsAsync(transaction, snapshot, pricing, context, ct);
+        await ApplySerializedUnitsAsync(snapshot, ct);
+        await ApplyLoyaltyAsync(transaction, snapshot, pricing, context, now, ct);
+        await ApplyGiftCertificatesAsync(snapshot, settled, tenderTypes, ct);
+
+        var invoiceResult = await ApplyOnAccountAsync(transaction, settled, tenderTypes, context, now, ct);
+        if (invoiceResult.IsFailure)
         {
-            var lineNet = line.UnitPrice * line.Quantity * (1 - line.LineDiscountPct / 100m);
-            _db.SaleLines.Add(new SaleLine
-            {
-                Id = Guid.NewGuid(),
-                TransactionId = txn.Id,
-                ProductId = line.ProductId,
-                StockCodeSnapshot = line.StockCodeSnapshot,
-                NameSnapshot = line.NameSnapshot,
-                Quantity = line.Quantity,
-                UnitPrice = line.UnitPrice,
-                DiscountPct = line.LineDiscountPct,
-                ExtendedNet = lineNet,
-                Tax1Amount = line.Tax1Applies ? lineNet * 0.05m : 0m,
-                Tax2Amount = line.Tax2Applies ? lineNet * 0.07m : 0m,
-                UnitCostSnapshot = line.UnitCostSnapshot,
-                PriceOrigin = line.PriceOrigin,
-                LineType = line.LineType,
-            });
+            return Result.Failure<CompleteSaleResult>(invoiceResult.Error);
         }
 
-        // Create SaleTenders
+        if (drawerSession is not null)
+        {
+            ApplyDrawerEffects(drawerSession, transaction, settled, tenderTypes, pricing, staffId, now);
+        }
+
+        snapshot.Cart.Complete(transaction.Id, now);
+        await PersistCompletedCartAsync(snapshot, ct);
+
+        await _db.SaveChangesAsync(ct);
+        await _store.RemoveAsync(snapshot.Cart.Id, snapshot.Cart.StationId, ct);
+
+        await BroadcastAsync(transaction, snapshot, drawerSession, ct);
+
+        ReceiptDocument? receipt = null;
+        if (request.PrintReceipt)
+        {
+            receipt = await _receipts.BuildAsync(transaction.Id, request.Format, isReprint: false, ct);
+            if (receipt is not null)
+            {
+                var copies = Math.Max(1, request.Copies);
+
+                // A card sale prints an extra signature copy where the store asks for one (guide p.79).
+                if (settled.Tenders.Any(t => tenderTypes[t.TenderTypeId].PrintsSignatureCopy))
+                {
+                    copies++;
+                }
+
+                await _terminals.PrintReceiptAsync(snapshot.Cart.StationId, receipt, copies, ct);
+            }
+        }
+
+        if (settled.Tenders.Any(t => tenderTypes[t.TenderTypeId].OpensCashDrawer))
+        {
+            await _terminals.OpenDrawerAsync(snapshot.Cart.StationId, ct);
+        }
+
+        return Result.Success(new CompleteSaleResult(
+            transaction.Id,
+            transaction.TransactionNumber,
+            transaction.GrandTotal,
+            settled.ChangeDue,
+            settled.RoundingAdjustment,
+            transaction.LoyaltyPointsEarned,
+            transaction.InvoiceId,
+            receipt));
+    }
+
+    /// <summary>
+    /// Authorises any card legs, then hands everything to the tender calculator so cash rounding and
+    /// change are worked out in one place.
+    /// </summary>
+    private async Task<Result<TenderSettlement>> SettleAsync(
+        CompleteSaleCommand request,
+        SalePricingResult pricing,
+        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        PosContext context,
+        CartSnapshot snapshot,
+        CancellationToken ct)
+    {
+        var legs = new List<TenderInputLine>(request.Tenders.Count);
+
         foreach (var tender in request.Tenders)
+        {
+            if (!tenderTypes.TryGetValue(tender.TenderTypeId, out var type))
+            {
+                return Result.Failure<TenderSettlement>(TenderTypeUnknown.With("tenderTypeId", tender.TenderTypeId));
+            }
+
+            string? authCode = null;
+            string? cardLast4 = null;
+
+            if (type.Behaviour == TenderBehaviour.Card)
+            {
+                var payment = await _payments.AuthorizeAsync(tender.Amount, context.Currency.Code, tender.CardToken, ct);
+                if (payment.Status != PaymentResultStatus.Approved)
+                {
+                    return Result.Failure<TenderSettlement>(
+                        PaymentDeclined.With("status", payment.Status.ToString()).With("message", payment.ErrorMessage));
+                }
+
+                authCode = payment.AuthCode;
+                cardLast4 = payment.CardLast4;
+            }
+
+            if (type.RequiresReference && string.IsNullOrWhiteSpace(tender.Reference) && authCode is null)
+            {
+                return Result.Failure<TenderSettlement>(
+                    new Error("tender.reference_required", "This tender needs a reference.").With("tenderTypeId", tender.TenderTypeId));
+            }
+
+            legs.Add(new TenderInputLine(
+                tender.TenderTypeId,
+                type.Behaviour,
+                type.RoundsToMinimumTender,
+                type.AllowsOverTender,
+                tender.Amount,
+                tender.AmountTendered,
+                tender.ExchangeRate,
+                tender.CurrencyId,
+                tender.Reference,
+                authCode,
+                cardLast4));
+        }
+
+        var settlement = TenderCalculator.Settle(pricing.GrandTotal, legs, context.Rounding);
+        if (settlement.IsFailure)
+        {
+            return settlement;
+        }
+
+        if (!settlement.Value.IsSettled)
+        {
+            return Result.Failure<TenderSettlement>(TenderCalculator.Mismatch
+                .With("due", pricing.GrandTotal)
+                .With("outstanding", settlement.Value.OutstandingBalance)
+                .With("cartId", snapshot.Cart.Id));
+        }
+
+        return settlement;
+    }
+
+    private void WriteLines(SalesTransaction transaction, CartSnapshot snapshot, SalePricingResult pricing)
+    {
+        var cartLines = snapshot.Lines.ToDictionary(l => l.Id);
+
+        foreach (var resolved in pricing.Lines)
+        {
+            cartLines.TryGetValue(resolved.LineId, out var cartLine);
+
+            _db.SaleLines.Add(new SaleLine
+            {
+                TransactionId = transaction.Id,
+                Sequence = resolved.Sequence,
+                ProductId = resolved.ProductId,
+                VariantId = resolved.VariantId,
+                SerializedUnitId = cartLine?.SerializedUnitId,
+                Epc = cartLine?.Epc,
+                StockCodeSnapshot = resolved.StockCode,
+                NameSnapshot = cartLine?.NameSnapshot ?? resolved.Name,
+                Source = cartLine?.Source ?? LineSource.Manual,
+                Quantity = resolved.Quantity,
+                ChargeableQuantity = resolved.ChargeableQuantity,
+                UnitPrice = resolved.UnitPrice,
+                DiscountPct = resolved.DiscountPct,
+                ExtendedNet = resolved.LineNet,
+                ProratedAdjustment = resolved.ProratedAdjustment,
+                TaxableNet = resolved.TaxableNet,
+                Tax1Applies = resolved.Tax1Applies,
+                Tax2Applies = resolved.Tax2Applies,
+                Tax1Amount = resolved.Tax1Amount,
+                Tax2Amount = resolved.Tax2Amount,
+                UnitCostSnapshot = resolved.UnitCost,
+                PriceOrigin = resolved.PriceOrigin,
+                LineType = resolved.LineType,
+                ReturnedToStock = cartLine?.ReturnToStock ?? true,
+                Note = cartLine?.Note,
+            });
+        }
+    }
+
+    private void WriteAdjustments(SalesTransaction transaction, CartSnapshot snapshot, SalePricingResult pricing)
+    {
+        foreach (var applied in pricing.Adjustments)
+        {
+            var source = snapshot.Adjustments.FirstOrDefault(a => a.Type == applied.Type && a.Label == applied.Label);
+
+            _db.SaleAdjustments.Add(new SaleAdjustment
+            {
+                TransactionId = transaction.Id,
+                Type = applied.Type,
+                Label = applied.Label,
+                Amount = applied.Amount,
+                Serial = source?.Serial,
+            });
+        }
+    }
+
+    private void WriteTenders(
+        SalesTransaction transaction,
+        TenderSettlement settlement,
+        IReadOnlyDictionary<Guid, TenderType> tenderTypes)
+    {
+        foreach (var tender in settlement.Tenders)
         {
             _db.SaleTenders.Add(new SaleTender
             {
-                Id = Guid.NewGuid(),
-                TransactionId = txn.Id,
+                TransactionId = transaction.Id,
                 TenderTypeId = tender.TenderTypeId,
+                Behaviour = tenderTypes[tender.TenderTypeId].Behaviour,
                 Amount = tender.Amount,
                 AmountTendered = tender.AmountTendered,
+                ChangeGiven = tender.ChangeGiven,
+                CurrencyId = tender.CurrencyId,
+                ExchangeRate = tender.ExchangeRate,
+                Reference = tender.Reference,
                 AuthCode = tender.AuthCode,
                 CardLast4 = tender.CardLast4,
-                GatewayReference = tender.GatewayReference,
             });
         }
-
-        await _db.SaveChangesAsync(ct);
-
-        // Mark cart as completed
-        cart.Status = CartStatus.Completed;
-        await _cartStore.SetAsync(cart, ct);
-
-        // Notify other stations
-        await _notifier.StockLevelChangedAsync(cart.LocationId, Guid.Empty, 0, ct);
-
-        return new CompleteSaleResult(true, txn.Id, txn.TransactionNumber, null);
     }
 
-    private static Task<long> GetNextTransactionNumber(Guid locationId, CancellationToken ct)
+    /// <summary>
+    /// Writes the stock ledger and moves the derived levels. Kits explode into their components
+    /// (guide p.41) because it is the components that actually leave the shelf.
+    /// </summary>
+    private async Task ApplyStockEffectsAsync(
+        SalesTransaction transaction,
+        CartSnapshot snapshot,
+        SalePricingResult pricing,
+        PosContext context,
+        CancellationToken ct)
     {
-        // TODO: Use a Postgres sequence per location in production.
-        return Task.FromResult(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
+        var productIds = pricing.Lines.Select(l => l.ProductId).Distinct().ToList();
+        var products = await _db.Products.Where(p => productIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
+        var kitComponents = await _db.KitComponents.AsNoTracking()
+            .Where(k => productIds.Contains(k.KitProductId))
+            .ToListAsync(ct);
+
+        foreach (var line in pricing.Lines)
+        {
+            if (!products.TryGetValue(line.ProductId, out var product))
+            {
+                continue;
+            }
+
+            var cartLine = snapshot.Lines.FirstOrDefault(l => l.Id == line.LineId);
+
+            // A return only puts stock back if the cashier said the goods came back (guide p.7).
+            var signedQuantity = line.LineType switch
+            {
+                LineType.Sale => -line.Quantity,
+                LineType.Return => cartLine?.ReturnToStock == false ? 0m : line.Quantity,
+                LineType.TradeIn => line.Quantity,
+                _ => 0m,
+            };
+
+            if (product.Type == ProductType.Kit)
+            {
+                foreach (var component in kitComponents.Where(k => k.KitProductId == product.Id && k.ReduceStock))
+                {
+                    await MoveStockAsync(
+                        transaction,
+                        component.ComponentProductId,
+                        null,
+                        context.Location.Id,
+                        signedQuantity * component.Quantity,
+                        0m,
+                        MovementType.KitExplode,
+                        ct);
+                }
+
+                continue;
+            }
+
+            if (!TracksStock(product.Type) || signedQuantity == 0m)
+            {
+                continue;
+            }
+
+            await MoveStockAsync(
+                transaction,
+                product.Id,
+                line.VariantId,
+                context.Location.Id,
+                signedQuantity,
+                line.UnitCost,
+                line.LineType == LineType.Sale ? MovementType.Sale : MovementType.ReturnIn,
+                ct);
+
+            product.UpdateStockLevels(product.OnHand + signedQuantity, product.OnOrder);
+        }
+    }
+
+    /// <summary>Services, shipping, admissions and gift cards have no shelf presence to move (guide p.30–31).</summary>
+    private static bool TracksStock(ProductType type) => type is not (
+        ProductType.NonStock or ProductType.Service or ProductType.Shipping or
+        ProductType.Admission or ProductType.GiftCard or ProductType.Rental);
+
+    private async Task MoveStockAsync(
+        SalesTransaction transaction,
+        Guid productId,
+        Guid? variantId,
+        Guid locationId,
+        decimal signedQuantity,
+        decimal unitCost,
+        MovementType movementType,
+        CancellationToken ct)
+    {
+        _db.StockLedgerEntries.Add(new StockLedgerEntry
+        {
+            ProductId = productId,
+            VariantId = variantId,
+            LocationId = locationId,
+            MovementType = movementType,
+            Quantity = signedQuantity,
+            UnitCost = unitCost,
+            ReferenceType = nameof(SalesTransaction),
+            ReferenceId = transaction.Id,
+            OccurredAt = transaction.CompletedAt,
+            StaffId = transaction.StaffId,
+        });
+
+        var level = await _db.StockLevels
+            .FirstOrDefaultAsync(s => s.ProductId == productId && s.VariantId == variantId && s.LocationId == locationId, ct);
+
+        if (level is null)
+        {
+            level = StockLevel.Create(productId, variantId, locationId);
+            _db.StockLevels.Add(level);
+        }
+
+        level.OnHand += signedQuantity;
+        if (signedQuantity < 0m)
+        {
+            level.LastSoldOn = transaction.CompletedAt;
+        }
+
+        if (variantId is { } id)
+        {
+            var variant = await _db.ProductVariants.FirstOrDefaultAsync(v => v.Id == id, ct);
+            variant?.UpdateStock(variant.OnHand + signedQuantity);
+        }
+    }
+
+    /// <summary>
+    /// Moves every tagged unit on the cart from InCart to Sold. The transition is guarded in the
+    /// domain, so a unit a second station already sold cannot be sold twice (doc 06 §1).
+    /// </summary>
+    private async Task ApplySerializedUnitsAsync(CartSnapshot snapshot, CancellationToken ct)
+    {
+        var unitIds = snapshot.Lines.Where(l => l.SerializedUnitId.HasValue).Select(l => l.SerializedUnitId!.Value).ToList();
+        if (unitIds.Count == 0)
+        {
+            return;
+        }
+
+        var units = await _db.SerializedUnits.Where(u => unitIds.Contains(u.Id)).ToListAsync(ct);
+
+        foreach (var unit in units)
+        {
+            var line = snapshot.Lines.First(l => l.SerializedUnitId == unit.Id);
+
+            if (line.LineType == LineType.Return)
+            {
+                unit.Return();
+                continue;
+            }
+
+            unit.Sell();
+
+            if (!string.IsNullOrWhiteSpace(unit.Epc))
+            {
+                await _debouncer.ReleaseAsync(unit.Epc, snapshot.Cart.StationId, ct);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Points earned and points spent both land on the ledger; the profile snapshot is derived from
+    /// it. A return later claws back at the rate stored on the earning entry (decision P5).
+    /// </summary>
+    private async Task ApplyLoyaltyAsync(
+        SalesTransaction transaction,
+        CartSnapshot snapshot,
+        SalePricingResult pricing,
+        PosContext context,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        if (snapshot.Cart.CustomerId is not { } customerId || context.Loyalty is not { IsEnabled: true })
+        {
+            return;
+        }
+
+        var profile = await _db.CustomerPricingProfiles.FirstOrDefaultAsync(p => p.CustomerId == customerId, ct);
+        if (profile is null)
+        {
+            profile = CustomerPricingProfile.Create(customerId);
+            _db.CustomerPricingProfiles.Add(profile);
+        }
+
+        if (pricing.LoyaltyPointsRedeemed > 0)
+        {
+            _db.LoyaltyLedgerEntries.Add(LoyaltyLedgerEntry.Redeem(customerId, pricing.LoyaltyPointsRedeemed, now));
+            profile.RewardPoints -= pricing.LoyaltyPointsRedeemed;
+        }
+
+        if (pricing.LoyaltyPointsEarned > 0)
+        {
+            _db.LoyaltyLedgerEntries.Add(LoyaltyLedgerEntry.Earn(customerId, transaction.Id, pricing.LoyaltyPointsEarned, now));
+            profile.RewardPoints += pricing.LoyaltyPointsEarned;
+        }
+    }
+
+    private async Task ApplyGiftCertificatesAsync(
+        CartSnapshot snapshot,
+        TenderSettlement settlement,
+        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        CancellationToken ct)
+    {
+        foreach (var tender in settlement.Tenders)
+        {
+            if (tenderTypes[tender.TenderTypeId].Behaviour != TenderBehaviour.GiftCertificate
+                || string.IsNullOrWhiteSpace(tender.Reference))
+            {
+                continue;
+            }
+
+            var certificate = await _db.GiftCertificates.FirstOrDefaultAsync(g => g.SerialNumber == tender.Reference, ct);
+            if (certificate is null)
+            {
+                continue;
+            }
+
+            certificate.RemainingValue = Math.Max(0m, certificate.RemainingValue - tender.Amount);
+            certificate.IsActive = certificate.RemainingValue > 0m;
+        }
+
+        // Any certificate the cashier recorded as an adjustment is traceability only; the money
+        // moves through the tender above.
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// An on-account tender raises an AR invoice (guide p.51). A credit limit of zero means unlimited,
+    /// which is the legacy convention and trips up anyone who assumes zero means "no credit".
+    /// </summary>
+    private async Task<Result> ApplyOnAccountAsync(
+        SalesTransaction transaction,
+        TenderSettlement settlement,
+        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        PosContext context,
+        DateTimeOffset now,
+        CancellationToken ct)
+    {
+        var onAccount = settlement.Tenders
+            .Where(t => tenderTypes[t.TenderTypeId].Behaviour == TenderBehaviour.OnAccount)
+            .Sum(t => t.Amount);
+
+        if (onAccount <= 0m)
+        {
+            return Result.Success();
+        }
+
+        if (transaction.CustomerId is not { } customerId)
+        {
+            return Result.Failure(AccountRequired);
+        }
+
+        var account = await _db.CustomerAccounts.FirstOrDefaultAsync(a => a.CustomerId == customerId, ct);
+        if (account is null)
+        {
+            return Result.Failure(AccountRequired.With("customerId", customerId));
+        }
+
+        if (account.CreditLimit > 0m && account.BalanceDue + onAccount > account.CreditLimit)
+        {
+            return Result.Failure(CreditLimitExceeded
+                .With("limit", account.CreditLimit)
+                .With("balance", account.BalanceDue)
+                .With("amount", onAccount));
+        }
+
+        var invoice = new Invoice
+        {
+            InvoiceNumber = await _sequences.NextInvoiceNumberAsync(context.Location.Id, ct),
+            CustomerId = customerId,
+            TransactionId = transaction.Id,
+            IssuedOn = context.BusinessDate,
+            DueOn = context.BusinessDate.AddDays(30),
+            InvoiceTotal = onAccount,
+            BalanceDue = onAccount,
+            Status = InvoiceStatus.Open,
+            StaffId = transaction.StaffId,
+            CreatedAt = now,
+        };
+
+        _db.Invoices.Add(invoice);
+        _db.ARLedgerEntries.Add(new ARLedgerEntry
+        {
+            CustomerId = customerId,
+            InvoiceId = invoice.Id,
+            EntryType = AREntryType.Charge,
+            Amount = onAccount,
+            OccurredAt = now,
+        });
+
+        account.BalanceDue += onAccount;
+        transaction.InvoiceId = invoice.Id;
+
+        return Result.Success();
+    }
+
+    private void ApplyDrawerEffects(
+        DrawerSession session,
+        SalesTransaction transaction,
+        TenderSettlement settlement,
+        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        SalePricingResult pricing,
+        Guid staffId,
+        DateTimeOffset now)
+    {
+        var cashMovement = settlement.Tenders
+            .Where(t => tenderTypes[t.TenderTypeId].CountsTowardsDrawerCash)
+            .Sum(t => t.Amount);
+
+        if (cashMovement != 0m)
+        {
+            _db.DrawerLedgerEntries.Add(DrawerLedgerEntry.Create(
+                session.Id,
+                cashMovement >= 0m ? DrawerEntryType.Sale : DrawerEntryType.Refund,
+                cashMovement,
+                staffId,
+                now,
+                transactionId: transaction.Id));
+        }
+
+        session.RecordSale(pricing.DiscountedSubtotal, pricing.Tax1Total, pricing.Tax2Total, pricing.CostOfGoodsSold);
+    }
+
+    /// <summary>Keeps the completed cart in Postgres as the audit trail behind the transaction.</summary>
+    private async Task PersistCompletedCartAsync(CartSnapshot snapshot, CancellationToken ct)
+    {
+        var existing = await _db.Carts.FirstOrDefaultAsync(c => c.Id == snapshot.Cart.Id, ct);
+        if (existing is null)
+        {
+            _db.Carts.Add(snapshot.Cart);
+            _db.CartLines.AddRange(snapshot.Lines);
+            _db.CartAdjustments.AddRange(snapshot.Adjustments);
+            if (snapshot.TaxOverride is not null)
+            {
+                _db.CartTaxOverrides.Add(snapshot.TaxOverride);
+            }
+
+            return;
+        }
+
+        existing.Status = snapshot.Cart.Status;
+        existing.CompletedTransactionId = snapshot.Cart.CompletedTransactionId;
+        existing.ModifiedAt = snapshot.Cart.ModifiedAt;
+        existing.ExpiresAt = null;
+    }
+
+    private async Task BroadcastAsync(
+        SalesTransaction transaction,
+        CartSnapshot snapshot,
+        DrawerSession? drawerSession,
+        CancellationToken ct)
+    {
+        foreach (var productId in snapshot.Lines.Select(l => l.ProductId).Distinct())
+        {
+            var onHand = await _db.StockLevels.AsNoTracking()
+                .Where(s => s.ProductId == productId && s.LocationId == transaction.LocationId)
+                .Select(s => s.OnHand)
+                .FirstOrDefaultAsync(ct);
+
+            await _notifier.StockLevelChangedAsync(transaction.LocationId, productId, onHand, ct);
+        }
+
+        if (drawerSession is not null)
+        {
+            await _notifier.DrawerStateChangedAsync(
+                snapshot.Cart.StationId,
+                new { drawerSession.Id, drawerSession.NetSales, drawerSession.TransactionCount },
+                ct);
+        }
     }
 }

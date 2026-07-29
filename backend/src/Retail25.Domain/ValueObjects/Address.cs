@@ -13,6 +13,11 @@ public sealed record Address(
     string? PostalCode = null,
     string? Country = null)
 {
+    /// <summary>
+    /// A blank address, for comparison and for callers that need one. Do <b>not</b> use it as a
+    /// property initialiser: it is a single shared instance, and two entities that both default to it
+    /// present the persistence layer with one owned object claimed by two owners.
+    /// </summary>
     public static readonly Address Empty = new();
 
     public bool IsEmpty =>
@@ -67,5 +72,6 @@ public sealed record ContactDetails(
     string? Email = null,
     string? Website = null)
 {
+    /// <summary>Shared blank instance. As with <see cref="Address.Empty"/>, never a property default.</summary>
     public static readonly ContactDetails Empty = new();
 }

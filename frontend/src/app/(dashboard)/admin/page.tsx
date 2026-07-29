@@ -1,38 +1,96 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Users, MapPin, Building2, Settings, Shield } from 'lucide-react';
+import Link from 'next/link';
+import { Building2, RotateCcw, ScrollText, Settings, Shield, Users } from 'lucide-react';
+import { useAuth } from '@/lib/auth-config';
 
-const adminSections = [
-  { title: 'Staff Management', description: 'Manage staff accounts, roles, and permissions', icon: Users },
-  { title: 'Locations', description: 'Configure store locations and terminals', icon: MapPin },
-  { title: 'Departments', description: 'Manage product departments and categories', icon: Building2 },
-  { title: 'Tax Configuration', description: 'Configure tax rates and rules', icon: Settings },
-  { title: 'Security', description: 'User roles, permissions, and access control', icon: Shield },
+/**
+ * The administration index.
+ *
+ * Every card leads somewhere that exists. A tile that opens nothing teaches people the screen is
+ * decorative, and they stop reading it.
+ */
+const sections = [
+  {
+    key: 'setup',
+    href: '/admin/settings',
+    title: 'Setup',
+    description:
+      'Business identity, taxes, POS behaviour, printers, hardware, stations, tenders, currencies, numbering and users.',
+    icon: Settings,
+    permission: 'settings.read',
+  },
+  {
+    key: 'undelete',
+    href: '/admin/undelete',
+    title: 'Undelete items',
+    description: 'Bring back an item, customer, supplier or grouping that was deleted by mistake.',
+    icon: RotateCcw,
+    permission: 'catalog.delete',
+  },
+  {
+    key: 'audit',
+    href: '/admin/audit',
+    title: 'Audit log',
+    description: 'Who changed money, stock, prices, taxes or permissions — and what the values were before.',
+    icon: ScrollText,
+    permission: 'audit.read',
+  },
+  {
+    key: 'users',
+    href: '/admin/settings',
+    title: 'Users and access',
+    description: 'Staff codes, access levels and PIN state. Authorisation is by permission; the level is only a preset.',
+    icon: Users,
+    permission: 'users.manage',
+  },
+  {
+    key: 'groupings',
+    href: '/admin/settings',
+    title: 'Departments and categories',
+    description: 'The two lists every item is filed under and every sales report groups by.',
+    icon: Building2,
+    permission: 'catalog.write',
+  },
+  {
+    key: 'pricing',
+    href: '/admin/settings',
+    title: 'Price precedence',
+    description: 'The order the pricing rules are consulted in. Reordering it is a settings change, not a release.',
+    icon: Shield,
+    permission: 'settings.write',
+  },
 ];
 
 export default function AdminPage() {
-  return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Administration</h1>
+  const { can } = useAuth();
+  const visible = sections.filter((section) => can(section.permission));
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {adminSections.map((section) => (
-          <Card key={section.title} className="hover:shadow-md transition-shadow cursor-pointer">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <section.icon className="h-5 w-5 text-primary" />
+  return (
+    <div className="space-y-4">
+      <h1 className="text-lg font-semibold">Administration</h1>
+
+      {visible.length === 0 ? (
+        <p className="text-sm text-[rgb(var(--text-muted))]">
+          Nothing here is available to your account. Ask an administrator if you need access.
+        </p>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {visible.map((section) => (
+            <Link
+              key={section.key}
+              href={section.href}
+              className="pos-panel block p-4 transition-colors hover:bg-[rgb(var(--surface))]"
+            >
+              <span className="mb-1 flex items-center gap-2 text-sm font-medium">
+                <section.icon className="h-4 w-4" />
                 {section.title}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">{section.description}</p>
-              <Button variant="outline" size="sm">Configure</Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </span>
+              <span className="block text-xs text-[rgb(var(--text-muted))]">{section.description}</span>
+            </Link>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

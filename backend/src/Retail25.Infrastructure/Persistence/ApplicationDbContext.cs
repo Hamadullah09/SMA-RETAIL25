@@ -8,12 +8,22 @@ using Retail25.Domain.Inventory;
 using Retail25.Domain.Purchasing;
 using Retail25.Domain.Receivables;
 using Retail25.Domain.Sales;
+using Retail25.Domain.Security;
 using Retail25.Domain.Staff;
 using Retail25.Domain.Terminals;
 
 namespace Retail25.Infrastructure.Persistence;
 
-public class ApplicationDbContext : IdentityDbContext, IApplicationDbContext
+/// <summary>
+/// One context for the whole application, including ASP.NET Core Identity and OpenIddict.
+/// <para>
+/// Sharing a context matters here: issuing a token, granting a role and writing the audit row that
+/// records both have to commit or roll back together. Two contexts would make it possible for a
+/// grant to survive a failed sign-in, or for an authorisation to exist with no trail behind it.
+/// </para>
+/// </summary>
+public class ApplicationDbContext
+    : IdentityDbContext<Identity.ApplicationUser, Identity.ApplicationRole, Guid>, IApplicationDbContext
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
@@ -41,6 +51,7 @@ public class ApplicationDbContext : IdentityDbContext, IApplicationDbContext
     public DbSet<CartTaxOverride> CartTaxOverrides => Set<CartTaxOverride>();
     public DbSet<SalesTransaction> SalesTransactions => Set<SalesTransaction>();
     public DbSet<SaleLine> SaleLines => Set<SaleLine>();
+    public DbSet<SaleAdjustment> SaleAdjustments => Set<SaleAdjustment>();
     public DbSet<SaleTender> SaleTenders => Set<SaleTender>();
     public DbSet<SaleTaxSnapshot> SaleTaxSnapshots => Set<SaleTaxSnapshot>();
 
@@ -74,8 +85,16 @@ public class ApplicationDbContext : IdentityDbContext, IApplicationDbContext
     public DbSet<DrawerLedgerEntry> DrawerLedgerEntries => Set<DrawerLedgerEntry>();
     public DbSet<PrinterProfile> PrinterProfiles => Set<PrinterProfile>();
     public DbSet<ReaderProfile> ReaderProfiles => Set<ReaderProfile>();
+    public DbSet<ScaleProfile> ScaleProfiles => Set<ScaleProfile>();
+    public DbSet<PoleDisplayProfile> PoleDisplayProfiles => Set<PoleDisplayProfile>();
 
     // --- Staff ---
+    // --- Security & audit ---
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<AuditLogEntry> AuditLogEntries => Set<AuditLogEntry>();
+    public DbSet<SupervisorApproval> SupervisorApprovals => Set<SupervisorApproval>();
+
     public DbSet<StaffProfile> StaffProfiles => Set<StaffProfile>();
     public DbSet<TimeClockEntry> TimeClockEntries => Set<TimeClockEntry>();
     public DbSet<CommissionRule> CommissionRules => Set<CommissionRule>();
@@ -85,15 +104,32 @@ public class ApplicationDbContext : IdentityDbContext, IApplicationDbContext
     public DbSet<BusinessProfile> BusinessProfiles => Set<BusinessProfile>();
     public DbSet<TaxConfiguration> TaxConfigurations => Set<TaxConfiguration>();
     public DbSet<PosPolicy> PosPolicies => Set<PosPolicy>();
+    public DbSet<PricingRuleSetting> PricingRuleSettings => Set<PricingRuleSetting>();
     public DbSet<TenderType> TenderTypes => Set<TenderType>();
     public DbSet<Currency> Currencies => Set<Currency>();
+    public DbSet<NumberSequence> NumberSequences => Set<NumberSequence>();
     public DbSet<LoyaltyPolicy> LoyaltyPolicies => Set<LoyaltyPolicy>();
     public DbSet<LateChargePolicy> LateChargePolicies => Set<LateChargePolicy>();
+
+    protected override void ConfigureConventions(ModelConfigurationBuilder builder)
+    {
+        base.ConfigureConventions(builder);
+
+        // A convention rather than three per-property calls: the next entity that carries a rate is
+        // mapped automatically instead of being the one somebody forgot.
+        builder.Properties<Domain.ValueObjects.Percentage>()
+            .HaveConversion<ValueObjectConverters.PercentageConverter>()
+            .HavePrecision(9, 4);
+    }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
 
         builder.ApplyConfigurationsFromAssembly(typeof(ApplicationDbContext).Assembly);
+
+        // OpenIddict keeps its applications, authorizations, scopes and tokens in this context, so
+        // token issuance participates in the same transaction as everything else.
+        builder.UseOpenIddict<Guid>();
     }
 }

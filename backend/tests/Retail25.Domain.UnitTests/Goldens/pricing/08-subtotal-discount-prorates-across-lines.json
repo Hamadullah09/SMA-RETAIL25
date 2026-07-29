@@ -1,0 +1,40 @@
+{
+  "name": "Subtotal discount prorates so an exempt line cannot subsidise a taxable one",
+  "source": "doc 04 §4, decision P2",
+  "description": "Two 100.00 lines, one fully taxable and one tax-exempt, with a 10% subtotal discount. Each line absorbs 10.00 of the discount by net contribution, so the taxable line is taxed on 90.00. Applying the whole discount to either line would move real tax money between them — the exempt line would either subsidise the taxable one or be taxed for it.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": { "staffMayDiscount": true },
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    { "stockCode": "TAXED", "name": "Taxable goods", "regularPrice": 100.00, "quantity": 1, "tax1Applies": true, "tax2Applies": true },
+    { "stockCode": "EXEMPT", "name": "Basic groceries", "regularPrice": 100.00, "quantity": 1, "tax1Applies": false, "tax2Applies": false }
+  ],
+  "adjustments": [
+    { "type": "SubtotalDiscount", "label": "Manager 10%", "amount": 0, "percent": 10 }
+  ],
+  "expected": {
+    "subtotal": 200.00,
+    "adjustmentTotal": 20.00,
+    "discountedSubtotal": 180.00,
+    "addOnCharge": 0,
+    "tax1Total": 4.50,
+    "tax2Total": 6.30,
+    "grandTotal": 190.80,
+    "lines": [
+      { "unitPrice": 100.00, "chargeableQuantity": 1, "lineNet": 100.00, "tax1Amount": 4.50, "tax2Amount": 6.30, "priceOrigin": "Regular" },
+      { "unitPrice": 100.00, "chargeableQuantity": 1, "lineNet": 100.00, "tax1Amount": 0, "tax2Amount": 0, "priceOrigin": "Regular" }
+    ]
+  }
+}

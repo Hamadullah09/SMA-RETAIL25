@@ -14,12 +14,14 @@ public enum DrawerEntryType
 }
 
 /// <summary>
-/// Append-only ledger for cash drawer movements (guide p.10–11). Used to calculate expected
-/// cash at close and to produce the drawer report.
+/// Append-only cash movement (guide p.10–11). Expected cash at close is the sum of this stream, so
+/// a drawer can always be reconstructed from first principles rather than trusted.
 /// </summary>
 public sealed class DrawerLedgerEntry : Entity
 {
-    private DrawerLedgerEntry()
+    public static readonly Error ReasonRequired = new("drawer.reason_required", "A pay-in or pay-out needs a reason.");
+
+    public DrawerLedgerEntry()
     {
     }
 
@@ -27,12 +29,66 @@ public sealed class DrawerLedgerEntry : Entity
 
     public DrawerEntryType EntryType { get; set; }
 
-    /// <summary>Signed amount: positive for float/sale/pay-in, negative for refund/pay-out.</summary>
+    /// <summary>Signed: positive for float, cash sales and pay-ins; negative for refunds and pay-outs.</summary>
     public decimal Amount { get; set; }
 
     public string? Reason { get; set; }
 
+    public Guid? TransactionId { get; set; }
+
     public Guid StaffId { get; set; }
 
     public DateTimeOffset OccurredAt { get; set; }
+
+    /// <summary>A drawer pop with no sale attached still leaves a trace (guide p.11).</summary>
+    public bool AffectsCashTotal => EntryType != DrawerEntryType.NoSalePop;
+
+    public static DrawerLedgerEntry Create(
+        Guid drawerSessionId,
+        DrawerEntryType type,
+        decimal signedAmount,
+        Guid staffId,
+        DateTimeOffset now,
+        string? reason = null,
+        Guid? transactionId = null)
+        => new()
+        {
+            DrawerSessionId = drawerSessionId,
+            EntryType = type,
+            Amount = signedAmount,
+            StaffId = staffId,
+            OccurredAt = now,
+            Reason = reason,
+            TransactionId = transactionId,
+        };
+
+    public static Result<DrawerLedgerEntry> PayIn(Guid sessionId, decimal amount, string reason, Guid staffId, DateTimeOffset now)
+    {
+        if (amount <= 0m)
+        {
+            return Result.Failure<DrawerLedgerEntry>(DrawerSession.AmountInvalid.With("value", amount));
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return Result.Failure<DrawerLedgerEntry>(ReasonRequired);
+        }
+
+        return Result.Success(Create(sessionId, DrawerEntryType.PayIn, amount, staffId, now, reason.Trim()));
+    }
+
+    public static Result<DrawerLedgerEntry> PayOut(Guid sessionId, decimal amount, string reason, Guid staffId, DateTimeOffset now)
+    {
+        if (amount <= 0m)
+        {
+            return Result.Failure<DrawerLedgerEntry>(DrawerSession.AmountInvalid.With("value", amount));
+        }
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            return Result.Failure<DrawerLedgerEntry>(ReasonRequired);
+        }
+
+        return Result.Success(Create(sessionId, DrawerEntryType.PayOut, -amount, staffId, now, reason.Trim()));
+    }
 }

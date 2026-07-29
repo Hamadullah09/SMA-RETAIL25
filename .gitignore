@@ -11,7 +11,8 @@ obj/
 *.snupkg
 .vs/
 TestResults/
-appsettings.Development.json
+# appsettings.Development.json is committed: it holds no secrets, only the local-development
+# switches (plain HTTP for OpenIddict, auto-migrate, seed). Credentials are left blank on purpose.
 
 ## Node
 node_modules/

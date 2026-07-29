@@ -1,14 +1,19 @@
 using Retail25.Domain.Common;
+using Retail25.Domain.Configuration;
 
 namespace Retail25.Domain.Sales;
 
 /// <summary>
-/// Frozen copy of the tax configuration at sale time (guide p.56). A reprint shows the taxes
-/// that were in force at the time of the original sale, not the current rates.
+/// The tax configuration frozen at the moment of sale.
+/// <para>
+/// The guide is explicit (p.56): <i>"When re-printing an invoice, the same taxes and charges are
+/// applied that were in effect at the time of the original sale."</i> Rates change; this row is why
+/// a document printed after a change still reconciles to the money that was actually taken.
+/// </para>
 /// </summary>
 public sealed class SaleTaxSnapshot : Entity
 {
-    private SaleTaxSnapshot()
+    public SaleTaxSnapshot()
     {
     }
 
@@ -33,4 +38,23 @@ public sealed class SaleTaxSnapshot : Entity
     public bool TaxInclusive { get; set; }
 
     public string? TaxRegistrationNumber { get; set; }
+
+    public static SaleTaxSnapshot From(Guid transactionId, TaxConfiguration tax)
+    {
+        ArgumentNullException.ThrowIfNull(tax);
+        return new SaleTaxSnapshot
+        {
+            TransactionId = transactionId,
+            Tax1Name = tax.Tax1Name,
+            Tax1Rate = tax.Tax1Rate.Value,
+            Tax2Name = tax.Tax2Name,
+            Tax2Rate = tax.Tax2Rate.Value,
+            Tax2Compound = tax.Tax2Compound,
+            AddOnName = tax.AddOnChargeName,
+            AddOnRate = tax.AddOnChargeRate.Value,
+            AddOnTaxable = tax.AddOnChargeTaxable,
+            TaxInclusive = tax.TaxationType == TaxationType.Inclusive,
+            TaxRegistrationNumber = tax.RegistrationNumber,
+        };
+    }
 }

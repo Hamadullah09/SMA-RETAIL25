@@ -2,13 +2,24 @@ using Retail25.Domain.Common;
 
 namespace Retail25.Domain.Terminals;
 
+/// <summary>How aggressively the reader should be running right now (doc 06 §5).</summary>
+public enum ReaderMode
+{
+    Off = 0,
+    OnDemand = 1,
+    Continuous = 2,
+}
+
 /// <summary>
-/// A physical POS workstation (guide p.77–78). Identified by a 3-digit code (001–999).
-/// Each station has its own settings and connects to one or more peripherals via the agent.
+/// A physical POS workstation, identified by the three-digit code staff already know from the
+/// legacy system (guide p.77–78). Station rows carry the per-till overrides of the store-wide
+/// <c>PosPolicy</c>, so one touchscreen till can run fast-scan while the service desk does not.
 /// </summary>
 public sealed class Station : AggregateRoot, IAuditable
 {
-    private Station()
+    public static readonly Error CodeInvalid = new("station.code_invalid", "A station code must be 1–3 digits.");
+
+    public Station()
     {
     }
 
@@ -16,20 +27,46 @@ public sealed class Station : AggregateRoot, IAuditable
 
     public Guid LocationId { get; set; }
 
-    public bool FastScanMode { get; set; }
+    public string? Name { get; set; }
 
-    public bool AutoSaveSales { get; set; } = true;
+    // --- Per-station overrides of PosPolicy ----------------------------------------------------
 
-    public bool ConfirmBeforeSaving { get; set; }
+    /// <summary>Null defers to the store policy. Only an explicit value overrides it.</summary>
+    public bool? FastScanMode { get; set; }
 
-    public bool ScanRandomWeightBarcodes { get; set; }
+    public bool? AutoSaveSales { get; set; }
+
+    public bool? ConfirmBeforeSaving { get; set; }
+
+    /// <summary>Type 2 embedded-price barcodes are only recognised where a scale actually feeds this till (guide p.98).</summary>
+    public bool? ScanRandomWeightBarcodes { get; set; }
 
     public Guid? DefaultTenderTypeId { get; set; }
 
-    /// <summary>Version of the Terminal Agent running on this machine.</summary>
+    // --- Peripherals ---------------------------------------------------------------------------
+
+    public Guid? PrinterProfileId { get; set; }
+
+    public Guid? ReaderProfileId { get; set; }
+
+    public Guid? ScaleProfileId { get; set; }
+
+    public Guid? PoleDisplayProfileId { get; set; }
+
+    public ReaderMode ReaderMode { get; set; } = ReaderMode.OnDemand;
+
+    // --- Agent -----------------------------------------------------------------------------------
+
+    /// <summary>Version of Retail25.TerminalAgent last reported by this machine.</summary>
     public string? AgentVersion { get; set; }
 
     public DateTimeOffset? LastHeartbeat { get; set; }
+
+    /// <summary>
+    /// Hash of the pairing token the agent presents. The token itself is minted once at registration
+    /// and never stored, so a database read cannot impersonate a till.
+    /// </summary>
+    public string? AgentTokenHash { get; set; }
 
     public bool IsActive { get; set; } = true;
 
@@ -41,16 +78,39 @@ public sealed class Station : AggregateRoot, IAuditable
 
     public Guid? ModifiedBy { get; set; }
 
-    public static Result<Station> Create(Guid locationId, string stationCode)
+    /// <summary>An agent is considered present if it checked in within the last 15 seconds (doc 06 §6).</summary>
+    public bool IsAgentOnline(DateTimeOffset now) => LastHeartbeat is { } beat && now - beat < TimeSpan.FromSeconds(15);
+
+    public static Result<Station> Create(Guid locationId, string stationCode, string? name = null)
     {
-        if (string.IsNullOrWhiteSpace(stationCode) || stationCode.Trim().Length > 3
-            || !stationCode.Trim().All(char.IsDigit))
-            return Result.Failure<Station>(new Error("station.code_invalid", "A station code must be 1–3 digits."));
+        var trimmed = stationCode?.Trim() ?? string.Empty;
+
+        if (trimmed.Length is 0 or > 3 || !trimmed.All(char.IsDigit))
+        {
+            return Result.Failure<Station>(CodeInvalid.With("value", stationCode));
+        }
 
         return Result.Success(new Station
         {
             LocationId = locationId,
-            StationCode = stationCode.Trim().PadLeft(3, '0'),
+            StationCode = trimmed.PadLeft(3, '0'),
+            Name = name?.Trim(),
         });
+    }
+
+    public void Heartbeat(string? agentVersion, DateTimeOffset now)
+    {
+        AgentVersion = agentVersion;
+        LastHeartbeat = now;
+    }
+
+    public void SetReaderMode(ReaderMode mode) => ReaderMode = mode;
+
+    public void AssignPeripherals(Guid? printerProfileId, Guid? readerProfileId, Guid? scaleProfileId, Guid? poleDisplayProfileId)
+    {
+        PrinterProfileId = printerProfileId;
+        ReaderProfileId = readerProfileId;
+        ScaleProfileId = scaleProfileId;
+        PoleDisplayProfileId = poleDisplayProfileId;
     }
 }

@@ -7,7 +7,7 @@ namespace Retail25.Domain.Receivables;
 /// </summary>
 public sealed class GiftCertificate : AggregateRoot, IAuditable
 {
-    private GiftCertificate()
+    public GiftCertificate()
     {
     }
 

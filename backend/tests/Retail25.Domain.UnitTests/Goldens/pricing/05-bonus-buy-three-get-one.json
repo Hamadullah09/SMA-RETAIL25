@@ -1,0 +1,39 @@
+{
+  "name": "Buy three get one free charges four of six",
+  "source": "User Guide p.35",
+  "description": "Six units under a buy-3-get-1 deal gives away two, so four are charged. The quantity on the line stays six because that is what leaves the shelf; only the chargeable quantity drops, which keeps stock and revenue honest at the same time.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": {},
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    {
+      "stockCode": "SOAP01", "name": "Hand soap", "regularPrice": 5.00, "quantity": 6,
+      "bonus": { "buyQty": 3, "freeQty": 1 }
+    }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": 20.00,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": 20.00,
+    "addOnCharge": 0,
+    "tax1Total": 1.00,
+    "tax2Total": 1.40,
+    "grandTotal": 22.40,
+    "lines": [
+      { "unitPrice": 5.00, "chargeableQuantity": 4, "lineNet": 20.00, "tax1Amount": 1.00, "tax2Amount": 1.40, "priceOrigin": "Bonus" }
+    ]
+  }
+}

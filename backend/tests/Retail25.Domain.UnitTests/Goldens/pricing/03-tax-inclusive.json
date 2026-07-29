@@ -1,0 +1,36 @@
+{
+  "name": "Tax-inclusive pricing round-trips to the sticker price",
+  "source": "User Guide p.77, doc 04 §4",
+  "description": "Under VAT-style pricing the shelf price already contains the tax. A 112.00 ticket at 5% + 7% backs out to 100.00 net, 5.00 and 7.00 tax — and the grand total must land back on 112.00 exactly, which is the property that catches a back-solve done with the wrong divisor.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "VAT-A", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "VAT-B", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": true
+    },
+    "policy": {},
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    { "stockCode": "KETTLE", "name": "Electric kettle", "regularPrice": 112.00, "quantity": 1 }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": 112.00,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": 112.00,
+    "addOnCharge": 0,
+    "tax1Total": 5.00,
+    "tax2Total": 7.00,
+    "grandTotal": 112.00,
+    "lines": [
+      { "unitPrice": 112.00, "chargeableQuantity": 1, "lineNet": 112.00, "tax1Amount": 5.00, "tax2Amount": 7.00, "priceOrigin": "Regular" }
+    ]
+  }
+}

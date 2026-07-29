@@ -93,14 +93,24 @@ Seed data supplies working defaults on day one; an administrator can change any 
 
 ## Status
 
-**In development.** Phase 0 started 2026-07-27 per [11-delivery-roadmap.md](11-delivery-roadmap.md).
+**Phases 0–4 complete.** See [PHASE-STATUS.md](../PHASE-STATUS.md) for the audit trail behind each
+figure — including the gaps a line-by-line audit found and how each was closed.
 
-### Local toolchain gaps (2026-07-27)
+| Phase | State |
+|---|---|
+| **0 — Foundation** | **Complete** — `InitialSchema` migration applied with `Migrate()`, Testcontainers integration suite (13 tests), otel-collector in compose, container publish in CI |
+| **1 — Identity & shell** | **Complete** — OpenIddict + PKCE, BFF with no token in JS, PIN switch, step-up, audit, `Ctrl+K` |
+| **2 — Catalog & masters** | **Complete** — keyset-paged Browse + Form views for items, customers and suppliers; the Setup tabs; live grid patching; undelete |
+| **3 — POS core** | **Complete** — every exit criterion passes; sales log / POS history screen with drill-down, reprint and CSV export |
+| **4 — RFID & hardware** | **Complete** — every exit criterion passes; matrix grid editor on the item form; hardware-in-the-loop trial remains an operational step |
+| 5–8 | Barely started |
+
+### Local toolchain (2026-07-29)
 
 | Tool | State | Effect |
 |---|---|---|
-| .NET SDK | ✅ 9.0.316 / 10.0.302 installed; .NET 8 runtime + targeting packs available | Backend targets `net8.0` and builds locally |
+| .NET SDK | ✅ 9.0.316 / 10.0.302; .NET 8 targeting packs present | Backend targets `net8.0`, builds and tests locally |
+| Node.js / npm | ✅ v24.18.0 | Frontend installs, type-checks, lints and builds |
 | Git | ✅ present | |
-| **Node.js / npm** | ❌ missing | Frontend source is written, but cannot be `npm install`-ed or run here. Install Node 20 LTS. |
-| **Docker** | ❌ missing | Postgres/Redis cannot run locally. Install Docker Desktop, or point config at an existing Postgres/Redis. |
-| **psql** | ❌ missing | Optional; only for manual DB inspection. |
+| **Docker** | ✅ Docker Desktop installed | Start Docker Desktop before `docker compose up` or the integration suite; without the daemon the 13 integration tests skip with a message rather than fail. |
+| **psql** | ❌ missing | Optional; only for manual database inspection. |

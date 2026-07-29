@@ -1,0 +1,39 @@
+{
+  "name": "A gift card is never taxed at the point of sale",
+  "source": "User Guide p.106",
+  "description": "Tax is charged when the card is spent, not when it is bought. The product type forces both taxes off regardless of the product flags, the store policy or a cashier's override — taxing a gift card sale would double-tax the eventual purchase.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": {},
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    {
+      "stockCode": "GC25", "name": "Gift card $25", "regularPrice": 25.00, "quantity": 1,
+      "productType": "GiftCard", "tax1Applies": true, "tax2Applies": true, "tax1Override": true, "tax2Override": true
+    }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": 25.00,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": 25.00,
+    "addOnCharge": 0,
+    "tax1Total": 0,
+    "tax2Total": 0,
+    "grandTotal": 25.00,
+    "lines": [
+      { "unitPrice": 25.00, "chargeableQuantity": 1, "lineNet": 25.00, "tax1Amount": 0, "tax2Amount": 0, "priceOrigin": "Regular" }
+    ]
+  }
+}

@@ -25,9 +25,9 @@ public sealed class Supplier : AggregateRoot, IAuditable, ISoftDeletable
 
     public string? Title { get; set; }
 
-    public Address Address { get; set; } = Address.Empty;
+    public Address Address { get; set; } = new();
 
-    public ContactDetails Contact { get; set; } = ContactDetails.Empty;
+    public ContactDetails Contact { get; set; } = new();
 
     // --- Audit ---
 

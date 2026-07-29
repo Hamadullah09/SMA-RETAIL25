@@ -9,7 +9,7 @@ namespace Retail25.Domain.Configuration;
 /// </summary>
 public sealed class LoyaltyPolicy : AggregateRoot, IAuditable
 {
-    private LoyaltyPolicy()
+    public LoyaltyPolicy()
     {
     }
 

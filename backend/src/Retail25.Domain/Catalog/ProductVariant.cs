@@ -68,4 +68,12 @@ public sealed class ProductVariant : Entity, IAuditable
     }
 
     public void UpdateStock(decimal onHand) => OnHand = onHand;
+
+    public void SetUpc(string? upc) => Upc = string.IsNullOrWhiteSpace(upc) ? null : upc.Trim();
+
+    /// <summary>
+    /// Retires a variant without destroying it. A variant that has ever been sold is named by sale
+    /// lines, so deleting it would orphan history; hiding it keeps the grid tidy and the past intact.
+    /// </summary>
+    public void SetActive(bool isActive) => IsActive = isActive;
 }

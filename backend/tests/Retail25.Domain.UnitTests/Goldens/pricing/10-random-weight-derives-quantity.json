@@ -1,0 +1,39 @@
+{
+  "name": "Type 2 barcode derives quantity from the embedded price",
+  "source": "User Guide p.98, doc 04 §5",
+  "description": "The scale encoded 5.12 for an item priced at 4.00 per kilogram, so the weight is 1.28 kg. The tag carries the money and the product carries the rate; the quantity is the quotient, rounded to four places because the guide is explicit that this is approximate.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": {},
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    {
+      "stockCode": "01234", "name": "Ground coffee", "regularPrice": 4.00, "quantity": 1,
+      "source": "RandomWeight", "embeddedPrice": 5.12
+    }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": 5.12,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": 5.12,
+    "addOnCharge": 0,
+    "tax1Total": 0.26,
+    "tax2Total": 0.36,
+    "grandTotal": 5.74,
+    "lines": [
+      { "unitPrice": 4.00, "chargeableQuantity": 1.28, "lineNet": 5.12, "tax1Amount": 0.26, "tax2Amount": 0.36, "priceOrigin": "RandomWeight" }
+    ]
+  }
+}

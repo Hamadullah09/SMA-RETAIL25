@@ -1,138 +1,495 @@
 'use client';
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import apiClient from '@/lib/api-client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Plus, Search } from 'lucide-react';
-import type { Customer } from '@/types';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
+import {
+  BrowseFormShell,
+  CheckField,
+  FormSection,
+  LiveBadge,
+  NumberField,
+  SelectField,
+  TextField,
+} from '@/components/masters/browse-form';
 import { toast } from '@/components/ui/toaster';
+import { useAuth } from '@/lib/auth-config';
+import { useLiveGrid } from '@/lib/inventory-hub';
+import { mastersApi } from '@/lib/masters-api';
+import { PosApiError } from '@/lib/pos-api';
+import { formatCurrency } from '@/lib/utils';
+import type { Address, ContactDetails, CustomerForm, CustomerRow, CustomerSort } from '@/types/masters';
 
+/**
+ * Customer Browse + Form View (guide p.46–52).
+ *
+ * The account and pricing fields sit on the same screen as the name and address because they are
+ * what changes a sale: attaching this customer at the till applies their price level, their usual
+ * discount and their tax exemptions to the whole basket.
+ */
 export default function CustomersPage() {
-  const queryClient = useQueryClient();
+  const auth = useAuth();
+  const locationId = auth.user?.locationId;
+  const canWrite = auth.can('customer.write');
+  const canDelete = auth.can('customer.delete');
+
   const [search, setSearch] = useState('');
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({
-    customerNumber: 0,
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
+  const [clientType, setClientType] = useState('');
+  const [withBalanceOnly, setWithBalanceOnly] = useState(false);
+  const [sort, setSort] = useState<CustomerSort>('Number');
+  const [rows, setRows] = useState<CustomerRow[]>([]);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const { data: clientTypes = [] } = useQuery({
+    queryKey: ['client-types', locationId],
+    queryFn: () => mastersApi.customers.clientTypes(locationId!),
+    enabled: Boolean(locationId),
   });
 
-  const { data: customers = [], isLoading } = useQuery({
-    queryKey: ['customers', search],
-    queryFn: () => apiClient.get<Customer[]>(`/customers?search=${search}`).then((r) => r.data),
-  });
+  const load = useCallback(
+    async (append: boolean, from: string | null) => {
+      if (!locationId) return;
 
-  const createMutation = useMutation({
-    mutationFn: (data: typeof form) =>
-      apiClient.post('/customers', {
-        locationId: '00000000-0000-0000-0000-000000000001',
-        customerNumber: data.customerNumber || Date.now(),
-        firstName: data.firstName,
-        lastName: data.lastName,
-      }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['customers'] });
-      setShowForm(false);
-      setForm({ customerNumber: 0, firstName: '', lastName: '', email: '', phone: '' });
-      toast({ title: 'Customer created' });
+      setLoading(true);
+
+      try {
+        const page = await mastersApi.customers.browse(locationId, {
+          search,
+          clientType,
+          withBalanceOnly,
+          sort,
+          cursor: from ?? undefined,
+          pageSize: 100,
+        });
+
+        setRows((current) => (append ? [...current, ...page.items] : page.items));
+        setCursor(page.nextCursor);
+        setHasMore(page.hasMore);
+      } catch (error) {
+        toast({ title: 'Could not load customers', description: describe(error), variant: 'destructive' });
+      } finally {
+        setLoading(false);
+      }
     },
-    onError: (err: any) => {
-      toast({ title: 'Error', description: err.response?.data?.error ?? 'Failed', variant: 'destructive' });
-    },
-  });
+    [locationId, search, clientType, withBalanceOnly, sort],
+  );
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(false, null), 200);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+
+  const { connected, changed } = useLiveGrid('customer', locationId, setRows);
+
+  const columns = useMemo<DataGridColumn<CustomerRow>[]>(
+    () => [
+      {
+        key: 'number',
+        header: 'No.',
+        width: 80,
+        numeric: true,
+        render: (r) => r.customerNumber,
+        sortValue: (r) => r.customerNumber,
+      },
+      { key: 'name', header: 'Name', width: 240, render: (r) => r.displayName, sortValue: (r) => r.displayName },
+      { key: 'city', header: 'City', width: 140, render: (r) => r.city ?? '—' },
+      { key: 'phone', header: 'Phone', width: 130, render: (r) => r.phone ?? '—' },
+      { key: 'email', header: 'Email', width: 200, render: (r) => r.email ?? '—' },
+      { key: 'clientType', header: 'Type', width: 110, render: (r) => r.clientType ?? '—' },
+      { key: 'level', header: 'Level', width: 60, numeric: true, render: (r) => r.priceLevel },
+      {
+        key: 'balance',
+        header: 'Balance',
+        width: 100,
+        numeric: true,
+        // Money owed is the reason most people open this screen, so it is coloured rather than left
+        // to be spotted among identical figures.
+        render: (r) => (
+          <span className={r.balanceDue > 0 ? 'text-[rgb(var(--negative))]' : undefined}>
+            {formatCurrency(r.balanceDue)}
+          </span>
+        ),
+        sortValue: (r) => r.balanceDue,
+      },
+      {
+        key: 'limit',
+        header: 'Credit limit',
+        width: 100,
+        numeric: true,
+        render: (r) => (r.creditLimit === 0 ? 'Unlimited' : formatCurrency(r.creditLimit)),
+      },
+      { key: 'lastPurchase', header: 'Last purchase', width: 120, render: (r) => r.lastPurchaseOn ?? '—' },
+    ],
+    [],
+  );
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Customers</h1>
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="h-4 w-4 mr-2" /> Add Customer
-        </Button>
-      </div>
+    <BrowseFormShell
+      title="Customers"
+      toolbar={
+        <>
+          <LiveBadge connected={connected} />
+          {canWrite ? (
+            <button type="button" className="pos-button-primary" onClick={() => setSelectedId('new')}>
+              New customer
+            </button>
+          ) : null}
+        </>
+      }
+      filters={
+        <>
+          <input
+            className="w-64 rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            placeholder="Name, company, phone or email"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
 
-      <div className="flex items-center gap-2">
-        <Search className="h-5 w-5 text-muted-foreground" />
-        <Input
-          placeholder="Search customers..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
+          <select
+            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            value={clientType}
+            onChange={(event) => setClientType(event.target.value)}
+          >
+            <option value="">All client types</option>
+            {clientTypes.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            value={sort}
+            onChange={(event) => setSort(event.target.value as CustomerSort)}
+          >
+            <option value="Number">Sort: number</option>
+            <option value="Name">Sort: surname</option>
+            <option value="Company">Sort: company</option>
+          </select>
+
+          <label className="flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              checked={withBalanceOnly}
+              onChange={(event) => setWithBalanceOnly(event.target.checked)}
+            />
+            Owing money
+          </label>
+        </>
+      }
+      grid={
+        <DataGrid
+          gridId="customers"
+          rows={rows}
+          columns={columns}
+          rowKey={(row) => row.id}
+          recentlyChanged={changed}
+          onRowActivate={(row) => setSelectedId(row.id)}
+          emptyMessage={loading ? 'Loading…' : 'No customers match these filters.'}
         />
+      }
+      form={
+        selectedId && locationId ? (
+          <CustomerFormPanel
+            key={selectedId}
+            customerId={selectedId === 'new' ? null : selectedId}
+            locationId={locationId}
+            canWrite={canWrite}
+            canDelete={canDelete}
+            onClose={() => setSelectedId(null)}
+            onSaved={() => void load(false, null)}
+          />
+        ) : null
+      }
+      status={
+        <span className="flex items-center gap-3">
+          <span>
+            {rows.length} loaded{hasMore ? ' of more' : ''}
+          </span>
+          {hasMore ? (
+            <button type="button" className="underline" onClick={() => void load(true, cursor)} disabled={loading}>
+              Load more
+            </button>
+          ) : null}
+        </span>
+      }
+    />
+  );
+}
+
+function describe(error: unknown): string {
+  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
+}
+
+const emptyCustomer: CustomerForm = {
+  id: '',
+  locationId: '',
+  customerNumber: 0,
+  firstName: '',
+  lastName: '',
+  company: null,
+  title: null,
+  billingAddress: {},
+  shipToAddress: {},
+  contact: {},
+  clientType: null,
+  birthday: null,
+  notes: null,
+  lastPurchaseOn: null,
+  lastMailingOn: null,
+  accountNumber: 0,
+  creditLimit: 0,
+  balanceDue: 0,
+  usualDiscountPct: 0,
+  priceLevel: 1,
+  exemptTax1: false,
+  exemptTax2: false,
+  rewardPoints: 0,
+  isDeleted: false,
+  createdAt: '',
+  modifiedAt: null,
+};
+
+function CustomerFormPanel({
+  customerId,
+  locationId,
+  canWrite,
+  canDelete,
+  onClose,
+  onSaved,
+}: {
+  customerId: string | null;
+  locationId: string;
+  canWrite: boolean;
+  canDelete: boolean;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [form, setForm] = useState<CustomerForm>(emptyCustomer);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!customerId) {
+      setForm({ ...emptyCustomer, locationId });
+      return;
+    }
+
+    void mastersApi.customers
+      .get(customerId)
+      .then(setForm)
+      .catch((error) =>
+        toast({ title: 'Could not open the customer', description: describe(error), variant: 'destructive' }),
+      );
+  }, [customerId, locationId]);
+
+  const patch = (changes: Partial<CustomerForm>) => setForm((current) => ({ ...current, ...changes }));
+
+  const address = (key: 'billingAddress' | 'shipToAddress', changes: Partial<Address>) =>
+    patch({ [key]: { ...form[key], ...changes } } as Partial<CustomerForm>);
+
+  const contact = (changes: Partial<ContactDetails>) => patch({ contact: { ...form.contact, ...changes } });
+
+  const identity = () => ({
+    firstName: form.firstName,
+    lastName: form.lastName,
+    company: form.company,
+    title: form.title,
+    clientType: form.clientType,
+    birthday: form.birthday,
+    notes: form.notes,
+  });
+
+  const addresses = () => ({
+    billingAddress: form.billingAddress,
+    shipToAddress: form.shipToAddress,
+    contact: form.contact,
+  });
+
+  const account = () => ({
+    creditLimit: form.creditLimit,
+    usualDiscountPct: form.usualDiscountPct,
+    priceLevel: form.priceLevel,
+    exemptTax1: form.exemptTax1,
+    exemptTax2: form.exemptTax2,
+  });
+
+  const save = async (sections: Record<string, unknown>) => {
+    setBusy(true);
+
+    try {
+      const saved = customerId
+        ? await mastersApi.customers.update(customerId, { customerId, ...sections })
+        : await mastersApi.customers.create({ locationId, identity: identity(), addresses: addresses(), account: account() });
+
+      setForm(saved);
+      onSaved();
+      toast({ title: customerId ? 'Saved' : 'Customer created' });
+    } catch (error) {
+      toast({ title: 'Not saved', description: describe(error), variant: 'destructive' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!customerId) return;
+
+    setBusy(true);
+
+    try {
+      await mastersApi.customers.remove(customerId);
+      toast({ title: 'Deleted', description: 'It can be brought back from Undelete items.' });
+      onSaved();
+      onClose();
+    } catch (error) {
+      toast({ title: 'Not deleted', description: describe(error), variant: 'destructive' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disabled = !canWrite || busy;
+
+  const saveButton = (sections: () => Record<string, unknown>) =>
+    canWrite ? (
+      <button type="button" className="underline" disabled={busy} onClick={() => void save(sections())}>
+        Save
+      </button>
+    ) : null;
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-sm font-semibold">
+          {customerId ? `#${form.customerNumber} ${form.company || `${form.firstName} ${form.lastName}`}` : 'New customer'}
+          {form.isDeleted ? <span className="pos-badge ml-2 text-[rgb(var(--negative))]">Deleted</span> : null}
+        </h2>
+        <button type="button" className="pos-button" onClick={onClose}>
+          Close
+        </button>
       </div>
 
-      {showForm && (
-        <Card>
-          <CardHeader>
-            <CardTitle>New Customer</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                placeholder="First Name"
-                value={form.firstName}
-                onChange={(e) => setForm({ ...form, firstName: e.target.value })}
-              />
-              <Input
-                placeholder="Last Name"
-                value={form.lastName}
-                onChange={(e) => setForm({ ...form, lastName: e.target.value })}
-              />
-              <Input
-                placeholder="Email"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-              />
-              <Input
-                placeholder="Phone"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              />
-            </div>
-            <div className="flex gap-2 mt-4">
-              <Button onClick={() => createMutation.mutate(form)} disabled={createMutation.isPending}>
-                {createMutation.isPending ? 'Saving...' : 'Save'}
-              </Button>
-              <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <FormSection
+        title="Identity"
+        hint="The customer number is issued by the store's counter and is not editable."
+        actions={saveButton(() => ({ identity: identity() }))}
+      >
+        <TextField label="First name" value={form.firstName} onChange={(v) => patch({ firstName: v })} disabled={disabled} autoFocus />
+        <TextField label="Last name" value={form.lastName} onChange={(v) => patch({ lastName: v })} disabled={disabled} />
+        <TextField
+          label="Company"
+          value={form.company ?? ''}
+          onChange={(v) => patch({ company: v })}
+          disabled={disabled}
+          hint="When set, this is the name the browse and the receipt show."
+        />
+        <TextField label="Title" value={form.title ?? ''} onChange={(v) => patch({ title: v })} disabled={disabled} />
+        <TextField
+          label="Client type"
+          value={form.clientType ?? ''}
+          onChange={(v) => patch({ clientType: v })}
+          disabled={disabled}
+          hint="Free text; it becomes a filter on the browse."
+        />
+        <TextField label="Notes" value={form.notes ?? ''} onChange={(v) => patch({ notes: v })} disabled={disabled} />
+      </FormSection>
 
-      <div className="border rounded-lg">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/50">
-              <th className="text-left p-3 font-medium">#</th>
-              <th className="text-left p-3 font-medium">Name</th>
-              <th className="text-left p-3 font-medium">Company</th>
-              <th className="text-left p-3 font-medium">Email</th>
-              <th className="text-left p-3 font-medium">Phone</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading ? (
-              <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">Loading...</td></tr>
-            ) : customers.length === 0 ? (
-              <tr><td colSpan={5} className="p-8 text-center text-muted-foreground">No customers found</td></tr>
-            ) : (
-              customers.map((c) => (
-                <tr key={c.id} className="border-b last:border-0 hover:bg-muted/30">
-                  <td className="p-3 font-mono text-xs">{c.customerNumber}</td>
-                  <td className="p-3">{c.firstName} {c.lastName}</td>
-                  <td className="p-3">{c.company ?? '-'}</td>
-                  <td className="p-3">{c.email ?? '-'}</td>
-                  <td className="p-3">{c.phone ?? '-'}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <FormSection title="Address and contact" actions={saveButton(() => ({ addresses: addresses() }))}>
+        <TextField
+          label="Billing line 1"
+          value={form.billingAddress.line1 ?? ''}
+          onChange={(v) => address('billingAddress', { line1: v })}
+          disabled={disabled}
+        />
+        <TextField
+          label="Billing line 2"
+          value={form.billingAddress.line2 ?? ''}
+          onChange={(v) => address('billingAddress', { line2: v })}
+          disabled={disabled}
+        />
+        <TextField
+          label="City"
+          value={form.billingAddress.city ?? ''}
+          onChange={(v) => address('billingAddress', { city: v })}
+          disabled={disabled}
+        />
+        <TextField
+          label="State / province"
+          value={form.billingAddress.stateOrProvince ?? ''}
+          onChange={(v) => address('billingAddress', { stateOrProvince: v })}
+          disabled={disabled}
+        />
+        <TextField
+          label="Postcode"
+          value={form.billingAddress.postalCode ?? ''}
+          onChange={(v) => address('billingAddress', { postalCode: v })}
+          disabled={disabled}
+        />
+        <TextField
+          label="Ship-to line 1"
+          value={form.shipToAddress.line1 ?? ''}
+          onChange={(v) => address('shipToAddress', { line1: v })}
+          disabled={disabled}
+          hint="Leave blank to ship to the billing address."
+        />
+        <TextField
+          label="Ship-to city"
+          value={form.shipToAddress.city ?? ''}
+          onChange={(v) => address('shipToAddress', { city: v })}
+          disabled={disabled}
+        />
+        <TextField label="Phone" value={form.contact.phone ?? ''} onChange={(v) => contact({ phone: v })} disabled={disabled} />
+        <TextField label="Mobile" value={form.contact.mobile ?? ''} onChange={(v) => contact({ mobile: v })} disabled={disabled} />
+        <TextField label="Email" value={form.contact.email ?? ''} onChange={(v) => contact({ email: v })} disabled={disabled} />
+      </FormSection>
+
+      <FormSection
+        title="Account and pricing"
+        hint="These follow the customer onto every sale: attaching them reprices the whole basket."
+        actions={saveButton(() => ({ account: account() }))}
+      >
+        <NumberField
+          label="Credit limit"
+          value={form.creditLimit}
+          onChange={(v) => patch({ creditLimit: v })}
+          disabled={disabled}
+          hint="Zero means unlimited, as in the legacy system."
+        />
+        <NumberField
+          label="Usual discount %"
+          value={form.usualDiscountPct}
+          onChange={(v) => patch({ usualDiscountPct: v })}
+          disabled={disabled}
+        />
+        <SelectField
+          label="Price level"
+          value={String(form.priceLevel)}
+          options={[1, 2, 3, 4].map((level) => ({ value: String(level), label: `Level ${level}` }))}
+          onChange={(v) => patch({ priceLevel: Number(v) || 1 })}
+          disabled={disabled}
+        />
+        <CheckField label="Exempt from tax 1" checked={form.exemptTax1} onChange={(v) => patch({ exemptTax1: v })} disabled={disabled} />
+        <CheckField label="Exempt from tax 2" checked={form.exemptTax2} onChange={(v) => patch({ exemptTax2: v })} disabled={disabled} />
+
+        {customerId ? (
+          <p className="text-xs text-[rgb(var(--text-muted))]">
+            Balance {formatCurrency(form.balanceDue)} · {form.rewardPoints} reward points — both derived from the ledgers
+            and not editable here.
+          </p>
+        ) : null}
+      </FormSection>
+
+      {canDelete && customerId ? (
+        <div className="mb-6">
+          <button type="button" className="pos-button text-[rgb(var(--negative))]" onClick={() => void remove()} disabled={busy}>
+            Delete
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -16,7 +16,7 @@ public enum LoyaltyEntryType
 /// </summary>
 public sealed class LoyaltyLedgerEntry : Entity
 {
-    private LoyaltyLedgerEntry()
+    public LoyaltyLedgerEntry()
     {
     }
 

@@ -1,0 +1,36 @@
+{
+  "name": "Regular price, two exclusive taxes",
+  "source": "User Guide p.32, p.76-77",
+  "description": "The baseline sale: one item at its regular price with GST and PST added on top. Tax is rounded once per line per tax, so 49.99 produces 2.50 and 3.50 rather than 2.4995 and 3.4993 accumulating.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": {},
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    { "stockCode": "POLO01", "name": "Columbia polo", "regularPrice": 49.99, "quantity": 1 }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": 49.99,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": 49.99,
+    "addOnCharge": 0,
+    "tax1Total": 2.50,
+    "tax2Total": 3.50,
+    "grandTotal": 55.99,
+    "lines": [
+      { "unitPrice": 49.99, "chargeableQuantity": 1, "lineNet": 49.99, "tax1Amount": 2.50, "tax2Amount": 3.50, "priceOrigin": "Regular" }
+    ]
+  }
+}

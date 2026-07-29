@@ -30,10 +30,25 @@ jobs:
         run: |
           dotnet test backend/tests/Retail25.Domain.UnitTests --no-build -c Release --logger trx
           dotnet test backend/tests/Retail25.Application.UnitTests --no-build -c Release --logger trx
+          dotnet test backend/tests/Retail25.TerminalAgent.UnitTests --no-build -c Release --logger trx
           dotnet test backend/tests/Retail25.ArchitectureTests --no-build -c Release --logger trx
 
       - name: Integration tests (Testcontainers)
         run: dotnet test backend/tests/Retail25.IntegrationTests --no-build -c Release --logger trx
+
+      # The integration suite skips itself when no Docker daemon is present, which is right on a
+      # developer's machine and wrong here. Without this check the whole suite could quietly stop
+      # running and the build would stay green — which is exactly how it came to be empty before.
+      - name: Assert the integration suite actually ran
+        run: |
+          set -euo pipefail
+          trx=$(find backend/tests/Retail25.IntegrationTests -name '*.trx' | head -1)
+          if [ -z "$trx" ]; then echo "::error::no integration test results were produced"; exit 1; fi
+          if grep -q 'outcome="NotExecuted"' "$trx"; then
+            echo "::error::integration tests were skipped — the Docker daemon was not available"
+            exit 1
+          fi
+          echo "Integration tests ran against a real container."
 
       - name: Vulnerable package scan
         run: dotnet list backend/Retail25.sln package --vulnerable --include-transitive
@@ -48,7 +63,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: frontend/retail25-web
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
 
@@ -56,7 +71,7 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: frontend/retail25-web/package-lock.json
+          cache-dependency-path: frontend/package-lock.json
 
       - run: npm ci
       - run: npm run lint
@@ -64,3 +79,129 @@ jobs:
       - run: npm run build
       - run: npm audit --audit-level=high
         continue-on-error: true
+
+  # The end-to-end suite proves things only a real browser can: chiefly doc 07's "no token is
+  # reachable from JavaScript". It needs the whole stack, so it is a separate job rather than part
+  # of the frontend one, and it is skipped unless the sign-in credentials are configured.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    if: github.event_name == 'push'
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: retail25
+          POSTGRES_USER: retail25
+          POSTGRES_PASSWORD: ci-password
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U retail25"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      ConnectionStrings__DefaultConnection: Host=localhost;Database=retail25;Username=retail25;Password=ci-password
+      ConnectionStrings__Redis: localhost:6379
+      Database__AutoMigrate: 'true'
+      Database__Seed: 'true'
+      OpenIddict__AllowInsecureHttp: 'true'
+      Auth__AdminEmail: admin@retail25.local
+      Auth__AdminPassword: ${{ secrets.E2E_ADMIN_PASSWORD || 'Ci-Password-1234!' }}
+      Auth__WebOrigin: http://localhost:3000
+      E2E_USERNAME: admin@retail25.local
+      E2E_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD || 'Ci-Password-1234!' }}
+      API_URL: http://localhost:5000
+      APP_ORIGIN: http://localhost:3000
+      SESSION_SECRET: ci-session-secret-at-least-32-characters
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Start the API
+        run: |
+          dotnet run --project backend/src/Retail25.Api -c Release --no-launch-profile \
+            --urls http://localhost:5000 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:5000/health/live && break
+            sleep 2
+          done
+
+      - name: Install the frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        working-directory: frontend
+        run: npm run e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+
+  # Phase 0's build list ends with "container publish". Building the images on every run is what
+  # keeps the Dockerfiles honest — they were referenced only by compose before, so a change that
+  # broke them would have gone unnoticed until someone tried to deploy. Images are pushed to GHCR
+  # only from main; a pull request builds them and throws them away.
+  containers:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - image: api
+            context: backend
+            dockerfile: deploy/Dockerfile.api
+          - image: web
+            context: frontend
+            dockerfile: deploy/Dockerfile.web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Sign in to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}/${{ matrix.image }}
+          tags: |
+            type=sha,format=long
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

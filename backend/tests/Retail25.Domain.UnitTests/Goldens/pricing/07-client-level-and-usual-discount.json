@@ -1,0 +1,39 @@
+{
+  "name": "Client price level plus the customer's usual discount",
+  "source": "User Guide p.51-52",
+  "description": "A level-2 customer buys two units: the level price of 8.00 applies, then their standing 5% discount comes off the line net. Tax is computed on 15.20, not on 16.00 — a discount that did not reduce the taxable base would overcharge the customer tax on money they never paid.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": {},
+    "customer": { "priceLevel": 2, "usualDiscountPct": 5, "exemptTax1": false, "exemptTax2": false, "rewardPoints": 0 },
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    {
+      "stockCode": "TOOL01", "name": "Adjustable wrench", "regularPrice": 10.00, "quantity": 2,
+      "priceLevels": { "2": 8.00 }
+    }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": 15.20,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": 15.20,
+    "addOnCharge": 0,
+    "tax1Total": 0.76,
+    "tax2Total": 1.06,
+    "grandTotal": 17.02,
+    "lines": [
+      { "unitPrice": 8.00, "chargeableQuantity": 2, "lineNet": 15.20, "tax1Amount": 0.76, "tax2Amount": 1.06, "priceOrigin": "ClientLevel" }
+    ]
+  }
+}

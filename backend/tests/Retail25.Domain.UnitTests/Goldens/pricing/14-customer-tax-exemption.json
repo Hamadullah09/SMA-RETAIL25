@@ -1,0 +1,36 @@
+{
+  "name": "Customer exemption removes one tax and leaves the other",
+  "source": "User Guide p.51-52",
+  "description": "A customer exempt from the second tax only. Exemptions are per tax, not all-or-nothing, because a status-card holder or a reseller is typically exempt from one of the two and not the other.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": {},
+    "customer": { "priceLevel": 1, "usualDiscountPct": 0, "exemptTax1": false, "exemptTax2": true, "rewardPoints": 0 },
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    { "stockCode": "TIRE01", "name": "Winter tyre", "regularPrice": 50.00, "quantity": 1 }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": 50.00,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": 50.00,
+    "addOnCharge": 0,
+    "tax1Total": 2.50,
+    "tax2Total": 0,
+    "grandTotal": 52.50,
+    "lines": [
+      { "unitPrice": 50.00, "chargeableQuantity": 1, "lineNet": 50.00, "tax1Amount": 2.50, "tax2Amount": 0, "priceOrigin": "Regular" }
+    ]
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "A coupon larger than the basket is capped, not paid out",
+  "source": "User Guide p.7, doc 04 §4",
+  "description": "A 50.00 coupon against a 30.00 basket settles the sale at zero and stops there. The excess is not returned as cash and does not produce negative tax; a coupon is a discount, and letting one overshoot would turn the till into a source of funds.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": false, "addOnChargeName": "Service", "addOnChargeRate": 0, "addOnChargeTaxable": false,
+      "inclusive": false
+    },
+    "policy": {},
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    { "stockCode": "SNACK01", "name": "Snack box", "regularPrice": 30.00, "quantity": 1 }
+  ],
+  "adjustments": [
+    { "type": "Coupon", "label": "SAVE50", "amount": 50.00, "percent": 0 }
+  ],
+  "expected": {
+    "subtotal": 30.00,
+    "adjustmentTotal": 30.00,
+    "discountedSubtotal": 0,
+    "addOnCharge": 0,
+    "tax1Total": 0,
+    "tax2Total": 0,
+    "grandTotal": 0,
+    "lines": [
+      { "unitPrice": 30.00, "chargeableQuantity": 1, "lineNet": 30.00, "tax1Amount": 0, "tax2Amount": 0, "priceOrigin": "Regular" }
+    ]
+  }
+}

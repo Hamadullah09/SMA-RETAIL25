@@ -15,10 +15,21 @@
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.Redis" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <!--
+      Referenced explicitly rather than relied on transitively: these tests call MigrateAsync and the
+      migrations model differ directly, which live in the relational and design assemblies.
+    -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Retail25.Api\Retail25.Api.csproj" />
+    <ProjectReference Include="..\..\src\Retail25.Infrastructure\Retail25.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

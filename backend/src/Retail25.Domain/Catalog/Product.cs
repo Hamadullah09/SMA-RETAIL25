@@ -199,6 +199,39 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
 
     public void SetCategory(Guid? categoryId) => CategoryId = categoryId;
 
+    /// <summary>
+    /// Renames the stock code. Uniqueness per location is a database constraint and is checked by
+    /// the handler before this is called; the entity only normalises.
+    /// </summary>
+    public Result SetStockCode(string stockCode)
+    {
+        if (string.IsNullOrWhiteSpace(stockCode))
+        {
+            return Result.Failure(StockCodeRequired);
+        }
+
+        StockCode = stockCode.Trim().ToUpperInvariant();
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Sets the two taxability flags (guide p.31). A gift card is never taxable no matter what is
+    /// asked for — the tax is charged when the card is spent, and charging it twice is a refundable
+    /// error the store only discovers at reconciliation.
+    /// </summary>
+    public void SetTaxFlags(bool tax1Applies, bool tax2Applies)
+    {
+        if (Type == ProductType.GiftCard)
+        {
+            Tax1Applies = false;
+            Tax2Applies = false;
+            return;
+        }
+
+        Tax1Applies = tax1Applies;
+        Tax2Applies = tax2Applies;
+    }
+
     public void SetType(ProductType type)
     {
         Type = type;

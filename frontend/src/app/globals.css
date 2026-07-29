@@ -2,46 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * Design tokens from doc 08.
+ *
+ * Flat zinc surfaces, an accent that is contrast rather than colour, and exactly four semantic
+ * colours: committed, attention, negative, live. Colour carries meaning here or it is not used — a
+ * till that decorates with colour has nowhere left to go when something is actually wrong.
+ */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --surface: 250 250 250;      /* zinc-50  */
+    --panel: 255 255 255;
+    --border: 228 228 231;       /* zinc-200 */
+    --text: 24 24 27;            /* zinc-900 */
+    --text-muted: 113 113 122;   /* zinc-500 */
+    --accent: 24 24 27;
+    --accent-foreground: 250 250 250;
+
+    --positive: 5 150 105;       /* emerald-600 */
+    --warning: 245 158 11;       /* amber-500   */
+    --negative: 220 38 38;       /* red-600     */
+    --live: 14 165 233;          /* sky-500     */
+
+    --radius: 4px;
+    --radius-dense: 2px;
+
+    /* Kept for the existing back-office components. */
+    --background: 0 0% 98%;
+    --foreground: 240 6% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --card-foreground: 240 6% 10%;
+    --primary: 240 6% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 6% 10%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --input: 240 6% 90%;
+    --ring: 240 6% 10%;
   }
 
+  /* POS terminals sit under fluorescent light all day; staff prefer dark. */
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --surface: 9 9 11;           /* zinc-950 */
+    --panel: 24 24 27;           /* zinc-900 */
+    --border: 39 39 42;          /* zinc-800 */
+    --text: 244 244 245;         /* zinc-100 */
+    --text-muted: 161 161 170;   /* zinc-400 */
+    --accent: 244 244 245;
+    --accent-foreground: 24 24 27;
+
+    --background: 240 10% 4%;
+    --foreground: 0 0% 96%;
+    --card: 240 6% 10%;
+    --card-foreground: 0 0% 96%;
+    --primary: 0 0% 96%;
+    --primary-foreground: 240 6% 10%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 96%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 96%;
+    --input: 240 4% 16%;
+    --ring: 240 5% 84%;
   }
 }
 
@@ -49,11 +75,112 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Every quantity, price and total is tabular so columns scan vertically (doc 08, non-negotiable). */
+  .tabular,
+  .pos-amount {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
 }
 
+@layer components {
+  .pos-panel {
+    @apply border border-[rgb(var(--border))] bg-[rgb(var(--panel))];
+    border-radius: var(--radius);
+  }
+
+  /* Panels are delimited by a 1px border and whitespace. No cards inside cards. */
+  .pos-panel-header {
+    @apply flex items-center justify-between border-b border-[rgb(var(--border))] px-3 py-2 text-xs font-medium uppercase tracking-wide text-[rgb(var(--text-muted))];
+  }
+
+  /* Pay is the only filled high-contrast control on the screen (doc 08 §Visual weighting). */
+  .pos-button-primary {
+    @apply bg-[rgb(var(--accent))] font-medium text-[rgb(var(--accent-foreground))];
+    border-radius: var(--radius);
+    min-height: 44px;
+  }
+
+  .pos-button {
+    @apply border border-[rgb(var(--border))] bg-transparent font-medium text-[rgb(var(--text))];
+    border-radius: var(--radius);
+    min-height: 44px;
+  }
+
+  .pos-button:disabled,
+  .pos-button-primary:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+
+  .pos-fkey {
+    @apply inline-flex items-center gap-1.5 px-2 py-1 text-xs text-[rgb(var(--text-muted))];
+  }
+
+  .pos-fkey kbd {
+    @apply rounded-sm border border-[rgb(var(--border))] px-1 font-mono text-[10px] leading-4 text-[rgb(var(--text))];
+  }
+
+  .pos-badge {
+    @apply rounded-sm px-1 text-[10px] font-medium uppercase leading-4 tracking-wide;
+  }
+}
+
+/**
+ * The five regions (doc 08). One grid, so the cart never reflows when a dialog opens, and the
+ * layout still shows twelve lines without scrolling at 1366x768.
+ */
+.pos-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'status status'
+    'cart   side'
+    'keys   keys';
+  height: 100vh;
+  gap: 8px;
+  padding: 8px;
+}
+
+.pos-area-status { grid-area: status; }
+.pos-area-cart { grid-area: cart; min-height: 0; }
+.pos-area-side { grid-area: side; min-height: 0; }
+.pos-area-keys { grid-area: keys; }
+
+@media (max-width: 1024px) {
+  .pos-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'status'
+      'cart'
+      'side'
+      'keys';
+    height: auto;
+  }
+}
+
+/* Live regions animate once, briefly. A POS screen that breathes is one nobody can read. */
+@keyframes pos-settle {
+  from { background-color: rgb(var(--live) / 0.12); }
+  to { background-color: transparent; }
+}
+
+.pos-settling {
+  animation: pos-settle 120ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pos-settling {
+    animation: none;
+  }
+}
+
+/* Retained for the existing back-office pages. */
 .pos-grid {
   display: grid;
   grid-template-columns: 1fr 380px;

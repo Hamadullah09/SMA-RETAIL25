@@ -3,23 +3,39 @@ using Retail25.Domain.Sales;
 namespace Retail25.Application.Abstractions;
 
 /// <summary>
-/// Server-authoritative cart storage backed by Redis with Postgres write-behind.
-/// The cart lives on the server because RFID reads arrive from a daemon, not a browser.
+/// The whole cart in one object: header, lines, sale-level adjustments and the tax override.
+/// Handlers mutate this and hand it back to <see cref="ICartStore.SaveAsync"/> as a unit, so a cart
+/// is never observed half-written.
+/// </summary>
+public sealed class CartSnapshot
+{
+    public CartSnapshot(Cart cart) => Cart = cart;
+
+    public Cart Cart { get; set; }
+
+    public List<CartLine> Lines { get; init; } = [];
+
+    public List<CartAdjustment> Adjustments { get; init; } = [];
+
+    public CartTaxOverride? TaxOverride { get; set; }
+
+    public IReadOnlyList<CartLine> OrderedLines => Lines.OrderBy(l => l.Sequence).ToList();
+}
+
+/// <summary>
+/// Storage for the server-authoritative cart: Redis for anything active, with a Postgres
+/// write-behind when a cart is suspended so it survives a restart and can be recalled at another
+/// till (doc 06 §2).
 /// </summary>
 public interface ICartStore
 {
-    Task<Cart?> GetAsync(Guid cartId, CancellationToken ct = default);
+    Task<CartSnapshot?> GetAsync(Guid cartId, CancellationToken ct = default);
 
-    Task<Cart?> GetByStationAsync(Guid stationId, CancellationToken ct = default);
+    /// <summary>The one active cart at a station, if there is one. Keyed by <c>station:{id}:cart</c>.</summary>
+    Task<CartSnapshot?> GetByStationAsync(Guid stationId, CancellationToken ct = default);
 
-    Task SetAsync(Cart cart, CancellationToken ct = default);
+    Task SaveAsync(CartSnapshot snapshot, CancellationToken ct = default);
 
-    Task RemoveAsync(Guid cartId, CancellationToken ct = default);
-
-    Task<IReadOnlyList<CartLine>> GetLinesAsync(Guid cartId, CancellationToken ct = default);
-
-    Task SetLinesAsync(Guid cartId, IReadOnlyList<CartLine> lines, CancellationToken ct = default);
-
-    /// <summary>Increment the cart revision for optimistic concurrency.</summary>
-    Task<int> IncrementRevisionAsync(Guid cartId, CancellationToken ct = default);
+    /// <summary>Drops the cart and releases the station key. Used on complete, void and expiry.</summary>
+    Task RemoveAsync(Guid cartId, Guid stationId, CancellationToken ct = default);
 }

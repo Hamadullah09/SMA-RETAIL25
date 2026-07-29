@@ -8,7 +8,7 @@ namespace Retail25.Domain.Customers;
 /// </summary>
 public sealed class CustomerPricingProfile : Entity, IAuditable
 {
-    private CustomerPricingProfile()
+    public CustomerPricingProfile()
     {
     }
 

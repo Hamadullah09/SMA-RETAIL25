@@ -25,11 +25,11 @@ public sealed class Customer : AggregateRoot, IAuditable, ISoftDeletable
 
     public string? Title { get; set; }
 
-    public Address BillingAddress { get; set; } = Address.Empty;
+    public Address BillingAddress { get; set; } = new();
 
-    public Address ShipToAddress { get; set; } = Address.Empty;
+    public Address ShipToAddress { get; set; } = new();
 
-    public ContactDetails Contact { get; set; } = ContactDetails.Empty;
+    public ContactDetails Contact { get; set; } = new();
 
     /// <summary>Segmentation key (guide p.46).</summary>
     public string? ClientType { get; set; }

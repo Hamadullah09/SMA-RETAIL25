@@ -1,10 +1,11 @@
 using Retail25.Domain.Common;
+using Retail25.Domain.Configuration;
 
 namespace Retail25.Domain.Sales;
 
 /// <summary>
-/// One tender in an N-way split payment (guide p.8). The sum of all tenders for a transaction
-/// must equal the grand total (± rounding to MinimumTender for cash).
+/// One leg of an N-way split payment (guide p.8). The legs sum to the grand total plus the cash
+/// rounding adjustment; that identity is asserted by a property test rather than trusted.
 /// </summary>
 public sealed class SaleTender : Entity
 {
@@ -16,25 +17,27 @@ public sealed class SaleTender : Entity
 
     public Guid TenderTypeId { get; set; }
 
-    /// <summary>Amount in base currency.</summary>
+    public TenderBehaviour Behaviour { get; set; }
+
+    /// <summary>Amount applied to the balance, in the location's base currency.</summary>
     public decimal Amount { get; set; }
 
-    /// <summary>Amount tendered by the customer (for cash: what they handed over).</summary>
+    /// <summary>What the customer handed over. For cash this exceeds <see cref="Amount"/> when change is due.</summary>
     public decimal AmountTendered { get; set; }
 
-    /// <summary>Change given back (cash tenders only).</summary>
     public decimal ChangeGiven { get; set; }
 
     public Guid? CurrencyId { get; set; }
 
+    /// <summary>Units of the tender currency per unit of the base currency (guide p.9).</summary>
     public decimal ExchangeRate { get; set; } = 1m;
 
-    /// <summary>Card authorisation code from the payment gateway.</summary>
+    /// <summary>Cheque number, gift certificate serial, or whatever the tender type demands.</summary>
+    public string? Reference { get; set; }
+
     public string? AuthCode { get; set; }
 
-    /// <summary>Last 4 digits of the card.</summary>
     public string? CardLast4 { get; set; }
 
-    /// <summary>Gateway reference / transaction id.</summary>
     public string? GatewayReference { get; set; }
 }

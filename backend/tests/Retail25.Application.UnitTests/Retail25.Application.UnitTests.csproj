@@ -12,10 +12,16 @@
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="NSubstitute" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" />
   </ItemGroup>
 
   <ItemGroup>
+    <!--
+      Infrastructure is referenced for ApplicationDbContext only. Handler tests need a real DbContext
+      shape; substituting DbSet<T> convincingly costs more than it proves.
+    -->
     <ProjectReference Include="..\..\src\Retail25.Application\Retail25.Application.csproj" />
+    <ProjectReference Include="..\..\src\Retail25.Infrastructure\Retail25.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

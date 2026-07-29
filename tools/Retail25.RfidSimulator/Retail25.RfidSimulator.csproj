@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    This project sits outside backend/, so it does not inherit that folder's Directory.Build.props or
+    its central package versions. The properties are therefore repeated here rather than implied.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <LangVersion>12.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Retail25.RfidSimulator</RootNamespace>
+    <AssemblyName>retail25-rfid</AssemblyName>
+    <!-- Published as a dotnet tool so it can be run from anywhere on a bench machine. -->
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>retail25-rfid</ToolCommandName>
+    <NoWarn>$(NoWarn);CA1848;CA2007;CA1062</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\backend\src\Retail25.Contracts\Retail25.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="8.0.11" />
+  </ItemGroup>
+
+</Project>

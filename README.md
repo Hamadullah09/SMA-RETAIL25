@@ -93,14 +93,52 @@ Seed data supplies working defaults on day one; an administrator can change any 
 
 ## Status
 
-**In development.** Phase 0 started 2026-07-27 per [11-delivery-roadmap.md](11-delivery-roadmap.md).
+**Phases 0–4 complete.** A user signs in without a token ever reaching JavaScript; a store's
+catalogue, taxes, stations and staff are configured end to end through the UI, with browse grids that
+patch themselves as another workstation edits; a cashier rings a sale entirely by keyboard, splits
+the payment, takes a return, voids with supervisor approval and closes the drawer against a counted
+variance; a basket of tagged items reads into the cart in one action, with every refused tag
+explaining itself; and the back office can browse every sale, reprint it, and see who changed what
+in the audit log. The schema is a real EF Core migration applied with `Migrate()` — integration
+tests prove it lands on a clean database and that the model never drifts from it. See
+[PHASE-STATUS.md](docs/PHASE-STATUS.md) for the audit trail behind each claim.
 
-### Local toolchain gaps (2026-07-27)
+| Phase | State |
+|---|---|
+| **0 — Foundation** | **Complete** — migration + design-time factory, Testcontainers suite, otel-collector, container publish |
+| **1 — Identity & shell** | **Complete** |
+| **2 — Catalog & masters** | **Complete** — Browse + Form views, the Setup tabs, live grids, undelete |
+| **3 — POS core** | **Complete** — including the sales log / POS history screen with reprint and CSV export |
+| **4 — RFID & hardware** | **Complete** — including the matrix grid editor; hardware-in-the-loop trial remains an operational step |
+| 5–8 | Barely started |
+
+The terminal agent has its own [README](backend/src/Retail25.TerminalAgent/README.md);
+`tools/Retail25.RfidSimulator` drives the whole RFID flow with no reader attached.
+
+### Running it locally
+
+```bash
+docker compose -f deploy/docker-compose.yml up postgres redis
+```
+
+Set `Auth:AdminEmail` and `Auth:AdminPassword` in
+[appsettings.Development.json](backend/src/Retail25.Api/appsettings.Development.json) — there is no
+default administrator, because a seeded credential is a published credential.
+
+```bash
+dotnet run --project backend/src/Retail25.Api
+```
+
+```bash
+cd frontend && cp .env.example .env.local && npm ci && npm run dev
+```
+
+### Local toolchain (2026-07-29)
 
 | Tool | State | Effect |
 |---|---|---|
-| .NET SDK | ✅ 9.0.316 / 10.0.302 installed; .NET 8 runtime + targeting packs available | Backend targets `net8.0` and builds locally |
+| .NET SDK | ✅ 9.0.316 / 10.0.302; .NET 8 targeting packs present | Backend targets `net8.0`, builds and tests locally |
+| Node.js / npm | ✅ v24.18.0 | Frontend installs, type-checks, lints and builds |
 | Git | ✅ present | |
-| **Node.js / npm** | ❌ missing | Frontend source is written, but cannot be `npm install`-ed or run here. Install Node 20 LTS. |
-| **Docker** | ❌ missing | Postgres/Redis cannot run locally. Install Docker Desktop, or point config at an existing Postgres/Redis. |
-| **psql** | ❌ missing | Optional; only for manual DB inspection. |
+| **Docker** | ✅ Docker Desktop installed | Start Docker Desktop before `docker compose up` or the integration suite; without the daemon the 13 integration tests skip with a message rather than fail. |
+| **psql** | ❌ missing | Optional; only for manual database inspection. |

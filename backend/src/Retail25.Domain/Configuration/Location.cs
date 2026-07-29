@@ -24,9 +24,9 @@ public sealed class Location : AggregateRoot, IAuditable, ISoftDeletable
     /// <summary>Three-character code inherited from Retail Plus, e.g. <c>TST</c>.</summary>
     public string LegacyCode { get; private set; } = string.Empty;
 
-    public Address Address { get; private set; } = Address.Empty;
+    public Address Address { get; private set; } = new();
 
-    public ContactDetails Contact { get; private set; } = ContactDetails.Empty;
+    public ContactDetails Contact { get; private set; } = new();
 
     /// <summary>
     /// IANA time zone used to derive the business date from a UTC timestamp. A sale rung at 00:30

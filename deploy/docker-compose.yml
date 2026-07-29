@@ -1,4 +1,6 @@
-version: '3.8'
+# One host, one command. Phase 0's exit criterion is that `docker compose up` yields a running API
+# and web shell — so every value an container needs to actually start is here, with a development
+# default, rather than left for a reader to discover from a stack trace.
 
 services:
   postgres:
@@ -29,15 +31,41 @@ services:
       timeout: 5s
       retries: 5
 
+  # Traces and metrics land here. Without it the API's OTLP exporter posts into a void and every
+  # "we have observability" claim in the docs is decorative.
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.115.1
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./otel/config.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "13133:13133" # health
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:13133/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
   api:
     build:
       context: ../backend
       dockerfile: ../deploy/Dockerfile.api
     environment:
       - ConnectionStrings__DefaultConnection=Host=postgres;Database=retail25;Username=retail25;Password=${POSTGRES_PASSWORD:-devpassword123}
-      - ConnectionStrings__Redis=localhost:6379
+      # Inside the compose network this is the service name. It read `localhost` before, which is the
+      # API container itself — so the cart, the tag debouncer and the hub backplane all failed to
+      # connect and the till came up unable to ring anything.
+      - ConnectionStrings__Redis=redis:6379
       - Database__AutoMigrate=true
+      - Database__Seed=true
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - ASPNETCORE_ENVIRONMENT=Development
+      # Development only. A real deployment sets these to a per-environment secret; there is no
+      # seeded administrator otherwise, because a seeded credential is a published credential.
+      - Auth__AdminEmail=${ADMIN_EMAIL:-admin@retail25.local}
+      - Auth__AdminPassword=${ADMIN_PASSWORD:-ChangeMeDev123!}
     ports:
       - "5000:8080"
     depends_on:
@@ -48,9 +76,17 @@ services:
 
   web:
     build:
-      context: ../frontend/retail25-web
+      context: ../frontend
       dockerfile: ../deploy/Dockerfile.web
     environment:
+      # Server-side: the BFF's back channel to the API. The browser never talks to it directly.
+      - API_URL=http://api:8080
+      - APP_ORIGIN=http://localhost:3000
+      - OIDC_CLIENT_ID=retail25-web
+      # The app refuses to hold a session without this, so compose has to supply one. Override it
+      # per environment: a shared secret makes a cookie forged against one deployment valid on all.
+      - SESSION_SECRET=${SESSION_SECRET:-dev-only-session-secret-change-me-32+}
+      # Public: only the hub origin, reached by the browser.
       - NEXT_PUBLIC_API_URL=http://localhost:5000
     ports:
       - "3000:3000"

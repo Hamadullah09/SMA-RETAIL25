@@ -23,7 +23,7 @@ public enum MovementType
 /// </summary>
 public sealed class StockLedgerEntry : Entity
 {
-    private StockLedgerEntry()
+    public StockLedgerEntry()
     {
     }
 

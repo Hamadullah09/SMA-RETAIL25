@@ -1,51 +1,73 @@
 using MediatR;
 using Retail25.Application.Abstractions;
+using Retail25.Application.Carts.Dtos;
+using Retail25.Application.Carts.Services;
+using Retail25.Application.Common;
+using Retail25.Domain.Common;
 using Retail25.Domain.Sales;
-using Retail25.Domain.Terminals;
 
 namespace Retail25.Application.Carts.Commands;
 
-public sealed record CreateCartCommand(Guid StationId, Guid StaffId) : IRequest<CreateCartResult>;
+/// <summary>
+/// Opens the cart for a station, or hands back the one that is already open there.
+/// <para>
+/// Returning the existing cart rather than erroring is deliberate: a browser refresh, a second tab
+/// or an agent reconnect must all land on the same sale. A station has exactly one cart at a time.
+/// </para>
+/// </summary>
+[RequiresPermission(PermissionKeys.Pos.Sell)]
+public sealed record CreateCartCommand(Guid StationId, Guid? StaffId = null) : IRequest<Result<CartDto>>;
 
-public sealed record CreateCartResult(Guid CartId, int Revision);
-
-public class CreateCartHandler : IRequestHandler<CreateCartCommand, CreateCartResult>
+public sealed class CreateCartHandler : IRequestHandler<CreateCartCommand, Result<CartDto>>
 {
-    private readonly ICartStore _cartStore;
-    private readonly IApplicationDbContext _db;
+    private readonly ICartStore _store;
+    private readonly PosContextLoader _contextLoader;
+    private readonly CartPricingService _pricing;
+    private readonly ICurrentUser _currentUser;
+    private readonly IDateTime _clock;
 
-    public CreateCartHandler(ICartStore cartStore, IApplicationDbContext db)
+    public CreateCartHandler(
+        ICartStore store,
+        PosContextLoader contextLoader,
+        CartPricingService pricing,
+        ICurrentUser currentUser,
+        IDateTime clock)
     {
-        _cartStore = cartStore;
-        _db = db;
+        _store = store;
+        _contextLoader = contextLoader;
+        _pricing = pricing;
+        _currentUser = currentUser;
+        _clock = clock;
     }
 
-    public async Task<CreateCartResult> Handle(CreateCartCommand request, CancellationToken ct)
+    public async Task<Result<CartDto>> Handle(CreateCartCommand request, CancellationToken ct)
     {
-        // Check for existing active cart on this station.
-        var existing = await _cartStore.GetByStationAsync(request.StationId, ct);
-        if (existing is not null && existing.Status == CartStatus.Active)
+        var contextResult = await _contextLoader.LoadAsync(request.StationId, ct);
+        if (contextResult.IsFailure)
         {
-            return new CreateCartResult(existing.Id, existing.Revision);
+            return Result.Failure<CartDto>(contextResult.Error);
         }
 
-        var station = await _db.Stations.FindAsync(request.StationId);
-        var locationId = station?.LocationId ?? Guid.Empty;
+        var context = contextResult.Value;
+        var staffId = request.StaffId ?? _currentUser.StaffId ?? Guid.Empty;
 
-        var cart = new Cart
+        var existing = await _store.GetByStationAsync(request.StationId, ct);
+        if (existing is { Cart.IsActive: true })
         {
-            Id = Guid.NewGuid(),
-            StationId = request.StationId,
-            LocationId = locationId,
-            StaffId = request.StaffId,
-            Status = CartStatus.Active,
-            NextLineSequence = 1,
-            Revision = 1,
-            CreatedAt = DateTimeOffset.UtcNow,
-            ExpiresAt = DateTimeOffset.UtcNow.AddHours(12),
-        };
+            var current = await _pricing.QuoteAsync(existing, context, ct);
+            return Result.Success(current.Dto);
+        }
 
-        await _cartStore.SetAsync(cart, ct);
-        return new CreateCartResult(cart.Id, cart.Revision);
+        var snapshot = new CartSnapshot(Cart.Open(
+            request.StationId,
+            context.Location.Id,
+            staffId,
+            _clock.Now,
+            context.Policy.AbandonedCartTimeoutMinutes));
+
+        var quote = await _pricing.QuoteAsync(snapshot, context, ct);
+        await _store.SaveAsync(snapshot, ct);
+
+        return Result.Success(quote.Dto);
     }
 }

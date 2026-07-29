@@ -18,7 +18,7 @@ public enum AREntryType
 /// </summary>
 public sealed class ARLedgerEntry : Entity
 {
-    private ARLedgerEntry()
+    public ARLedgerEntry()
     {
     }
 

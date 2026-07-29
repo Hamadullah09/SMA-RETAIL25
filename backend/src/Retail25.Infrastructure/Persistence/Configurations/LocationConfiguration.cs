@@ -26,6 +26,9 @@ public class LocationConfiguration : IEntityTypeConfiguration<Location>
             .IsRequired()
             .HasMaxLength(3);
 
+        builder.OwnsAddress(l => l.Address);
+        builder.OwnsContact(l => l.Contact);
+
         builder.HasIndex(l => l.LegacyCode)
             .IsUnique();
 

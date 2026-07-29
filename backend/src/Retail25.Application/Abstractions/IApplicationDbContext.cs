@@ -6,6 +6,7 @@ using Retail25.Domain.Inventory;
 using Retail25.Domain.Purchasing;
 using Retail25.Domain.Receivables;
 using Retail25.Domain.Sales;
+using Retail25.Domain.Security;
 using Retail25.Domain.Staff;
 using Retail25.Domain.Terminals;
 
@@ -38,6 +39,7 @@ public interface IApplicationDbContext
     DbSet<CartTaxOverride> CartTaxOverrides { get; }
     DbSet<SalesTransaction> SalesTransactions { get; }
     DbSet<SaleLine> SaleLines { get; }
+    DbSet<SaleAdjustment> SaleAdjustments { get; }
     DbSet<SaleTender> SaleTenders { get; }
     DbSet<SaleTaxSnapshot> SaleTaxSnapshots { get; }
 
@@ -71,8 +73,16 @@ public interface IApplicationDbContext
     DbSet<DrawerLedgerEntry> DrawerLedgerEntries { get; }
     DbSet<PrinterProfile> PrinterProfiles { get; }
     DbSet<ReaderProfile> ReaderProfiles { get; }
+    DbSet<ScaleProfile> ScaleProfiles { get; }
+    DbSet<PoleDisplayProfile> PoleDisplayProfiles { get; }
 
     // --- Staff ---
+    // --- Security & audit ---
+    DbSet<Permission> Permissions { get; }
+    DbSet<RolePermission> RolePermissions { get; }
+    DbSet<AuditLogEntry> AuditLogEntries { get; }
+    DbSet<SupervisorApproval> SupervisorApprovals { get; }
+
     DbSet<StaffProfile> StaffProfiles { get; }
     DbSet<TimeClockEntry> TimeClockEntries { get; }
     DbSet<CommissionRule> CommissionRules { get; }
@@ -82,8 +92,10 @@ public interface IApplicationDbContext
     DbSet<BusinessProfile> BusinessProfiles { get; }
     DbSet<TaxConfiguration> TaxConfigurations { get; }
     DbSet<PosPolicy> PosPolicies { get; }
+    DbSet<PricingRuleSetting> PricingRuleSettings { get; }
     DbSet<TenderType> TenderTypes { get; }
     DbSet<Currency> Currencies { get; }
+    DbSet<NumberSequence> NumberSequences { get; }
     DbSet<LoyaltyPolicy> LoyaltyPolicies { get; }
     DbSet<LateChargePolicy> LateChargePolicies { get; }
 

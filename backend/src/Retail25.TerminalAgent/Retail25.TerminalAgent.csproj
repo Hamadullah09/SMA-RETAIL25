@@ -1,10 +1,16 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Worker">
+<Project Sdk="Microsoft.NET.Sdk.Worker">
   <PropertyGroup>
     <UserSecretsId>retail25-terminal-agent</UserSecretsId>
     <OutputType>Exe</OutputType>
+    <!-- Installed as a Windows service; the same binary runs as a console app for bench testing. -->
+    <AssemblyName>Retail25.TerminalAgent</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Retail25.Contracts\Retail25.Contracts.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The loopback API on 127.0.0.1:8477 needs the ASP.NET Core hosting stack (doc 06 §5). -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
@@ -12,10 +18,15 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" />
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
     <PackageReference Include="Serilog.Extensions.Hosting" />
+    <PackageReference Include="Serilog.Settings.Configuration" />
     <PackageReference Include="Serilog.Sinks.Console" />
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="System.IO.Ports" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="Retail25.TerminalAgent.UnitTests" />
+  </ItemGroup>
 </Project>
-

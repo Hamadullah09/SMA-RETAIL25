@@ -1,41 +1,33 @@
 import axios from 'axios';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
-
+/**
+ * Every API call goes through the same-origin BFF proxy (doc 07 §Topology).
+ *
+ * There is no token handling here, and that is the point: the browser has no credential to attach.
+ * The session cookie is httpOnly and travels automatically; the proxy reads it server-side and adds
+ * the bearer. The previous version of this file read an access token out of localStorage — which is
+ * exactly what the brief forbids, because any script on the page could read it too.
+ */
 export const apiClient = axios.create({
-  baseURL: `${API_BASE}/api/v1`,
+  baseURL: '/api/proxy',
   headers: { 'Content-Type': 'application/json' },
   timeout: 30_000,
-});
-
-apiClient.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const oidcStorage = localStorage.getItem('oidc.user');
-    if (oidcStorage) {
-      try {
-        const user = JSON.parse(oidcStorage);
-        if (user?.access_token) {
-          config.headers.Authorization = `Bearer ${user.access_token}`;
-        }
-      } catch {
-        // ignore parse errors
-      }
-    }
-  }
-  return config;
+  // Same-origin, so the httpOnly session cookie is sent without the browser being able to read it.
+  withCredentials: true,
 });
 
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('oidc.user');
-        window.location.href = '/';
-      }
+    // The proxy already tried to refresh once. A 401 here means the session is genuinely over, so
+    // send the user to sign in and bring them back to where they were.
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.href = `/api/auth/login?returnTo=${returnTo}`;
     }
+
     return Promise.reject(error);
-  }
+  },
 );
 
 export default apiClient;

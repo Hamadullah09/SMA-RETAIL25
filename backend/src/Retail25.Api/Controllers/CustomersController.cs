@@ -1,53 +1,92 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Retail25.Application.Abstractions;
-using Retail25.Domain.Customers;
+using Retail25.Api.Common;
+using Retail25.Application.Customers;
 
 namespace Retail25.Api.Controllers;
 
+/// <summary>
+/// The customer Browse and Form views (guide p.46–52).
+/// <para>
+/// Every route goes through a handler rather than touching the DbContext directly. The till attaches
+/// a customer mid-sale, and their price level and tax exemptions change what the basket costs — so
+/// the rules about what a customer record may contain belong in one place, not once here and once
+/// wherever else a customer is written.
+/// </para>
+/// </summary>
 [ApiController]
+[Authorize]
 [Route("api/v1/customers")]
-public class CustomersController : ControllerBase
+[Produces("application/json")]
+public sealed class CustomersController : ControllerBase
 {
-    private readonly IApplicationDbContext _db;
+    private readonly ISender _sender;
 
-    public CustomersController(IApplicationDbContext db) => _db = db;
+    public CustomersController(ISender sender) => _sender = sender;
 
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] string? search, [FromQuery] Guid? locationId)
+    public async Task<IActionResult> Browse(
+        [FromQuery] Guid locationId,
+        [FromQuery] string? search,
+        [FromQuery] string? clientType,
+        [FromQuery] bool withBalanceOnly = false,
+        [FromQuery] bool deletedOnly = false,
+        [FromQuery] CustomerSort sort = CustomerSort.Number,
+        [FromQuery] bool descending = false,
+        [FromQuery] string? cursor = null,
+        [FromQuery] int pageSize = 50,
+        CancellationToken ct = default)
+        => Ok(await _sender.Send(
+            new BrowseCustomersQuery(
+                locationId, search, clientType, withBalanceOnly, deletedOnly, sort, descending, cursor, pageSize),
+            ct));
+
+    /// <summary>
+    /// The till's client picker (guide p.7). A flat list of just enough to choose from, so attaching a
+    /// customer mid-sale does not pull addresses, balances and pricing profiles the cashier cannot see.
+    /// </summary>
+    [HttpGet("search")]
+    public async Task<IActionResult> Search(
+        [FromQuery] string term,
+        [FromQuery] Guid locationId,
+        [FromQuery] int take = 25,
+        CancellationToken ct = default)
     {
-        var query = _db.Customers.Where(c => !c.IsDeleted);
+        var page = await _sender.Send(
+            new BrowseCustomersQuery(locationId, term, PageSize: Math.Clamp(take, 1, 100)), ct);
 
-        if (!string.IsNullOrWhiteSpace(search))
-            query = query.Where(c => c.FirstName.Contains(search) || c.LastName.Contains(search) || c.Company!.Contains(search));
-
-        if (locationId.HasValue)
-            query = query.Where(c => c.LocationId == locationId.Value);
-
-        var customers = await query.Take(100).ToListAsync();
-        return Ok(customers);
+        return Ok(page.Items.Select(c => new
+        {
+            id = c.Id,
+            customerNumber = c.CustomerNumber,
+            fullName = c.DisplayName,
+            city = c.City,
+            phone = c.Phone,
+        }));
     }
+
+    [HttpGet("client-types")]
+    public async Task<IActionResult> ClientTypes([FromQuery] Guid locationId, CancellationToken ct)
+        => Ok(await _sender.Send(new ListClientTypesQuery(locationId), ct));
 
     [HttpGet("{id:guid}")]
-    public async Task<IActionResult> Get(Guid id)
-    {
-        var customer = await _db.Customers.FindAsync(id);
-        if (customer is null) return NotFound();
-        return Ok(customer);
-    }
+    public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+        => (await _sender.Send(new GetCustomerFormQuery(id), ct)).ToActionResult(this);
 
     [HttpPost]
-    public async Task<IActionResult> Create([FromBody] CreateCustomerRequest request)
-    {
-        var result = Customer.Create(request.LocationId, request.CustomerNumber, request.FirstName, request.LastName);
-        if (result.IsFailure)
-            return BadRequest(new { error = result.Error.Code });
+    public async Task<IActionResult> Create([FromBody] CreateCustomerCommand command, CancellationToken ct)
+        => (await _sender.Send(command, ct)).ToActionResult(this);
 
-        _db.Customers.Add(result.Value);
-        await _db.SaveChangesAsync();
-        return CreatedAtAction(nameof(Get), new { id = result.Value.Id }, result.Value);
-    }
+    [HttpPut("{id:guid}")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCustomerCommand command, CancellationToken ct)
+        => (await _sender.Send(command with { CustomerId = id }, ct)).ToActionResult(this);
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+        => (await _sender.Send(new DeleteCustomerCommand(id), ct)).ToActionResult(this);
+
+    [HttpPost("{id:guid}/restore")]
+    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+        => (await _sender.Send(new RestoreCustomerCommand(id), ct)).ToActionResult(this);
 }
-
-public record CreateCustomerRequest(Guid LocationId, long CustomerNumber, string FirstName, string LastName);

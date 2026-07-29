@@ -17,16 +17,17 @@ import {
   LogOut,
   Menu,
 } from 'lucide-react';
-import { useAuth } from 'react-oidc-context';
+import { useAuth } from '@/lib/auth-config';
 import { useUIStore } from '@/stores/ui-store';
 import { Button } from '@/components/ui/button';
 
 const navItems = [
   { href: '/pos', label: 'Point of Sale', icon: ShoppingCart },
-  { href: '/catalog/products', label: 'Products', icon: Package },
+  { href: '/catalog/products', label: 'Inventory', icon: Package },
   { href: '/customers', label: 'Customers', icon: Users },
-  { href: '/inventory', label: 'Inventory', icon: Warehouse },
-  { href: '/purchasing', label: 'Purchasing', icon: Truck },
+  { href: '/purchasing/suppliers', label: 'Suppliers', icon: Truck },
+  { href: '/inventory', label: 'Stock', icon: Warehouse },
+  { href: '/purchasing', label: 'Purchasing', icon: FileText },
   { href: '/receivables', label: 'Receivables', icon: CreditCard },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
   { href: '/admin', label: 'Administration', icon: Settings },
@@ -72,7 +73,7 @@ export function Sidebar() {
         </nav>
         <div className="absolute bottom-0 left-0 right-0 p-2 border-t">
           <button
-            onClick={() => auth.signoutRedirect()}
+            onClick={() => void auth.signOut()}
             className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-accent w-full"
           >
             <LogOut className="h-5 w-5 shrink-0" />
@@ -95,7 +96,8 @@ export function Header() {
         <h1 className="text-lg font-semibold">Retail 25</h1>
       </div>
       <div className="flex items-center gap-4 text-sm">
-        <span className="text-muted-foreground">{user?.profile?.email ?? 'User'}</span>
+        <span className="text-muted-foreground">{user?.name || user?.email || "Signed in"}</span>
+        <kbd className="rounded-sm border px-1 font-mono text-[10px] text-muted-foreground">Ctrl+K</kbd>
       </div>
     </header>
   );

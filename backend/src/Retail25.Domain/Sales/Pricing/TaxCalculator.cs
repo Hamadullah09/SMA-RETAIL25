@@ -3,95 +3,75 @@ using Retail25.Domain.Configuration;
 namespace Retail25.Domain.Sales.Pricing;
 
 /// <summary>
-/// Tax calculation result for a single line (doc 04 §3, §4).
+/// Tax on one taxable amount. <see cref="NetOfTax"/> differs from the amount handed in only under
+/// tax-inclusive pricing, where the sticker price already contains the tax.
 /// </summary>
-public sealed record TaxLineResult(
-    decimal Tax1Amount,
-    decimal Tax2Amount,
-    decimal TaxableBase1,
-    decimal TaxableBase2);
+public sealed record TaxAmounts(decimal Tax1, decimal Tax2, decimal NetOfTax);
 
 /// <summary>
-/// Pure tax calculator implementing the exact legacy pipeline (doc 04 §4).
-/// Tax-inclusive mode backs out tax from gross prices.
-/// Tax2 compound means Tax2 is calculated on (TaxableBase + Tax1).
+/// The arithmetic half of the tax engine (doc 04 §4). Given an amount that has already been
+/// discounted and prorated, it produces the two tax figures.
+/// <para>
+/// Rounding happens exactly once per amount per tax, never on a running total — that is the classic
+/// penny-drift bug, and it is pinned by the golden files.
+/// </para>
 /// </summary>
 public static class TaxCalculator
 {
-    /// <summary>
-    /// Calculates tax for a single line given the resolved unit price, quantity, discount
-    /// and the effective tax configuration.
-    /// </summary>
-    public static TaxLineResult CalculateLine(
-        decimal unitPrice,
-        decimal quantity,
-        decimal discountPct,
+    public static TaxAmounts Calculate(
+        decimal amount,
         bool tax1Applies,
         bool tax2Applies,
-        TaxConfiguration tax)
+        TaxConfiguration tax,
+        MoneyRounding rounding)
     {
-        var grossAmount = unitPrice * quantity;
-        var discountAmount = grossAmount * discountPct / 100m;
-        var netAmount = grossAmount - discountAmount;
+        ArgumentNullException.ThrowIfNull(tax);
+        ArgumentNullException.ThrowIfNull(rounding);
 
-        decimal tax1 = 0m;
-        decimal tax2 = 0m;
-        decimal taxableBase1 = 0m;
-        decimal taxableBase2 = 0m;
+        var rate1 = tax1Applies ? tax.Tax1Rate.Rate : 0m;
+        var rate2 = tax2Applies ? tax.Tax2Rate.Rate : 0m;
 
-        if (tax.TaxationType == TaxationType.Inclusive)
+        if (rate1 == 0m && rate2 == 0m)
         {
-            // Tax-inclusive: prices already contain tax (doc 04 §4).
-            // Back-solve: netOfTax = gross / (1 + r1 + r2) or gross / ((1 + r1) * (1 + r2))
-            var r1 = tax1Applies ? tax.Tax1Rate.Rate : 0m;
-            var r2 = tax2Applies ? tax.Tax2Rate.Rate : 0m;
-
-            decimal divisor;
-            if (tax.Tax2Compound)
-            {
-                divisor = (1m + r1) * (1m + r2);
-            }
-            else
-            {
-                divisor = 1m + r1 + r2;
-            }
-
-            if (divisor > 0m)
-            {
-                var netOfTax = netAmount / divisor;
-                tax1 = tax1Applies ? RoundTax(netOfTax * r1) : 0m;
-                tax2 = tax2Applies
-                    ? RoundTax(tax.Tax2Compound ? (netOfTax + tax1) * r2 : netOfTax * r2)
-                    : 0m;
-                taxableBase1 = tax1Applies ? netOfTax : 0m;
-                taxableBase2 = tax2Applies ? (tax.Tax2Compound ? netOfTax + tax1 : netOfTax) : 0m;
-            }
-        }
-        else
-        {
-            // Tax-exclusive: tax is added on top (doc 04 §4).
-            taxableBase1 = tax1Applies ? netAmount : 0m;
-            tax1 = tax1Applies ? RoundTax(netAmount * tax.Tax1Rate.Rate) : 0m;
-
-            taxableBase2 = tax2Applies ? netAmount : 0m;
-            if (tax.Tax2Compound && tax2Applies)
-            {
-                taxableBase2 = netAmount + tax1;
-                tax2 = RoundTax(taxableBase2 * tax.Tax2Rate.Rate);
-            }
-            else if (tax2Applies)
-            {
-                tax2 = RoundTax(netAmount * tax.Tax2Rate.Rate);
-            }
+            return new TaxAmounts(0m, 0m, amount);
         }
 
-        return new TaxLineResult(tax1, tax2, taxableBase1, taxableBase2);
+        return tax.TaxationType == TaxationType.Inclusive
+            ? Inclusive(amount, rate1, rate2, tax.Tax2Compound, rounding)
+            : Exclusive(amount, rate1, rate2, tax.Tax2Compound, rounding);
+    }
+
+    /// <summary>Tax is added on top of the amount. The North American default (guide p.77).</summary>
+    private static TaxAmounts Exclusive(decimal net, decimal rate1, decimal rate2, bool compound, MoneyRounding rounding)
+    {
+        var tax1 = rounding.Round(net * rate1);
+        var base2 = compound ? net + tax1 : net;
+        var tax2 = rounding.Round(base2 * rate2);
+
+        return new TaxAmounts(tax1, tax2, net);
     }
 
     /// <summary>
-    /// Rounds a tax amount using AwayFromZero at 2dp (retail convention, doc 04 §4).
-    /// Applied once per line per tax, never on the running total.
+    /// The sticker price already contains the tax, so the engine back-solves the net (guide p.77).
+    /// A compound tax 2 divides by the product of the two rates rather than by their sum.
     /// </summary>
-    private static decimal RoundTax(decimal amount)
-        => decimal.Round(amount, 2, MidpointRounding.AwayFromZero);
+    private static TaxAmounts Inclusive(decimal gross, decimal rate1, decimal rate2, bool compound, MoneyRounding rounding)
+    {
+        var divisor = compound
+            ? (1m + rate1) * (1m + rate2)
+            : 1m + rate1 + rate2;
+
+        if (divisor <= 0m)
+        {
+            return new TaxAmounts(0m, 0m, gross);
+        }
+
+        var net = gross / divisor;
+        var tax1 = rounding.Round(net * rate1);
+        var base2 = compound ? net + tax1 : net;
+        var tax2 = rounding.Round(base2 * rate2);
+
+        // The net absorbs the residue so that net + tax1 + tax2 reproduces the shelf price exactly.
+        return new TaxAmounts(tax1, tax2, rounding.Round(gross) - tax1 - tax2);
+    }
 }

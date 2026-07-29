@@ -1,0 +1,36 @@
+{
+  "name": "Taxable percentage add-on charge",
+  "source": "User Guide p.76-77",
+  "description": "A 3% service charge on the discounted subtotal, itself subject to both taxes. The charge is taxed once at sale level rather than smeared across the lines, so the figure on the receipt is the figure that was calculated.",
+  "context": {
+    "businessDate": "2026-07-28",
+    "tax": {
+      "tax1Enabled": true, "tax1Name": "GST", "tax1Rate": 5,
+      "tax2Enabled": true, "tax2Name": "PST", "tax2Rate": 7,
+      "tax2Compound": false,
+      "addOnChargeEnabled": true, "addOnChargeName": "Service", "addOnChargeRate": 3, "addOnChargeTaxable": true,
+      "inclusive": false
+    },
+    "policy": { "applyAddOnCharge": true },
+    "customer": null,
+    "loyalty": null,
+    "saleTaxOverride": null,
+    "rounding": null
+  },
+  "lines": [
+    { "stockCode": "MEAL01", "name": "Prepared meal", "regularPrice": 100.00, "quantity": 1 }
+  ],
+  "adjustments": [],
+  "expected": {
+    "subtotal": 100.00,
+    "adjustmentTotal": 0,
+    "discountedSubtotal": 100.00,
+    "addOnCharge": 3.00,
+    "tax1Total": 5.15,
+    "tax2Total": 7.21,
+    "grandTotal": 115.36,
+    "lines": [
+      { "unitPrice": 100.00, "chargeableQuantity": 1, "lineNet": 100.00, "tax1Amount": 5.00, "tax2Amount": 7.00, "priceOrigin": "Regular" }
+    ]
+  }
+}

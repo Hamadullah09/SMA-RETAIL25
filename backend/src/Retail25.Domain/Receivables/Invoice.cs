@@ -15,7 +15,7 @@ public enum InvoiceStatus
 /// </summary>
 public sealed class Invoice : AggregateRoot, IAuditable
 {
-    private Invoice()
+    public Invoice()
     {
     }
 

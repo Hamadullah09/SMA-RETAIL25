@@ -1,3 +1,4 @@
+using System.Globalization;
 using Retail25.Domain.Common;
 
 namespace Retail25.Domain.Terminals;
@@ -11,16 +12,38 @@ public enum ReaderProtocol
 }
 
 /// <summary>
-/// RFID reader configuration (doc 06). Antenna zones, RSSI thresholds and debounce windows
-/// are all database rows, not code.
+/// What an antenna is pointed at. Only <see cref="Checkout"/> antennas may put items in a cart —
+/// this single distinction is the first and cheapest defence against reading the shelf behind the
+/// till (doc 06 §2).
 /// </summary>
-public sealed class ReaderProfile : Entity, IAuditable
+public enum AntennaZone
 {
-    private ReaderProfile()
+    Unassigned = 0,
+    Checkout = 1,
+    Exit = 2,
+    Receiving = 3,
+    Shelf = 4,
+}
+
+/// <summary>
+/// How a reader is reached and how sceptical to be about what it reports (doc 06 §2).
+/// <para>
+/// Bulk RFID at a checkout desk reads things nobody intended to sell. Every control that keeps those
+/// reads out of the cart — zoning, an RSSI floor, a read-count floor, the debounce window — is a
+/// column here rather than a constant, because the right values differ per store and per antenna
+/// mount and are discovered by trial on site.
+/// </para>
+/// </summary>
+public sealed class ReaderProfile : Entity, IAuditable, IStationScopedProfile
+{
+    public ReaderProfile()
     {
     }
 
     public Guid LocationId { get; set; }
+
+    /// <summary>Null means the profile is shared by the location; set means it belongs to one station.</summary>
+    public Guid? StationId { get; set; }
 
     public string Name { get; set; } = "Default";
 
@@ -30,14 +53,37 @@ public sealed class ReaderProfile : Entity, IAuditable
 
     public ReaderProtocol Protocol { get; set; } = ReaderProtocol.Simulator;
 
-    /// <summary>JSON mapping of antenna numbers to zone names (Checkout, Exit, Receiving, Shelf).</summary>
-    public string? AntennaZonesJson { get; set; }
+    /// <summary>
+    /// Antenna-to-zone map, e.g. <c>1=Checkout;2=Checkout;3=Exit</c>. Kept as a string so an
+    /// administrator can edit it in the settings UI without a schema migration.
+    /// </summary>
+    public string AntennaZones { get; set; } = "1=Checkout";
 
-    /// <summary>Minimum RSSI in dBm for a tag to be accepted (doc 06 §2).</summary>
+    /// <summary>Tags quieter than this are ignored — a tag on the next shelf reads weaker than one in the basket.</summary>
     public int RssiThresholdDbm { get; set; } = -70;
 
-    /// <summary>Cross-station debounce window in milliseconds (doc 06 §2).</summary>
+    /// <summary>How many times a tag must be seen inside the window before it is believed.</summary>
+    public int MinimumReadCount { get; set; } = 2;
+
+    /// <summary>Cross-station arbitration window held in Redis (doc 06 §2).</summary>
     public int DebounceMs { get; set; } = 3000;
+
+    /// <summary>Agent-side coalescing window. Pure noise reduction; must not cost a round trip.</summary>
+    public int CoalesceMs { get; set; } = 250;
+
+    /// <summary>How often the agent ships a batch to the server.</summary>
+    public int FlushIntervalMs { get; set; } = 200;
+
+    public int MaxBatchSize { get; set; } = 50;
+
+    /// <summary>
+    /// When false the cashier confirms each batch before it is priced; when true tags land straight
+    /// on the cart. Stores with a well-shielded read zone turn this on (doc 06 §2 control 5).
+    /// </summary>
+    public bool AutoAcceptBatches { get; set; }
+
+    /// <summary>Read continuously, or only while the cashier holds the read open.</summary>
+    public bool ContinuousMode { get; set; }
 
     public bool IsActive { get; set; } = true;
 
@@ -48,4 +94,35 @@ public sealed class ReaderProfile : Entity, IAuditable
     public DateTimeOffset? ModifiedAt { get; set; }
 
     public Guid? ModifiedBy { get; set; }
+
+    /// <summary>Parses the antenna map. An unlisted antenna is <see cref="AntennaZone.Unassigned"/> and feeds nothing.</summary>
+    public AntennaZone ZoneFor(int antenna)
+    {
+        foreach (var pair in AntennaZones.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var parts = pair.Split('=', 2);
+            if (parts.Length != 2)
+            {
+                continue;
+            }
+
+            if (!int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) || number != antenna)
+            {
+                continue;
+            }
+
+            return Enum.TryParse<AntennaZone>(parts[1], ignoreCase: true, out var zone) ? zone : AntennaZone.Unassigned;
+        }
+
+        return AntennaZone.Unassigned;
+    }
+
+    public bool IsCheckoutAntenna(int antenna) => ZoneFor(antenna) == AntennaZone.Checkout;
+
+    /// <summary>Applies the local pre-filter: right zone, loud enough, seen often enough (doc 06 §2).</summary>
+    public bool Accepts(int antenna, int rssiDbm, int readCount)
+        => IsCheckoutAntenna(antenna) && rssiDbm >= RssiThresholdDbm && readCount >= MinimumReadCount;
+
+    public static ReaderProfile CreateDefault(Guid locationId, string name = "Default")
+        => new() { LocationId = locationId, Name = name };
 }
