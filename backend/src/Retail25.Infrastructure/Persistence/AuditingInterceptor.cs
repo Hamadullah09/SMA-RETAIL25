@@ -31,11 +31,12 @@ public sealed class AuditingInterceptor : SaveChangesInterceptor
         "SalesTransaction", "SaleLine", "SaleTender",
         "StockLevel", "StockLedgerEntry", "StockTransfer", "StockCount",
         "TaxConfiguration", "PosPolicy", "PricingRuleSetting", "TenderType", "Currency",
-        "Invoice", "InvoicePayment", "ARLedgerEntry", "GiftCertificate",
+        "Invoice", "InvoicePayment", "ARLedgerEntry", "GiftCertificate", "GiftCard", "LateChargePolicy",
         "CustomerAccount", "LoyaltyLedgerEntry",
         "DrawerSession", "DrawerLedgerEntry",
         "StaffProfile", "RolePermission", "Permission",
         "SerializedUnit", "Station", "ReaderProfile", "PrinterProfile",
+        "PurchaseOrder", "PurchaseOrderLine", "PurchaseOrderReceipt",
     };
 
     /// <summary>Columns never written to an audit diff, whatever entity they appear on.</summary>

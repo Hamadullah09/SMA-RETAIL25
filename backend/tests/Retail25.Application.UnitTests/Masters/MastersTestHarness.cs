@@ -4,12 +4,17 @@ using Retail25.Application.Abstractions;
 using Retail25.Application.Catalog;
 using Retail25.Application.Common;
 using Retail25.Application.Customers;
+using Retail25.Application.Inventory;
+using Retail25.Application.Loyalty;
 using Retail25.Application.Purchasing;
+using Retail25.Application.Receivables;
 using Retail25.Application.Settings;
 using Retail25.Application.UnitTests.Carts;
 using Retail25.Domain.Catalog;
 using Retail25.Domain.Configuration;
+using Retail25.Domain.Customers;
 using Retail25.Domain.Purchasing;
+using Retail25.Domain.Receivables;
 using Retail25.Domain.Terminals;
 using Retail25.Domain.ValueObjects;
 using Retail25.Infrastructure.Persistence;
@@ -37,6 +42,12 @@ internal sealed class MastersTestHarness : IDisposable
         CustomerBrowse = new CustomerBrowseHandlers(db);
         Customers = new CustomerCommandHandlers(db, Notifier, Sequences);
         Suppliers = new SupplierHandlers(db, Notifier, Sequences);
+        CurrentUser = new TestCurrentUser();
+        PurchaseOrders = new PurchaseOrderHandlers(db, Sequences, Notifier, Clock, CurrentUser);
+        Inventory = new InventoryHandlers(db, Notifier, CurrentUser, Clock);
+        Receivables = new ReceivablesHandlers(db, Clock);
+        GiftCards = new GiftCardHandlers(db, Clock);
+        Loyalty = new LoyaltyHandlers(db, Clock);
         Settings = new SettingsQueryHandler(db, Clock);
         SettingsCommands = new SettingsCommandHandlers(db, Notifier, Sequences, Clock);
         Hardware = new HardwareSettingsHandlers(db, Notifier, Terminals, Clock);
@@ -70,6 +81,18 @@ internal sealed class MastersTestHarness : IDisposable
     public CustomerCommandHandlers Customers { get; }
 
     public SupplierHandlers Suppliers { get; }
+
+    public TestCurrentUser CurrentUser { get; }
+
+    public PurchaseOrderHandlers PurchaseOrders { get; }
+
+    public InventoryHandlers Inventory { get; }
+
+    public ReceivablesHandlers Receivables { get; }
+
+    public GiftCardHandlers GiftCards { get; }
+
+    public LoyaltyHandlers Loyalty { get; }
 
     public SettingsQueryHandler Settings { get; }
 
@@ -165,6 +188,16 @@ internal sealed class MastersTestHarness : IDisposable
         return supplier;
     }
 
+    public async Task<ProductSupplier> AddProductSupplierAsync(
+        Product product, Supplier supplier, int rank, decimal cost, decimal caseQty = 0m)
+    {
+        var link = ProductSupplier.Create(product.Id, supplier.Id, rank, cost).Value;
+        link.Update(rank, cost, reorderNumber: null, caseQty, minimumOrderQty: 0m);
+        Db.ProductSuppliers.Add(link);
+        await Db.SaveChangesAsync();
+        return link;
+    }
+
     public async Task<TenderType> AddTenderAsync(string code, string name, TenderBehaviour behaviour)
     {
         var tender = TenderType.Create(code, name, behaviour, 10).Value;
@@ -179,6 +212,60 @@ internal sealed class MastersTestHarness : IDisposable
         Db.Stations.Add(station);
         await Db.SaveChangesAsync();
         return station;
+    }
+
+    public async Task<(Customer Customer, CustomerAccount Account)> AddCustomerWithAccountAsync(
+        string firstName, string lastName, decimal creditLimit = 0m)
+    {
+        var customer = Customer.Create(Location.Id, DateTime.UtcNow.Ticks, firstName, lastName).Value;
+        Db.Customers.Add(customer);
+
+        var account = CustomerAccount.Create(customer.Id, DateTime.UtcNow.Ticks, creditLimit);
+        Db.CustomerAccounts.Add(account);
+
+        await Db.SaveChangesAsync();
+        return (customer, account);
+    }
+
+    public async Task<Invoice> AddInvoiceAsync(
+        Guid customerId, decimal invoiceTotal, DateOnly issuedOn, DateOnly dueOn, decimal penaltyAccrued = 0m)
+    {
+        var invoice = new Invoice
+        {
+            InvoiceNumber = DateTime.UtcNow.Ticks,
+            CustomerId = customerId,
+            TransactionId = Guid.NewGuid(),
+            IssuedOn = issuedOn,
+            DueOn = dueOn,
+            InvoiceTotal = invoiceTotal,
+            BalanceDue = invoiceTotal,
+            PenaltyAccrued = penaltyAccrued,
+            Status = InvoiceStatus.Open,
+            StaffId = Guid.NewGuid(),
+            CreatedAt = Clock.Now,
+        };
+
+        Db.Invoices.Add(invoice);
+
+        Db.ARLedgerEntries.Add(new ARLedgerEntry
+        {
+            CustomerId = customerId,
+            InvoiceId = invoice.Id,
+            EntryType = AREntryType.Charge,
+            Amount = invoiceTotal,
+            OccurredAt = Clock.Now,
+        });
+
+        // Mirrors production's ApplyOnAccountAsync: the charge that creates an invoice also raises
+        // the account's running balance, not just the invoice's own.
+        var account = await Db.CustomerAccounts.FirstOrDefaultAsync(a => a.CustomerId == customerId);
+        if (account is not null)
+        {
+            account.BalanceDue += invoiceTotal;
+        }
+
+        await Db.SaveChangesAsync();
+        return invoice;
     }
 
     public static CustomerIdentitySection Person(string first, string last, string? company = null)

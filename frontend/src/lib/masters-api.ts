@@ -23,6 +23,19 @@ import type {
   SupplierForm,
   SupplierRow,
   SupplierSort,
+  OrderQuantityStrategy,
+  PurchaseOrderDetail,
+  PurchaseOrderRow,
+  PurchaseOrderStatus,
+  StockLevelRow,
+  CustomerAccountRow,
+  CustomerStatement,
+  ReceivablesAgingRow,
+  InvoiceRow,
+  GiftCard,
+  LoyaltyPolicy,
+  LoyaltyBalance,
+  LoyaltyLedgerEntryRow,
 } from '@/types/masters';
 
 /**
@@ -97,6 +110,27 @@ export interface SupplierBrowseFilters {
   deletedOnly?: boolean;
   sort?: SupplierSort;
   descending?: boolean;
+  cursor?: string;
+  pageSize?: number;
+}
+
+export interface CustomerAccountBrowseFilters {
+  search?: string;
+  withBalanceOnly?: boolean;
+  cursor?: string;
+  pageSize?: number;
+}
+
+export interface StockLevelBrowseFilters {
+  search?: string;
+  belowReorderOnly?: boolean;
+  cursor?: string;
+  pageSize?: number;
+}
+
+export interface PurchaseOrderBrowseFilters {
+  supplierId?: string;
+  status?: PurchaseOrderStatus;
   cursor?: string;
   pageSize?: number;
 }
@@ -194,6 +228,87 @@ export const mastersApi = {
     remove: (id: string) => call<void>(() => apiClient.delete(`/suppliers/${id}`)),
 
     restore: (id: string) => call<void>(() => apiClient.post(`/suppliers/${id}/restore`)),
+  },
+
+  purchaseOrders: {
+    browse: (locationId: string, filters: PurchaseOrderBrowseFilters = {}) =>
+      call<CursorPage<PurchaseOrderRow>>(() => apiClient.get(`/purchase-orders?${query({ locationId, ...filters })}`)),
+
+    get: (id: string) => call<PurchaseOrderDetail>(() => apiClient.get(`/purchase-orders/${id}`)),
+
+    generate: (locationId: string, supplierId: string, strategy: OrderQuantityStrategy) =>
+      call<PurchaseOrderDetail>(() => apiClient.post('/purchase-orders/generate', { locationId, supplierId, strategy })),
+
+    addLine: (purchaseOrderId: string, body: { productId: string; orderQty: number; costEach: number; caseQty: number }) =>
+      call<PurchaseOrderDetail>(() => apiClient.post(`/purchase-orders/${purchaseOrderId}/lines`, body)),
+
+    updateLine: (lineId: string, body: { orderQty: number; costEach: number }) =>
+      call<PurchaseOrderDetail>(() => apiClient.put(`/purchase-orders/lines/${lineId}`, body)),
+
+    removeLine: (lineId: string) => call<PurchaseOrderDetail>(() => apiClient.delete(`/purchase-orders/lines/${lineId}`)),
+
+    post: (id: string) => call<PurchaseOrderDetail>(() => apiClient.post(`/purchase-orders/${id}/post`)),
+
+    receive: (
+      id: string,
+      body: { receivedOn: string; freightTotal: number; lines: { lineId: string; qtyReceived: number }[] },
+    ) => call<PurchaseOrderDetail>(() => apiClient.post(`/purchase-orders/${id}/receive`, body)),
+
+    cancel: (id: string) => call<PurchaseOrderDetail>(() => apiClient.post(`/purchase-orders/${id}/cancel`)),
+  },
+
+  inventory: {
+    stockLevels: (locationId: string, filters: StockLevelBrowseFilters = {}) =>
+      call<CursorPage<StockLevelRow>>(() => apiClient.get(`/inventory/stock-levels?${query({ locationId, ...filters })}`)),
+
+    receive: (body: { productId: string; locationId: string; quantity: number; unitCost: number }) =>
+      call<StockLevelRow>(() => apiClient.post('/inventory/receive', body)),
+
+    adjust: (body: { productId: string; locationId: string; quantityDelta: number; reason: string }) =>
+      call<StockLevelRow>(() => apiClient.post('/inventory/adjust', body)),
+
+    breakCase: (body: { parentProductId: string; locationId: string; casesToBreak: number }) =>
+      call<void>(() => apiClient.post('/inventory/case-break', body)),
+  },
+
+  receivables: {
+    browseAccounts: (locationId: string, filters: CustomerAccountBrowseFilters = {}) =>
+      call<CursorPage<CustomerAccountRow>>(() => apiClient.get(`/receivables/accounts?${query({ locationId, ...filters })}`)),
+
+    statement: (customerId: string) =>
+      call<CustomerStatement>(() => apiClient.get(`/receivables/customers/${customerId}/statement`)),
+
+    aging: (locationId: string) =>
+      call<ReceivablesAgingRow[]>(() => apiClient.get(`/receivables/aging?${query({ locationId })}`)),
+
+    takePayment: (body: { customerId: string; amount: number; tenderTypeId: string; reference?: string }) =>
+      call<{ amountApplied: number; amountUnapplied: number }>(() => apiClient.post('/receivables/payments', body)),
+
+    voidInvoice: (invoiceId: string, reason?: string) =>
+      call<InvoiceRow>(() => apiClient.post(`/receivables/invoices/${invoiceId}/void`, { reason })),
+
+    refundInvoice: (invoiceId: string, amount: number, reason?: string) =>
+      call<InvoiceRow>(() => apiClient.post(`/receivables/invoices/${invoiceId}/refund`, { amount, reason })),
+  },
+
+  giftCards: {
+    issue: (body: { value: number; serialNumber?: string; customerId?: string; expiresOn?: string }) =>
+      call<GiftCard>(() => apiClient.post('/gift-cards', body)),
+
+    balance: (serialNumber: string) => call<GiftCard>(() => apiClient.get(`/gift-cards/${encodeURIComponent(serialNumber)}`)),
+  },
+
+  loyalty: {
+    getPolicy: (locationId: string) => call<LoyaltyPolicy>(() => apiClient.get(`/loyalty/policy?${query({ locationId })}`)),
+
+    savePolicy: (policy: LoyaltyPolicy) => call<LoyaltyPolicy>(() => apiClient.put('/loyalty/policy', policy)),
+
+    balance: (customerId: string) => call<LoyaltyBalance>(() => apiClient.get(`/loyalty/customers/${customerId}/balance`)),
+
+    ledger: (customerId: string) => call<LoyaltyLedgerEntryRow[]>(() => apiClient.get(`/loyalty/customers/${customerId}/ledger`)),
+
+    adjust: (customerId: string, pointsDelta: number, reason: string) =>
+      call<LoyaltyBalance>(() => apiClient.post(`/loyalty/customers/${customerId}/adjust`, { pointsDelta, reason })),
   },
 
   deleted: {

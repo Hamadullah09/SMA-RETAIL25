@@ -187,6 +187,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         await ApplySerializedUnitsAsync(snapshot, ct);
         await ApplyLoyaltyAsync(transaction, snapshot, pricing, context, now, ct);
         await ApplyGiftCertificatesAsync(snapshot, settled, tenderTypes, ct);
+        await ApplyGiftCardsAsync(settled, tenderTypes, ct);
 
         var invoiceResult = await ApplyOnAccountAsync(transaction, settled, tenderTypes, context, now, ct);
         if (invoiceResult.IsFailure)
@@ -615,6 +616,26 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         // Any certificate the cashier recorded as an adjustment is traceability only; the money
         // moves through the tender above.
         await Task.CompletedTask;
+    }
+
+    /// <summary>Spends a gift card's stored value by the tendered amount, mirroring the gift-certificate tender above.</summary>
+    private async Task ApplyGiftCardsAsync(
+        TenderSettlement settlement,
+        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        CancellationToken ct)
+    {
+        foreach (var tender in settlement.Tenders)
+        {
+            if (tenderTypes[tender.TenderTypeId].Behaviour != TenderBehaviour.GiftCard
+                || string.IsNullOrWhiteSpace(tender.Reference))
+            {
+                continue;
+            }
+
+            var serial = tender.Reference.Trim().ToUpperInvariant();
+            var card = await _db.GiftCards.FirstOrDefaultAsync(g => g.SerialNumber == serial, ct);
+            card?.Redeem(tender.Amount);
+        }
     }
 
     /// <summary>

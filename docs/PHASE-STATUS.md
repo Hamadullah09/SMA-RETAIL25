@@ -144,8 +144,11 @@ story.
 ## Standing limitations (named, not hidden)
 
 1. **No hardware-in-the-loop trial.** The LLRP client is written to the 1.0.1 specification and
-   tested against specification-derived bytes; no physical reader has been attached. Doc 06's risk
-   register calls for a field trial before rollout. This is an operational step, not missing code.
+   tested against specification-derived bytes; the R2000-family `UhfSerial` client (D2184B and
+   relatives) is likewise written to the vendor's protocol spec and cross-checked against their own
+   reference C# source, with unit tests built from hand-derived wire bytes — neither has had a
+   physical reader attached. Doc 06's risk register calls for a field trial before rollout. This is
+   an operational step, not missing code.
 2. **The E2E specs need a live stack.** They are wired into CI's `e2e` job; on this machine they run
    only when Docker Desktop is up and the stack is started.
 3. **Agent auto-update is not built** (doc 06 §7 names it; the roadmap's Phase 4 build list does not).

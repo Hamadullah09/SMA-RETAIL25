@@ -8,7 +8,7 @@ namespace Retail25.Domain.Receivables;
 /// </summary>
 public sealed class InvoicePayment : Entity, IAuditable
 {
-    private InvoicePayment()
+    public InvoicePayment()
     {
     }
 

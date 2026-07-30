@@ -72,6 +72,7 @@ public class ApplicationDbContext
     public DbSet<InvoicePayment> InvoicePayments => Set<InvoicePayment>();
     public DbSet<ARLedgerEntry> ARLedgerEntries => Set<ARLedgerEntry>();
     public DbSet<GiftCertificate> GiftCertificates => Set<GiftCertificate>();
+    public DbSet<GiftCard> GiftCards => Set<GiftCard>();
 
     // --- Inventory ---
     public DbSet<StockLevel> StockLevels => Set<StockLevel>();

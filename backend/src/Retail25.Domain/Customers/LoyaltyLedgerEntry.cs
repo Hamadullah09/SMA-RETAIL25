@@ -65,4 +65,19 @@ public sealed class LoyaltyLedgerEntry : Entity
             OccurredAt = at,
         };
     }
+
+    /// <summary>
+    /// A supervisor's manual correction — a goodwill grant, a fix for a miscounted sale. Signed:
+    /// positive to grant, negative to take back.
+    /// </summary>
+    public static LoyaltyLedgerEntry Manual(Guid customerId, int points, DateTimeOffset at)
+    {
+        return new LoyaltyLedgerEntry
+        {
+            CustomerId = customerId,
+            EntryType = LoyaltyEntryType.Manual,
+            Points = points,
+            OccurredAt = at,
+        };
+    }
 }

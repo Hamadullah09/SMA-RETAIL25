@@ -183,6 +183,7 @@ public sealed class RfidReaderService : BackgroundService
         return protocol switch
         {
             ReaderProtocol.Llrp => ActivatorUtilities.CreateInstance<LlrpRfidReader>(_services),
+            ReaderProtocol.UhfSerial => ActivatorUtilities.CreateInstance<UhfSerialRfidReader>(_services),
             _ => ActivatorUtilities.CreateInstance<SimulatedRfidReader>(_services),
         };
     }

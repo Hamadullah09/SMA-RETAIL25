@@ -1,3 +1,5 @@
+using Hangfire;
+using Hangfire.PostgreSql;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -6,6 +8,7 @@ using Retail25.Application.Abstractions;
 using Retail25.Application.Behaviors;
 using Retail25.Infrastructure.Caching;
 using Retail25.Infrastructure.Identity;
+using Retail25.Infrastructure.Jobs;
 using Retail25.Infrastructure.Persistence;
 using Retail25.Infrastructure.Realtime;
 using Retail25.Infrastructure.Services;
@@ -57,8 +60,28 @@ public static class DependencyInjection
         services.AddScoped<IPaymentGateway, SimulatorPaymentGateway>();
 
         services.AddScoped<DatabaseSeeder>();
+        services.AddScoped<LateChargeAccrualJob>();
+
+        AddHangfire(services, configuration);
 
         return services;
+    }
+
+    /// <summary>
+    /// The store for the late-charge recurring job (doc: <c>LateChargePolicy</c>, "applied by a
+    /// nightly Hangfire job"). Same Postgres database as everything else — a second datastore for one
+    /// job's bookkeeping would be a second thing that can be down.
+    /// </summary>
+    private static void AddHangfire(IServiceCollection services, IConfiguration configuration)
+    {
+        services.AddHangfire(config => config
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UsePostgreSqlStorage(options =>
+                options.UseNpgsqlConnection(configuration.GetConnectionString("DefaultConnection"))));
+
+        services.AddHangfireServer();
     }
 
     private static void AddRedis(IServiceCollection services, IConfiguration configuration)

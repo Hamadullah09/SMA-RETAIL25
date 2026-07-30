@@ -85,6 +85,54 @@ public sealed class CompleteSaleTests
         tenders.Should().Contain(t => t.Behaviour == TenderBehaviour.Card && t.AuthCode != null);
     }
 
+    /// <summary>Stage 4: a gift-card tender spends the card's stored value, mirroring how a gift certificate already does.</summary>
+    [Fact]
+    public async Task A_gift_card_tender_redeems_the_cards_stored_value()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        await harness.AddProductAsync("POLO01", "Columbia polo", 49.99m);
+        var cart = await fixture.RingAsync("POLO01");
+
+        var card = Domain.Receivables.GiftCard.Issue(
+            "TESTCARD1", 100m, DateOnly.FromDateTime(harness.Clock.Now.DateTime), null, null).Value;
+        card.CreatedAt = harness.Clock.Now;
+        harness.Db.GiftCards.Add(card);
+        await harness.Db.SaveChangesAsync();
+
+        var result = await fixture.CompleteAsync(cart.Id, [fixture.GiftCard(55.99m, "TESTCARD1")]);
+
+        result.IsSuccess.Should().BeTrue();
+
+        var refreshed = await harness.Db.GiftCards.SingleAsync();
+        refreshed.RemainingValue.Should().Be(44.01m);
+        refreshed.IsActive.Should().BeTrue();
+    }
+
+    /// <summary>A gift card spent down to zero deactivates — the same rule <c>GiftCard.Redeem</c> enforces standalone.</summary>
+    [Fact]
+    public async Task A_gift_card_spent_to_zero_becomes_inactive()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        await harness.AddProductAsync("POLO01", "Columbia polo", 49.99m);
+        var cart = await fixture.RingAsync("POLO01");
+
+        var card = Domain.Receivables.GiftCard.Issue(
+            "TESTCARD2", 55.99m, DateOnly.FromDateTime(harness.Clock.Now.DateTime), null, null).Value;
+        card.CreatedAt = harness.Clock.Now;
+        harness.Db.GiftCards.Add(card);
+        await harness.Db.SaveChangesAsync();
+
+        await fixture.CompleteAsync(cart.Id, [fixture.GiftCard(55.99m, "TESTCARD2")]);
+
+        var refreshed = await harness.Db.GiftCards.SingleAsync();
+        refreshed.RemainingValue.Should().Be(0m);
+        refreshed.IsActive.Should().BeFalse();
+    }
+
     [Fact]
     public async Task A_short_payment_is_refused_rather_than_half_completing_the_sale()
     {
@@ -273,6 +321,8 @@ public sealed class CompleteSaleTests
 
         public TenderType CardTender { get; private set; } = null!;
 
+        public TenderType GiftCardTender { get; private set; } = null!;
+
         public ISequenceGenerator Sequences { get; private set; } = null!;
 
         public CompleteSaleHandler Complete { get; private set; } = null!;
@@ -288,6 +338,7 @@ public sealed class CompleteSaleTests
             {
                 CashTender = await harness.AddTenderAsync("CASH", "Cash", TenderBehaviour.Cash),
                 CardTender = await harness.AddTenderAsync("CREDIT", "Credit", TenderBehaviour.Card),
+                GiftCardTender = await harness.AddTenderAsync("GIFTCARD", "Gift Card", TenderBehaviour.GiftCard),
                 Sequences = new CountingSequenceGenerator(),
             };
 
@@ -337,6 +388,8 @@ public sealed class CompleteSaleTests
         public TenderRequest Cash(decimal amount, decimal tendered) => new(CashTender.Id, amount, tendered);
 
         public TenderRequest Card(decimal amount) => new(CardTender.Id, amount, amount, CardToken: "4111111111114242");
+
+        public TenderRequest GiftCard(decimal amount, string serial) => new(GiftCardTender.Id, amount, amount, Reference: serial);
     }
 
 }

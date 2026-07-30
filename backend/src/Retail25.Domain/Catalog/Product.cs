@@ -254,6 +254,20 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
         RecalculateMargin();
     }
 
+    /// <summary>
+    /// Applies a purchase-order receipt (guide p.67–68): moves stock, works off the on-order
+    /// quantity and rolls the moving-average cost. The average has to be recalculated before
+    /// <see cref="OnHand"/> moves — the formula's "onHand" term is the quantity <i>before</i> this
+    /// receipt, not after.
+    /// </summary>
+    public void ReceiveStock(decimal quantityReceived, decimal unitCost, decimal allocatedFreight)
+    {
+        RecalculateAvgCost(quantityReceived, unitCost, allocatedFreight);
+        OnHand += quantityReceived;
+        OnOrder = Math.Max(0m, OnOrder - quantityReceived);
+        LastCost = unitCost;
+    }
+
     private void RecalculateMargin()
     {
         GrossMarginPct = RegularPrice > 0

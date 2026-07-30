@@ -28,7 +28,7 @@ public enum OrderQuantityStrategy
 /// </summary>
 public sealed class PurchaseOrder : AggregateRoot, IAuditable
 {
-    private PurchaseOrder()
+    public PurchaseOrder()
     {
     }
 

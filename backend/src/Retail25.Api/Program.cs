@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using Hangfire;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ using Retail25.Api.Common;
 using Retail25.Application;
 using Retail25.Infrastructure;
 using Retail25.Infrastructure.Identity;
+using Retail25.Infrastructure.Jobs;
 using Retail25.Infrastructure.Persistence;
 using Retail25.Infrastructure.Realtime;
 using Serilog;
@@ -232,6 +234,13 @@ app.MapControllers().RequireRateLimiting("lookup");
 app.MapHub<PosHub>("/hubs/pos");
 app.MapHub<InventoryHub>("/hubs/inventory");
 app.MapHub<TerminalHub>("/hubs/terminal");
+
+// Nightly late-charge accrual (LateChargePolicy: "applied by a nightly Hangfire job"). 2am local —
+// after the day's trading has closed everywhere this deployment plausibly serves, before the next.
+RecurringJob.AddOrUpdate<LateChargeAccrualJob>(
+    "late-charge-accrual",
+    job => job.RunAsync(CancellationToken.None),
+    "0 2 * * *");
 
 await app.RunAsync();
 

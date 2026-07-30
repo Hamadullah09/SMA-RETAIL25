@@ -60,6 +60,7 @@ public interface IApplicationDbContext
     DbSet<InvoicePayment> InvoicePayments { get; }
     DbSet<ARLedgerEntry> ARLedgerEntries { get; }
     DbSet<GiftCertificate> GiftCertificates { get; }
+    DbSet<GiftCard> GiftCards { get; }
 
     // --- Inventory ---
     DbSet<StockLevel> StockLevels { get; }

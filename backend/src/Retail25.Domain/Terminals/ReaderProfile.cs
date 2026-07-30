@@ -9,6 +9,13 @@ public enum ReaderProtocol
     Http = 1,
     Mqtt = 2,
     Simulator = 3,
+
+    /// <summary>
+    /// The R2000-family "UHF RFID Reader Serial Interface Protocol" (v3.1) spoken by devices such as
+    /// the D2184B over TCP — either the reader's own network interface, or a serial-to-Ethernet bridge
+    /// (e.g. an IPort module) in front of a unit wired via RS-232.
+    /// </summary>
+    UhfSerial = 4,
 }
 
 /// <summary>

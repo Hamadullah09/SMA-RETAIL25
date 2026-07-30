@@ -8,7 +8,7 @@ namespace Retail25.Domain.Receivables;
 /// </summary>
 public sealed class LateChargePolicy : AggregateRoot, IAuditable
 {
-    private LateChargePolicy()
+    public LateChargePolicy()
     {
     }
 

@@ -7,7 +7,7 @@ namespace Retail25.Domain.Purchasing;
 /// </summary>
 public sealed class PurchaseOrderLine : Entity, IAuditable
 {
-    private PurchaseOrderLine()
+    public PurchaseOrderLine()
     {
     }
 

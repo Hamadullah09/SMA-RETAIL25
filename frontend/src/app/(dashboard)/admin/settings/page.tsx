@@ -740,6 +740,7 @@ function HardwareTab({
               { value: 'Llrp', label: 'LLRP' },
               { value: 'Http', label: 'HTTP' },
               { value: 'Mqtt', label: 'MQTT' },
+              { value: 'UhfSerial', label: 'UHF Serial (D2184B and relatives)' },
               { value: 'Simulator', label: 'Simulator' },
             ]}
             onChange={(v) => patchReader(reader.id, { protocol: (v || 'Simulator') as ReaderSettings['protocol'] })}

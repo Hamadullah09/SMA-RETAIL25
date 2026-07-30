@@ -252,6 +252,181 @@ export interface SupplierForm {
   modifiedAt: string | null;
 }
 
+/** The six legacy PO quantity-calculation methods (guide p.64). */
+export type OrderQuantityStrategy =
+  | 'Blank'
+  | 'OneWeek'
+  | 'TwoWeeks'
+  | 'ReorderPointFixed'
+  | 'ReorderPointToBase'
+  | 'MonthlySales';
+
+export const orderQuantityStrategies: { value: OrderQuantityStrategy; label: string }[] = [
+  { value: 'Blank', label: 'Blank (manual entry)' },
+  { value: 'OneWeek', label: 'One week of sales' },
+  { value: 'TwoWeeks', label: 'Two weeks of sales' },
+  { value: 'ReorderPointFixed', label: 'Reorder point → fixed quantity' },
+  { value: 'ReorderPointToBase', label: 'Reorder point → base stock' },
+  { value: 'MonthlySales', label: 'Trailing monthly sales' },
+];
+
+export type PurchaseOrderStatus = 'Draft' | 'Posted' | 'PartiallyReceived' | 'Received' | 'Closed' | 'Cancelled';
+
+export interface PurchaseOrderRow {
+  id: string;
+  poNumber: number;
+  supplierId: string;
+  supplierCompany: string;
+  status: PurchaseOrderStatus;
+  quantityStrategy: OrderQuantityStrategy;
+  postedOn: string | null;
+  dueOn: string | null;
+  total: number;
+  lineCount: number;
+}
+
+export interface PurchaseOrderLineRow {
+  id: string;
+  productId: string;
+  stockCode: string;
+  productName: string;
+  orderQty: number;
+  caseQty: number;
+  costEach: number;
+  orderCost: number;
+  qtyReceived: number;
+  inStockAtGeneration: number;
+  onOrderAtGeneration: number;
+  backOrders: number;
+}
+
+export interface PurchaseOrderReceiptRow {
+  id: string;
+  receivedOn: string;
+  freightTotal: number;
+  staffId: string;
+}
+
+export type InvoiceStatus = 'Open' | 'Paid' | 'Void';
+
+export interface InvoiceRow {
+  id: string;
+  invoiceNumber: number;
+  issuedOn: string;
+  dueOn: string;
+  invoiceTotal: number;
+  penaltyAccrued: number;
+  balanceDue: number;
+  status: InvoiceStatus;
+  lastPaymentOn: string | null;
+}
+
+export interface CustomerAccountRow {
+  customerId: string;
+  accountNumber: number;
+  customerName: string;
+  creditLimit: number;
+  balanceDue: number;
+  openInvoiceCount: number;
+}
+
+export type AREntryType = 'Charge' | 'Payment' | 'LateCharge' | 'Refund' | 'Void' | 'Adjustment';
+
+export interface ArLedgerEntryRow {
+  id: string;
+  invoiceId: string;
+  entryType: AREntryType;
+  amount: number;
+  occurredAt: string;
+}
+
+export interface CustomerStatement {
+  customerId: string;
+  customerName: string;
+  accountNumber: number;
+  creditLimit: number;
+  balanceDue: number;
+  invoices: InvoiceRow[];
+  ledger: ArLedgerEntryRow[];
+}
+
+export interface GiftCard {
+  id: string;
+  serialNumber: string;
+  originalValue: number;
+  remainingValue: number;
+  issuedToCustomerId: string | null;
+  issuedOn: string;
+  expiresOn: string | null;
+  isActive: boolean;
+}
+
+export interface LoyaltyPolicy {
+  locationId: string;
+  isEnabled: boolean;
+  pointsPerDollar: number;
+  minimumRequired: number;
+  percentEnabled: boolean;
+  rewardPercent: number;
+  fixedEnabled: boolean;
+  rewardFixedAmount: number;
+  suppressIfSubtotalDiscountApplied: boolean;
+}
+
+export interface LoyaltyBalance {
+  customerId: string;
+  customerName: string;
+  rewardPoints: number;
+}
+
+export type LoyaltyEntryType = 'Earned' | 'Redeemed' | 'ReturnClawback' | 'Manual';
+
+export interface LoyaltyLedgerEntryRow {
+  id: string;
+  entryType: LoyaltyEntryType;
+  points: number;
+  occurredAt: string;
+}
+
+export interface ReceivablesAgingRow {
+  customerId: string;
+  customerName: string;
+  current: number;
+  days30: number;
+  days60: number;
+  days90Plus: number;
+  total: number;
+}
+
+export interface StockLevelRow {
+  id: string;
+  stockCode: string;
+  productName: string;
+  onHand: number;
+  onOrder: number;
+  committed: number;
+  available: number;
+  reorderPoint: number;
+  reorderQty: number;
+  avgCost: number;
+}
+
+export interface PurchaseOrderDetail {
+  id: string;
+  poNumber: number;
+  locationId: string;
+  supplierId: string;
+  supplierCompany: string;
+  status: PurchaseOrderStatus;
+  quantityStrategy: OrderQuantityStrategy;
+  headerText: string | null;
+  postedOn: string | null;
+  dueOn: string | null;
+  total: number;
+  lines: PurchaseOrderLineRow[];
+  receipts: PurchaseOrderReceiptRow[];
+}
+
 export type DeletedEntityKind = 'Product' | 'Customer' | 'Supplier' | 'Department' | 'Category';
 
 export interface DeletedRow {
@@ -402,7 +577,7 @@ export interface ReaderSettings {
   name: string;
   host: string;
   port: number;
-  protocol: 'Llrp' | 'Http' | 'Mqtt' | 'Simulator';
+  protocol: 'Llrp' | 'Http' | 'Mqtt' | 'Simulator' | 'UhfSerial';
   antennaZones: string;
   rssiThresholdDbm: number;
   minimumReadCount: number;
