@@ -1,9 +1,11 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenIddict.Abstractions;
+using OpenIddict.Validation.AspNetCore;
 using Retail25.Application.Abstractions;
 using Retail25.Infrastructure.Persistence;
 
@@ -39,6 +41,9 @@ public static class AuthConstants
 
 public static class IdentityRegistration
 {
+    /// <summary>The authorization policy hub classes use — see the registration below for why.</summary>
+    public const string HubAuthorizationPolicy = "HubTicket";
+
     /// <summary>
     /// ASP.NET Core Identity plus OpenIddict, configured for authorization code with PKCE and
     /// rotating refresh tokens (doc 07).
@@ -67,6 +72,14 @@ public static class IdentityRegistration
             })
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddDefaultTokenProviders();
+
+        // Without this, AddIdentity's own default UserClaimsPrincipalFactory is what actually runs —
+        // ApplicationClaimsPrincipalFactory below is fully implemented but inert unless it explicitly
+        // overrides the interface Identity resolves. Every permission, staff-id and location claim
+        // this app's authorization depends on came from this factory and only this factory; without
+        // this line CreateUserPrincipalAsync produced a principal with a name and role but no
+        // permission claims at all, so every [RequiresPermission] check saw an empty permission set.
+        services.AddScoped<IUserClaimsPrincipalFactory<ApplicationUser>, ApplicationClaimsPrincipalFactory>();
 
         // OpenIddict looks these up by its own claim names rather than Identity's defaults.
         services.Configure<IdentityOptions>(options =>
@@ -156,9 +169,40 @@ public static class IdentityRegistration
                 options.UseAspNetCore();
             });
 
+        // Every business controller carries a plain [Authorize], not [Authorize(AuthenticationSchemes
+        // = ...)]. AddIdentity's own AddAuthentication call sets the default authenticate/challenge
+        // scheme to the Identity cookie, so without this, an unadorned [Authorize] checks for that
+        // cookie — which a server-to-server Bearer call from the BFF never carries — and every API
+        // request gets redirected (302) to the login page instead of authenticated. This overrides
+        // only the default *authorization policy*'s scheme, not AddAuthentication's default, so the
+        // interactive sign-in page and /connect/authorize's own cookie challenge are unaffected.
+        services.AddAuthorization(options =>
+        {
+            options.DefaultPolicy = new AuthorizationPolicyBuilder(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
+                .RequireAuthenticatedUser()
+                .Build();
+
+            // Hub connections never carry a Bearer token — HubTicketMiddleware authenticates them by
+            // redeeming a single-use ticket and building the principal itself, entirely outside the
+            // scheme system, before the auth middleware runs. A policy naming a specific scheme makes
+            // AuthorizationMiddleware re-authenticate via that scheme and overwrite context.User with
+            // its (empty) result, discarding the ticket-built principal. This policy has no scheme
+            // constraint, so it accepts whatever HubTicketMiddleware already put on the context.
+            options.AddPolicy(HubAuthorizationPolicy, policy => policy.RequireAuthenticatedUser());
+        });
+
         services.AddScoped<IPinHasher, Argon2PinHasher>();
         services.AddScoped<IPermissionResolver, PermissionResolver>();
-        services.AddMemoryCache(options => options.SizeLimit = 10_000);
+
+        // The default IMemoryCache is also consumed by OpenIddict's internal scope/application/token
+        // caches, which call GetOrCreate without ever setting an entry Size — so it must stay
+        // unbounded. PermissionResolver gets its own sized, named instance instead of a SizeLimit on
+        // the shared one, which previously crashed every OpenIddict cache lookup on first use.
+        services.AddMemoryCache();
+        services.AddKeyedSingleton<Microsoft.Extensions.Caching.Memory.IMemoryCache>(
+            "permissions",
+            (_, _) => new Microsoft.Extensions.Caching.Memory.MemoryCache(
+                new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions { SizeLimit = 10_000 }));
 
         return services;
     }

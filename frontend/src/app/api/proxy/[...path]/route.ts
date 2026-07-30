@@ -25,6 +25,11 @@ const HOP_BY_HOP = new Set([
   'upgrade',
   'host',
   'content-length',
+  // fetch() transparently decompresses the response body, so forwarding the API's original
+  // Content-Encoding here would tell the browser to decode already-decoded bytes a second time —
+  // it works for small (uncompressed) error bodies and silently breaks on anything large enough
+  // to cross ASP.NET's compression threshold.
+  'content-encoding',
 ]);
 
 async function handle(request: NextRequest, path: string[]): Promise<NextResponse> {

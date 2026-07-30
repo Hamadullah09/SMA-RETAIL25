@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Retail25.Application.Abstractions;
+using Retail25.Infrastructure.Identity;
 
 namespace Retail25.Infrastructure.Realtime;
 
@@ -12,7 +13,7 @@ namespace Retail25.Infrastructure.Realtime;
 /// in the shop should see, such as a cart being suspended.
 /// </para>
 /// </summary>
-[Authorize]
+[Authorize(Policy = IdentityRegistration.HubAuthorizationPolicy)]
 public sealed class PosHub : Hub
 {
     private readonly ICartStore _cartStore;
@@ -80,7 +81,7 @@ public static class PosGroups
 /// browse windows go stale over a network (guide p.100–101): grids subscribe to their filter and
 /// receive row-level patches instead of polling.
 /// </summary>
-[Authorize]
+[Authorize(Policy = IdentityRegistration.HubAuthorizationPolicy)]
 public sealed class InventoryHub : Hub
 {
     public Task SubscribeToGrid(string entity, string filterHash)

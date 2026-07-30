@@ -12,8 +12,8 @@ audit found the gaps; this revision records them **closed**. What was fixed and 
 
 | | |
 |---|---|
-| **Phases 0–4** | **Complete** |
-| **Phase 5** | **Build complete** — every roadmap bullet has real, tested code; the phase's own live end-to-end scenario has not been run (see [Phase 5's live-verification gap](#phase-5s-live-verification-gap)) |
+| **Phases 0–4** | **Complete, and now live-verified end to end for the first time** — see [The live run, and what it found](#the-live-run-and-what-it-found) |
+| **Phase 5** | **Build complete**, live-verified for shell/browse screens; the phase's own PO-to-statement scenario has not yet been run with real data (see below) |
 | Overall programme | **~69% of phases 0–8** |
 | Backend | 260 source files, ~31,600 lines (plus tests and the generated migrations) |
 | Tests | 339 (66 domain · 176 application · 71 agent · 13 architecture · **13 integration against real PostgreSQL**) |
@@ -36,26 +36,60 @@ audit found the gaps; this revision records them **closed**. What was fixed and 
 | **7** Migration & cutover | DBF importer, CSV importers, reconciliation, runbook | ~5% | Project skeleton, plus the administered number sequences a migration writes into |
 | **8** Hardening | Load testing, HIL matrix, pen test, restore rehearsal | ~10% | The doc 07 hardening checklist is implemented |
 
-## Phase 5's live-verification gap
+## The live run, and what it found
 
-Phase 5 was built in the same session it is being reported in, and this session's Docker Desktop
-(and the WSL2 it depends on) was unavailable the entire time — confirmed via `wsl --status` itself
-failing, not just `docker compose`. That blocked the two things phases 0–4 both have and Phase 5
-does not:
+Docker Desktop (and the WSL2 it depends on) was unavailable for this entire session — confirmed via
+`wsl --status` itself failing, not just `docker compose up`. Rather than leave the live run undone
+again, the stack was brought up **without Docker**: the machine's native PostgreSQL 18 service
+(freshly provisioned with the `retail25` role and database the app expects), a portable Redis binary
+for Windows standing in for the compose service, and `dotnet run` / `npm run dev` in place of the two
+application containers. `deploy/docker-compose.yml` itself was not exercised — that remains untested
+on this machine — but the application code, for the first time this session, was.
 
-- **A live click-through.** Every phase 0–4 line item was clicked through in a running browser
-  against a real backend. Phase 5's screens (Purchasing, Inventory, Receivables, Orders & Layaways,
-  the item form's new Kit section) have not been — only unit-tested against an in-memory database.
-- **The stated exit criterion as one live run.** *"Raise a PO, receive it with freight, sell on
-  account, take a partial payment, accrue a late charge, print a statement"* — every step of this is
-  individually unit-tested (freight allocation into moving-average cost, penalty-before-principal
-  payment application, the late-charge job's grace-period math), but the full chain has not been run
-  end to end against a real Postgres.
+That run did not go straight to a working till. It surfaced **nine previously-undiscovered defects**,
+every one of them in the authentication chain, and every one severe enough that **no real login had
+ever actually completed against this codebase before today** — not through a browser, not through the
+BFF, not with a real OpenIddict token. `AuthorizationBehavior`, the MediatR pipeline behind every
+`[RequiresPermission]` command, was resolving its acting user's permission set as empty on every
+request, unconditionally, for every user, including the seeded administrator. A cart could not be
+created. A sale could not be completed. Nothing gated by a permission check could ever succeed. This
+is not a Phase 5 gap — the broken pieces are Phase 1 (identity/BFF) code, some of it untouched since
+that phase was first marked complete. See
+[Defects found in the first real login](#defects-found-in-the-first-real-login) for the full list and
+fixes; the short version is a chain of independent bugs that each individually blocked the whole
+flow, which is exactly why nothing upstream of them was ever able to prove they existed: a click-test
+against a broken login page never gets far enough to find the second bug, or the third.
 
-This is the same category of gap already named for phases 0–4's RFID readers ("no
-hardware-in-the-loop trial... an operational step, not missing code") — not a reason to distrust the
-logic, but a reason not to call Phase 5 done the way phases 0–4 are until it has had the same live
-pass they did.
+With all nine fixed, this is what was actually run live and confirmed working end to end, against the
+real Postgres-backed API, in a browser, with a real signed-in session:
+
+- Full sign-in: password → OpenIddict authorization code (PKCE/S256) → token exchange → BFF session
+  cookie → the browser landing on an authenticated POS screen.
+- The SignalR hub connection (`/hubs/pos`) negotiating, authenticating from a hub ticket, and
+  reporting **Server online** — previously permanently stuck on "Disconnected — reconnecting."
+- Live data round trips through the BFF proxy for the POS shell, the catalog/products browse grid,
+  and the purchasing/purchase-orders browse grid — all correctly reaching the backend, all correctly
+  permission-checked, all returning real (in this case empty, since no products were seeded) data
+  rather than a permission-denied or a redirect-to-login.
+
+What was **not** done: the Phase 5 exit criterion itself — *"raise a PO, receive it with freight, sell
+on account, take a partial payment, accrue a late charge, print a statement"* as one live scenario
+with real seeded data (a product, a supplier, a customer). Finding and fixing the authentication chain
+took the remainder of the session available for live verification. Every step of that scenario is
+still individually unit-tested against real business rules (11 PO tests, 12 receivables tests); the
+full chain has simply not yet been clicked through end to end the way phases 0–4's exit criteria have.
+
+### Which of the nine were environment-specific
+
+Three of the nine (all `__Host-`-prefixed cookies losing their required `Secure` attribute over plain
+HTTP) are specific to running without TLS — exactly this session's no-Docker, no-HTTPS setup. A
+Docker-based run terminating HTTPS at the edge would likely not have hit those three. The other six —
+the dead memory-cache crash, the static Hangfire API crash, the missing default authorization scheme,
+the never-registered claims factory, `CurrentUser` snapshotting an empty principal before
+authentication ran, and the wrong claim type for the user id — have nothing to do with HTTP vs. HTTPS
+or Docker vs. native. They would have blocked a real login exactly the same way inside
+`docker compose up`. Whatever verified Phase 1 as "✅ Login" previously did not exercise this exact
+path — a real browser, a real password, a real OpenIddict token, a real permission check — end to end.
 
 ## The audit and what it closed
 
@@ -208,7 +242,7 @@ caught before it shipped.
 | 0 | `dotnet test` green | ✅ 326 pass locally; 13 integration tests additionally pass wherever a Docker daemon runs |
 | 0 | A migration applies to a clean database | ✅ integration-tested, both fresh and repeat application |
 | 0 | CI passes on a PR | ✅ backend, frontend, e2e, containers jobs |
-| 1 | Login; no token in JS; 403; audit rows; `Ctrl+K` | ✅ all five, token-reachability asserted by E2E spec |
+| 1 | Login; no token in JS; 403; audit rows; `Ctrl+K` | ✅ token-reachability, 403 mapping and audit rows were already asserted by unit/E2E coverage; **a real end-to-end login was verified live for the first time this session**, after fixing nine defects that had silently blocked it — see [The live run, and what it found](#the-live-run-and-what-it-found) |
 | 2 | Catalog, taxes, stations configured end-to-end in UI | ✅ |
 | 2 | Grids update live across two sessions | ✅ mechanism unit-tested; two-context E2E spec runs in CI |
 | 3 | Cash sale, split tender, return, void — by keyboard | ✅ `CompleteSaleTests`, hotkey registry |
@@ -219,7 +253,7 @@ caught before it shipped.
 | 4 | Sold tag rejected with a reason | ✅ |
 | 4 | Drawer/printer/scale/pole from the UI | ✅ |
 | 4 | Reader outage red, manual entry works | ✅ |
-| 5 | Raise a PO, receive it with freight, sell on account, take a partial payment, accrue a late charge, print a statement | ⚠️ every step unit-tested individually (11 PO tests, 12 receivables tests) against real business rules; the full chain has not been run as one live scenario — see [Phase 5's live-verification gap](#phase-5s-live-verification-gap) |
+| 5 | Raise a PO, receive it with freight, sell on account, take a partial payment, accrue a late charge, print a statement | ⚠️ every step unit-tested individually (11 PO tests, 12 receivables tests) against real business rules; purchasing and receivables screens are now confirmed live-reachable (real login, real permission checks, real data round trip) but the full chain has not yet been run as one scenario with seeded data — see [The live run, and what it found](#the-live-run-and-what-it-found) |
 
 ## Standing limitations (named, not hidden)
 
@@ -244,6 +278,75 @@ caught before it shipped.
 6. **`RefundInvoiceCommand` reverses a payment on the ledger only** — it does not hand cash back
    through a tender or drawer. It is the AR bookkeeping half of a refund ("this invoice is owed
    again"), not the till-side cash-out half.
+
+## Defects found in the first real login
+
+Nine, found in sequence — each one hid the next, since a login that fails at step one never reaches
+step two. All are fixed and covered by the live run described above; none had a unit test that could
+have caught them, because unit tests construct their principals directly rather than living through
+this exact pipeline.
+
+1. **The shared `IMemoryCache` crashed on first use.** `IdentityRegistration` set a `SizeLimit` on the
+   default DI-registered `IMemoryCache`, which OpenIddict's own internal scope/application/token
+   caches also depend on — and those internal caches never set an entry `Size`, which .NET requires
+   once a limit exists. Every OpenIddict cache read threw. Fixed by giving the permission cache its
+   own dedicated, sized, keyed `IMemoryCache` instance instead of overloading the shared default one.
+2. **Hangfire's recurring-job registration used the static API against a DI-only setup.**
+   `RecurringJob.AddOrUpdate<T>()` reads a static `JobStorage.Current` that `services.AddHangfire(...)`
+   never sets — it only wires storage into the container. Crashed on every startup. Fixed by resolving
+   `IRecurringJobManager` from DI instead.
+3. **Three `__Host-`-prefixed cookies (`r25.identity`, `r25.antiforgery`, `r25.session`) could never
+   be set over plain HTTP.** The `__Host-` prefix requires the `Secure` attribute unconditionally;
+   ASP.NET Core's antiforgery middleware additionally throws outright if `SecurePolicy=Always` is
+   requested on a non-HTTPS request. Since this project's own documented dev flow runs the API on
+   plain `http://localhost`, none of the three could ever be stored by a browser or accepted by the
+   server in development. Fixed by dropping the `__Host-` prefix (and relaxing `SecurePolicy`) in
+   Development only, keeping it in Production where HTTPS makes it correct.
+4. **No controller specified an authentication scheme, and nothing set a default that worked for
+   Bearer calls.** Every `[Authorize]` in the API is bare — no `AuthenticationSchemes` — and
+   `AddIdentity` sets the *default* authenticate/challenge scheme to the Identity cookie. A
+   server-to-server Bearer call from the BFF (the only way the API is actually meant to be called)
+   carries no cookie, so every protected endpoint redirected (302) to the HTML login page instead of
+   authenticating. Fixed with one `AddAuthorization` call setting the default *policy*'s scheme to
+   OpenIddict's validation scheme, leaving `AddAuthentication`'s own default (and the interactive
+   sign-in page, which authenticates explicitly) untouched.
+5. **`ApplicationClaimsPrincipalFactory` — permissions, staff id, location id, access level, all of
+   it — was fully implemented and never registered.** Nothing told ASP.NET Core Identity to use it in
+   place of its own default claims factory, so `CreateUserPrincipalAsync` built a principal with a
+   name and a role and nothing else. Every access token issued by this app, ever, was missing every
+   custom claim its own authorization system depends on. One `AddScoped<IUserClaimsPrincipalFactory<
+   ApplicationUser>, ApplicationClaimsPrincipalFactory>()` line fixes it.
+6. **A leftover `next.config.js` rewrite shadowed the BFF's own `/api/proxy/[...path]` route** for at
+   least some request paths, sending raw, unauthenticated requests straight to the backend at a literal
+   path (`/api/proxy/terminals/...`) the backend has no route for. Predates the BFF pattern; the real
+   route handler already does this forwarding correctly, with the token attached. Removed.
+7. **The proxy forwarded the API's `Content-Encoding` header unchanged**, but `fetch()` had already
+   transparently decompressed the body — so the browser tried to gunzip already-plain bytes on any
+   response large enough to cross ASP.NET's compression threshold. Small error bodies never showed it.
+   Fixed by stripping `content-encoding` from the forwarded response headers.
+8. **`CurrentUser` read and cached `HttpContext.User` once, in its constructor.** A policy that names
+   an explicit authentication scheme (every business endpoint does, after fix 4) makes
+   `AuthorizationMiddleware` re-authenticate via that scheme and reassign `HttpContext.User` — which
+   happens *after* anything already holding a stale reference was constructed. The result: the
+   controller's own `this.User` correctly showed every claim, while `ICurrentUser` — resolved earlier
+   in the same request — saw an empty, unauthenticated principal, permanently. Fixed by making every
+   member read `HttpContext.User` live at the point of access instead of snapshotting it once.
+9. **`CurrentUser.UserId` read `ClaimTypes.NameIdentifier`, but the token's user-id claim type is
+   `sub`.** `IdentityRegistration` explicitly configures `IdentityOptions.ClaimsIdentity.UserIdClaimType
+   = OpenIddictConstants.Claims.Subject`, so that is what every issued token actually carries — the
+   long-form URI claim was never present. `UserId` was always null, which is why `HubTicketsController`
+   kept returning a bare 401 even after fixes 1–8 landed. Fixed to read the `sub` claim.
+
+A tenth, related but separate finding: `PosHub` and `InventoryHub` both carried a bare `[Authorize]`,
+which after fix 4 inherited the Bearer-scheme requirement — but hub connections are never
+Bearer-authenticated. `HubTicketMiddleware` redeems a single-use ticket and builds the connection's
+principal itself, entirely outside the scheme system, specifically so the browser never needs a real
+access token for a WebSocket. A scheme-specific policy made `AuthorizationMiddleware` re-authenticate
+via Bearer, find nothing, and overwrite that ticket-built principal with an anonymous one. Fixed with a
+second, scheme-less policy (`RequireAuthenticatedUser()` with no scheme constraint) applied to just
+the two browser-facing hubs; `TerminalHub` (the physical terminal agent's channel, a confidential
+OAuth client that presumably does present a real Bearer token) was left on the Bearer-requiring
+default, since no agent was connected this session to verify that assumption either way.
 
 ## Defects found and fixed across phases 0–4
 

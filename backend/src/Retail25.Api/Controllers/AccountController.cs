@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -26,25 +27,34 @@ public sealed class AccountController : Controller
     private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IAuditWriter _audit;
+    private readonly IAntiforgery _antiforgery;
 
     public AccountController(
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
-        IAuditWriter audit)
+        IAuditWriter audit,
+        IAntiforgery antiforgery)
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _audit = audit;
+        _antiforgery = antiforgery;
     }
 
     [HttpGet("login")]
     public IActionResult Login(string? returnUrl = null, string? error = null)
         => Content(RenderLoginPage(returnUrl, error), "text/html; charset=utf-8");
 
+    // Validated by hand rather than [ValidateAntiForgeryToken]: that attribute resolves
+    // ValidateAntiforgeryTokenAuthorizationFilter, which only ASP.NET Core's MVC *Views* feature
+    // registers (AddControllersWithViews/AddMvc). This API deliberately stays on plain
+    // AddControllers — no view engine in the process holding the signing keys — so the attribute
+    // had no filter behind it and every login POST 500'd before the action ever ran.
     [HttpPost("login")]
-    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login([FromForm] LoginForm form)
     {
+        await _antiforgery.ValidateRequestAsync(HttpContext);
+
         // Only ever a path on this host: an open redirect on a login page hands an attacker a
         // credible way to bounce a freshly authenticated user anywhere they like.
         var returnUrl = Url.IsLocalUrl(form.ReturnUrl) ? form.ReturnUrl! : "/";
@@ -99,9 +109,9 @@ public sealed class AccountController : Controller
     }
 
     [HttpPost("logout")]
-    [ValidateAntiForgeryToken]
     public async Task<IActionResult> Logout()
     {
+        await _antiforgery.ValidateRequestAsync(HttpContext);
         await _signInManager.SignOutAsync();
         return Redirect("/");
     }
@@ -115,9 +125,7 @@ public sealed class AccountController : Controller
     /// </summary>
     private string RenderLoginPage(string? returnUrl, string? error)
     {
-        var antiforgery = HttpContext.RequestServices
-            .GetRequiredService<Microsoft.AspNetCore.Antiforgery.IAntiforgery>()
-            .GetAndStoreTokens(HttpContext);
+        var antiforgery = _antiforgery.GetAndStoreTokens(HttpContext);
 
         var page = new StringBuilder();
 

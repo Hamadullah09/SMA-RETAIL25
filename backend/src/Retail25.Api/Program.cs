@@ -106,7 +106,12 @@ builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/account/login";
     options.LogoutPath = "/account/logout";
-    options.Cookie.Name = "__Host-r25.identity";
+    // __Host- requires Secure unconditionally — a browser silently drops the cookie if the name
+    // carries the prefix but SecurePolicy resolves to non-Secure, which SameAsRequest does over
+    // this project's own documented plain-HTTP dev flow. Without this split, sign-in looked like
+    // it succeeded (PasswordSignInAsync 302) but the cookie never landed, so /connect/authorize
+    // never saw the user as signed in and bounced straight back to the login page.
+    options.Cookie.Name = builder.Environment.IsDevelopment() ? "r25.identity" : "__Host-r25.identity";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
@@ -118,9 +123,18 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 builder.Services.AddAntiforgery(options =>
 {
-    options.Cookie.Name = "__Host-r25.antiforgery";
+    // __Host- requires Secure, and ASP.NET Core's antiforgery middleware throws outright if
+    // SecurePolicy=Always is set on a non-HTTPS request — it has no localhost exception the way
+    // browsers do. So the prefix itself, not just the policy, has to follow environment: this
+    // project's own documented dev flow runs the API on plain http://localhost (OpenIddict:
+    // AllowInsecureHttp above), where __Host- can never be satisfied. Same split the Identity
+    // cookie above uses, applied to the cookie name as well as SecurePolicy.
+    options.Cookie.Name = builder.Environment.IsDevelopment() ? "r25.antiforgery" : "__Host-r25.antiforgery";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
 });
 
 // --- Rate limiting ---
@@ -237,10 +251,15 @@ app.MapHub<TerminalHub>("/hubs/terminal");
 
 // Nightly late-charge accrual (LateChargePolicy: "applied by a nightly Hangfire job"). 2am local —
 // after the day's trading has closed everywhere this deployment plausibly serves, before the next.
-RecurringJob.AddOrUpdate<LateChargeAccrualJob>(
-    "late-charge-accrual",
-    job => job.RunAsync(CancellationToken.None),
-    "0 2 * * *");
+// Resolved from DI rather than the static RecurringJob helper: AddHangfire only wires JobStorage
+// into the container, it never sets the static JobStorage.Current the static API depends on.
+using (var scope = app.Services.CreateScope())
+{
+    scope.ServiceProvider.GetRequiredService<IRecurringJobManager>().AddOrUpdate<LateChargeAccrualJob>(
+        "late-charge-accrual",
+        job => job.RunAsync(CancellationToken.None),
+        "0 2 * * *");
+}
 
 await app.RunAsync();
 

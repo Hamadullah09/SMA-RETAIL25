@@ -13,11 +13,15 @@ import { createHash } from 'node:crypto';
  * in localStorage.
  *
  * The `__Host-` prefix is not decoration: it makes the browser refuse the cookie unless it is Secure,
- * has no Domain attribute and is path `/`, so a subdomain that gets compromised cannot set one.
+ * has no Domain attribute and is path `/`, so a subdomain that gets compromised cannot set one. That
+ * cuts both ways, though: since `secure()` is deliberately false in development (plain HTTP), a
+ * `__Host-`-prefixed name in that same environment is a cookie the browser will silently refuse to
+ * store at all — the session would look like it saved and then vanish on the very next request. So
+ * the prefix itself, not just the Secure flag, has to follow environment.
  */
 
-const SESSION_COOKIE = '__Host-r25.session';
-const FLOW_COOKIE = '__Host-r25.flow';
+const SESSION_COOKIE = process.env.NODE_ENV === 'production' ? '__Host-r25.session' : 'r25.session';
+const FLOW_COOKIE = process.env.NODE_ENV === 'production' ? '__Host-r25.flow' : 'r25.flow';
 
 /** The BFF is same-origin with the app, so Lax is enough and Strict would break the OAuth return. */
 const COOKIE_BASE = {

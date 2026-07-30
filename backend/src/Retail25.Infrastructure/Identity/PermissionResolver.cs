@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using Retail25.Application.Abstractions;
 using Retail25.Infrastructure.Persistence;
 
@@ -21,7 +22,7 @@ public sealed class PermissionResolver : IPermissionResolver
     private readonly ApplicationDbContext _db;
     private readonly IMemoryCache _cache;
 
-    public PermissionResolver(ApplicationDbContext db, IMemoryCache cache)
+    public PermissionResolver(ApplicationDbContext db, [FromKeyedServices("permissions")] IMemoryCache cache)
     {
         _db = db;
         _cache = cache;

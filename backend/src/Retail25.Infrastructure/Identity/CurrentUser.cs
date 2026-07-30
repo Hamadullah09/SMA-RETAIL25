@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
+using OpenIddict.Abstractions;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Common;
 
@@ -13,6 +14,14 @@ namespace Retail25.Infrastructure.Identity;
 /// Reading them off claims rather than querying per request matters: the authorisation behaviour runs
 /// on every command, and a database round trip there would sit inside the till's quote budget.
 /// </para>
+/// <para>
+/// Every member reads <c>HttpContext.User</c> live rather than snapshotting it in the constructor.
+/// A policy that names explicit authentication schemes (every business endpoint does, since the API
+/// is bearer-only while the sign-in page is cookie-based) re-authenticates and reassigns
+/// <c>HttpContext.User</c> during authorization — which runs after this type would otherwise have
+/// been constructed and its claims already cached, silently freezing every request into "anonymous,
+/// no permissions" regardless of the caller.
+/// </para>
 /// </summary>
 public sealed class CurrentUser : ICurrentUser
 {
@@ -22,38 +31,32 @@ public sealed class CurrentUser : ICurrentUser
     public const string AccessLevelClaim = "access_level";
     public const string PermissionClaim = "permission";
 
+    private readonly IHttpContextAccessor _httpContextAccessor;
+
     public CurrentUser(IHttpContextAccessor httpContextAccessor)
     {
         ArgumentNullException.ThrowIfNull(httpContextAccessor);
-
-        var user = httpContextAccessor.HttpContext?.User;
-
-        IsAuthenticated = user?.Identity?.IsAuthenticated == true;
-
-        if (!IsAuthenticated || user is null)
-        {
-            Permissions = new HashSet<string>(StringComparer.Ordinal);
-            return;
-        }
-
-        UserId = ParseGuid(user.FindFirstValue(ClaimTypes.NameIdentifier));
-        StaffId = ParseGuid(user.FindFirstValue(StaffIdClaim));
-        StationId = ParseGuid(user.FindFirstValue(StationIdClaim));
-        LocationId = ParseGuid(user.FindFirstValue(LocationIdClaim));
-        Permissions = ResolvePermissions(user);
+        _httpContextAccessor = httpContextAccessor;
     }
 
-    public Guid? UserId { get; }
+    private ClaimsPrincipal? User => _httpContextAccessor.HttpContext?.User;
 
-    public Guid? StaffId { get; }
+    // "sub", not ClaimTypes.NameIdentifier: IdentityRegistration configures
+    // IdentityOptions.ClaimsIdentity.UserIdClaimType = OpenIddictConstants.Claims.Subject, so that is
+    // the claim type every issued token actually carries — the long-form URI is never present.
+    public Guid? UserId => IsAuthenticated ? ParseGuid(User!.FindFirstValue(OpenIddictConstants.Claims.Subject)) : null;
 
-    public Guid? StationId { get; }
+    public Guid? StaffId => IsAuthenticated ? ParseGuid(User!.FindFirstValue(StaffIdClaim)) : null;
 
-    public Guid? LocationId { get; }
+    public Guid? StationId => IsAuthenticated ? ParseGuid(User!.FindFirstValue(StationIdClaim)) : null;
 
-    public bool IsAuthenticated { get; }
+    public Guid? LocationId => IsAuthenticated ? ParseGuid(User!.FindFirstValue(LocationIdClaim)) : null;
 
-    public IReadOnlySet<string> Permissions { get; }
+    public bool IsAuthenticated => User?.Identity?.IsAuthenticated == true;
+
+    public IReadOnlySet<string> Permissions => IsAuthenticated
+        ? ResolvePermissions(User!)
+        : new HashSet<string>(StringComparer.Ordinal);
 
     private static IReadOnlySet<string> ResolvePermissions(ClaimsPrincipal user)
     {
