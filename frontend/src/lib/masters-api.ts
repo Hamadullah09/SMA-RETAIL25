@@ -36,6 +36,12 @@ import type {
   LoyaltyPolicy,
   LoyaltyBalance,
   LoyaltyLedgerEntryRow,
+  CustomerOrder,
+  CustomerOrderStatus,
+  Layaway,
+  LayawayStatus,
+  PriceQuote,
+  PriceQuoteStatus,
 } from '@/types/masters';
 
 /**
@@ -309,6 +315,49 @@ export const mastersApi = {
 
     adjust: (customerId: string, pointsDelta: number, reason: string) =>
       call<LoyaltyBalance>(() => apiClient.post(`/loyalty/customers/${customerId}/adjust`, { pointsDelta, reason })),
+  },
+
+  customerOrders: {
+    browse: (locationId: string, filters: { customerId?: string; status?: CustomerOrderStatus; cursor?: string; pageSize?: number } = {}) =>
+      call<CursorPage<CustomerOrder>>(() => apiClient.get(`/customer-orders?${query({ locationId, ...filters })}`)),
+
+    get: (id: string) => call<CustomerOrder>(() => apiClient.get(`/customer-orders/${id}`)),
+
+    create: (body: { customerId: string; locationId: string; lines: { productId: string; quantity: number; unitPrice: number }[]; notes?: string }) =>
+      call<CustomerOrder>(() => apiClient.post('/customer-orders', body)),
+
+    fill: (id: string) => call<CustomerOrder>(() => apiClient.post(`/customer-orders/${id}/fill`)),
+
+    cancel: (id: string) => call<CustomerOrder>(() => apiClient.post(`/customer-orders/${id}/cancel`)),
+  },
+
+  layaways: {
+    browse: (locationId: string, filters: { customerId?: string; status?: LayawayStatus; cursor?: string; pageSize?: number } = {}) =>
+      call<CursorPage<Layaway>>(() => apiClient.get(`/layaways?${query({ locationId, ...filters })}`)),
+
+    get: (id: string) => call<Layaway>(() => apiClient.get(`/layaways/${id}`)),
+
+    create: (body: { customerId: string; locationId: string; lines: { productId: string; quantity: number; unitPrice: number }[] }) =>
+      call<Layaway>(() => apiClient.post('/layaways', body)),
+
+    takePayment: (id: string, amount: number, tenderTypeId: string) =>
+      call<Layaway>(() => apiClient.post(`/layaways/${id}/payments`, { amount, tenderTypeId })),
+
+    cancel: (id: string) => call<Layaway>(() => apiClient.post(`/layaways/${id}/cancel`)),
+  },
+
+  priceQuotes: {
+    browse: (locationId: string, filters: { customerId?: string; status?: PriceQuoteStatus; cursor?: string; pageSize?: number } = {}) =>
+      call<CursorPage<PriceQuote>>(() => apiClient.get(`/price-quotes?${query({ locationId, ...filters })}`)),
+
+    get: (id: string) => call<PriceQuote>(() => apiClient.get(`/price-quotes/${id}`)),
+
+    create: (body: { customerId: string; locationId: string; lines: { productId: string; quantity: number; unitPrice: number }[]; expiresOn?: string }) =>
+      call<PriceQuote>(() => apiClient.post('/price-quotes', body)),
+
+    convert: (id: string) => call<PriceQuote>(() => apiClient.post(`/price-quotes/${id}/convert`)),
+
+    cancel: (id: string) => call<PriceQuote>(() => apiClient.post(`/price-quotes/${id}/cancel`)),
   },
 
   deleted: {

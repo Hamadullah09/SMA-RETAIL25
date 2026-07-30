@@ -398,6 +398,75 @@ export interface ReceivablesAgingRow {
   total: number;
 }
 
+export type CustomerOrderStatus = 'Open' | 'PartiallyFilled' | 'Filled' | 'Cancelled';
+
+export interface CustomerOrderLine {
+  id: string;
+  productId: string;
+  stockCode: string;
+  productName: string;
+  orderedQty: number;
+  filledQty: number;
+  unitPrice: number;
+}
+
+export interface CustomerOrder {
+  id: string;
+  orderNumber: number;
+  customerId: string;
+  customerName: string;
+  status: CustomerOrderStatus;
+  orderedOn: string;
+  notes: string | null;
+  lines: CustomerOrderLine[];
+}
+
+export type LayawayStatus = 'Open' | 'PaidInFull' | 'Cancelled';
+
+export interface LayawayLine {
+  id: string;
+  productId: string;
+  stockCode: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface Layaway {
+  id: string;
+  layawayNumber: number;
+  customerId: string;
+  customerName: string;
+  status: LayawayStatus;
+  total: number;
+  amountPaid: number;
+  createdOn: string;
+  lines: LayawayLine[];
+}
+
+export type PriceQuoteStatus = 'Open' | 'Converted' | 'Expired' | 'Cancelled';
+
+export interface PriceQuoteLine {
+  id: string;
+  productId: string;
+  stockCode: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface PriceQuote {
+  id: string;
+  quoteNumber: number;
+  customerId: string;
+  customerName: string;
+  status: PriceQuoteStatus;
+  issuedOn: string;
+  expiresOn: string | null;
+  total: number;
+  lines: PriceQuoteLine[];
+}
+
 export interface StockLevelRow {
   id: string;
   stockCode: string;

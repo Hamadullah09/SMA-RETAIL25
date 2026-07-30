@@ -3,6 +3,7 @@ using Retail25.Domain.Catalog;
 using Retail25.Domain.Configuration;
 using Retail25.Domain.Customers;
 using Retail25.Domain.Inventory;
+using Retail25.Domain.Orders;
 using Retail25.Domain.Purchasing;
 using Retail25.Domain.Receivables;
 using Retail25.Domain.Sales;
@@ -61,6 +62,15 @@ public interface IApplicationDbContext
     DbSet<ARLedgerEntry> ARLedgerEntries { get; }
     DbSet<GiftCertificate> GiftCertificates { get; }
     DbSet<GiftCard> GiftCards { get; }
+
+    // --- Orders ---
+    DbSet<CustomerOrder> CustomerOrders { get; }
+    DbSet<CustomerOrderLine> CustomerOrderLines { get; }
+    DbSet<Layaway> Layaways { get; }
+    DbSet<LayawayLine> LayawayLines { get; }
+    DbSet<LayawayPayment> LayawayPayments { get; }
+    DbSet<PriceQuote> PriceQuotes { get; }
+    DbSet<PriceQuoteLine> PriceQuoteLines { get; }
 
     // --- Inventory ---
     DbSet<StockLevel> StockLevels { get; }

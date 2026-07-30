@@ -5,6 +5,7 @@ using Retail25.Domain.Catalog;
 using Retail25.Domain.Configuration;
 using Retail25.Domain.Customers;
 using Retail25.Domain.Inventory;
+using Retail25.Domain.Orders;
 using Retail25.Domain.Purchasing;
 using Retail25.Domain.Receivables;
 using Retail25.Domain.Sales;
@@ -73,6 +74,14 @@ public class ApplicationDbContext
     public DbSet<ARLedgerEntry> ARLedgerEntries => Set<ARLedgerEntry>();
     public DbSet<GiftCertificate> GiftCertificates => Set<GiftCertificate>();
     public DbSet<GiftCard> GiftCards => Set<GiftCard>();
+
+    public DbSet<CustomerOrder> CustomerOrders => Set<CustomerOrder>();
+    public DbSet<CustomerOrderLine> CustomerOrderLines => Set<CustomerOrderLine>();
+    public DbSet<Layaway> Layaways => Set<Layaway>();
+    public DbSet<LayawayLine> LayawayLines => Set<LayawayLine>();
+    public DbSet<LayawayPayment> LayawayPayments => Set<LayawayPayment>();
+    public DbSet<PriceQuote> PriceQuotes => Set<PriceQuote>();
+    public DbSet<PriceQuoteLine> PriceQuoteLines => Set<PriceQuoteLine>();
 
     // --- Inventory ---
     public DbSet<StockLevel> StockLevels => Set<StockLevel>();

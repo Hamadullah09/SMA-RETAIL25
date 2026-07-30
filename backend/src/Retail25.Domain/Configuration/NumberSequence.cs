@@ -13,6 +13,9 @@ public enum SequenceKind
     Transaction = 5,
     StockCount = 6,
     Transfer = 7,
+    CustomerOrder = 8,
+    Layaway = 9,
+    PriceQuote = 10,
 }
 
 /// <summary>
@@ -132,6 +135,9 @@ public sealed class NumberSequence : Entity, IAuditable
         SequenceKind.PurchaseOrder => "PO-",
         SequenceKind.StockCount => "SC-",
         SequenceKind.Transfer => "TR-",
+        SequenceKind.CustomerOrder => "CO-",
+        SequenceKind.Layaway => "LAY-",
+        SequenceKind.PriceQuote => "QT-",
         _ => string.Empty,
     };
 

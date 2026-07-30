@@ -931,6 +931,58 @@ function ProductFormPanel({
 
           {form.type === 'Matrix' ? <MatrixEditor productId={form.id} canWrite={canWrite} /> : null}
 
+          {form.type === 'Kit' ? (
+            <FormSection
+              title="Kit components"
+              hint="What actually leaves the shelf when this kit is sold (guide p.41)."
+              actions={saveButton(() => ({ kit: { components: form.kitComponents } }))}
+            >
+              {form.kitComponents.map((component, index) => (
+                <div key={component.componentProductId} className="grid grid-cols-[1fr_6rem_auto] items-center gap-2">
+                  <span className="text-sm">
+                    <span className="pos-amount">{component.stockCode}</span> — {component.name}
+                  </span>
+                  <NumberField
+                    label="Qty"
+                    value={component.quantity}
+                    step="1"
+                    disabled={disabled}
+                    onChange={(quantity) =>
+                      patch({ kitComponents: replaceAt(form.kitComponents, index, { ...component, quantity }) })
+                    }
+                  />
+                  {canWrite ? (
+                    <button
+                      type="button"
+                      className="pos-button mb-0.5"
+                      onClick={() => patch({ kitComponents: form.kitComponents.filter((_, i) => i !== index) })}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+
+              {canWrite ? (
+                <RecordPicker
+                  label="Add a component"
+                  value={null}
+                  disabled={disabled}
+                  search={(term) => searchItems(locationId, term, form.id)}
+                  onChange={(picked) => {
+                    if (!picked || form.kitComponents.some((c) => c.componentProductId === picked.id)) return;
+                    patch({
+                      kitComponents: [
+                        ...form.kitComponents,
+                        { componentProductId: picked.id, stockCode: picked.code, name: picked.name, quantity: 1 },
+                      ],
+                    });
+                  }}
+                />
+              ) : null}
+            </FormSection>
+          ) : null}
+
           <div className="mb-6 flex flex-wrap gap-2">
             {canWrite ? (
               <button type="button" className="pos-button" onClick={() => void clone()} disabled={busy}>

@@ -6,6 +6,7 @@ using Retail25.Application.Common;
 using Retail25.Application.Customers;
 using Retail25.Application.Inventory;
 using Retail25.Application.Loyalty;
+using Retail25.Application.Orders;
 using Retail25.Application.Purchasing;
 using Retail25.Application.Receivables;
 using Retail25.Application.Settings;
@@ -48,6 +49,9 @@ internal sealed class MastersTestHarness : IDisposable
         Receivables = new ReceivablesHandlers(db, Clock);
         GiftCards = new GiftCardHandlers(db, Clock);
         Loyalty = new LoyaltyHandlers(db, Clock);
+        CustomerOrders = new CustomerOrderHandlers(db, Sequences, Clock);
+        Layaways = new LayawayHandlers(db, Sequences, Clock);
+        PriceQuotes = new PriceQuoteHandlers(db, Sequences, Clock);
         Settings = new SettingsQueryHandler(db, Clock);
         SettingsCommands = new SettingsCommandHandlers(db, Notifier, Sequences, Clock);
         Hardware = new HardwareSettingsHandlers(db, Notifier, Terminals, Clock);
@@ -93,6 +97,12 @@ internal sealed class MastersTestHarness : IDisposable
     public GiftCardHandlers GiftCards { get; }
 
     public LoyaltyHandlers Loyalty { get; }
+
+    public CustomerOrderHandlers CustomerOrders { get; }
+
+    public LayawayHandlers Layaways { get; }
+
+    public PriceQuoteHandlers PriceQuotes { get; }
 
     public SettingsQueryHandler Settings { get; }
 

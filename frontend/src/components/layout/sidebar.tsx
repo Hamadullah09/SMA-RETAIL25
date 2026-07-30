@@ -14,6 +14,7 @@ import {
   CreditCard,
   Warehouse,
   FileText,
+  ClipboardList,
   LogOut,
   Menu,
 } from 'lucide-react';
@@ -29,6 +30,7 @@ const navItems = [
   { href: '/inventory', label: 'Stock', icon: Warehouse },
   { href: '/purchasing', label: 'Purchasing', icon: FileText },
   { href: '/receivables', label: 'Receivables', icon: CreditCard },
+  { href: '/orders', label: 'Orders & Layaways', icon: ClipboardList },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
   { href: '/admin', label: 'Administration', icon: Settings },
 ];
