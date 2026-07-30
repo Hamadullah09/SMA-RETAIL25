@@ -117,9 +117,16 @@ public sealed class InventoryHandlers :
         }
 
         var productIds = products.Select(p => p.Id).ToList();
+
+        // Grouped rather than ToDictionaryAsync keyed by ProductId: that throws outright if more
+        // than one StockLevel row ever exists for the same (product, null variant, location) —
+        // which is supposed to be impossible (every writer does find-or-create) but isn't a safe
+        // assumption for a read screen to crash on if it ever happens anyway. Summing Committed
+        // across duplicates is the correct number regardless of how they got there.
         var committed = await _db.StockLevels.AsNoTracking()
             .Where(s => productIds.Contains(s.ProductId) && s.VariantId == null && s.LocationId == request.LocationId)
-            .ToDictionaryAsync(s => s.ProductId, s => s.Committed, ct);
+            .GroupBy(s => s.ProductId)
+            .ToDictionaryAsync(g => g.Key, g => g.Sum(s => s.Committed), ct);
 
         var rows = products.Select(p => ToRow(p, committed.GetValueOrDefault(p.Id))).ToList();
 
