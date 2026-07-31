@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Catalog;
+using Retail25.Application.Catalog.Commands;
 using Retail25.Application.Common;
 using Retail25.Application.Customers;
 using Retail25.Application.Inventory;
@@ -60,6 +61,9 @@ internal sealed class MastersTestHarness : IDisposable
         Commerce = new CommerceSettingsHandlers(db, Notifier, Clock);
         RecycleBin = new RecycleBinHandler(db);
         RestoreReference = new RestoreReferenceRowHandler(db, Notifier);
+        BulkAdjust = new BulkAdjustHandlers(db);
+        Transfers = new TransferHandlers(db, Sequences, CurrentUser, Notifier, Clock);
+        StockCounts = new StockCountHandlers(db, Sequences, CurrentUser, Notifier, Clock);
     }
 
     public ApplicationDbContext Db { get; }
@@ -117,6 +121,12 @@ internal sealed class MastersTestHarness : IDisposable
     public RecycleBinHandler RecycleBin { get; }
 
     public RestoreReferenceRowHandler RestoreReference { get; }
+
+    public BulkAdjustHandlers BulkAdjust { get; }
+
+    public TransferHandlers Transfers { get; }
+
+    public StockCountHandlers StockCounts { get; }
 
     public Location Location { get; private set; } = null!;
 
@@ -179,6 +189,27 @@ internal sealed class MastersTestHarness : IDisposable
             product.SetDepartment(id);
         }
 
+        Db.Products.Add(product);
+        await Db.SaveChangesAsync();
+        return product;
+    }
+
+    /// <summary>A second store, for anything that moves stock between two of them.</summary>
+    public async Task<Location> AddLocationAsync(string name, string code)
+    {
+        var location = Location.Create(name, code, "CAD", "UTC", TimeOnly.MinValue).Value;
+        Db.Locations.Add(location);
+        Db.NumberSequences.AddRange(NumberSequence.SeedDefaults(location.Id));
+        await Db.SaveChangesAsync();
+        return location;
+    }
+
+    /// <summary>An item at a location other than the harness's default one.</summary>
+    public async Task<Product> AddProductAtAsync(
+        Guid locationId, string stockCode, string name, decimal price = 10m, decimal onHand = 0m)
+    {
+        var product = Product.Create(locationId, stockCode, name, ProductType.Standard, price).Value;
+        product.UpdateStockLevels(onHand, 0m);
         Db.Products.Add(product);
         await Db.SaveChangesAsync();
         return product;

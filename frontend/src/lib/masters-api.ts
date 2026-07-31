@@ -62,6 +62,19 @@ import type {
   LabelStock,
   LabelStockOption,
   PrintLabelsRequest,
+  BulkAdjustMethod,
+  BulkFilter,
+  BulkPricePreview,
+  BulkPriceTarget,
+  CountImportResult,
+  PriceRounding,
+  StockCount,
+  StockCountRow,
+  StockCountStatus,
+  Transfer,
+  TransferDestination,
+  TransferRow,
+  TransferStatus,
 } from '@/types/masters';
 
 /**
@@ -522,6 +535,91 @@ export const mastersApi = {
 
     catalogueUrl: (locationId: string, filters: { departmentId?: string; categoryId?: string; search?: string } = {}) =>
       `/api/proxy/documents/catalogue?${query({ locationId, ...filters })}`,
+  },
+
+  /**
+   * Batch changes across a selection (guide p.45). The preview is a separate call because there is
+   * no undo — a batch reprice is put in front of someone before it is written.
+   */
+  bulk: {
+    previewPrice: (
+      filter: BulkFilter,
+      target: BulkPriceTarget,
+      method: BulkAdjustMethod,
+      amount: number,
+      rounding: PriceRounding,
+      take = 200,
+    ) =>
+      call<BulkPricePreview>(() =>
+        apiClient.post('/catalog/bulk/price/preview', { filter, target, method, amount, rounding, take })),
+
+    applyPrice: (
+      filter: BulkFilter,
+      target: BulkPriceTarget,
+      method: BulkAdjustMethod,
+      amount: number,
+      rounding: PriceRounding,
+    ) => call<number>(() => apiClient.post('/catalog/bulk/price', { filter, target, method, amount, rounding })),
+
+    applyTax: (filter: BulkFilter, tax1Applies: boolean | null, tax2Applies: boolean | null) =>
+      call<number>(() => apiClient.post('/catalog/bulk/tax', { filter, tax1Applies, tax2Applies })),
+  },
+
+  /** Stock moving between stores (guide p.20–21). */
+  transfers: {
+    destinations: (locationId: string) =>
+      call<TransferDestination[]>(() => apiClient.get(`/transfers/destinations?${query({ locationId })}`)),
+
+    browse: (locationId: string, filters: { status?: TransferStatus; includeInbound?: boolean } = {}) =>
+      call<TransferRow[]>(() => apiClient.get(`/transfers?${query({ locationId, ...filters })}`)),
+
+    get: (id: string) => call<Transfer>(() => apiClient.get(`/transfers/${id}`)),
+
+    create: (fromLocationId: string, toLocationId: string, notes?: string) =>
+      call<Transfer>(() => apiClient.post('/transfers', { fromLocationId, toLocationId, notes })),
+
+    upsertLine: (id: string, productId: string, quantity: number) =>
+      call<Transfer>(() => apiClient.post(`/transfers/${id}/lines`, { productId, quantity })),
+
+    removeLine: (id: string, lineId: string) =>
+      call<Transfer>(() => apiClient.delete(`/transfers/${id}/lines/${lineId}`)),
+
+    ship: (id: string) => call<Transfer>(() => apiClient.post(`/transfers/${id}/ship`)),
+
+    /** An empty line list receives everything still outstanding. */
+    receive: (id: string, lines?: Array<{ lineId: string; quantity: number }>) =>
+      call<Transfer>(() => apiClient.post(`/transfers/${id}/receive`, { lines: lines ?? null })),
+
+    cancel: (id: string) => call<Transfer>(() => apiClient.post(`/transfers/${id}/cancel`)),
+  },
+
+  /** Stock counts (guide p.22): count, review the variances, then post. */
+  stockCounts: {
+    browse: (locationId: string, status?: StockCountStatus) =>
+      call<StockCountRow[]>(() => apiClient.get(`/stock-counts?${query({ locationId, status })}`)),
+
+    get: (id: string, varianceOnly = false, take = 500) =>
+      call<StockCount>(() => apiClient.get(`/stock-counts/${id}?${query({ varianceOnly, take })}`)),
+
+    start: (locationId: string, departmentId?: string, notes?: string) =>
+      call<StockCount>(() => apiClient.post('/stock-counts', { locationId, departmentId, notes })),
+
+    importLines: (id: string, items: Array<{ stockCode: string; countedQty: number; notes?: string }>) =>
+      call<CountImportResult>(() => apiClient.post(`/stock-counts/${id}/lines`, { items })),
+
+    importCsv: (id: string, csv: string) =>
+      call<CountImportResult>(() => apiClient.post(`/stock-counts/${id}/import`, { csv })),
+
+    removeLine: (id: string, lineId: string) =>
+      call<StockCount>(() => apiClient.delete(`/stock-counts/${id}/lines/${lineId}`)),
+
+    post: (id: string, reason?: string) =>
+      call<StockCount>(() => apiClient.post(`/stock-counts/${id}/post`, { reason })),
+
+    cancel: (id: string) => call<StockCount>(() => apiClient.post(`/stock-counts/${id}/cancel`)),
+
+    exportUrl: (id: string, varianceOnly = true) =>
+      `/api/proxy/stock-counts/${id}/export?${query({ varianceOnly })}`,
   },
 
   /** The accounting link (doc 09 §1) — what to post, whether it can be posted, and what happened. */

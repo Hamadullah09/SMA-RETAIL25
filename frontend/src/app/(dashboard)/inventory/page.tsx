@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
 import { BrowseFormShell, Field, FormSection, NumberField, TextField } from '@/components/masters/browse-form';
 import { toast } from '@/components/ui/toaster';
@@ -73,7 +74,23 @@ export default function InventoryPage() {
   return (
     <BrowseFormShell
       title="Inventory"
-      toolbar={connected ? null : <span className="text-xs text-[rgb(var(--negative))]">live updates offline</span>}
+      toolbar={
+        <>
+          {connected ? null : <span className="text-xs text-[rgb(var(--negative))]">live updates offline</span>}
+
+          {auth.can('inventory.transfer') ? (
+            <Link className="pos-button" href="/inventory/transfers">
+              Transfers
+            </Link>
+          ) : null}
+
+          {auth.can('inventory.count') ? (
+            <Link className="pos-button" href="/inventory/counts">
+              Stock counts
+            </Link>
+          ) : null}
+        </>
+      }
       filters={
         <>
           <input

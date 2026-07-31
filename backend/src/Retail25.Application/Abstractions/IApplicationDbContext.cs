@@ -77,7 +77,9 @@ public interface IApplicationDbContext
     DbSet<StockLevel> StockLevels { get; }
     DbSet<StockLedgerEntry> StockLedgerEntries { get; }
     DbSet<StockTransfer> StockTransfers { get; }
+    DbSet<StockTransferLine> StockTransferLines { get; }
     DbSet<StockCount> StockCounts { get; }
+    DbSet<StockCountLine> StockCountLines { get; }
 
     // --- Accounting sync ---
     DbSet<SyncLog> SyncLogs { get; }

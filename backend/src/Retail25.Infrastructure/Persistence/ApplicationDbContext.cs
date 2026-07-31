@@ -88,7 +88,9 @@ public class ApplicationDbContext
     public DbSet<StockLevel> StockLevels => Set<StockLevel>();
     public DbSet<StockLedgerEntry> StockLedgerEntries => Set<StockLedgerEntry>();
     public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
+    public DbSet<StockTransferLine> StockTransferLines => Set<StockTransferLine>();
     public DbSet<StockCount> StockCounts => Set<StockCount>();
+    public DbSet<StockCountLine> StockCountLines => Set<StockCountLine>();
 
     // --- Accounting sync ---
     public DbSet<SyncLog> SyncLogs => Set<SyncLog>();

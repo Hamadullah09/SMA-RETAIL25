@@ -1132,3 +1132,137 @@ export interface PrintLabelsRequest {
   /** Labels already peeled off a part-used sheet, so printing resumes rather than wasting them. */
   skipLabels: number;
 }
+
+/* ---------------------------------------------------------------------------------------------
+ * Bulk operations (guide p.20–22, p.45)
+ * ------------------------------------------------------------------------------------------- */
+
+export type BulkPriceTarget = 'RegularPrice' | 'LastCost';
+export type BulkAdjustMethod = 'Percentage' | 'FixedAmount' | 'SetTo' | 'MarkupOnCost';
+export type PriceRounding = 'None' | 'NearestCent' | 'EndsIn99' | 'EndsIn95' | 'WholeNumber';
+
+/** Which items a batch operation touches. Everything null means every item at the location. */
+export interface BulkFilter {
+  locationId: string;
+  departmentId?: string | null;
+  categoryId?: string | null;
+  supplierId?: string | null;
+  search?: string | null;
+  type?: ProductType | null;
+}
+
+export interface BulkPricePreviewRow {
+  productId: string;
+  stockCode: string;
+  name: string;
+  current: number;
+  proposed: number;
+  avgCost: number;
+  proposedMarginPct: number;
+}
+
+export interface BulkPricePreview {
+  rows: BulkPricePreviewRow[];
+  /** How many items the filter matches — not how many rows came back. */
+  matchedCount: number;
+  shownCount: number;
+  wouldGoNegative: number;
+}
+
+export type TransferStatus = 'Draft' | 'InTransit' | 'Received' | 'Cancelled';
+
+export interface TransferLine {
+  id: string;
+  productId: string;
+  stockCode: string;
+  productName: string;
+  quantity: number;
+  quantityReceived: number;
+  outstanding: number;
+  unitCost: number;
+  sourceOnHand: number;
+}
+
+export interface Transfer {
+  id: string;
+  transferNumber: number;
+  fromLocationId: string;
+  fromLocationName: string;
+  toLocationId: string;
+  toLocationName: string;
+  status: TransferStatus;
+  notes: string | null;
+  shippedAt: string | null;
+  receivedAt: string | null;
+  totalValue: number;
+  lines: TransferLine[];
+}
+
+export interface TransferRow {
+  id: string;
+  transferNumber: number;
+  fromLocationName: string;
+  toLocationName: string;
+  status: TransferStatus;
+  lineCount: number;
+  totalValue: number;
+  shippedAt: string | null;
+  createdAt: string;
+}
+
+export type StockCountStatus = 'InProgress' | 'Posted' | 'Cancelled';
+
+export interface StockCountLine {
+  id: string;
+  productId: string;
+  stockCode: string;
+  productName: string;
+  countedQty: number;
+  systemQtyAtCount: number;
+  variance: number;
+  unitCost: number;
+  varianceValue: number;
+  notes: string | null;
+}
+
+export interface StockCount {
+  id: string;
+  countNumber: number;
+  locationId: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  status: StockCountStatus;
+  notes: string | null;
+  postedAt: string | null;
+  createdAt: string;
+  /** Totals describe the whole count, not the filtered view of it. */
+  lineCount: number;
+  varianceCount: number;
+  netVarianceValue: number;
+  lines: StockCountLine[];
+}
+
+export interface StockCountRow {
+  id: string;
+  countNumber: number;
+  status: StockCountStatus;
+  departmentName: string | null;
+  lineCount: number;
+  varianceCount: number;
+  netVarianceValue: number;
+  postedAt: string | null;
+  createdAt: string;
+}
+
+/** What an import did — the skipped list is what makes a bad file diagnosable. */
+export interface CountImportResult {
+  imported: number;
+  updated: number;
+  skipped: string[];
+}
+
+export interface TransferDestination {
+  id: string;
+  code: string;
+  name: string;
+}

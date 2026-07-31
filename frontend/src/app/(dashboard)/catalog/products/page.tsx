@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
 import {
@@ -194,6 +195,12 @@ export default function ProductsPage() {
             >
               Price list (PDF)
             </a>
+          ) : null}
+
+          {auth.can('catalog.bulk_adjust') ? (
+            <Link className="pos-button" href="/catalog/bulk">
+              Batch changes
+            </Link>
           ) : null}
 
           {canWrite ? (

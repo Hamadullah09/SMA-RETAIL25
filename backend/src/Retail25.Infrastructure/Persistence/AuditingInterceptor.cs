@@ -29,7 +29,7 @@ public sealed class AuditingInterceptor : SaveChangesInterceptor
     {
         "Product", "ProductPrice", "PriceBreak", "SalePricing", "BonusPricing",
         "SalesTransaction", "SaleLine", "SaleTender",
-        "StockLevel", "StockLedgerEntry", "StockTransfer", "StockCount",
+        "StockLevel", "StockLedgerEntry", "StockTransfer", "StockTransferLine", "StockCount", "StockCountLine",
         "TaxConfiguration", "PosPolicy", "PricingRuleSetting", "TenderType", "Currency",
         "Invoice", "InvoicePayment", "ARLedgerEntry", "GiftCertificate", "GiftCard", "LateChargePolicy",
         "CustomerAccount", "LoyaltyLedgerEntry",

@@ -268,6 +268,21 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
         LastCost = unitCost;
     }
 
+    /// <summary>
+    /// Applies stock arriving from another location (guide p.20–21).
+    /// <para>
+    /// Deliberately not <see cref="ReceiveStock"/>: nothing was on order, so working the quantity
+    /// off <see cref="OnOrder"/> would silently cancel a real purchase order this store has open
+    /// with a supplier. <see cref="LastCost"/> is left alone for the same reason — "what we last
+    /// paid for it" means what we paid a supplier, and a transfer is not a purchase.
+    /// </para>
+    /// </summary>
+    public void ReceiveTransfer(decimal quantityReceived, decimal unitCost)
+    {
+        RecalculateAvgCost(quantityReceived, unitCost, allocatedFreight: 0m);
+        OnHand += quantityReceived;
+    }
+
     private void RecalculateMargin()
     {
         GrossMarginPct = RegularPrice > 0
