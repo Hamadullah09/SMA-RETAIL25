@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
@@ -129,25 +127,17 @@ public sealed class SalesLogHandlers
 
         var rows = await ProjectAsync(transactions, ct);
 
-        var csv = new StringBuilder();
-        csv.AppendLine("Number,Completed,BusinessDate,Station,Staff,Customer,Lines,Subtotal,Discount,Tax1,Tax2,Total,Status");
+        var csv = new CsvWriter().Header(
+            "Number", "Completed", "BusinessDate", "Station", "Staff", "Customer",
+            "Lines", "Subtotal", "Discount", "Tax1", "Tax2", "Total", "Status");
 
         foreach (var row in rows)
         {
-            csv.Append(row.TransactionNumber).Append(',')
-                .Append(row.CompletedAt.ToString("O", CultureInfo.InvariantCulture)).Append(',')
-                .Append(row.BusinessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append(',')
-                .Append(Escape(row.StationCode)).Append(',')
-                .Append(Escape(row.StaffName)).Append(',')
-                .Append(Escape(row.CustomerName)).Append(',')
-                .Append(row.LineCount).Append(',')
-                .Append(row.Subtotal.ToString(CultureInfo.InvariantCulture)).Append(',')
-                .Append(row.DiscountTotal.ToString(CultureInfo.InvariantCulture)).Append(',')
-                .Append(row.Tax1Total.ToString(CultureInfo.InvariantCulture)).Append(',')
-                .Append(row.Tax2Total.ToString(CultureInfo.InvariantCulture)).Append(',')
-                .Append(row.GrandTotal.ToString(CultureInfo.InvariantCulture)).Append(',')
-                .Append(row.Status)
-                .AppendLine();
+            csv.Row(
+                row.TransactionNumber, row.CompletedAt, row.BusinessDate,
+                row.StationCode, row.StaffName, row.CustomerName, row.LineCount,
+                row.Subtotal, row.DiscountTotal, row.Tax1Total, row.Tax2Total,
+                row.GrandTotal, row.Status);
         }
 
         return csv.ToString();
@@ -310,17 +300,5 @@ public sealed class SalesLogHandlers
             t.Tax2Total,
             t.GrandTotal,
             t.Status)).ToList();
-    }
-
-    private static string Escape(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        return value.Contains(',', StringComparison.Ordinal) || value.Contains('"', StringComparison.Ordinal)
-            ? "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\""
-            : value;
     }
 }

@@ -83,14 +83,30 @@ public static class PermissionKeys
     {
         public const string Read = "staff.read";
         public const string Write = "staff.write";
+
+        /// <summary>Punching yourself in and out. Deliberately far below <see cref="TimeClockEdit"/>:
+        /// a trainee must be able to clock on without being able to alter anyone's hours.</summary>
+        public const string TimeClock = "staff.time_clock";
+
         public const string TimeClockEdit = "staff.time_clock_edit";
     }
 
     public static class Reports
     {
         public const string Sales = "reports.sales";
+
+        /// <summary>The tax report — what was collected, per rate, for a filing period.</summary>
         public const string Financial = "reports.financial";
+
+        /// <summary>Margin, COGS and stock valuation. Separate from <see cref="Sales"/> because
+        /// revenue is a manager's business and cost is often the owner's alone.</summary>
         public const string CostVisibility = "reports.cost_visibility";
+
+        /// <summary>Stock position reports that expose quantities but not cost.</summary>
+        public const string Inventory = "reports.inventory";
+
+        public const string Hours = "reports.hours";
+        public const string Commissions = "reports.commissions";
     }
 
     public static class Settings
@@ -127,8 +143,9 @@ public static class PermissionKeys
         Customer.Read, Customer.Write, Customer.Delete,
         Ar.Read, Ar.Payment, Ar.VoidInvoice, Ar.Refund, Ar.LateCharges,
         Purchasing.Read, Purchasing.Write, Purchasing.PostOrder, Purchasing.PostShipment,
-        Staff.Read, Staff.Write, Staff.TimeClockEdit,
+        Staff.Read, Staff.Write, Staff.TimeClock, Staff.TimeClockEdit,
         Reports.Sales, Reports.Financial, Reports.CostVisibility,
+        Reports.Inventory, Reports.Hours, Reports.Commissions,
         Settings.Read, Settings.Write, Settings.Taxes, Settings.Hardware,
         Terminals.Read, Terminals.Operate, Terminals.Register,
         System.UsersManage, System.MigrationRun, System.SyncRun, System.AuditRead,
@@ -141,13 +158,13 @@ public static class PermissionKeys
     public static IReadOnlyDictionary<int, IReadOnlyList<string>> LegacyLevelPresets { get; } =
         new Dictionary<int, IReadOnlyList<string>>
         {
-            [0] = [Pos.Sell, Catalog.Read, Customer.Read],
-            [1] = [Pos.Sell, Pos.Suspend, Pos.Recall, Catalog.Read, Customer.Read, Drawer.Read],
+            [0] = [Pos.Sell, Catalog.Read, Customer.Read, Staff.TimeClock],
+            [1] = [Pos.Sell, Pos.Suspend, Pos.Recall, Catalog.Read, Customer.Read, Drawer.Read, Staff.TimeClock],
             [2] =
             [
                 Pos.Sell, Pos.Suspend, Pos.Recall, Pos.UnknownItem, Pos.Reprint, Pos.Return,
                 Catalog.Read, Customer.Read, Customer.Write,
-                Drawer.Read, Drawer.OpenFloat, Drawer.Pop,
+                Drawer.Read, Drawer.OpenFloat, Drawer.Pop, Staff.TimeClock,
             ],
             [3] =
             [
@@ -156,7 +173,8 @@ public static class PermissionKeys
                 Catalog.Read, Catalog.Write, Customer.Read, Customer.Write,
                 Inventory.Adjust, Inventory.Receive, Inventory.CommissionTags,
                 Drawer.Read, Drawer.OpenFloat, Drawer.PayIn, Drawer.PayOut, Drawer.Pop, Drawer.Close,
-                Ar.Read, Ar.Payment, Reports.Sales, Terminals.Read, Terminals.Operate,
+                Ar.Read, Ar.Payment, Reports.Sales, Reports.Inventory, Reports.Hours,
+                Staff.TimeClock, Staff.TimeClockEdit, Terminals.Read, Terminals.Operate,
             ],
             [4] = All,
         };

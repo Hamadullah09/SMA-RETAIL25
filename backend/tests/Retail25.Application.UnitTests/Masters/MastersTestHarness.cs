@@ -14,8 +14,10 @@ using Retail25.Application.UnitTests.Carts;
 using Retail25.Domain.Catalog;
 using Retail25.Domain.Configuration;
 using Retail25.Domain.Customers;
+using Retail25.Domain.Inventory;
 using Retail25.Domain.Purchasing;
 using Retail25.Domain.Receivables;
+using Retail25.Domain.Sales;
 using Retail25.Domain.Terminals;
 using Retail25.Domain.ValueObjects;
 using Retail25.Infrastructure.Persistence;
@@ -276,6 +278,108 @@ internal sealed class MastersTestHarness : IDisposable
 
         await Db.SaveChangesAsync();
         return invoice;
+    }
+
+    /// <summary>
+    /// A completed sale with one line, enough for the report aggregations to have something real to
+    /// add up. Writes the transaction, its line and its tax snapshot the way <c>CompleteSaleCommand</c>
+    /// does, so a report test exercises the same shapes production produces.
+    /// </summary>
+    public async Task<SalesTransaction> AddSaleAsync(
+        Product product,
+        decimal quantity,
+        decimal unitPrice,
+        decimal unitCost,
+        DateOnly businessDate,
+        Guid? customerId = null,
+        Guid? staffId = null,
+        decimal tax1 = 0m,
+        decimal tax2 = 0m,
+        bool isTraining = false,
+        TransactionStatus status = TransactionStatus.Completed)
+    {
+        var extended = quantity * unitPrice;
+
+        var transaction = new SalesTransaction
+        {
+            TransactionNumber = DateTime.UtcNow.Ticks,
+            LocationId = Location.Id,
+            StationId = Guid.NewGuid(),
+            StaffId = staffId ?? Guid.NewGuid(),
+            CustomerId = customerId,
+            BusinessDate = businessDate,
+            CompletedAt = businessDate.ToDateTime(new TimeOnly(12, 0)),
+            Subtotal = extended,
+            DiscountTotal = 0m,
+            Tax1Total = tax1,
+            Tax2Total = tax2,
+            AddOnChargeTotal = 0m,
+            GrandTotal = extended + tax1 + tax2,
+            CostOfGoodsSold = quantity * unitCost,
+            Status = status,
+            IsTraining = isTraining,
+        };
+
+        Db.SalesTransactions.Add(transaction);
+
+        Db.SaleLines.Add(new SaleLine
+        {
+            TransactionId = transaction.Id,
+            Sequence = 1,
+            ProductId = product.Id,
+            StockCodeSnapshot = product.StockCode,
+            NameSnapshot = product.Name,
+            Quantity = quantity,
+            ChargeableQuantity = quantity,
+            UnitPrice = unitPrice,
+            ExtendedNet = extended,
+            TaxableNet = extended,
+            Tax1Amount = tax1,
+            Tax2Amount = tax2,
+            UnitCostSnapshot = unitCost,
+            LineType = LineType.Sale,
+        });
+
+        Db.SaleTaxSnapshots.Add(new SaleTaxSnapshot
+        {
+            TransactionId = transaction.Id,
+            Tax1Name = "GST",
+            Tax1Rate = 5m,
+            Tax2Name = "PST",
+            Tax2Rate = 7m,
+            AddOnName = "Service",
+            AddOnRate = 0m,
+        });
+
+        await Db.SaveChangesAsync();
+        return transaction;
+    }
+
+    /// <summary>A stock movement, for the reports that read the ledger rather than the sales tables.</summary>
+    public async Task<StockLedgerEntry> AddStockMovementAsync(
+        Product product,
+        MovementType movementType,
+        decimal quantity,
+        decimal unitCost = 0m,
+        DateTimeOffset? occurredAt = null,
+        Guid? referenceId = null,
+        string? referenceType = null)
+    {
+        var entry = new StockLedgerEntry
+        {
+            ProductId = product.Id,
+            LocationId = Location.Id,
+            MovementType = movementType,
+            Quantity = quantity,
+            UnitCost = unitCost,
+            OccurredAt = occurredAt ?? Clock.Now,
+            ReferenceId = referenceId,
+            ReferenceType = referenceType,
+        };
+
+        Db.StockLedgerEntries.Add(entry);
+        await Db.SaveChangesAsync();
+        return entry;
     }
 
     public static CustomerIdentitySection Person(string first, string last, string? company = null)

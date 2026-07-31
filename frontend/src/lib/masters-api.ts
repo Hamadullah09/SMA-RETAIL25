@@ -17,6 +17,16 @@ import type {
   Matrix,
   MatrixDimension,
   ReferenceRow,
+  OnOrderRow,
+  RewardPointsResult,
+  SalesAnalysisFilters,
+  SalesAnalysisResult,
+  StockPositionKind,
+  StockPositionRow,
+  StockReceivedPage,
+  StockValuationDetailPage,
+  StockValuationResult,
+  TaxReportResult,
   SaleDetail,
   SalesLogPage,
   SettingsSnapshot,
@@ -381,6 +391,68 @@ export const mastersApi = {
     /** The URL the browser downloads from — the modern "Open In MS-Excel" (guide p.101). */
     exportUrl: (locationId: string, filters: SalesLogFilters = {}) =>
       `/api/proxy/sales/export?${query({ locationId, ...filters })}`,
+  },
+
+  /**
+   * The analytical reports (guide p.15–27, p.56, p.83–84). Every one of them has an `…Url` twin
+   * for CSV: the browser downloads those through a plain link rather than fetching a blob, so a
+   * large export streams instead of being buffered in the page.
+   */
+  reports: {
+    salesAnalysis: (filters: SalesAnalysisFilters) =>
+      call<SalesAnalysisResult>(() => apiClient.get(`/reports/sales-analysis?${query({ ...filters })}`)),
+
+    salesAnalysisExportUrl: (filters: SalesAnalysisFilters) =>
+      `/api/proxy/reports/sales-analysis/export?${query({ ...filters })}`,
+
+    margin: (filters: SalesAnalysisFilters) =>
+      call<SalesAnalysisResult>(() => apiClient.get(`/reports/margin?${query({ ...filters })}`)),
+
+    marginExportUrl: (filters: SalesAnalysisFilters) =>
+      `/api/proxy/reports/margin/export?${query({ ...filters })}`,
+
+    tax: (locationId: string, from: string, to: string, includeVoided = false) =>
+      call<TaxReportResult>(() => apiClient.get(`/reports/tax?${query({ locationId, from, to, includeVoided })}`)),
+
+    taxExportUrl: (locationId: string, from: string, to: string, includeVoided = false) =>
+      `/api/proxy/reports/tax/export?${query({ locationId, from, to, includeVoided })}`,
+
+    stockValue: (locationId: string, departmentId?: string) =>
+      call<StockValuationResult>(() => apiClient.get(`/reports/stock-value?${query({ locationId, departmentId })}`)),
+
+    stockValueDetail: (locationId: string, departmentId?: string, skip = 0, take = 200) =>
+      call<StockValuationDetailPage>(() =>
+        apiClient.get(`/reports/stock-value/detail?${query({ locationId, departmentId, skip, take })}`)),
+
+    stockValueExportUrl: (locationId: string, departmentId?: string) =>
+      `/api/proxy/reports/stock-value/export?${query({ locationId, departmentId })}`,
+
+    stockPosition: (locationId: string, departmentId?: string, only?: StockPositionKind) =>
+      call<StockPositionRow[]>(() =>
+        apiClient.get(`/reports/stock-position?${query({ locationId, departmentId, only })}`)),
+
+    stockPositionExportUrl: (locationId: string, departmentId?: string, only?: StockPositionKind) =>
+      `/api/proxy/reports/stock-position/export?${query({ locationId, departmentId, only })}`,
+
+    onOrder: (locationId: string, supplierId?: string, departmentId?: string) =>
+      call<OnOrderRow[]>(() => apiClient.get(`/reports/on-order?${query({ locationId, supplierId, departmentId })}`)),
+
+    onOrderExportUrl: (locationId: string, supplierId?: string, departmentId?: string) =>
+      `/api/proxy/reports/on-order/export?${query({ locationId, supplierId, departmentId })}`,
+
+    stockReceived: (locationId: string, from: string, to: string, supplierId?: string, skip = 0, take = 200) =>
+      call<StockReceivedPage>(() =>
+        apiClient.get(`/reports/stock-received?${query({ locationId, from, to, supplierId, skip, take })}`)),
+
+    stockReceivedExportUrl: (locationId: string, from: string, to: string, supplierId?: string) =>
+      `/api/proxy/reports/stock-received/export?${query({ locationId, from, to, supplierId })}`,
+
+    rewardPoints: (locationId: string, from: string, to: string, customerId?: string) =>
+      call<RewardPointsResult>(() =>
+        apiClient.get(`/reports/reward-points?${query({ locationId, from, to, customerId })}`)),
+
+    rewardPointsExportUrl: (locationId: string, from: string, to: string, customerId?: string) =>
+      `/api/proxy/reports/reward-points/export?${query({ locationId, from, to, customerId })}`,
   },
 
   audit: {

@@ -887,3 +887,158 @@ export interface Matrix {
   dimensions: MatrixDimension[];
   variants: ProductVariant[];
 }
+
+// ---------------------------------------------------------------------------------------------
+// Reports (guide p.15–27, p.56, p.83–84)
+// ---------------------------------------------------------------------------------------------
+
+export type SalesAnalysisGroupBy = 'Product' | 'Department' | 'Client' | 'Day' | 'Week' | 'Month';
+
+export interface SalesAnalysisFilters {
+  locationId: string;
+  from: string;
+  to: string;
+  groupBy?: SalesAnalysisGroupBy;
+  departmentId?: string;
+  productId?: string;
+  customerId?: string;
+  includeVoided?: boolean;
+  top?: number;
+  sortBy?: string;
+}
+
+export interface SalesAnalysisRow {
+  groupKey: string;
+  groupLabel: string;
+  quantity: number;
+  netSales: number;
+  discountTotal: number;
+  taxTotal: number;
+  /** Null when the caller lacks cost visibility — the server omits it, the client does not hide it. */
+  cogs: number | null;
+  grossMargin: number | null;
+  grossMarginPct: number | null;
+  transactionCount: number;
+}
+
+export interface SalesAnalysisResult {
+  rows: SalesAnalysisRow[];
+  grandQuantity: number;
+  grandNetSales: number;
+  grandCogs: number | null;
+  grandGrossMargin: number | null;
+}
+
+export interface TaxReportRow {
+  taxName: string;
+  rate: number;
+  taxableBase: number;
+  taxCollected: number;
+  transactionCount: number;
+}
+
+export interface TaxReportResult {
+  rows: TaxReportRow[];
+  totalTaxCollected: number;
+  totalNetSales: number;
+  registrationNumber: string | null;
+}
+
+export interface StockValuationRow {
+  departmentId: string | null;
+  departmentName: string;
+  productCount: number;
+  unitsOnHand: number;
+  costValue: number;
+  retailValue: number;
+  potentialMargin: number;
+}
+
+export interface StockValuationResult {
+  rows: StockValuationRow[];
+  totalUnits: number;
+  totalCostValue: number;
+  totalRetailValue: number;
+}
+
+export interface StockValuationDetailRow {
+  productId: string;
+  stockCode: string;
+  name: string;
+  departmentName: string;
+  onHand: number;
+  avgCost: number;
+  extendedCost: number;
+  regularPrice: number;
+  extendedRetail: number;
+}
+
+export interface StockValuationDetailPage {
+  rows: StockValuationDetailRow[];
+  totalCount: number;
+}
+
+export type StockPositionKind = 'Normal' | 'Understock' | 'Overstock';
+
+export interface StockPositionRow {
+  productId: string;
+  stockCode: string;
+  name: string;
+  departmentName: string;
+  onHand: number;
+  onOrder: number;
+  reorderPoint: number;
+  baseStock: number;
+  avgWeeklySales: number;
+  weeksOfSupply: number;
+  position: StockPositionKind;
+}
+
+export interface OnOrderRow {
+  productId: string;
+  stockCode: string;
+  name: string;
+  supplierName: string;
+  poNumber: number;
+  orderQty: number;
+  qtyReceived: number;
+  qtyOutstanding: number;
+  costEach: number;
+  expectedValue: number;
+  postedOn: string | null;
+  dueOn: string | null;
+}
+
+export interface StockReceivedRow {
+  occurredAt: string;
+  poNumber: number | null;
+  supplierName: string;
+  stockCode: string;
+  productName: string;
+  qtyReceived: number;
+  unitCost: number;
+  extendedCost: number;
+  receiptFreightTotal: number;
+}
+
+export interface StockReceivedPage {
+  rows: StockReceivedRow[];
+  totalCount: number;
+  totalCost: number;
+}
+
+export interface RewardPointsRow {
+  customerId: string;
+  customerName: string;
+  earned: number;
+  redeemed: number;
+  adjusted: number;
+  netChange: number;
+  currentBalance: number;
+}
+
+export interface RewardPointsResult {
+  rows: RewardPointsRow[];
+  totalEarned: number;
+  totalRedeemed: number;
+}

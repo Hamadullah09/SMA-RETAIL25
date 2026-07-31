@@ -64,6 +64,14 @@ public sealed class SalesTransaction : AggregateRoot, IAuditable
 
     public TransactionStatus Status { get; set; } = TransactionStatus.Completed;
 
+    /// <summary>
+    /// A practice sale rung by a level-0 trainee (guide p.82). The whole POS flow runs and the
+    /// transaction is written, but it moves no stock, no drawer, no loyalty and no money — and every
+    /// report excludes it by default, so training on a live till cannot quietly corrupt the numbers
+    /// the shop is run on. Set server-side from the staff member's access level, never by the client.
+    /// </summary>
+    public bool IsTraining { get; set; }
+
     /// <summary>On the original sale: the reversal that voided it. On a reversal: null.</summary>
     public Guid? VoidedByTransactionId { get; set; }
 
