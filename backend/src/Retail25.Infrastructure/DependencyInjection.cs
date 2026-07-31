@@ -8,6 +8,8 @@ using Retail25.Application.Abstractions;
 using Retail25.Application.Behaviors;
 using Retail25.Application.Accounting;
 using Retail25.Infrastructure.Accounting;
+using Retail25.Application.Documents;
+using Retail25.Infrastructure.Documents;
 using Retail25.Infrastructure.Caching;
 using Retail25.Infrastructure.Identity;
 using Retail25.Infrastructure.Jobs;
@@ -69,6 +71,12 @@ public static class DependencyInjection
         // layer depends on, so swapping it is a registration change and nothing else (doc 09 §1).
         services.AddScoped<IAccountingConnector, CsvExportConnector>();
         services.AddScoped<PostPosRevenueToAccountingJob>();
+
+        // The QuestPDF licence is accepted by the renderers themselves (QuestPdfLicence) so any path
+        // that builds one — including a test — gets a working renderer, not one that throws on the
+        // first PDF.
+        services.AddSingleton<ILabelRenderer, QuestPdfLabelRenderer>();
+        services.AddSingleton<IDocumentRenderer, QuestPdfDocumentRenderer>();
 
         AddHangfire(services, configuration);
 

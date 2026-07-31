@@ -1105,3 +1105,30 @@ export interface ExternalMapRow {
   remoteName: string | null;
   lastSyncedAt: string | null;
 }
+
+/* ---------------------------------------------------------------------------------------------
+ * Printable documents (guide App. L)
+ * ------------------------------------------------------------------------------------------- */
+
+/** The label stocks the server knows how to lay out. Names match the backend enum exactly. */
+export type LabelStock = 'Avery5160' | 'Avery8160' | 'Avery8163' | 'S644N';
+
+/** One stock, as the picker shows it — the server owns the description on the box. */
+export interface LabelStockOption {
+  value: LabelStock;
+  label: string;
+}
+
+export interface LabelRequestLine {
+  productId: string;
+  copies: number;
+}
+
+export interface PrintLabelsRequest {
+  locationId: string;
+  lines: LabelRequestLine[];
+  stock: LabelStock;
+  showBarcode: boolean;
+  /** Labels already peeled off a part-used sheet, so printing resumes rather than wasting them. */
+  skipLabels: number;
+}

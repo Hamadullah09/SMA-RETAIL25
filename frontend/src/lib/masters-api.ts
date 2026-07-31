@@ -59,6 +59,9 @@ import type {
   LayawayStatus,
   PriceQuote,
   PriceQuoteStatus,
+  LabelStock,
+  LabelStockOption,
+  PrintLabelsRequest,
 } from '@/types/masters';
 
 /**
@@ -87,6 +90,41 @@ async function call<T>(fn: () => Promise<{ data: T }>): Promise<T> {
     const { data } = await fn();
     return data;
   } catch (error) {
+    return toProblem(error);
+  }
+}
+
+/**
+ * A PDF, fetched rather than linked because the request carries a body.
+ *
+ * The error path needs its own handling: with `responseType: 'blob'` a failure response arrives as a
+ * Blob too, so {@link toProblem} would find no `title` and report "Request failed" for every problem
+ * the server took the trouble to describe. Reading the blob back as text recovers it.
+ */
+async function callPdf(fn: () => Promise<{ data: Blob }>): Promise<Blob> {
+  try {
+    const { data } = await fn();
+    return data;
+  } catch (error) {
+    const response = (error as { response?: { status?: number; data?: unknown } })?.response;
+    const body = response?.data;
+
+    if (body instanceof Blob) {
+      try {
+        const problem = JSON.parse(await body.text()) as Record<string, unknown>;
+        throw new PosApiError({
+          status: response?.status ?? 0,
+          title: (problem.title as string) ?? 'Could not print',
+          detail: (problem.detail as string) ?? 'The server could not produce the document.',
+          code: (problem.code as string) ?? 'documents.failed',
+          arguments: problem.arguments as Record<string, unknown> | undefined,
+        });
+      } catch (parseError) {
+        if (parseError instanceof PosApiError) throw parseError;
+        // Not a problem document — fall through to the generic shape below.
+      }
+    }
+
     return toProblem(error);
   }
 }
@@ -460,6 +498,30 @@ export const mastersApi = {
 
     rewardPointsExportUrl: (locationId: string, from: string, to: string, customerId?: string) =>
       `/api/proxy/reports/reward-points/export?${query({ locationId, from, to, customerId })}`,
+  },
+
+  /**
+   * Printable documents (guide App. L). Label sheets carry a body, so they are fetched as a blob
+   * rather than opened as a link; the single-item and whole-catalogue prints are plain GETs and
+   * open straight in the browser's PDF viewer.
+   */
+  documents: {
+    labelStocks: () => call<LabelStockOption[]>(() => apiClient.get('/documents/labels/stocks')),
+
+    printPriceTags: (body: PrintLabelsRequest) =>
+      callPdf(() => apiClient.post('/documents/labels/price-tags', body, { responseType: 'blob' })),
+
+    printBarcodeLabels: (body: PrintLabelsRequest) =>
+      callPdf(() => apiClient.post('/documents/labels/barcodes', body, { responseType: 'blob' })),
+
+    priceTagUrl: (productId: string, locationId: string, stock: LabelStock, copies = 1) =>
+      `/api/proxy/documents/labels/price-tag/${productId}?${query({ locationId, stock, copies })}`,
+
+    statementEnvelopeUrl: (customerId: string) =>
+      `/api/proxy/documents/envelopes/statement/${customerId}`,
+
+    catalogueUrl: (locationId: string, filters: { departmentId?: string; categoryId?: string; search?: string } = {}) =>
+      `/api/proxy/documents/catalogue?${query({ locationId, ...filters })}`,
   },
 
   /** The accounting link (doc 09 §1) — what to post, whether it can be posted, and what happened. */

@@ -13,6 +13,7 @@ import {
   TextField,
 } from '@/components/masters/browse-form';
 import { MatrixEditor } from '@/components/masters/matrix-editor';
+import { PrintLabelsDialog } from '@/components/documents/print-labels-dialog';
 import { RecordPicker, type PickerOption } from '@/components/masters/record-picker';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
@@ -52,6 +53,7 @@ export default function ProductsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [printing, setPrinting] = useState(false);
 
   const { data: departments = [] } = useQuery({
     queryKey: ['departments', locationId],
@@ -163,11 +165,37 @@ export default function ProductsPage() {
   );
 
   return (
+    <>
     <BrowseFormShell
       title="Inventory"
       toolbar={
         <>
           <LiveBadge connected={connected} />
+
+          {/* Both print the items currently listed, so the filters above are the selection. */}
+          <button
+            type="button"
+            className="pos-button"
+            disabled={rows.length === 0}
+            onClick={() => setPrinting(true)}
+          >
+            Print labels
+          </button>
+
+          {locationId ? (
+            <a
+              className="pos-button"
+              href={mastersApi.documents.catalogueUrl(locationId, {
+                departmentId: departmentId || undefined,
+                search: search || undefined,
+              })}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Price list (PDF)
+            </a>
+          ) : null}
+
           {canWrite ? (
             <button type="button" className="pos-button-primary" onClick={() => setSelectedId('new')}>
               New item
@@ -272,6 +300,11 @@ export default function ProductsPage() {
         </span>
       }
     />
+
+      {printing && locationId ? (
+        <PrintLabelsDialog locationId={locationId} items={rows} onClose={() => setPrinting(false)} />
+      ) : null}
+    </>
   );
 }
 
@@ -984,6 +1017,19 @@ function ProductFormPanel({
           ) : null}
 
           <div className="mb-6 flex flex-wrap gap-2">
+            {/*
+              The one-off reprint: a tag that came out crooked, or a price that just changed. A plain
+              link rather than a fetch, so it opens straight in the browser's PDF viewer.
+            */}
+            <a
+              className="pos-button"
+              href={mastersApi.documents.priceTagUrl(form.id, locationId, 'Avery5160')}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Print one label
+            </a>
+
             {canWrite ? (
               <button type="button" className="pos-button" onClick={() => void clone()} disabled={busy}>
                 Copy to a new code

@@ -621,9 +621,20 @@ function StatementPanel({
         <h2 className="text-sm font-semibold">
           #{statement.accountNumber} — {statement.customerName}
         </h2>
-        <button type="button" className="pos-button" onClick={onClose}>
-          Close
-        </button>
+        <div className="flex gap-2">
+          {/* The window envelope for posting this statement out (guide App. L). */}
+          <a
+            className="pos-button"
+            href={mastersApi.documents.statementEnvelopeUrl(customerId)}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Print envelope
+          </a>
+          <button type="button" className="pos-button" onClick={onClose}>
+            Close
+          </button>
+        </div>
       </div>
 
       <FormSection title="Account" hint={`Credit limit: ${statement.creditLimit > 0 ? currency(statement.creditLimit) : 'unlimited'}`}>
