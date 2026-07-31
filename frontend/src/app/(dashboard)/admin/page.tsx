@@ -55,6 +55,15 @@ const sections = [
     permission: 'staff.read',
   },
   {
+    key: 'year-end',
+    href: '/admin/year-end',
+    title: 'Year end',
+    description:
+      'Close a trading year: roll it up into the sales history and checkpoint the stock. Nothing is deleted, and a close can be undone.',
+    icon: ScrollText,
+    permission: 'inventory.year_end',
+  },
+  {
     key: 'users',
     href: '/admin/settings',
     title: 'Users and access',

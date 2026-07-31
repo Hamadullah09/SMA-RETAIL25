@@ -1366,3 +1366,47 @@ export interface CommissionReportResult {
   totalCommission: number;
   totalSalesNet: number;
 }
+
+/* ---------------------------------------------------------------------------------------------
+ * Fiscal years and the year-end close (guide p.29)
+ * ------------------------------------------------------------------------------------------- */
+
+export type FiscalYearStatus = 'Open' | 'Closed';
+
+export interface FiscalYear {
+  id: string;
+  locationId: string;
+  year: number;
+  startsOn: string;
+  endsOn: string;
+  status: FiscalYearStatus;
+  closedAt: string | null;
+  archivedRows: number;
+  archivedNetSales: number;
+  notes: string | null;
+}
+
+/** What a close would do, or did — the same shape either way so the two are comparable. */
+export interface FiscalYearCloseResult {
+  year: number;
+  wasDryRun: boolean;
+  archiveRows: number;
+  productsCheckpointed: number;
+  netSales: number;
+  costOfGoodsSold: number;
+  grossMargin: number;
+  transactionsCovered: number;
+  warnings: string[];
+}
+
+export interface ArchiveRow {
+  year: number;
+  month: number;
+  stockCode: string;
+  name: string;
+  quantitySold: number;
+  netSales: number;
+  costOfGoodsSold: number;
+  grossMargin: number;
+  transactionCount: number;
+}

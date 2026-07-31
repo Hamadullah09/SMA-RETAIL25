@@ -77,6 +77,9 @@ import type {
   TransferStatus,
   CommissionReportResult,
   CommissionRule,
+  ArchiveRow,
+  FiscalYear,
+  FiscalYearCloseResult,
   HoursReportResult,
   StaffRow,
   TimeClockEntry,
@@ -626,6 +629,30 @@ export const mastersApi = {
 
     exportUrl: (id: string, varianceOnly = true) =>
       `/api/proxy/stock-counts/${id}/export?${query({ varianceOnly })}`,
+  },
+
+  /**
+   * Fiscal years and the year-end close (guide p.29). The close destroys nothing, which is what
+   * makes reopening a safe thing to offer.
+   */
+  fiscalYears: {
+    list: (locationId: string) =>
+      call<FiscalYear[]>(() => apiClient.get(`/fiscal-years?${query({ locationId })}`)),
+
+    open: (locationId: string, year: number, notes?: string) =>
+      call<FiscalYear>(() => apiClient.post('/fiscal-years', { locationId, year, notes })),
+
+    /** `dryRun` calculates everything and writes nothing. Always run it first. */
+    close: (id: string, dryRun: boolean) =>
+      call<FiscalYearCloseResult>(() => apiClient.post(`/fiscal-years/${id}/close?${query({ dryRun })}`)),
+
+    reopen: (id: string) => call<FiscalYear>(() => apiClient.post(`/fiscal-years/${id}/reopen`)),
+
+    history: (locationId: string, year?: number, productId?: string, take = 500) =>
+      call<ArchiveRow[]>(() => apiClient.get(`/fiscal-years/history?${query({ locationId, year, productId, take })}`)),
+
+    historyExportUrl: (locationId: string, year?: number) =>
+      `/api/proxy/fiscal-years/history/export?${query({ locationId, year })}`,
   },
 
   /** Staff, the time clock and commissions (guide p.33, p.75–76). */

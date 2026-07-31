@@ -68,6 +68,7 @@ internal sealed class MastersTestHarness : IDisposable
         StockCounts = new StockCountHandlers(db, Sequences, CurrentUser, Notifier, Clock);
         StaffCommands = new StaffHandlers(db, CurrentUser, Clock);
         StaffReports = new StaffReportHandlers(db);
+        FiscalYears = new FiscalYearHandlers(db, CurrentUser, Clock);
     }
 
     public ApplicationDbContext Db { get; }
@@ -135,6 +136,8 @@ internal sealed class MastersTestHarness : IDisposable
     public StaffHandlers StaffCommands { get; }
 
     public StaffReportHandlers StaffReports { get; }
+
+    public FiscalYearHandlers FiscalYears { get; }
 
     public Location Location { get; private set; } = null!;
 

@@ -80,6 +80,8 @@ public interface IApplicationDbContext
     DbSet<StockTransferLine> StockTransferLines { get; }
     DbSet<StockCount> StockCounts { get; }
     DbSet<StockCountLine> StockCountLines { get; }
+    DbSet<FiscalYear> FiscalYears { get; }
+    DbSet<SalesHistoryArchive> SalesHistoryArchives { get; }
 
     // --- Accounting sync ---
     DbSet<SyncLog> SyncLogs { get; }

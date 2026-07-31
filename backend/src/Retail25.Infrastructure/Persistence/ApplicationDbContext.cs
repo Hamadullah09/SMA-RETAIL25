@@ -91,6 +91,8 @@ public class ApplicationDbContext
     public DbSet<StockTransferLine> StockTransferLines => Set<StockTransferLine>();
     public DbSet<StockCount> StockCounts => Set<StockCount>();
     public DbSet<StockCountLine> StockCountLines => Set<StockCountLine>();
+    public DbSet<FiscalYear> FiscalYears => Set<FiscalYear>();
+    public DbSet<SalesHistoryArchive> SalesHistoryArchives => Set<SalesHistoryArchive>();
 
     // --- Accounting sync ---
     public DbSet<SyncLog> SyncLogs => Set<SyncLog>();
