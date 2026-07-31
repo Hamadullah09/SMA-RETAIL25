@@ -255,10 +255,18 @@ app.MapHub<TerminalHub>("/hubs/terminal");
 // into the container, it never sets the static JobStorage.Current the static API depends on.
 using (var scope = app.Services.CreateScope())
 {
-    scope.ServiceProvider.GetRequiredService<IRecurringJobManager>().AddOrUpdate<LateChargeAccrualJob>(
+    var recurring = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+
+    recurring.AddOrUpdate<LateChargeAccrualJob>(
         "late-charge-accrual",
         job => job.RunAsync(CancellationToken.None),
         "0 2 * * *");
+
+    // An hour after the late charges, so a day's books are settled before its takings post.
+    recurring.AddOrUpdate<PostPosRevenueToAccountingJob>(
+        "post-pos-revenue",
+        job => job.RunAsync(CancellationToken.None),
+        "0 3 * * *");
 }
 
 await app.RunAsync();

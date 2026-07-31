@@ -1042,3 +1042,66 @@ export interface RewardPointsResult {
   totalEarned: number;
   totalRedeemed: number;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Accounting sync (doc 09 §1)
+// ---------------------------------------------------------------------------------------------
+
+export type SyncEntityName = 'Customers' | 'Items' | 'Vendors' | 'Invoices' | 'PosRevenue' | 'Bill';
+
+export interface SyncRunOptions {
+  businessDate?: string;
+  purchaseOrderId?: string;
+  dueOn?: string;
+}
+
+export interface SyncRunResult {
+  success: boolean;
+  recordCount: number;
+  error: string | null;
+  output: string | null;
+}
+
+export interface PreflightCheck {
+  requirement: string;
+  satisfied: boolean;
+  detail: string;
+}
+
+export interface PreflightReport {
+  checks: PreflightCheck[];
+  ready: boolean;
+}
+
+export interface SyncLogRow {
+  id: string;
+  provider: string;
+  direction: 'Push' | 'Pull';
+  entity: string;
+  status: 'Success' | 'Failed';
+  recordCount: number;
+  errorMessage: string | null;
+  occurredAt: string;
+  durationMs: number;
+}
+
+export interface SyncLogPage {
+  rows: SyncLogRow[];
+  totalCount: number;
+}
+
+/** The full attempt — the modern "Last QB Request / Last QB Response" (guide p.111). */
+export interface SyncLogDetail extends SyncLogRow {
+  requestPayload: string | null;
+  responsePayload: string | null;
+}
+
+export interface ExternalMapRow {
+  id: string;
+  entityType: string;
+  localId: string | null;
+  localKey: string | null;
+  remoteId: string;
+  remoteName: string | null;
+  lastSyncedAt: string | null;
+}

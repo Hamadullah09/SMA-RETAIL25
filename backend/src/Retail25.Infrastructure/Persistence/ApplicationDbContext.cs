@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
+using Retail25.Domain.Accounting;
 using Retail25.Domain.Catalog;
 using Retail25.Domain.Configuration;
 using Retail25.Domain.Customers;
@@ -88,6 +89,10 @@ public class ApplicationDbContext
     public DbSet<StockLedgerEntry> StockLedgerEntries => Set<StockLedgerEntry>();
     public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
     public DbSet<StockCount> StockCounts => Set<StockCount>();
+
+    // --- Accounting sync ---
+    public DbSet<SyncLog> SyncLogs => Set<SyncLog>();
+    public DbSet<ExternalEntityMap> ExternalEntityMaps => Set<ExternalEntityMap>();
 
     // --- Terminals ---
     public DbSet<Station> Stations => Set<Station>();

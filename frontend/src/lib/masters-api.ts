@@ -17,6 +17,13 @@ import type {
   Matrix,
   MatrixDimension,
   ReferenceRow,
+  ExternalMapRow,
+  PreflightReport,
+  SyncEntityName,
+  SyncLogDetail,
+  SyncLogPage,
+  SyncRunOptions,
+  SyncRunResult,
   OnOrderRow,
   RewardPointsResult,
   SalesAnalysisFilters,
@@ -453,6 +460,37 @@ export const mastersApi = {
 
     rewardPointsExportUrl: (locationId: string, from: string, to: string, customerId?: string) =>
       `/api/proxy/reports/reward-points/export?${query({ locationId, from, to, customerId })}`,
+  },
+
+  /** The accounting link (doc 09 §1) — what to post, whether it can be posted, and what happened. */
+  accounting: {
+    preflight: (locationId: string) =>
+      call<PreflightReport>(() => apiClient.get(`/sync/accounting/preflight?${query({ locationId })}`)),
+
+    run: (entity: SyncEntityName, locationId: string, extra: SyncRunOptions = {}) =>
+      call<SyncRunResult>(() =>
+        apiClient.post(`/sync/accounting/push/${entity}?${query({ locationId, ...extra })}`)),
+
+    /** The generated file itself, downloaded rather than fetched — it is meant to be handed on. */
+    exportUrl: (entity: SyncEntityName, locationId: string, extra: SyncRunOptions = {}) =>
+      `/api/proxy/sync/accounting/${entity}/export?${query({ locationId, ...extra })}`,
+
+    log: (filters: { entity?: string; status?: string; skip?: number; take?: number } = {}) =>
+      call<SyncLogPage>(() => apiClient.get(`/sync/accounting/log?${query({ ...filters })}`)),
+
+    logDetail: (id: string) => call<SyncLogDetail>(() => apiClient.get(`/sync/accounting/log/${id}`)),
+
+    mappings: (provider = 'csv') =>
+      call<ExternalMapRow[]>(() => apiClient.get(`/sync/accounting/mappings?${query({ provider })}`)),
+
+    saveMapping: (body: {
+      provider: string;
+      entityType: string;
+      localId?: string | null;
+      localKey?: string | null;
+      remoteId: string;
+      remoteName?: string | null;
+    }) => call<ExternalMapRow>(() => apiClient.post('/sync/accounting/mappings', body)),
   },
 
   audit: {

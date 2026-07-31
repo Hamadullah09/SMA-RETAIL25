@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Building2, RotateCcw, ScrollText, Settings, Shield, Users } from 'lucide-react';
+import { BookOpenCheck, Building2, RotateCcw, ScrollText, Settings, Shield, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth-config';
 
 /**
@@ -35,6 +35,15 @@ const sections = [
     description: 'Who changed money, stock, prices, taxes or permissions — and what the values were before.',
     icon: ScrollText,
     permission: 'audit.read',
+  },
+  {
+    key: 'accounting',
+    href: '/admin/accounting',
+    title: 'Accounting',
+    description:
+      'Post the day’s takings, customers, items and open invoices to the bookkeeping system — and see what was sent when something looks wrong.',
+    icon: BookOpenCheck,
+    permission: 'sync.run',
   },
   {
     key: 'users',

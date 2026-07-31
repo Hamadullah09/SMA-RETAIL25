@@ -6,6 +6,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Behaviors;
+using Retail25.Application.Accounting;
+using Retail25.Infrastructure.Accounting;
 using Retail25.Infrastructure.Caching;
 using Retail25.Infrastructure.Identity;
 using Retail25.Infrastructure.Jobs;
@@ -61,6 +63,12 @@ public static class DependencyInjection
 
         services.AddScoped<DatabaseSeeder>();
         services.AddScoped<LateChargeAccrualJob>();
+
+        // The CSV adapter is the one that is always available. A provider integration (QuickBooks,
+        // Xero) would be registered here instead per deployment — the port is what the application
+        // layer depends on, so swapping it is a registration change and nothing else (doc 09 §1).
+        services.AddScoped<IAccountingConnector, CsvExportConnector>();
+        services.AddScoped<PostPosRevenueToAccountingJob>();
 
         AddHangfire(services, configuration);
 

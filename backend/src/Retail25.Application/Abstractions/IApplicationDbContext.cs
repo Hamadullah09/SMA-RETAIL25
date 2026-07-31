@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Retail25.Domain.Accounting;
 using Retail25.Domain.Catalog;
 using Retail25.Domain.Configuration;
 using Retail25.Domain.Customers;
@@ -77,6 +78,10 @@ public interface IApplicationDbContext
     DbSet<StockLedgerEntry> StockLedgerEntries { get; }
     DbSet<StockTransfer> StockTransfers { get; }
     DbSet<StockCount> StockCounts { get; }
+
+    // --- Accounting sync ---
+    DbSet<SyncLog> SyncLogs { get; }
+    DbSet<ExternalEntityMap> ExternalEntityMaps { get; }
 
     // --- Terminals ---
     DbSet<Station> Stations { get; }
