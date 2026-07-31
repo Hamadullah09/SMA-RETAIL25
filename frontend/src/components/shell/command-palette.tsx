@@ -48,6 +48,7 @@ export function CommandPalette() {
       { id: 'transfers', label: 'Stock transfers', group: 'Go to', href: '/inventory/transfers', keywords: 'move between stores locations van', permission: 'inventory.transfer' },
       { id: 'stock-counts', label: 'Stock counts', group: 'Go to', href: '/inventory/counts', keywords: 'stocktake count variance shrinkage', permission: 'inventory.count' },
       { id: 'bulk-adjust', label: 'Batch changes', group: 'Go to', href: '/catalog/bulk', keywords: 'bulk reprice price increase tax flags', permission: 'catalog.bulk_adjust' },
+      { id: 'staff', label: 'Staff', group: 'Go to', href: '/admin/staff', keywords: 'time clock hours commission payroll', permission: 'staff.read' },
       { id: 'customers', label: 'Customers', group: 'Go to', href: '/customers', keywords: 'clients accounts', permission: 'customer.read' },
       { id: 'receivables', label: 'Receivables', group: 'Go to', href: '/receivables', keywords: 'ar invoices statements', permission: 'ar.read' },
       { id: 'purchasing', label: 'Purchasing', group: 'Go to', href: '/purchasing', keywords: 'orders po', permission: 'purchasing.read' },

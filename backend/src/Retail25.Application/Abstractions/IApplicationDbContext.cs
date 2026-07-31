@@ -104,6 +104,7 @@ public interface IApplicationDbContext
     DbSet<StaffProfile> StaffProfiles { get; }
     DbSet<TimeClockEntry> TimeClockEntries { get; }
     DbSet<CommissionRule> CommissionRules { get; }
+    DbSet<CommissionLedgerEntry> CommissionLedgerEntries { get; }
 
     // --- Configuration ---
     DbSet<Location> Locations { get; }

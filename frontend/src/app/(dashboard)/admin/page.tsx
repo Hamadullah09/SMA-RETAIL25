@@ -46,6 +46,15 @@ const sections = [
     permission: 'sync.run',
   },
   {
+    key: 'staff',
+    href: '/admin/staff',
+    title: 'Staff',
+    description:
+      'Who is on the clock, what each person earns in commission, and the hours worked over a period.',
+    icon: ScrollText,
+    permission: 'staff.read',
+  },
+  {
     key: 'users',
     href: '/admin/settings',
     title: 'Users and access',

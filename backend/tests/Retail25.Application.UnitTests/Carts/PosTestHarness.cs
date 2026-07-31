@@ -176,6 +176,34 @@ internal sealed class PosTestHarness : IDisposable
         return tender;
     }
 
+    /// <summary>
+    /// Puts a staff profile behind the signed-in user and returns it. Access level 0 is the trainee
+    /// preset — which is what makes everything they ring practice rather than real.
+    /// </summary>
+    public async Task<Domain.Staff.StaffProfile> SignInAsAsync(string code, int accessLevel)
+    {
+        var staff = Domain.Staff.StaffProfile.Create(Guid.NewGuid(), code, code, "Tester", accessLevel);
+        Db.StaffProfiles.Add(staff);
+        await Db.SaveChangesAsync();
+
+        CurrentUser.StaffId = staff.Id;
+        return staff;
+    }
+
+    public async Task<Domain.Staff.CommissionRule> AddCommissionRuleAsync(
+        Guid staffId,
+        Domain.Staff.CommissionType type,
+        decimal value,
+        Guid? productId = null,
+        Guid? departmentId = null,
+        decimal? max = null)
+    {
+        var rule = Domain.Staff.CommissionRule.Create(staffId, type, value, productId, departmentId, max).Value;
+        Db.CommissionRules.Add(rule);
+        await Db.SaveChangesAsync();
+        return rule;
+    }
+
     public async Task<Cart> OpenCartAsync()
     {
         var cart = Cart.Open(Station.Id, Location.Id, CurrentUser.StaffId ?? Guid.NewGuid(), Clock.Now, 720);
@@ -191,6 +219,9 @@ internal sealed class FixedClock : IDateTime
     public FixedClock(DateTimeOffset now) => Now = now;
 
     public DateTimeOffset Now { get; set; }
+
+    /// <summary>Moves the clock on, for anything whose behaviour depends on time passing.</summary>
+    public void Advance(TimeSpan by) => Now = Now.Add(by);
 }
 
 /// <summary>Grants everything by default; individual tests take permissions away to test the gates.</summary>

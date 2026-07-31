@@ -30,10 +30,11 @@ public sealed class SalesController : ControllerBase
         [FromQuery] Guid? staffId = null,
         [FromQuery] Guid? customerId = null,
         [FromQuery] bool includeVoided = true,
+        [FromQuery] bool includeTraining = false,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 100)
         => Ok(await _sender.Send(new SalesLogQuery(
-            locationId, from, to, stationId, staffId, customerId, includeVoided, skip, take)));
+            locationId, from, to, stationId, staffId, customerId, includeVoided, includeTraining, skip, take)));
 
     /// <summary>The same rows as CSV — the modern "Open In MS-Excel" (guide p.101).</summary>
     [HttpGet("export")]
@@ -43,10 +44,11 @@ public sealed class SalesController : ControllerBase
         [FromQuery] DateOnly? to = null,
         [FromQuery] Guid? stationId = null,
         [FromQuery] Guid? staffId = null,
-        [FromQuery] bool includeVoided = true)
+        [FromQuery] bool includeVoided = true,
+        [FromQuery] bool includeTraining = false)
     {
         var csv = await _sender.Send(new ExportSalesLogQuery(
-            new SalesLogQuery(locationId, from, to, stationId, staffId, null, includeVoided, 0, int.MaxValue)));
+            new SalesLogQuery(locationId, from, to, stationId, staffId, null, includeVoided, includeTraining, 0, int.MaxValue)));
 
         return File(Encoding.UTF8.GetBytes(csv), "text/csv", "sales-log.csv");
     }

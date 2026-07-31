@@ -1266,3 +1266,103 @@ export interface TransferDestination {
   code: string;
   name: string;
 }
+
+/* ---------------------------------------------------------------------------------------------
+ * Staff, the time clock and commissions (guide p.33, p.75–76)
+ * ------------------------------------------------------------------------------------------- */
+
+export type CommissionType = 'Percentage' | 'Fixed' | 'PercentOfProfit';
+
+export interface StaffRow {
+  id: string;
+  staffCode: string;
+  fullName: string;
+  /** Legacy 0–4. Level 0 is the trainee preset, whose sales are practice. */
+  accessLevel: number;
+  isActive: boolean;
+  isClockedIn: boolean;
+  clockedInAt: string | null;
+}
+
+export interface TimeClockState {
+  entryId: string | null;
+  staffId: string;
+  staffName: string;
+  isClockedIn: boolean;
+  clockedInAt: string | null;
+  /** Hours on the shift currently running. Zero when clocked out. */
+  hoursSoFar: number;
+  /** Today's total, including the shift still running. */
+  hoursToday: number;
+}
+
+export interface TimeClockEntry {
+  id: string;
+  staffId: string;
+  staffName: string;
+  clockIn: string;
+  clockOut: string | null;
+  hoursWorked: number | null;
+}
+
+export interface CommissionRule {
+  id: string;
+  staffId: string;
+  productId: string | null;
+  productName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
+  commissionType: CommissionType;
+  value: number;
+  maxCommission: number | null;
+  isActive: boolean;
+}
+
+export interface HoursRow {
+  staffId: string;
+  staffCode: string;
+  staffName: string;
+  shifts: number;
+  hoursWorked: number;
+  /** Shifts with no clock-out. Their hours are deliberately not counted. */
+  openShifts: number;
+  firstIn: string | null;
+  lastOut: string | null;
+}
+
+export interface HoursReportResult {
+  rows: HoursRow[];
+  totalHours: number;
+  totalShifts: number;
+  totalOpenShifts: number;
+}
+
+export interface CommissionRow {
+  staffId: string;
+  staffCode: string;
+  staffName: string;
+  lines: number;
+  salesNet: number;
+  commission: number;
+  cappedLines: number;
+}
+
+export interface CommissionDetailRow {
+  transactionId: string;
+  transactionNumber: number;
+  businessDate: string;
+  stockCode: string;
+  quantity: number;
+  lineNet: number;
+  commissionType: CommissionType;
+  rateApplied: number;
+  amount: number;
+  wasCapped: boolean;
+}
+
+export interface CommissionReportResult {
+  rows: CommissionRow[];
+  detail: CommissionDetailRow[];
+  totalCommission: number;
+  totalSalesNet: number;
+}

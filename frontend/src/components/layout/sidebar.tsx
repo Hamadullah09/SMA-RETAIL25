@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { PunchClock } from '@/components/staff/punch-clock';
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -98,6 +99,7 @@ export function Header() {
         <h1 className="text-lg font-semibold">Retail 25</h1>
       </div>
       <div className="flex items-center gap-4 text-sm">
+        <PunchClock />
         <span className="text-muted-foreground">{user?.name || user?.email || "Signed in"}</span>
         <kbd className="rounded-sm border px-1 font-mono text-[10px] text-muted-foreground">Ctrl+K</kbd>
       </div>

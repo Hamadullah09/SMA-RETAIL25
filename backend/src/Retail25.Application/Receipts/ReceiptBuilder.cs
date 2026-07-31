@@ -130,7 +130,8 @@ public sealed class ReceiptBuilder
             null,
             isReprint,
             transaction.Status == TransactionStatus.Voided,
-            hasCardTender && (policy?.PrintCreditCardSignatureLine ?? true));
+            hasCardTender && (policy?.PrintCreditCardSignatureLine ?? true),
+            transaction.IsTraining);
     }
 
     /// <summary>

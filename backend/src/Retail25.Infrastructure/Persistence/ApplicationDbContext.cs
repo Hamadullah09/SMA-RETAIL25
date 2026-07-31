@@ -115,6 +115,7 @@ public class ApplicationDbContext
     public DbSet<StaffProfile> StaffProfiles => Set<StaffProfile>();
     public DbSet<TimeClockEntry> TimeClockEntries => Set<TimeClockEntry>();
     public DbSet<CommissionRule> CommissionRules => Set<CommissionRule>();
+    public DbSet<CommissionLedgerEntry> CommissionLedgerEntries => Set<CommissionLedgerEntry>();
 
     // --- Configuration ---
     public DbSet<Location> Locations => Set<Location>();

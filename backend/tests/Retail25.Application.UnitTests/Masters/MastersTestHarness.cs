@@ -11,6 +11,8 @@ using Retail25.Application.Orders;
 using Retail25.Application.Purchasing;
 using Retail25.Application.Receivables;
 using Retail25.Application.Settings;
+using Retail25.Application.Staff;
+using Retail25.Application.Reports;
 using Retail25.Application.UnitTests.Carts;
 using Retail25.Domain.Catalog;
 using Retail25.Domain.Configuration;
@@ -64,6 +66,8 @@ internal sealed class MastersTestHarness : IDisposable
         BulkAdjust = new BulkAdjustHandlers(db);
         Transfers = new TransferHandlers(db, Sequences, CurrentUser, Notifier, Clock);
         StockCounts = new StockCountHandlers(db, Sequences, CurrentUser, Notifier, Clock);
+        StaffCommands = new StaffHandlers(db, CurrentUser, Clock);
+        StaffReports = new StaffReportHandlers(db);
     }
 
     public ApplicationDbContext Db { get; }
@@ -127,6 +131,10 @@ internal sealed class MastersTestHarness : IDisposable
     public TransferHandlers Transfers { get; }
 
     public StockCountHandlers StockCounts { get; }
+
+    public StaffHandlers StaffCommands { get; }
+
+    public StaffReportHandlers StaffReports { get; }
 
     public Location Location { get; private set; } = null!;
 
@@ -192,6 +200,19 @@ internal sealed class MastersTestHarness : IDisposable
         Db.Products.Add(product);
         await Db.SaveChangesAsync();
         return product;
+    }
+
+    /// <summary>
+    /// A person on the shop floor. <paramref name="accessLevel"/> 0 is the trainee preset, which is
+    /// what makes their sales practice rather than real.
+    /// </summary>
+    public async Task<Domain.Staff.StaffProfile> AddStaffAsync(
+        string code, string firstName, string lastName, int accessLevel = 2)
+    {
+        var staff = Domain.Staff.StaffProfile.Create(Guid.NewGuid(), code, firstName, lastName, accessLevel);
+        Db.StaffProfiles.Add(staff);
+        await Db.SaveChangesAsync();
+        return staff;
     }
 
     /// <summary>A second store, for anything that moves stock between two of them.</summary>

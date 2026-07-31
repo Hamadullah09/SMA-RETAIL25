@@ -34,7 +34,7 @@ public sealed class AuditingInterceptor : SaveChangesInterceptor
         "Invoice", "InvoicePayment", "ARLedgerEntry", "GiftCertificate", "GiftCard", "LateChargePolicy",
         "CustomerAccount", "LoyaltyLedgerEntry",
         "DrawerSession", "DrawerLedgerEntry",
-        "StaffProfile", "RolePermission", "Permission",
+        "StaffProfile", "RolePermission", "Permission", "TimeClockEntry", "CommissionRule",
         "SerializedUnit", "Station", "ReaderProfile", "PrinterProfile",
         "PurchaseOrder", "PurchaseOrderLine", "PurchaseOrderReceipt",
     };

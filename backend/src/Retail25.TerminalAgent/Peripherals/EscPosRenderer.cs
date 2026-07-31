@@ -76,6 +76,13 @@ public static class EscPosRenderer
             Centre(slip, "*** VOIDED ***", columns);
         }
 
+        // Said twice, top and bottom, because a slip torn off at the perforation can lose either end
+        // and a training receipt that reads as real is a refund waiting to happen.
+        if (document.IsTraining)
+        {
+            Centre(slip, "*** TRAINING - NOT A REAL SALE ***", columns);
+        }
+
         if (document.Format == ReceiptFormat.PackingSlip)
         {
             Centre(slip, "PACKING SLIP", columns);
@@ -184,6 +191,12 @@ public static class EscPosRenderer
         {
             slip.AppendLine();
             Centre(slip, document.FooterMessage!, columns);
+        }
+
+        if (document.IsTraining)
+        {
+            slip.AppendLine();
+            Centre(slip, "*** TRAINING - NOT A REAL SALE ***", columns);
         }
 
         return slip.ToString();

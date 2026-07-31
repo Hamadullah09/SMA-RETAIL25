@@ -75,6 +75,12 @@ import type {
   TransferDestination,
   TransferRow,
   TransferStatus,
+  CommissionReportResult,
+  CommissionRule,
+  HoursReportResult,
+  StaffRow,
+  TimeClockEntry,
+  TimeClockState,
 } from '@/types/masters';
 
 /**
@@ -620,6 +626,50 @@ export const mastersApi = {
 
     exportUrl: (id: string, varianceOnly = true) =>
       `/api/proxy/stock-counts/${id}/export?${query({ varianceOnly })}`,
+  },
+
+  /** Staff, the time clock and commissions (guide p.33, p.75–76). */
+  staff: {
+    browse: (locationId: string, includeInactive = false) =>
+      call<StaffRow[]>(() => apiClient.get(`/staff?${query({ locationId, includeInactive })}`)),
+
+    myTimeClock: (locationId: string) =>
+      call<TimeClockState>(() => apiClient.get(`/staff/time-clock/me?${query({ locationId })}`)),
+
+    clockIn: (locationId: string) =>
+      call<TimeClockState>(() => apiClient.post('/staff/time-clock/in', { locationId })),
+
+    clockOut: (locationId: string) =>
+      call<TimeClockState>(() => apiClient.post('/staff/time-clock/out', { locationId })),
+
+    timeClock: (locationId: string, from: string, to: string, staffId?: string) =>
+      call<TimeClockEntry[]>(() => apiClient.get(`/staff/time-clock?${query({ locationId, from, to, staffId })}`)),
+
+    amendTimeClock: (id: string, clockIn: string, clockOut: string | null) =>
+      call<TimeClockEntry>(() => apiClient.put(`/staff/time-clock/${id}`, { clockIn, clockOut })),
+
+    deleteTimeClock: (id: string) => call<void>(() => apiClient.delete(`/staff/time-clock/${id}`)),
+
+    commissionRules: (staffId: string) =>
+      call<CommissionRule[]>(() => apiClient.get(`/staff/${staffId}/commission-rules`)),
+
+    saveCommissionRule: (body: unknown) =>
+      call<CommissionRule>(() => apiClient.post('/staff/commission-rules', body)),
+
+    deleteCommissionRule: (id: string) => call<void>(() => apiClient.delete(`/staff/commission-rules/${id}`)),
+
+    hours: (locationId: string, from: string, to: string, staffId?: string) =>
+      call<HoursReportResult>(() => apiClient.get(`/staff/reports/hours?${query({ locationId, from, to, staffId })}`)),
+
+    hoursExportUrl: (locationId: string, from: string, to: string, staffId?: string) =>
+      `/api/proxy/staff/reports/hours/export?${query({ locationId, from, to, staffId })}`,
+
+    commissions: (locationId: string, from: string, to: string, staffId?: string, includeDetail = false) =>
+      call<CommissionReportResult>(() =>
+        apiClient.get(`/staff/reports/commissions?${query({ locationId, from, to, staffId, includeDetail })}`)),
+
+    commissionsExportUrl: (locationId: string, from: string, to: string, staffId?: string) =>
+      `/api/proxy/staff/reports/commissions/export?${query({ locationId, from, to, staffId })}`,
   },
 
   /** The accounting link (doc 09 §1) — what to post, whether it can be posted, and what happened. */

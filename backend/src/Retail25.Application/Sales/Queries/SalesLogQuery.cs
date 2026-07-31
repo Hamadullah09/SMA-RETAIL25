@@ -42,6 +42,13 @@ public sealed record SalesLogQuery(
     Guid? StaffId = null,
     Guid? CustomerId = null,
     bool IncludeVoided = true,
+
+    /// <summary>
+    /// Practice sales rung by a trainee. Off by default, like every report: they never happened as
+    /// far as the takings are concerned, and mixing them into the log a drawer is reconciled against
+    /// would be the same mistake as hiding a voided sale, in the other direction.
+    /// </summary>
+    bool IncludeTraining = false,
     int Skip = 0,
     int Take = 100) : IRequest<SalesLogPage>;
 
@@ -248,6 +255,11 @@ public sealed class SalesLogHandlers
         if (!request.IncludeVoided)
         {
             query = query.Where(t => t.Status == TransactionStatus.Completed);
+        }
+
+        if (!request.IncludeTraining)
+        {
+            query = query.Where(t => !t.IsTraining);
         }
 
         return query;
