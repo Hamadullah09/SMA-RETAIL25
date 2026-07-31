@@ -93,14 +93,14 @@ export default function SuppliersPage() {
       filters={
         <>
           <input
-            className="w-64 rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input w-64"
             placeholder="Company, number, contact or phone"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={sort}
             onChange={(event) => setSort(event.target.value as SupplierSort)}
           >
@@ -251,7 +251,7 @@ function SupplierFormPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">{supplierId ? form.company : 'New supplier'}</h2>
+        <h2 className="text-body font-semibold">{supplierId ? form.company : 'New supplier'}</h2>
         <button type="button" className="pos-button" onClick={onClose}>
           Close
         </button>
@@ -319,13 +319,13 @@ function SupplierFormPanel({
 
       {supplierId ? (
         <div className="mb-6 space-y-2">
-          <p className="text-xs text-[rgb(var(--text-muted))]">
+          <p className="text-label text-ink-muted">
             {form.suppliedItemCount} item{form.suppliedItemCount === 1 ? '' : 's'} sourced from this supplier.
             {form.suppliedItemCount > 0 ? ' Unlink them before deleting.' : ''}
           </p>
 
           {canWrite ? (
-            <button type="button" className="pos-button text-[rgb(var(--negative))]" onClick={() => void remove()} disabled={busy}>
+            <button type="button" className="pos-button text-negative" onClick={() => void remove()} disabled={busy}>
               Delete
             </button>
           ) : null}

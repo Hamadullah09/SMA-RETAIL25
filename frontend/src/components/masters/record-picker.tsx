@@ -66,14 +66,14 @@ export function RecordPicker({
   return (
     <Field label={label} hint={hint}>
       {value ? (
-        <div className="flex items-center justify-between gap-2 rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1 text-sm">
+        <div className="flex items-center justify-between gap-2 pos-input">
           <span className="truncate">
             <span className="pos-amount">{value.code}</span> — {value.name}
           </span>
           {!disabled ? (
             <button
               type="button"
-              className="text-xs underline"
+              className="text-label underline"
               onClick={() => {
                 onChange(null);
                 setTerm('');
@@ -87,7 +87,7 @@ export function RecordPicker({
       ) : (
         <div className="relative">
           <input
-            className="w-full rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1 outline-none focus:border-[rgb(var(--accent))]"
+            className="w-full pos-input outline-none focus:border-accent"
             value={term}
             placeholder={placeholder}
             disabled={disabled}
@@ -101,12 +101,12 @@ export function RecordPicker({
           />
 
           {open && results.length > 0 ? (
-            <ul className="absolute z-10 mt-0.5 max-h-56 w-full overflow-y-auto border border-[rgb(var(--border))] bg-[rgb(var(--panel))] text-sm shadow-md">
+            <ul className="absolute z-10 mt-0.5 max-h-56 w-full overflow-y-auto border border-subtle bg-panel text-body shadow-md">
               {results.map((option) => (
                 <li key={option.id}>
                   <button
                     type="button"
-                    className="block w-full px-2 py-1 text-left hover:bg-[rgb(var(--surface))]"
+                    className="block w-full px-2 py-1 text-left hover:bg-panel-hover"
                     onClick={() => {
                       onChange(option);
                       setTerm('');

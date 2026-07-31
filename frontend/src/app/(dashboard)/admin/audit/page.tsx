@@ -105,7 +105,7 @@ export default function AuditPage() {
         header: 'Action',
         width: 130,
         render: (r) => (
-          <span className={cn(isRefusal(r.action) && 'text-[rgb(var(--warning))]', r.action === 'Deleted' && 'text-[rgb(var(--negative))]')}>
+          <span className={cn(isRefusal(r.action) && 'text-warning', r.action === 'Deleted' && 'text-negative')}>
             {r.action}
           </span>
         ),
@@ -120,7 +120,7 @@ export default function AuditPage() {
   );
 
   if (!canRead) {
-    return <p className="text-sm text-[rgb(var(--text-muted))]">Your account cannot read the audit log.</p>;
+    return <p className="text-body text-ink-muted">Your account cannot read the audit log.</p>;
   }
 
   return (
@@ -132,7 +132,7 @@ export default function AuditPage() {
             From
             <input
               type="date"
-              className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+              className="pos-input"
               value={from}
               onChange={(event) => setFrom(event.target.value)}
             />
@@ -142,21 +142,21 @@ export default function AuditPage() {
             To
             <input
               type="date"
-              className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+              className="pos-input"
               value={to}
               onChange={(event) => setTo(event.target.value)}
             />
           </label>
 
           <input
-            className="w-48 rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="w-48 pos-input"
             placeholder="Record type, e.g. Product"
             value={entityType}
             onChange={(event) => setEntityType(event.target.value)}
           />
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={action}
             onChange={(event) => setAction(event.target.value as AuditAction | '')}
           >
@@ -206,7 +206,7 @@ function AuditDetailPanel({ row, trail, onClose }: { row: AuditLogRow; trail: Au
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-body font-semibold">
           {row.action} — {row.entityType}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>
@@ -215,26 +215,26 @@ function AuditDetailPanel({ row, trail, onClose }: { row: AuditLogRow; trail: Au
       </div>
 
       <FormSection title="Entry">
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-          <dt className="text-[rgb(var(--text-muted))]">When</dt>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-label">
+          <dt className="text-ink-muted">When</dt>
           <dd>{new Date(row.occurredAt).toLocaleString()}</dd>
-          <dt className="text-[rgb(var(--text-muted))]">Who</dt>
+          <dt className="text-ink-muted">Who</dt>
           <dd>{row.actorName ?? 'Unknown'}</dd>
-          <dt className="text-[rgb(var(--text-muted))]">Record</dt>
+          <dt className="text-ink-muted">Record</dt>
           <dd>
             {row.entityType} {row.entityId ? <span className="pos-amount">{row.entityId.slice(0, 8)}…</span> : null}
           </dd>
-          <dt className="text-[rgb(var(--text-muted))]">Operation</dt>
+          <dt className="text-ink-muted">Operation</dt>
           <dd>{row.operation ?? '—'}</dd>
           {row.approverName ? (
             <>
-              <dt className="text-[rgb(var(--text-muted))]">Approved by</dt>
+              <dt className="text-ink-muted">Approved by</dt>
               <dd>{row.approverName}</dd>
             </>
           ) : null}
           {row.reason ? (
             <>
-              <dt className="text-[rgb(var(--text-muted))]">Reason</dt>
+              <dt className="text-ink-muted">Reason</dt>
               <dd>{row.reason}</dd>
             </>
           ) : null}
@@ -253,7 +253,7 @@ function AuditDetailPanel({ row, trail, onClose }: { row: AuditLogRow; trail: Au
           title={`The whole request (${trail.length} entries)`}
           hint="Everything the same request did — a void and the approval that authorised it are one story."
         >
-          <ol className="space-y-0.5 text-xs">
+          <ol className="space-y-0.5 text-label">
             {trail.map((entry) => (
               <li key={entry.id} className={cn(entry.id === row.id && 'font-medium')}>
                 {entry.action} {entry.entityType}
@@ -280,8 +280,8 @@ function JsonDiff({ label, json }: { label: string; json: string | null }) {
 
   return (
     <div>
-      <p className="mb-0.5 text-xs text-[rgb(var(--text-muted))]">{label}</p>
-      <pre className="max-h-48 overflow-auto rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--surface))] p-2 text-[11px] leading-snug">
+      <p className="mb-0.5 text-label text-ink-muted">{label}</p>
+      <pre className="max-h-48 overflow-auto rounded-sm border border-subtle bg-surface p-2 text-caption leading-snug">
         {pretty}
       </pre>
     </div>

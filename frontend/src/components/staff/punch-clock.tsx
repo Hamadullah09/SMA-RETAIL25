@@ -74,9 +74,9 @@ export function PunchClock() {
   };
 
   return (
-    <div className="flex items-center gap-2 text-xs">
+    <div className="flex items-center gap-2 text-label">
       {/* Stated in words as well as by which button is offered — "on the clock" is not a colour. */}
-      <span className="text-muted-foreground">
+      <span className="text-ink-muted">
         {state.isClockedIn ? `On since ${time(state.clockedInAt)} · ${state.hoursSoFar}h` : `${state.hoursToday}h today`}
       </span>
 

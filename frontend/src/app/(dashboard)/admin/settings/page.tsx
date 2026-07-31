@@ -85,28 +85,28 @@ export default function SettingsPage() {
   });
 
   if (!locationId) {
-    return <p className="text-sm text-[rgb(var(--text-muted))]">No location is attached to this session.</p>;
+    return <p className="text-body text-ink-muted">No location is attached to this session.</p>;
   }
 
   if (loading || !settings) {
-    return <p className="text-sm text-[rgb(var(--text-muted))]">Loading settings…</p>;
+    return <p className="text-body text-ink-muted">Loading settings…</p>;
   }
 
   return (
     <div className="space-y-3">
-      <h1 className="text-lg font-semibold">Setup</h1>
+      <h1 className="text-h3 font-semibold">Setup</h1>
 
-      <nav className="flex flex-wrap gap-1 border-b border-[rgb(var(--border))]">
+      <nav className="flex flex-wrap gap-1 border-b border-subtle">
         {TABS.map((name) => (
           <button
             key={name}
             type="button"
             onClick={() => setTab(name)}
             className={cn(
-              'px-3 py-1.5 text-sm',
+              'px-3 py-1.5 text-body',
               tab === name
-                ? 'border-b-2 border-[rgb(var(--accent))] font-medium'
-                : 'text-[rgb(var(--text-muted))] hover:text-[rgb(var(--text))]',
+                ? 'border-b-2 border-accent font-medium'
+                : 'text-ink-muted hover:text-ink',
             )}
           >
             {name}
@@ -265,11 +265,11 @@ function BusinessTab({
         disabled={!canWrite}
       />
 
-      <hr className="border-[rgb(var(--border))]" />
+      <hr className="border-subtle" />
 
       <TextField label="Location name" value={form.locationName} onChange={(v) => patch({ locationName: v })} disabled={!canWrite} />
       <Field label="Location code">
-        <p className="text-sm">{form.legacyCode} — fixed at creation, because migrated data and old reports refer to it.</p>
+        <p className="text-body">{form.legacyCode} — fixed at creation, because migrated data and old reports refer to it.</p>
       </Field>
       <TextField
         label="Time zone"
@@ -286,7 +286,7 @@ function BusinessTab({
         hint="A store trading past midnight sets this to its closing time, so takings group the way staff expect."
       />
       <Field label="Base currency">
-        <p className="text-sm">{form.baseCurrencyCode} — every ledger is denominated in it and it cannot be changed here.</p>
+        <p className="text-body">{form.baseCurrencyCode} — every ledger is denominated in it and it cannot be changed here.</p>
       </Field>
     </FormSection>
   );
@@ -313,7 +313,7 @@ function TaxesTab({
   useEffect(() => setForm(current), [current]);
 
   if (!form) {
-    return <p className="text-sm text-[rgb(var(--text-muted))]">No tax configuration yet.</p>;
+    return <p className="text-body text-ink-muted">No tax configuration yet.</p>;
   }
 
   const patch = (changes: Partial<TaxSettings>) => setForm((c) => (c ? { ...c, ...changes } : c));
@@ -419,8 +419,8 @@ function TaxesTab({
       </FormSection>
 
       <FormSection title="History" hint="Every rate that has ever applied, and when.">
-        <table className="w-full text-xs">
-          <thead className="text-[rgb(var(--text-muted))]">
+        <table className="w-full text-label">
+          <thead className="text-ink-muted">
             <tr>
               <th className="text-left">From</th>
               <th className="text-left">To</th>
@@ -489,7 +489,7 @@ function PosTab({
       />
       <CheckField label="Apply the add-on charge" checked={form.applyAddOnCharge} onChange={(v) => patch({ applyAddOnCharge: v })} disabled={!canWrite} />
 
-      <hr className="border-[rgb(var(--border))]" />
+      <hr className="border-subtle" />
 
       <CheckField
         label="Fast scan mode"
@@ -515,7 +515,7 @@ function PosTab({
       <CheckField label="Staff may give discounts" checked={form.staffMayDiscount} onChange={(v) => patch({ staffMayDiscount: v })} disabled={!canWrite} />
       <CheckField label="Allow free-text lines on an invoice" checked={form.allowItemListEdit} onChange={(v) => patch({ allowItemListEdit: v })} disabled={!canWrite} />
 
-      <hr className="border-[rgb(var(--border))]" />
+      <hr className="border-subtle" />
 
       <CheckField label="Attribute every sale to a staff member" checked={form.trackStaffSales} onChange={(v) => patch({ trackStaffSales: v })} disabled={!canWrite} />
       <CheckField
@@ -526,7 +526,7 @@ function PosTab({
       />
       <CheckField label="Use the employee time clock" checked={form.useEmployeeTimeClock} onChange={(v) => patch({ useEmployeeTimeClock: v })} disabled={!canWrite} />
 
-      <hr className="border-[rgb(var(--border))]" />
+      <hr className="border-subtle" />
 
       <CheckField
         label="Print the signature line on card sales"
@@ -802,7 +802,7 @@ function HardwareTab({
       ))}
 
       {scaleDrafts.length === 0 && readerDrafts.length === 0 && poleDrafts.length === 0 ? (
-        <p className="text-sm text-[rgb(var(--text-muted))]">No scale, reader or pole display profile has been created yet.</p>
+        <p className="text-body text-ink-muted">No scale, reader or pole display profile has been created yet.</p>
       ) : null}
     </>
   );
@@ -921,15 +921,15 @@ function ReferenceList({
         ) : null
       }
     >
-      {rows.length === 0 ? <p className="text-xs text-[rgb(var(--text-muted))]">None yet.</p> : null}
+      {rows.length === 0 ? <p className="text-label text-ink-muted">None yet.</p> : null}
 
       {rows.map((row) => (
-        <div key={row.id} className="grid grid-cols-[1fr_7rem_5rem_auto_auto] items-end gap-2 border-b border-[rgb(var(--border))] pb-2">
+        <div key={row.id} className="grid grid-cols-[1fr_7rem_5rem_auto_auto] items-end gap-2 border-b border-subtle pb-2">
           <TextField label="Name" value={row.name} onChange={(v) => patch(row.id, { name: v })} disabled={!canWrite} />
           <TextField label="Code" value={row.code ?? ''} onChange={(v) => patch(row.id, { code: v })} disabled={!canWrite} />
           <NumberField label="Order" value={row.sortOrder} onChange={(v) => patch(row.id, { sortOrder: v })} step="1" disabled={!canWrite} />
 
-          <label className="mb-1.5 flex items-center gap-1 text-xs">
+          <label className="mb-1.5 flex items-center gap-1 text-label">
             <input
               type="checkbox"
               checked={row.isActive}
@@ -939,7 +939,7 @@ function ReferenceList({
             active
           </label>
 
-          <span className="mb-1 flex items-center gap-2 text-xs">
+          <span className="mb-1 flex items-center gap-2 text-label">
             {canWrite ? (
               <button
                 type="button"
@@ -967,7 +967,7 @@ function ReferenceList({
             {canDelete ? (
               <button
                 type="button"
-                className="underline text-[rgb(var(--negative))]"
+                className="underline text-negative"
                 disabled={busy}
                 onClick={() => void act(() => api.remove(row.id), 'Deleted')}
                 // Refused by the server while items are still filed under it, rather than silently
@@ -979,7 +979,7 @@ function ReferenceList({
             ) : null}
           </span>
 
-          <span className="col-span-5 text-[11px] text-[rgb(var(--text-muted))]">
+          <span className="col-span-5 text-caption text-ink-muted">
             {row.usageCount} item{row.usageCount === 1 ? '' : 's'}
           </span>
         </div>
@@ -1124,7 +1124,7 @@ function StationsTab({
           {canWrite && station.isActive ? (
             <button
               type="button"
-              className="pos-button text-[rgb(var(--negative))]"
+              className="pos-button text-negative"
               disabled={busy}
               onClick={() => void run(() => mastersApi.settings.deactivateStation(station.id), 'Station retired')}
             >
@@ -1319,8 +1319,8 @@ function NumberingTab({
       hint="A migrated store sets these to its old counters so customer 4,182 is followed by 4,183. A number already issued cannot be reused."
     >
       {drafts.map((sequence) => (
-        <div key={sequence.id} className="grid grid-cols-[7rem_1fr_1fr_1fr_auto] items-end gap-2 border-b border-[rgb(var(--border))] pb-2">
-          <span className="pb-1 text-sm">{sequence.kind}</span>
+        <div key={sequence.id} className="grid grid-cols-[7rem_1fr_1fr_1fr_auto] items-end gap-2 border-b border-subtle pb-2">
+          <span className="pb-1 text-body">{sequence.kind}</span>
 
           <TextField label="Prefix" value={sequence.prefix} onChange={(v) => patch(sequence.id, { prefix: v })} disabled={!canWrite} />
           <NumberField label="Pad width" value={sequence.padWidth} onChange={(v) => patch(sequence.id, { padWidth: v })} step="1" disabled={!canWrite} />
@@ -1343,7 +1343,7 @@ function NumberingTab({
             />
           ) : null}
 
-          <span className="col-span-5 text-xs text-[rgb(var(--text-muted))]">
+          <span className="col-span-5 text-label text-ink-muted">
             Next will read <span className="pos-amount">{sequence.sample}</span>
             {sequence.highWaterMark > 0 ? ` · highest issued ${sequence.highWaterMark}` : ''}
           </span>
@@ -1399,11 +1399,11 @@ function PricingTab({
     >
       <ol className="space-y-1">
         {drafts.map((rule, index) => (
-          <li key={rule.id} className="flex items-center gap-2 border-b border-[rgb(var(--border))] py-1 text-sm">
-            <span className="w-6 text-[rgb(var(--text-muted))]">{index + 1}</span>
+          <li key={rule.id} className="flex items-center gap-2 border-b border-subtle py-1 text-body">
+            <span className="w-6 text-ink-muted">{index + 1}</span>
             <span className="flex-1">{RULE_LABELS[rule.ruleKey] ?? rule.ruleKey}</span>
 
-            <label className="flex items-center gap-1 text-xs">
+            <label className="flex items-center gap-1 text-label">
               <input
                 type="checkbox"
                 checked={rule.enabled}
@@ -1508,7 +1508,7 @@ function UsersTab({
         </FormSection>
       ))}
 
-      {drafts.length === 0 ? <p className="text-sm text-[rgb(var(--text-muted))]">No staff profiles yet.</p> : null}
+      {drafts.length === 0 ? <p className="text-body text-ink-muted">No staff profiles yet.</p> : null}
     </>
   );
 }

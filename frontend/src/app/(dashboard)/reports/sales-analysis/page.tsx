@@ -110,7 +110,7 @@ export default function SalesAnalysisPage() {
   }, [canSeeCost]);
 
   if (!locationId) {
-    return <p className="text-sm text-[rgb(var(--text-muted))]">No location is attached to this session.</p>;
+    return <p className="text-body text-ink-muted">No location is attached to this session.</p>;
   }
 
   const exportHref = canSeeCost

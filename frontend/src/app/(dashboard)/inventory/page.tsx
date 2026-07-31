@@ -76,7 +76,7 @@ export default function InventoryPage() {
       title="Inventory"
       toolbar={
         <>
-          {connected ? null : <span className="text-xs text-[rgb(var(--negative))]">live updates offline</span>}
+          {connected ? null : <span className="text-label text-negative">live updates offline</span>}
 
           {auth.can('inventory.transfer') ? (
             <Link className="pos-button" href="/inventory/transfers">
@@ -94,12 +94,12 @@ export default function InventoryPage() {
       filters={
         <>
           <input
-            className="w-64 rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input w-64"
             placeholder="Stock code or name"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <label className="flex items-center gap-1 text-xs">
+          <label className="flex items-center gap-1 text-label">
             <input
               type="checkbox"
               checked={belowReorderOnly}
@@ -222,7 +222,7 @@ function StockActionsPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">{row ? `${row.stockCode} — ${row.productName}` : 'Selected item'}</h2>
+        <h2 className="text-body font-semibold">{row ? `${row.stockCode} — ${row.productName}` : 'Selected item'}</h2>
         <button type="button" className="pos-button" onClick={onClose}>
           Close
         </button>

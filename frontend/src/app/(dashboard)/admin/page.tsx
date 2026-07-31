@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { NavIndex } from '@/components/shell/nav-card';
 import { BookOpenCheck, Building2, RotateCcw, ScrollText, Settings, Shield, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth-config';
 
@@ -100,33 +100,12 @@ const sections = [
 
 export default function AdminPage() {
   const { can } = useAuth();
-  const visible = sections.filter((section) => can(section.permission));
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-lg font-semibold">Administration</h1>
-
-      {visible.length === 0 ? (
-        <p className="text-sm text-[rgb(var(--text-muted))]">
-          Nothing here is available to your account. Ask an administrator if you need access.
-        </p>
-      ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {visible.map((section) => (
-            <Link
-              key={section.key}
-              href={section.href}
-              className="pos-panel block p-4 transition-colors hover:bg-[rgb(var(--surface))]"
-            >
-              <span className="mb-1 flex items-center gap-2 text-sm font-medium">
-                <section.icon className="h-4 w-4" />
-                {section.title}
-              </span>
-              <span className="block text-xs text-[rgb(var(--text-muted))]">{section.description}</span>
-            </Link>
-          ))}
-        </div>
-      )}
-    </div>
+    <NavIndex
+      title="Administration"
+      description="Setup, staff, the accounting link, the year-end close and bringing data across from the old system."
+      items={sections.filter((section) => can(section.permission))}
+    />
   );
 }

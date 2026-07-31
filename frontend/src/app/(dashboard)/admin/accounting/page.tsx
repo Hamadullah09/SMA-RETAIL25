@@ -113,12 +113,12 @@ export default function AccountingSyncPage() {
   ];
 
   if (!locationId) {
-    return <p className="text-sm text-[rgb(var(--text-muted))]">No location is attached to this session.</p>;
+    return <p className="text-body text-ink-muted">No location is attached to this session.</p>;
   }
 
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-semibold">Accounting</h1>
+      <h1 className="text-h3 font-semibold">Accounting</h1>
 
       <FormSection
         title="Before the first sync"
@@ -127,21 +127,21 @@ export default function AccountingSyncPage() {
         {preflight ? (
           <ul className="space-y-1.5">
             {preflight.checks.map((check) => (
-              <li key={check.requirement} className="flex items-start gap-2 text-xs">
+              <li key={check.requirement} className="flex items-start gap-2 text-label">
                 {check.satisfied ? (
-                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: 'rgb(var(--positive))' }} />
+                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-positive" />
                 ) : (
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" style={{ color: 'rgb(var(--warning))' }} />
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
                 )}
                 <span>
                   <span className="font-medium">{check.requirement}</span>
-                  <span className="block text-[rgb(var(--text-muted))]">{check.detail}</span>
+                  <span className="block text-ink-muted">{check.detail}</span>
                 </span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-xs text-[rgb(var(--text-muted))]">Checking…</p>
+          <p className="text-label text-ink-muted">Checking…</p>
         )}
       </FormSection>
 
@@ -149,7 +149,7 @@ export default function AccountingSyncPage() {
         title="Post now"
         hint="Writes a file the bookkeeper can import. The day's takings also post on their own each night."
       >
-        <label className="mb-2 flex items-center gap-1.5 text-sm">
+        <label className="mb-2 flex items-center gap-1.5 text-body">
           Business date
           <input
             type="date"
@@ -192,11 +192,11 @@ export default function AccountingSyncPage() {
         hint="What each local record is called on the other side. Mapping by identity rather than by name is why a rename stays a rename here."
       >
         {maps.length === 0 ? (
-          <p className="text-xs text-[rgb(var(--text-muted))]">Nothing mapped yet.</p>
+          <p className="text-label text-ink-muted">Nothing mapped yet.</p>
         ) : (
-          <table className="w-full text-xs">
+          <table className="w-full text-label">
             <thead>
-              <tr className="text-left text-[rgb(var(--text-muted))]">
+              <tr className="text-left text-ink-muted">
                 <th className="pb-1">Type</th>
                 <th className="pb-1">Local</th>
                 <th className="pb-1">Remote</th>
@@ -229,7 +229,7 @@ export default function AccountingSyncPage() {
             emptyMessage="Nothing has been posted yet."
           />
         </div>
-        <p className="mt-1 text-xs text-[rgb(var(--text-muted))]">Double-click an attempt to see what was sent.</p>
+        <p className="mt-1 text-label text-ink-muted">Double-click an attempt to see what was sent.</p>
       </FormSection>
 
       {selected ? (
@@ -238,13 +238,13 @@ export default function AccountingSyncPage() {
             Close
           </button>
 
-          <p className="mb-1 text-xs font-medium">Sent</p>
-          <pre className="mb-3 max-h-32 overflow-auto rounded-[var(--radius-dense)] border border-[rgb(var(--border))] p-2 text-[11px]">
+          <p className="mb-1 text-label font-medium">Sent</p>
+          <pre className="mb-3 max-h-32 overflow-auto rounded-sm border border-subtle p-2 text-caption">
             {selected.requestPayload ?? '—'}
           </pre>
 
-          <p className="mb-1 text-xs font-medium">Returned</p>
-          <pre className="max-h-64 overflow-auto rounded-[var(--radius-dense)] border border-[rgb(var(--border))] p-2 text-[11px]">
+          <p className="mb-1 text-label font-medium">Returned</p>
+          <pre className="max-h-64 overflow-auto rounded-sm border border-subtle p-2 text-caption">
             {selected.errorMessage ?? selected.responsePayload ?? '—'}
           </pre>
         </FormSection>

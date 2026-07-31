@@ -32,7 +32,7 @@ export default function OrdersPage() {
   return (
     <div className="flex h-[calc(100vh-8rem)] min-h-0 flex-col gap-2">
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Orders &amp; Layaways</h1>
+        <h1 className="text-h3 font-semibold">Orders &amp; Layaways</h1>
         <div className="flex gap-2">
           <button type="button" className={tabClass(tab === 'customerOrders')} onClick={() => setTab('customerOrders')}>
             Customer orders
@@ -94,18 +94,18 @@ function CustomerPicker({
   return (
     <Field label="Customer">
       <input
-        className="w-full rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+        className="w-full pos-input"
         value={term}
         onChange={(event) => setTerm(event.target.value)}
         placeholder="Name or customer number"
       />
       {results.length > 0 ? (
-        <ul className="mt-1 max-h-40 overflow-y-auto rounded-[var(--radius-dense)] border border-[rgb(var(--border))]">
+        <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-subtle">
           {results.map((r) => (
             <li key={r.id}>
               <button
                 type="button"
-                className="block w-full px-2 py-1 text-left text-xs hover:bg-[rgb(var(--panel-hover))]"
+                className="block w-full px-2 py-1 text-left text-label hover:bg-panel-hover"
                 onClick={() => {
                   onPick(r);
                   setResults([]);
@@ -186,7 +186,7 @@ function LineBuilder({
     <div>
       <Field label="Item">
         <input
-          className="w-full rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+          className="w-full pos-input"
           value={term}
           onChange={(event) => {
             setTerm(event.target.value);
@@ -195,12 +195,12 @@ function LineBuilder({
           placeholder="Stock code or name"
         />
         {results.length > 0 ? (
-          <ul className="mt-1 max-h-40 overflow-y-auto rounded-[var(--radius-dense)] border border-[rgb(var(--border))]">
+          <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-subtle">
             {results.map((product) => (
               <li key={product.id}>
                 <button
                   type="button"
-                  className="block w-full px-2 py-1 text-left text-xs hover:bg-[rgb(var(--panel-hover))]"
+                  className="block w-full px-2 py-1 text-left text-label hover:bg-panel-hover"
                   onClick={() => pick(product)}
                 >
                   {product.stockCode} — {product.name}
@@ -212,15 +212,15 @@ function LineBuilder({
       </Field>
       <NumberField label="Quantity" value={quantity} onChange={setQuantity} step="1" />
       <NumberField label="Unit price" value={unitPrice} onChange={setUnitPrice} />
-      <button type="button" className="underline text-sm" onClick={add}>
+      <button type="button" className="underline text-body" onClick={add}>
         Add line
       </button>
 
       {lines.length > 0 ? (
-        <table className="mt-2 w-full text-xs">
+        <table className="mt-2 w-full text-label">
           <tbody>
             {lines.map((line, index) => (
-              <tr key={index} className="border-t border-[rgb(var(--border))]">
+              <tr key={index} className="border-t border-subtle">
                 <td className="py-1">{line.stockCode} — {line.productName}</td>
                 <td className="py-1 text-right pos-amount">{line.quantity}</td>
                 <td className="py-1 text-right pos-amount">{currency(line.unitPrice)}</td>
@@ -344,7 +344,7 @@ function NewCustomerOrderPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">New customer order</h2>
+        <h2 className="text-body font-semibold">New customer order</h2>
         <button type="button" className="pos-button" onClick={onClose}>Close</button>
       </div>
       <FormSection title="Customer">
@@ -356,7 +356,7 @@ function NewCustomerOrderPanel({
       <FormSection title="Notes" actions={<button type="button" className="underline" disabled={busy} onClick={() => void create()}>Create order</button>}>
         <Field label="Notes (optional)">
           <input
-            className="w-full rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="w-full pos-input"
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
           />
@@ -392,7 +392,7 @@ function CustomerOrderPanel({
     void reload();
   }, [reload]);
 
-  if (!order) return <p className="text-sm text-[rgb(var(--text-muted))]">Loading…</p>;
+  if (!order) return <p className="text-body text-ink-muted">Loading…</p>;
 
   const fill = async () => {
     setBusy(true);
@@ -427,18 +427,18 @@ function CustomerOrderPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Order #{order.orderNumber} — {order.customerName} — {order.status}</h2>
+        <h2 className="text-body font-semibold">Order #{order.orderNumber} — {order.customerName} — {order.status}</h2>
         <button type="button" className="pos-button" onClick={onClose}>Close</button>
       </div>
 
       <FormSection title="Lines">
-        <table className="w-full text-xs">
-          <thead className="text-left text-[rgb(var(--text-muted))]">
+        <table className="w-full text-label">
+          <thead className="text-left text-ink-muted">
             <tr><th className="pb-1">Item</th><th className="pb-1 text-right">Ordered</th><th className="pb-1 text-right">Filled</th><th className="pb-1 text-right">Price</th></tr>
           </thead>
           <tbody>
             {order.lines.map((line) => (
-              <tr key={line.id} className="border-t border-[rgb(var(--border))]">
+              <tr key={line.id} className="border-t border-subtle">
                 <td className="py-1">{line.stockCode} — {line.productName}</td>
                 <td className="py-1 text-right pos-amount">{line.orderedQty}</td>
                 <td className="py-1 text-right pos-amount">{line.filledQty}</td>
@@ -452,7 +452,7 @@ function CustomerOrderPanel({
       {canAct ? (
         <div className="mb-6 flex gap-2">
           <button type="button" className="pos-button" disabled={busy} onClick={() => void fill()}>Fill from stock</button>
-          <button type="button" className="pos-button text-[rgb(var(--negative))]" disabled={busy} onClick={() => void cancel()}>Cancel order</button>
+          <button type="button" className="pos-button text-negative" disabled={busy} onClick={() => void cancel()}>Cancel order</button>
         </div>
       ) : null}
     </div>
@@ -555,7 +555,7 @@ function NewLayawayPanel({ locationId, onClose, onCreated }: { locationId: strin
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">New layaway</h2>
+        <h2 className="text-body font-semibold">New layaway</h2>
         <button type="button" className="pos-button" onClick={onClose}>Close</button>
       </div>
       <FormSection title="Customer">
@@ -606,7 +606,7 @@ function LayawayPanel({
     if (!tenderTypeId && tenders.length > 0) setTenderTypeId(tenders[0]!.id);
   }, [tenders, tenderTypeId]);
 
-  if (!layaway) return <p className="text-sm text-[rgb(var(--text-muted))]">Loading…</p>;
+  if (!layaway) return <p className="text-body text-ink-muted">Loading…</p>;
 
   const takePayment = async () => {
     if (amount <= 0 || !tenderTypeId) {
@@ -648,19 +648,19 @@ function LayawayPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Layaway #{layaway.layawayNumber} — {layaway.customerName} — {layaway.status}</h2>
+        <h2 className="text-body font-semibold">Layaway #{layaway.layawayNumber} — {layaway.customerName} — {layaway.status}</h2>
         <button type="button" className="pos-button" onClick={onClose}>Close</button>
       </div>
 
       <FormSection title="Balance">
-        <p className="pos-amount text-sm">{currency(layaway.amountPaid)} of {currency(layaway.total)} paid — {currency(Math.max(0, remaining))} remaining</p>
+        <p className="pos-amount text-body">{currency(layaway.amountPaid)} of {currency(layaway.total)} paid — {currency(Math.max(0, remaining))} remaining</p>
       </FormSection>
 
       <FormSection title="Lines">
-        <table className="w-full text-xs">
+        <table className="w-full text-label">
           <tbody>
             {layaway.lines.map((line) => (
-              <tr key={line.id} className="border-t border-[rgb(var(--border))]">
+              <tr key={line.id} className="border-t border-subtle">
                 <td className="py-1">{line.stockCode} — {line.productName}</td>
                 <td className="py-1 text-right pos-amount">{line.quantity}</td>
                 <td className="py-1 text-right pos-amount">{currency(line.unitPrice)}</td>
@@ -676,7 +676,7 @@ function LayawayPanel({
             <NumberField label="Amount" value={amount} onChange={setAmount} />
             <Field label="Tender">
               <select
-                className="w-full rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+                className="w-full pos-input"
                 value={tenderTypeId}
                 onChange={(event) => setTenderTypeId(event.target.value)}
               >
@@ -685,7 +685,7 @@ function LayawayPanel({
             </Field>
           </FormSection>
           <div className="mb-6">
-            <button type="button" className="pos-button text-[rgb(var(--negative))]" disabled={busy} onClick={() => void cancel()}>Cancel layaway</button>
+            <button type="button" className="pos-button text-negative" disabled={busy} onClick={() => void cancel()}>Cancel layaway</button>
           </div>
         </>
       ) : null}
@@ -791,7 +791,7 @@ function NewPriceQuotePanel({ locationId, onClose, onCreated }: { locationId: st
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">New price quote</h2>
+        <h2 className="text-body font-semibold">New price quote</h2>
         <button type="button" className="pos-button" onClick={onClose}>Close</button>
       </div>
       <FormSection title="Customer">
@@ -802,7 +802,7 @@ function NewPriceQuotePanel({ locationId, onClose, onCreated }: { locationId: st
         <Field label="Expires on (optional)">
           <input
             type="date"
-            className="w-full rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="w-full pos-input"
             value={expiresOn}
             onChange={(event) => setExpiresOn(event.target.value)}
           />
@@ -838,7 +838,7 @@ function PriceQuotePanel({
     void reload();
   }, [reload]);
 
-  if (!quote) return <p className="text-sm text-[rgb(var(--text-muted))]">Loading…</p>;
+  if (!quote) return <p className="text-body text-ink-muted">Loading…</p>;
 
   const convert = async () => {
     setBusy(true);
@@ -873,15 +873,15 @@ function PriceQuotePanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Quote #{quote.quoteNumber} — {quote.customerName} — {quote.status}</h2>
+        <h2 className="text-body font-semibold">Quote #{quote.quoteNumber} — {quote.customerName} — {quote.status}</h2>
         <button type="button" className="pos-button" onClick={onClose}>Close</button>
       </div>
 
       <FormSection title="Lines">
-        <table className="w-full text-xs">
+        <table className="w-full text-label">
           <tbody>
             {quote.lines.map((line) => (
-              <tr key={line.id} className="border-t border-[rgb(var(--border))]">
+              <tr key={line.id} className="border-t border-subtle">
                 <td className="py-1">{line.stockCode} — {line.productName}</td>
                 <td className="py-1 text-right pos-amount">{line.quantity}</td>
                 <td className="py-1 text-right pos-amount">{currency(line.unitPrice)}</td>
@@ -889,13 +889,13 @@ function PriceQuotePanel({
             ))}
           </tbody>
         </table>
-        <p className="mt-2 text-right text-sm font-medium">Total: {currency(quote.total)}</p>
+        <p className="mt-2 text-right text-body font-medium">Total: {currency(quote.total)}</p>
       </FormSection>
 
       {canAct ? (
         <div className="mb-6 flex gap-2">
           <button type="button" className="pos-button" disabled={busy} onClick={() => void convert()}>Convert to sale</button>
-          <button type="button" className="pos-button text-[rgb(var(--negative))]" disabled={busy} onClick={() => void cancel()}>Cancel quote</button>
+          <button type="button" className="pos-button text-negative" disabled={busy} onClick={() => void cancel()}>Cancel quote</button>
         </div>
       ) : null}
     </div>

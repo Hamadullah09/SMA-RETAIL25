@@ -45,15 +45,15 @@ function LoginContent() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[rgb(var(--surface))] p-4">
+    <div className="flex min-h-screen items-center justify-center bg-surface p-4">
       <div className="pos-panel w-full max-w-sm p-6 text-center">
-        <h1 className="text-lg font-semibold">Retail25</h1>
-        <p className="mb-6 mt-1 text-sm text-[rgb(var(--text-muted))]">Point of sale, inventory and accounts</p>
+        <h1 className="text-h3 font-semibold">Retail25</h1>
+        <p className="mb-6 mt-1 text-body text-ink-muted">Point of sale, inventory and accounts</p>
 
         {error ? (
           <p
             role="alert"
-            className="mb-4 rounded-sm px-2 py-1.5 text-sm"
+            className="mb-4 rounded-sm px-2 py-1.5 text-body"
             style={{ backgroundColor: 'rgb(var(--negative) / 0.1)', color: 'rgb(var(--negative))' }}
           >
             {AUTH_ERRORS[error] ?? 'Sign-in failed. Try again.'}
@@ -71,7 +71,7 @@ function LoginContent() {
 function Centered({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <p className="text-sm text-[rgb(var(--text-muted))]">{children}</p>
+      <p className="text-body text-ink-muted">{children}</p>
     </div>
   );
 }

@@ -12,7 +12,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { StockCount, StockCountRow, StockCountStatus } from '@/types/masters';
 
 const filterClass =
-  'rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1';
+  'pos-input';
 
 const statusLabel: Record<StockCountStatus, string> = {
   InProgress: 'Counting',
@@ -247,7 +247,7 @@ function CountPanel({
   };
 
   if (!count) {
-    return <p className="px-1 text-xs text-[rgb(var(--text-muted))]">Loading…</p>;
+    return <p className="px-1 text-label text-ink-muted">Loading…</p>;
   }
 
   const isOpen = count.status === 'InProgress';
@@ -255,7 +255,7 @@ function CountPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-body font-semibold">
           SC-{count.countNumber} — {count.departmentName ?? 'whole shop'}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>
@@ -264,15 +264,15 @@ function CountPanel({
       </div>
 
       <FormSection title="Summary">
-        <p className="text-sm">
+        <p className="text-body">
           <span className="font-semibold">{statusLabel[count.status]}</span>
           {count.postedAt ? ` · posted ${new Date(count.postedAt).toLocaleString()}` : ''}
         </p>
-        <p className="text-sm">
+        <p className="text-body">
           {count.varianceCount} variance(s) out of {count.lineCount} counted —{' '}
           <span className="pos-amount font-semibold">{formatCurrency(count.netVarianceValue)}</span> net.
         </p>
-        <p className="text-xs text-[rgb(var(--text-muted))]">
+        <p className="text-label text-ink-muted">
           A variance is valued at the item’s average cost at the moment it was counted, so it stays comparable
           even if the item is repriced afterwards.
         </p>
@@ -284,7 +284,7 @@ function CountPanel({
           hint="One row per item: code, quantity, and an optional note. A header row is fine."
         >
           <textarea
-            className={`${filterClass} h-28 w-full font-mono text-xs`}
+            className={`${filterClass} h-28 w-full font-mono text-label`}
             placeholder={'StockCode,CountedQty,Notes\nA-1,12\nB-2,0,shelf empty'}
             value={csv}
             onChange={(event) => setCsv(event.target.value)}
@@ -294,9 +294,9 @@ function CountPanel({
           </button>
 
           {skipped.length > 0 ? (
-            <div className="border border-[rgb(var(--border))] p-2">
-              <p className="text-xs font-medium">{skipped.length} row(s) did not go in</p>
-              <ul className="mt-1 max-h-32 overflow-y-auto text-xs text-[rgb(var(--text-muted))]">
+            <div className="border border-subtle p-2">
+              <p className="text-label font-medium">{skipped.length} row(s) did not go in</p>
+              <ul className="mt-1 max-h-32 overflow-y-auto text-label text-ink-muted">
                 {skipped.map((line) => (
                   <li key={line}>{line}</li>
                 ))}
@@ -309,7 +309,7 @@ function CountPanel({
       <FormSection
         title="Lines"
         actions={
-          <label className="flex items-center gap-1.5 text-xs">
+          <label className="flex items-center gap-1.5 text-label">
             <input
               type="checkbox"
               checked={varianceOnly}
@@ -319,8 +319,8 @@ function CountPanel({
           </label>
         }
       >
-        <table className="w-full text-sm">
-          <thead className="text-xs">
+        <table className="w-full text-body">
+          <thead className="text-label">
             <tr>
               <th className="py-1 text-left">Code</th>
               <th className="py-1 text-left">Description</th>
@@ -333,12 +333,12 @@ function CountPanel({
           </thead>
           <tbody>
             {count.lines.map((line) => (
-              <tr key={line.id} className="border-t border-[rgb(var(--border))]">
+              <tr key={line.id} className="border-t border-subtle">
                 <td className="py-1">{line.stockCode}</td>
                 <td className="py-1">
                   {line.productName}
                   {line.notes ? (
-                    <span className="block text-xs text-[rgb(var(--text-muted))]">{line.notes}</span>
+                    <span className="block text-label text-ink-muted">{line.notes}</span>
                   ) : null}
                 </td>
                 <td className="py-1 text-right">{line.countedQty}</td>
@@ -352,7 +352,7 @@ function CountPanel({
                   <td className="py-1 text-right">
                     <button
                       type="button"
-                      className="text-xs underline"
+                      className="text-label underline"
                       disabled={busy}
                       onClick={() =>
                         void run(() => mastersApi.stockCounts.removeLine(count.id, line.id), 'Line removed')
@@ -368,7 +368,7 @@ function CountPanel({
         </table>
 
         {count.lines.length === 0 ? (
-          <p className="text-xs text-[rgb(var(--text-muted))]">
+          <p className="text-label text-ink-muted">
             {varianceOnly && count.lineCount > 0
               ? `Every one of the ${count.lineCount} counted items agrees with the system.`
               : 'Nothing counted yet.'}
@@ -404,7 +404,7 @@ function CountPanel({
             </button>
             <button
               type="button"
-              className="pos-button text-[rgb(var(--negative))]"
+              className="pos-button text-negative"
               disabled={busy}
               onClick={() => void run(() => mastersApi.stockCounts.cancel(count.id), 'Cancelled')}
             >
@@ -415,7 +415,7 @@ function CountPanel({
       </div>
 
       {isOpen ? (
-        <p className="px-1 text-xs text-[rgb(var(--text-muted))]">
+        <p className="px-1 text-label text-ink-muted">
           Posting sets each item’s on-hand to the counted figure and writes a variance entry to the stock ledger.
           Nothing has moved yet.
         </p>

@@ -189,12 +189,12 @@ export function CommandPalette() {
             }
           }}
           placeholder="Search screens and actions…"
-          className="w-full border-b border-[rgb(var(--border))] bg-transparent px-3 py-3 text-sm outline-none"
+          className="w-full border-b border-subtle bg-transparent px-3 py-3 text-body outline-none"
         />
 
         <ul className="max-h-80 overflow-y-auto py-1">
           {results.length === 0 ? (
-            <li className="px-3 py-6 text-center text-sm text-[rgb(var(--text-muted))]">Nothing matches.</li>
+            <li className="px-3 py-6 text-center text-body text-ink-muted">Nothing matches.</li>
           ) : (
             results.map((command, index) => (
               <li key={command.id}>
@@ -203,22 +203,22 @@ export function CommandPalette() {
                   onMouseEnter={() => setHighlighted(index)}
                   onClick={() => run(command)}
                   className={cn(
-                    'flex w-full items-center justify-between px-3 py-2 text-left text-sm',
-                    index === highlighted && 'bg-[rgb(var(--surface))]',
+                    'flex w-full items-center justify-between px-3 py-2 text-left text-body',
+                    index === highlighted && 'bg-surface',
                   )}
                 >
                   <span>{command.label}</span>
-                  <span className="text-xs text-[rgb(var(--text-muted))]">{command.group}</span>
+                  <span className="text-label text-ink-muted">{command.group}</span>
                 </button>
               </li>
             ))
           )}
         </ul>
 
-        <p className="border-t border-[rgb(var(--border))] px-3 py-1.5 text-xs text-[rgb(var(--text-muted))]">
-          <kbd className="rounded-sm border border-[rgb(var(--border))] px-1 font-mono">↑↓</kbd> move ·{' '}
-          <kbd className="rounded-sm border border-[rgb(var(--border))] px-1 font-mono">↵</kbd> open ·{' '}
-          <kbd className="rounded-sm border border-[rgb(var(--border))] px-1 font-mono">esc</kbd> close
+        <p className="border-t border-subtle px-3 py-1.5 text-label text-ink-muted">
+          <kbd className="rounded-sm border border-subtle px-1 font-mono">↑↓</kbd> move ·{' '}
+          <kbd className="rounded-sm border border-subtle px-1 font-mono">↵</kbd> open ·{' '}
+          <kbd className="rounded-sm border border-subtle px-1 font-mono">esc</kbd> close
         </p>
       </div>
     </div>

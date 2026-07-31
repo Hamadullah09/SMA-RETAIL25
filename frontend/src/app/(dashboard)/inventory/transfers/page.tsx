@@ -13,7 +13,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { Transfer, TransferRow, TransferStatus } from '@/types/masters';
 
 const filterClass =
-  'rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1';
+  'pos-input';
 
 const statuses: TransferStatus[] = ['Draft', 'InTransit', 'Received', 'Cancelled'];
 
@@ -137,7 +137,7 @@ export default function TransfersPage() {
             ))}
           </select>
         ) : destinations.length === 0 ? (
-          <span className="text-xs text-[rgb(var(--text-muted))]">
+          <span className="text-label text-ink-muted">
             There is only one location, so there is nowhere to transfer to.
           </span>
         ) : null
@@ -248,7 +248,7 @@ function TransferPanel({
   };
 
   if (!transfer) {
-    return <p className="px-1 text-xs text-[rgb(var(--text-muted))]">Loading…</p>;
+    return <p className="px-1 text-label text-ink-muted">Loading…</p>;
   }
 
   const isDraft = transfer.status === 'Draft';
@@ -280,7 +280,7 @@ function TransferPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-body font-semibold">
           TR-{transfer.transferNumber} — {transfer.fromLocationName} → {transfer.toLocationName}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>
@@ -296,12 +296,12 @@ function TransferPanel({
             : undefined
         }
       >
-        <p className="text-sm">
+        <p className="text-body">
           <span className="font-semibold">{statusLabel[transfer.status]}</span>
           {transfer.shippedAt ? ` · shipped ${new Date(transfer.shippedAt).toLocaleString()}` : ''}
           {transfer.receivedAt ? ` · received ${new Date(transfer.receivedAt).toLocaleString()}` : ''}
         </p>
-        <p className="text-xs text-[rgb(var(--text-muted))]">
+        <p className="text-label text-ink-muted">
           {transfer.lines.length} item(s), {formatCurrency(transfer.totalValue)} at cost.
         </p>
       </FormSection>
@@ -310,8 +310,8 @@ function TransferPanel({
         title="Items"
         hint={isDraft ? 'Quantities can be changed until the transfer is shipped.' : undefined}
       >
-        <table className="w-full text-sm">
-          <thead className="text-xs">
+        <table className="w-full text-body">
+          <thead className="text-label">
             <tr>
               <th className="py-1 text-left">Code</th>
               <th className="py-1 text-left">Description</th>
@@ -323,7 +323,7 @@ function TransferPanel({
           </thead>
           <tbody>
             {transfer.lines.map((line) => (
-              <tr key={line.id} className="border-t border-[rgb(var(--border))]">
+              <tr key={line.id} className="border-t border-subtle">
                 <td className="py-1">{line.stockCode}</td>
                 <td className="py-1">{line.productName}</td>
                 <td className="py-1 text-right">{line.quantity}</td>
@@ -351,7 +351,7 @@ function TransferPanel({
                   <td className="py-1 text-right">
                     <button
                       type="button"
-                      className="text-xs underline"
+                      className="text-label underline"
                       disabled={busy}
                       onClick={() => void run(() => mastersApi.transfers.removeLine(transfer.id, line.id), 'Removed')}
                     >
@@ -365,7 +365,7 @@ function TransferPanel({
         </table>
 
         {transfer.lines.length === 0 ? (
-          <p className="text-xs text-[rgb(var(--text-muted))]">Nothing on this transfer yet.</p>
+          <p className="text-label text-ink-muted">Nothing on this transfer yet.</p>
         ) : null}
 
         {isDraft && canTransfer && isOutbound ? (
@@ -418,7 +418,7 @@ function TransferPanel({
         {canTransfer && isDraft ? (
           <button
             type="button"
-            className="pos-button text-[rgb(var(--negative))]"
+            className="pos-button text-negative"
             disabled={busy}
             onClick={() => void run(() => mastersApi.transfers.cancel(transfer.id), 'Cancelled')}
           >
@@ -428,7 +428,7 @@ function TransferPanel({
       </div>
 
       {isInTransit && !canReceiveHere ? (
-        <p className="px-1 text-xs text-[rgb(var(--text-muted))]">
+        <p className="px-1 text-label text-ink-muted">
           {transfer.toLocationName} books this in when the box arrives there.
         </p>
       ) : null}

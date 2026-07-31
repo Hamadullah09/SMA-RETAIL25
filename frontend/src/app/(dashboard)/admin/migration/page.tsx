@@ -18,7 +18,7 @@ import type {
 } from '@/types/masters';
 
 const inputClass =
-  'rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1 text-sm';
+  'pos-input';
 
 /** What each stage means in the operator's words, not the enum's. */
 const stageLabel: Record<MigrationStage, string> = {
@@ -70,8 +70,8 @@ export default function MigrationPage() {
   if (!canRun) {
     return (
       <div className="p-6">
-        <h1 className="text-lg font-semibold">Bring data across</h1>
-        <p className="mt-2 text-sm text-[rgb(var(--text-muted))]">
+        <h1 className="text-h3 font-semibold">Bring data across</h1>
+        <p className="mt-2 text-body text-ink-muted">
           You do not have permission to run a migration.
         </p>
       </div>
@@ -106,8 +106,8 @@ export default function MigrationPage() {
   return (
     <div className="space-y-4 p-6">
       <header>
-        <h1 className="text-lg font-semibold">Bring data across</h1>
-        <p className="text-sm text-[rgb(var(--text-muted))]">
+        <h1 className="text-h3 font-semibold">Bring data across</h1>
+        <p className="text-body text-ink-muted">
           Read a file from the old system, check it, run it as a rehearsal, then import. Nothing is written
           until the import step, and the import will not start without a dry run that passed.
         </p>
@@ -119,7 +119,7 @@ export default function MigrationPage() {
         </div>
         <div className="space-y-2 p-3">
           <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               What kind of file
               <select className={inputClass} value={entity} onChange={(event) => setEntity(event.target.value)}>
                 {kinds.map((kind) => (
@@ -130,7 +130,7 @@ export default function MigrationPage() {
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               File
               <input
                 ref={fileRef}
@@ -146,7 +146,7 @@ export default function MigrationPage() {
           </div>
 
           {selectedKind ? (
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label text-ink-muted">
               Expected column order ({selectedKind.guideReference}): {selectedKind.columns.join(', ')}. These files
               have no header row, so the order is what identifies the columns.
             </p>
@@ -159,8 +159,8 @@ export default function MigrationPage() {
           <span>Files read in</span>
         </div>
         <div className="p-3">
-          <table className="w-full text-sm">
-            <thead className="text-xs">
+          <table className="w-full text-body">
+            <thead className="text-label">
               <tr>
                 <th className="py-1 text-left">File</th>
                 <th className="py-1 text-left">Kind</th>
@@ -174,7 +174,7 @@ export default function MigrationPage() {
               {batches.map((batch) => (
                 <tr
                   key={batch.id}
-                  className={`cursor-pointer border-t border-[rgb(var(--border))] ${
+                  className={`cursor-pointer border-t border-subtle ${
                     selected?.id === batch.id ? 'font-medium' : ''
                   }`}
                   onClick={() => setSelected(batch)}
@@ -193,9 +193,9 @@ export default function MigrationPage() {
           </table>
 
           {batches.length === 0 ? (
-            <p className="text-xs text-[rgb(var(--text-muted))]">Nothing read in yet.</p>
+            <p className="text-label text-ink-muted">Nothing read in yet.</p>
           ) : (
-            <p className="mt-2 text-xs text-[rgb(var(--text-muted))]">Click a file to work on it.</p>
+            <p className="mt-2 text-label text-ink-muted">Click a file to work on it.</p>
           )}
         </div>
       </section>
@@ -298,12 +298,12 @@ function BatchPanel({
         </div>
         <div className="space-y-3 p-3">
           {analysis ? (
-            <div className="space-y-1 text-sm">
+            <div className="space-y-1 text-body">
               <p>
                 Read as <span className="font-medium">{analysis.format}</span>, treated as{' '}
                 <span className="font-medium">{analysis.detectedLayout}</span> ({analysis.guideReference}).
               </p>
-              <p className="text-xs text-[rgb(var(--text-muted))]">
+              <p className="text-label text-ink-muted">
                 {analysis.rowCount} row(s), {analysis.columnCount} column(s)
                 {analysis.deletedRowCount > 0
                   ? `, ${analysis.deletedRowCount} of which the old system had already deleted and which will not be imported`
@@ -312,7 +312,7 @@ function BatchPanel({
               </p>
 
               {analysis.notes.length > 0 ? (
-                <ul className="text-xs text-[rgb(var(--warning))]">
+                <ul className="text-label text-warning">
                   {analysis.notes.map((note) => (
                     <li key={note}>⚠ {note}</li>
                   ))}
@@ -351,7 +351,7 @@ function BatchPanel({
 
             <button
               type="button"
-              className="pos-button text-[rgb(var(--negative))]"
+              className="pos-button text-negative"
               disabled={busy || batch.stage === 'Imported' || batch.stage === 'Cancelled'}
               onClick={() => void run(() => mastersApi.migration.cancel(batch.id), 'Cancelled')}
             >
@@ -360,7 +360,7 @@ function BatchPanel({
           </div>
 
           {!batch.canImport && batch.stage !== 'Imported' ? (
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label text-ink-muted">
               {batch.blockingErrors > 0
                 ? `${batch.blockingErrors} problem(s) have to be fixed in the source file first.`
                 : 'Import stays disabled until a dry run has been done for this file.'}
@@ -378,8 +378,8 @@ function BatchPanel({
             </span>
           </div>
           <div className="max-h-72 overflow-y-auto p-3">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-[rgb(var(--panel))] text-xs">
+            <table className="w-full text-body">
+              <thead className="sticky top-0 bg-panel text-label">
                 <tr>
                   <th className="py-1 text-left">Row</th>
                   <th className="py-1 text-left">Column</th>
@@ -389,7 +389,7 @@ function BatchPanel({
               </thead>
               <tbody>
                 {findings.slice(0, 300).map((finding, index) => (
-                  <tr key={`${finding.rowNumber}-${finding.code}-${index}`} className="border-t border-[rgb(var(--border))]">
+                  <tr key={`${finding.rowNumber}-${finding.code}-${index}`} className="border-t border-subtle">
                     <td className="py-1">{finding.rowNumber}</td>
                     <td className="py-1">{finding.column ?? '—'}</td>
                     {/* The word, not a colour — a blocking error has to read as one. */}
@@ -403,7 +403,7 @@ function BatchPanel({
             </table>
 
             {findings.length > 300 ? (
-              <p className="mt-2 text-xs text-[rgb(var(--text-muted))]">
+              <p className="mt-2 text-label text-ink-muted">
                 Showing the first 300 of {findings.length}.
               </p>
             ) : null}
@@ -417,8 +417,8 @@ function BatchPanel({
             <span>Rows that need looking at</span>
           </div>
           <div className="max-h-72 overflow-y-auto p-3">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-[rgb(var(--panel))] text-xs">
+            <table className="w-full text-body">
+              <thead className="sticky top-0 bg-panel text-label">
                 <tr>
                   <th className="py-1 text-left">Row</th>
                   <th className="py-1 text-left">Key</th>
@@ -427,7 +427,7 @@ function BatchPanel({
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.rowNumber} className="border-t border-[rgb(var(--border))]">
+                  <tr key={row.rowNumber} className="border-t border-subtle">
                     <td className="py-1">{row.rowNumber}</td>
                     <td className="py-1">{row.legacyKey ?? '—'}</td>
                     <td className="py-1 whitespace-pre-line">{row.problems}</td>
@@ -444,12 +444,12 @@ function BatchPanel({
           <span>What the old system said</span>
         </div>
         <div className="space-y-2 p-3">
-          <p className="text-xs text-[rgb(var(--text-muted))]">
+          <p className="text-label text-ink-muted">
             Type these off the old system&apos;s own reports before the dry run. Anything left blank is reported
             as imported-only rather than counted as agreeing.
           </p>
           <div className="flex flex-wrap gap-3">
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               Item count
               <input
                 type="number"
@@ -458,7 +458,7 @@ function BatchPanel({
                 onChange={(e) => setTotals({ ...totals, itemCount: e.target.value === '' ? null : Number(e.target.value) })}
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               Inventory value at cost
               <input
                 type="number"
@@ -468,7 +468,7 @@ function BatchPanel({
                 onChange={(e) => setTotals({ ...totals, inventoryValue: e.target.value === '' ? null : Number(e.target.value) })}
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               Clients
               <input
                 type="number"
@@ -477,7 +477,7 @@ function BatchPanel({
                 onChange={(e) => setTotals({ ...totals, customerCount: e.target.value === '' ? null : Number(e.target.value) })}
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               Suppliers
               <input
                 type="number"
@@ -499,8 +499,8 @@ function BatchPanel({
             </span>
           </div>
           <div className="space-y-2 p-3">
-            <table className="w-full text-sm">
-              <thead className="text-xs">
+            <table className="w-full text-body">
+              <thead className="text-label">
                 <tr>
                   <th className="py-1 text-left">Measure</th>
                   <th className="py-1 text-right">Here</th>
@@ -511,7 +511,7 @@ function BatchPanel({
               </thead>
               <tbody>
                 {reconciliation.lines.map((line) => (
-                  <tr key={line.measure} className="border-t border-[rgb(var(--border))]">
+                  <tr key={line.measure} className="border-t border-subtle">
                     <td className="py-1">{line.measure}</td>
                     <td className="py-1 text-right">
                       {line.measure.includes('value') || line.measure.includes('balance')
@@ -530,7 +530,7 @@ function BatchPanel({
             </table>
 
             {reconciliation.warnings.length > 0 ? (
-              <ul className="text-xs text-[rgb(var(--warning))]">
+              <ul className="text-label text-warning">
                 {reconciliation.warnings.map((warning) => (
                   <li key={warning}>⚠ {warning}</li>
                 ))}

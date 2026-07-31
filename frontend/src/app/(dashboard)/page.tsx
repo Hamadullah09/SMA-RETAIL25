@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { NavIndex } from '@/components/shell/nav-card';
 import { useQuery } from '@tanstack/react-query';
 import { Package, RotateCcw, Settings, ShoppingCart, Truck, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth-config';
@@ -35,27 +35,19 @@ export default function DashboardPage() {
     { href: '/admin/undelete', title: 'Undelete items', hint: 'Bring back something deleted by mistake.', icon: RotateCcw, permission: 'catalog.delete' },
   ];
 
-  const visible = destinations.filter((destination) => auth.can(destination.permission));
-
   return (
-    <div className="space-y-4">
-      <h1 className="text-lg font-semibold">Retail 25</h1>
-
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {visible.map((destination) => (
-          <Link
-            key={destination.href}
-            href={destination.href}
-            className="pos-panel block p-4 transition-colors hover:bg-[rgb(var(--surface))]"
-          >
-            <span className="mb-1 flex items-center gap-2 text-sm font-medium">
-              <destination.icon className="h-4 w-4" />
-              {destination.title}
-            </span>
-            <span className="block text-xs text-[rgb(var(--text-muted))]">{destination.hint}</span>
-          </Link>
-        ))}
-      </div>
-    </div>
+    <NavIndex
+      title="Retail 25"
+      description="Where the day starts. Every card leads somewhere that exists."
+      items={destinations
+        .filter((destination) => auth.can(destination.permission))
+        .map((destination) => ({
+          key: destination.href,
+          href: destination.href,
+          title: destination.title,
+          description: destination.hint,
+          icon: destination.icon,
+        }))}
+    />
   );
 }

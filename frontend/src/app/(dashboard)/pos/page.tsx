@@ -114,8 +114,8 @@ function PosScreen() {
   if (!STATION_ID || !LOCATION_ID) {
     return (
       <div className="p-8">
-        <h1 className="text-lg font-medium">This till is not configured</h1>
-        <p className="mt-2 max-w-prose text-sm text-[rgb(var(--text-muted))]">
+        <h1 className="text-h3 font-medium">This till is not configured</h1>
+        <p className="mt-2 max-w-prose text-body text-ink-muted">
           Set <code>NEXT_PUBLIC_STATION_ID</code> and <code>NEXT_PUBLIC_LOCATION_ID</code> for this machine. They
           identify the physical till, so they belong in its environment rather than in a picker a cashier could get
           wrong.
@@ -125,14 +125,14 @@ function PosScreen() {
   }
 
   return (
-    <div className="pos-layout bg-[rgb(var(--surface))] text-[rgb(var(--text))]">
+    <div className="pos-layout bg-surface text-ink">
       <div className="pos-area-status space-y-2">
         <ConnectionBanner />
         <StatusBar />
         <ScanBox inputRef={scanRef} />
         <PosMessageBanner />
         {lastSale ? (
-          <p className="px-1 text-xs text-[rgb(var(--text-muted))]" role="status">
+          <p className="px-1 text-label text-ink-muted" role="status">
             Sale #{lastSale.transactionNumber} saved
             {lastSale.changeGiven > 0 ? ` · change ${money(lastSale.changeGiven, policy?.currencySymbol)}` : ''}
           </p>

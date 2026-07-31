@@ -25,7 +25,7 @@ export function ReportShell({
   return (
     <div className="flex h-[calc(100vh-8rem)] min-h-0 flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold">{title}</h1>
+        <h1 className="text-h3 font-semibold">{title}</h1>
         {exportHref ? (
           <a className="pos-button" href={exportHref} download>
             Export CSV
@@ -33,18 +33,18 @@ export function ReportShell({
         ) : null}
       </div>
 
-      {filters ? <div className="flex flex-wrap items-center gap-2 text-sm">{filters}</div> : null}
+      {filters ? <div className="flex flex-wrap items-center gap-2 text-body">{filters}</div> : null}
 
       <div className="min-h-0 flex-1">{grid}</div>
 
-      {summary ? <div className="text-xs text-[rgb(var(--text-muted))]">{summary}</div> : null}
+      {summary ? <div className="text-label text-ink-muted">{summary}</div> : null}
     </div>
   );
 }
 
 /** The filter-bar control styling, in one place until the design-system pass replaces it. */
 export const filterInputClass =
-  'rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1';
+  'pos-input';
 
 export function DateRangeFilter({
   from,

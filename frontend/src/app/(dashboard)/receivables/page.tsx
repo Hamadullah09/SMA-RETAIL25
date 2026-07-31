@@ -21,7 +21,7 @@ import type {
 } from '@/types/masters';
 
 const selectClass =
-  'rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1';
+  'pos-input';
 
 /** Customer accounts, invoices, payments, void/refund and aging (guide p.51–58). */
 export default function ReceivablesPage() {
@@ -117,12 +117,12 @@ export default function ReceivablesPage() {
       filters={
         <>
           <input
-            className="w-64 rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input w-64"
             placeholder="Customer name"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <label className="flex items-center gap-1 text-xs">
+          <label className="flex items-center gap-1 text-label">
             <input type="checkbox" checked={withBalanceOnly} onChange={(event) => setWithBalanceOnly(event.target.checked)} />
             With a balance only
           </label>
@@ -191,8 +191,8 @@ function AgingReport({ rows, onClose }: { rows: ReceivablesAgingRow[]; onClose: 
           Back to accounts
         </button>
       </header>
-      <table className="w-full text-sm">
-        <thead className="text-left text-[rgb(var(--text-muted))]">
+      <table className="w-full text-body">
+        <thead className="text-left text-ink-muted">
           <tr>
             <th className="p-2">Customer</th>
             <th className="p-2 text-right">Current</th>
@@ -204,7 +204,7 @@ function AgingReport({ rows, onClose }: { rows: ReceivablesAgingRow[]; onClose: 
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.customerId} className="border-t border-[rgb(var(--border))]">
+            <tr key={r.customerId} className="border-t border-subtle">
               <td className="p-2">{r.customerName}</td>
               <td className="p-2 text-right pos-amount">{currency(r.current)}</td>
               <td className="p-2 text-right pos-amount">{currency(r.days30)}</td>
@@ -215,7 +215,7 @@ function AgingReport({ rows, onClose }: { rows: ReceivablesAgingRow[]; onClose: 
           ))}
           {rows.length === 0 ? (
             <tr>
-              <td colSpan={6} className="p-4 text-center text-[rgb(var(--text-muted))]">
+              <td colSpan={6} className="p-4 text-center text-ink-muted">
                 Nothing outstanding.
               </td>
             </tr>
@@ -271,7 +271,7 @@ function GiftCardsPanel({ onClose }: { onClose: () => void }) {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Gift cards</h2>
+        <h2 className="text-body font-semibold">Gift cards</h2>
         <button type="button" className="pos-button" onClick={onClose}>
           Back to accounts
         </button>
@@ -289,14 +289,14 @@ function GiftCardsPanel({ onClose }: { onClose: () => void }) {
         <NumberField label="Value" value={value} onChange={setValue} />
         <Field label="Serial number (optional)">
           <input
-            className="w-full rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="w-full pos-input"
             value={serialNumber}
             onChange={(event) => setSerialNumber(event.target.value)}
             placeholder="Printed on a physical card, if any"
           />
         </Field>
         {issued ? (
-          <p className="pos-amount text-sm">
+          <p className="pos-amount text-body">
             Issued: <span className="font-semibold">{issued.serialNumber}</span> — {currency(issued.remainingValue)} remaining
           </p>
         ) : null}
@@ -312,13 +312,13 @@ function GiftCardsPanel({ onClose }: { onClose: () => void }) {
       >
         <Field label="Serial number">
           <input
-            className="w-full rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="w-full pos-input"
             value={lookupSerial}
             onChange={(event) => setLookupSerial(event.target.value)}
           />
         </Field>
         {found ? (
-          <p className="pos-amount text-sm">
+          <p className="pos-amount text-body">
             {currency(found.remainingValue)} of {currency(found.originalValue)} remaining
             {found.isActive ? '' : ' — inactive'}
           </p>
@@ -404,7 +404,7 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: string; onClose: ()
   return (
     <div className="h-full overflow-y-auto">
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">Loyalty</h2>
+        <h2 className="text-body font-semibold">Loyalty</h2>
         <button type="button" className="pos-button" onClick={onClose}>
           Back to accounts
         </button>
@@ -420,23 +420,23 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: string; onClose: ()
             </button>
           }
         >
-          <label className="flex items-center gap-1 text-xs">
+          <label className="flex items-center gap-1 text-label">
             <input type="checkbox" checked={policy.isEnabled} onChange={(e) => setPolicy({ ...policy, isEnabled: e.target.checked })} />
             Enabled
           </label>
           <NumberField label="Points per dollar" value={policy.pointsPerDollar} onChange={(v) => setPolicy({ ...policy, pointsPerDollar: v })} />
           <NumberField label="Minimum points to redeem" value={policy.minimumRequired} onChange={(v) => setPolicy({ ...policy, minimumRequired: v })} step="1" />
-          <label className="flex items-center gap-1 text-xs">
+          <label className="flex items-center gap-1 text-label">
             <input type="checkbox" checked={policy.percentEnabled} onChange={(e) => setPolicy({ ...policy, percentEnabled: e.target.checked })} />
             Reward as a percentage of subtotal
           </label>
           <NumberField label="Reward percent" value={policy.rewardPercent} onChange={(v) => setPolicy({ ...policy, rewardPercent: v })} />
-          <label className="flex items-center gap-1 text-xs">
+          <label className="flex items-center gap-1 text-label">
             <input type="checkbox" checked={policy.fixedEnabled} onChange={(e) => setPolicy({ ...policy, fixedEnabled: e.target.checked })} />
             Reward as a fixed amount
           </label>
           <NumberField label="Fixed reward amount" value={policy.rewardFixedAmount} onChange={(v) => setPolicy({ ...policy, rewardFixedAmount: v })} />
-          <label className="flex items-center gap-1 text-xs">
+          <label className="flex items-center gap-1 text-label">
             <input
               type="checkbox"
               checked={policy.suppressIfSubtotalDiscountApplied}
@@ -450,18 +450,18 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: string; onClose: ()
       <FormSection title="Customer balance" hint="Look up a customer to see and adjust their points.">
         <Field label="Customer">
           <input
-            className="w-full rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="w-full pos-input"
             value={term}
             onChange={(event) => setTerm(event.target.value)}
             placeholder="Name or customer number"
           />
           {results.length > 0 ? (
-            <ul className="mt-1 max-h-40 overflow-y-auto rounded-[var(--radius-dense)] border border-[rgb(var(--border))]">
+            <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-subtle">
               {results.map((r) => (
                 <li key={r.id}>
                   <button
                     type="button"
-                    className="block w-full px-2 py-1 text-left text-xs hover:bg-[rgb(var(--panel-hover))]"
+                    className="block w-full px-2 py-1 text-left text-label hover:bg-panel-hover"
                     onClick={() => void pickCustomer(r.id)}
                   >
                     #{r.customerNumber} — {r.fullName}
@@ -474,23 +474,23 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: string; onClose: ()
 
         {balance ? (
           <>
-            <p className="pos-amount text-sm font-medium">{balance.customerName}: {balance.rewardPoints} points</p>
+            <p className="pos-amount text-body font-medium">{balance.customerName}: {balance.rewardPoints} points</p>
 
             <NumberField label="Adjustment (+/-)" value={delta} onChange={setDelta} step="1" />
             <Field label="Reason">
               <input
-                className="w-full rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+                className="w-full pos-input"
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
               />
             </Field>
-            <button type="button" className="underline text-sm" disabled={busy} onClick={() => void adjust()}>
+            <button type="button" className="underline text-body" disabled={busy} onClick={() => void adjust()}>
               Apply adjustment
             </button>
 
             {ledger.length > 0 ? (
-              <table className="mt-2 w-full text-xs">
-                <thead className="text-left text-[rgb(var(--text-muted))]">
+              <table className="mt-2 w-full text-label">
+                <thead className="text-left text-ink-muted">
                   <tr>
                     <th className="pb-1">When</th>
                     <th className="pb-1">Type</th>
@@ -499,7 +499,7 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: string; onClose: ()
                 </thead>
                 <tbody>
                   {ledger.map((entry) => (
-                    <tr key={entry.id} className="border-t border-[rgb(var(--border))]">
+                    <tr key={entry.id} className="border-t border-subtle">
                       <td className="py-1">{new Date(entry.occurredAt).toLocaleString()}</td>
                       <td className="py-1">{entry.entryType}</td>
                       <td className="py-1 text-right pos-amount">{entry.points}</td>
@@ -554,7 +554,7 @@ function StatementPanel({
   }, [tenders, tenderTypeId]);
 
   if (!statement) {
-    return <p className="text-sm text-[rgb(var(--text-muted))]">Loading…</p>;
+    return <p className="text-body text-ink-muted">Loading…</p>;
   }
 
   const takePayment = async () => {
@@ -618,7 +618,7 @@ function StatementPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-body font-semibold">
           #{statement.accountNumber} — {statement.customerName}
         </h2>
         <div className="flex gap-2">
@@ -638,7 +638,7 @@ function StatementPanel({
       </div>
 
       <FormSection title="Account" hint={`Credit limit: ${statement.creditLimit > 0 ? currency(statement.creditLimit) : 'unlimited'}`}>
-        <p className="text-lg font-semibold pos-amount">{currency(statement.balanceDue)} due</p>
+        <p className="text-h3 font-semibold pos-amount">{currency(statement.balanceDue)} due</p>
       </FormSection>
 
       {canPay ? (
@@ -665,8 +665,8 @@ function StatementPanel({
       ) : null}
 
       <FormSection title="Invoices">
-        <table className="w-full text-xs">
-          <thead className="text-left text-[rgb(var(--text-muted))]">
+        <table className="w-full text-label">
+          <thead className="text-left text-ink-muted">
             <tr>
               <th className="pb-1">Invoice</th>
               <th className="pb-1">Due</th>
@@ -716,7 +716,7 @@ function InvoiceRowView({
   onRefund: () => void;
 }) {
   return (
-    <tr className="border-t border-[rgb(var(--border))]">
+    <tr className="border-t border-subtle">
       <td className="py-1">#{invoice.invoiceNumber}</td>
       <td className="py-1">{invoice.dueOn}</td>
       <td className="py-1 text-right pos-amount">{currency(invoice.invoiceTotal)}</td>
@@ -743,12 +743,12 @@ function InvoiceRowView({
 
 function LedgerTable({ entries }: { entries: ArLedgerEntryRow[] }) {
   if (entries.length === 0) {
-    return <p className="text-xs text-[rgb(var(--text-muted))]">No activity yet.</p>;
+    return <p className="text-label text-ink-muted">No activity yet.</p>;
   }
 
   return (
-    <table className="w-full text-xs">
-      <thead className="text-left text-[rgb(var(--text-muted))]">
+    <table className="w-full text-label">
+      <thead className="text-left text-ink-muted">
         <tr>
           <th className="pb-1">When</th>
           <th className="pb-1">Type</th>
@@ -757,7 +757,7 @@ function LedgerTable({ entries }: { entries: ArLedgerEntryRow[] }) {
       </thead>
       <tbody>
         {entries.map((entry) => (
-          <tr key={entry.id} className="border-t border-[rgb(var(--border))]">
+          <tr key={entry.id} className="border-t border-subtle">
             <td className="py-1">{new Date(entry.occurredAt).toLocaleString()}</td>
             <td className="py-1">{entry.entryType}</td>
             <td className="py-1 text-right pos-amount">{currency(entry.amount)}</td>

@@ -145,7 +145,7 @@ export default function ProductsPage() {
         render: (r) => (
           <span
             className={
-              r.reorderPoint > 0 && r.onHand + r.onOrder <= r.reorderPoint ? 'text-[rgb(var(--warning))]' : undefined
+              r.reorderPoint > 0 && r.onHand + r.onOrder <= r.reorderPoint ? 'text-warning' : undefined
             }
           >
             {r.onHand}
@@ -213,14 +213,14 @@ export default function ProductsPage() {
       filters={
         <>
           <input
-            className="w-64 rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input w-64"
             placeholder="Code, description or barcode"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={departmentId}
             onChange={(event) => setDepartmentId(event.target.value)}
           >
@@ -233,7 +233,7 @@ export default function ProductsPage() {
           </select>
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={type}
             onChange={(event) => setType(event.target.value as ProductType | '')}
           >
@@ -246,7 +246,7 @@ export default function ProductsPage() {
           </select>
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={sort}
             onChange={(event) => setSort(event.target.value as ProductSort)}
           >
@@ -515,9 +515,9 @@ function ProductFormPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-body font-semibold">
           {productId ? `${form.stockCode} — ${form.name}` : 'New item'}
-          {form.isDeleted ? <span className="pos-badge ml-2 text-[rgb(var(--negative))]">Deleted</span> : null}
+          {form.isDeleted ? <span className="pos-badge ml-2 text-negative">Deleted</span> : null}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>
           Close
@@ -590,7 +590,7 @@ function ProductFormPanel({
               disabled={disabled}
             />
             {form.type === 'GiftCard' ? (
-              <p className="text-xs text-[rgb(var(--warning))]">
+              <p className="text-label text-warning">
                 A gift card is never taxed here — the tax is charged when the card is spent.
               </p>
             ) : null}
@@ -623,7 +623,7 @@ function ProductFormPanel({
               disabled={disabled}
               step="0.001"
             />
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label text-ink-muted">
               Average cost {formatCurrency(form.avgCost)} · margin {form.grossMarginPct.toFixed(1)}% — both maintained by
               the stock ledger and not editable here.
             </p>
@@ -649,10 +649,10 @@ function ProductFormPanel({
               );
             })}
 
-            <hr className="border-[rgb(var(--border))]" />
+            <hr className="border-subtle" />
 
-            <p className="text-xs font-medium">Break points</p>
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label font-medium">Break points</p>
+            <p className="text-label text-ink-muted">
               At or above the quantity, the item sells at that level&apos;s price. Break points outrank the sale window.
             </p>
 
@@ -698,7 +698,7 @@ function ProductFormPanel({
               </button>
             ) : null}
 
-            <hr className="border-[rgb(var(--border))]" />
+            <hr className="border-subtle" />
 
             <CheckField
               label="On sale for a period"
@@ -737,7 +737,7 @@ function ProductFormPanel({
               </>
             ) : null}
 
-            <hr className="border-[rgb(var(--border))]" />
+            <hr className="border-subtle" />
 
             <CheckField
               label="Buy X, get Y free"
@@ -810,21 +810,21 @@ function ProductFormPanel({
               disabled={disabled}
             />
 
-            <hr className="border-[rgb(var(--border))]" />
+            <hr className="border-subtle" />
 
-            <p className="text-xs font-medium">Suppliers</p>
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label font-medium">Suppliers</p>
+            <p className="text-label text-ink-muted">
               Rank 1 is the preferred source, and is the one automatic reordering buys from.
             </p>
 
             {form.suppliers.map((supplier, index) => (
-              <div key={supplier.supplierId} className="space-y-1 border-b border-[rgb(var(--border))] pb-2">
-                <div className="flex items-center justify-between text-sm">
+              <div key={supplier.supplierId} className="space-y-1 border-b border-subtle pb-2">
+                <div className="flex items-center justify-between text-body">
                   <span>{supplier.supplierName}</span>
                   {!disabled ? (
                     <button
                       type="button"
-                      className="text-xs underline"
+                      className="text-label underline"
                       onClick={() => patch({ suppliers: form.suppliers.filter((_, i) => i !== index) })}
                     >
                       Unlink
@@ -866,7 +866,7 @@ function ProductFormPanel({
             ))}
 
             {form.suppliers.length === 0 ? (
-              <p className="text-xs text-[rgb(var(--text-muted))]">No supplier linked yet.</p>
+              <p className="text-label text-ink-muted">No supplier linked yet.</p>
             ) : null}
 
             {!disabled ? (
@@ -979,7 +979,7 @@ function ProductFormPanel({
             >
               {form.kitComponents.map((component, index) => (
                 <div key={component.componentProductId} className="grid grid-cols-[1fr_6rem_auto] items-center gap-2">
-                  <span className="text-sm">
+                  <span className="text-body">
                     <span className="pos-amount">{component.stockCode}</span> — {component.name}
                   </span>
                   <NumberField
@@ -1046,7 +1046,7 @@ function ProductFormPanel({
             {canDelete && !form.isDeleted ? (
               <button
                 type="button"
-                className="pos-button text-[rgb(var(--negative))]"
+                className="pos-button text-negative"
                 onClick={() => void remove()}
                 disabled={busy}
               >
@@ -1062,7 +1062,7 @@ function ProductFormPanel({
           </div>
         </>
       ) : (
-        <p className="px-1 text-xs text-[rgb(var(--text-muted))]">
+        <p className="px-1 text-label text-ink-muted">
           Save the item first — pricing, ordering and messages open once it exists.
         </p>
       )}

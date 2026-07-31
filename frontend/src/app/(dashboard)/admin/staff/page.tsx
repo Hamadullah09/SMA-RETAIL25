@@ -19,7 +19,7 @@ import type {
 } from '@/types/masters';
 
 const inputClass =
-  'rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1 text-sm';
+  'pos-input';
 
 const commissionTypeLabel: Record<CommissionType, string> = {
   Percentage: '% of the takings',
@@ -240,7 +240,7 @@ function StaffPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-body font-semibold">
           {staff.staffCode} — {staff.fullName}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>
@@ -249,9 +249,9 @@ function StaffPanel({
       </div>
 
       <FormSection title="Role">
-        <p className="text-sm">{accessLevelLabel[staff.accessLevel] ?? `Level ${staff.accessLevel}`}</p>
+        <p className="text-body">{accessLevelLabel[staff.accessLevel] ?? `Level ${staff.accessLevel}`}</p>
         {staff.accessLevel === 0 ? (
-          <p className="text-xs text-[rgb(var(--warning))]">
+          <p className="text-label text-warning">
             Everything this person rings is a practice sale: it moves no stock, no drawer, no loyalty and no
             money, it earns no commission, and every report leaves it out.
           </p>
@@ -262,8 +262,8 @@ function StaffPanel({
         title="Commission rules"
         hint="The most specific rule wins — an item rate beats a department rate, which beats the rate on everything else."
       >
-        <table className="w-full text-sm">
-          <thead className="text-xs">
+        <table className="w-full text-body">
+          <thead className="text-label">
             <tr>
               <th className="py-1 text-left">Applies to</th>
               <th className="py-1 text-left">Pays</th>
@@ -273,10 +273,10 @@ function StaffPanel({
           </thead>
           <tbody>
             {rules.map((rule) => (
-              <tr key={rule.id} className="border-t border-[rgb(var(--border))]">
+              <tr key={rule.id} className="border-t border-subtle">
                 <td className="py-1">
                   {rule.productName ?? rule.departmentName ?? 'Everything they sell'}
-                  {!rule.isActive ? <span className="ml-1 text-xs">(off)</span> : null}
+                  {!rule.isActive ? <span className="ml-1 text-label">(off)</span> : null}
                 </td>
                 <td className="py-1">
                   {rule.commissionType === 'Fixed'
@@ -288,7 +288,7 @@ function StaffPanel({
                   <td className="py-1 text-right">
                     <button
                       type="button"
-                      className="text-xs underline"
+                      className="text-label underline"
                       disabled={busy}
                       onClick={() => void remove(rule.id)}
                     >
@@ -302,15 +302,15 @@ function StaffPanel({
         </table>
 
         {rules.length === 0 ? (
-          <p className="text-xs text-[rgb(var(--text-muted))]">
+          <p className="text-label text-ink-muted">
             No rules — this person earns no commission.
           </p>
         ) : null}
 
         {canWrite ? (
-          <div className="space-y-2 border-t border-[rgb(var(--border))] pt-2">
+          <div className="space-y-2 border-t border-subtle pt-2">
             <div className="flex flex-wrap items-end gap-2">
-              <label className="flex flex-col gap-1 text-xs">
+              <label className="flex flex-col gap-1 text-label">
                 Applies to
                 <select
                   className={inputClass}
@@ -324,7 +324,7 @@ function StaffPanel({
               </label>
 
               {scope === 'department' ? (
-                <label className="flex flex-col gap-1 text-xs">
+                <label className="flex flex-col gap-1 text-label">
                   Department
                   <select
                     className={inputClass}
@@ -341,7 +341,7 @@ function StaffPanel({
                 </label>
               ) : null}
 
-              <label className="flex flex-col gap-1 text-xs">
+              <label className="flex flex-col gap-1 text-label">
                 Pays
                 <select
                   className={inputClass}
@@ -356,7 +356,7 @@ function StaffPanel({
                 </select>
               </label>
 
-              <label className="flex flex-col gap-1 text-xs">
+              <label className="flex flex-col gap-1 text-label">
                 {type === 'Fixed' ? 'Amount' : 'Percent'}
                 <input
                   type="number"
@@ -367,7 +367,7 @@ function StaffPanel({
                 />
               </label>
 
-              <label className="flex flex-col gap-1 text-xs">
+              <label className="flex flex-col gap-1 text-label">
                 Cap per line
                 <input
                   type="number"
@@ -403,7 +403,7 @@ function StaffPanel({
               />
             ) : null}
 
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label text-ink-muted">
               Paying on margin pays nothing on a line sold at or below cost. A fixed amount pays per unit, so
               three of an item pays three times.
             </p>
@@ -485,15 +485,15 @@ function ReportsPanel({
 
   return (
     <div>
-      <h2 className="mb-2 text-sm font-semibold">Hours and commission</h2>
+      <h2 className="mb-2 text-body font-semibold">Hours and commission</h2>
 
       <FormSection title="Period">
         <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 text-xs">
+          <label className="flex flex-col gap-1 text-label">
             From
             <input type="date" className={inputClass} value={from} onChange={(e) => setFrom(e.target.value)} />
           </label>
-          <label className="flex flex-col gap-1 text-xs">
+          <label className="flex flex-col gap-1 text-label">
             To
             <input type="date" className={inputClass} value={to} onChange={(e) => setTo(e.target.value)} />
           </label>
@@ -508,7 +508,7 @@ function ReportsPanel({
           title="Hours"
           actions={
             <a
-              className="text-xs underline"
+              className="text-label underline"
               href={mastersApi.staff.hoursExportUrl(locationId, from, to)}
               target="_blank"
               rel="noopener noreferrer"
@@ -517,8 +517,8 @@ function ReportsPanel({
             </a>
           }
         >
-          <table className="w-full text-sm">
-            <thead className="text-xs">
+          <table className="w-full text-body">
+            <thead className="text-label">
               <tr>
                 <th className="py-1 text-left">Code</th>
                 <th className="py-1 text-left">Name</th>
@@ -529,7 +529,7 @@ function ReportsPanel({
             </thead>
             <tbody>
               {hours.rows.map((row) => (
-                <tr key={row.staffId} className="border-t border-[rgb(var(--border))]">
+                <tr key={row.staffId} className="border-t border-subtle">
                   <td className="py-1">{row.staffCode}</td>
                   <td className="py-1">{row.staffName}</td>
                   <td className="py-1 text-right">{row.shifts}</td>
@@ -540,10 +540,10 @@ function ReportsPanel({
             </tbody>
           </table>
 
-          <p className="text-sm font-semibold">{hours.totalHours}h over {hours.totalShifts} shift(s)</p>
+          <p className="text-body font-semibold">{hours.totalHours}h over {hours.totalShifts} shift(s)</p>
 
           {hours.totalOpenShifts > 0 ? (
-            <p className="text-xs text-[rgb(var(--warning))]">
+            <p className="text-label text-warning">
               {hours.totalOpenShifts} shift(s) have no clock-out, so their hours are not in that total. Correct
               them before running payroll.
             </p>
@@ -557,7 +557,7 @@ function ReportsPanel({
           hint="Read off the commission ledger, so editing a rate afterwards cannot restate what was already earned."
           actions={
             <a
-              className="text-xs underline"
+              className="text-label underline"
               href={mastersApi.staff.commissionsExportUrl(locationId, from, to)}
               target="_blank"
               rel="noopener noreferrer"
@@ -566,8 +566,8 @@ function ReportsPanel({
             </a>
           }
         >
-          <table className="w-full text-sm">
-            <thead className="text-xs">
+          <table className="w-full text-body">
+            <thead className="text-label">
               <tr>
                 <th className="py-1 text-left">Code</th>
                 <th className="py-1 text-left">Name</th>
@@ -578,13 +578,13 @@ function ReportsPanel({
             </thead>
             <tbody>
               {commissions.rows.map((row) => (
-                <tr key={row.staffId} className="border-t border-[rgb(var(--border))]">
+                <tr key={row.staffId} className="border-t border-subtle">
                   <td className="py-1">{row.staffCode}</td>
                   <td className="py-1">{row.staffName}</td>
                   <td className="py-1 text-right">
                     {row.lines}
                     {row.cappedLines > 0 ? (
-                      <span className="text-xs text-[rgb(var(--text-muted))]"> ({row.cappedLines} capped)</span>
+                      <span className="text-label text-ink-muted"> ({row.cappedLines} capped)</span>
                     ) : null}
                   </td>
                   <td className="py-1 text-right">{formatCurrency(row.salesNet)}</td>
@@ -595,11 +595,11 @@ function ReportsPanel({
           </table>
 
           {commissions.rows.length === 0 ? (
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label text-ink-muted">
               No commission earned in this period.
             </p>
           ) : (
-            <p className="text-sm font-semibold">{formatCurrency(commissions.totalCommission)} owed in total</p>
+            <p className="text-body font-semibold">{formatCurrency(commissions.totalCommission)} owed in total</p>
           )}
         </FormSection>
       ) : null}

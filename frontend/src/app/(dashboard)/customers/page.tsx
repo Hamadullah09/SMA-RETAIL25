@@ -108,7 +108,7 @@ export default function CustomersPage() {
         // Money owed is the reason most people open this screen, so it is coloured rather than left
         // to be spotted among identical figures.
         render: (r) => (
-          <span className={r.balanceDue > 0 ? 'text-[rgb(var(--negative))]' : undefined}>
+          <span className={r.balanceDue > 0 ? 'text-negative' : undefined}>
             {formatCurrency(r.balanceDue)}
           </span>
         ),
@@ -142,14 +142,14 @@ export default function CustomersPage() {
       filters={
         <>
           <input
-            className="w-64 rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input w-64"
             placeholder="Name, company, phone or email"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={clientType}
             onChange={(event) => setClientType(event.target.value)}
           >
@@ -162,7 +162,7 @@ export default function CustomersPage() {
           </select>
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={sort}
             onChange={(event) => setSort(event.target.value as CustomerSort)}
           >
@@ -364,9 +364,9 @@ function CustomerFormPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-body font-semibold">
           {customerId ? `#${form.customerNumber} ${form.company || `${form.firstName} ${form.lastName}`}` : 'New customer'}
-          {form.isDeleted ? <span className="pos-badge ml-2 text-[rgb(var(--negative))]">Deleted</span> : null}
+          {form.isDeleted ? <span className="pos-badge ml-2 text-negative">Deleted</span> : null}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>
           Close
@@ -476,7 +476,7 @@ function CustomerFormPanel({
         <CheckField label="Exempt from tax 2" checked={form.exemptTax2} onChange={(v) => patch({ exemptTax2: v })} disabled={disabled} />
 
         {customerId ? (
-          <p className="text-xs text-[rgb(var(--text-muted))]">
+          <p className="text-label text-ink-muted">
             Balance {formatCurrency(form.balanceDue)} · {form.rewardPoints} reward points — both derived from the ledgers
             and not editable here.
           </p>
@@ -485,7 +485,7 @@ function CustomerFormPanel({
 
       {canDelete && customerId ? (
         <div className="mb-6">
-          <button type="button" className="pos-button text-[rgb(var(--negative))]" onClick={() => void remove()} disabled={busy}>
+          <button type="button" className="pos-button text-negative" onClick={() => void remove()} disabled={busy}>
             Delete
           </button>
         </div>

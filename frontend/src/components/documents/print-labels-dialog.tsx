@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Dialog } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/toaster';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
@@ -24,7 +25,7 @@ const perSheet: Record<LabelStock, number> = {
 };
 
 const inputClass =
-  'rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1 text-sm';
+  'pos-input';
 
 /**
  * The label run (guide App. L).
@@ -51,19 +52,8 @@ export function PrintLabelsDialog({
   );
   const [busy, setBusy] = useState(false);
 
-  const closeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    closeRef.current?.focus();
-
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
-    };
-
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
+  // Escape, the focus trap and returning focus to the button that opened this are the dialog
+  // primitive's job now; this component used to do all three by hand and got the trap wrong.
   useEffect(() => {
     void mastersApi.documents
       .labelStocks()
@@ -122,16 +112,33 @@ export function PrintLabelsDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation">
-      <div role="dialog" aria-modal="true" aria-label="Print labels" className="pos-panel w-full max-w-3xl shadow-lg">
-        <div className="pos-panel-header">
-          <span>Print labels</span>
-          <span className="normal-case">{items.length} item(s)</span>
-        </div>
-
-        <div className="space-y-3 p-3">
+    <Dialog
+      open
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
+      title="Print labels"
+      description={`${items.length} item(s) · ${totalLabels} label(s) across ${sheets} sheet(s)`}
+      size="lg"
+      footer={
+        <>
+          <button type="button" className="pos-button" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="pos-button-primary"
+            disabled={busy || totalLabels === 0}
+            onClick={() => void print()}
+          >
+            {busy ? 'Building the PDF…' : 'Print'}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-4">
           <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               Label stock
               <select
                 className={inputClass}
@@ -150,7 +157,7 @@ export function PrintLabelsDialog({
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               Skip labels
               <input
                 type="number"
@@ -161,7 +168,7 @@ export function PrintLabelsDialog({
               />
             </label>
 
-            <label className="flex items-center gap-1.5 text-xs">
+            <label className="flex items-center gap-1.5 text-label">
               <input
                 type="checkbox"
                 checked={showBarcode}
@@ -170,7 +177,7 @@ export function PrintLabelsDialog({
               Print the barcode
             </label>
 
-            <label className="flex items-center gap-1.5 text-xs">
+            <label className="flex items-center gap-1.5 text-label">
               <input
                 type="checkbox"
                 checked={barcodeFirst}
@@ -180,7 +187,7 @@ export function PrintLabelsDialog({
               Barcode at the top (shelf edge)
             </label>
 
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               Set every copy count to
               <input
                 type="number"
@@ -192,14 +199,14 @@ export function PrintLabelsDialog({
             </label>
           </div>
 
-          <p className="text-xs text-[rgb(var(--text-muted))]">
+          <p className="text-label text-ink-muted">
             Skip counts labels already peeled off a part-used sheet, so printing resumes at the next free
             position instead of onto bare backing.
           </p>
 
-          <div className="max-h-72 overflow-y-auto border border-[rgb(var(--border))]">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-[rgb(var(--panel))] text-xs">
+          <div className="max-h-72 overflow-y-auto border border-subtle">
+            <table className="w-full text-body">
+              <thead className="sticky top-0 bg-panel text-label">
                 <tr>
                   <th className="px-2 py-1 text-left">Code</th>
                   <th className="px-2 py-1 text-left">Description</th>
@@ -209,7 +216,7 @@ export function PrintLabelsDialog({
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <tr key={item.id} className="border-t border-[rgb(var(--border))]">
+                  <tr key={item.id} className="border-t border-subtle">
                     <td className="px-2 py-1">{item.stockCode}</td>
                     <td className="px-2 py-1">{item.name}</td>
                     <td className="px-2 py-1 text-right">{formatCurrency(item.regularPrice)}</td>
@@ -235,27 +242,7 @@ export function PrintLabelsDialog({
             </table>
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-[rgb(var(--text-muted))]">
-              {totalLabels} label(s) — {sheets} sheet(s) of {stock}
-            </span>
-
-            <div className="flex gap-2">
-              <button ref={closeRef} type="button" className="pos-button" onClick={onClose}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="pos-button-primary"
-                disabled={busy || totalLabels === 0}
-                onClick={() => void print()}
-              >
-                {busy ? 'Building the PDF…' : 'Print'}
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

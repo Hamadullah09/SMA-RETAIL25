@@ -18,7 +18,7 @@ import type {
 } from '@/types/masters';
 
 const inputClass =
-  'rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1 text-sm';
+  'pos-input';
 
 const methodLabel: Record<BulkAdjustMethod, string> = {
   Percentage: 'Up or down by a percentage',
@@ -156,8 +156,8 @@ export default function BulkAdjustPage() {
   if (!canAdjust) {
     return (
       <div className="p-6">
-        <h1 className="text-lg font-semibold">Batch changes</h1>
-        <p className="mt-2 text-sm text-[rgb(var(--text-muted))]">
+        <h1 className="text-h3 font-semibold">Batch changes</h1>
+        <p className="mt-2 text-body text-ink-muted">
           You do not have permission to make batch changes to the catalogue.
         </p>
       </div>
@@ -167,8 +167,8 @@ export default function BulkAdjustPage() {
   return (
     <div className="space-y-4 p-6">
       <header>
-        <h1 className="text-lg font-semibold">Batch changes</h1>
-        <p className="text-sm text-[rgb(var(--text-muted))]">
+        <h1 className="text-h3 font-semibold">Batch changes</h1>
+        <p className="text-body text-ink-muted">
           Repricing and tax flags across a selection of items. Every change is written at once and cannot be
           undone, so check the preview.
         </p>
@@ -179,7 +179,7 @@ export default function BulkAdjustPage() {
           <span>Which items</span>
         </div>
         <div className="flex flex-wrap gap-3 p-3">
-          <label className="flex flex-col gap-1 text-xs">
+          <label className="flex flex-col gap-1 text-label">
             Department
             <select
               className={inputClass}
@@ -198,7 +198,7 @@ export default function BulkAdjustPage() {
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-xs">
+          <label className="flex flex-col gap-1 text-label">
             Category
             <select
               className={inputClass}
@@ -217,7 +217,7 @@ export default function BulkAdjustPage() {
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-xs">
+          <label className="flex flex-col gap-1 text-label">
             Supplier
             <select
               className={inputClass}
@@ -236,7 +236,7 @@ export default function BulkAdjustPage() {
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-xs">
+          <label className="flex flex-col gap-1 text-label">
             Type
             <select
               className={inputClass}
@@ -255,7 +255,7 @@ export default function BulkAdjustPage() {
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-xs">
+          <label className="flex flex-col gap-1 text-label">
             Code or description contains
             <input
               className={`${inputClass} w-56`}
@@ -275,7 +275,7 @@ export default function BulkAdjustPage() {
         </div>
         <div className="space-y-3 p-3">
           <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               Change
               <select
                 className={inputClass}
@@ -290,7 +290,7 @@ export default function BulkAdjustPage() {
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               How
               <select
                 className={inputClass}
@@ -308,7 +308,7 @@ export default function BulkAdjustPage() {
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               Amount ({amountSuffix[method]})
               <input
                 type="number"
@@ -322,7 +322,7 @@ export default function BulkAdjustPage() {
               />
             </label>
 
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               Round
               <select
                 className={inputClass}
@@ -354,25 +354,25 @@ export default function BulkAdjustPage() {
             </button>
           </div>
 
-          <p className="text-xs text-[rgb(var(--text-muted))]">
+          <p className="text-label text-ink-muted">
             A negative percentage or amount is a reduction. Pricing from cost uses the average cost — what the
             stock on the shelf actually cost — rather than the last delivery&apos;s price, which can be an outlier.
           </p>
 
           {preview ? (
             <>
-              <p className="text-sm">
+              <p className="text-body">
                 {preview.matchedCount} item(s) match, showing {preview.shownCount}.
                 {preview.wouldGoNegative > 0 ? (
-                  <span className="ml-2 font-semibold text-[rgb(var(--negative))]">
+                  <span className="ml-2 font-semibold text-negative">
                     ⚠ {preview.wouldGoNegative} would fall below zero — this cannot be applied.
                   </span>
                 ) : null}
               </p>
 
-              <div className="max-h-80 overflow-y-auto border border-[rgb(var(--border))]">
-                <table className="w-full text-sm">
-                  <thead className="sticky top-0 bg-[rgb(var(--panel))] text-xs">
+              <div className="max-h-80 overflow-y-auto border border-subtle">
+                <table className="w-full text-body">
+                  <thead className="sticky top-0 bg-panel text-label">
                     <tr>
                       <th className="px-2 py-1 text-left">Code</th>
                       <th className="px-2 py-1 text-left">Description</th>
@@ -384,7 +384,7 @@ export default function BulkAdjustPage() {
                   </thead>
                   <tbody>
                     {preview.rows.map((row) => (
-                      <tr key={row.productId} className="border-t border-[rgb(var(--border))]">
+                      <tr key={row.productId} className="border-t border-subtle">
                         <td className="px-2 py-1">{row.stockCode}</td>
                         <td className="px-2 py-1">{row.name}</td>
                         <td className="px-2 py-1 text-right">{formatCurrency(row.current)}</td>
@@ -398,7 +398,7 @@ export default function BulkAdjustPage() {
               </div>
             </>
           ) : (
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label text-ink-muted">
               Preview first — Apply stays disabled until you have seen what would change.
             </p>
           )}
@@ -410,7 +410,7 @@ export default function BulkAdjustPage() {
           <span>Tax flags</span>
         </div>
         <div className="space-y-2 p-3">
-          <p className="text-xs text-[rgb(var(--text-muted))]">
+          <p className="text-label text-ink-muted">
             Applies to the same selection. Each button changes one flag and leaves the other alone. A gift card
             is never made taxable, whatever is asked for — the tax is charged when the card is spent.
           </p>

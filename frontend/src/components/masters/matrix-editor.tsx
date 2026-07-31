@@ -126,15 +126,15 @@ export function MatrixEditor({ productId, canWrite }: { productId: string; canWr
         </button>
       ) : null}
 
-      <p className="text-xs text-[rgb(var(--text-muted))]">
+      <p className="text-label text-ink-muted">
         {combinations} combination{combinations === 1 ? '' : 's'} will exist after generating.
         {combinations > 2000 ? ' That is more than a grid can usefully hold — check the values.' : ''}
       </p>
 
       {matrix && matrix.variants.length > 0 ? (
         <div className="max-h-64 overflow-y-auto">
-          <table className="w-full text-xs">
-            <thead className="text-[rgb(var(--text-muted))]">
+          <table className="w-full text-label">
+            <thead className="text-ink-muted">
               <tr>
                 <th className="text-left">Variant</th>
                 {matrix.dimensions.map((d) => (
@@ -147,7 +147,7 @@ export function MatrixEditor({ productId, canWrite }: { productId: string; canWr
             </thead>
             <tbody>
               {matrix.variants.map((variant) => (
-                <tr key={variant.id} className={cn(!variant.isActive && 'text-[rgb(var(--text-muted))] line-through')}>
+                <tr key={variant.id} className={cn(!variant.isActive && 'text-ink-muted line-through')}>
                   <td className="pos-amount">{variant.variantCode}</td>
                   <td>{variant.dim1Value}</td>
                   {matrix.dimensions.length > 1 ? <td>{variant.dim2Value ?? ''}</td> : null}

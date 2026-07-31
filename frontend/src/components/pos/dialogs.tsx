@@ -62,7 +62,7 @@ function MenuButton({
   useHotkey(hotkey, () => !disabled && onSelect(), { scope: 'dialog', label: `${hotkey} ${label}` });
 
   return (
-    <button type="button" className="pos-button w-full px-3 text-left text-sm" disabled={disabled} onClick={onSelect}>
+    <button type="button" className="pos-button w-full px-3 text-left text-body" disabled={disabled} onClick={onSelect}>
       <span className="pos-fkey pl-0"><kbd>{hotkey}</kbd></span>
       {label}
     </button>
@@ -176,11 +176,10 @@ export function LineDetailDialog() {
         </div>
 
         <div className="flex gap-2 pt-1">
-          <button type="submit" className="pos-button-primary flex-1 text-sm">Accept</button>
+          <button type="submit" className="pos-button-primary flex-1 text-body">Accept</button>
           <button
             type="button"
-            className="pos-button px-3 text-sm"
-            style={{ color: 'rgb(var(--negative))' }}
+            className="pos-button-danger px-3"
             onClick={() => {
               void removeLine(line.id);
               closeDialog();
@@ -196,10 +195,10 @@ export function LineDetailDialog() {
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
-    <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
-      <span className="text-sm text-[rgb(var(--text-muted))]">
+    <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
+      <span className="text-body text-ink-muted">
         {label}
-        {hint ? <span className="ml-1 text-xs">({hint})</span> : null}
+        {hint ? <span className="ml-1 text-label">({hint})</span> : null}
       </span>
       <span className="w-32">{children}</span>
     </label>
@@ -227,7 +226,7 @@ function TaxToggle({
       onClick={onToggle}
       disabled={disabled}
       aria-pressed={active}
-      className="pos-button px-2 text-sm"
+      className="pos-button px-2 text-body"
       style={active ? { borderColor: 'rgb(var(--positive))', color: 'rgb(var(--positive))' } : undefined}
     >
       <span className="pos-fkey pl-0"><kbd>{hotkey}</kbd></span>
@@ -281,8 +280,8 @@ export function PaymentDialog() {
 
   return (
     <Shell title="Payment" hint={`${copies} cop${copies === 1 ? 'y' : 'ies'} · F4 changes`} onClose={closeDialog}>
-      <div className="mb-3 flex items-baseline justify-between border-b border-[rgb(var(--border))] pb-2">
-        <span className="text-sm text-[rgb(var(--text-muted))]">Amount due</span>
+      <div className="mb-3 flex items-baseline justify-between border-b border-subtle pb-2">
+        <span className="text-body text-ink-muted">Amount due</span>
         <span className="pos-amount text-2xl font-semibold">{money(due, symbol)}</span>
       </div>
 
@@ -293,7 +292,7 @@ export function PaymentDialog() {
             type="button"
             onClick={() => setSelected(tender)}
             aria-pressed={selected?.id === tender.id}
-            className="pos-button px-2 text-sm"
+            className="pos-button px-2 text-body"
             style={selected?.id === tender.id ? { borderColor: 'rgb(var(--accent))', borderWidth: 2 } : undefined}
           >
             {tender.displayName}
@@ -302,23 +301,23 @@ export function PaymentDialog() {
       </div>
 
       {selected?.allowsOverTender ? (
-        <label className="mt-3 flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
-          <span className="text-sm text-[rgb(var(--text-muted))]">Tendered</span>
+        <label className="mt-3 flex items-center justify-between gap-3 border-b border-subtle pb-1">
+          <span className="text-body text-ink-muted">Tendered</span>
           <input
             value={tendered}
             onChange={(event) => setTendered(event.target.value)}
             inputMode="decimal"
             placeholder={due.toFixed(2)}
             autoFocus
-            className="pos-amount w-32 bg-transparent text-right text-lg outline-none"
+            className="pos-amount w-32 bg-transparent text-right text-h3 outline-none"
           />
         </label>
       ) : null}
 
       {change > 0 ? (
-        <div className="mt-2 flex justify-between text-sm">
-          <span className="text-[rgb(var(--text-muted))]">Change</span>
-          <span className="pos-amount text-lg font-semibold" style={{ color: 'rgb(var(--positive))' }}>
+        <div className="mt-2 flex justify-between text-body">
+          <span className="text-ink-muted">Change</span>
+          <span className="pos-amount text-h3 font-semibold text-positive">
             {money(change, symbol)}
           </span>
         </div>
@@ -396,24 +395,24 @@ function AmountPrompt({
           });
         }}
       >
-        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
-          <span className="text-sm text-[rgb(var(--text-muted))]">{asPercent ? 'Percent' : 'Amount'}</span>
+        <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
+          <span className="text-body text-ink-muted">{asPercent ? 'Percent' : 'Amount'}</span>
           <input
             value={value}
             onChange={(event) => setValue(event.target.value)}
             inputMode="decimal"
             autoFocus
-            className="pos-amount w-32 bg-transparent text-right text-lg outline-none"
+            className="pos-amount w-32 bg-transparent text-right text-h3 outline-none"
           />
         </label>
 
         {mode === 'discount' ? (
-          <button type="button" className="pos-button w-full text-sm" onClick={() => setAsPercent((p) => !p)}>
+          <button type="button" className="pos-button w-full text-body" onClick={() => setAsPercent((p) => !p)}>
             Switch to {asPercent ? 'a fixed amount' : 'a percentage'}
           </button>
         ) : null}
 
-        <button type="submit" className="pos-button-primary w-full text-sm">Apply</button>
+        <button type="submit" className="pos-button-primary w-full text-body">Apply</button>
       </form>
     </Shell>
   );
@@ -446,7 +445,7 @@ export function SpecialDialog() {
       </div>
 
       {cart?.taxOverride1 === false ? (
-        <p className="mt-3 text-xs" style={{ color: 'rgb(var(--warning))' }}>
+        <p className="mt-3 text-label text-warning">
           Taxes are suspended for items rung from here on. Lines already on the screen keep the tax they were rung with.
         </p>
       ) : null}
@@ -493,8 +492,8 @@ export function DrawerDialog() {
             void run();
           }}
         >
-          <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
-            <span className="text-sm text-[rgb(var(--text-muted))]">
+          <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
+            <span className="text-body text-ink-muted">
               {mode === 'close' ? 'Cash counted' : 'Amount'}
             </span>
             <input
@@ -502,13 +501,13 @@ export function DrawerDialog() {
               onChange={(event) => setValue(event.target.value)}
               inputMode="decimal"
               autoFocus
-              className="pos-amount w-32 bg-transparent text-right text-lg outline-none"
+              className="pos-amount w-32 bg-transparent text-right text-h3 outline-none"
             />
           </label>
 
           {needsReason ? (
-            <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
-              <span className="text-sm text-[rgb(var(--text-muted))]">Reason</span>
+            <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
+              <span className="text-body text-ink-muted">Reason</span>
               <input
                 value={reason}
                 onChange={(event) => setReason(event.target.value)}
@@ -518,7 +517,7 @@ export function DrawerDialog() {
             </label>
           ) : null}
 
-          <button type="submit" className="pos-button-primary w-full text-sm">Confirm</button>
+          <button type="submit" className="pos-button-primary w-full text-body">Confirm</button>
         </form>
       </Shell>
     );
@@ -540,7 +539,7 @@ export function DrawerDialog() {
           <MenuButton hotkey="F8" label="Close drawer" onSelect={() => setMode('close')} disabled={drawer?.status !== 'Open'} />
         </div>
 
-        <dl className="space-y-1 text-sm">
+        <dl className="space-y-1 text-body">
           {drawer ? (
             <>
               <DrawerRow label="Opening float" value={money(drawer.openingFloat, symbol)} />
@@ -548,7 +547,7 @@ export function DrawerDialog() {
               <DrawerRow label="Refunds" value={money(drawer.cashRefunds, symbol)} />
               <DrawerRow label="Pay ins" value={money(drawer.payIns, symbol)} />
               <DrawerRow label="Pay outs" value={money(drawer.payOuts, symbol)} />
-              <div className="border-t border-[rgb(var(--border))] pt-1">
+              <div className="border-t border-subtle pt-1">
                 <DrawerRow label="Expected cash" value={money(drawer.expectedCash, symbol)} strong />
               </div>
               {drawer.countedCash !== null ? (
@@ -564,7 +563,7 @@ export function DrawerDialog() {
               ) : null}
             </>
           ) : (
-            <p className="text-[rgb(var(--text-muted))]">No drawer session is open at this till.</p>
+            <p className="text-ink-muted">No drawer session is open at this till.</p>
           )}
         </dl>
       </div>
@@ -587,7 +586,7 @@ function DrawerRow({
 
   return (
     <div className="flex justify-between">
-      <dt className="text-[rgb(var(--text-muted))]">{label}</dt>
+      <dt className="text-ink-muted">{label}</dt>
       <dd className={cn('pos-amount', strong && 'font-semibold')} style={colour ? { color: colour } : undefined}>
         {value}
       </dd>
@@ -625,7 +624,7 @@ export function FindDialog() {
         onChange={(event) => setTerm(event.target.value)}
         autoFocus
         placeholder="Stock code or name"
-        className="mb-2 w-full border-b border-[rgb(var(--border))] bg-transparent pb-1 outline-none"
+        className="mb-2 w-full border-b border-subtle bg-transparent pb-1 outline-none"
         onKeyDown={(event) => {
           if (event.key === 'Enter' && results[0]) {
             void scan(results[0].stockCode);
@@ -639,14 +638,14 @@ export function FindDialog() {
           <li key={product.id}>
             <button
               type="button"
-              className="flex w-full items-center justify-between px-1 py-1.5 text-left text-sm hover:bg-[rgb(var(--surface))]"
+              className="flex w-full items-center justify-between px-1 py-1.5 text-left text-body hover:bg-panel-hover"
               onClick={() => {
                 void scan(product.stockCode);
                 closeDialog();
               }}
             >
               <span className="flex gap-3">
-                <span className="tabular w-24 text-[rgb(var(--text-muted))]">{product.stockCode}</span>
+                <span className="tabular w-24 text-ink-muted">{product.stockCode}</span>
                 <span>{product.name}</span>
               </span>
               <span className="pos-amount">{money(product.regularPrice)}</span>
@@ -670,19 +669,19 @@ export function SuspendedCartsDialog() {
   return (
     <Shell title="Suspended sales" onClose={closeDialog} wide>
       {carts.length === 0 ? (
-        <p className="py-4 text-center text-sm text-[rgb(var(--text-muted))]">Nothing is on hold.</p>
+        <p className="py-4 text-center text-body text-ink-muted">Nothing is on hold.</p>
       ) : (
         <ul className="max-h-72 overflow-y-auto">
           {carts.map((cart) => (
             <li key={cart.id}>
               <button
                 type="button"
-                className="flex w-full items-center justify-between px-1 py-2 text-left text-sm hover:bg-[rgb(var(--surface))]"
+                className="flex w-full items-center justify-between px-1 py-2 text-left text-body hover:bg-panel-hover"
                 onClick={() => void recall(cart.id)}
               >
                 <span>
                   <span className="font-medium">{cart.label ?? 'Unlabelled hold'}</span>
-                  <span className="ml-2 text-xs text-[rgb(var(--text-muted))]">
+                  <span className="ml-2 text-label text-ink-muted">
                     {cart.customerName ?? 'Walk-in'} · {cart.lineCount} lines
                   </span>
                 </span>
@@ -719,8 +718,8 @@ export function StaffSwitchDialog() {
           if (stationId) void switchStaff(staffCode, pin);
         }}
       >
-        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
-          <span className="text-sm text-[rgb(var(--text-muted))]">Staff code</span>
+        <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
+          <span className="text-body text-ink-muted">Staff code</span>
           <input
             value={staffCode}
             onChange={(event) => setStaffCode(event.target.value.toUpperCase())}
@@ -730,25 +729,25 @@ export function StaffSwitchDialog() {
           />
         </label>
 
-        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
-          <span className="text-sm text-[rgb(var(--text-muted))]">PIN</span>
+        <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
+          <span className="text-body text-ink-muted">PIN</span>
           <input
             value={pin}
             onChange={(event) => setPin(event.target.value)}
             type="password"
             inputMode="numeric"
             autoComplete="off"
-            className="pos-amount w-32 bg-transparent text-right text-lg outline-none"
+            className="pos-amount w-32 bg-transparent text-right text-h3 outline-none"
           />
         </label>
 
         {error ? (
-          <p className="text-sm" role="alert" style={{ color: 'rgb(var(--negative))' }}>
+          <p className="text-body text-negative" role="alert">
             {error.message}
           </p>
         ) : null}
 
-        <button type="submit" className="pos-button-primary w-full text-sm" disabled={busy}>
+        <button type="submit" className="pos-button-primary w-full text-body" disabled={busy}>
           Switch
         </button>
       </form>
@@ -773,7 +772,7 @@ export function SupervisorApprovalDialog() {
 
   return (
     <Shell title="Supervisor approval" hint={pendingApproval.context ?? undefined} onClose={closeDialog}>
-      <p className="mb-3 text-sm text-[rgb(var(--text-muted))]">
+      <p className="mb-3 text-body text-ink-muted">
         This needs a supervisor. Enter a PIN here, or ask one to approve from any till.
       </p>
 
@@ -784,8 +783,8 @@ export function SupervisorApprovalDialog() {
           void approveWithPin(staffCode, pin);
         }}
       >
-        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
-          <span className="text-sm text-[rgb(var(--text-muted))]">Supervisor code</span>
+        <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
+          <span className="text-body text-ink-muted">Supervisor code</span>
           <input
             value={staffCode}
             onChange={(event) => setStaffCode(event.target.value.toUpperCase())}
@@ -795,25 +794,25 @@ export function SupervisorApprovalDialog() {
           />
         </label>
 
-        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
-          <span className="text-sm text-[rgb(var(--text-muted))]">PIN</span>
+        <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
+          <span className="text-body text-ink-muted">PIN</span>
           <input
             value={pin}
             onChange={(event) => setPin(event.target.value)}
             type="password"
             inputMode="numeric"
             autoComplete="off"
-            className="pos-amount w-32 bg-transparent text-right text-lg outline-none"
+            className="pos-amount w-32 bg-transparent text-right text-h3 outline-none"
           />
         </label>
 
         {error ? (
-          <p className="text-sm" role="alert" style={{ color: 'rgb(var(--negative))' }}>
+          <p className="text-body text-negative" role="alert">
             {error.message}
           </p>
         ) : null}
 
-        <button type="submit" className="pos-button-primary w-full text-sm" disabled={busy}>
+        <button type="submit" className="pos-button-primary w-full text-body" disabled={busy}>
           Approve
         </button>
       </form>
@@ -850,9 +849,9 @@ export function VariantPickerDialog() {
   return (
     <Shell title="Choose a variant" hint={pendingSelection?.identifier} onClose={closeDialog} wide>
       {loading ? (
-        <p className="py-4 text-center text-sm text-[rgb(var(--text-muted))]">Loading…</p>
+        <p className="py-4 text-center text-body text-ink-muted">Loading…</p>
       ) : variants.length === 0 ? (
-        <p className="py-4 text-center text-sm text-[rgb(var(--text-muted))]">
+        <p className="py-4 text-center text-body text-ink-muted">
           {showAll ? 'This item has no variants configured.' : 'Nothing in stock at this location.'}
         </p>
       ) : (
@@ -861,14 +860,14 @@ export function VariantPickerDialog() {
             <li key={variant.id}>
               <button
                 type="button"
-                className="pos-button w-full px-2 text-left text-sm"
+                className="pos-button w-full px-2 text-left text-body"
                 disabled={!showAll && variant.onHand <= 0}
                 onClick={() => void addVariant(variant.id)}
               >
                 <span className="flex items-center justify-between gap-2">
                   <span>{[variant.dim1Value, variant.dim2Value, variant.dim3Value].filter(Boolean).join(' / ')}</span>
                   <span
-                    className="tabular text-xs"
+                    className="tabular text-label"
                     style={{ color: variant.onHand > 0 ? 'rgb(var(--text-muted))' : 'rgb(var(--negative))' }}
                   >
                     {variant.onHand}
@@ -880,7 +879,7 @@ export function VariantPickerDialog() {
         </ul>
       )}
 
-      <button type="button" className="mt-3 text-xs underline text-[rgb(var(--text-muted))]" onClick={() => setShowAll((s) => !s)}>
+      <button type="button" className="mt-3 text-label underline text-ink-muted" onClick={() => setShowAll((s) => !s)}>
         {showAll ? 'Show only what is in stock' : 'Show every variant, including out of stock'}
       </button>
     </Shell>
@@ -926,13 +925,13 @@ export function SerialPickerDialog() {
         onChange={(event) => setFilter(event.target.value)}
         autoFocus
         placeholder="Serial number or tag"
-        className="mb-2 w-full border-b border-[rgb(var(--border))] bg-transparent pb-1 outline-none"
+        className="mb-2 w-full border-b border-subtle bg-transparent pb-1 outline-none"
       />
 
       {loading ? (
-        <p className="py-4 text-center text-sm text-[rgb(var(--text-muted))]">Loading…</p>
+        <p className="py-4 text-center text-body text-ink-muted">Loading…</p>
       ) : visible.length === 0 ? (
-        <p className="py-4 text-center text-sm text-[rgb(var(--text-muted))]">
+        <p className="py-4 text-center text-body text-ink-muted">
           No units of this item are in stock at this location.
         </p>
       ) : (
@@ -941,11 +940,11 @@ export function SerialPickerDialog() {
             <li key={unit.id}>
               <button
                 type="button"
-                className="flex w-full items-center justify-between px-1 py-1.5 text-left text-sm hover:bg-[rgb(var(--surface))]"
+                className="flex w-full items-center justify-between px-1 py-1.5 text-left text-body hover:bg-panel-hover"
                 onClick={() => void addUnit(unit.id)}
               >
-                <span className="font-mono text-xs">{unit.serialNumber ?? unit.epc}</span>
-                <span className="text-xs text-[rgb(var(--text-muted))]">
+                <span className="font-mono text-label">{unit.serialNumber ?? unit.epc}</span>
+                <span className="text-label text-ink-muted">
                   {unit.variantLabel ?? ''}
                   {unit.epc && unit.serialNumber ? ' · tagged' : ''}
                 </span>
@@ -987,7 +986,7 @@ export function ClientDialog() {
         onChange={(event) => setTerm(event.target.value)}
         autoFocus
         placeholder="Name, company or account number"
-        className="mb-2 w-full border-b border-[rgb(var(--border))] bg-transparent pb-1 outline-none"
+        className="mb-2 w-full border-b border-subtle bg-transparent pb-1 outline-none"
       />
 
       <ul className="max-h-72 overflow-y-auto">
@@ -995,11 +994,11 @@ export function ClientDialog() {
           <li key={customer.id}>
             <button
               type="button"
-              className="flex w-full items-center justify-between px-1 py-1.5 text-left text-sm hover:bg-[rgb(var(--surface))]"
+              className="flex w-full items-center justify-between px-1 py-1.5 text-left text-body hover:bg-panel-hover"
               onClick={() => void setCustomer(customer.id)}
             >
               <span>{customer.fullName}</span>
-              <span className="tabular text-xs text-[rgb(var(--text-muted))]">#{customer.customerNumber}</span>
+              <span className="tabular text-label text-ink-muted">#{customer.customerNumber}</span>
             </button>
           </li>
         ))}
@@ -1008,7 +1007,7 @@ export function ClientDialog() {
       {cart?.customer ? (
         <button
           type="button"
-          className="pos-button mt-3 w-full text-sm"
+          className="pos-button mt-3 w-full text-body"
           onClick={() => void setCustomer(null)}
         >
           Remove {cart.customer.name} from this sale
@@ -1033,8 +1032,8 @@ export function UnknownItemDialog() {
           void addUnknownItem(description, Number(price), Number(qty) || 1);
         }}
       >
-        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
-          <span className="text-sm text-[rgb(var(--text-muted))]">Description</span>
+        <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
+          <span className="text-body text-ink-muted">Description</span>
           <input
             value={description}
             onChange={(event) => setDescription(event.target.value)}
@@ -1044,8 +1043,8 @@ export function UnknownItemDialog() {
           />
         </label>
 
-        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
-          <span className="text-sm text-[rgb(var(--text-muted))]">Price</span>
+        <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
+          <span className="text-body text-ink-muted">Price</span>
           <input
             value={price}
             onChange={(event) => setPrice(event.target.value)}
@@ -1055,8 +1054,8 @@ export function UnknownItemDialog() {
           />
         </label>
 
-        <label className="flex items-center justify-between gap-3 border-b border-[rgb(var(--border))] pb-1">
-          <span className="text-sm text-[rgb(var(--text-muted))]">Quantity</span>
+        <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
+          <span className="text-body text-ink-muted">Quantity</span>
           <input
             value={qty}
             onChange={(event) => setQty(event.target.value)}
@@ -1065,7 +1064,7 @@ export function UnknownItemDialog() {
           />
         </label>
 
-        <button type="submit" className="pos-button-primary w-full text-sm">Add to sale</button>
+        <button type="submit" className="pos-button-primary w-full text-body">Add to sale</button>
       </form>
     </Shell>
   );
@@ -1093,12 +1092,12 @@ export function CheatSheetDialog() {
       <div className="grid grid-cols-2 gap-6">
         {grouped.map(([group, entries]) => (
           <div key={group}>
-            <h3 className="mb-1 text-xs font-medium uppercase tracking-wide text-[rgb(var(--text-muted))]">{group}</h3>
-            <ul className="space-y-0.5 text-sm">
+            <h3 className="mb-1 text-label font-medium uppercase tracking-wide text-ink-muted">{group}</h3>
+            <ul className="space-y-0.5 text-body">
               {entries.map((entry) => (
                 <li key={`${group}-${entry.combo}`} className="flex justify-between gap-3">
-                  <span className="text-[rgb(var(--text-muted))]">{entry.label}</span>
-                  <kbd className="rounded-sm border border-[rgb(var(--border))] px-1 font-mono text-xs">{entry.combo}</kbd>
+                  <span className="text-ink-muted">{entry.label}</span>
+                  <kbd className="rounded-sm border border-subtle px-1 font-mono text-label">{entry.combo}</kbd>
                 </li>
               ))}
             </ul>

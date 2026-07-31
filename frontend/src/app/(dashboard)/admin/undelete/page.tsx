@@ -75,16 +75,16 @@ export default function UndeletePage() {
 
   return (
     <div className="space-y-3">
-      <h1 className="text-lg font-semibold">Undelete items</h1>
+      <h1 className="text-h3 font-semibold">Undelete items</h1>
 
-      <p className="max-w-2xl text-sm text-[rgb(var(--text-muted))]">
+      <p className="max-w-2xl text-body text-ink-muted">
         Nothing in this system is destroyed when it is deleted — it is hidden, and everything that ever referred to it
         still resolves. This is where it comes back.
       </p>
 
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+      <div className="flex flex-wrap items-center gap-2 text-body">
         <select
-          className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+          className="pos-input"
           value={kind}
           onChange={(event) => setKind(event.target.value as DeletedEntityKind | '')}
         >
@@ -96,7 +96,7 @@ export default function UndeletePage() {
         </select>
 
         <input
-          className="w-64 rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+          className="pos-input w-64"
           placeholder="Search by name or code"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
@@ -109,13 +109,13 @@ export default function UndeletePage() {
         </div>
 
         {loading ? (
-          <p className="px-3 py-8 text-center text-sm text-[rgb(var(--text-muted))]">Loading…</p>
+          <p className="px-3 py-8 text-center text-body text-ink-muted">Loading…</p>
         ) : rows.length === 0 ? (
-          <p className="px-3 py-8 text-center text-sm text-[rgb(var(--text-muted))]">Nothing has been deleted.</p>
+          <p className="px-3 py-8 text-center text-body text-ink-muted">Nothing has been deleted.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="text-[10px] uppercase tracking-wide text-[rgb(var(--text-muted))]">
-              <tr className="border-b border-[rgb(var(--border))]">
+          <table className="w-full text-body">
+            <thead className="text-caption uppercase tracking-wide text-ink-muted">
+              <tr className="border-b border-subtle">
                 <th className="px-2 py-1 text-left">Kind</th>
                 <th className="px-2 py-1 text-left">Reference</th>
                 <th className="px-2 py-1 text-left">Name</th>
@@ -126,7 +126,7 @@ export default function UndeletePage() {
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={`${row.kind}-${row.id}`} className="border-b border-[rgb(var(--border))] last:border-0">
+                <tr key={`${row.kind}-${row.id}`} className="border-b border-subtle last:border-0">
                   <td className="px-2 py-1">{row.kind}</td>
                   <td className={cn('px-2 py-1', 'pos-amount')}>{row.reference || '—'}</td>
                   <td className="px-2 py-1">{row.name}</td>

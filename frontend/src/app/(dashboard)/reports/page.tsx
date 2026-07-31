@@ -138,7 +138,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-lg font-semibold">Reports</h1>
+      <h1 className="text-h3 font-semibold">Reports</h1>
 
       {groups.map((group) => (
         <section key={group.heading} className="space-y-2">
@@ -149,20 +149,20 @@ export default function ReportsPage() {
               <Link
                 key={report.href}
                 href={report.href}
-                className="pos-panel block p-4 transition-colors hover:bg-[rgb(var(--surface))]"
+                className="pos-panel block p-4 transition-colors hover:bg-panel-hover"
               >
-                <span className="mb-1 flex items-center gap-2 text-sm font-medium">
+                <span className="mb-1 flex items-center gap-2 text-body font-medium">
                   <report.icon className="h-4 w-4" />
                   {report.title}
                 </span>
-                <span className="block text-xs text-[rgb(var(--text-muted))]">{report.description}</span>
+                <span className="block text-label text-ink-muted">{report.description}</span>
               </Link>
             ))}
           </div>
         </section>
       ))}
 
-      <p className="max-w-2xl text-xs text-[rgb(var(--text-muted))]">
+      <p className="max-w-2xl text-label text-ink-muted">
         Labels and price tags, staff hours and commissions, bulk price changes, stock counts and transfers, the
         year-end close and the accounting sync are the rest of Phase 6 and are still being built.
       </p>

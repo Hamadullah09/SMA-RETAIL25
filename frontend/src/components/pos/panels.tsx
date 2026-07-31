@@ -45,18 +45,18 @@ export function StatusBar() {
   const { policy, connected, readerOnline, peripherals, drawer, cart } = usePosStore();
 
   return (
-    <header className="pos-panel flex items-center justify-between px-3 py-2 text-xs">
-      <div className="flex items-center gap-4 text-[rgb(var(--text-muted))]">
+    <header className="pos-panel flex items-center justify-between px-3 py-2 text-label">
+      <div className="flex items-center gap-4 text-ink-muted">
         <span>
-          Station <span className="font-medium text-[rgb(var(--text))]">{policy?.stationCode ?? '—'}</span>
+          Station <span className="font-medium text-ink">{policy?.stationCode ?? '—'}</span>
         </span>
         <span>
           Drawer{' '}
-          <span className={cn('font-medium', drawer?.status === 'Open' ? 'text-[rgb(var(--positive))]' : 'text-[rgb(var(--warning))]')}>
+          <span className={cn('font-medium', drawer?.status === 'Open' ? 'text-positive' : 'text-warning')}>
             {drawer?.status === 'Open' ? 'open' : 'closed'}
           </span>
         </span>
-        {cart?.heldName ? <span className="text-[rgb(var(--warning))]">Recalled: {cart.heldName}</span> : null}
+        {cart?.heldName ? <span className="text-warning">Recalled: {cart.heldName}</span> : null}
       </div>
 
       <div className="flex items-center gap-3">
@@ -71,7 +71,7 @@ export function StatusBar() {
 
 function Health({ label, ok }: { label: string; ok: boolean }) {
   return (
-    <span className="flex items-center gap-1.5 text-[rgb(var(--text-muted))]">
+    <span className="flex items-center gap-1.5 text-ink-muted">
       <span
         aria-hidden
         className="h-2 w-2 rounded-full"
@@ -91,7 +91,7 @@ export function ConnectionBanner() {
   return (
     <div
       role="status"
-      className="border-b px-3 py-1.5 text-xs font-medium"
+      className="border-b px-3 py-1.5 text-label font-medium"
       style={{ borderColor: 'rgb(var(--warning))', color: 'rgb(var(--warning))' }}
     >
       Disconnected from the server — reconnecting. Totals on screen may be stale.
@@ -129,11 +129,10 @@ export function LiveFeed() {
   if (!hasReader && rejectedTags.length === 0) return null;
 
   return (
-    <div className="border-b border-[rgb(var(--border))]">
+    <div className="border-b border-subtle">
       {!readerOnline ? (
         <div
-          className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs font-medium"
-          style={{ color: 'rgb(var(--negative))' }}
+          className="flex items-center justify-between gap-2 px-3 py-1.5 text-caption font-medium text-negative"
           role="status"
         >
           <span>Reader offline — scan or key items as normal.</span>
@@ -142,15 +141,15 @@ export function LiveFeed() {
           </button>
         </div>
       ) : (
-        <div className="flex items-center justify-between gap-2 px-3 py-1.5 text-xs">
-          <span className="flex items-center gap-2" style={{ color: 'rgb(var(--live))' }}>
+        <div className="flex items-center justify-between gap-2 px-3 py-1.5 text-label">
+          <span className="flex items-center gap-2 text-live">
             <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: 'rgb(var(--live))' }} />
             Reading
             <span className="tabular">{readRate}</span>
             tags/s
           </span>
 
-          <span className="flex gap-2 text-[rgb(var(--text-muted))]">
+          <span className="flex gap-2 text-ink-muted">
             <button type="button" className="underline" onClick={() => void setReaderMode('Continuous')}>
               Continuous
             </button>
@@ -162,13 +161,13 @@ export function LiveFeed() {
       )}
 
       {rejectedTags.length > 0 ? (
-        <ul className="max-h-24 overflow-y-auto px-3 pb-1.5 text-xs" aria-live="polite">
+        <ul className="max-h-24 overflow-y-auto px-3 pb-1.5 text-label" aria-live="polite">
           {rejectedTags.map((tag) => (
             <li key={`${tag.epc}-${tag.at}`} className="pos-settling flex justify-between gap-2 py-0.5">
-              <span className="truncate font-mono text-[10px] text-[rgb(var(--text-muted))]">
+              <span className="truncate font-mono text-caption text-ink-muted">
                 …{tag.epc.slice(-12)}
               </span>
-              <span style={{ color: 'rgb(var(--negative))' }}>{tag.message}</span>
+              <span className="text-negative">{tag.message}</span>
             </li>
           ))}
         </ul>
@@ -191,7 +190,7 @@ export function CartList() {
 
       <LiveFeed />
 
-      <div className="grid grid-cols-[64px_1fr_96px_96px] gap-2 border-b border-[rgb(var(--border))] px-3 py-1 text-[10px] font-medium uppercase tracking-wide text-[rgb(var(--text-muted))]">
+      <div className="grid grid-cols-[64px_1fr_96px_96px] gap-2 border-b border-subtle px-3 py-1 text-caption font-medium uppercase tracking-wide text-ink-muted">
         <span className="text-right">Qty</span>
         <span>Item</span>
         <span className="text-right">Price</span>
@@ -200,7 +199,7 @@ export function CartList() {
 
       <ol className="min-h-0 flex-1 overflow-y-auto">
         {lines.length === 0 ? (
-          <li className="px-3 py-8 text-center text-sm text-[rgb(var(--text-muted))]">
+          <li className="px-3 py-8 text-center text-body text-ink-muted">
             Scan an item, or press <kbd className="font-mono">F2</kbd> to find one.
           </li>
         ) : (
@@ -210,10 +209,10 @@ export function CartList() {
                 type="button"
                 onClick={() => openDialog('lineDetail', line.id)}
                 className={cn(
-                  'grid w-full grid-cols-[64px_1fr_96px_96px] items-center gap-2 px-3 text-left text-sm',
-                  'h-8 hover:bg-[rgb(var(--surface))]',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgb(var(--accent))]',
-                  selectedLineId === line.id && 'bg-[rgb(var(--surface))]',
+                  'grid w-full grid-cols-[64px_1fr_96px_96px] items-center gap-2 px-3 text-left text-body',
+                  'h-8 hover:bg-panel-hover',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+                  selectedLineId === line.id && 'bg-surface',
                 )}
               >
                 <span className="pos-amount text-right">{quantity(line.quantity)}</span>
@@ -221,10 +220,10 @@ export function CartList() {
                 <span className="flex min-w-0 items-center gap-1.5">
                   <span className="truncate">{line.name}</span>
                   {line.variantLabel ? (
-                    <span className="shrink-0 text-xs text-[rgb(var(--text-muted))]">{line.variantLabel}</span>
+                    <span className="shrink-0 text-label text-ink-muted">{line.variantLabel}</span>
                   ) : null}
                   {SOURCE_LABELS[line.source] ? (
-                    <span className="pos-badge shrink-0 border border-[rgb(var(--border))] text-[rgb(var(--text-muted))]">
+                    <span className="pos-badge shrink-0 border border-subtle text-ink-muted">
                       {SOURCE_LABELS[line.source]}
                     </span>
                   ) : null}
@@ -271,7 +270,7 @@ export function TotalsPanel() {
         {totals?.taxInclusive ? <span className="normal-case">tax included</span> : null}
       </div>
 
-      <dl className="space-y-1 px-3 py-2 text-sm" aria-live="polite">
+      <dl className="space-y-1 px-3 py-2 text-body" aria-live="polite">
         <Row label="Subtotal" value={money(totals?.subtotal ?? 0, symbol)} />
 
         {totals && totals.discountTotal > 0 ? (
@@ -294,13 +293,13 @@ export function TotalsPanel() {
           <Row label={totals.tax2Name} value={money(totals.tax2Total, symbol)} />
         ) : null}
 
-        <div className="mt-1 flex items-baseline justify-between border-t border-[rgb(var(--border))] pt-2">
-          <dt className="text-xs font-medium uppercase tracking-wide text-[rgb(var(--text-muted))]">Total</dt>
+        <div className="mt-1 flex items-baseline justify-between border-t border-subtle pt-2">
+          <dt className="text-label font-medium uppercase tracking-wide text-ink-muted">Total</dt>
           <dd className="pos-amount text-2xl font-semibold">{money(totals?.grandTotal ?? 0, symbol)}</dd>
         </div>
 
         {totals && totals.loyaltyPointsEarned > 0 ? (
-          <p className="pt-1 text-xs text-[rgb(var(--text-muted))]">
+          <p className="pt-1 text-label text-ink-muted">
             Earns <span className="tabular">{totals.loyaltyPointsEarned}</span> points
           </p>
         ) : null}
@@ -312,7 +311,7 @@ export function TotalsPanel() {
 function Row({ label, value, tone }: { label: string; value: string; tone?: 'positive' }) {
   return (
     <div className="flex justify-between">
-      <dt className="text-[rgb(var(--text-muted))]">{label}</dt>
+      <dt className="text-ink-muted">{label}</dt>
       <dd className="pos-amount" style={tone === 'positive' ? { color: 'rgb(var(--positive))' } : undefined}>
         {value}
       </dd>
@@ -333,10 +332,10 @@ export function PaymentMatrix({ onPay }: { onPay: () => void }) {
       </button>
 
       <div className="mt-2 grid grid-cols-2 gap-2">
-        <button type="button" className="pos-button text-sm" disabled={!cart} onClick={() => openDialog('credits')}>
+        <button type="button" className="pos-button text-body" disabled={!cart} onClick={() => openDialog('credits')}>
           Credits <span className="pos-fkey"><kbd>F3</kbd></span>
         </button>
-        <button type="button" className="pos-button text-sm" disabled={!cart} onClick={() => openDialog('special')}>
+        <button type="button" className="pos-button text-body" disabled={!cart} onClick={() => openDialog('special')}>
           Special <span className="pos-fkey"><kbd>F11</kbd></span>
         </button>
       </div>
@@ -355,45 +354,45 @@ export function CustomerPanel() {
     <section className="pos-panel" aria-label="Customer">
       <div className="pos-panel-header">
         <span>Customer</span>
-        <button type="button" className="text-[10px] normal-case underline" onClick={() => openDialog('client')}>
+        <button type="button" className="text-caption normal-case underline" onClick={() => openDialog('client')}>
           F5 Client
         </button>
       </div>
 
       {customer ? (
-        <div className="space-y-1 px-3 py-2 text-sm">
+        <div className="space-y-1 px-3 py-2 text-body">
           <div className="flex items-baseline justify-between">
             <span className="font-medium">{customer.name}</span>
-            <span className="tabular text-xs text-[rgb(var(--text-muted))]">#{customer.customerNumber}</span>
+            <span className="tabular text-label text-ink-muted">#{customer.customerNumber}</span>
           </div>
 
-          <p className="text-xs text-[rgb(var(--text-muted))]">
+          <p className="text-label text-ink-muted">
             Level {customer.priceLevel}
             {customer.usualDiscountPct > 0 ? ` · ${customer.usualDiscountPct}% usual` : ''}
             {customer.exemptTax1 ? ' · tax 1 exempt' : ''}
             {customer.exemptTax2 ? ' · tax 2 exempt' : ''}
           </p>
 
-          <div className="flex justify-between text-xs">
-            <span className="text-[rgb(var(--text-muted))]">Points</span>
+          <div className="flex justify-between text-label">
+            <span className="text-ink-muted">Points</span>
             <span className="tabular">{customer.rewardPoints}</span>
           </div>
 
-          <div className="flex justify-between text-xs">
-            <span className="text-[rgb(var(--text-muted))]">Account balance</span>
+          <div className="flex justify-between text-label">
+            <span className="text-ink-muted">Account balance</span>
             <span className="pos-amount">{money(customer.accountBalance, symbol)}</span>
           </div>
 
           <button
             type="button"
-            className="mt-1 text-xs underline text-[rgb(var(--text-muted))]"
+            className="mt-1 text-label underline text-ink-muted"
             onClick={() => void setCustomer(null)}
           >
             Remove customer
           </button>
         </div>
       ) : (
-        <p className="px-3 py-3 text-sm text-[rgb(var(--text-muted))]">Walk-in sale.</p>
+        <p className="px-3 py-3 text-body text-ink-muted">Walk-in sale.</p>
       )}
     </section>
   );
@@ -415,7 +414,7 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
         void scan(entry);
       }}
     >
-      <label htmlFor="pos-scan" className="text-xs uppercase tracking-wide text-[rgb(var(--text-muted))]">
+      <label htmlFor="pos-scan" className="text-label uppercase tracking-wide text-ink-muted">
         Scan
       </label>
 
@@ -432,12 +431,12 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
           if (error) clearError();
         }}
         placeholder="Barcode, stock code, tag or serial"
-        className="flex-1 bg-transparent text-sm outline-none placeholder:text-[rgb(var(--text-muted))]"
+        className="flex-1 bg-transparent text-body outline-none placeholder:text-ink-muted"
         disabled={busy}
       />
 
       {error ? (
-        <span className="text-xs" style={{ color: 'rgb(var(--negative))' }} role="alert">
+        <span className="text-label text-negative" role="alert">
           {error.message}
         </span>
       ) : null}
@@ -463,7 +462,7 @@ export function FunctionKeyBar({ keys }: { keys: FunctionKey[] }) {
           type="button"
           onClick={entry.onSelect}
           disabled={entry.disabled}
-          className="pos-fkey rounded-sm hover:bg-[rgb(var(--surface))] disabled:opacity-40"
+          className="pos-fkey rounded-sm hover:bg-panel-hover disabled:opacity-40"
         >
           <kbd>{entry.key}</kbd>
           {entry.label}
@@ -482,7 +481,7 @@ export function PosMessageBanner() {
   return (
     <div
       role="status"
-      className="pos-panel px-3 py-2 text-sm"
+      className="pos-panel px-3 py-2 text-body"
       style={{ borderColor: 'rgb(var(--warning))', color: 'rgb(var(--warning))' }}
     >
       {message}

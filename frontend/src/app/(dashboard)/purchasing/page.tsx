@@ -19,7 +19,7 @@ import {
 import type { Product } from '@/types';
 
 const selectClass =
-  'rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1';
+  'pos-input';
 
 const statusLabels: Record<PurchaseOrderStatus, string> = {
   Draft: 'Draft',
@@ -94,7 +94,7 @@ export default function PurchasingPage() {
       title="Purchase Orders"
       toolbar={
         <>
-          {connected ? null : <span className="text-xs text-[rgb(var(--negative))]">live updates offline</span>}
+          {connected ? null : <span className="text-label text-negative">live updates offline</span>}
           {canWrite ? (
             <button type="button" className="pos-button-primary" onClick={() => setShowGenerate(true)}>
               New Purchase Order
@@ -211,7 +211,7 @@ function GeneratePanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">New purchase order</h2>
+        <h2 className="text-body font-semibold">New purchase order</h2>
         <button type="button" className="pos-button" onClick={onClose}>
           Close
         </button>
@@ -285,7 +285,7 @@ function PurchaseOrderPanel({
   }, [reload]);
 
   if (!order) {
-    return <p className="text-sm text-[rgb(var(--text-muted))]">Loading…</p>;
+    return <p className="text-body text-ink-muted">Loading…</p>;
   }
 
   const isDraft = order.status === 'Draft';
@@ -323,7 +323,7 @@ function PurchaseOrderPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-body font-semibold">
           PO-{order.poNumber} · {order.supplierCompany} · {statusLabels[order.status]}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>
@@ -342,7 +342,7 @@ function PurchaseOrderPanel({
         }
       >
         <LinesTable order={order} canEdit={isDraft && canWrite} busy={busy} setBusy={setBusy} onChanged={reload} />
-        <p className="text-right text-sm font-medium">Total: {currency(order.total)}</p>
+        <p className="text-right text-body font-medium">Total: {currency(order.total)}</p>
       </FormSection>
 
       {isDraft && canWrite ? (
@@ -355,7 +355,7 @@ function PurchaseOrderPanel({
         <div className="mb-6">
           <button
             type="button"
-            className="pos-button text-[rgb(var(--negative))]"
+            className="pos-button text-negative"
             disabled={busy}
             onClick={() => void cancel()}
           >
@@ -393,12 +393,12 @@ function LinesTable({
   };
 
   if (order.lines.length === 0) {
-    return <p className="text-xs text-[rgb(var(--text-muted))]">No lines yet.</p>;
+    return <p className="text-label text-ink-muted">No lines yet.</p>;
   }
 
   return (
-    <table className="w-full text-xs">
-      <thead className="text-left text-[rgb(var(--text-muted))]">
+    <table className="w-full text-label">
+      <thead className="text-left text-ink-muted">
         <tr>
           <th className="pb-1">Item</th>
           <th className="pb-1 text-right">Ordered</th>
@@ -410,7 +410,7 @@ function LinesTable({
       </thead>
       <tbody>
         {order.lines.map((line) => (
-          <tr key={line.id} className="border-t border-[rgb(var(--border))]">
+          <tr key={line.id} className="border-t border-subtle">
             <td className="py-1">
               {line.stockCode} — {line.productName}
             </td>
@@ -507,7 +507,7 @@ function AddLinePanel({
     >
       <Field label="Item" hint={results.length > 0 ? undefined : 'Type a stock code or name.'}>
         <input
-          className="w-full rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+          className="w-full pos-input"
           value={term}
           onChange={(event) => {
             setTerm(event.target.value);
@@ -516,12 +516,12 @@ function AddLinePanel({
           placeholder="Stock code or name"
         />
         {results.length > 0 ? (
-          <ul className="mt-1 max-h-40 overflow-y-auto rounded-[var(--radius-dense)] border border-[rgb(var(--border))]">
+          <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-subtle">
             {results.map((product) => (
               <li key={product.id}>
                 <button
                   type="button"
-                  className="block w-full px-2 py-1 text-left text-xs hover:bg-[rgb(var(--panel-hover))]"
+                  className="block w-full px-2 py-1 text-left text-label hover:bg-panel-hover"
                   onClick={() => pick(product)}
                 >
                   {product.stockCode} — {product.name}

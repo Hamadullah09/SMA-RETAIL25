@@ -9,7 +9,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { ArchiveRow, FiscalYear, FiscalYearCloseResult } from '@/types/masters';
 
 const inputClass =
-  'rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1 text-sm';
+  'pos-input';
 
 const monthNames = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -67,8 +67,8 @@ export default function YearEndPage() {
   if (!canClose) {
     return (
       <div className="p-6">
-        <h1 className="text-lg font-semibold">Year end</h1>
-        <p className="mt-2 text-sm text-[rgb(var(--text-muted))]">
+        <h1 className="text-h3 font-semibold">Year end</h1>
+        <p className="mt-2 text-body text-ink-muted">
           You do not have permission to close a fiscal year.
         </p>
       </div>
@@ -152,8 +152,8 @@ export default function YearEndPage() {
   return (
     <div className="space-y-4 p-6">
       <header>
-        <h1 className="text-lg font-semibold">Year end</h1>
-        <p className="text-sm text-[rgb(var(--text-muted))]">
+        <h1 className="text-h3 font-semibold">Year end</h1>
+        <p className="text-body text-ink-muted">
           Closing a year rolls its trading up into the sales history and writes a stock checkpoint. Nothing is
           deleted, every previous year keeps its own figures, and a close can be undone.
         </p>
@@ -165,7 +165,7 @@ export default function YearEndPage() {
         </div>
         <div className="space-y-3 p-3">
           <div className="flex flex-wrap items-end gap-2">
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               Open a year
               <input
                 type="number"
@@ -179,8 +179,8 @@ export default function YearEndPage() {
             </button>
           </div>
 
-          <table className="w-full text-sm">
-            <thead className="text-xs">
+          <table className="w-full text-body">
+            <thead className="text-label">
               <tr>
                 <th className="py-1 text-left">Year</th>
                 <th className="py-1 text-left">Period</th>
@@ -192,7 +192,7 @@ export default function YearEndPage() {
             </thead>
             <tbody>
               {years.map((year) => (
-                <tr key={year.id} className="border-t border-[rgb(var(--border))]">
+                <tr key={year.id} className="border-t border-subtle">
                   <td className="py-1 font-medium">{year.year}</td>
                   <td className="py-1">
                     {year.startsOn} to {year.endsOn}
@@ -212,7 +212,7 @@ export default function YearEndPage() {
                       <>
                         <button
                           type="button"
-                          className="text-xs underline"
+                          className="text-label underline"
                           disabled={busy}
                           onClick={() => void dryRun(year)}
                         >
@@ -220,7 +220,7 @@ export default function YearEndPage() {
                         </button>
                         <button
                           type="button"
-                          className="ml-2 text-xs underline"
+                          className="ml-2 text-label underline"
                           disabled={busy || previewFor !== year.id}
                           onClick={() => void close(year)}
                         >
@@ -230,7 +230,7 @@ export default function YearEndPage() {
                     ) : (
                       <button
                         type="button"
-                        className="text-xs underline"
+                        className="text-label underline"
                         disabled={busy}
                         onClick={() => void reopen(year)}
                       >
@@ -244,11 +244,11 @@ export default function YearEndPage() {
           </table>
 
           {years.length === 0 ? (
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label text-ink-muted">
               No fiscal years yet. Open the year you want to close.
             </p>
           ) : (
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label text-ink-muted">
               Close stays disabled until a dry run has been read. Years close in order, and a year that has not
               finished cannot be closed at all.
             </p>
@@ -262,7 +262,7 @@ export default function YearEndPage() {
             <span>Dry run — {preview.year}</span>
             <span className="normal-case">nothing has been written</span>
           </div>
-          <div className="space-y-2 p-3 text-sm">
+          <div className="space-y-2 p-3 text-body">
             <div className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-4">
               <Figure label="Archive rows" value={String(preview.archiveRows)} />
               <Figure label="Items checkpointed" value={String(preview.productsCheckpointed)} />
@@ -273,14 +273,14 @@ export default function YearEndPage() {
             </div>
 
             {preview.warnings.length > 0 ? (
-              <ul className="text-xs text-[rgb(var(--warning))]">
+              <ul className="text-label text-warning">
                 {preview.warnings.map((warning) => (
                   <li key={warning}>⚠ {warning}</li>
                 ))}
               </ul>
             ) : null}
 
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label text-ink-muted">
               These are the figures the real close will write. Voided and practice sales are already excluded.
             </p>
           </div>
@@ -293,7 +293,7 @@ export default function YearEndPage() {
         </div>
         <div className="space-y-2 p-3">
           <div className="flex flex-wrap items-end gap-2">
-            <label className="flex flex-col gap-1 text-xs">
+            <label className="flex flex-col gap-1 text-label">
               Year
               <select
                 className={inputClass}
@@ -321,9 +321,9 @@ export default function YearEndPage() {
             ) : null}
           </div>
 
-          <div className="max-h-96 overflow-y-auto border border-[rgb(var(--border))]">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-[rgb(var(--panel))] text-xs">
+          <div className="max-h-96 overflow-y-auto border border-subtle">
+            <table className="w-full text-body">
+              <thead className="sticky top-0 bg-panel text-label">
                 <tr>
                   <th className="px-2 py-1 text-left">Year</th>
                   <th className="px-2 py-1 text-left">Month</th>
@@ -336,7 +336,7 @@ export default function YearEndPage() {
               </thead>
               <tbody>
                 {history.map((row) => (
-                  <tr key={`${row.year}-${row.month}-${row.stockCode}`} className="border-t border-[rgb(var(--border))]">
+                  <tr key={`${row.year}-${row.month}-${row.stockCode}`} className="border-t border-subtle">
                     <td className="px-2 py-1">{row.year}</td>
                     <td className="px-2 py-1">{monthNames[row.month] ?? row.month}</td>
                     <td className="px-2 py-1">{row.stockCode}</td>
@@ -351,7 +351,7 @@ export default function YearEndPage() {
           </div>
 
           {history.length === 0 ? (
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label text-ink-muted">
               Nothing archived yet — the history fills up as years are closed.
             </p>
           ) : null}
@@ -364,7 +364,7 @@ export default function YearEndPage() {
 function Figure({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs text-[rgb(var(--text-muted))]">{label}</p>
+      <p className="text-label text-ink-muted">{label}</p>
       <p className="pos-amount font-semibold">{value}</p>
     </div>
   );
