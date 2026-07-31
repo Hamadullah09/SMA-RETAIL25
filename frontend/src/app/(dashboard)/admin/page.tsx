@@ -64,6 +64,15 @@ const sections = [
     permission: 'inventory.year_end',
   },
   {
+    key: 'migration',
+    href: '/admin/migration',
+    title: 'Bring data across',
+    description:
+      'Read the old system’s files in, check them, rehearse the import, then do it. Nothing is written until the last step.',
+    icon: ScrollText,
+    permission: 'migration.run',
+  },
+  {
     key: 'users',
     href: '/admin/settings',
     title: 'Users and access',

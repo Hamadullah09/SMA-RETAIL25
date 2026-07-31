@@ -13,6 +13,8 @@ using Retail25.Application.Receivables;
 using Retail25.Application.Settings;
 using Retail25.Application.Staff;
 using Retail25.Application.Reports;
+using Retail25.Application.Migration;
+using Retail25.Infrastructure.LegacyData;
 using Retail25.Application.UnitTests.Carts;
 using Retail25.Domain.Catalog;
 using Retail25.Domain.Configuration;
@@ -69,6 +71,7 @@ internal sealed class MastersTestHarness : IDisposable
         StaffCommands = new StaffHandlers(db, CurrentUser, Clock);
         StaffReports = new StaffReportHandlers(db);
         FiscalYears = new FiscalYearHandlers(db, CurrentUser, Clock);
+        Migration = new MigrationHandlers(db, new LegacySourceReader(), new LegacyImporter(db, CurrentUser, Clock), Clock);
     }
 
     public ApplicationDbContext Db { get; }
@@ -138,6 +141,8 @@ internal sealed class MastersTestHarness : IDisposable
     public StaffReportHandlers StaffReports { get; }
 
     public FiscalYearHandlers FiscalYears { get; }
+
+    public MigrationHandlers Migration { get; }
 
     public Location Location { get; private set; } = null!;
 

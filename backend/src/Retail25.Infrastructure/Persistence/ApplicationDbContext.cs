@@ -6,6 +6,7 @@ using Retail25.Domain.Catalog;
 using Retail25.Domain.Configuration;
 using Retail25.Domain.Customers;
 using Retail25.Domain.Inventory;
+using Retail25.Domain.Migration;
 using Retail25.Domain.Orders;
 using Retail25.Domain.Purchasing;
 using Retail25.Domain.Receivables;
@@ -93,6 +94,10 @@ public class ApplicationDbContext
     public DbSet<StockCountLine> StockCountLines => Set<StockCountLine>();
     public DbSet<FiscalYear> FiscalYears => Set<FiscalYear>();
     public DbSet<SalesHistoryArchive> SalesHistoryArchives => Set<SalesHistoryArchive>();
+
+    // --- Legacy migration ---
+    public DbSet<MigrationBatch> MigrationBatches => Set<MigrationBatch>();
+    public DbSet<MigrationStagingRow> MigrationStagingRows => Set<MigrationStagingRow>();
 
     // --- Accounting sync ---
     public DbSet<SyncLog> SyncLogs => Set<SyncLog>();

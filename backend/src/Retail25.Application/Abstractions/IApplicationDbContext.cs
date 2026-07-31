@@ -4,6 +4,7 @@ using Retail25.Domain.Catalog;
 using Retail25.Domain.Configuration;
 using Retail25.Domain.Customers;
 using Retail25.Domain.Inventory;
+using Retail25.Domain.Migration;
 using Retail25.Domain.Orders;
 using Retail25.Domain.Purchasing;
 using Retail25.Domain.Receivables;
@@ -82,6 +83,10 @@ public interface IApplicationDbContext
     DbSet<StockCountLine> StockCountLines { get; }
     DbSet<FiscalYear> FiscalYears { get; }
     DbSet<SalesHistoryArchive> SalesHistoryArchives { get; }
+
+    // --- Legacy migration ---
+    DbSet<MigrationBatch> MigrationBatches { get; }
+    DbSet<MigrationStagingRow> MigrationStagingRows { get; }
 
     // --- Accounting sync ---
     DbSet<SyncLog> SyncLogs { get; }

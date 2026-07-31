@@ -1410,3 +1410,109 @@ export interface ArchiveRow {
   grossMargin: number;
   transactionCount: number;
 }
+
+/* ---------------------------------------------------------------------------------------------
+ * Legacy migration (doc 09 §3)
+ * ------------------------------------------------------------------------------------------- */
+
+export type MigrationStage = 'Staged' | 'Validated' | 'DryRun' | 'Imported' | 'Cancelled';
+export type FindingSeverity = 'Warning' | 'Blocking';
+
+/** One legacy file type, with the field order the guide documents for it. */
+export interface LegacySourceKind {
+  entity: string;
+  displayName: string;
+  guideReference: string;
+  columns: string[];
+  requiresBase64: boolean;
+}
+
+export interface MigrationBatch {
+  id: string;
+  sourceFileName: string;
+  entity: string;
+  sourceHash: string;
+  stage: MigrationStage;
+  rowsStaged: number;
+  rowsDeletedInSource: number;
+  blockingErrors: number;
+  warnings: number;
+  rowsImported: number;
+  rowsSkipped: number;
+  /** Only true after a dry run that found nothing blocking. */
+  canImport: boolean;
+  validatedAt: string | null;
+  dryRunAt: string | null;
+  importedAt: string | null;
+  createdAt: string;
+}
+
+export interface ColumnProfile {
+  name: string;
+  populated: number;
+  empty: number;
+  distinctValues: number;
+  shortestValue: string | null;
+  longestValue: string | null;
+  samples: string[];
+}
+
+export interface AnalysisReport {
+  sourceFileName: string;
+  format: string;
+  detectedLayout: string;
+  guideReference: string;
+  rowCount: number;
+  deletedRowCount: number;
+  columnCount: number;
+  columns: ColumnProfile[];
+  notes: string[];
+}
+
+/** Every finding names its row and column, so nobody has to count lines in Notepad. */
+export interface ValidationFinding {
+  rowNumber: number;
+  column: string | null;
+  severity: FindingSeverity;
+  code: string;
+  message: string;
+  value: string | null;
+}
+
+export interface StagingRow {
+  rowNumber: number;
+  legacyKey: string | null;
+  isDeletedInSource: boolean;
+  isValid: boolean | null;
+  problems: string | null;
+  outcome: string | null;
+  values: Record<string, string | null>;
+}
+
+export interface ReconciliationLine {
+  measure: string;
+  imported: number;
+  /** What the old system's own report said. Null when nothing was given to compare against. */
+  legacyReported: number | null;
+  variance: number | null;
+  matches: boolean;
+}
+
+export interface ReconciliationReport {
+  entity: string;
+  rowsConsidered: number;
+  rowsWouldImport: number;
+  rowsWouldSkip: number;
+  lines: ReconciliationLine[];
+  warnings: string[];
+}
+
+/** Typed in off the old system's printout — there is no way to derive these. */
+export interface LegacyControlTotals {
+  itemCount?: number | null;
+  inventoryValue?: number | null;
+  receivablesBalance?: number | null;
+  yearToDateSales?: number | null;
+  customerCount?: number | null;
+  supplierCount?: number | null;
+}

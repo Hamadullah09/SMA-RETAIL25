@@ -10,6 +10,8 @@ using Retail25.Application.Accounting;
 using Retail25.Infrastructure.Accounting;
 using Retail25.Application.Documents;
 using Retail25.Infrastructure.Documents;
+using Retail25.Application.Migration;
+using Retail25.Infrastructure.LegacyData;
 using Retail25.Infrastructure.Caching;
 using Retail25.Infrastructure.Identity;
 using Retail25.Infrastructure.Jobs;
@@ -71,6 +73,11 @@ public static class DependencyInjection
         // layer depends on, so swapping it is a registration change and nothing else (doc 09 §1).
         services.AddScoped<IAccountingConnector, CsvExportConnector>();
         services.AddScoped<PostPosRevenueToAccountingJob>();
+
+        // The legacy migration toolchain. The reader is stateless over bytes; the importer needs a
+        // unit of work, so it is scoped like everything else that writes.
+        services.AddSingleton<ILegacySourceReader, LegacySourceReader>();
+        services.AddScoped<ILegacyImporter, LegacyImporter>();
 
         // The QuestPDF licence is accepted by the renderers themselves (QuestPdfLicence) so any path
         // that builds one — including a test — gets a working renderer, not one that throws on the

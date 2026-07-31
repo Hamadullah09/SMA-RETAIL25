@@ -80,6 +80,13 @@ import type {
   ArchiveRow,
   FiscalYear,
   FiscalYearCloseResult,
+  AnalysisReport,
+  LegacyControlTotals,
+  LegacySourceKind,
+  MigrationBatch,
+  ReconciliationReport,
+  StagingRow,
+  ValidationFinding,
   HoursReportResult,
   StaffRow,
   TimeClockEntry,
@@ -653,6 +660,44 @@ export const mastersApi = {
 
     historyExportUrl: (locationId: string, year?: number) =>
       `/api/proxy/fiscal-years/history/export?${query({ locationId, year })}`,
+  },
+
+  /**
+   * The legacy migration pipeline (doc 09 §3): analyze → stage → validate → dry-run → import.
+   * Content goes up base64 so a DBF survives the round trip.
+   */
+  migration: {
+    kinds: () => call<LegacySourceKind[]>(() => apiClient.get('/migration/kinds')),
+
+    batches: (locationId: string) =>
+      call<MigrationBatch[]>(() => apiClient.get(`/migration/batches?${query({ locationId })}`)),
+
+    batch: (id: string) => call<MigrationBatch>(() => apiClient.get(`/migration/batches/${id}`)),
+
+    analysis: (id: string) => call<AnalysisReport>(() => apiClient.get(`/migration/batches/${id}/analysis`)),
+
+    validation: (id: string) =>
+      call<ValidationFinding[]>(() => apiClient.get(`/migration/batches/${id}/validation`)),
+
+    reconciliation: (id: string) =>
+      call<ReconciliationReport>(() => apiClient.get(`/migration/batches/${id}/reconciliation`)),
+
+    rows: (id: string, problemsOnly = true, take = 200) =>
+      call<StagingRow[]>(() => apiClient.get(`/migration/batches/${id}/rows?${query({ problemsOnly, take })}`)),
+
+    stage: (locationId: string, fileName: string, entity: string, base64: string) =>
+      call<MigrationBatch>(() =>
+        apiClient.post('/migration/stage', { locationId, fileName, entity, content: base64, isBase64: true })),
+
+    validate: (id: string) => call<MigrationBatch>(() => apiClient.post(`/migration/batches/${id}/validate`)),
+
+    dryRun: (id: string, totals: LegacyControlTotals | null) =>
+      call<ReconciliationReport>(() => apiClient.post(`/migration/batches/${id}/dry-run`, totals)),
+
+    import: (id: string, totals: LegacyControlTotals | null) =>
+      call<ReconciliationReport>(() => apiClient.post(`/migration/batches/${id}/import`, totals)),
+
+    cancel: (id: string) => call<void>(() => apiClient.post(`/migration/batches/${id}/cancel`)),
   },
 
   /** Staff, the time clock and commissions (guide p.33, p.75–76). */

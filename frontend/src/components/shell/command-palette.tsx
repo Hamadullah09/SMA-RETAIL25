@@ -49,6 +49,7 @@ export function CommandPalette() {
       { id: 'stock-counts', label: 'Stock counts', group: 'Go to', href: '/inventory/counts', keywords: 'stocktake count variance shrinkage', permission: 'inventory.count' },
       { id: 'bulk-adjust', label: 'Batch changes', group: 'Go to', href: '/catalog/bulk', keywords: 'bulk reprice price increase tax flags', permission: 'catalog.bulk_adjust' },
       { id: 'year-end', label: 'Year end', group: 'Go to', href: '/admin/year-end', keywords: 'fiscal close archive history rollup', permission: 'inventory.year_end' },
+      { id: 'migration', label: 'Bring data across', group: 'Go to', href: '/admin/migration', keywords: 'migration import legacy dbf cutover convert', permission: 'migration.run' },
       { id: 'staff', label: 'Staff', group: 'Go to', href: '/admin/staff', keywords: 'time clock hours commission payroll', permission: 'staff.read' },
       { id: 'customers', label: 'Customers', group: 'Go to', href: '/customers', keywords: 'clients accounts', permission: 'customer.read' },
       { id: 'receivables', label: 'Receivables', group: 'Go to', href: '/receivables', keywords: 'ar invoices statements', permission: 'ar.read' },
