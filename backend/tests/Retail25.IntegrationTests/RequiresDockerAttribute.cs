@@ -30,6 +30,21 @@ public sealed class RequiresDockerFactAttribute : FactAttribute
     }
 }
 
+/// <summary>The <see cref="TheoryAttribute"/> twin of <see cref="RequiresDockerFactAttribute"/>.</summary>
+public sealed class RequiresDockerTheoryAttribute : TheoryAttribute
+{
+    public RequiresDockerTheoryAttribute()
+    {
+        var hasExternalServer = !string.IsNullOrWhiteSpace(
+            Environment.GetEnvironmentVariable("RETAIL25_TEST_PG_CONNECTION"));
+
+        if (!DockerProbe.IsAvailable && !hasExternalServer)
+        {
+            Skip = "Needs a running Docker daemon, or RETAIL25_TEST_PG_CONNECTION pointed at a real PostgreSQL. Start Docker Desktop and re-run.";
+        }
+    }
+}
+
 internal static class DockerProbe
 {
     private static readonly Lazy<bool> Probe = new(Detect, LazyThreadSafetyMode.ExecutionAndPublication);

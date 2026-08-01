@@ -206,6 +206,10 @@ if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
         // Identity seeding follows the store seed: the administrator's staff profile needs a
         // location to belong to.
         await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().SeedAsync();
+
+        // The demonstration catalogue is last and self-gating on Demo:SeedCatalogue. It needs the
+        // location from the store seed, and it must never run against a shop's own inventory.
+        await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
     }
 }
 
@@ -248,6 +252,10 @@ app.MapControllers().RequireRateLimiting("lookup");
 app.MapHub<PosHub>("/hubs/pos");
 app.MapHub<InventoryHub>("/hubs/inventory");
 app.MapHub<TerminalHub>("/hubs/terminal");
+
+// The read feed. Listen-only for clients: tags enter the system through the agent's channel above,
+// never from a browser.
+app.MapHub<RfidHub>("/hubs/rfid");
 
 // Nightly late-charge accrual (LateChargePolicy: "applied by a nightly Hangfire job"). 2am local —
 // after the day's trading has closed everywhere this deployment plausibly serves, before the next.

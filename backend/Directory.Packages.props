@@ -94,6 +94,10 @@
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
   </ItemGroup>
 
+  <ItemGroup Label="Benchmarking">
+    <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
+  </ItemGroup>
+
 </Project>
 
 

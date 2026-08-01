@@ -2,14 +2,18 @@
 
 import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { AuthLink, AuthNotice, AuthShell } from '@/components/auth/auth-shell';
 import { useAuth } from '@/lib/auth-config';
 
 /**
  * The entry point.
  *
- * "Sign in" is a link to the BFF, not a JavaScript flow: the redirect, the PKCE verifier and the code
- * exchange all happen server-side, so this page has no credential to hold and nothing to leak
- * (doc 07 §Topology).
+ * "Sign in" is a link to the BFF, not a form: the redirect, the PKCE verifier and the code exchange
+ * all happen server-side, and the password is typed on the identity provider's own origin. So this
+ * page has no credential to hold and nothing to leak (doc 07 §Topology).
+ *
+ * The other two account screens are ordinary forms, because neither of them submits an existing
+ * password — one sets a brand new one, the other submits only an email address.
  */
 const AUTH_ERRORS: Record<string, string> = {
   access_denied: 'Sign-in was cancelled.',
@@ -21,7 +25,7 @@ const AUTH_ERRORS: Record<string, string> = {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<Centered>Loading…</Centered>}>
+    <Suspense fallback={<AuthShell title="Sign in" lead="Loading…">{null}</AuthShell>}>
       <LoginContent />
     </Suspense>
   );
@@ -40,38 +44,40 @@ function LoginContent() {
     }
   }, [isAuthenticated, router]);
 
-  if (isLoading) {
-    return <Centered>Loading…</Centered>;
-  }
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface p-4">
-      <div className="pos-panel w-full max-w-sm p-6 text-center">
-        <h1 className="text-h3 font-semibold">Retail25</h1>
-        <p className="mb-6 mt-1 text-body text-ink-muted">Point of sale, inventory and accounts</p>
-
-        {error ? (
-          <p
-            role="alert"
-            className="mb-4 rounded-sm px-2 py-1.5 text-body"
-            style={{ backgroundColor: 'rgb(var(--negative) / 0.1)', color: 'rgb(var(--negative))' }}
-          >
-            {AUTH_ERRORS[error] ?? 'Sign-in failed. Try again.'}
+    <AuthShell
+      title="Sign in"
+      lead="You will be taken to the secure sign-in page to enter your password."
+      footer={
+        <div className="space-y-1">
+          <p>
+            Forgotten it? <AuthLink href="/forgot-password">Reset your password</AuthLink>
           </p>
-        ) : null}
+          <p>
+            No account yet? <AuthLink href="/sign-up">Create one</AuthLink>
+          </p>
+        </div>
+      }
+    >
+      {error ? <AuthNotice tone="error">{AUTH_ERRORS[error] ?? 'Sign-in failed. Try again.'}</AuthNotice> : null}
 
-        <button type="button" onClick={() => signIn('/pos')} className="pos-button-primary w-full text-base">
-          Sign in
-        </button>
-      </div>
-    </div>
-  );
-}
+      <button
+        type="button"
+        onClick={() => signIn('/pos')}
+        className="pos-button-primary w-full"
+        disabled={isLoading}
+      >
+        {isLoading ? 'Checking…' : 'Continue to sign in'}
+      </button>
 
-function Centered({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center">
-      <p className="text-body text-ink-muted">{children}</p>
-    </div>
+      {/*
+        Said plainly rather than left as a surprise. Being bounced to a different-looking page at the
+        moment you are asked for a password is exactly what a phishing flow looks like, so the reason
+        it happens is worth one sentence.
+      */}
+      <p className="mt-4 text-caption text-ink-faint">
+        Passwords are only ever entered on the sign-in page itself, never on this one.
+      </p>
+    </AuthShell>
   );
 }

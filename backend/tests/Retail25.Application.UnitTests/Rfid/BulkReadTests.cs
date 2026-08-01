@@ -210,7 +210,7 @@ public sealed class BulkReadTests
     {
         using var harness = await PosTestHarness.CreateAsync();
 
-        var handler = new IngestTagReadsHandler(harness.CartStore, harness.Sender, harness.Notifier);
+        var handler = new IngestTagReadsHandler(harness.CartStore, harness.Sender, harness.Notifier, harness.TagFeed);
 
         var result = await handler.Handle(
             new IngestTagReadsCommand(harness.Station.Id, Tags(["30ABCDEF0123456789ABCDEF"])),

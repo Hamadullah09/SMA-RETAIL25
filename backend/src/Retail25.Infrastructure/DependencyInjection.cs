@@ -11,6 +11,7 @@ using Retail25.Infrastructure.Accounting;
 using Retail25.Application.Documents;
 using Retail25.Infrastructure.Documents;
 using Retail25.Application.Migration;
+using Retail25.Application.Rfid;
 using Retail25.Infrastructure.LegacyData;
 using Retail25.Infrastructure.Caching;
 using Retail25.Infrastructure.Identity;
@@ -53,6 +54,7 @@ public static class DependencyInjection
         // so a background job or an integration test gets the same authorisation model.
         services.AddIdentityAndOpenIddict(configuration);
         services.AddScoped<IdentitySeeder>();
+        services.AddScoped<IAccountNotifier, SmtpAccountNotifier>();
 
         // Innermost behaviour: the transaction wraps the handler and nothing else.
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
@@ -61,11 +63,18 @@ public static class DependencyInjection
 
         services.AddScoped<IPosNotifier, PosNotifier>();
         services.AddScoped<ITerminalNotifier, TerminalNotifier>();
+        services.AddScoped<IRfidNotifier, RfidNotifier>();
+
+        // The registry is a singleton and the publisher is not, on purpose: the debounce window and
+        // the EPC cache have to outlive a request, while the publisher needs the request's DbContext.
+        services.AddSingleton<TagStreamRegistry>();
+        services.AddScoped<TagObservationPublisher>();
 
         // Q1: the simulator ships first, and the real processor is a registration change here.
         services.AddScoped<IPaymentGateway, SimulatorPaymentGateway>();
 
         services.AddScoped<DatabaseSeeder>();
+        services.AddScoped<DemoDataSeeder>();
         services.AddScoped<LateChargeAccrualJob>();
 
         // The CSV adapter is the one that is always available. A provider integration (QuickBooks,

@@ -26,23 +26,44 @@ public sealed class IngestTagReadsHandler : IRequestHandler<IngestTagReadsComman
     private readonly ICartStore _store;
     private readonly ISender _sender;
     private readonly IPosNotifier _notifier;
+    private readonly TagObservationPublisher _feed;
 
-    public IngestTagReadsHandler(ICartStore store, ISender sender, IPosNotifier notifier)
+    public IngestTagReadsHandler(
+        ICartStore store,
+        ISender sender,
+        IPosNotifier notifier,
+        TagObservationPublisher feed)
     {
         _store = store;
         _sender = sender;
         _notifier = notifier;
+        _feed = feed;
     }
 
     public async Task<Result<RfidBatchResult>> Handle(IngestTagReadsCommand request, CancellationToken ct)
     {
+        // The read feed first, and unconditionally. What is in front of the antenna is worth showing
+        // whether or not a sale is open — a goods-in bench and a stock count have no cart at all —
+        // and this is also where the batch is debounced, so everything below sees distinct tags.
+        var distinct = await _feed.PublishAsync(request.StationId, request.Tags, ct);
+
+        if (distinct.Count == 0)
+        {
+            // Every read folded into a window already in flight. Nothing new happened.
+            return Result.Success(new RfidBatchResult(null, [], [], request.Tags.Count));
+        }
+
         var snapshot = await _store.GetByStationAsync(request.StationId, ct);
 
         if (snapshot is not { Cart.IsActive: true })
         {
             // Session gating (doc 06 §2 control 4): with no sale open, reads are noise. They are
             // still surfaced so a cashier can see the reader is working.
-            foreach (var tag in request.Tags)
+            //
+            // Over the debounced list, not the raw one. A reader looking at a full rail publishes the
+            // same tags many times a second, and one rejection frame per raw read was a self-inflicted
+            // flood on the busiest possible path.
+            foreach (var tag in distinct)
             {
                 await _notifier.CartLineRejectedAsync(request.StationId, tag.Epc, NoActiveCart.Code, NoActiveCart.Message, ct);
             }
@@ -50,11 +71,11 @@ public sealed class IngestTagReadsHandler : IRequestHandler<IngestTagReadsComman
             return Result.Success(new RfidBatchResult(
                 null,
                 [],
-                request.Tags.Select(t => new RejectedTag(t.Epc, NoActiveCart.Code, NoActiveCart.Message)).ToList(),
+                distinct.Select(t => new RejectedTag(t.Epc, NoActiveCart.Code, NoActiveCart.Message)).ToList(),
                 request.Tags.Count));
         }
 
-        return await _sender.Send(new AddRfidBatchCommand(snapshot.Cart.Id, request.Tags), ct);
+        return await _sender.Send(new AddRfidBatchCommand(snapshot.Cart.Id, distinct), ct);
     }
 }
 

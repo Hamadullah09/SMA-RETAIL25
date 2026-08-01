@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using Retail25.Application.Rfid;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Carts.Commands;
 using Retail25.Application.Carts.Services;
@@ -39,6 +41,14 @@ internal sealed class PosTestHarness : IDisposable
         Workflow = new CartWorkflow(CartStore, ContextLoader, Pricing, Notifier, Clock);
         Resolver = new IdentifierResolver(db);
         LineFactory = new CartLineFactory(db, CurrentUser, Debouncer, Notifier);
+
+        RfidNotifier = Substitute.For<IRfidNotifier>();
+        TagRegistry = new TagStreamRegistry();
+        TagFeed = new TagObservationPublisher(
+            TagRegistry,
+            RfidNotifier,
+            db,
+            NullLogger<TagObservationPublisher>.Instance);
     }
 
     public ApplicationDbContext Db { get; }
@@ -64,6 +74,16 @@ internal sealed class PosTestHarness : IDisposable
     public IdentifierResolver Resolver { get; }
 
     public CartLineFactory LineFactory { get; }
+
+    public IRfidNotifier RfidNotifier { get; }
+
+    /// <summary>
+    /// Fresh per harness, so one test's debounce window cannot suppress the next test's reads — the
+    /// registry is a singleton in production precisely because it remembers.
+    /// </summary>
+    public TagStreamRegistry TagRegistry { get; }
+
+    public TagObservationPublisher TagFeed { get; }
 
     /// <summary>
     /// Routes the one command that dispatches to another. Substituting MediatR wholesale would hide
