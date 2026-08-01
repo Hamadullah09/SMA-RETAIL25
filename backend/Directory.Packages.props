@@ -65,11 +65,11 @@
     <PackageVersion Include="Serilog.Settings.Configuration" Version="8.0.4" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.12.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.12.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.12.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
   </ItemGroup>
 
   <ItemGroup Label="API">
@@ -96,6 +96,34 @@
 
   <ItemGroup Label="Benchmarking">
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
+  </ItemGroup>
+
+  <!--
+    Transitive pins that exist only to clear security advisories. Nothing references these directly;
+    they arrive under Hangfire, SignalR, EF Core and OpenTelemetry, and The scan that found them is
+    `dotnet list package` with the vulnerable and include-transitive switches. (Spelled out in
+    words because an XML comment may not contain a double hyphen, which is how this file broke once
+    already.)
+
+    Each is pinned to the lowest patched version inside its existing major, deliberately. Taking the
+    newest available would mean Newtonsoft 13, SQLitePCLRaw 3 and MessagePack 3 — two major bumps
+    across a serial-port spool and a hub protocol, for no security benefit over these.
+
+    Re-run the scan after touching any of the packages above; a pin that is no longer needed is a
+    version this project is silently holding back for nobody.
+  -->
+  <ItemGroup Label="Security pins (transitive)">
+    <!-- GHSA-5crp-9r3c-p9vr — DoS from deeply nested JSON. Pulled in by Hangfire. -->
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+
+    <!-- GHSA-2m69-gcr7-jv3q — under Microsoft.Data.Sqlite, the agent's offline tag spool. -->
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
+    <PackageVersion Include="SQLitePCLRaw.core" Version="2.1.12" />
+    <PackageVersion Include="SQLitePCLRaw.provider.e_sqlite3" Version="2.1.12" />
+
+    <!-- GHSA-4qm4-8hg2-g2xm — SignalR's MessagePack hub protocol. -->
+    <PackageVersion Include="MessagePack" Version="2.5.302" />
   </ItemGroup>
 
 </Project>
