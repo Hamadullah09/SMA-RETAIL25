@@ -53,11 +53,34 @@ public sealed class AccountController : Controller
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromForm] LoginForm form)
     {
-        await _antiforgery.ValidateRequestAsync(HttpContext);
-
         // Only ever a path on this host: an open redirect on a login page hands an attacker a
         // credible way to bounce a freshly authenticated user anywhere they like.
         var returnUrl = Url.IsLocalUrl(form.ReturnUrl) ? form.ReturnUrl! : "/";
+
+        try
+        {
+            await _antiforgery.ValidateRequestAsync(HttpContext);
+        }
+        catch (AntiforgeryValidationException)
+        {
+            // A stale form, not an attack — and certainly not a server fault.
+            //
+            // The token is bound to the identity that fetched the page, so it stops matching the
+            // moment that identity changes: a login tab left open while you sign in somewhere else,
+            // a back-button submit after signing out, a page restored by the browser on restart. All
+            // ordinary. Left to propagate it produced a raw 500 on the one screen where a bare
+            // "something went wrong" is least useful, and the user had no way to know that simply
+            // reloading would fix it.
+            //
+            // Redirecting re-renders the form with a fresh token, so the next attempt just works.
+            await _audit.RecordAsync(
+                AuditAction.SignInFailed,
+                nameof(ApplicationUser),
+                operation: "password",
+                reason: "Stale antiforgery token");
+
+            return Redirect(LoginUrl(returnUrl, "That form had expired. Please try again."));
+        }
 
         var user = await _userManager.FindByNameAsync(form.Username ?? string.Empty)
                    ?? await _userManager.FindByEmailAsync(form.Username ?? string.Empty);
@@ -111,7 +134,24 @@ public sealed class AccountController : Controller
     [HttpPost("logout")]
     public async Task<IActionResult> Logout()
     {
-        await _antiforgery.ValidateRequestAsync(HttpContext);
+        try
+        {
+            await _antiforgery.ValidateRequestAsync(HttpContext);
+        }
+        catch (AntiforgeryValidationException)
+        {
+            // Signing out is the one action where refusing on a stale token serves nobody. The whole
+            // point of the check is to stop a third-party page from acting as you, and the worst a
+            // forged sign-out can do is sign you out — while failing it leaves someone stuck in a
+            // session they have explicitly asked to leave. So the token failure is noted and the
+            // sign-out proceeds.
+            await _audit.RecordAsync(
+                AuditAction.SignedOut,
+                nameof(ApplicationUser),
+                operation: "logout",
+                reason: "Stale antiforgery token; signed out anyway");
+        }
+
         await _signInManager.SignOutAsync();
         return Redirect("/");
     }

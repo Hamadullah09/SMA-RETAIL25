@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Web;
 using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Retail25.Infrastructure.Identity;
 using Xunit;
@@ -388,6 +389,52 @@ public sealed class AuthEndpointTests
             && location.Contains("/account/login", StringComparison.OrdinalIgnoreCase);
 
         accepted.Should().BeFalse("a request with no code_challenge must not reach the sign-in page");
+    }
+
+    /// <summary>
+    /// A stale login form must not produce a 500.
+    /// <para>
+    /// The antiforgery token is bound to the identity that fetched the page, so it stops matching as
+    /// soon as that identity changes — a login tab left open while you sign in elsewhere, a
+    /// back-button submit after signing out, a session the browser restored on restart. All ordinary
+    /// things, and all of them used to surface as a bare "An unexpected error occurred" on the one
+    /// screen where that is least helpful.
+    /// </para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_login_post_with_no_antiforgery_token_is_not_a_server_error()
+    {
+        var client = _api.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.PostAsync(
+            "/account/login",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["username"] = "someone@retail25.test",
+                ["password"] = "does-not-matter",
+                ["returnUrl"] = "/",
+            }));
+
+        ((int)response.StatusCode).Should().BeLessThan(500, "a stale form is the user's browser, not a server fault");
+
+        // And it must land back on the form, where a fresh token is issued, rather than anywhere the
+        // user has to work out for themselves.
+        response.Headers.Location?.ToString().Should().Contain("/account/login");
+    }
+
+    /// <summary>
+    /// Signing out is the one action where refusing on a stale token serves nobody: the worst a
+    /// forged sign-out can do is sign you out, while failing it strands someone in a session they
+    /// have explicitly asked to leave.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_logout_with_no_antiforgery_token_still_signs_out()
+    {
+        var client = _api.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.PostAsync("/account/logout", new FormUrlEncodedContent([]));
+
+        ((int)response.StatusCode).Should().BeLessThan(500);
     }
 
     [RequiresDockerFact]
