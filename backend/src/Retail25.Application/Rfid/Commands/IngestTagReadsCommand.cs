@@ -98,11 +98,13 @@ public sealed class CommissionTagHandler : IRequestHandler<CommissionTagCommand,
 
     private readonly IApplicationDbContext _db;
     private readonly IDateTime _clock;
+    private readonly TagStreamRegistry _tagStreams;
 
-    public CommissionTagHandler(IApplicationDbContext db, IDateTime clock)
+    public CommissionTagHandler(IApplicationDbContext db, IDateTime clock, TagStreamRegistry tagStreams)
     {
         _db = db;
         _clock = clock;
+        _tagStreams = tagStreams;
     }
 
     public async Task<Result<Guid>> Handle(CommissionTagCommand request, CancellationToken ct)
@@ -139,6 +141,11 @@ public sealed class CommissionTagHandler : IRequestHandler<CommissionTagCommand,
 
         _db.SerializedUnits.Add(unit);
         await _db.SaveChangesAsync(ct);
+
+        // The read feed caches misses as well as hits, so it has to be told the moment a tag stops
+        // being unknown — otherwise every till keeps showing "Not recognised" for a tag a supervisor
+        // has just mapped, indefinitely.
+        _tagStreams.ForgetCatalogue(epc);
 
         return Result.Success(unit.Id);
     }
