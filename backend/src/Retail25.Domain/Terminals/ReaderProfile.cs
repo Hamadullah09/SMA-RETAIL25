@@ -102,10 +102,23 @@ public sealed class ReaderProfile : Entity, IAuditable, IStationScopedProfile
 
     public Guid? ModifiedBy { get; set; }
 
-    /// <summary>Parses the antenna map. An unlisted antenna is <see cref="AntennaZone.Unassigned"/> and feeds nothing.</summary>
+    /// <summary>
+    /// Parses the antenna map. An unlisted antenna is <see cref="AntennaZone.Unassigned"/> and feeds
+    /// nothing.
+    /// <para>
+    /// Both <c>;</c> and <c>,</c> separate entries. Only the semicolon was accepted originally, and
+    /// the failure that produced was as quiet as it gets: an operator typing
+    /// <c>1=Checkout,2=Checkout</c> — which reads perfectly naturally — left every antenna
+    /// Unassigned, so every tag was filtered out and the till showed a healthy reader that never put
+    /// anything on a sale. Accepting the obvious alternative costs nothing; a separator neither
+    /// character can be part of a zone name.
+    /// </para>
+    /// </summary>
     public AntennaZone ZoneFor(int antenna)
     {
-        foreach (var pair in AntennaZones.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (var pair in AntennaZones.Split(
+            [';', ','],
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
             var parts = pair.Split('=', 2);
             if (parts.Length != 2)
