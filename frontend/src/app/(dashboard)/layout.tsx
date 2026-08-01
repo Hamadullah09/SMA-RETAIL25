@@ -50,8 +50,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       <Sidebar />
 
-      {/* The offset matches the rail's width by name, so the two cannot drift apart. */}
-      <div className={cn('transition-[margin] duration-200', sidebarOpen ? 'ml-sidebar' : 'ml-sidebar-collapsed')}>
+      {/*
+        The offset matches the rail's width by name, so the two cannot drift apart — and only from
+        `lg` up, because below that the rail is off-canvas. Reserving 240px for a menu that is not
+        on screen would push every page off the right of a phone.
+      */}
+      <div
+        className={cn(
+          'transition-[margin] duration-200',
+          sidebarOpen ? 'lg:ml-sidebar' : 'lg:ml-sidebar-collapsed',
+        )}
+      >
         <Header />
 
         {/*

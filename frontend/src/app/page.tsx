@@ -40,7 +40,7 @@ function LoginContent() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.replace('/pos');
+      router.replace('/dashboard');
     }
   }, [isAuthenticated, router]);
 
@@ -63,7 +63,7 @@ function LoginContent() {
 
       <button
         type="button"
-        onClick={() => signIn('/pos')}
+        onClick={() => signIn('/dashboard')}
         className="pos-button-primary w-full"
         disabled={isLoading}
       >
