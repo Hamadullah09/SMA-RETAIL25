@@ -1,6 +1,6 @@
 # Phase status benchmark
 
-**As at 2026-07-30.** Measured against the build lists and exit criteria in
+**As at 2026-08-01.** Measured against the build lists and exit criteria in
 [11-delivery-roadmap.md](architecture/11-delivery-roadmap.md). Nothing is marked complete unless its
 exit criteria are demonstrable from the code in this repository.
 
@@ -12,29 +12,33 @@ audit found the gaps; this revision records them **closed**. What was fixed and 
 
 | | |
 |---|---|
-| **Phases 0–4** | **Complete, and now live-verified end to end for the first time** — see [The live run, and what it found](#the-live-run-and-what-it-found) |
-| **Phase 5** | **Build complete**, live-verified for shell/browse screens; the phase's own PO-to-statement scenario has not yet been run with real data (see below) |
-| Overall programme | **~69% of phases 0–8** |
-| Backend | 260 source files, ~31,600 lines (plus tests and the generated migrations) |
-| Tests | 339 (66 domain · 176 application · 71 agent · 13 architecture · **13 integration against real PostgreSQL**) |
-| End-to-end | 7 Playwright specs, wired into CI |
+| **Phases 0–4** | **Complete and live-verified end to end.** Phase 4's standing "no hardware-in-the-loop" limitation is now **closed for RFID** — see [The reader trial](#the-reader-trial) |
+| **Phase 5** | **Build complete**, live-verified for shell/browse screens; the phase's own PO-to-statement scenario has not yet been run as one chain with real data |
+| **Phases 6 and 7** | **Built since the last revision** — nine reports, labels and documents, bulk operations, staff and commissions, year-end close, accounting connector, and the whole legacy migration pipeline |
+| **Phase 8** | Security review and restore rehearsal **done**; load test outstanding |
+| Overall programme | **~88% of phases 0–8** (was ~69%) |
+| Backend | 319 source files, ~45,200 lines (plus tests and the generated migrations) |
+| Tests | **684** (95 domain · 484 application · 74 agent · 13 architecture · **18 integration against real PostgreSQL**) |
+| Benchmarks | BenchmarkDotNet suite proving the RFID pipeline at 5,000 reads/sec — [RFID_Throughput_Benchmark.md](../RFID_Throughput_Benchmark.md) |
 | Golden pricing files | 16, each citing a guide page or an architecture decision |
-| Frontend | Type-checks, lints and builds clean; largest page (catalog/products) 164 kB first-load JS against a 180 kB budget |
-| Schema | Three EF Core migrations (`InitialSchema` + `AddGiftCard` + `AddCustomerOrdersLayawaysPriceQuotes`); startup applies `Migrate()`, never `EnsureCreated` |
+| Frontend | Type-checks, lints and builds clean; 35 pages |
+| Schema | Nine EF Core migrations; startup applies `Migrate()`, never `EnsureCreated` |
+| Dependency scan | **0 vulnerable .NET packages** across all 14 projects — [security review](runbooks/security-review.md) |
 
 ## Per-phase scorecard
 
 | Phase | Scope | Complete | Evidence |
 |---|---|:---:|---|
-| **0** Foundation | Skeleton, compose, DbContext + migration, pipeline, observability, CI | **100%** | Migration applies to a clean DB (integration-tested); compose runs postgres, redis, otel-collector, api, web; CI builds, tests, lints and publishes both containers |
-| **1** Identity & shell | OpenIddict + PKCE, BFF, permissions, staff PIN, shell, audit | **100%** | No-token-in-JS E2E spec; 403/428 mapping; audit interceptor; `Ctrl+K` |
+| **0** Foundation | Skeleton, compose, DbContext + migration, pipeline, observability, CI | **95%** | Migration applies to a clean DB (integration-tested); CI builds, tests, lints and publishes both containers. **`docker compose up` has still never been run on a machine we control** — Docker's engine will not start here, so that exit criterion rests on CI alone |
+| **1** Identity & shell | OpenIddict + PKCE, BFF, permissions, staff PIN, shell, audit | **100%** | No-token-in-JS E2E spec; 403/428 mapping; audit interceptor; `Ctrl+K`. **Scope exceeded**: self-service sign-up, password recovery and 18 auth integration tests covering enumeration resistance, single-use reset tokens and cross-account token rejection |
 | **2** Catalog & masters | Products, customers, suppliers, configuration, settings UI, browse grids | **100%** | Browse + Form views, the twelve Setup tabs, live grid patching, undelete, administered numbering |
-| **3** POS core | Pricing engine, cart, POS UI, tenders, drawer, receipts, sales log | **100%** | All exit criteria pass; the sales log / POS history screen now exists with filters, drill-down, reprint and CSV export |
-| **4** RFID & hardware | Agent, EPC lifecycle, live feed, matrix, serialized, peripherals | **100%** | All exit criteria pass; the matrix grid is now definable from the item form |
-| **5** Money & commerce depth | Gateway, gift cards, AR, loyalty, orders, kits, purchasing | **Build 100%** / live-run not yet done | Purchasing (PO generate/post/receive-with-freight/cancel), stock receiving/adjust/case-break, receivables (distribute-payment, late charges, void, refund, statements, aging), gift cards, loyalty admin, customer orders/back-orders/fill, layaways, price quotes, kit component editing — all real commands with 78 new unit tests, not stubs. See the gap below before trusting this as "done" the way phases 0–4 are. |
-| **6** Back office & reporting | Reports, labels, staff, bulk ops, year-end, accounting sync | ~12% | Sales log and audit log ship with screens; analytical reports, labels, bulk ops do not |
-| **7** Migration & cutover | DBF importer, CSV importers, reconciliation, runbook | ~5% | Project skeleton, plus the administered number sequences a migration writes into |
-| **8** Hardening | Load testing, HIL matrix, pen test, restore rehearsal | ~10% | The doc 07 hardening checklist is implemented |
+| **3** POS core | Pricing engine, cart, POS UI, tenders, drawer, receipts, sales log | **100%** | All exit criteria pass; sales log with filters, drill-down, reprint and CSV export |
+| **4** RFID & hardware | Agent, EPC lifecycle, live feed, matrix, serialized, peripherals | **95%** | All exit criteria pass. **A physical D2184 reader was driven end to end on 2026-08-01** — tags read, debounced, broadcast to the till and commissioned into stock. Printer, scale, drawer and pole display remain unverified for want of the devices; see [hardware-matrix.md](runbooks/hardware-matrix.md) |
+| **5** Money & commerce depth | Gateway, gift cards, AR, loyalty, orders, kits, purchasing | **90%** | Every command real and unit-tested; screens live-reachable. The full PO → receive → sell-on-account → statement chain has still not been run as one scenario with seeded data |
+| **6** Back office & reporting | Reports, labels, staff, bulk ops, year-end, accounting sync | **95%** | Nine analytical reports each with a CSV twin and a screen; QuestPDF labels and documents (price tags, Avery sheets, Code 39, envelopes, catalogue); batch repricing, stock transfers, stock counts; time clock, commissions, training mode; fiscal year-end close; CSV accounting connector with a Hangfire job. Needs one live pass against real trading data |
+| **7** Migration & cutover | DBF importer, CSV importers, reconciliation, runbook | **85%** | Hand-rolled dBase III/FoxPro reader, CSV importers to the documented legacy field orders, staging tables, analyze → map → stage → validate → dry-run → import → verify pipeline, reconciliation reports, `admin/migration` UI, [cutover runbook](runbooks/cutover.md). **Blocked on a real legacy extract** — the exit criterion is reconciling totals against your data, and fixtures cannot stand in for it |
+| **8** Hardening | Load testing, HIL matrix, pen test, restore rehearsal | **55%** | [Security review](runbooks/security-review.md) with all five dependency advisories fixed; [restore rehearsal](runbooks/restore.md) measured; [hardware matrix](runbooks/hardware-matrix.md) written and its RFID rows executed; RFID throughput benchmarked. **Outstanding**: API load test at 2× target, and a third-party penetration test |
+| **UI/UX** refactor | Tokens, components, accessibility, responsive, dashboard | **95%** | One token system driving Tailwind theme colours, working dark mode, Radix primitives, keyboard-operable data grid, skip link, `aria-current`; ERP dashboard on real report queries; off-canvas sidebar below `lg`. Outstanding: a full keyboard-only pass over all 35 pages |
 
 ## The live run, and what it found
 
@@ -255,14 +259,46 @@ caught before it shipped.
 | 4 | Reader outage red, manual entry works | ✅ |
 | 5 | Raise a PO, receive it with freight, sell on account, take a partial payment, accrue a late charge, print a statement | ⚠️ every step unit-tested individually (11 PO tests, 12 receivables tests) against real business rules; purchasing and receivables screens are now confirmed live-reachable (real login, real permission checks, real data round trip) but the full chain has not yet been run as one scenario with seeded data — see [The live run, and what it found](#the-live-run-and-what-it-found) |
 
+## The reader trial
+
+**2026-08-01.** A UHF RFID D2184 was attached over TCP at `192.168.0.178:4001` and driven end to end
+for the first time: 189 tag batches ingested with zero errors, tags shown live on the till with EPC,
+antenna, signal strength and folded read count, then commissioned into stock against a real product.
+
+It found **four faults, every one silent**, and every one of which had been passing its unit tests:
+
+1. **The agent never authenticated.** It presented its configured secret directly as a bearer token;
+   OpenIddict expects a signed one and refused every call. Because the agent's response to a failed
+   profile fetch is to keep its defaults and carry on, the visible symptom was nothing at all — it
+   sat reading imaginary tags from the built-in simulator while the real reader was ignored. It now
+   exchanges the secret for a token via `client_credentials`, the grant its client was always
+   registered for.
+2. **Authenticated, it was still refused.** A machine client has no user, so the permission resolver
+   returned an empty set and every call 403'd. A principal holding the terminal scope now resolves to
+   a deliberately narrow set — read its own device profile, ring tags onto its own cart — and nothing
+   more. It still cannot commission a tag, void a sale, discount a line or open a drawer.
+3. **The device profile only took effect on reconnect.** The agent starts before the server answers,
+   so its first session always ran on the simulator default, and nothing could interrupt that session
+   for the life of the process.
+4. **Commissioned tags kept reading "Not recognised".** The read feed caches EPC→item lookups
+   including misses, and nothing invalidated it. The database said mapped; every till disagreed,
+   indefinitely.
+
+The lesson is recorded in [hardware-matrix.md](runbooks/hardware-matrix.md): a passing unit test is
+not a passing row.
+
+**Still open on RFID:** all four antennas at once, sustained throughput from the physical reader
+(the [benchmark](../RFID_Throughput_Benchmark.md) proves the pipeline at 5,000 reads/sec against
+synthesised frames, not what a D2184 actually emits), power-cycle and network-drop recovery, metal
+and liquid detuning, and two-till cross-read arbitration — which additionally needs Redis.
+
 ## Standing limitations (named, not hidden)
 
-1. **No hardware-in-the-loop trial.** The LLRP client is written to the 1.0.1 specification and
-   tested against specification-derived bytes; the R2000-family `UhfSerial` client (D2184B and
-   relatives) is likewise written to the vendor's protocol spec and cross-checked against their own
-   reference C# source, with unit tests built from hand-derived wire bytes — neither has had a
-   physical reader attached. Doc 06's risk register calls for a field trial before rollout. This is
-   an operational step, not missing code.
+1. **Hardware-in-the-loop is complete for RFID only.** The D2184 trial above closed that row. The
+   LLRP client is still written to the 1.0.1 specification and tested only against
+   specification-derived bytes, and no printer, scale, cash drawer or pole display has ever been
+   attached. Doc 06's risk register calls for a field trial before rollout; that remains true for
+   everything except the UHF serial reader.
 2. **The E2E specs need a live stack.** They are wired into CI's `e2e` job; on this machine they run
    only when Docker Desktop is up and the stack is started.
 3. **Agent auto-update is not built** (doc 06 §7 names it; the roadmap's Phase 4 build list does not).
@@ -278,6 +314,30 @@ caught before it shipped.
 6. **`RefundInvoiceCommand` reverses a payment on the ledger only** — it does not hand cash back
    through a tender or drawer. It is the AR bookkeeping half of a refund ("this invoice is owed
    again"), not the till-side cash-out half.
+
+7. **Phase 7's exit criterion needs your data.** The whole migration pipeline is built and tested
+   against synthetic fixtures written to the documented legacy field orders. That proves the code.
+   It cannot prove your Retail Plus 2.5 extract imports with reconciling totals, which is what the
+   criterion actually asks. **This one is blocked on you, not on us.**
+
+8. **No third-party penetration test.** The [security review](runbooks/security-review.md) is the
+   authors reviewing their own work — which reliably misses what the authors did not think of. An
+   external test is a procurement item, not a code task.
+
+9. **The restore was rehearsed, not executed.** The dump is verified complete and its data
+   round-trips, but no restore ran: the app role lacks `CREATEDB` on this machine, and 17 MB is not
+   a production dataset. [restore.md](runbooks/restore.md) records exactly what was and was not
+   proven.
+
+10. **No API load test.** Phase 8 calls for sustained POS throughput, concurrent grid load and
+    SignalR fan-out measured at 2× target. Only the RFID pipeline has been benchmarked. The
+    duplicate `stock_levels` row anomaly found earlier is exactly the kind of race a concurrency
+    load test should reproduce, and it remains unreproduced.
+
+11. **Cross-till arbitration is off without Redis.** `Cache:Provider=InMemory` holds cart state, tag
+    claims and hub tickets in one process, so two tills could sell the same tagged item. It is an
+    explicit opt-in, refused outright in Production, and logged loudly at startup — but any
+    deployment with more than one till needs Redis.
 
 ## Defects found in the first real login
 
