@@ -21,7 +21,7 @@ public sealed class MigrationTests
 
     public MigrationTests(PostgresFixture postgres) => _postgres = postgres;
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task The_migration_applies_to_a_clean_database()
     {
         var connection = await _postgres.CreateEmptyDatabaseAsync("migration_clean");
@@ -38,7 +38,7 @@ public sealed class MigrationTests
         (await db.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task Applying_the_migration_twice_is_a_no_op()
     {
         var connection = await _postgres.CreateEmptyDatabaseAsync("migration_twice");
@@ -52,7 +52,7 @@ public sealed class MigrationTests
         (await db.Database.GetPendingMigrationsAsync()).Should().BeEmpty();
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public void The_migrations_match_the_model()
     {
         using var db = _postgres.CreateContext();
@@ -85,7 +85,7 @@ public sealed class MigrationTests
         differences.Should().BeEmpty("an entity changed without a migration — run `dotnet ef migrations add`");
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task The_seeder_can_run_twice_without_duplicating_a_store()
     {
         var connection = await _postgres.CreateEmptyDatabaseAsync("migration_seed");

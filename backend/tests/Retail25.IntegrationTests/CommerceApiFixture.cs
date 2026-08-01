@@ -154,6 +154,47 @@ public sealed class CommerceApiFixture : WebApplicationFactory<Program>, IAsyncL
 
     /// <summary>Opens a scope and hands back a sender. Every scenario step is its own scope.</summary>
     public IServiceScope Scope() => Services.CreateScope();
+
+    private readonly SemaphoreSlim _scenarioGate = new(1, 1);
+    private object? _scenario;
+
+    /// <summary>
+    /// Builds a scenario once for the whole collection, however many tests ask for it.
+    /// <para>
+    /// xUnit constructs a fresh test-class instance per test method, so anything set up in
+    /// <c>IAsyncLifetime.InitializeAsync</c> runs once <em>per test</em>. For a scenario that rings
+    /// sales through the till that is not merely wasteful — the takings accumulate, and a report
+    /// asserting "the total is £115" sees £115, then £230, then £345 as the suite proceeds. Which is
+    /// exactly how this was first written, and exactly how it failed.
+    /// </para>
+    /// </summary>
+    public async Task<T> ScenarioAsync<T>(Func<IServiceScope, Task<T>> build) where T : class
+    {
+        if (_scenario is T ready)
+        {
+            return ready;
+        }
+
+        await _scenarioGate.WaitAsync();
+
+        try
+        {
+            if (_scenario is T built)
+            {
+                return built;
+            }
+
+            using var scope = Scope();
+            var created = await build(scope);
+
+            _scenario = created;
+            return created;
+        }
+        finally
+        {
+            _scenarioGate.Release();
+        }
+    }
 }
 
 /// <summary>An acting user holding every permission the catalogue defines.</summary>

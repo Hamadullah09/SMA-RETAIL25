@@ -39,7 +39,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task The_catalogue_browse_pages_in_sql_and_returns_every_row_once()
     {
         for (var i = 1; i <= 40; i++)
@@ -70,7 +70,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
         seen.Should().OnlyHaveUniqueItems();
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task The_keyset_predicate_is_translated_rather_than_evaluated_in_memory()
     {
         _scope.Db.Products.Add(Product.Create(LocationId, "AAA", "Apple", ProductType.Standard, 1m).Value);
@@ -97,7 +97,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
         rows.Should().ContainSingle().Which.StockCode.Should().Be("BBB");
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task A_percentage_and_an_owned_address_round_trip_through_postgres()
     {
         var tax = TaxConfiguration.Create(
@@ -130,7 +130,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
         reloadedCustomer.Contact.Email.Should().Be("ada@example.com");
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task A_deleted_product_is_hidden_rather_than_destroyed()
     {
         var product = Product.Create(LocationId, "GONE", "Discontinued", ProductType.Standard, 5m).Value;
@@ -150,7 +150,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
         row.DeletedAt.Should().NotBeNull();
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task A_duplicate_stock_code_is_refused_by_the_database_not_only_by_the_handler()
     {
         _scope.Db.Products.Add(Product.Create(LocationId, "DUP", "First", ProductType.Standard, 1m).Value);

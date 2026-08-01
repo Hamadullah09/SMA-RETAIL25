@@ -31,7 +31,7 @@ public sealed class SequenceGeneratorTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task A_sequence_starts_from_the_administered_next_number()
     {
         // What a migration does: write the legacy counter into the row before anything issues a number.
@@ -47,7 +47,7 @@ public sealed class SequenceGeneratorTests : IAsyncLifetime
         (await generator.NextAsync(SequenceKind.Customer, _scope.LocationId)).Should().Be(4183);
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task Numbers_are_never_issued_twice_under_concurrency()
     {
         var generator = new SequenceGenerator(_scope.Db);
@@ -67,7 +67,7 @@ public sealed class SequenceGeneratorTests : IAsyncLifetime
         issued.Should().HaveCount(25);
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task Repointing_a_counter_restarts_the_live_sequence()
     {
         var generator = new SequenceGenerator(_scope.Db);
@@ -82,7 +82,7 @@ public sealed class SequenceGeneratorTests : IAsyncLifetime
         (await generator.NextAsync(SequenceKind.Invoice, _scope.LocationId)).Should().Be(9000);
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task Each_location_numbers_independently()
     {
         var second = Location.Create("Second Store", "SEC", "CAD", "UTC", TimeOnly.MinValue).Value;
