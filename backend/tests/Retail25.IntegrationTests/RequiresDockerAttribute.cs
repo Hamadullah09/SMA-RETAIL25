@@ -48,6 +48,23 @@ public sealed class RequiresIsolatedDatabaseFactAttribute : FactAttribute
     public RequiresIsolatedDatabaseFactAttribute() => Skip = TestDatabase.SkipReasonForOwnDatabase;
 }
 
+/// <summary>
+/// A test that is written but does not yet pass.
+/// <para>
+/// Preferred over deleting the test or leaving the suite red. A red suite trains people to ignore
+/// red; a deleted test loses the work and the intent. This states plainly that the behaviour is not
+/// proven, and carries the reason so the next person starts where the last one stopped.
+/// </para>
+/// <para>
+/// Anything wearing this is <b>not evidence</b>. It must not be cited as proof that a phase is
+/// complete.
+/// </para>
+/// </summary>
+public sealed class NotYetPassingFactAttribute : FactAttribute
+{
+    public NotYetPassingFactAttribute(string reason) => Skip = "Not yet passing: " + reason;
+}
+
 /// <summary>What the environment can actually provide, probed once.</summary>
 internal static class TestDatabase
 {
