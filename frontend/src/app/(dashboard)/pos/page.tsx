@@ -16,6 +16,7 @@ import {
   TotalsPanel,
   money,
 } from '@/components/pos/panels';
+import { TagFeed } from '@/components/pos/tag-feed';
 import {
   CheatSheetDialog,
   ClientDialog,
@@ -146,6 +147,13 @@ function PosScreen() {
       <div className="pos-area-side flex min-h-0 flex-col gap-2 overflow-y-auto">
         <CustomerPanel />
         <TotalsPanel />
+
+        {/*
+          Above the payment keys, below the money. A cashier looks here when a tag does not read, and
+          that is a mid-sale moment — putting it off-screen would mean scrolling while holding an item.
+        */}
+        {STATION_ID && LOCATION_ID ? <TagFeed stationId={STATION_ID} locationId={LOCATION_ID} /> : null}
+
         <PaymentMatrix onPay={() => openDialog('payment')} />
       </div>
 

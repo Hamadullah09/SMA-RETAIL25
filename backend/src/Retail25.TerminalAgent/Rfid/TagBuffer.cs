@@ -57,11 +57,19 @@ public sealed class TagBuffer
         {
             if (_entries.TryGetValue(epc, out var existing))
             {
+                // Strongest read wins the antenna, because the strongest is the one nearest the tag —
+                // that is what makes "which zone is this item in" answerable on a multi-antenna
+                // reader. When neither read carries a measurement, there is nothing to compare, so
+                // the most recent antenna wins instead: a tag being carried past a gate should read
+                // as where it is now, not where it first appeared.
+                var betterSignal = read.HasRssi && read.Rssi > existing.Rssi;
+                var noSignalEither = !read.HasRssi && existing.Rssi == TagRead.UnknownRssi;
+
                 _entries[epc] = existing with
                 {
                     ReadCount = existing.ReadCount + read.ReadCount,
                     Rssi = Math.Max(existing.Rssi, read.Rssi),
-                    Antenna = read.Rssi > existing.Rssi ? read.Antenna : existing.Antenna,
+                    Antenna = betterSignal || noSignalEither ? read.Antenna : existing.Antenna,
                     FirstSeen = existing.FirstSeen < read.FirstSeen ? existing.FirstSeen : read.FirstSeen,
                     LastSeen = existing.LastSeen > read.LastSeen ? existing.LastSeen : read.LastSeen,
                 };

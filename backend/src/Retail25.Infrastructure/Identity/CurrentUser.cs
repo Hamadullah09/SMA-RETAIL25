@@ -31,6 +31,13 @@ public sealed class CurrentUser : ICurrentUser
     public const string AccessLevelClaim = "access_level";
     public const string PermissionClaim = "permission";
 
+    /// <summary>
+    /// OpenIddict writes granted scopes as the standard <c>scope</c> claim on the introspected
+    /// principal, and as its own private claim on the raw one. Both are checked, because which of
+    /// them is present depends on how the token was validated.
+    /// </summary>
+    public const string ScopeClaim = "scope";
+
     private readonly IHttpContextAccessor _httpContextAccessor;
 
     public CurrentUser(IHttpContextAccessor httpContextAccessor)
@@ -58,6 +65,29 @@ public sealed class CurrentUser : ICurrentUser
         ? ResolvePermissions(User!)
         : new HashSet<string>(StringComparer.Ordinal);
 
+    /// <summary>
+    /// What a till agent may do, and nothing else.
+    /// <para>
+    /// The agent authenticates as a machine — <c>client_credentials</c>, no user behind it — so it has
+    /// no roles and no access level to derive permissions from. Without this it resolved to an empty
+    /// set and every call it made was refused: the agent could not even fetch its own device profile,
+    /// so it silently kept the built-in Simulator defaults and never opened a socket to the real
+    /// reader. A till that reads nothing, for no stated reason.
+    /// </para>
+    /// <para>
+    /// Deliberately narrow. It is what a reader needs to publish what it saw and be told how it is
+    /// configured — read the profile, ring tags onto the open cart at its own station. It cannot
+    /// commission a tag, void a sale, discount a line or open a drawer on its own initiative; those
+    /// stay with a signed-in human.
+    /// </para>
+    /// </summary>
+    private static readonly string[] TerminalAgentPermissions =
+    [
+        PermissionKeys.Terminals.Read,
+        PermissionKeys.Terminals.Operate,
+        PermissionKeys.Pos.Sell,
+    ];
+
     private static IReadOnlySet<string> ResolvePermissions(ClaimsPrincipal user)
     {
         var granted = new HashSet<string>(
@@ -67,6 +97,15 @@ public sealed class CurrentUser : ICurrentUser
         if (granted.Count > 0)
         {
             return granted;
+        }
+
+        // A machine client holding the terminal scope. Checked before the level and role fallbacks
+        // because it has neither, and after explicit claims because an operator who has narrowed the
+        // agent's grants should not have them widened back.
+        if (user.HasClaim(OpenIddictConstants.Claims.Private.Scope, AuthConstants.TerminalScope)
+            || user.FindAll(ScopeClaim).Any(c => c.Value.Split(' ').Contains(AuthConstants.TerminalScope, StringComparer.Ordinal)))
+        {
+            return new HashSet<string>(TerminalAgentPermissions, StringComparer.Ordinal);
         }
 
         // No explicit grants: fall back to the level preset so a migrated user works on day one.

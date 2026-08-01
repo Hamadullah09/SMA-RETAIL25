@@ -208,7 +208,26 @@ public sealed class IdentitySeeder
             _logger.LogInformation("Registered the web client for {Origin}", webOrigin);
         }
 
-        if (await _applications.FindByClientIdAsync(AuthConstants.AgentClientId, ct) is null)
+        if (await _applications.FindByClientIdAsync(AuthConstants.AgentClientId, ct) is not null)
+        {
+            // Registered already, and deliberately not updated: rotating a shared credential on every
+            // restart would knock every till in the shop offline at once.
+            //
+            // But the case where the configured secret no longer matches the registered one is a
+            // genuine trap — every agent gets `invalid_client`, the agent's answer to a failed
+            // profile fetch is to keep its defaults and carry on, and the visible symptom is a till
+            // that reads no tags for no stated reason. Saying so here is the difference between a
+            // one-line fix and an afternoon.
+            if (!string.IsNullOrWhiteSpace(_configuration["Auth:AgentClientSecret"]))
+            {
+                _logger.LogInformation(
+                    "The terminal agent client is already registered; its secret was left as it is. "
+                    + "If agents are being refused with invalid_client, the registered secret differs "
+                    + "from Auth:AgentClientSecret — delete the {ClientId} row to re-register it.",
+                    AuthConstants.AgentClientId);
+            }
+        }
+        else
         {
             var secret = _configuration["Auth:AgentClientSecret"];
 

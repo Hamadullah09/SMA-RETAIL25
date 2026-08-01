@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using Retail25.Contracts.Terminals;
 
 namespace Retail25.TerminalAgent.Rfid;
 
@@ -185,6 +186,11 @@ internal static class InventoryFrameParser
     private const int SummaryDataLength = 7;
     private const int ErrorDataLength = 1;
 
+    /// <summary>
+    /// At or below this, the RSSI byte carries no measurement (see <see cref="TagRead.UnknownRssi"/>).
+    /// </summary>
+    private const byte UnmeasuredRssiByte = 1;
+
     /// <summary>Fixed overhead of a tag data frame: FreqAnt(1) + PC(2) + RSSI(1).</summary>
     private const int TagFrameOverhead = 4;
 
@@ -213,6 +219,12 @@ internal static class InventoryFrameParser
         return new InventoryTagFrame(
             RawAntenna: (byte)(freqAnt & 0x03),
             Epc: Convert.ToHexString(epc),
-            RssiDbm: rawRssi - 129);
+
+            // A raw byte of 0 or 1 decodes to −129/−128 dBm, which is below the noise floor of any
+            // real antenna — it means the reader did not measure, not that the tag is impossibly far
+            // away. Real-time inventory mode leaves this field empty on R2000-family readers, so
+            // mapping it to a number would put the proximity gate on a hair trigger that rejects
+            // everything.
+            RssiDbm: rawRssi <= UnmeasuredRssiByte ? TagRead.UnknownRssi : rawRssi - 129);
     }
 }

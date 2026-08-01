@@ -42,10 +42,31 @@ public sealed class ProfileStore
         AutoAcceptBatches: false,
         ContinuousMode: false);
 
+    /// <summary>
+    /// Raised when the server sends new hardware settings.
+    /// <para>
+    /// A service that is blocked reading from a socket cannot notice a changed field by polling it —
+    /// it is not running any code to poll with. So the change has to arrive as a signal it is already
+    /// waiting on. This is what makes "change the reader's address in Setup and it takes effect"
+    /// true rather than "…and it takes effect after someone restarts the till".
+    /// </para>
+    /// </summary>
+    public event Action? Changed;
+
     public void Set(TerminalProfileContract profile)
     {
+        var previous = Volatile.Read(ref _profile);
+
         Volatile.Write(ref _profile, profile);
         Mode = profile.ReaderMode;
+
+        // Only when the reader half actually differs. The server re-sends the whole profile on every
+        // reconnect, and tearing down a working reader session because the printer's name changed
+        // would drop tags for no reason.
+        if (previous?.Reader != profile.Reader)
+        {
+            Changed?.Invoke();
+        }
     }
 
     public void SetMode(ReaderMode mode) => Mode = mode;
@@ -97,34 +118,70 @@ public sealed class RfidReaderService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            // Cancelled either by shutdown or by the server sending new hardware settings. The second
+            // is the one that matters here: the agent starts before the server has answered, so its
+            // first session always runs on the built-in Simulator default. Without a way to interrupt
+            // that session, the simulator stayed for the life of the process — the real reader was
+            // configured, reachable, and never opened, and nothing in the logs said so, because from
+            // the agent's point of view every step had succeeded.
+            using var session = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+
+            void OnProfileChanged()
+            {
+                _logger.LogInformation("The device profile changed; restarting the reader session");
+
+                // Already disposed if the session ended for its own reasons first.
+                try
+                {
+                    session.Cancel();
+                }
+                catch (ObjectDisposedException)
+                {
+                }
+            }
+
+            _profiles.Changed += OnProfileChanged;
+
             try
             {
                 var profile = _profiles.Reader;
                 _reader = CreateReader(profile);
 
-                await _reader.ConnectAsync(profile, stoppingToken);
+                await _reader.ConnectAsync(profile, session.Token);
                 attempt = 0;
 
                 if (_profiles.Mode != ReaderMode.Off)
                 {
-                    await _reader.StartAsync(stoppingToken);
+                    await _reader.StartAsync(session.Token);
                 }
 
-                await foreach (var read in _reader.ReadsAsync(stoppingToken))
+                await foreach (var read in _reader.ReadsAsync(session.Token))
                 {
                     // Local pre-filter (doc 06 §2). The server re-checks it, so this is purely about
                     // not paying for a round trip on a tag that could never be accepted.
-                    if (read.Rssi < profile.RssiThresholdDbm)
+                    //
+                    // Only applied when the reader actually measured. A reader that reports no signal
+                    // strength — which R2000-family units do in real-time inventory mode — would
+                    // otherwise have every one of its reads discarded here, and the symptom at the
+                    // till would be a reader that connects, reports healthy, and never sees a tag.
+                    if (read.HasRssi && read.Rssi < profile.RssiThresholdDbm)
                     {
                         continue;
                     }
 
                     _buffer.Offer(read);
                 }
+
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
+            }
+            catch (OperationCanceledException)
+            {
+                // The profile changed. Not a fault, so the backoff counter is left alone — the next
+                // session should start immediately rather than after a penalty this did not earn.
+                attempt = 0;
             }
             catch (Exception ex)
             {
@@ -133,6 +190,7 @@ public sealed class RfidReaderService : BackgroundService
             }
             finally
             {
+                _profiles.Changed -= OnProfileChanged;
                 await SafeStopAsync();
             }
 

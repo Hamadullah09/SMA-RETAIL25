@@ -91,7 +91,7 @@ public sealed class TagObservationPublisher
             observations.Add(new ObservedTag(
                 tag.Epc,
                 tag.Antenna,
-                tag.Rssi == 0 ? null : tag.Rssi,
+                tag.HasRssi ? tag.Rssi : null,
                 Math.Max(tag.ReadCount, folded),
                 tag.FirstSeen,
                 tag.LastSeen,

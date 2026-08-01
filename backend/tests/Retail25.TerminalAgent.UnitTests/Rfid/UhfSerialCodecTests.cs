@@ -1,4 +1,6 @@
 using FluentAssertions;
+using Retail25.Contracts.Terminals;
+using Retail25.Domain.Terminals;
 using Retail25.TerminalAgent.Rfid;
 using Xunit;
 
@@ -141,6 +143,56 @@ public sealed class UhfSerialCodecTests
         tag.Epc.Should().Be("3034257BF400B7800004CB2F");
         tag.RawAntenna.Should().Be(2);
         tag.RssiDbm.Should().Be(-31);
+    }
+
+    /// <summary>
+    /// An unpopulated RSSI byte means "not measured", not "impossibly far away".
+    /// <para>
+    /// Observed on real hardware: an R2000-family reader in real-time inventory mode leaves this
+    /// field empty, and the vendor's own demo shows every tag at −128 dBm while reporting a genuine
+    /// −89/−46 range in its summary panel. Decoding that as a number puts it below every sensible
+    /// proximity threshold, so the gate would discard 100% of reads — and the symptom at the till is
+    /// a reader that connects, reports healthy, and never sees a single tag.
+    /// </para>
+    /// </summary>
+    [Theory]
+    [InlineData((byte)0)]
+    [InlineData((byte)1)]
+    public void An_unpopulated_signal_strength_reads_as_unknown_rather_than_impossibly_weak(byte rawRssi)
+    {
+        var freqAnt = (byte)((5 << 2) | 0x01);
+        var pc = new byte[] { 0x30, 0x00 };
+        var epc = new byte[] { 0xE2, 0x80, 0x69, 0x15, 0x00, 0x00, 0x60, 0x0B, 0x40, 0xA7, 0x1D, 0x95 };
+
+        var data = new byte[] { freqAnt }.Concat(pc).Concat(epc).Concat([rawRssi]).ToArray();
+        var frame = new UhfSerialFrame(0xFF, UhfSerialCommand.RealTimeInventory, data);
+
+        var tag = InventoryFrameParser.ParseTag(frame);
+
+        // One of the EPCs the reader on the bench actually returned.
+        tag.Epc.Should().Be("E28069150000600B40A71D95");
+        tag.RssiDbm.Should().Be(TagRead.UnknownRssi);
+    }
+
+    /// <summary>
+    /// The corollary: a tag whose signal was never measured must still reach the cart.
+    /// </summary>
+    [Fact]
+    public void A_reader_that_reports_no_signal_strength_is_not_filtered_out()
+    {
+        var profile = ReaderProfile.CreateDefault(Guid.NewGuid());
+        profile.RssiThresholdDbm = -70;
+        profile.MinimumReadCount = 2;
+
+        profile.Accepts(antenna: 1, rssiDbm: TagRead.UnknownRssi, readCount: 2)
+            .Should().BeTrue("a reader that declines to measure must not have every read rejected");
+
+        // The other two conditions still do their work.
+        profile.Accepts(antenna: 1, rssiDbm: TagRead.UnknownRssi, readCount: 1)
+            .Should().BeFalse("one stray read is still not enough");
+
+        profile.Accepts(antenna: 1, rssiDbm: -90, readCount: 2)
+            .Should().BeFalse("a measured, genuinely weak read is still refused");
     }
 
     [Fact]

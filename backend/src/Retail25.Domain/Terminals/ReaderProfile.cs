@@ -127,8 +127,31 @@ public sealed class ReaderProfile : Entity, IAuditable, IStationScopedProfile
     public bool IsCheckoutAntenna(int antenna) => ZoneFor(antenna) == AntennaZone.Checkout;
 
     /// <summary>Applies the local pre-filter: right zone, loud enough, seen often enough (doc 06 §2).</summary>
+    /// <summary>
+    /// Whether a read is close enough, confident enough and on the right antenna to reach a cart.
+    /// <para>
+    /// <paramref name="rssiDbm"/> may be <see cref="UnmeasuredRssi"/>, meaning the reader saw the tag
+    /// but reported no signal strength — which R2000-family readers do in real-time inventory mode.
+    /// The proximity test is then skipped rather than failed. Failing it would reject every read from
+    /// such a reader, and the remaining two conditions still do real work: the antenna must be one
+    /// pointed at the counter, and one stray read is still not enough.
+    /// </para>
+    /// <para>
+    /// This is a deliberate, narrow relaxation. It widens what reaches a cart on readers that do not
+    /// measure, so a shop relying on proximity to keep the next aisle out of the basket should use a
+    /// reader mode that reports RSSI — or lean on antenna zoning, which is unaffected.
+    /// </para>
+    /// </summary>
     public bool Accepts(int antenna, int rssiDbm, int readCount)
-        => IsCheckoutAntenna(antenna) && rssiDbm >= RssiThresholdDbm && readCount >= MinimumReadCount;
+        => IsCheckoutAntenna(antenna)
+            && (rssiDbm == UnmeasuredRssi || rssiDbm >= RssiThresholdDbm)
+            && readCount >= MinimumReadCount;
+
+    /// <summary>
+    /// Mirrors <c>TagRead.UnknownRssi</c>. Duplicated rather than referenced because the domain does
+    /// not depend on the contracts assembly, and one shared constant is not worth inverting that.
+    /// </summary>
+    public const int UnmeasuredRssi = int.MinValue;
 
     public static ReaderProfile CreateDefault(Guid locationId, string name = "Default")
         => new() { LocationId = locationId, Name = name };

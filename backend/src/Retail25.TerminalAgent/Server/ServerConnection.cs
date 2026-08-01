@@ -53,16 +53,21 @@ public interface IServerConnection
 public sealed class SignalRServerConnection : IServerConnection, IAsyncDisposable
 {
     private readonly AgentOptions _options;
+    private readonly AgentTokenProvider _tokens;
     private readonly ILogger<SignalRServerConnection> _logger;
 
     private HubConnection? _connection;
     private ITerminalCommandHandler? _handler;
 
-    public SignalRServerConnection(IOptions<AgentOptions> options, ILogger<SignalRServerConnection> logger)
+    public SignalRServerConnection(
+        IOptions<AgentOptions> options,
+        AgentTokenProvider tokens,
+        ILogger<SignalRServerConnection> logger)
     {
         ArgumentNullException.ThrowIfNull(options);
 
         _options = options.Value;
+        _tokens = tokens;
         _logger = logger;
     }
 
@@ -75,10 +80,9 @@ public sealed class SignalRServerConnection : IServerConnection, IAsyncDisposabl
         var connection = new HubConnectionBuilder()
             .WithUrl($"{_options.ApiUrl.TrimEnd('/')}/hubs/terminal", options =>
             {
-                if (!string.IsNullOrWhiteSpace(_options.BootstrapSecret))
-                {
-                    options.AccessTokenProvider = () => Task.FromResult<string?>(_options.BootstrapSecret);
-                }
+                // Called again on every reconnect, which is exactly what is wanted: a till that has
+                // been offline overnight gets a fresh token rather than replaying a dead one.
+                options.AccessTokenProvider = () => _tokens.GetAsync();
             })
             .WithAutomaticReconnect(new JitteredRetryPolicy())
             .Build();

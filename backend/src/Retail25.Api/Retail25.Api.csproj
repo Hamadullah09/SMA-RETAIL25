@@ -1,4 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <!--
+      The terminal agent's client secret is set here rather than in appsettings.Development.json,
+      which is committed and documented as holding no credentials.
+
+        dotnet user-secrets set "Auth:AgentClientSecret" "VALUE" (project src/Retail25.Api)
+    -->
+    <UserSecretsId>retail25-api</UserSecretsId>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Retail25.Infrastructure\Retail25.Infrastructure.csproj" />
   </ItemGroup>

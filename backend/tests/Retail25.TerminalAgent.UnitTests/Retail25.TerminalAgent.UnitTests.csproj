@@ -16,6 +16,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Retail25.TerminalAgent\Retail25.TerminalAgent.csproj" />
+
+    <!--
+      For ReaderProfile.Accepts. The agent's local RSSI pre-filter and the server's authoritative
+      re-check have to agree about what an unmeasured signal means, so both are asserted together.
+    -->
+    <ProjectReference Include="..\..\src\Retail25.Domain\Retail25.Domain.csproj" />
   </ItemGroup>
 
 </Project>

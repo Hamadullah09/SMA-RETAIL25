@@ -118,6 +118,18 @@ public static class DependencyInjection
 
     private static void AddRedis(IServiceCollection services, IConfiguration configuration)
     {
+        // An explicit opt-out, never an automatic failover.
+        //
+        // Falling back on a failed connection would be the dangerous design: a shop whose Redis
+        // blipped for ten seconds would silently lose cross-till tag arbitration and could sell the
+        // same garment twice, with nothing on any screen to say so. Losing that protection has to be
+        // something someone chose, in a config file, on purpose.
+        if (string.Equals(configuration["Cache:Provider"], "InMemory", StringComparison.OrdinalIgnoreCase))
+        {
+            AddInMemoryStores(services, configuration);
+            return;
+        }
+
         var connectionString = configuration.GetConnectionString("Redis") ?? "localhost:6379";
 
         services.AddSingleton<IConnectionMultiplexer>(_ =>
@@ -134,5 +146,40 @@ public static class DependencyInjection
         services.AddScoped<ITagDebouncer, RedisTagDebouncer>();
         services.AddScoped<IIdempotencyStore, RedisIdempotencyStore>();
         services.AddScoped<IHubTicketStore, RedisHubTicketStore>();
+    }
+
+    /// <summary>
+    /// Holds cart state, tag claims, idempotency and hub tickets in this process instead of Redis.
+    /// <para>
+    /// Singletons, not scoped: the whole point of these is to outlive a request. A scoped in-memory
+    /// cart store would forget the cart between two calls of the same sale, which is a subtler and
+    /// far more confusing failure than having no store at all.
+    /// </para>
+    /// <para>
+    /// Refused in Production. The trade this makes — no arbitration between tills — is invisible
+    /// until a stock count weeks later says an item sold twice, and that is not a discovery anyone
+    /// should make from a config line they inherited.
+    /// </para>
+    /// </summary>
+    private static void AddInMemoryStores(IServiceCollection services, IConfiguration configuration)
+    {
+        var environment = configuration["ASPNETCORE_ENVIRONMENT"]
+            ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+
+        if (string.Equals(environment, "Production", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException(
+                "Cache:Provider is InMemory, which is not permitted in Production. "
+                + InMemoryStoreNotes.Caveat
+                + " Configure ConnectionStrings:Redis instead.");
+        }
+
+        services.AddSingleton<ICartStore, InMemoryCartStore>();
+        services.AddSingleton<ITagDebouncer, InMemoryTagDebouncer>();
+        services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
+        services.AddSingleton<IHubTicketStore, InMemoryHubTicketStore>();
+
+        // Resolved at startup purely so the warning is logged once, where an operator will see it.
+        services.AddSingleton<InMemoryStoreWarning>();
     }
 }

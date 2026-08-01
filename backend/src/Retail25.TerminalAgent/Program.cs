@@ -40,17 +40,18 @@ var agentOptions = builder.Configuration.GetSection(AgentOptions.SectionName).Ge
 // Loopback only. Binding anywhere else would put a till's hardware on the shop network.
 builder.WebHost.UseUrls(agentOptions.LocalApiUrl);
 
+builder.Services.AddSingleton<AgentTokenProvider>();
+builder.Services.AddTransient<AgentAuthHandler>();
+
 builder.Services.AddHttpClient("server", client =>
 {
     client.BaseAddress = new Uri(agentOptions.ApiUrl.TrimEnd('/') + "/");
     client.Timeout = TimeSpan.FromSeconds(10);
-
-    if (!string.IsNullOrWhiteSpace(agentOptions.BootstrapSecret))
-    {
-        client.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", agentOptions.BootstrapSecret);
-    }
-});
+})
+    // The secret is exchanged for a real token rather than sent as one. Sending it directly is what
+    // the agent used to do, and OpenIddict refused every call — silently, because the agent's answer
+    // to a failed profile fetch is to keep its defaults and carry on.
+    .AddHttpMessageHandler<AgentAuthHandler>();
 
 builder.Services.AddSingleton<TagBuffer>();
 builder.Services.AddSingleton<ProfileStore>();

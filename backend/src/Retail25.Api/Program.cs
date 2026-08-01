@@ -10,6 +10,7 @@ using OpenTelemetry.Trace;
 using Retail25.Api.Common;
 using Retail25.Application;
 using Retail25.Infrastructure;
+using Retail25.Infrastructure.Caching;
 using Retail25.Infrastructure.Identity;
 using Retail25.Infrastructure.Jobs;
 using Retail25.Infrastructure.Persistence;
@@ -45,16 +46,30 @@ builder.Services.AddOpenTelemetry()
         .AddRuntimeInstrumentation()
         .AddOtlpExporter());
 
+// Whether this process shares its cart state, tag claims and hub tickets with anything else, or
+// keeps them to itself. Read once here because three separate things below depend on the answer:
+// the health check, the SignalR backplane, and the store registrations in AddInfrastructure.
+var usesRedis = !string.Equals(
+    builder.Configuration["Cache:Provider"],
+    "InMemory",
+    StringComparison.OrdinalIgnoreCase);
+
 // --- Health checks ---
-builder.Services.AddHealthChecks()
+var health = builder.Services.AddHealthChecks()
     .AddNpgSql(
         builder.Configuration.GetConnectionString("DefaultConnection")!,
         name: "postgresql",
-        tags: ["ready"])
-    .AddRedis(
+        tags: ["ready"]);
+
+// Not probed when nothing uses it. A red "redis" check on a bench that deliberately has no Redis
+// trains people to ignore the health endpoint, which costs more than the check is worth.
+if (usesRedis)
+{
+    health.AddRedis(
         builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379",
         name: "redis",
         tags: ["ready"]);
+}
 
 // --- API ---
 builder.Services
@@ -77,7 +92,7 @@ var signalR = builder.Services
 // The Redis backplane is configured from day one so scaling out is a deployment change rather than
 // a rewrite of how carts are broadcast.
 var redisConnection = builder.Configuration.GetConnectionString("Redis");
-if (!string.IsNullOrWhiteSpace(redisConnection))
+if (usesRedis && !string.IsNullOrWhiteSpace(redisConnection))
 {
     signalR.AddStackExchangeRedis(
         redisConnection,
@@ -186,6 +201,10 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 });
 
 var app = builder.Build();
+
+// Resolved for its side effect: if this build is running without Redis, say so once, loudly, at
+// startup. What that costs — no cross-till tag arbitration — is not something to find out later.
+app.Services.GetService<InMemoryStoreWarning>();
 
 // --- Database bootstrap (development and staging only) ---
 if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
