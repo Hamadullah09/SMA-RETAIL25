@@ -42,14 +42,23 @@ public enum AntennaZone
 /// </summary>
 public enum RadioRegion
 {
-    /// <summary>865.1–867.9 MHz. Europe and most of the world outside the Americas.</summary>
-    Etsi = 1,
+    /// <summary>North America, 902.00–927.00 MHz.</summary>
+    Fcc = 1,
 
-    /// <summary>902.75–927.25 MHz. North America.</summary>
-    Fcc = 2,
+    /// <summary>Europe and most of the world outside the Americas, 865.1–867.9 MHz.</summary>
+    Etsi = 2,
 
-    /// <summary>920.125–924.875 MHz. Mainland China.</summary>
+    /// <summary>Mainland China, 920.125–924.875 MHz.</summary>
     Chn = 3,
+
+    // The numbering is the device's, read off the device, and it is the opposite way round from the
+    // order these regions are usually listed in. A live D2184B reports region 1 while its own utility
+    // displays "FCC 902.00–927.00" — so 1 is FCC, not ETSI.
+    //
+    // Worth stating plainly because getting it backwards is not a bug that shows up as a crash. A
+    // shop that picks FCC gets configured for the European band and reads nothing; a shop that picks
+    // ETSI transmits on North American channels, in Europe, without a licence. Neither reports an
+    // error. This was found by asking the hardware rather than by reading the specification.
 }
 
 /// <summary>

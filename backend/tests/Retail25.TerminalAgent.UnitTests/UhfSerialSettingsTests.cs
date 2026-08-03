@@ -27,6 +27,9 @@ public sealed class UhfSerialSettingsTests
     private static readonly byte[] Firmware = [0x08, 0x02];
     private static readonly byte[] Temperature = [0x01, 0x20];
     private static readonly byte[] Power = [0x02];
+    // Region 1 with channels 7 and 57 — which the reader's own utility displays, at the same moment,
+    // as "FCC 902.00-927.00 MHz". That pairing is what fixes both the region numbering and the
+    // channel-to-megahertz origin, and neither is guessable from the protocol document alone.
     private static readonly byte[] Region = [0x01, 0x07, 0x39];
     private static readonly byte[] LinkProfile = [0xD1];
 
@@ -79,7 +82,7 @@ public sealed class UhfSerialSettingsTests
     [Fact]
     public void The_region_reply_decodes_to_the_band_the_reader_is_licensed_for()
     {
-        UhfSerialSettings.ParseRegion(Region).Should().Be(WireRegion.Etsi);
+        UhfSerialSettings.ParseRegion(Region).Should().Be(WireRegion.Fcc);
         Region[1].Should().Be(0x07, "the first channel travels in the second byte");
         Region[2].Should().Be(0x39, "and the last in the third");
     }
@@ -142,8 +145,8 @@ public sealed class UhfSerialSettingsTests
     /// would catch by looking at the screen.
     /// </summary>
     [Theory]
-    [InlineData(StoredRegion.Fcc, 0, 902.75)]
-    [InlineData(StoredRegion.Fcc, 49, 927.25)]
+    [InlineData(StoredRegion.Fcc, 7, 902.0)]
+    [InlineData(StoredRegion.Fcc, 57, 927.0)]
     [InlineData(StoredRegion.Etsi, 0, 865.1)]
     [InlineData(StoredRegion.Etsi, 14, 867.9)]
     [InlineData(StoredRegion.Chn, 0, 920.125)]

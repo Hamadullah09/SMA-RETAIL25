@@ -22,19 +22,19 @@ internal static class UhfSerialSettings
     /// </para>
     /// </summary>
     public static async Task<ReaderDiagnostics> ReadAsync(
-        UhfSerialControlChannel channel, int antennaPorts, CancellationToken ct)
+        UhfSerialRfidReader reader, int antennaPorts, CancellationToken ct)
     {
         var unavailable = new List<string>();
 
-        var firmware = await channel.QueryAsync(UhfSerialCommand.GetFirmwareVersion, [], ct);
-        var temperature = await channel.QueryAsync(UhfSerialCommand.GetReaderTemperature, [], ct);
-        var power = await channel.QueryAsync(UhfSerialCommand.GetOutputPower, [], ct);
-        var region = await channel.QueryAsync(UhfSerialCommand.GetFrequencyRegion, [], ct);
-        var link = await channel.QueryAsync(UhfSerialCommand.GetRfLinkProfile, [], ct);
-        var antenna = await channel.QueryAsync(UhfSerialCommand.GetWorkAntenna, [], ct);
-        var detector = await channel.QueryAsync(UhfSerialCommand.GetAntConnectionDetector, [], ct);
-        var fastTid = await channel.QueryAsync(UhfSerialCommand.GetImpinjFastTid, [], ct);
-        var gpio = await channel.QueryAsync(UhfSerialCommand.ReadGpioValue, [], ct);
+        var firmware = await reader.ControlQueryAsync(UhfSerialCommand.GetFirmwareVersion, [], ct);
+        var temperature = await reader.ControlQueryAsync(UhfSerialCommand.GetReaderTemperature, [], ct);
+        var power = await reader.ControlQueryAsync(UhfSerialCommand.GetOutputPower, [], ct);
+        var region = await reader.ControlQueryAsync(UhfSerialCommand.GetFrequencyRegion, [], ct);
+        var link = await reader.ControlQueryAsync(UhfSerialCommand.GetRfLinkProfile, [], ct);
+        var antenna = await reader.ControlQueryAsync(UhfSerialCommand.GetWorkAntenna, [], ct);
+        var detector = await reader.ControlQueryAsync(UhfSerialCommand.GetAntConnectionDetector, [], ct);
+        var fastTid = await reader.ControlQueryAsync(UhfSerialCommand.GetImpinjFastTid, [], ct);
+        var gpio = await reader.ControlQueryAsync(UhfSerialCommand.ReadGpioValue, [], ct);
 
         Note(unavailable, firmware, "firmware version");
         Note(unavailable, temperature, "temperature");
@@ -60,7 +60,7 @@ internal static class UhfSerialSettings
             AntennaReturnLossThresholdDb = detector is { Length: >= 1 } ? detector[0] : null,
             ImpinjFastTid = fastTid is { Length: >= 1 } ? fastTid[0] != 0 : null,
             GpioInputs = gpio?.Select(b => b != 0).ToArray(),
-            ReturnLossDb = await MeasureReturnLossAsync(channel, antennaPorts, ct),
+            ReturnLossDb = await MeasureReturnLossAsync(reader, antennaPorts, ct),
             Unavailable = unavailable,
         };
     }
@@ -78,15 +78,19 @@ internal static class UhfSerialSettings
     /// </para>
     /// </summary>
     private static async Task<IReadOnlyDictionary<int, int>?> MeasureReturnLossAsync(
-        UhfSerialControlChannel channel, int antennaPorts, CancellationToken ct)
+        UhfSerialRfidReader reader, int antennaPorts, CancellationToken ct)
     {
         var measured = new Dictionary<int, int>();
 
         for (var port = 0; port < antennaPorts; port++)
         {
-            var reply = await channel.QueryAsync(UhfSerialCommand.GetRfPortReturnLoss, [(byte)port], ct);
+            var reply = await reader.ControlQueryAsync(UhfSerialCommand.GetRfPortReturnLoss, [(byte)port], ct);
 
-            if (reply is { Length: >= 1 })
+            // Only figures that could be a return loss are reported. A D2184B answers 238 on every
+            // port, which is not a measurement — real return loss on a UHF antenna runs from about 3
+            // dB (nothing connected) to 40 (well matched). Showing "238 dB" would put a number on
+            // screen that looks like data and is not, which is worse than the blank it replaces.
+            if (reply is { Length: >= 1 } && reply[0] <= 60)
             {
                 measured[port + 1] = reply[0];
             }
@@ -104,12 +108,12 @@ internal static class UhfSerialSettings
     /// </para>
     /// </summary>
     public static async Task<IReadOnlyList<string>> ApplyAsync(
-        UhfSerialControlChannel channel, ReaderProfileContract profile, CancellationToken ct)
+        UhfSerialRfidReader reader, ReaderProfileContract profile, CancellationToken ct)
     {
         var refused = new List<string>();
 
         // Region first. See above.
-        if (!await channel.CommandAsync(
+        if (!await reader.ControlCommandAsync(
                 UhfSerialCommand.SetFrequencyRegion,
                 [(byte)profile.Region, (byte)profile.FrequencyStartIndex, (byte)profile.FrequencyEndIndex],
                 ct))
@@ -119,22 +123,22 @@ internal static class UhfSerialSettings
 
         var powers = ParsePowerSetting(profile.OutputPowerDbm);
 
-        if (powers.Length > 0 && !await channel.CommandAsync(UhfSerialCommand.SetOutputPower, powers, ct))
+        if (powers.Length > 0 && !await reader.ControlCommandAsync(UhfSerialCommand.SetOutputPower, powers, ct))
         {
             refused.Add($"transmit power {profile.OutputPowerDbm} dBm");
         }
 
-        if (!await channel.CommandAsync(UhfSerialCommand.SetRfLinkProfile, [(byte)profile.LinkProfile], ct))
+        if (!await reader.ControlCommandAsync(UhfSerialCommand.SetRfLinkProfile, [(byte)profile.LinkProfile], ct))
         {
             refused.Add($"link profile {profile.LinkProfile}");
         }
 
-        if (!await channel.CommandAsync(UhfSerialCommand.SetBeeperMode, [(byte)profile.Beeper], ct))
+        if (!await reader.ControlCommandAsync(UhfSerialCommand.SetBeeperMode, [(byte)profile.Beeper], ct))
         {
             refused.Add($"beeper {profile.Beeper}");
         }
 
-        if (!await channel.CommandAsync(
+        if (!await reader.ControlCommandAsync(
                 UhfSerialCommand.SetAntConnectionDetector,
                 [(byte)Math.Clamp(profile.AntennaReturnLossThresholdDb, 0, 255)],
                 ct))
@@ -146,7 +150,7 @@ internal static class UhfSerialSettings
         // command would otherwise report a refusal on every single connect for a feature nobody asked
         // for — noise that trains people to ignore the list.
         if (profile.ImpinjFastTid
-            && !await channel.CommandAsync(UhfSerialCommand.SetImpinjFastTid, [0x8D, 0x01], ct))
+            && !await reader.ControlCommandAsync(UhfSerialCommand.SetImpinjFastTid, [0x8D, 0x01], ct))
         {
             refused.Add("Impinj fast TID");
         }
@@ -228,3 +232,23 @@ internal static class UhfSerialSettings
     }
 }
 
+
+/// <summary>The status byte a write command answers with.</summary>
+internal static class UhfSerialStatus
+{
+    public const byte Success = 0x10;
+
+    /// <summary>Words for the codes worth telling apart. Anything else is reported as its number.</summary>
+    public static string Describe(byte code) => code switch
+    {
+        0x10 => "accepted",
+        0x11 => "the reader refused the command",
+        0x20 => "the reader's radio module did not reset",
+        0x22 => "no antenna is connected to that port",
+        0x23 => "the reader could not save the setting",
+        0x25 => "that transmit power is out of range for this reader",
+        0x26 => "that frequency is outside the selected region",
+        0x28 => "that antenna port does not exist on this reader",
+        _ => $"the reader answered with code 0x{code:X2}",
+    };
+}

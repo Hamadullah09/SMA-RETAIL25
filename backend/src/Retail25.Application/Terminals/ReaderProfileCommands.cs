@@ -143,14 +143,18 @@ public sealed class ReaderProfileHandlers :
             return Result.Failure<ReaderProfileDto>(PowerOutOfRange);
         }
 
+        // Against the region's own window, not against zero. Channel numbering is shared across
+        // regions, so FCC's first legal channel is 7 — a range starting at 0 would be below the band.
+        var minChannel = RadioFrequencyPlan.MinChannel(request.Region);
         var maxChannel = RadioFrequencyPlan.MaxChannel(request.Region);
 
-        if (request.FrequencyStartIndex < 0
+        if (request.FrequencyStartIndex < minChannel
             || request.FrequencyEndIndex > maxChannel
             || request.FrequencyStartIndex > request.FrequencyEndIndex)
         {
             return Result.Failure<ReaderProfileDto>(FrequencyOutOfRange
                 .With("region", request.Region.ToString())
+                .With("minChannel", minChannel)
                 .With("maxChannel", maxChannel));
         }
 

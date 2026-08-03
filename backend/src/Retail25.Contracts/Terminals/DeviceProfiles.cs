@@ -30,10 +30,10 @@ public enum ReaderProtocol
 public enum RadioRegion
 {
     /// <summary>865.1–867.9 MHz. Europe and most of the world outside the Americas.</summary>
-    Etsi = 1,
+    Fcc = 1,
 
     /// <summary>902.75–927.25 MHz. North America.</summary>
-    Fcc = 2,
+    Etsi = 2,
 
     /// <summary>920.125–924.875 MHz. Mainland China.</summary>
     Chn = 3,

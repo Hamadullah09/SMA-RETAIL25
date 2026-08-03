@@ -76,8 +76,26 @@ builder.Services.AddHostedService<AgentStartupService>();
 // No-ops when not actually running as a service, so the same binary works on a bench.
 builder.Services.AddWindowsService(options => options.ServiceName = "Retail25 Terminal Agent");
 
+// The till's own browser has to be allowed to call this.
+//
+// The loopback bind and the LoopbackOnlyFilter already mean nothing off this machine can reach the
+// agent. That is not enough on its own: a page served from localhost:3000 calling 127.0.0.1:8477 is
+// cross-origin as far as the browser is concerned, and without this header the hardware panel shows
+// "the agent is not answering" while the agent answers perfectly well from the command line.
+//
+// Named origins rather than AllowAnyOrigin. Any page the user has open — including one on the public
+// internet — can attempt a request to 127.0.0.1; the loopback filter cannot tell those apart, because
+// they genuinely do come from this machine. The origin check is what does.
+builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
+    .WithOrigins(
+        builder.Configuration["Agent:WebOrigin"] ?? "http://localhost:3000",
+        "http://127.0.0.1:3000")
+    .AllowAnyHeader()
+    .AllowAnyMethod()));
+
 var app = builder.Build();
 
+app.UseCors();
 app.MapLocalApi();
 
 await app.RunAsync();

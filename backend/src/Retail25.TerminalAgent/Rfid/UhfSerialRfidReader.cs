@@ -130,8 +130,7 @@ public sealed class UhfSerialRfidReader : IRfidReader
 
         try
         {
-            await using var channel = await OpenControlChannelAsync(ct);
-            return await UhfSerialSettings.ReadAsync(channel, AntennaPorts, ct);
+            return await UhfSerialSettings.ReadAsync(this, AntennaPorts, ct);
         }
         catch (Exception ex) when (ex is SocketException or IOException or OperationCanceledException)
         {
@@ -153,8 +152,7 @@ public sealed class UhfSerialRfidReader : IRfidReader
 
         try
         {
-            await using var channel = await OpenControlChannelAsync(ct);
-            return await UhfSerialSettings.ApplyAsync(channel, profile, ct);
+            return await UhfSerialSettings.ApplyAsync(this, profile, ct);
         }
         catch (Exception ex) when (ex is SocketException or IOException or OperationCanceledException)
         {
@@ -167,12 +165,67 @@ public sealed class UhfSerialRfidReader : IRfidReader
         }
     }
 
-    private Task<UhfSerialControlChannel> OpenControlChannelAsync(CancellationToken ct)
-        => UhfSerialControlChannel.ConnectAsync(
-            _profile!.Host,
-            _profile.Port,
-            (byte)Math.Clamp(_profile.DeviceAddress, 0, 255),
-            ct);
+    /// <summary>
+    /// Sends a control command on the reader's own connection and returns the reply's data.
+    /// <para>
+    /// On the reader's connection, not a second one, and this was not the first design. A separate
+    /// socket is tidier — it cannot possibly disturb an inventory round — and against a D2184B it
+    /// silently returns nothing for every query. These readers are a single serial line behind a TCP
+    /// bridge: a second client is accepted and then starved, because there is only one UART and the
+    /// bridge is already servicing the first. The tidier design was answering "unknown" for every
+    /// field on hardware that answers perfectly well.
+    /// </para>
+    /// <para>
+    /// So control shares the wire, and <see cref="_controlGate"/> keeps it out of the middle of an
+    /// inventory round. Callers must already hold that gate.
+    /// </para>
+    /// </summary>
+    internal async Task<byte[]?> ControlQueryAsync(byte cmd, byte[] data, CancellationToken ct)
+    {
+        if (_stream is null)
+        {
+            return null;
+        }
+
+        // Anything already queued belongs to whatever happened before this command. Draining first
+        // means a stale frame cannot be mistaken for this command's answer.
+        while (_frames.Reader.TryRead(out _))
+        {
+        }
+
+        await SendAsync(cmd, data, ct);
+
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeout.CancelAfter(ControlReplyTimeout);
+
+        try
+        {
+            while (true)
+            {
+                var frame = await _frames.Reader.ReadAsync(timeout.Token);
+
+                if (frame.Cmd == cmd)
+                {
+                    return frame.Data;
+                }
+            }
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            _logger.LogDebug("{Reader} did not answer command 0x{Cmd:X2}", Description, cmd);
+            return null;
+        }
+    }
+
+    /// <summary>True when the reader accepted the setting. Anything but 0x10 is a refusal.</summary>
+    internal async Task<bool> ControlCommandAsync(byte cmd, byte[] data, CancellationToken ct)
+    {
+        var reply = await ControlQueryAsync(cmd, data, ct);
+        return reply is { Length: > 0 } && reply[0] == UhfSerialStatus.Success;
+    }
+
+    /// <summary>Generous: measuring return loss makes the reader physically transmit before it answers.</summary>
+    private static readonly TimeSpan ControlReplyTimeout = TimeSpan.FromSeconds(2);
 
     public Task StartAsync(CancellationToken ct)
     {
@@ -225,11 +278,23 @@ public sealed class UhfSerialRfidReader : IRfidReader
                 var antenna = _antennas[antennaIndex % _antennas.Count];
                 antennaIndex++;
 
-                await SendAsync(UhfSerialCommand.SetWorkAntenna, [antenna], ct);
-                await TryAwaitFrameAsync(UhfSerialCommand.SetWorkAntenna, AntennaAckTimeout, ct);
+                // One round at a time on the wire, so a settings read cannot land in the middle of
+                // one. Taken per round rather than around the whole loop: a control operation should
+                // wait for the current round, not for the till to stop selling.
+                await _controlGate.WaitAsync(ct);
 
-                await SendAsync(UhfSerialCommand.RealTimeInventory, [RepeatFastest], ct);
-                await RunRoundAsync(ct);
+                try
+                {
+                    await SendAsync(UhfSerialCommand.SetWorkAntenna, [antenna], ct);
+                    await TryAwaitFrameAsync(UhfSerialCommand.SetWorkAntenna, AntennaAckTimeout, ct);
+
+                    await SendAsync(UhfSerialCommand.RealTimeInventory, [RepeatFastest], ct);
+                    await RunRoundAsync(ct);
+                }
+                finally
+                {
+                    _controlGate.Release();
+                }
             }
         }
         catch (OperationCanceledException)
