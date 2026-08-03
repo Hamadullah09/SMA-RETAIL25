@@ -139,6 +139,7 @@ export interface ProductForm {
   bonus: BonusPricing | null;
   suppliers: ProductSupplierRow[];
   kitComponents: KitComponentRow[];
+  hasImage: boolean;
   isDeleted: boolean;
   createdAt: string;
   modifiedAt: string | null;

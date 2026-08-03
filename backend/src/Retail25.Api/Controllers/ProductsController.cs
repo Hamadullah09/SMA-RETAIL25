@@ -1,10 +1,14 @@
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Net.Http.Headers;
 using Retail25.Api.Common;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Carts.Services;
+using Retail25.Application.Catalog;
 using Retail25.Domain.Catalog;
+using Retail25.Domain.Common;
 
 namespace Retail25.Api.Controllers;
 
@@ -16,11 +20,13 @@ public sealed class ProductsController : ControllerBase
 {
     private readonly IApplicationDbContext _db;
     private readonly IdentifierResolver _resolver;
+    private readonly ISender _sender;
 
-    public ProductsController(IApplicationDbContext db, IdentifierResolver resolver)
+    public ProductsController(IApplicationDbContext db, IdentifierResolver resolver, ISender sender)
     {
         _db = db;
         _resolver = resolver;
+        _sender = sender;
     }
 
     [HttpGet]
@@ -139,6 +145,92 @@ public sealed class ProductsController : ControllerBase
 
         await _db.SaveChangesAsync(ct);
         return Ok(product);
+    }
+
+    /// <summary>
+    /// The till's product grid: a page of items, the headings above them, and whether anything in
+    /// this filter has a picture to show.
+    /// </summary>
+    [HttpGet("grid")]
+    public async Task<IActionResult> Grid(
+        [FromQuery] Guid locationId,
+        [FromQuery] Guid? departmentId,
+        [FromQuery] Guid? categoryId,
+        [FromQuery] string? search,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 60,
+        CancellationToken ct = default)
+    {
+        var result = await _sender.Send(
+            new PosGridQuery(locationId, departmentId, categoryId, search, skip, take), ct);
+
+        return result.IsFailure ? ResultExtensions.Problem(result.Error, this) : Ok(result.Value);
+    }
+
+    /// <summary>
+    /// Serves an item's picture.
+    /// <para>
+    /// Cached hard and revalidated by ETag: a till redraws the same forty tiles on every category
+    /// change, and re-sending a megabyte of JPEG each time is the difference between a grid that
+    /// feels instant and one that does not. The tag changes with the bytes, so a replaced picture
+    /// still appears at once.
+    /// </para>
+    /// </summary>
+    [HttpGet("{id:guid}/image")]
+    [Produces("image/png", "image/jpeg", "image/webp")]
+    public async Task<IActionResult> GetImage(Guid id, CancellationToken ct)
+    {
+        var result = await _sender.Send(new GetProductImageQuery(id), ct);
+
+        if (result.IsFailure)
+        {
+            return ResultExtensions.Problem(result.Error, this);
+        }
+
+        var image = result.Value;
+        var etag = new EntityTagHeaderValue($"\"{image.ETag}\"");
+
+        Response.Headers.CacheControl = "private, max-age=86400, must-revalidate";
+
+        // Content-Type is chosen from an allow-list at upload, never echoed from the request, so it
+        // cannot be turned into a script type. nosniff stops a browser second-guessing that.
+        Response.Headers.XContentTypeOptions = "nosniff";
+
+        // No download name: this is rendered in an <img>, not saved, and naming it would invite a
+        // Content-Disposition the browser might act on.
+        return File(image.Content, image.ContentType, fileDownloadName: null, lastModified: null, entityTag: etag);
+    }
+
+    /// <summary>Attaches or replaces the picture shown on the till's product grid.</summary>
+    [HttpPut("{id:guid}/image")]
+    [RequestSizeLimit(ProductImage.MaximumBytes + 4096)]
+    public async Task<IActionResult> SetImage(Guid id, IFormFile file, CancellationToken ct)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return ResultExtensions.Problem(new Error("image.empty", "No file was uploaded."), this);
+        }
+
+        if (file.Length > ProductImage.MaximumBytes)
+        {
+            return ResultExtensions.Problem(ProductImage.TooLarge, this);
+        }
+
+        // Bounded by the check above, so this cannot be used to exhaust memory.
+        using var buffer = new MemoryStream((int)file.Length);
+        await file.CopyToAsync(buffer, ct);
+
+        var result = await _sender.Send(
+            new SetProductImageCommand(id, buffer.ToArray(), file.ContentType ?? string.Empty), ct);
+
+        return result.IsFailure ? ResultExtensions.Problem(result.Error, this) : NoContent();
+    }
+
+    [HttpDelete("{id:guid}/image")]
+    public async Task<IActionResult> RemoveImage(Guid id, CancellationToken ct)
+    {
+        var result = await _sender.Send(new RemoveProductImageCommand(id), ct);
+        return result.IsFailure ? ResultExtensions.Problem(result.Error, this) : NoContent();
     }
 }
 

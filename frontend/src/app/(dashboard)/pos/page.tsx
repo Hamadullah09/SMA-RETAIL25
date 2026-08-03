@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { HotkeyProvider, useHotkey } from '@/lib/hotkeys';
 import { usePosStore } from '@/stores/pos-store';
 import { posApi } from '@/lib/pos-api';
@@ -17,6 +17,7 @@ import {
   money,
 } from '@/components/pos/panels';
 import { TagFeed } from '@/components/pos/tag-feed';
+import { ProductGrid } from '@/components/pos/product-grid';
 import {
   CheatSheetDialog,
   ClientDialog,
@@ -73,6 +74,25 @@ function PosScreen() {
 
   const scanRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * Whether the product picker is showing. A till that mostly scans wants the room for the cart; a
+   * counter-service till lives in the picker. It is per-machine rather than per-user because it is a
+   * property of how that till is worked, and it survives a browser restart for the same reason the
+   * station id does.
+   */
+  const [gridOpen, setGridOpen] = useState(false);
+
+  useEffect(() => {
+    setGridOpen(window.localStorage.getItem('retail25.pos.grid-open') !== 'false');
+  }, []);
+
+  const toggleGrid = () => {
+    setGridOpen((open) => {
+      window.localStorage.setItem('retail25.pos.grid-open', String(!open));
+      return !open;
+    });
+  };
+
   useEffect(() => {
     if (!STATION_ID || !LOCATION_ID) return undefined;
 
@@ -106,6 +126,7 @@ function PosScreen() {
   useHotkey('F11', () => openDialog('special'), { label: 'Special menu', group: 'Sale' });
   useHotkey('F12', () => closeDialog(), { label: 'Close / cancel', group: 'Sale' });
   useHotkey('Ctrl+I', () => openDialog('staffSwitch'), { label: 'Enter staff ID', group: 'Session' });
+  useHotkey('Ctrl+G', () => toggleGrid(), { label: 'Show / hide products', group: 'Sale' });
   useHotkey('Ctrl+/', () => openDialog('cheatSheet'), {
     label: 'Shortcut cheat sheet',
     group: 'Help',
@@ -126,7 +147,7 @@ function PosScreen() {
   }
 
   return (
-    <div className="pos-layout bg-surface text-ink">
+    <div className="pos-layout bg-surface text-ink" data-grid={gridOpen ? 'open' : 'closed'}>
       <div className="pos-area-status space-y-2">
         <ConnectionBanner />
         <StatusBar />
@@ -144,6 +165,12 @@ function PosScreen() {
         <CartList />
       </div>
 
+      {gridOpen ? (
+        <div className="pos-area-grid min-h-0">
+          <ProductGrid />
+        </div>
+      ) : null}
+
       <div className="pos-area-side flex min-h-0 flex-col gap-2 overflow-y-auto">
         <CustomerPanel />
         <TotalsPanel />
@@ -160,6 +187,7 @@ function PosScreen() {
       <div className="pos-area-keys">
         <FunctionKeyBar
           keys={[
+            { key: 'Ctrl+G', label: gridOpen ? 'Hide items' : 'Show items', onSelect: toggleGrid },
             { key: 'F2', label: 'Find', onSelect: () => openDialog('find') },
             { key: 'F3', label: 'Credits', onSelect: () => openDialog('credits'), disabled: !cart },
             { key: 'F4', label: 'Pay', onSelect: () => openDialog('payment'), disabled: !hasLines },

@@ -4,6 +4,7 @@ import type {
   CartTotals,
   CompleteSaleResult,
   DrawerTotals,
+  PosGridPage,
   ProblemDetails,
   ProductVariant,
   SerializedUnit,
@@ -211,6 +212,25 @@ export const posApi = {
 
   searchProducts: (term: string, locationId: string) =>
     call<Product[]>(() => apiClient.get(`/products/search?term=${encodeURIComponent(term)}&locationId=${locationId}`)),
+
+  /** The till's product picker: one page of items plus the headings above them. */
+  grid: (options: {
+    locationId: string;
+    departmentId?: string | null;
+    categoryId?: string | null;
+    search?: string;
+    skip?: number;
+    take?: number;
+  }) => {
+    const params = new URLSearchParams({ locationId: options.locationId });
+    if (options.departmentId) params.set('departmentId', options.departmentId);
+    if (options.categoryId) params.set('categoryId', options.categoryId);
+    if (options.search) params.set('search', options.search);
+    if (options.skip) params.set('skip', String(options.skip));
+    if (options.take) params.set('take', String(options.take));
+
+    return call<PosGridPage>(() => apiClient.get(`/products/grid?${params.toString()}`));
+  },
 
   // The till's own endpoint, not the back-office browse: it returns a flat list of just enough to
   // choose from, rather than a page of addresses, balances and pricing profiles a cashier never sees.

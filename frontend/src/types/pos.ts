@@ -268,3 +268,37 @@ export interface ProblemDetails {
   code: string;
   arguments?: Record<string, unknown>;
 }
+
+/* ------------------------------------------------------------------ product grid */
+
+export interface PosGridItem {
+  id: string;
+  stockCode: string;
+  name: string;
+  regularPrice: number;
+  onHand: number;
+  type: string;
+  hasImage: boolean;
+  departmentId: string | null;
+  categoryId: string | null;
+}
+
+export interface PosGridGroup {
+  id: string;
+  name: string;
+  code: string | null;
+  sortOrder: number;
+  itemCount: number;
+}
+
+export interface PosGridPage {
+  items: PosGridItem[];
+  departments: PosGridGroup[];
+  categories: PosGridGroup[];
+  total: number;
+  /**
+   * Whether anything in the current filter has a picture. The grid opens as tiles when it does and
+   * as rows when it does not — a screen of identical placeholders is worse than a list.
+   */
+  anyImages: boolean;
+}

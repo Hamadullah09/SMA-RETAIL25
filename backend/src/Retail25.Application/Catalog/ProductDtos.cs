@@ -91,6 +91,7 @@ public sealed record ProductFormDto(
     BonusPricingDto? Bonus,
     IReadOnlyList<ProductSupplierDto> Suppliers,
     IReadOnlyList<KitComponentDto> KitComponents,
+    bool HasImage,
     bool IsDeleted,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ModifiedAt);

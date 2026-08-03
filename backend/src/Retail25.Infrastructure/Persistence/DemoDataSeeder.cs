@@ -77,6 +77,12 @@ public sealed class DemoDataSeeder
 
         if (await _db.Products.AnyAsync(p => p.StockCode.StartsWith(StockCodePrefix), ct))
         {
+            // Pictures arrived after the demo catalogue did, so a bench seeded before that has items
+            // and no images. Top them up rather than making people drop their database — the grid
+            // looks broken without them, and "delete everything and start again" is a poor answer to
+            // a feature being added.
+            await BackfillDemoImagesAsync(ct);
+
             _logger.LogInformation("Demo catalogue already present.");
             return;
         }
@@ -94,6 +100,58 @@ public sealed class DemoDataSeeder
             "Demo catalogue written: {Products} products, {Units} RFID tags",
             products.Count,
             units);
+    }
+
+    /// <summary>
+    /// Gives demo items their pictures when they were seeded before pictures existed.
+    /// <para>
+    /// Does nothing once any demo item has one, so it costs a single <c>EXISTS</c> on every later
+    /// start rather than a scan of the catalogue.
+    /// </para>
+    /// </summary>
+    private async Task BackfillDemoImagesAsync(CancellationToken ct)
+    {
+        if (await _db.Products.AnyAsync(p => p.StockCode.StartsWith(StockCodePrefix) && p.HasImage, ct))
+        {
+            return;
+        }
+
+        var products = await _db.Products
+            .Where(p => p.StockCode.StartsWith(StockCodePrefix) && !p.IsDeleted)
+            .OrderBy(p => p.StockCode)
+            .ToListAsync(ct);
+
+        var added = 0;
+
+        for (var index = 0; index < products.Count; index++)
+        {
+            // The same two-in-three spread the fresh seed uses, so a topped-up bench and a new one
+            // show the same mix of photographed and unphotographed items.
+            if ((index + 1) % 3 == 0)
+            {
+                continue;
+            }
+
+            var product = products[index];
+
+            var image = ProductImage.Create(
+                product.Id, DemoImageFactory.Create(product.StockCode), DemoImageFactory.ContentType);
+
+            if (image.IsFailure)
+            {
+                continue;
+            }
+
+            _db.ProductImages.Add(image.Value);
+            product.SetHasImage(true);
+            added++;
+        }
+
+        if (added > 0)
+        {
+            await _db.SaveChangesAsync(ct);
+            _logger.LogInformation("Demo catalogue topped up with {Count} pictures.", added);
+        }
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -314,6 +372,21 @@ public sealed class DemoDataSeeder
                 _db.StockLevels.Add(level);
 
                 AddTieredPrices(product, price);
+
+                // Roughly two items in three get a picture. Not all of them, on purpose: a real shop
+                // photographs its catalogue over months, and the till's grid has to look right when
+                // some tiles have a photograph and the rest fall back to a monogram.
+                if (sequence % 3 != 0)
+                {
+                    var image = ProductImage.Create(
+                        product.Id, DemoImageFactory.Create(stockCode), DemoImageFactory.ContentType);
+
+                    if (image.IsSuccess)
+                    {
+                        _db.ProductImages.Add(image.Value);
+                        product.SetHasImage(true);
+                    }
+                }
 
                 products.Add(product);
             }

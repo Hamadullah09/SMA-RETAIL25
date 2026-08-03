@@ -123,7 +123,16 @@ async function toNextResponse(response: Response): Promise<NextResponse> {
     }
   }
 
-  headers.set('Cache-Control', 'no-store');
+  // API responses are not cached by default — most of them are somebody's balance, price or sale, and
+  // a shared cache holding those is a data leak waiting for a shared machine. The exception is an
+  // upstream that explicitly said `private`: only the product-image endpoint does, and a till redrawing
+  // forty tiles per category change should not re-fetch forty JPEGs each time. `private` keeps them out
+  // of any shared cache, and the ETag means a replaced picture still appears at once.
+  const upstream = response.headers.get('cache-control');
+  headers.set(
+    'Cache-Control',
+    upstream?.toLowerCase().startsWith('private') ? upstream : 'no-store',
+  );
 
   return new NextResponse(response.body, { status: response.status, headers });
 }

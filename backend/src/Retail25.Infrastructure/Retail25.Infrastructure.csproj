@@ -35,4 +35,13 @@
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      The demo seeder writes PNG bytes by hand. That is the one piece of this assembly whose
+      correctness cannot be observed from outside it: a malformed chunk length or a wrong CRC still
+      stores and still serves, and only shows up as a broken image on a till.
+    -->
+    <InternalsVisibleTo Include="Retail25.IntegrationTests" />
+  </ItemGroup>
 </Project>

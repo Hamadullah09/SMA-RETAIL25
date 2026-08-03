@@ -13,6 +13,7 @@ import {
   SelectField,
   TextField,
 } from '@/components/masters/browse-form';
+import { ProductImageField } from '@/components/masters/product-image-field';
 import { MatrixEditor } from '@/components/masters/matrix-editor';
 import { PrintLabelsDialog } from '@/components/documents/print-labels-dialog';
 import { RecordPicker, type PickerOption } from '@/components/masters/record-picker';
@@ -388,6 +389,7 @@ const emptyForm: ProductForm = {
   bonus: null,
   suppliers: [],
   kitComponents: [],
+  hasImage: false,
   isDeleted: false,
   createdAt: '',
   modifiedAt: null,
@@ -572,6 +574,18 @@ function ProductFormPanel({
 
       {productId ? (
         <>
+          {/*
+            Below General rather than beside the stock code: the picture is optional and only affects
+            how the till draws the item, so it should not sit in the path of somebody entering a code
+            and a price.
+          */}
+          <ProductImageField
+            productId={productId}
+            hasImage={form.hasImage}
+            disabled={disabled}
+            onChanged={(hasImage) => patch({ hasImage })}
+          />
+
           <FormSection
             title="Taxes"
             hint="A tax is charged only if it is switched on here and on the POS tab of Setup."

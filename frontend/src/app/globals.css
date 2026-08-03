@@ -236,13 +236,45 @@
   padding: 8px;
 }
 
+/**
+ * With the product picker open, the cart gives up its slack to it and the sale itself is pinned to a
+ * width that still shows a full description. The picker takes the middle because that is where the
+ * eye already is between scanning and paying — putting it outboard of the totals would make every
+ * pick a glance across the whole screen.
+ */
+.pos-layout[data-grid='open'] {
+  grid-template-columns: minmax(0, 26rem) minmax(0, 1fr) 380px;
+  grid-template-areas:
+    'status status status'
+    'cart   grid   side'
+    'keys   keys   keys';
+}
+
 .pos-area-status { grid-area: status; }
 .pos-area-cart { grid-area: cart; min-height: 0; }
+.pos-area-grid { grid-area: grid; min-height: 0; }
 .pos-area-side { grid-area: side; min-height: 0; }
 .pos-area-keys { grid-area: keys; }
 
+/*
+ * Below this there is not room for three columns and a readable tile, so the picker folds away
+ * whatever the cashier last chose. F2 still finds anything; nothing becomes unreachable.
+ */
+@media (max-width: 1279px) {
+  .pos-layout[data-grid='open'] {
+    grid-template-columns: minmax(0, 1fr) 380px;
+    grid-template-areas:
+      'status status'
+      'cart   side'
+      'keys   keys';
+  }
+
+  .pos-area-grid { display: none; }
+}
+
 @media (max-width: 1024px) {
-  .pos-layout {
+  .pos-layout,
+  .pos-layout[data-grid='open'] {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
       'status'

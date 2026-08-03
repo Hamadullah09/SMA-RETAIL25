@@ -319,6 +319,7 @@ public sealed class BrowseProductsHandlers
                 referenced.TryGetValue(c.ComponentProductId, out var component) ? component.StockCode : string.Empty,
                 referenced.TryGetValue(c.ComponentProductId, out var named) ? named.Name : string.Empty,
                 c.Quantity)).ToList(),
+            product.HasImage,
             product.IsDeleted,
             product.CreatedAt,
             product.ModifiedAt));

@@ -71,7 +71,13 @@ public sealed class AuthApiFixture : WebApplicationFactory<Program>, IAsyncLifet
             .Build()
         : null;
 
-    private readonly RedisContainer? _redis = ExternalRedis is null
+    /// <summary>
+    /// A Redis container when Docker can provide one, and nothing at all when it cannot — see the
+    /// same field on <see cref="CommerceApiFixture"/>. Building it unconditionally threw in the
+    /// constructor on a bench with PostgreSQL but no daemon, turning "cannot run here" into eighteen
+    /// red tests that said nothing about the code.
+    /// </summary>
+    private readonly RedisContainer? _redis = ExternalRedis is null && DockerProbe.IsAvailable
         ? new RedisBuilder().WithImage("redis:7-alpine").Build()
         : null;
 
@@ -167,7 +173,11 @@ public sealed class AuthApiFixture : WebApplicationFactory<Program>, IAsyncLifet
             new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = _postgresConnection,
-                ["ConnectionStrings:Redis"] = _redis?.GetConnectionString() ?? ExternalRedis!,
+                ["ConnectionStrings:Redis"] = _redis?.GetConnectionString() ?? ExternalRedis ?? string.Empty,
+
+                // In-process when there is no Redis to be had. These tests are about tokens and
+                // antiforgery, not about where a hub ticket is kept.
+                ["Cache:Provider"] = _redis is null && ExternalRedis is null ? "InMemory" : "Redis",
 
                 // Migrate and seed on start: the Identity tables and the seeded roles are what these
                 // tests exercise.

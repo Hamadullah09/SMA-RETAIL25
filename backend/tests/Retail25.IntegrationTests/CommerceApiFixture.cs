@@ -48,7 +48,16 @@ public sealed class CommerceApiFixture : WebApplicationFactory<Program>, IAsyncL
             .Build()
         : null;
 
-    private readonly RedisContainer? _redis = ExternalRedis is null
+    /// <summary>
+    /// A Redis container when Docker can provide one, and nothing at all when it cannot.
+    /// <para>
+    /// Without the Docker check this constructor threw on a bench that had PostgreSQL but no daemon —
+    /// so the whole collection reported nine failures where it should have reported "cannot run here".
+    /// A distributed cache is not what these scenarios are about; when there is no Redis to be had the
+    /// application's own in-process provider stands in, and the scenarios still test what they claim to.
+    /// </para>
+    /// </summary>
+    private readonly RedisContainer? _redis = ExternalRedis is null && DockerProbe.IsAvailable
         ? new RedisBuilder().WithImage("redis:7-alpine").Build()
         : null;
 
@@ -132,7 +141,12 @@ public sealed class CommerceApiFixture : WebApplicationFactory<Program>, IAsyncL
             new Dictionary<string, string?>
             {
                 ["ConnectionStrings:DefaultConnection"] = _postgresConnection,
-                ["ConnectionStrings:Redis"] = _redis?.GetConnectionString() ?? ExternalRedis!,
+                ["ConnectionStrings:Redis"] = _redis?.GetConnectionString() ?? ExternalRedis ?? string.Empty,
+
+                // In-process when there is no Redis. Safe here for the reason it is not safe in a shop:
+                // cross-till tag arbitration is off, and this is one process running one till.
+                ["Cache:Provider"] = _redis is null && ExternalRedis is null ? "InMemory" : "Redis",
+
                 ["Database:Seed"] = "true",
 
                 // The scenarios need a location, a currency, tax rows, tenders and number sequences.

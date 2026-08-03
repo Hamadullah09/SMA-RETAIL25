@@ -36,6 +36,7 @@ public class ApplicationDbContext
     // --- Catalog ---
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductPrice> ProductPrices => Set<ProductPrice>();
+    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<PriceBreak> PriceBreaks => Set<PriceBreak>();
     public DbSet<SalePricing> SalePricings => Set<SalePricing>();
     public DbSet<BonusPricing> BonusPricings => Set<BonusPricing>();

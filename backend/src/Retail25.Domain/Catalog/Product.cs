@@ -83,6 +83,20 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
     /// <summary>Notes shown in product info panel (guide p.38).</summary>
     public string? Notes { get; private set; }
 
+    /// <summary>
+    /// Whether a picture exists for this item, without loading it.
+    /// <para>
+    /// Denormalised on purpose. The till's grid needs to know, for every item on screen at once,
+    /// whether to draw a tile or a row — and answering that by joining to the image table would pull
+    /// the bytes along with it, or cost a query per product. One bool on the row the grid is already
+    /// reading is the whole answer.
+    /// </para>
+    /// </summary>
+    public bool HasImage { get; private set; }
+
+    /// <summary>Kept in step by the command that writes the image; never set from a request body.</summary>
+    public void SetHasImage(bool hasImage) => HasImage = hasImage;
+
     // --- Relationships ---
 
     public Guid? DepartmentId { get; private set; }

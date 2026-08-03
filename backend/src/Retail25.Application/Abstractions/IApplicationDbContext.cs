@@ -24,6 +24,8 @@ public interface IApplicationDbContext
     // --- Catalog ---
     DbSet<Product> Products { get; }
     DbSet<ProductPrice> ProductPrices { get; }
+
+    DbSet<ProductImage> ProductImages { get; }
     DbSet<PriceBreak> PriceBreaks { get; }
     DbSet<SalePricing> SalePricings { get; }
     DbSet<BonusPricing> BonusPricings { get; }

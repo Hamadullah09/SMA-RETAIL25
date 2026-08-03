@@ -1,4 +1,30 @@
+import { existsSync, readFileSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+
+/**
+ * Reads `.env.local` the way `next dev` does, so the suite runs with the same station, location and
+ * credentials the app is already configured with.
+ * <p>
+ * Hand-rolled rather than pulled from `dotenv`: this needs `KEY=value` and nothing else, and the
+ * alternative is a dependency in the test config for fifteen lines of parsing. A real environment
+ * variable always wins, so CI can override anything here without editing a file.
+ */
+function loadEnvLocal(): void {
+  if (!existsSync('.env.local')) return;
+
+  for (const line of readFileSync('.env.local', 'utf8').split(/\r?\n/)) {
+    const match = /^\s*([A-Z0-9_]+)\s*=\s*(.*)$/i.exec(line);
+    if (!match) continue;
+
+    const [, key, rawValue] = match;
+    if (process.env[key] !== undefined) continue;
+
+    // Quotes are a shell convention, not part of the value.
+    process.env[key] = rawValue.trim().replace(/^(['"])(.*)\1$/, '$2');
+  }
+}
+
+loadEnvLocal();
 
 /**
  * End-to-end configuration.
