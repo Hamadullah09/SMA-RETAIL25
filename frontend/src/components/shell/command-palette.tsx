@@ -60,6 +60,7 @@ export function CommandPalette() {
       { id: 'admin', label: 'Administration', group: 'Go to', href: '/admin', keywords: 'setup configuration', permission: 'settings.read' },
       { id: 'setup', label: 'Setup', group: 'Go to', href: '/admin/settings', keywords: 'taxes pos printers hardware users stations tenders numbering departments categories groupings', permission: 'settings.read' },
       { id: 'undelete', label: 'Undelete items', group: 'Go to', href: '/admin/undelete', keywords: 'restore deleted recover', permission: 'catalog.delete' },
+      { id: 'rfid', label: 'RFID readers', group: 'Go to', href: '/admin/rfid', keywords: 'reader antenna power frequency region tags epc uhf hardware', permission: 'terminals.read' },
       { id: 'audit', label: 'Audit log', group: 'Go to', href: '/admin/audit', keywords: 'history who changed', permission: 'audit.read' },
       { id: 'signout', label: 'Sign out', group: 'Session', action: () => void signOut(), keywords: 'logout leave' },
     ],

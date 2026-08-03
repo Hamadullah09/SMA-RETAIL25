@@ -32,6 +32,25 @@ public sealed class TerminalsController : ControllerBase
     public async Task<IActionResult> Profile(Guid stationId)
         => (await _sender.Send(new GetTerminalProfileQuery(stationId))).ToActionResult(this);
 
+    // --- RFID reader configuration -----------------------------------------------------------
+    //
+    // Everything the vendor's Windows demo can set, set from here instead. The point is not to
+    // replace a tool that works: it is that a reader configured by hand is configured on one device,
+    // and a shop that swaps a failed unit for a spare then has a till nobody can explain. These
+    // settings live in the database, and the agent pushes them into whatever hardware it finds.
+
+    [HttpGet("readers")]
+    public async Task<IActionResult> Readers([FromQuery] Guid locationId)
+        => Ok(await _sender.Send(new ListReaderProfilesQuery(locationId)));
+
+    [HttpGet("readers/{id:guid}")]
+    public async Task<IActionResult> Reader(Guid id)
+        => (await _sender.Send(new GetReaderProfileQuery(id))).ToActionResult(this);
+
+    [HttpPut("readers/{id:guid}")]
+    public async Task<IActionResult> UpdateReader(Guid id, [FromBody] UpdateReaderProfileCommand request)
+        => (await _sender.Send(request with { Id = id })).ToActionResult(this);
+
     [HttpPut("{stationId:guid}/reader-mode")]
     public async Task<IActionResult> SetReaderMode(Guid stationId, [FromBody] ReaderModeRequest request)
         => (await _sender.Send(new SetReaderModeCommand(stationId, request.Mode))).ToActionResult(this);

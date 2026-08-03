@@ -12,14 +12,42 @@ namespace Retail25.TerminalAgent.Rfid;
 internal static class UhfSerialCommand
 {
     public const byte Reset = 0x70;
+    public const byte SetUartBaudrate = 0x71;
     public const byte GetFirmwareVersion = 0x72;
+    public const byte SetReaderAddress = 0x73;
     public const byte SetWorkAntenna = 0x74;
+    public const byte GetWorkAntenna = 0x75;
     public const byte SetOutputPower = 0x76;
+    public const byte GetOutputPower = 0x77;
     public const byte SetFrequencyRegion = 0x78;
+    public const byte GetFrequencyRegion = 0x79;
     public const byte SetBeeperMode = 0x7A;
+    public const byte GetReaderTemperature = 0x7B;
+    public const byte GetRfPortReturnLoss = 0x7E;
+
+    public const byte ReadGpioValue = 0x60;
+    public const byte WriteGpioValue = 0x61;
+    public const byte SetAntConnectionDetector = 0x62;
+    public const byte GetAntConnectionDetector = 0x63;
+    public const byte SetReaderIdentifier = 0x67;
+    public const byte GetReaderIdentifier = 0x68;
+    public const byte SetRfLinkProfile = 0x69;
+    public const byte GetRfLinkProfile = 0x6A;
 
     /// <summary>Streams each tag as it is seen, then a round-summary frame (§2.2.8, <c>0x89</c>).</summary>
     public const byte RealTimeInventory = 0x89;
+
+    /// <summary>Impinj Monza fast-TID read. Non-standard, and slower on tags that do not support it.</summary>
+    public const byte SetImpinjFastTid = 0x8C;
+    public const byte GetImpinjFastTid = 0x8E;
+
+    /// <summary>
+    /// Every opcode above was confirmed against a live D2184B (firmware 8.2) rather than transcribed:
+    /// each query was sent and its reply decoded. <c>GetRfLinkProfile</c> answering <c>0xD1</c> — the
+    /// profile the vendor's own demo labels "recommended and default" — is what pins the numbering
+    /// down, because a wrong opcode would have answered with a different shape or not at all.
+    /// </summary>
+    public const string VerifiedAgainst = "D2184B firmware 8.2, 2026-08-03";
 }
 
 /// <summary>

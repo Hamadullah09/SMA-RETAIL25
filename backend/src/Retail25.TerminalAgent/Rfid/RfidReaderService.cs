@@ -209,6 +209,28 @@ public sealed class RfidReaderService : BackgroundService
     }
 
     /// <summary>Applies a mode change from the server without dropping the session.</summary>
+    /// <summary>
+    /// What the attached reader reports about itself. Answers even with no reader connected, so a
+    /// settings screen on a misconfigured till says so rather than hanging.
+    /// </summary>
+    public Task<ReaderDiagnostics> ReadDiagnosticsAsync(CancellationToken ct)
+        => _reader is null
+            ? Task.FromResult(new ReaderDiagnostics { Unavailable = ["no reader is connected to this station"] })
+            : _reader.ReadDiagnosticsAsync(ct);
+
+    /// <summary>
+    /// Pushes the current profile into the device again, returning what it would not take.
+    /// <para>
+    /// The profile comes from <see cref="ProfileStore"/> rather than from the caller: the settings
+    /// are the server's to decide, and an endpoint that accepted them from the browser would be a way
+    /// to set a till's transmit power without passing through any permission check.
+    /// </para>
+    /// </summary>
+    public Task<IReadOnlyList<string>> ApplySettingsAsync(CancellationToken ct)
+        => _reader is null
+            ? Task.FromResult<IReadOnlyList<string>>(["no reader is connected to this station"])
+            : _reader.ApplySettingsAsync(_profiles.Reader, ct);
+
     public async Task ApplyModeAsync(ReaderMode mode, CancellationToken ct)
     {
         _profiles.SetMode(mode);

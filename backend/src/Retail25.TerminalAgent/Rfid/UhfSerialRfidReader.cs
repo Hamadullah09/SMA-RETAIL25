@@ -57,6 +57,21 @@ public sealed class UhfSerialRfidReader : IRfidReader
     private IReadOnlyList<byte> _antennas = [0];
     private volatile bool _running;
 
+    /// <summary>Kept so settings and diagnostics can open their own connection to the same reader.</summary>
+    private ReaderProfileContract? _profile;
+
+    /// <summary>
+    /// One control operation at a time. Two settings screens open at once would otherwise each open a
+    /// connection and interleave writes, and the reader would end up with a mixture of both.
+    /// </summary>
+    private readonly SemaphoreSlim _controlGate = new(1, 1);
+
+    /// <summary>
+    /// Four is the family's maximum and the D2184B's actual count. Only used to decide how many ports
+    /// to interrogate; a reader with fewer simply does not answer for the ones it lacks.
+    /// </summary>
+    private const int AntennaPorts = 4;
+
     public UhfSerialRfidReader(ILogger<UhfSerialRfidReader> logger) => _logger = logger;
 
     public string Description { get; private set; } = "UHF Serial";
@@ -67,6 +82,7 @@ public sealed class UhfSerialRfidReader : IRfidReader
     {
         ArgumentNullException.ThrowIfNull(profile);
 
+        _profile = profile;
         Description = $"UHF Serial {profile.Host}:{profile.Port}";
 
         _client = new TcpClient { NoDelay = true };
@@ -88,7 +104,75 @@ public sealed class UhfSerialRfidReader : IRfidReader
             "Connected to {Reader}, inventorying antennas {Antennas}",
             Description,
             AntennaZoneMap.Describe(checkoutAntennas));
+
+        // The device is configured from the profile on every connect, not only when the profile
+        // changes. A reader that has been swapped for a spare, factory-reset, or reconfigured by
+        // somebody with the vendor's demo open is otherwise silently running settings nobody chose.
+        var refused = await ApplySettingsAsync(profile, ct);
+
+        if (refused.Count > 0)
+        {
+            _logger.LogWarning(
+                "{Reader} would not accept: {Refused}. It is running its own settings for those.",
+                Description,
+                string.Join(", ", refused));
+        }
     }
+
+    public async Task<ReaderDiagnostics> ReadDiagnosticsAsync(CancellationToken ct)
+    {
+        if (_profile is null)
+        {
+            return new ReaderDiagnostics { Unavailable = ["the reader is not configured"] };
+        }
+
+        await _controlGate.WaitAsync(ct);
+
+        try
+        {
+            await using var channel = await OpenControlChannelAsync(ct);
+            return await UhfSerialSettings.ReadAsync(channel, AntennaPorts, ct);
+        }
+        catch (Exception ex) when (ex is SocketException or IOException or OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Could not read diagnostics from {Reader}", Description);
+            return new ReaderDiagnostics { Unavailable = ["the reader did not answer"] };
+        }
+        finally
+        {
+            _controlGate.Release();
+        }
+    }
+
+    public async Task<IReadOnlyList<string>> ApplySettingsAsync(ReaderProfileContract profile, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        _profile = profile;
+
+        await _controlGate.WaitAsync(ct);
+
+        try
+        {
+            await using var channel = await OpenControlChannelAsync(ct);
+            return await UhfSerialSettings.ApplyAsync(channel, profile, ct);
+        }
+        catch (Exception ex) when (ex is SocketException or IOException or OperationCanceledException)
+        {
+            _logger.LogWarning(ex, "Could not apply settings to {Reader}", Description);
+            return ["the reader did not answer"];
+        }
+        finally
+        {
+            _controlGate.Release();
+        }
+    }
+
+    private Task<UhfSerialControlChannel> OpenControlChannelAsync(CancellationToken ct)
+        => UhfSerialControlChannel.ConnectAsync(
+            _profile!.Host,
+            _profile.Port,
+            (byte)Math.Clamp(_profile.DeviceAddress, 0, 255),
+            ct);
 
     public Task StartAsync(CancellationToken ct)
     {

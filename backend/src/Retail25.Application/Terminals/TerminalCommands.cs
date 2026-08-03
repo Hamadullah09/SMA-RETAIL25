@@ -223,7 +223,22 @@ public sealed class TerminalHandlers
             profile.FlushIntervalMs,
             profile.MaxBatchSize,
             profile.AutoAcceptBatches,
-            profile.ContinuousMode);
+            profile.ContinuousMode,
+
+            // The reader's own hardware configuration travels with the rest of the profile, so the
+            // agent applies it on connect without a second round trip. Casts rather than mappings:
+            // both enums are the protocol's wire values, deliberately, so there is nothing to
+            // translate and nothing to get out of step.
+            profile.OutputPowerDbm,
+            (Contracts.Terminals.RadioRegion)profile.Region,
+            profile.FrequencyStartIndex,
+            profile.FrequencyEndIndex,
+            (Contracts.Terminals.RfLinkProfile)profile.LinkProfile,
+            (Contracts.Terminals.BeeperMode)profile.Beeper,
+            profile.AntennaReturnLossThresholdDb,
+            profile.ImpinjFastTid,
+            profile.DenseReaderMode,
+            profile.DeviceAddress);
 
     private static PrinterProfileContract? ToContract(PrinterProfile? profile) => profile is null
         ? null

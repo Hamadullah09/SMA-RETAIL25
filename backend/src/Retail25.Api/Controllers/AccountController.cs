@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 using Retail25.Application.Abstractions;
 using Retail25.Domain.Security;
 using Retail25.Infrastructure.Identity;
@@ -28,17 +29,23 @@ public sealed class AccountController : Controller
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IAuditWriter _audit;
     private readonly IAntiforgery _antiforgery;
+    private readonly AntiforgeryOptions _antiforgeryOptions;
+    private readonly ILogger<AccountController> _logger;
 
     public AccountController(
         SignInManager<ApplicationUser> signInManager,
         UserManager<ApplicationUser> userManager,
         IAuditWriter audit,
-        IAntiforgery antiforgery)
+        IAntiforgery antiforgery,
+        IOptions<AntiforgeryOptions> antiforgeryOptions,
+        ILogger<AccountController> logger)
     {
         _signInManager = signInManager;
         _userManager = userManager;
         _audit = audit;
         _antiforgery = antiforgery;
+        _antiforgeryOptions = antiforgeryOptions.Value;
+        _logger = logger;
     }
 
     [HttpGet("login")]
@@ -73,8 +80,26 @@ public sealed class AccountController : Controller
         {
             await _antiforgery.ValidateRequestAsync(HttpContext);
         }
-        catch (AntiforgeryValidationException)
+        catch (AntiforgeryValidationException failure)
         {
+            // Throw the cookie away before redirecting.
+            //
+            // This is what makes the retry actually work. The common cause is a cookie this process
+            // cannot decrypt — one issued under a keyring that has since been replaced. The framework
+            // treats an undecryptable cookie as absent and mints a new one, but the old one is still
+            // in the browser, and if it is ever the one presented back the failure repeats: the user
+            // sees "that form had expired" every single time, with no way out but clearing cookies.
+            //
+            // Deleting it explicitly means the next GET starts from nothing, so the pair it issues is
+            // guaranteed self-consistent. One retry, deterministically, instead of a loop.
+            Response.Cookies.Delete(_antiforgeryOptions.Cookie.Name ?? ".AspNetCore.Antiforgery");
+
+            // The reason is logged, not shown. "Could not be decrypted" and "did not match" have very
+            // different causes — a rotated keyring against a genuine forgery — and telling them apart
+            // from the outside would take a support call.
+            _logger.LogInformation(
+                failure, "A sign-in form was rejected and its antiforgery cookie cleared; the retry will mint a new one.");
+
             // A stale form, not an attack — and certainly not a server fault.
             //
             // The token is bound to the identity that fetched the page, so it stops matching the

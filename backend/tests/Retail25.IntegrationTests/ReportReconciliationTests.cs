@@ -109,7 +109,12 @@ public sealed class ReportReconciliationTests
     /// The headline number. If sales analysis and the sales log disagree, one of the two screens a
     /// manager reconciles the drawer against is lying.
     /// </summary>
-    [RequiresDockerFact]
+    // Needs a database of its own. Both this and the tax-exempt assertion below measure the whole
+    // location for the whole day, and that number is only answerable when nothing else has rung a
+    // sale into it. On the shared-database fallback a previous run's taxed sale sits in the same
+    // window and the two figures differ by exactly its tax — a real difference, correctly reported,
+    // about data this test did not create.
+    [RequiresIsolatedDatabaseFact]
     public async Task Sales_analysis_reconciles_against_the_sales_log()
     {
         var scenario = await Scenario();
@@ -234,7 +239,8 @@ public sealed class ReportReconciliationTests
     }
 
     /// <summary>A tax report that invents tax on exempt goods is an error that reaches a tax authority.</summary>
-    [RequiresDockerFact]
+    // Whole-location, whole-day, for the same reason as above.
+    [RequiresIsolatedDatabaseFact]
     public async Task The_tax_report_collects_nothing_on_exempt_goods()
     {
         var scenario = await Scenario();

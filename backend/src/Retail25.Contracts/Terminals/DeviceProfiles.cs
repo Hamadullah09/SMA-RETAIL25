@@ -24,6 +24,42 @@ public enum ReaderProtocol
 }
 
 /// <summary>
+/// The regulatory band a reader may transmit in. Values are the wire values of the UHF serial
+/// protocol's <c>SetFrequencyRegion</c>, so this enum is the protocol rather than a mapping onto it.
+/// </summary>
+public enum RadioRegion
+{
+    /// <summary>865.1–867.9 MHz. Europe and most of the world outside the Americas.</summary>
+    Etsi = 1,
+
+    /// <summary>902.75–927.25 MHz. North America.</summary>
+    Fcc = 2,
+
+    /// <summary>920.125–924.875 MHz. Mainland China.</summary>
+    Chn = 3,
+}
+
+/// <summary>Reader-to-tag data rate and encoding. Protocol wire values.</summary>
+public enum RfLinkProfile
+{
+    Fm0_40kHz = 0xD0,
+
+    /// <summary>The vendor's default, and ours: the one that works in a shop.</summary>
+    Miller4_250kHz = 0xD1,
+
+    Miller4_300kHz = 0xD2,
+    Fm0_400kHz = 0xD3,
+}
+
+/// <summary>When the reader's own buzzer sounds. Protocol wire values.</summary>
+public enum BeeperMode
+{
+    Quiet = 0,
+    AfterInventory = 1,
+    EveryTag = 2,
+}
+
+/// <summary>
 /// The reader's wiring and its scepticism settings.
 /// <para>
 /// Endpoint, antenna zoning, RSSI floor, read-count floor and both debounce windows are all values
@@ -46,7 +82,22 @@ public sealed record ReaderProfileContract(
     int FlushIntervalMs,
     int MaxBatchSize,
     bool AutoAcceptBatches,
-    bool ContinuousMode);
+    bool ContinuousMode,
+
+    // The reader's own hardware configuration, pushed to the device on every connect. Defaulted so
+    // an older server talking to a newer agent still produces a usable profile rather than a
+    // deserialisation failure — and so the defaults are the conservative ones: quiet, legal band,
+    // the vendor's recommended link profile.
+    string OutputPowerDbm = "30",
+    RadioRegion Region = RadioRegion.Fcc,
+    int FrequencyStartIndex = 0,
+    int FrequencyEndIndex = 0,
+    RfLinkProfile LinkProfile = RfLinkProfile.Miller4_250kHz,
+    BeeperMode Beeper = BeeperMode.Quiet,
+    int AntennaReturnLossThresholdDb = 0,
+    bool ImpinjFastTid = false,
+    bool DenseReaderMode = false,
+    int DeviceAddress = 0xFF);
 
 /// <summary>
 /// Printer wiring. Every escape sequence is a decimal-ASCII string, because Epson cuts with

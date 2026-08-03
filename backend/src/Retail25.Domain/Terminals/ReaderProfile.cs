@@ -33,6 +33,62 @@ public enum AntennaZone
 }
 
 /// <summary>
+/// The regulatory band a reader may transmit in.
+/// <para>
+/// Values are the wire values of the UHF serial protocol's <c>SetFrequencyRegion</c>, so the enum is
+/// the protocol rather than a translation of it. Which one is legal is decided by where the shop is,
+/// not by what reads best — a reader on FCC channels in Europe is unlicensed transmission.
+/// </para>
+/// </summary>
+public enum RadioRegion
+{
+    /// <summary>865.1–867.9 MHz. Europe and most of the world outside the Americas.</summary>
+    Etsi = 1,
+
+    /// <summary>902.75–927.25 MHz. North America.</summary>
+    Fcc = 2,
+
+    /// <summary>920.125–924.875 MHz. Mainland China.</summary>
+    Chn = 3,
+}
+
+/// <summary>
+/// The reader-to-tag data rate and encoding.
+/// <para>
+/// Values are the protocol's own. The trade is range against speed: FM0 at 400 kHz empties a full
+/// basket fastest and is the least tolerant of a noisy room, while Miller-4 at 250 kHz is what the
+/// vendor ships as the default because it is the one that works in a shop.
+/// </para>
+/// </summary>
+public enum RfLinkProfile
+{
+    /// <summary>Tari 25 µs, FM0, 40 kHz. Slowest and most robust.</summary>
+    Fm0_40kHz = 0xD0,
+
+    /// <summary>Tari 25 µs, Miller 4, 250 kHz. The vendor's default, and ours.</summary>
+    Miller4_250kHz = 0xD1,
+
+    /// <summary>Tari 25 µs, Miller 4, 300 kHz.</summary>
+    Miller4_300kHz = 0xD2,
+
+    /// <summary>Tari 6.25 µs, FM0, 400 kHz. Fastest, shortest range.</summary>
+    Fm0_400kHz = 0xD3,
+}
+
+/// <summary>When the reader's buzzer sounds. Wire values of <c>SetBeeperMode</c>.</summary>
+public enum BeeperMode
+{
+    /// <summary>Silent. The default: the till gives its own feedback, and two beeps is one too many.</summary>
+    Quiet = 0,
+
+    /// <summary>One beep when a round of inventory finishes.</summary>
+    AfterInventory = 1,
+
+    /// <summary>A beep per tag. Useful when commissioning stock, unbearable at a checkout.</summary>
+    EveryTag = 2,
+}
+
+/// <summary>
 /// How a reader is reached and how sceptical to be about what it reports (doc 06 §2).
 /// <para>
 /// Bulk RFID at a checkout desk reads things nobody intended to sell. Every control that keeps those
@@ -91,6 +147,74 @@ public sealed class ReaderProfile : Entity, IAuditable, IStationScopedProfile
 
     /// <summary>Read continuously, or only while the cashier holds the read open.</summary>
     public bool ContinuousMode { get; set; }
+
+    // -----------------------------------------------------------------------------------------
+    // Reader hardware settings
+    //
+    // These are the reader's own configuration — the things the vendor's Windows demo writes over
+    // the serial protocol. They live here, on the profile, rather than being left in the device,
+    // because a reader is a replaceable part: swap a failed unit for a spare and the till should
+    // work the same afternoon without anyone remembering what the old one was set to. The agent
+    // applies the whole set on every connect, so the database is the truth and the device is a
+    // cache of it.
+    // -----------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Transmit power in dBm per antenna port, comma-separated, lowest port first ("30,30,30,30").
+    /// <para>
+    /// Per port because they do different jobs: a checkout antenna wants only enough power to reach
+    /// the counter, while a door antenna wants the range. One figure for all four is how a checkout
+    /// starts reading the shelf behind it.
+    /// </para>
+    /// </summary>
+    public string OutputPowerDbm { get; set; } = "30";
+
+    /// <summary>Which regulatory band the radio may use. Getting this wrong is an offence, not a setting.</summary>
+    public RadioRegion Region { get; set; } = RadioRegion.Fcc;
+
+    /// <summary>
+    /// The slice of the region's band actually used, as the protocol's own channel indices.
+    /// <para>
+    /// Kept as indices rather than megahertz because that is what the reader accepts, and converting
+    /// in only one direction is how a value drifts every time it is read and written back.
+    /// </para>
+    /// </summary>
+    public int FrequencyStartIndex { get; set; }
+
+    public int FrequencyEndIndex { get; set; }
+
+    /// <summary>Data rate and encoding. See <see cref="RfLinkProfile"/>.</summary>
+    public RfLinkProfile LinkProfile { get; set; } = RfLinkProfile.Miller4_250kHz;
+
+    public BeeperMode Beeper { get; set; } = BeeperMode.Quiet;
+
+    /// <summary>
+    /// Return loss, in dB, above which the reader refuses to transmit on a port.
+    /// <para>
+    /// Zero disables the check. It is worth having on: transmitting into a disconnected or damaged
+    /// antenna reflects the power back into the output stage, and the reader that has been doing it
+    /// for a month is the one that fails on a Saturday.
+    /// </para>
+    /// </summary>
+    public int AntennaReturnLossThresholdDb { get; set; }
+
+    /// <summary>
+    /// Impinj's non-standard fast-TID read. Only Monza tags support it, and on tags that do not it
+    /// makes inventory slower rather than faster — so it is off unless a shop knows its stock.
+    /// </summary>
+    public bool ImpinjFastTid { get; set; }
+
+    /// <summary>Dense-reader mode: worth having where several readers share a ceiling, costly where they do not.</summary>
+    public bool DenseReaderMode { get; set; }
+
+    /// <summary>
+    /// The unit's RS-485 address, for the one deployment that daisy-chains readers on a bus.
+    /// <para>
+    /// 255 (0xFF) is the protocol's broadcast address and is the sensible default: every reader
+    /// answers to it whatever it has actually been given, so a single-reader till never needs to know.
+    /// </para>
+    /// </summary>
+    public int DeviceAddress { get; set; } = 0xFF;
 
     public bool IsActive { get; set; } = true;
 
