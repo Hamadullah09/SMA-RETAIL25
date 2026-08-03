@@ -165,4 +165,34 @@ public sealed class SerializedUnit : Entity, IAuditable
     /// deduct from stock.
     /// </summary>
     public void AssignVariant(Guid? variantId) => VariantId = variantId;
+
+    public static readonly Error CannotReassign = new(
+        "unit.cannot_reassign",
+        "Only a tag that is in stock can be moved to a different item.");
+
+    /// <summary>
+    /// Moves this tag to a different product.
+    /// <para>
+    /// A real operation, not a repair: tags get applied to the wrong item during goods-in, and a roll
+    /// of pre-encoded labels gets reused when a line is discontinued. Without it the only remedy is
+    /// throwing the tag away, which for a shop with a few hundred of them is a real cost.
+    /// </para>
+    /// <para>
+    /// Only from <see cref="SerializedUnitState.InStock"/>. A tag on somebody's cart would move
+    /// under them mid-sale, and one already sold is part of a receipt and a stock movement that
+    /// happened — changing what it refers to would rewrite both.
+    /// </para>
+    /// </summary>
+    public Result ReassignTo(Guid productId, Guid? variantId = null)
+    {
+        if (State != SerializedUnitState.InStock)
+        {
+            return Result.Failure(CannotReassign.With("state", State.ToString()));
+        }
+
+        ProductId = productId;
+        VariantId = variantId;
+
+        return Result.Success();
+    }
 }

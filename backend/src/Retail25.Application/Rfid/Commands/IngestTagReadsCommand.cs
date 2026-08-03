@@ -150,3 +150,64 @@ public sealed class CommissionTagHandler : IRequestHandler<CommissionTagCommand,
         return Result.Success(unit.Id);
     }
 }
+
+/// <summary>
+/// Points an already-commissioned tag at a different item.
+/// <para>
+/// Tags get applied to the wrong thing at goods-in, and pre-encoded label rolls get reused when a
+/// line is discontinued. Without this the remedy is binning the tag, which for a shop holding a few
+/// hundred of them is a real cost — and the same permission as commissioning covers it, because it
+/// is the same decision made twice.
+/// </para>
+/// </summary>
+[RequiresPermission(PermissionKeys.Catalog.Write)]
+public sealed record ReassignTagCommand(string Epc, Guid ProductId, Guid? VariantId = null)
+    : IRequest<Result<Guid>>;
+
+public sealed class ReassignTagHandler : IRequestHandler<ReassignTagCommand, Result<Guid>>
+{
+    public static readonly Error NotFound = new("epc.unknown", "That tag is not associated with anything yet.");
+
+    private readonly IApplicationDbContext _db;
+    private readonly TagStreamRegistry _tagStreams;
+
+    public ReassignTagHandler(IApplicationDbContext db, TagStreamRegistry tagStreams)
+    {
+        _db = db;
+        _tagStreams = tagStreams;
+    }
+
+    public async Task<Result<Guid>> Handle(ReassignTagCommand request, CancellationToken ct)
+    {
+        var epc = request.Epc.Trim().ToUpperInvariant();
+
+        var unit = await _db.SerializedUnits.FirstOrDefaultAsync(u => u.Epc == epc, ct);
+
+        if (unit is null)
+        {
+            return Result.Failure<Guid>(NotFound.With("epc", epc));
+        }
+
+        var product = await _db.Products.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == request.ProductId && !p.IsDeleted, ct);
+
+        if (product is null)
+        {
+            return Result.Failure<Guid>(CommissionTagHandler.ProductNotFound.With("productId", request.ProductId));
+        }
+
+        var moved = unit.ReassignTo(request.ProductId, request.VariantId);
+        if (moved.IsFailure)
+        {
+            return Result.Failure<Guid>(moved.Error);
+        }
+
+        await _db.SaveChangesAsync(ct);
+
+        // The feed caches what a tag resolved to, so a till would otherwise keep announcing the old
+        // item — by name, on screen, to a cashier holding the new one.
+        _tagStreams.ForgetCatalogue(epc);
+
+        return Result.Success(unit.Id);
+    }
+}

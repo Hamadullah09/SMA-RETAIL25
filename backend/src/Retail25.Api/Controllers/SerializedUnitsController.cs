@@ -41,6 +41,14 @@ public sealed class SerializedUnitsController : ControllerBase
             request.VariantId,
             request.SerialNumber))).ToActionResult(this);
 
+    /// <summary>Moves a tag that is already mapped onto a different item.</summary>
+    [HttpPost("reassign")]
+    public async Task<IActionResult> Reassign([FromBody] ReassignTagRequest request)
+        => (await _sender.Send(new ReassignTagCommand(
+            request.Epc,
+            request.ProductId,
+            request.VariantId))).ToActionResult(this);
+
     /// <summary>Commissions a delivery's worth of tags at once, reporting each tag's outcome.</summary>
     [HttpPost("commission-batch")]
     public async Task<IActionResult> CommissionBatch([FromBody] CommissionBatchRequest request)
@@ -79,6 +87,8 @@ public sealed class MatrixController : ControllerBase
         [FromQuery] bool inStockOnly = false)
         => Ok(await _sender.Send(new ListVariantsQuery(productId, locationId, inStockOnly)));
 }
+
+public sealed record ReassignTagRequest(string Epc, Guid ProductId, Guid? VariantId = null);
 
 public sealed record CommissionTagRequest(
     string Epc,
