@@ -63,6 +63,12 @@ public sealed class CommerceApiFixture : WebApplicationFactory<Program>, IAsyncL
 
     private string _postgresConnection = string.Empty;
 
+    /// <summary>
+    /// Where this fixture's database actually is, for a test that needs to stand a second, separate
+    /// service provider over the same data — the closest a test gets to "the process restarted".
+    /// </summary>
+    public string ConnectionString => _postgresConnection;
+
     /// <summary>The acting user. Mutable so a scenario can act as a specific staff member.</summary>
     public TestCurrentUser ActingUser { get; } = new();
 

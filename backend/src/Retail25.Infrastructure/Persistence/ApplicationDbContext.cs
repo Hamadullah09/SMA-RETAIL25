@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
@@ -26,12 +27,31 @@ namespace Retail25.Infrastructure.Persistence;
 /// </para>
 /// </summary>
 public class ApplicationDbContext
-    : IdentityDbContext<Identity.ApplicationUser, Identity.ApplicationRole, Guid>, IApplicationDbContext
+    : IdentityDbContext<Identity.ApplicationUser, Identity.ApplicationRole, Guid>,
+      IApplicationDbContext,
+      IDataProtectionKeyContext
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
     {
     }
+
+    /// <summary>
+    /// The Data Protection keyring.
+    /// <para>
+    /// Every antiforgery token, authentication cookie and OpenIddict token in this system is
+    /// encrypted with a key from here. Left to its default the framework writes that keyring to a
+    /// per-user folder under the profile of whoever started the process — which is not shared between
+    /// two API replicas, and does not exist at all in a container. Either way the keys are effectively
+    /// new on every start, and everything issued before it stops decrypting: sessions end, and a login
+    /// page fetched a moment earlier comes back "that form had expired".
+    /// </para>
+    /// <para>
+    /// In the database instead. It is already the one thing every replica shares and every deployment
+    /// backs up, and it means a restart is invisible to whoever was signed in.
+    /// </para>
+    /// </summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     // --- Catalog ---
     public DbSet<Product> Products => Set<Product>();

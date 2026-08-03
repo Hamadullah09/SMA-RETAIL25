@@ -129,7 +129,30 @@ public sealed class RegistrationController : ControllerBase
         }
 
         var role = _configuration["Auth:SelfRegistration:Role"] ?? "Trainee";
-        await _users.AddToRoleAsync(user, role);
+        var granted = await _users.AddToRoleAsync(user, role);
+
+        if (!granted.Succeeded)
+        {
+            // Almost always a configured role that does not exist. Ignoring it produced the worst
+            // possible outcome: a 201, a working password, and an account with no role and therefore
+            // no permission to do anything — which reads to whoever signed up as the application
+            // being broken rather than as their account being incomplete.
+            //
+            // The account is removed rather than left behind, so the address stays free and the
+            // person can sign up again once the configuration is fixed.
+            _logger.LogError(
+                "Self sign-up rolled back: role {Role} could not be granted ({Errors}). "
+                + "Auth:SelfRegistration:Role must name a role that exists.",
+                role,
+                string.Join("; ", granted.Errors.Select(e => e.Description)));
+
+            await _users.DeleteAsync(user);
+
+            return Problem(
+                title: "registration.unavailable",
+                detail: "Accounts cannot be created just now. Please ask an administrator.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
 
         // Sales are attributed to staff, not to Identity users, so an account with no profile cannot
         // touch a till at all.

@@ -42,8 +42,20 @@ public sealed class AccountController : Controller
     }
 
     [HttpGet("login")]
-    public IActionResult Login(string? returnUrl = null, string? error = null)
-        => Content(RenderLoginPage(returnUrl, error), "text/html; charset=utf-8");
+    public IActionResult Login(string? returnUrl = null, string? error = null, string? username = null)
+    {
+        // Never cached, and never restored from the back-forward cache.
+        //
+        // The page carries a single-use antiforgery token bound to the cookie set alongside it. A
+        // browser that re-shows a copy from history hands back a token the server has already moved
+        // past, and the only symptom is "that form had expired" on a form the user has just this
+        // moment filled in. no-store is what keeps the token on screen and the token on the cookie the
+        // same one.
+        Response.Headers.CacheControl = "no-store, no-cache, must-revalidate";
+        Response.Headers.Pragma = "no-cache";
+
+        return Content(RenderLoginPage(returnUrl, error, username), "text/html; charset=utf-8");
+    }
 
     // Validated by hand rather than [ValidateAntiForgeryToken]: that attribute resolves
     // ValidateAntiforgeryTokenAuthorizationFilter, which only ASP.NET Core's MVC *Views* feature
@@ -79,7 +91,7 @@ public sealed class AccountController : Controller
                 operation: "password",
                 reason: "Stale antiforgery token");
 
-            return Redirect(LoginUrl(returnUrl, "That form had expired. Please try again."));
+            return Redirect(LoginUrl(returnUrl, "That form had expired. Please try again.", form.Username));
         }
 
         var user = await _userManager.FindByNameAsync(form.Username ?? string.Empty)
@@ -94,8 +106,10 @@ public sealed class AccountController : Controller
                 reason: "Unknown or disabled account");
 
             // One message for every failure mode: distinguishing "no such user" from "wrong
-            // password" turns the form into an account-enumeration oracle.
-            return Redirect(LoginUrl(returnUrl, "Those details were not recognised."));
+            // password" turns the form into an account-enumeration oracle. The username is echoed
+            // back for the same reason it is on every other path — it is not a secret, and retyping
+            // an email address after each attempt is how a typo becomes a lockout.
+            return Redirect(LoginUrl(returnUrl, "Those details were not recognised.", form.Username));
         }
 
         var result = await _signInManager.PasswordSignInAsync(
@@ -113,7 +127,18 @@ public sealed class AccountController : Controller
                 "password",
                 reason: "Account locked out");
 
-            return Redirect(LoginUrl(returnUrl, "This account is temporarily locked. Try again shortly."));
+            // How long, not "shortly". Someone locked out with no idea whether to wait a minute or an
+            // hour retries immediately, which on a sliding lockout is how they stay locked out.
+            var until = await _userManager.GetLockoutEndDateAsync(user);
+            var minutes = until is { } end
+                ? (int)Math.Max(1, Math.Ceiling((end - DateTimeOffset.UtcNow).TotalMinutes))
+                : 0;
+
+            var message = minutes > 0
+                ? $"This account is locked. Try again in {minutes} minute{(minutes == 1 ? string.Empty : "s")}."
+                : "This account is temporarily locked. Try again shortly.";
+
+            return Redirect(LoginUrl(returnUrl, message, form.Username));
         }
 
         if (!result.Succeeded)
@@ -125,7 +150,7 @@ public sealed class AccountController : Controller
                 "password",
                 reason: "Incorrect password");
 
-            return Redirect(LoginUrl(returnUrl, "Those details were not recognised."));
+            return Redirect(LoginUrl(returnUrl, "Those details were not recognised.", form.Username));
         }
 
         return Redirect(returnUrl);
@@ -156,14 +181,20 @@ public sealed class AccountController : Controller
         return Redirect("/");
     }
 
-    private static string LoginUrl(string returnUrl, string error)
-        => $"/account/login?returnUrl={WebUtility.UrlEncode(returnUrl)}&error={WebUtility.UrlEncode(error)}";
+    private static string LoginUrl(string returnUrl, string error, string? username = null)
+    {
+        var url = $"/account/login?returnUrl={WebUtility.UrlEncode(returnUrl)}&error={WebUtility.UrlEncode(error)}";
+
+        return string.IsNullOrWhiteSpace(username)
+            ? url
+            : $"{url}&username={WebUtility.UrlEncode(username.Trim())}";
+    }
 
     /// <summary>
     /// Hand-rendered rather than templated. The API has no view engine, and adding one for a single
     /// form would pull a rendering pipeline into the process that holds the signing keys.
     /// </summary>
-    private string RenderLoginPage(string? returnUrl, string? error)
+    private string RenderLoginPage(string? returnUrl, string? error, string? username)
     {
         var antiforgery = _antiforgery.GetAndStoreTokens(HttpContext);
 
@@ -215,13 +246,21 @@ public sealed class AccountController : Controller
                 .Append("</p>");
         }
 
-        page.Append("""
-                <label for="username">Username or email</label>
-                <input id="username" name="username" autocomplete="username" autofocus required>
+        // The username is put back and the cursor moves to the password. After a failed attempt the
+        // thing that needs retyping is the password, and sending the caret back to a field that is
+        // already correct is how the second attempt gets the same typo as the first.
+        var remembered = username?.Trim() ?? string.Empty;
 
-                <label for="password">Password</label>
-                <input id="password" name="password" type="password" autocomplete="current-password" required>
-            """);
+        page.Append("<label for=\"username\">Username or email</label>")
+            .Append("<input id=\"username\" name=\"username\" autocomplete=\"username\" required value=\"")
+            .Append(WebUtility.HtmlEncode(remembered))
+            .Append('"')
+            .Append(remembered.Length == 0 ? " autofocus" : string.Empty)
+            .Append('>')
+            .Append("<label for=\"password\">Password</label>")
+            .Append("<input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required")
+            .Append(remembered.Length == 0 ? string.Empty : " autofocus")
+            .Append('>');
 
         page.Append("<input type=\"hidden\" name=\"returnUrl\" value=\"")
             .Append(WebUtility.HtmlEncode(returnUrl ?? "/"))

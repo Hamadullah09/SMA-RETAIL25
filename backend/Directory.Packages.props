@@ -37,6 +37,7 @@
 
   <ItemGroup Label="Identity and auth">
     <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.11" />
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="8.0.11" />
     <PackageVersion Include="OpenIddict.AspNetCore" Version="5.8.0" />
     <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="5.8.0" />
     <PackageVersion Include="OpenIddict.Validation.AspNetCore" Version="5.8.0" />

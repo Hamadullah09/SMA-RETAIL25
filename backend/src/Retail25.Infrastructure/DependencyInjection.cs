@@ -1,6 +1,7 @@
 using Hangfire;
 using Hangfire.PostgreSql;
 using MediatR;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -49,6 +50,23 @@ public static class DependencyInjection
 
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<ApplicationDbContext>());
         services.AddScoped<ISequenceGenerator, SequenceGenerator>();
+
+        // The keyring behind every cookie, antiforgery token and OpenIddict token this system issues.
+        //
+        // Both calls matter and for different reasons. PersistKeysToDbContext puts the keys somewhere
+        // every replica can read and every restart can find; the default is a folder under the
+        // starting user's profile, which a container does not have and two replicas do not share, so
+        // keys are effectively regenerated on each start and everything issued before it stops
+        // decrypting. SetApplicationName fixes the isolation discriminator, which otherwise derives
+        // from the content-root path — so the same deployment unpacked to a different directory, or
+        // run from the SDK rather than a published folder, silently cannot read its own keys.
+        //
+        // The symptom of either is identical and misleading: sessions end at every restart, and a
+        // login page fetched moments earlier comes back "that form had expired".
+        services
+            .AddDataProtection()
+            .SetApplicationName("Retail25")
+            .PersistKeysToDbContext<ApplicationDbContext>();
 
         // Identity, OpenIddict and the permission resolver. Registered here rather than in the API
         // so a background job or an integration test gets the same authorisation model.
