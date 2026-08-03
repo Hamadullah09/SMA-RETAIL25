@@ -106,7 +106,13 @@ public sealed class DbfReader : IDisposable
     {
         ArgumentNullException.ThrowIfNull(table);
 
-        var resolved = encoding ?? Cp1252();
+        // The file is asked what it is before being told. An explicit encoding still wins — a caller
+        // who knows better than the header is usually right about a thirty-year-old file — but with
+        // nothing supplied, byte 29 is the one piece of evidence available, and ignoring it in favour
+        // of a flat CP1252 assumption silently corrupts every accented name in a catalogue exported
+        // from a DOS-era till. "Café" becoming "Caf‚" is not an error anyone sees until it is on a
+        // shelf label.
+        var resolved = encoding ?? EncodingFromLanguageDriver(table) ?? Cp1252();
         var header = ReadHeader(table, resolved);
         var blockSize = memo is null ? 0 : ReadMemoBlockSize(memo);
 
@@ -370,6 +376,78 @@ public sealed class DbfReader : IDisposable
     /// CP1252, registering the code-page provider first. .NET Core ships only the Unicode encodings
     /// by default, so without this every legacy file would fail on the first accented character.
     /// </summary>
+    /// <summary>
+    /// The code page the file declares in its language-driver byte (offset 29), or null when it
+    /// declares nothing.
+    /// <para>
+    /// dBase and FoxPro write a driver id rather than a code page number, so this maps the handful
+    /// that matter for retail exports. <c>0x00</c> means "not stated", which most dBase III writers
+    /// leave — hence a null rather than a guess, so the caller's fallback stays in charge.
+    /// </para>
+    /// <para>
+    /// The stream is rewound afterwards: the caller is about to read the header from the start, and
+    /// a peek that moves the position would be a very confusing thing to leave behind.
+    /// </para>
+    /// </summary>
+    private static Encoding? EncodingFromLanguageDriver(Stream table)
+    {
+        if (!table.CanSeek)
+        {
+            return null;
+        }
+
+        var origin = table.Position;
+
+        try
+        {
+            table.Seek(29, SeekOrigin.Begin);
+
+            var driver = table.ReadByte();
+            if (driver <= 0)
+            {
+                return null;
+            }
+
+            var codePage = driver switch
+            {
+                0x01 => 437,    // DOS USA
+                0x02 => 850,    // DOS multilingual (Latin-1)
+                0x03 => 1252,   // Windows ANSI
+                0x08 => 865,    // DOS Nordic
+                0x09 => 437,
+                0x0A => 850,
+                0x64 => 852,    // DOS Eastern European
+                0x65 => 866,    // DOS Russian
+                0x66 => 865,
+                0xC8 => 1250,   // Windows Eastern European
+                0xC9 => 1251,   // Windows Russian
+                _ => 0,
+            };
+
+            if (codePage == 0)
+            {
+                return null;
+            }
+
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+
+            try
+            {
+                return Encoding.GetEncoding(codePage);
+            }
+            catch (ArgumentException)
+            {
+                // A code page this platform does not carry. Better to fall back than to fail the
+                // whole import over a character set nobody in the file may even use.
+                return null;
+            }
+        }
+        finally
+        {
+            table.Seek(origin, SeekOrigin.Begin);
+        }
+    }
+
     public static Encoding Cp1252()
     {
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);

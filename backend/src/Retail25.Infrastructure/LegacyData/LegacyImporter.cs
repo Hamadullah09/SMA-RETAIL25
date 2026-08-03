@@ -465,9 +465,16 @@ public sealed class LegacyImporter : ILegacyImporter
 
             // The legacy number is kept when it is a number, so a shop's customers keep the numbers
             // printed on twenty years of statements.
+            //
+            // The fallback used to be the clock in milliseconds, which is the same value for every
+            // row in a batch that imports faster than a millisecond — so a file with two blank
+            // customer numbers took the whole import down on a unique-index violation rather than
+            // landing two customers. Offsetting by the row number makes it unique, and the row
+            // number is stable, so re-running the same file assigns the same numbers rather than a
+            // fresh set.
             var number = LegacyFieldParsing.TryInt(legacyNumber, out var parsed) && parsed > 0
                 ? parsed
-                : _clock.Now.ToUnixTimeMilliseconds();
+                : _clock.Now.ToUnixTimeMilliseconds() + row.RowNumber;
 
             var created = Customer.Create(
                 batch.LocationId,
