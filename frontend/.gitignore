@@ -7,3 +7,7 @@ out/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Playwright run artefacts. Regenerated on every run; never worth a diff.
+test-results/
+playwright-report/
