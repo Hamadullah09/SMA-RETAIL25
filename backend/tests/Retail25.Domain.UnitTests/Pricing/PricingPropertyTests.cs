@@ -138,7 +138,6 @@ public sealed class PricingPropertyTests
             var product = Product.Create(LocationId, $"SKU{i:D4}", $"Item {i}", ProductType.Standard, price).Value;
 
             lines.Add(new LineInput(
-                TestIds.Next(),
                 i + 1,
                 product,
                 null,

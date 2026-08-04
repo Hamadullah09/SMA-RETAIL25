@@ -7,8 +7,15 @@ namespace Retail25.Application.Carts.Dtos;
 /// can badge a line that did not ring at the regular price â€” a cashier should be able to see why
 /// without opening the detail drawer.
 /// </summary>
+/// <summary>
+/// One line on the till.
+/// <para>
+/// There is no id. An active cart lives in the cache, so its lines have no database id until the
+/// sale is committed — <see cref="Sequence"/> is how the till names a line when it asks to change or
+/// remove one.
+/// </para>
+/// </summary>
 public sealed record CartLineDto(
-    long Id,
     int Sequence,
     long ProductId,
     long? VariantId,

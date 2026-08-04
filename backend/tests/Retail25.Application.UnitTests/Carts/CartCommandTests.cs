@@ -148,7 +148,7 @@ public sealed class CartCommandTests
 
         var removeHandler = new RemoveCartLineHandler(harness.Workflow, harness.Db, harness.Debouncer);
         var removed = await removeHandler.Handle(
-            new RemoveCartLineCommand(cart.Id, added.Value.Lines.Single().Id),
+            new RemoveCartLineCommand(cart.Id, added.Value.Lines.Single().Sequence),
             default);
 
         removed.IsSuccess.Should().BeTrue();

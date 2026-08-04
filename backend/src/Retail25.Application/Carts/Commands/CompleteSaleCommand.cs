@@ -361,12 +361,13 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     /// </summary>
     private List<SaleLine> WriteLines(SalesTransaction transaction, CartSnapshot snapshot, SalePricingResult pricing)
     {
-        var cartLines = snapshot.Lines.ToDictionary(l => l.Id);
+        // By Sequence: a cached cart's lines have no database id to key on.
+        var cartLines = snapshot.Lines.ToDictionary(l => l.Sequence);
         var written = new List<SaleLine>(pricing.Lines.Count);
 
         foreach (var resolved in pricing.Lines)
         {
-            cartLines.TryGetValue(resolved.LineId, out var cartLine);
+            cartLines.TryGetValue(resolved.Sequence, out var cartLine);
 
             var line = new SaleLine
             {
@@ -469,7 +470,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
                 continue;
             }
 
-            var cartLine = snapshot.Lines.FirstOrDefault(l => l.Id == line.LineId);
+            var cartLine = snapshot.Lines.FirstOrDefault(l => l.Sequence == line.Sequence);
 
             // A return only puts stock back if the cashier said the goods came back (guide p.7).
             var signedQuantity = line.LineType switch

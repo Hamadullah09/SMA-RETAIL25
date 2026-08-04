@@ -28,11 +28,29 @@ public abstract class Entity
     /// <summary>PostgreSQL <c>xmin</c> system column, mapped for optimistic concurrency.</summary>
     public uint RowVersion { get; protected set; }
 
-    // Two unsaved entities are never equal, even to themselves by value: they both have Id 0, and
-    // treating that as "the same record" would collapse a list of new lines into one.
+    /// <summary>
+    /// Same row, or literally the same object.
+    /// <para>
+    /// The reference check is not a nicety. Two <em>different</em> unsaved entities both have id 0
+    /// and must not compare equal — otherwise a list of new sale lines collapses into one. But an
+    /// unsaved entity must still equal itself, because that is what <c>List.Remove</c>,
+    /// <c>Contains</c> and <c>Distinct</c> ask. Without it, removing a line from a cart that has not
+    /// been saved silently does nothing: the list is asked to find an item that does not equal
+    /// itself, finds nothing, and reports success.
+    /// </para>
+    /// </summary>
     public override bool Equals(object? obj)
-        => obj is Entity other && other.GetType() == GetType() && other.Id == Id && Id != 0;
+    {
+        if (obj is not Entity other || other.GetType() != GetType())
+        {
+            return false;
+        }
 
+        return ReferenceEquals(this, other) || (Id != 0 && other.Id == Id);
+    }
+
+    // Unsaved entities all hash alike. That is legal — equality still tells them apart — and the
+    // alternative, hashing on identity, would change an entity's hash the moment it was saved.
     public override int GetHashCode() => HashCode.Combine(GetType(), Id);
 }
 

@@ -79,11 +79,11 @@ public sealed class CartsController : ControllerBase
         => (await _sender.Send(new AddCartLineByUnitCommand(cartId, request.UnitId, request.LineType))).ToActionResult(this);
 
     /// <summary>The item-detail window (guide p.6).</summary>
-    [HttpPatch("{cartId:long}/lines/{lineId:long}")]
-    public async Task<IActionResult> UpdateLine(long cartId, long lineId, [FromBody] UpdateLineRequest request)
+    [HttpPatch("{cartId:long}/lines/{sequence:int}")]
+    public async Task<IActionResult> UpdateLine(long cartId, int sequence, [FromBody] UpdateLineRequest request)
         => (await _sender.Send(new UpdateCartLineCommand(
             cartId,
-            lineId,
+            sequence,
             request.Quantity,
             request.ManualPrice,
             request.ManualDiscountPct,
@@ -95,9 +95,9 @@ public sealed class CartsController : ControllerBase
             request.Note,
             request.Clear))).ToActionResult(this);
 
-    [HttpDelete("{cartId:long}/lines/{lineId:long}")]
-    public async Task<IActionResult> RemoveLine(long cartId, long lineId)
-        => (await _sender.Send(new RemoveCartLineCommand(cartId, lineId))).ToActionResult(this);
+    [HttpDelete("{cartId:long}/lines/{sequence:int}")]
+    public async Task<IActionResult> RemoveLine(long cartId, int sequence)
+        => (await _sender.Send(new RemoveCartLineCommand(cartId, sequence))).ToActionResult(this);
 
     [HttpDelete("{cartId:long}/lines")]
     public async Task<IActionResult> Clear(long cartId)

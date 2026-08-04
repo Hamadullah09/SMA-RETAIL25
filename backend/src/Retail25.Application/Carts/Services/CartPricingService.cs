@@ -106,7 +106,6 @@ public sealed class CartPricingService
             variants.TryGetValue(line.VariantId ?? 0L, out var variant);
 
             inputs.Add(new LineInput(
-                line.Id,
                 line.Sequence,
                 product,
                 variant,
@@ -227,7 +226,6 @@ public sealed class CartPricingService
             var variant = line.VariantId is { } vid && variants.TryGetValue(vid, out var v) ? v : null;
 
             return new CartLineDto(
-                line.Id,
                 line.Sequence,
                 line.ProductId,
                 line.VariantId,

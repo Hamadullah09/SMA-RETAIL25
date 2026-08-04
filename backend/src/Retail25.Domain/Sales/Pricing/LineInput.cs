@@ -6,12 +6,18 @@ namespace Retail25.Domain.Sales.Pricing;
 /// One line presented to the pricing pipeline (doc 04 §1). Everything the resolver may consult is
 /// carried on the record, so the engine never reaches for a repository.
 /// </summary>
-/// <param name="LineId">Correlates the result back to the cart line it came from.</param>
-/// <param name="Sequence">Position in the cart; drives the non-retroactive tax override (doc 04 §3).</param>
+/// <param name="Sequence">
+/// Position in the cart. Both the correlation key back to the cart line and the driver of the
+/// non-retroactive tax override (doc 04 §3).
+/// <para>
+/// There is deliberately no line id here. An active cart lives in the cache, not the database, so its
+/// lines have no database id until the sale is committed � a field for one would be zero on every
+/// line, and correlating on it silently merged a whole sale into its first line.
+/// </para>
+/// </param>
 /// <param name="ManualUnitPrice">Staff price override from the item-detail window (guide p.6).</param>
 /// <param name="EmbeddedPrice">Net price read out of a Type 2 random-weight barcode (guide p.98).</param>
 public sealed record LineInput(
-    long LineId,
     int Sequence,
     Product Product,
     ProductVariant? Variant,

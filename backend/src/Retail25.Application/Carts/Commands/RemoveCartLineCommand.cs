@@ -9,9 +9,17 @@ using Retail25.Domain.Common;
 
 namespace Retail25.Application.Carts.Commands;
 
-/// <summary>Deletes one line — the legacy F6 "delete last line" and any click on the cart list (guide p.10).</summary>
+/// <summary>
+/// Deletes one line — the legacy F6 "delete last line" and any click on the cart list (guide p.10).
+/// <para>
+/// Addressed by <c>Sequence</c>, the line's position in the cart, not by a database id. An active
+/// cart lives in the cache and its lines are never inserted, so they have no database id to address
+/// until the sale is committed. Sequence is unique within the one cart this command names, which is
+/// the only scope it has to be unique in.
+/// </para>
+/// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record RemoveCartLineCommand(long CartId, long LineId) : IRequest<Result<CartDto>>;
+public sealed record RemoveCartLineCommand(long CartId, int Sequence) : IRequest<Result<CartDto>>;
 
 /// <summary>Empties the cart without abandoning it, so the cashier keeps the same sale open.</summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
@@ -35,10 +43,10 @@ public sealed class RemoveCartLineHandler
     public Task<Result<CartDto>> Handle(RemoveCartLineCommand request, CancellationToken ct)
         => _workflow.MutateAsync(request.CartId, async (snapshot, _, token) =>
         {
-            var line = snapshot.Lines.FirstOrDefault(l => l.Id == request.LineId);
+            var line = snapshot.Lines.FirstOrDefault(l => l.Sequence == request.Sequence);
             if (line is null)
             {
-                return Result.Failure(UpdateCartLineHandler.LineNotFound.With("lineId", request.LineId));
+                return Result.Failure(UpdateCartLineHandler.LineNotFound.With("sequence", request.Sequence));
             }
 
             await ReleaseUnitAsync(line.SerializedUnitId, line.Epc, snapshot.Cart.StationId, token);

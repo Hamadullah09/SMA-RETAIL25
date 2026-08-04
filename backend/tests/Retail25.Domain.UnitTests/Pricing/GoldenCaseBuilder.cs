@@ -149,7 +149,6 @@ internal static class GoldenCaseBuilder
             : null;
 
         return new LineInput(
-            TestIds.Next(),
             sequence,
             product,
             null,

@@ -95,7 +95,8 @@ public sealed class AddRfidBatchHandler : IRequestHandler<AddRfidBatchCommand, R
         var stationId = snapshot.Cart.StationId;
 
         var rejected = new List<RejectedTag>();
-        var acceptedLineIds = new List<long>();
+        // Sequences, not ids: a cached cart's lines have no database id to collect.
+        var acceptedSequences = new List<int>();
 
         // Deduplicate inside the batch itself: a single antenna sweep can report the same tag from
         // two angles, and the agent's coalescing window does not span batches.
@@ -149,7 +150,7 @@ public sealed class AddRfidBatchHandler : IRequestHandler<AddRfidBatchCommand, R
                 continue;
             }
 
-            acceptedLineIds.Add(snapshot.Lines[^1].Id);
+            acceptedSequences.Add(snapshot.Lines[^1].Sequence);
             resolved.Value.Unit?.UpdateLastSeen(tag.LastSeen);
         }
 
@@ -158,7 +159,7 @@ public sealed class AddRfidBatchHandler : IRequestHandler<AddRfidBatchCommand, R
             await _notifier.CartLineRejectedAsync(stationId, rejection.Epc, rejection.Reason, rejection.Message, ct);
         }
 
-        if (acceptedLineIds.Count == 0)
+        if (acceptedSequences.Count == 0)
         {
             return Result.Success(new RfidBatchResult(null, [], rejected, tags.Count));
         }
@@ -169,7 +170,7 @@ public sealed class AddRfidBatchHandler : IRequestHandler<AddRfidBatchCommand, R
         var quote = await _pricing.QuoteAsync(snapshot, context, ct);
         await _store.SaveAsync(snapshot, ct);
 
-        var accepted = quote.Dto.Lines.Where(l => acceptedLineIds.Contains(l.Id)).ToList();
+        var accepted = quote.Dto.Lines.Where(l => acceptedSequences.Contains(l.Sequence)).ToList();
 
         // The fast path: send only the new lines plus totals, not the whole cart. At 300 tags that
         // difference is the gap between the 300 ms budget and a visibly stuttering list.
