@@ -21,3 +21,14 @@ export function formatDate(date: string | Date): string {
     minute: '2-digit',
   }).format(new Date(date));
 }
+
+/**
+ * The record id a `<select>` or `<input>` just reported.
+ *
+ * A DOM control always hands back a string, whatever was put into the option. Empty stays empty
+ * rather than becoming 0: '' is "nothing chosen", and 0 is the id a form holds while it is creating
+ * a record — collapsing the two would turn an unset filter into "the new one".
+ */
+export function recordIdFrom(value: string): number | '' {
+  return value === '' ? '' : Number(value);
+}

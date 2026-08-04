@@ -10,7 +10,7 @@ import type { LabelStock, LabelStockOption } from '@/types/masters';
 
 /** The minimum an item has to tell us to appear in the run. */
 export interface PrintableItem {
-  id: string;
+  id: number;
   stockCode: string;
   name: string;
   regularPrice: number;
@@ -38,7 +38,7 @@ export function PrintLabelsDialog({
   items,
   onClose,
 }: {
-  locationId: string;
+  locationId: number;
   items: PrintableItem[];
   onClose: () => void;
 }) {

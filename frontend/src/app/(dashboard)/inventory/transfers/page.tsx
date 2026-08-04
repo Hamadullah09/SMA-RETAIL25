@@ -126,7 +126,7 @@ export default function TransfersPage() {
             className={filterClass}
             value=""
             onChange={(event) => {
-              if (event.target.value) void create(event.target.value);
+              if (event.target.value) void create(Number(event.target.value));
             }}
           >
             <option value="">New transfer to…</option>
@@ -263,7 +263,9 @@ function TransferPanel({
   const receiveSome = () => {
     const lines = Object.entries(receiving)
       .filter(([, qty]) => qty > 0)
-      .map(([lineId, quantity]) => ({ lineId, quantity }));
+      // Object.entries always yields string keys, whatever was used to write them, so the line id
+      // has to be turned back into a number here rather than assumed to have survived the round trip.
+      .map(([lineId, quantity]) => ({ lineId: Number(lineId), quantity }));
 
     if (lines.length === 0) {
       toast({ title: 'Nothing entered', description: 'Type a quantity against at least one line.' });

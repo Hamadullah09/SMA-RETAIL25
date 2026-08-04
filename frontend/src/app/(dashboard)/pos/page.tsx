@@ -47,8 +47,14 @@ import {
  * choices, so a till set up once keeps working after a browser restart with nobody selecting anything
  * — and nobody can ring a sale against the wrong station by picking the wrong item in a dropdown.
  */
-const STATION_ID = process.env.NEXT_PUBLIC_STATION_ID ?? '';
-const LOCATION_ID = process.env.NEXT_PUBLIC_LOCATION_ID ?? '';
+// Environment variables are strings; a station and a location are rows. Number() rather than a
+// cast, and NaN rather than 0 when unset — 0 is a real value elsewhere, and a till that silently
+// registered itself as station 0 would ring sales against nothing.
+const STATION_ID = Number(process.env.NEXT_PUBLIC_STATION_ID);
+const LOCATION_ID = Number(process.env.NEXT_PUBLIC_LOCATION_ID);
+
+/** Both must be real numbers before this till may do anything. */
+const CONFIGURED = Number.isFinite(STATION_ID) && Number.isFinite(LOCATION_ID) && STATION_ID > 0 && LOCATION_ID > 0;
 
 export default function PosPage() {
   return (
@@ -94,7 +100,7 @@ function PosScreen() {
   };
 
   useEffect(() => {
-    if (!STATION_ID || !LOCATION_ID) return undefined;
+    if (!CONFIGURED) return undefined;
 
     void initialise(STATION_ID, LOCATION_ID);
     return () => void teardown();
@@ -133,7 +139,7 @@ function PosScreen() {
     scope: 'global',
   });
 
-  if (!STATION_ID || !LOCATION_ID) {
+  if (!CONFIGURED) {
     return (
       <div className="p-8">
         <h1 className="text-h3 font-medium">This till is not configured</h1>
@@ -179,7 +185,7 @@ function PosScreen() {
           Above the payment keys, below the money. A cashier looks here when a tag does not read, and
           that is a mid-sale moment — putting it off-screen would mean scrolling while holding an item.
         */}
-        {STATION_ID && LOCATION_ID ? <TagFeed stationId={STATION_ID} locationId={LOCATION_ID} /> : null}
+        {CONFIGURED ? <TagFeed stationId={STATION_ID} locationId={LOCATION_ID} /> : null}
 
         <PaymentMatrix onPay={() => openDialog('payment')} />
       </div>

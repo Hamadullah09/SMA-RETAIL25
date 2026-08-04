@@ -131,9 +131,9 @@ export function useLiveGrid<TRow extends { id: number }>(
   locationId: number | undefined,
   setRows: (updater: (current: TRow[]) => TRow[]) => void,
   options: { onSettingsChanged?: (section: string) => void } = {},
-): { connected: boolean; changed: ReadonlySet<string> } {
+): { connected: boolean; changed: ReadonlySet<number> } {
   const [connected, setConnected] = useState(false);
-  const [changed, setChanged] = useState<Set<string>>(new Set());
+  const [changed, setChanged] = useState<Set<number>>(new Set());
 
   // Held in a ref so the effect below depends on the location alone. Re-subscribing on every render
   // of a changing row list would tear the socket down and back up continuously.

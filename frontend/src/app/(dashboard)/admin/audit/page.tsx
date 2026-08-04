@@ -222,7 +222,7 @@ function AuditDetailPanel({ row, trail, onClose }: { row: AuditLogRow; trail: Au
           <dd>{row.actorName ?? 'Unknown'}</dd>
           <dt className="text-ink-muted">Record</dt>
           <dd>
-            {row.entityType} {row.entityId ? <span className="pos-amount">{row.entityId.slice(0, 8)}…</span> : null}
+            {row.entityType} {row.entityId ? <span className="pos-amount">{row.entityId}</span> : null}
           </dd>
           <dt className="text-ink-muted">Operation</dt>
           <dd>{row.operation ?? '—'}</dd>

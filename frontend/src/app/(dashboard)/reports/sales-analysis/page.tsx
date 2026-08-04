@@ -38,7 +38,7 @@ export default function SalesAnalysisPage() {
 
   const filters = useMemo<SalesAnalysisFilters>(
     () => ({
-      locationId: locationId ?? '',
+      locationId: locationId ?? 0,
       from,
       to,
       groupBy,

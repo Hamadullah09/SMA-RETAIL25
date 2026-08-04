@@ -222,7 +222,7 @@ export const posApi = {
     skip?: number;
     take?: number;
   }) => {
-    const params = new URLSearchParams({ locationId: options.locationId });
+    const params = new URLSearchParams({ locationId: String(options.locationId) });
     if (options.departmentId) params.set('departmentId', String(options.departmentId));
     if (options.categoryId) params.set('categoryId', String(options.categoryId));
     if (options.search) params.set('search', options.search);

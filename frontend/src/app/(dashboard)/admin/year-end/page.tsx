@@ -31,7 +31,7 @@ export default function YearEndPage() {
   const [years, setYears] = useState<FiscalYear[]>([]);
   const [newYear, setNewYear] = useState(() => new Date().getFullYear() - 1);
   const [preview, setPreview] = useState<FiscalYearCloseResult | null>(null);
-  const [previewFor, setPreviewFor] = useState<string | null>(null);
+  const [previewFor, setPreviewFor] = useState<number | null>(null);
   const [history, setHistory] = useState<ArchiveRow[]>([]);
   const [historyYear, setHistoryYear] = useState<number | ''>('');
   const [busy, setBusy] = useState(false);

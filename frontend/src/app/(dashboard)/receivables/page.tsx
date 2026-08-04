@@ -1,4 +1,5 @@
 'use client';
+import { recordIdFrom } from '@/lib/utils';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
@@ -134,7 +135,7 @@ export default function ReceivablesPage() {
         ) : view === 'giftCards' ? (
           <GiftCardsPanel onClose={() => setView('accounts')} />
         ) : view === 'loyalty' ? (
-          <LoyaltyPanel locationId={locationId ?? ''} onClose={() => setView('accounts')} />
+          <LoyaltyPanel locationId={locationId ?? 0} onClose={() => setView('accounts')} />
         ) : (
           <DataGrid
             gridId="receivables-accounts"
@@ -333,7 +334,7 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: number; onClose: ()
   const [busy, setBusy] = useState(false);
 
   const [term, setTerm] = useState('');
-  const [results, setResults] = useState<{ id: string; customerNumber: number; fullName: string }[]>([]);
+  const [results, setResults] = useState<{ id: number; customerNumber: number; fullName: string }[]>([]);
   const [customerId, setCustomerId] = useState<number | null>(null);
   const [balance, setBalance] = useState<LoyaltyBalance | null>(null);
   const [ledger, setLedger] = useState<LoyaltyLedgerEntryRow[]>([]);
@@ -653,7 +654,7 @@ function StatementPanel({
         >
           <NumberField label="Amount" value={amount} onChange={setAmount} />
           <Field label="Tender">
-            <select className={selectClass + ' w-full'} value={tenderTypeId} onChange={(event) => setTenderTypeId(event.target.value)}>
+            <select className={selectClass + ' w-full'} value={tenderTypeId} onChange={(event) => setTenderTypeId(recordIdFrom(event.target.value))}>
               {tenders.map((t) => (
                 <option key={String(t.id)} value={t.id}>
                   {t.displayName}

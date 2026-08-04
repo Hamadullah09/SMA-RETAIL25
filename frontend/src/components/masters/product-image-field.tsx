@@ -31,7 +31,7 @@ export function ProductImageField({
   disabled,
   onChanged,
 }: {
-  productId: string;
+  productId: number;
   hasImage: boolean;
   disabled: boolean;
   onChanged: (hasImage: boolean) => void;

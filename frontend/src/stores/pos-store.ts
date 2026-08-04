@@ -249,7 +249,7 @@ export const usePosStore = create<PosState>((set, get) => ({
       // kind of question it is, and the right picker opens rather than the cashier seeing an error
       // and scanning the same barcode again.
       if (error instanceof PosApiError) {
-        const productId = error.problem.arguments?.productId as string | undefined;
+        const productId = error.problem.arguments?.productId as number | undefined;
 
         if (error.code === 'variant.selection_required' && productId) {
           set({ dialog: 'variantPicker', pendingSelection: { productId, identifier: trimmed }, busy: false });

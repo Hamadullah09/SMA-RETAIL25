@@ -1,4 +1,5 @@
 'use client';
+import { recordIdFrom } from '@/lib/utils';
 
 import { useCallback, useEffect, useState } from 'react';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
@@ -20,7 +21,7 @@ type Tab = 'customerOrders' | 'layaways' | 'priceQuotes';
 /** Customer orders / back orders, layaways and price quotes (guide p.9, p.16). */
 export default function OrdersPage() {
   const auth = useAuth();
-  const locationId = auth.user?.locationId ?? '';
+  const locationId = auth.user?.locationId ?? 0;
   const [tab, setTab] = useState<Tab>('customerOrders');
   const [tenders, setTenders] = useState<TenderSettings[]>([]);
 
@@ -73,10 +74,10 @@ function CustomerPicker({
   onPick,
 }: {
   locationId: number;
-  onPick: (customer: { id: string; customerNumber: number; fullName: string }) => void;
+  onPick: (customer: { id: number; customerNumber: number; fullName: string }) => void;
 }) {
   const [term, setTerm] = useState('');
-  const [results, setResults] = useState<{ id: string; customerNumber: number; fullName: string }[]>([]);
+  const [results, setResults] = useState<{ id: number; customerNumber: number; fullName: string }[]>([]);
 
   useEffect(() => {
     if (term.trim().length < 2) {
@@ -372,7 +373,7 @@ function CustomerOrderPanel({
   onClose,
   onChanged,
 }: {
-  id: string;
+  id: number;
   canWrite: boolean;
   onClose: () => void;
   onChanged: () => Promise<void>;
@@ -579,7 +580,7 @@ function LayawayPanel({
   onClose,
   onChanged,
 }: {
-  id: string;
+  id: number;
   tenders: TenderSettings[];
   canWrite: boolean;
   onClose: () => void;
@@ -678,7 +679,7 @@ function LayawayPanel({
               <select
                 className="w-full pos-input"
                 value={tenderTypeId}
-                onChange={(event) => setTenderTypeId(event.target.value)}
+                onChange={(event) => setTenderTypeId(recordIdFrom(event.target.value))}
               >
                 {tenders.map((t) => <option key={String(t.id)} value={t.id}>{t.displayName}</option>)}
               </select>
@@ -818,7 +819,7 @@ function PriceQuotePanel({
   onClose,
   onChanged,
 }: {
-  id: string;
+  id: number;
   canWrite: boolean;
   onClose: () => void;
   onChanged: () => Promise<void>;

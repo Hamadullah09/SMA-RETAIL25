@@ -6,7 +6,7 @@ import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency , recordIdFrom} from '@/lib/utils';
 import { productTypes } from '@/types/masters';
 import type {
   BulkAdjustMethod,
@@ -185,7 +185,7 @@ export default function BulkAdjustPage() {
               className={inputClass}
               value={departmentId}
               onChange={(event) => {
-                setDepartmentId(event.target.value);
+                setDepartmentId(recordIdFrom(event.target.value));
                 invalidate();
               }}
             >
@@ -204,7 +204,7 @@ export default function BulkAdjustPage() {
               className={inputClass}
               value={categoryId}
               onChange={(event) => {
-                setCategoryId(event.target.value);
+                setCategoryId(recordIdFrom(event.target.value));
                 invalidate();
               }}
             >
@@ -223,7 +223,7 @@ export default function BulkAdjustPage() {
               className={inputClass}
               value={supplierId}
               onChange={(event) => {
-                setSupplierId(event.target.value);
+                setSupplierId(recordIdFrom(event.target.value));
                 invalidate();
               }}
             >

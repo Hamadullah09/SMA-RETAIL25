@@ -24,7 +24,7 @@ import type { Address, ContactDetails, CustomerForm, CustomerRow, CustomerSort }
  * The id a form holds while it is creating rather than editing.
  *
  * Zero, because that is what the domain means by it too: an entity that has not been saved has no
- * id yet, and no row can ever be 0 — the sequence starts at 1. A string sentinel would have to be
+ * id yet, and no row can ever be 0 â€” the sequence starts at 1. A string sentinel would have to be
  * kept out of every type that says this is a record key.
  */
 const NEW_RECORD = 0;
@@ -235,8 +235,8 @@ function describe(error: unknown): string {
 }
 
 const emptyCustomer: CustomerForm = {
-  id: '',
-  locationId: '',
+  id: 0,
+  locationId: 0,
   customerNumber: 0,
   firstName: '',
   lastName: '',

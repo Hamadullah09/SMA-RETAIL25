@@ -10,6 +10,15 @@ import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
 import type { Address, ContactDetails, SupplierForm, SupplierRow, SupplierSort } from '@/types/masters';
 
+/**
+ * The id a form holds while it is creating rather than editing.
+ *
+ * Zero, because that is what the domain means by it too: an entity that has not been saved has no
+ * id yet, and no row can ever be 0 — the sequence starts at 1. A string sentinel would have to be
+ * kept out of every type that says this is a record key.
+ */
+const NEW_RECORD = 0;
+
 /** Supplier Browse + Form View (guide p.59–62). */
 export default function SuppliersPage() {
   const auth = useAuth();
@@ -153,8 +162,8 @@ function describe(error: unknown): string {
 }
 
 const emptySupplier: SupplierForm = {
-  id: '',
-  locationId: '',
+  id: 0,
+  locationId: 0,
   supplierNumber: '',
   company: '',
   contactFirstName: null,

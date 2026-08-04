@@ -1,4 +1,5 @@
 'use client';
+import { recordIdFrom } from '@/lib/utils';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
@@ -227,7 +228,7 @@ function GeneratePanel({
         }
       >
         <Field label="Supplier">
-          <select className={selectClass + ' w-full'} value={supplierId} onChange={(event) => setSupplierId(event.target.value)}>
+          <select className={selectClass + ' w-full'} value={supplierId} onChange={(event) => setSupplierId(recordIdFrom(event.target.value))}>
             <option value="">Choose a supplier…</option>
             {suppliers.map((s) => (
               <option key={String(s.id)} value={s.id}>

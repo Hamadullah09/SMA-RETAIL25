@@ -770,7 +770,7 @@ export const mastersApi = {
       entityType: string;
       localId?: number | null;
       localKey?: string | null;
-      remoteId: number;
+      remoteId: string;
       remoteName?: string | null;
     }) => call<ExternalMapRow>(() => apiClient.post('/sync/accounting/mappings', body)),
   },

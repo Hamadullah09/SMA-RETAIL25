@@ -22,7 +22,7 @@ import { useAuth } from '@/lib/auth-config';
 import { useLiveGrid } from '@/lib/inventory-hub';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency , recordIdFrom} from '@/lib/utils';
 import {
   productTypes,
   type LinkedProduct,
@@ -36,7 +36,7 @@ import {
  * The id a form holds while it is creating rather than editing.
  *
  * Zero, because that is what the domain means by it too: an entity that has not been saved has no
- * id yet, and no row can ever be 0 � the sequence starts at 1. A string sentinel would have to be
+ * id yet, and no row can ever be 0 — the sequence starts at 1. A string sentinel would have to be
  * kept out of every type that says this is a record key.
  */
 const NEW_RECORD = 0;
@@ -87,7 +87,7 @@ export default function ProductsPage() {
       try {
         const page = await mastersApi.products.browse(locationId, {
           search,
-          departmentId,
+          departmentId: departmentId || undefined,
           type: type || undefined,
           belowReorderPoint,
           sort,
@@ -232,7 +232,7 @@ export default function ProductsPage() {
           <select
             className="pos-input"
             value={departmentId}
-            onChange={(event) => setDepartmentId(event.target.value)}
+            onChange={(event) => setDepartmentId(recordIdFrom(event.target.value))}
           >
             <option value="">All departments</option>
             {departments.map((department) => (
@@ -361,8 +361,8 @@ function searchItems(locationId: number, term: string, excludeId: number): Promi
 }
 
 const emptyForm: ProductForm = {
-  id: '',
-  locationId: '',
+  id: 0,
+  locationId: 0,
   stockCode: '',
   name: '',
   description: null,
@@ -416,8 +416,8 @@ function ProductFormPanel({
 }: {
   productId: number | null;
   locationId: number;
-  departments: Array<{ id: string; name: string }>;
-  categories: Array<{ id: string; name: string }>;
+  departments: Array<{ id: number; name: string }>;
+  categories: Array<{ id: number; name: string }>;
   canWrite: boolean;
   canDelete: boolean;
   onClose: () => void;
@@ -562,14 +562,14 @@ function ProductFormPanel({
         <SelectField
           label="Department"
           value={form.departmentId ?? ''}
-          options={[{ value: '', label: '— none —' }, ...departments.map((d) => ({ value: d.id, label: d.name }))]}
+          options={[{ value: '' as const, label: '— none —' }, ...departments.map((d) => ({ value: d.id, label: d.name }))]}
           onChange={(v) => patch({ departmentId: v || null })}
           disabled={disabled}
         />
         <SelectField
           label="Category"
           value={form.categoryId ?? ''}
-          options={[{ value: '', label: '— none —' }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
+          options={[{ value: '' as const, label: '— none —' }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
           onChange={(v) => patch({ categoryId: v || null })}
           disabled={disabled}
         />

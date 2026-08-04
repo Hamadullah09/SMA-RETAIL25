@@ -16,7 +16,7 @@ import type { Matrix, MatrixDimension } from '@/types/masters';
  * same shirt — generating them makes the codes consistent by construction. Regeneration is additive:
  * a variant that has ever been sold keeps its identity, because sale history names it.
  */
-export function MatrixEditor({ productId, canWrite }: { productId: string; canWrite: boolean }) {
+export function MatrixEditor({ productId, canWrite }: { productId: number; canWrite: boolean }) {
   const [matrix, setMatrix] = useState<Matrix | null>(null);
   const [drafts, setDrafts] = useState<Array<{ name: string; values: string }>>([]);
   const [busy, setBusy] = useState(false);

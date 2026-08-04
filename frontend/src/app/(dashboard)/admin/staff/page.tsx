@@ -9,7 +9,7 @@ import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency , recordIdFrom} from '@/lib/utils';
 import type {
   CommissionReportResult,
   CommissionRule,
@@ -329,7 +329,7 @@ function StaffPanel({
                   <select
                     className={inputClass}
                     value={departmentId}
-                    onChange={(event) => setDepartmentId(event.target.value)}
+                    onChange={(event) => setDepartmentId(recordIdFrom(event.target.value))}
                   >
                     <option value="">Choose…</option>
                     {departments.map((department) => (

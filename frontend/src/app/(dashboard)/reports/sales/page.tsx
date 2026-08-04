@@ -21,7 +21,9 @@ import type { SaleDetail, SalesLogRow } from '@/types/masters';
 export default function SalesLogPage() {
   const auth = useAuth();
   const locationId = auth.user?.locationId;
-  const stationId = process.env.NEXT_PUBLIC_STATION_ID;
+  // An environment variable is a string; the station it names is a row. undefined when unset, so a
+  // reprint button stays disabled rather than addressing station 0.
+  const stationId = process.env.NEXT_PUBLIC_STATION_ID ? Number(process.env.NEXT_PUBLIC_STATION_ID) : undefined;
 
   const [from, setFrom] = useState(() => isoDate(-7));
   const [to, setTo] = useState(() => isoDate(0));

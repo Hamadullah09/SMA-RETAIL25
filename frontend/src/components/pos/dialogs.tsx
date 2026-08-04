@@ -599,7 +599,7 @@ function DrawerRow({
 export function FindDialog() {
   const { closeDialog, scan, locationId } = usePosStore();
   const [term, setTerm] = useState('');
-  const [results, setResults] = useState<Array<{ id: string; stockCode: string; name: string; regularPrice: number }>>([]);
+  const [results, setResults] = useState<Array<{ id: number; stockCode: string; name: string; regularPrice: number }>>([]);
 
   useEffect(() => {
     if (term.length < 2 || !locationId) {
@@ -961,7 +961,7 @@ export function SerialPickerDialog() {
 export function ClientDialog() {
   const { closeDialog, setCustomer, locationId, cart } = usePosStore();
   const [term, setTerm] = useState('');
-  const [results, setResults] = useState<Array<{ id: string; customerNumber: number; fullName: string }>>([]);
+  const [results, setResults] = useState<Array<{ id: number; customerNumber: number; fullName: string }>>([]);
 
   useEffect(() => {
     if (term.length < 2 || !locationId) {

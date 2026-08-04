@@ -520,7 +520,7 @@ export interface BusinessSettings {
   taxRegistrationNumber: string | null;
   locationName: string;
   legacyCode: string;
-  timeZoneId: number;
+  timeZoneId: string;
   businessDayStart: string;
   baseCurrencyCode: string;
 }
@@ -1102,7 +1102,7 @@ export interface ExternalMapRow {
   entityType: string;
   localId: number | null;
   localKey: string | null;
-  remoteId: number;
+  remoteId: string;
   remoteName: string | null;
   lastSyncedAt: string | null;
 }

@@ -8,7 +8,7 @@ import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency , recordIdFrom} from '@/lib/utils';
 import type { StockCount, StockCountRow, StockCountStatus } from '@/types/masters';
 
 const filterClass =
@@ -114,7 +114,7 @@ export default function StockCountsPage() {
             <select
               className={filterClass}
               value={newDepartmentId}
-              onChange={(event) => setNewDepartmentId(event.target.value)}
+              onChange={(event) => setNewDepartmentId(recordIdFrom(event.target.value))}
             >
               <option value="">Whole shop</option>
               {departments.map((department) => (

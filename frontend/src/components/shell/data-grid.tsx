@@ -43,7 +43,7 @@ interface DataGridProps<TRow> {
   rowKey: (row: TRow) => string | number;
   onRowActivate?: (row: TRow) => void;
   /** Rows changed since the last render, briefly highlighted so a live patch is visible once. */
-  recentlyChanged?: ReadonlySet<string>;
+  recentlyChanged?: ReadonlySet<string | number>;
   emptyMessage?: string;
   /** 32px comfortable, 28px compact (doc 08 §Density over air). */
   rowHeight?: number;

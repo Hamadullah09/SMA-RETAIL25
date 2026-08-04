@@ -34,7 +34,7 @@ interface FeedRow extends ObservedTag {
   receivedAt: number;
 }
 
-export function TagFeed({ stationId, locationId }: { stationId: string; locationId: string }) {
+export function TagFeed({ stationId, locationId }: { stationId: number; locationId: number }) {
   const [rows, setRows] = useState<FeedRow[]>([]);
   const [status, setStatus] = useState<RfidReaderStatus | null>(null);
   const [connected, setConnected] = useState(false);
