@@ -40,10 +40,10 @@ export type AdjustmentType =
   | 'LoyaltyReward';
 
 export interface CartLine {
-  id: string;
+  id: number;
   sequence: number;
-  productId: string;
-  variantId: string | null;
+  productId: number;
+  variantId: number | null;
   stockCode: string;
   name: string;
   variantLabel: string | null;
@@ -67,7 +67,7 @@ export interface CartLine {
 }
 
 export interface CartAdjustment {
-  id: string;
+  id: number;
   type: AdjustmentType;
   label: string;
   amount: number;
@@ -92,7 +92,7 @@ export interface CartTotals {
 }
 
 export interface CartCustomer {
-  id: string;
+  id: number;
   customerNumber: number;
   name: string;
   priceLevel: number;
@@ -105,10 +105,10 @@ export interface CartCustomer {
 }
 
 export interface Cart {
-  id: string;
-  stationId: string;
-  locationId: string;
-  staffId: string;
+  id: number;
+  stationId: number;
+  locationId: number;
+  staffId: number;
   status: CartStatus;
   revision: number;
   heldName: string | null;
@@ -122,7 +122,7 @@ export interface Cart {
 
 /** The station's effective behaviour after per-station overrides are folded over store policy. */
 export interface StationPolicy {
-  stationId: string;
+  stationId: number;
   stationCode: string;
   fastScanMode: boolean;
   autoSaveSales: boolean;
@@ -132,16 +132,16 @@ export interface StationPolicy {
   staffMayDiscount: boolean;
   allowItemListEdit: boolean;
   requireSupervisorToVoid: boolean;
-  defaultTenderTypeId: string | null;
+  defaultTenderTypeId: number | null;
   minimumTender: number;
   currencyCode: string;
   currencySymbol: string;
 }
 
 export interface SuspendedCart {
-  id: string;
+  id: number;
   label: string | null;
-  staffId: string;
+  staffId: number;
   customerName: string | null;
   lineCount: number;
   grandTotal: number;
@@ -155,8 +155,8 @@ export interface DrawerTenderTotal {
 }
 
 export interface DrawerTotals {
-  sessionId: string;
-  stationId: string;
+  sessionId: number;
+  stationId: number;
   status: 'Open' | 'Closed';
   businessDate: string;
   openedAt: string;
@@ -178,7 +178,7 @@ export interface DrawerTotals {
 }
 
 export interface TenderRequest {
-  tenderTypeId: string;
+  tenderTypeId: number;
   amount: number;
   amountTendered?: number;
   reference?: string | null;
@@ -186,17 +186,17 @@ export interface TenderRequest {
 }
 
 export interface CompleteSaleResult {
-  transactionId: string;
+  transactionId: number;
   transactionNumber: number;
   grandTotal: number;
   changeGiven: number;
   roundingAdjustment: number;
   loyaltyPointsEarned: number;
-  invoiceId: string | null;
+  invoiceId: number | null;
 }
 
 export interface TenderType {
-  id: string;
+  id: number;
   code: string;
   displayName: string;
   behaviour: 'Cash' | 'Card' | 'GiftCard' | 'GiftCertificate' | 'OnAccount' | 'Manual';
@@ -210,7 +210,7 @@ export interface TenderType {
 
 /** One cell of a matrix item's grid (guide p.39–40). */
 export interface ProductVariant {
-  id: string;
+  id: number;
   variantCode: string;
   dim1Value: string;
   dim2Value: string | null;
@@ -233,11 +233,11 @@ export type SerializedUnitState =
 
 /** One physical unit: a serial number, an EPC, or both (doc 06 §1). */
 export interface SerializedUnit {
-  id: string;
+  id: number;
   serialNumber: string | null;
   epc: string | null;
   state: SerializedUnitState;
-  variantId: string | null;
+  variantId: number | null;
   variantLabel: string | null;
   receivedOn: string;
   lastSeenAt: string | null;
@@ -272,19 +272,19 @@ export interface ProblemDetails {
 /* ------------------------------------------------------------------ product grid */
 
 export interface PosGridItem {
-  id: string;
+  id: number;
   stockCode: string;
   name: string;
   regularPrice: number;
   onHand: number;
   type: string;
   hasImage: boolean;
-  departmentId: string | null;
-  categoryId: string | null;
+  departmentId: number | null;
+  categoryId: number | null;
 }
 
 export interface PosGridGroup {
-  id: string;
+  id: number;
   name: string;
   code: string | null;
   sortOrder: number;

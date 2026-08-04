@@ -39,7 +39,8 @@ interface DataGridProps<TRow> {
   gridId: string;
   rows: TRow[];
   columns: DataGridColumn<TRow>[];
-  rowKey: (row: TRow) => string;
+  /** A stable identity per row. Either type: a record key is a number, a synthetic key is a string. */
+  rowKey: (row: TRow) => string | number;
   onRowActivate?: (row: TRow) => void;
   /** Rows changed since the last render, briefly highlighted so a live patch is visible once. */
   recentlyChanged?: ReadonlySet<string>;
@@ -132,7 +133,7 @@ export function DataGrid<TRow>({
    * Null until someone tabs in, at which point the first row becomes the entry point — so a grid
    * that has never been touched is one tab stop, not one per row.
    */
-  const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const [focusedKey, setFocusedKey] = useState<string | number | null>(null);
 
   useEffect(() => {
     // The focused row can disappear when a filter changes underneath it.

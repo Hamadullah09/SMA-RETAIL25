@@ -173,8 +173,8 @@ function query(params: Record<string, string | number | boolean | null | undefin
 
 export interface ProductBrowseFilters {
   search?: string;
-  departmentId?: string;
-  categoryId?: string;
+  departmentId?: number;
+  categoryId?: number;
   type?: ProductType;
   belowReorderPoint?: boolean;
   deletedOnly?: boolean;
@@ -219,7 +219,7 @@ export interface StockLevelBrowseFilters {
 }
 
 export interface PurchaseOrderBrowseFilters {
-  supplierId?: string;
+  supplierId?: number;
   status?: PurchaseOrderStatus;
   cursor?: string;
   pageSize?: number;
@@ -228,9 +228,9 @@ export interface PurchaseOrderBrowseFilters {
 export interface SalesLogFilters {
   from?: string;
   to?: string;
-  stationId?: string;
-  staffId?: string;
-  customerId?: string;
+  stationId?: number;
+  staffId?: number;
+  customerId?: number;
   includeVoided?: boolean;
   skip?: number;
   take?: number;
@@ -239,10 +239,10 @@ export interface SalesLogFilters {
 export interface AuditFilters {
   from?: string;
   to?: string;
-  actorStaffId?: string;
-  stationId?: string;
+  actorStaffId?: number;
+  stationId?: number;
   entityType?: string;
-  entityId?: string;
+  entityId?: number;
   action?: AuditAction;
   skip?: number;
   take?: number;
@@ -250,220 +250,220 @@ export interface AuditFilters {
 
 export const mastersApi = {
   products: {
-    browse: (locationId: string, filters: ProductBrowseFilters = {}) =>
+    browse: (locationId: number, filters: ProductBrowseFilters = {}) =>
       call<CursorPage<ProductRow>>(() =>
         apiClient.get(`/catalog/products?${query({ locationId, ...filters })}`),
       ),
 
-    get: (id: string) => call<ProductForm>(() => apiClient.get(`/catalog/products/${id}`)),
+    get: (id: number) => call<ProductForm>(() => apiClient.get(`/catalog/products/${id}`)),
 
     create: (body: unknown) => call<ProductForm>(() => apiClient.post('/catalog/products', body)),
 
-    update: (id: string, body: unknown) => call<ProductForm>(() => apiClient.put(`/catalog/products/${id}`, body)),
+    update: (id: number, body: unknown) => call<ProductForm>(() => apiClient.put(`/catalog/products/${id}`, body)),
 
-    clone: (id: string, newStockCode: string, newName?: string) =>
+    clone: (id: number, newStockCode: string, newName?: string) =>
       call<ProductForm>(() => apiClient.post(`/catalog/products/${id}/clone`, { newStockCode, newName })),
 
-    remove: (id: string) => call<void>(() => apiClient.delete(`/catalog/products/${id}`)),
+    remove: (id: number) => call<void>(() => apiClient.delete(`/catalog/products/${id}`)),
 
-    restore: (id: string) => call<void>(() => apiClient.post(`/catalog/products/${id}/restore`)),
+    restore: (id: number) => call<void>(() => apiClient.post(`/catalog/products/${id}/restore`)),
   },
 
   departments: {
-    list: (locationId: string, includeInactive = false) =>
+    list: (locationId: number, includeInactive = false) =>
       call<ReferenceRow[]>(() => apiClient.get(`/catalog/departments?${query({ locationId, includeInactive })}`)),
 
     save: (body: unknown) => call<ReferenceRow>(() => apiClient.post('/catalog/departments', body)),
 
-    remove: (id: string) => call<void>(() => apiClient.delete(`/catalog/departments/${id}`)),
+    remove: (id: number) => call<void>(() => apiClient.delete(`/catalog/departments/${id}`)),
   },
 
   categories: {
-    list: (locationId: string, includeInactive = false) =>
+    list: (locationId: number, includeInactive = false) =>
       call<ReferenceRow[]>(() => apiClient.get(`/catalog/categories?${query({ locationId, includeInactive })}`)),
 
     save: (body: unknown) => call<ReferenceRow>(() => apiClient.post('/catalog/categories', body)),
 
-    remove: (id: string) => call<void>(() => apiClient.delete(`/catalog/categories/${id}`)),
+    remove: (id: number) => call<void>(() => apiClient.delete(`/catalog/categories/${id}`)),
   },
 
   customers: {
-    browse: (locationId: string, filters: CustomerBrowseFilters = {}) =>
+    browse: (locationId: number, filters: CustomerBrowseFilters = {}) =>
       call<CursorPage<CustomerRow>>(() => apiClient.get(`/customers?${query({ locationId, ...filters })}`)),
 
-    get: (id: string) => call<CustomerForm>(() => apiClient.get(`/customers/${id}`)),
+    get: (id: number) => call<CustomerForm>(() => apiClient.get(`/customers/${id}`)),
 
-    clientTypes: (locationId: string) =>
+    clientTypes: (locationId: number) =>
       call<string[]>(() => apiClient.get(`/customers/client-types?${query({ locationId })}`)),
 
     create: (body: unknown) => call<CustomerForm>(() => apiClient.post('/customers', body)),
 
-    update: (id: string, body: unknown) => call<CustomerForm>(() => apiClient.put(`/customers/${id}`, body)),
+    update: (id: number, body: unknown) => call<CustomerForm>(() => apiClient.put(`/customers/${id}`, body)),
 
-    remove: (id: string) => call<void>(() => apiClient.delete(`/customers/${id}`)),
+    remove: (id: number) => call<void>(() => apiClient.delete(`/customers/${id}`)),
 
-    restore: (id: string) => call<void>(() => apiClient.post(`/customers/${id}/restore`)),
+    restore: (id: number) => call<void>(() => apiClient.post(`/customers/${id}/restore`)),
   },
 
   suppliers: {
-    browse: (locationId: string, filters: SupplierBrowseFilters = {}) =>
+    browse: (locationId: number, filters: SupplierBrowseFilters = {}) =>
       call<CursorPage<SupplierRow>>(() => apiClient.get(`/suppliers?${query({ locationId, ...filters })}`)),
 
-    get: (id: string) => call<SupplierForm>(() => apiClient.get(`/suppliers/${id}`)),
+    get: (id: number) => call<SupplierForm>(() => apiClient.get(`/suppliers/${id}`)),
 
     create: (body: unknown) => call<SupplierForm>(() => apiClient.post('/suppliers', body)),
 
-    update: (id: string, body: unknown) => call<SupplierForm>(() => apiClient.put(`/suppliers/${id}`, body)),
+    update: (id: number, body: unknown) => call<SupplierForm>(() => apiClient.put(`/suppliers/${id}`, body)),
 
-    remove: (id: string) => call<void>(() => apiClient.delete(`/suppliers/${id}`)),
+    remove: (id: number) => call<void>(() => apiClient.delete(`/suppliers/${id}`)),
 
-    restore: (id: string) => call<void>(() => apiClient.post(`/suppliers/${id}/restore`)),
+    restore: (id: number) => call<void>(() => apiClient.post(`/suppliers/${id}/restore`)),
   },
 
   purchaseOrders: {
-    browse: (locationId: string, filters: PurchaseOrderBrowseFilters = {}) =>
+    browse: (locationId: number, filters: PurchaseOrderBrowseFilters = {}) =>
       call<CursorPage<PurchaseOrderRow>>(() => apiClient.get(`/purchase-orders?${query({ locationId, ...filters })}`)),
 
-    get: (id: string) => call<PurchaseOrderDetail>(() => apiClient.get(`/purchase-orders/${id}`)),
+    get: (id: number) => call<PurchaseOrderDetail>(() => apiClient.get(`/purchase-orders/${id}`)),
 
-    generate: (locationId: string, supplierId: string, strategy: OrderQuantityStrategy) =>
+    generate: (locationId: number, supplierId: number, strategy: OrderQuantityStrategy) =>
       call<PurchaseOrderDetail>(() => apiClient.post('/purchase-orders/generate', { locationId, supplierId, strategy })),
 
-    addLine: (purchaseOrderId: string, body: { productId: string; orderQty: number; costEach: number; caseQty: number }) =>
+    addLine: (purchaseOrderId: number, body: { productId: number; orderQty: number; costEach: number; caseQty: number }) =>
       call<PurchaseOrderDetail>(() => apiClient.post(`/purchase-orders/${purchaseOrderId}/lines`, body)),
 
-    updateLine: (lineId: string, body: { orderQty: number; costEach: number }) =>
+    updateLine: (lineId: number, body: { orderQty: number; costEach: number }) =>
       call<PurchaseOrderDetail>(() => apiClient.put(`/purchase-orders/lines/${lineId}`, body)),
 
-    removeLine: (lineId: string) => call<PurchaseOrderDetail>(() => apiClient.delete(`/purchase-orders/lines/${lineId}`)),
+    removeLine: (lineId: number) => call<PurchaseOrderDetail>(() => apiClient.delete(`/purchase-orders/lines/${lineId}`)),
 
-    post: (id: string) => call<PurchaseOrderDetail>(() => apiClient.post(`/purchase-orders/${id}/post`)),
+    post: (id: number) => call<PurchaseOrderDetail>(() => apiClient.post(`/purchase-orders/${id}/post`)),
 
     receive: (
-      id: string,
-      body: { receivedOn: string; freightTotal: number; lines: { lineId: string; qtyReceived: number }[] },
+      id: number,
+      body: { receivedOn: string; freightTotal: number; lines: { lineId: number; qtyReceived: number }[] },
     ) => call<PurchaseOrderDetail>(() => apiClient.post(`/purchase-orders/${id}/receive`, body)),
 
-    cancel: (id: string) => call<PurchaseOrderDetail>(() => apiClient.post(`/purchase-orders/${id}/cancel`)),
+    cancel: (id: number) => call<PurchaseOrderDetail>(() => apiClient.post(`/purchase-orders/${id}/cancel`)),
   },
 
   inventory: {
-    stockLevels: (locationId: string, filters: StockLevelBrowseFilters = {}) =>
+    stockLevels: (locationId: number, filters: StockLevelBrowseFilters = {}) =>
       call<CursorPage<StockLevelRow>>(() => apiClient.get(`/inventory/stock-levels?${query({ locationId, ...filters })}`)),
 
-    receive: (body: { productId: string; locationId: string; quantity: number; unitCost: number }) =>
+    receive: (body: { productId: number; locationId: number; quantity: number; unitCost: number }) =>
       call<StockLevelRow>(() => apiClient.post('/inventory/receive', body)),
 
-    adjust: (body: { productId: string; locationId: string; quantityDelta: number; reason: string }) =>
+    adjust: (body: { productId: number; locationId: number; quantityDelta: number; reason: string }) =>
       call<StockLevelRow>(() => apiClient.post('/inventory/adjust', body)),
 
-    breakCase: (body: { parentProductId: string; locationId: string; casesToBreak: number }) =>
+    breakCase: (body: { parentProductId: number; locationId: number; casesToBreak: number }) =>
       call<void>(() => apiClient.post('/inventory/case-break', body)),
   },
 
   receivables: {
-    browseAccounts: (locationId: string, filters: CustomerAccountBrowseFilters = {}) =>
+    browseAccounts: (locationId: number, filters: CustomerAccountBrowseFilters = {}) =>
       call<CursorPage<CustomerAccountRow>>(() => apiClient.get(`/receivables/accounts?${query({ locationId, ...filters })}`)),
 
-    statement: (customerId: string) =>
+    statement: (customerId: number) =>
       call<CustomerStatement>(() => apiClient.get(`/receivables/customers/${customerId}/statement`)),
 
-    aging: (locationId: string) =>
+    aging: (locationId: number) =>
       call<ReceivablesAgingRow[]>(() => apiClient.get(`/receivables/aging?${query({ locationId })}`)),
 
-    takePayment: (body: { customerId: string; amount: number; tenderTypeId: string; reference?: string }) =>
+    takePayment: (body: { customerId: number; amount: number; tenderTypeId: number; reference?: string }) =>
       call<{ amountApplied: number; amountUnapplied: number }>(() => apiClient.post('/receivables/payments', body)),
 
-    voidInvoice: (invoiceId: string, reason?: string) =>
+    voidInvoice: (invoiceId: number, reason?: string) =>
       call<InvoiceRow>(() => apiClient.post(`/receivables/invoices/${invoiceId}/void`, { reason })),
 
-    refundInvoice: (invoiceId: string, amount: number, reason?: string) =>
+    refundInvoice: (invoiceId: number, amount: number, reason?: string) =>
       call<InvoiceRow>(() => apiClient.post(`/receivables/invoices/${invoiceId}/refund`, { amount, reason })),
   },
 
   giftCards: {
-    issue: (body: { value: number; serialNumber?: string; customerId?: string; expiresOn?: string }) =>
+    issue: (body: { value: number; serialNumber?: string; customerId?: number; expiresOn?: string }) =>
       call<GiftCard>(() => apiClient.post('/gift-cards', body)),
 
     balance: (serialNumber: string) => call<GiftCard>(() => apiClient.get(`/gift-cards/${encodeURIComponent(serialNumber)}`)),
   },
 
   loyalty: {
-    getPolicy: (locationId: string) => call<LoyaltyPolicy>(() => apiClient.get(`/loyalty/policy?${query({ locationId })}`)),
+    getPolicy: (locationId: number) => call<LoyaltyPolicy>(() => apiClient.get(`/loyalty/policy?${query({ locationId })}`)),
 
     savePolicy: (policy: LoyaltyPolicy) => call<LoyaltyPolicy>(() => apiClient.put('/loyalty/policy', policy)),
 
-    balance: (customerId: string) => call<LoyaltyBalance>(() => apiClient.get(`/loyalty/customers/${customerId}/balance`)),
+    balance: (customerId: number) => call<LoyaltyBalance>(() => apiClient.get(`/loyalty/customers/${customerId}/balance`)),
 
-    ledger: (customerId: string) => call<LoyaltyLedgerEntryRow[]>(() => apiClient.get(`/loyalty/customers/${customerId}/ledger`)),
+    ledger: (customerId: number) => call<LoyaltyLedgerEntryRow[]>(() => apiClient.get(`/loyalty/customers/${customerId}/ledger`)),
 
-    adjust: (customerId: string, pointsDelta: number, reason: string) =>
+    adjust: (customerId: number, pointsDelta: number, reason: string) =>
       call<LoyaltyBalance>(() => apiClient.post(`/loyalty/customers/${customerId}/adjust`, { pointsDelta, reason })),
   },
 
   customerOrders: {
-    browse: (locationId: string, filters: { customerId?: string; status?: CustomerOrderStatus; cursor?: string; pageSize?: number } = {}) =>
+    browse: (locationId: number, filters: { customerId?: number; status?: CustomerOrderStatus; cursor?: string; pageSize?: number } = {}) =>
       call<CursorPage<CustomerOrder>>(() => apiClient.get(`/customer-orders?${query({ locationId, ...filters })}`)),
 
-    get: (id: string) => call<CustomerOrder>(() => apiClient.get(`/customer-orders/${id}`)),
+    get: (id: number) => call<CustomerOrder>(() => apiClient.get(`/customer-orders/${id}`)),
 
-    create: (body: { customerId: string; locationId: string; lines: { productId: string; quantity: number; unitPrice: number }[]; notes?: string }) =>
+    create: (body: { customerId: number; locationId: number; lines: { productId: number; quantity: number; unitPrice: number }[]; notes?: string }) =>
       call<CustomerOrder>(() => apiClient.post('/customer-orders', body)),
 
-    fill: (id: string) => call<CustomerOrder>(() => apiClient.post(`/customer-orders/${id}/fill`)),
+    fill: (id: number) => call<CustomerOrder>(() => apiClient.post(`/customer-orders/${id}/fill`)),
 
-    cancel: (id: string) => call<CustomerOrder>(() => apiClient.post(`/customer-orders/${id}/cancel`)),
+    cancel: (id: number) => call<CustomerOrder>(() => apiClient.post(`/customer-orders/${id}/cancel`)),
   },
 
   layaways: {
-    browse: (locationId: string, filters: { customerId?: string; status?: LayawayStatus; cursor?: string; pageSize?: number } = {}) =>
+    browse: (locationId: number, filters: { customerId?: number; status?: LayawayStatus; cursor?: string; pageSize?: number } = {}) =>
       call<CursorPage<Layaway>>(() => apiClient.get(`/layaways?${query({ locationId, ...filters })}`)),
 
-    get: (id: string) => call<Layaway>(() => apiClient.get(`/layaways/${id}`)),
+    get: (id: number) => call<Layaway>(() => apiClient.get(`/layaways/${id}`)),
 
-    create: (body: { customerId: string; locationId: string; lines: { productId: string; quantity: number; unitPrice: number }[] }) =>
+    create: (body: { customerId: number; locationId: number; lines: { productId: number; quantity: number; unitPrice: number }[] }) =>
       call<Layaway>(() => apiClient.post('/layaways', body)),
 
-    takePayment: (id: string, amount: number, tenderTypeId: string) =>
+    takePayment: (id: number, amount: number, tenderTypeId: number) =>
       call<Layaway>(() => apiClient.post(`/layaways/${id}/payments`, { amount, tenderTypeId })),
 
-    cancel: (id: string) => call<Layaway>(() => apiClient.post(`/layaways/${id}/cancel`)),
+    cancel: (id: number) => call<Layaway>(() => apiClient.post(`/layaways/${id}/cancel`)),
   },
 
   priceQuotes: {
-    browse: (locationId: string, filters: { customerId?: string; status?: PriceQuoteStatus; cursor?: string; pageSize?: number } = {}) =>
+    browse: (locationId: number, filters: { customerId?: number; status?: PriceQuoteStatus; cursor?: string; pageSize?: number } = {}) =>
       call<CursorPage<PriceQuote>>(() => apiClient.get(`/price-quotes?${query({ locationId, ...filters })}`)),
 
-    get: (id: string) => call<PriceQuote>(() => apiClient.get(`/price-quotes/${id}`)),
+    get: (id: number) => call<PriceQuote>(() => apiClient.get(`/price-quotes/${id}`)),
 
-    create: (body: { customerId: string; locationId: string; lines: { productId: string; quantity: number; unitPrice: number }[]; expiresOn?: string }) =>
+    create: (body: { customerId: number; locationId: number; lines: { productId: number; quantity: number; unitPrice: number }[]; expiresOn?: string }) =>
       call<PriceQuote>(() => apiClient.post('/price-quotes', body)),
 
-    convert: (id: string) => call<PriceQuote>(() => apiClient.post(`/price-quotes/${id}/convert`)),
+    convert: (id: number) => call<PriceQuote>(() => apiClient.post(`/price-quotes/${id}/convert`)),
 
-    cancel: (id: string) => call<PriceQuote>(() => apiClient.post(`/price-quotes/${id}/cancel`)),
+    cancel: (id: number) => call<PriceQuote>(() => apiClient.post(`/price-quotes/${id}/cancel`)),
   },
 
   deleted: {
-    list: (locationId: string, kind?: DeletedEntityKind, search?: string) =>
+    list: (locationId: number, kind?: DeletedEntityKind, search?: string) =>
       call<DeletedRow[]>(() => apiClient.get(`/catalog/deleted?${query({ locationId, kind, search })}`)),
 
-    restore: (kind: DeletedEntityKind, id: string) =>
+    restore: (kind: DeletedEntityKind, id: number) =>
       call<void>(() => apiClient.post(`/catalog/deleted/${kind}/${id}/restore`)),
   },
 
   /** The itemized sales log (guide p.14–15) and one sale in full. */
   sales: {
-    log: (locationId: string, filters: SalesLogFilters = {}) =>
+    log: (locationId: number, filters: SalesLogFilters = {}) =>
       call<SalesLogPage>(() => apiClient.get(`/sales?${query({ locationId, ...filters })}`)),
 
-    get: (transactionId: string) => call<SaleDetail>(() => apiClient.get(`/sales/${transactionId}`)),
+    get: (transactionId: number) => call<SaleDetail>(() => apiClient.get(`/sales/${transactionId}`)),
 
-    reprint: (transactionId: string, stationId: string, copies = 1) =>
+    reprint: (transactionId: number, stationId: number, copies = 1) =>
       call<unknown>(() => apiClient.post(`/sales/${transactionId}/reprint`, { stationId, copies })),
 
     /** The URL the browser downloads from — the modern "Open In MS-Excel" (guide p.101). */
-    exportUrl: (locationId: string, filters: SalesLogFilters = {}) =>
+    exportUrl: (locationId: number, filters: SalesLogFilters = {}) =>
       `/api/proxy/sales/export?${query({ locationId, ...filters })}`,
   },
 
@@ -485,47 +485,47 @@ export const mastersApi = {
     marginExportUrl: (filters: SalesAnalysisFilters) =>
       `/api/proxy/reports/margin/export?${query({ ...filters })}`,
 
-    tax: (locationId: string, from: string, to: string, includeVoided = false) =>
+    tax: (locationId: number, from: string, to: string, includeVoided = false) =>
       call<TaxReportResult>(() => apiClient.get(`/reports/tax?${query({ locationId, from, to, includeVoided })}`)),
 
-    taxExportUrl: (locationId: string, from: string, to: string, includeVoided = false) =>
+    taxExportUrl: (locationId: number, from: string, to: string, includeVoided = false) =>
       `/api/proxy/reports/tax/export?${query({ locationId, from, to, includeVoided })}`,
 
-    stockValue: (locationId: string, departmentId?: string) =>
+    stockValue: (locationId: number, departmentId?: number) =>
       call<StockValuationResult>(() => apiClient.get(`/reports/stock-value?${query({ locationId, departmentId })}`)),
 
-    stockValueDetail: (locationId: string, departmentId?: string, skip = 0, take = 200) =>
+    stockValueDetail: (locationId: number, departmentId?: number, skip = 0, take = 200) =>
       call<StockValuationDetailPage>(() =>
         apiClient.get(`/reports/stock-value/detail?${query({ locationId, departmentId, skip, take })}`)),
 
-    stockValueExportUrl: (locationId: string, departmentId?: string) =>
+    stockValueExportUrl: (locationId: number, departmentId?: number) =>
       `/api/proxy/reports/stock-value/export?${query({ locationId, departmentId })}`,
 
-    stockPosition: (locationId: string, departmentId?: string, only?: StockPositionKind) =>
+    stockPosition: (locationId: number, departmentId?: number, only?: StockPositionKind) =>
       call<StockPositionRow[]>(() =>
         apiClient.get(`/reports/stock-position?${query({ locationId, departmentId, only })}`)),
 
-    stockPositionExportUrl: (locationId: string, departmentId?: string, only?: StockPositionKind) =>
+    stockPositionExportUrl: (locationId: number, departmentId?: number, only?: StockPositionKind) =>
       `/api/proxy/reports/stock-position/export?${query({ locationId, departmentId, only })}`,
 
-    onOrder: (locationId: string, supplierId?: string, departmentId?: string) =>
+    onOrder: (locationId: number, supplierId?: number, departmentId?: number) =>
       call<OnOrderRow[]>(() => apiClient.get(`/reports/on-order?${query({ locationId, supplierId, departmentId })}`)),
 
-    onOrderExportUrl: (locationId: string, supplierId?: string, departmentId?: string) =>
+    onOrderExportUrl: (locationId: number, supplierId?: number, departmentId?: number) =>
       `/api/proxy/reports/on-order/export?${query({ locationId, supplierId, departmentId })}`,
 
-    stockReceived: (locationId: string, from: string, to: string, supplierId?: string, skip = 0, take = 200) =>
+    stockReceived: (locationId: number, from: string, to: string, supplierId?: number, skip = 0, take = 200) =>
       call<StockReceivedPage>(() =>
         apiClient.get(`/reports/stock-received?${query({ locationId, from, to, supplierId, skip, take })}`)),
 
-    stockReceivedExportUrl: (locationId: string, from: string, to: string, supplierId?: string) =>
+    stockReceivedExportUrl: (locationId: number, from: string, to: string, supplierId?: number) =>
       `/api/proxy/reports/stock-received/export?${query({ locationId, from, to, supplierId })}`,
 
-    rewardPoints: (locationId: string, from: string, to: string, customerId?: string) =>
+    rewardPoints: (locationId: number, from: string, to: string, customerId?: number) =>
       call<RewardPointsResult>(() =>
         apiClient.get(`/reports/reward-points?${query({ locationId, from, to, customerId })}`)),
 
-    rewardPointsExportUrl: (locationId: string, from: string, to: string, customerId?: string) =>
+    rewardPointsExportUrl: (locationId: number, from: string, to: string, customerId?: number) =>
       `/api/proxy/reports/reward-points/export?${query({ locationId, from, to, customerId })}`,
   },
 
@@ -543,13 +543,13 @@ export const mastersApi = {
     printBarcodeLabels: (body: PrintLabelsRequest) =>
       callPdf(() => apiClient.post('/documents/labels/barcodes', body, { responseType: 'blob' })),
 
-    priceTagUrl: (productId: string, locationId: string, stock: LabelStock, copies = 1) =>
+    priceTagUrl: (productId: number, locationId: number, stock: LabelStock, copies = 1) =>
       `/api/proxy/documents/labels/price-tag/${productId}?${query({ locationId, stock, copies })}`,
 
-    statementEnvelopeUrl: (customerId: string) =>
+    statementEnvelopeUrl: (customerId: number) =>
       `/api/proxy/documents/envelopes/statement/${customerId}`,
 
-    catalogueUrl: (locationId: string, filters: { departmentId?: string; categoryId?: string; search?: string } = {}) =>
+    catalogueUrl: (locationId: number, filters: { departmentId?: number; categoryId?: number; search?: string } = {}) =>
       `/api/proxy/documents/catalogue?${query({ locationId, ...filters })}`,
   },
 
@@ -583,58 +583,58 @@ export const mastersApi = {
 
   /** Stock moving between stores (guide p.20–21). */
   transfers: {
-    destinations: (locationId: string) =>
+    destinations: (locationId: number) =>
       call<TransferDestination[]>(() => apiClient.get(`/transfers/destinations?${query({ locationId })}`)),
 
-    browse: (locationId: string, filters: { status?: TransferStatus; includeInbound?: boolean } = {}) =>
+    browse: (locationId: number, filters: { status?: TransferStatus; includeInbound?: boolean } = {}) =>
       call<TransferRow[]>(() => apiClient.get(`/transfers?${query({ locationId, ...filters })}`)),
 
-    get: (id: string) => call<Transfer>(() => apiClient.get(`/transfers/${id}`)),
+    get: (id: number) => call<Transfer>(() => apiClient.get(`/transfers/${id}`)),
 
-    create: (fromLocationId: string, toLocationId: string, notes?: string) =>
+    create: (fromLocationId: number, toLocationId: number, notes?: string) =>
       call<Transfer>(() => apiClient.post('/transfers', { fromLocationId, toLocationId, notes })),
 
-    upsertLine: (id: string, productId: string, quantity: number) =>
+    upsertLine: (id: number, productId: number, quantity: number) =>
       call<Transfer>(() => apiClient.post(`/transfers/${id}/lines`, { productId, quantity })),
 
-    removeLine: (id: string, lineId: string) =>
+    removeLine: (id: number, lineId: number) =>
       call<Transfer>(() => apiClient.delete(`/transfers/${id}/lines/${lineId}`)),
 
-    ship: (id: string) => call<Transfer>(() => apiClient.post(`/transfers/${id}/ship`)),
+    ship: (id: number) => call<Transfer>(() => apiClient.post(`/transfers/${id}/ship`)),
 
     /** An empty line list receives everything still outstanding. */
-    receive: (id: string, lines?: Array<{ lineId: string; quantity: number }>) =>
+    receive: (id: number, lines?: Array<{ lineId: number; quantity: number }>) =>
       call<Transfer>(() => apiClient.post(`/transfers/${id}/receive`, { lines: lines ?? null })),
 
-    cancel: (id: string) => call<Transfer>(() => apiClient.post(`/transfers/${id}/cancel`)),
+    cancel: (id: number) => call<Transfer>(() => apiClient.post(`/transfers/${id}/cancel`)),
   },
 
   /** Stock counts (guide p.22): count, review the variances, then post. */
   stockCounts: {
-    browse: (locationId: string, status?: StockCountStatus) =>
+    browse: (locationId: number, status?: StockCountStatus) =>
       call<StockCountRow[]>(() => apiClient.get(`/stock-counts?${query({ locationId, status })}`)),
 
-    get: (id: string, varianceOnly = false, take = 500) =>
+    get: (id: number, varianceOnly = false, take = 500) =>
       call<StockCount>(() => apiClient.get(`/stock-counts/${id}?${query({ varianceOnly, take })}`)),
 
-    start: (locationId: string, departmentId?: string, notes?: string) =>
+    start: (locationId: number, departmentId?: number, notes?: string) =>
       call<StockCount>(() => apiClient.post('/stock-counts', { locationId, departmentId, notes })),
 
-    importLines: (id: string, items: Array<{ stockCode: string; countedQty: number; notes?: string }>) =>
+    importLines: (id: number, items: Array<{ stockCode: string; countedQty: number; notes?: string }>) =>
       call<CountImportResult>(() => apiClient.post(`/stock-counts/${id}/lines`, { items })),
 
-    importCsv: (id: string, csv: string) =>
+    importCsv: (id: number, csv: string) =>
       call<CountImportResult>(() => apiClient.post(`/stock-counts/${id}/import`, { csv })),
 
-    removeLine: (id: string, lineId: string) =>
+    removeLine: (id: number, lineId: number) =>
       call<StockCount>(() => apiClient.delete(`/stock-counts/${id}/lines/${lineId}`)),
 
-    post: (id: string, reason?: string) =>
+    post: (id: number, reason?: string) =>
       call<StockCount>(() => apiClient.post(`/stock-counts/${id}/post`, { reason })),
 
-    cancel: (id: string) => call<StockCount>(() => apiClient.post(`/stock-counts/${id}/cancel`)),
+    cancel: (id: number) => call<StockCount>(() => apiClient.post(`/stock-counts/${id}/cancel`)),
 
-    exportUrl: (id: string, varianceOnly = true) =>
+    exportUrl: (id: number, varianceOnly = true) =>
       `/api/proxy/stock-counts/${id}/export?${query({ varianceOnly })}`,
   },
 
@@ -643,22 +643,22 @@ export const mastersApi = {
    * makes reopening a safe thing to offer.
    */
   fiscalYears: {
-    list: (locationId: string) =>
+    list: (locationId: number) =>
       call<FiscalYear[]>(() => apiClient.get(`/fiscal-years?${query({ locationId })}`)),
 
-    open: (locationId: string, year: number, notes?: string) =>
+    open: (locationId: number, year: number, notes?: string) =>
       call<FiscalYear>(() => apiClient.post('/fiscal-years', { locationId, year, notes })),
 
     /** `dryRun` calculates everything and writes nothing. Always run it first. */
-    close: (id: string, dryRun: boolean) =>
+    close: (id: number, dryRun: boolean) =>
       call<FiscalYearCloseResult>(() => apiClient.post(`/fiscal-years/${id}/close?${query({ dryRun })}`)),
 
-    reopen: (id: string) => call<FiscalYear>(() => apiClient.post(`/fiscal-years/${id}/reopen`)),
+    reopen: (id: number) => call<FiscalYear>(() => apiClient.post(`/fiscal-years/${id}/reopen`)),
 
-    history: (locationId: string, year?: number, productId?: string, take = 500) =>
+    history: (locationId: number, year?: number, productId?: number, take = 500) =>
       call<ArchiveRow[]>(() => apiClient.get(`/fiscal-years/history?${query({ locationId, year, productId, take })}`)),
 
-    historyExportUrl: (locationId: string, year?: number) =>
+    historyExportUrl: (locationId: number, year?: number) =>
       `/api/proxy/fiscal-years/history/export?${query({ locationId, year })}`,
   },
 
@@ -669,98 +669,98 @@ export const mastersApi = {
   migration: {
     kinds: () => call<LegacySourceKind[]>(() => apiClient.get('/migration/kinds')),
 
-    batches: (locationId: string) =>
+    batches: (locationId: number) =>
       call<MigrationBatch[]>(() => apiClient.get(`/migration/batches?${query({ locationId })}`)),
 
-    batch: (id: string) => call<MigrationBatch>(() => apiClient.get(`/migration/batches/${id}`)),
+    batch: (id: number) => call<MigrationBatch>(() => apiClient.get(`/migration/batches/${id}`)),
 
-    analysis: (id: string) => call<AnalysisReport>(() => apiClient.get(`/migration/batches/${id}/analysis`)),
+    analysis: (id: number) => call<AnalysisReport>(() => apiClient.get(`/migration/batches/${id}/analysis`)),
 
-    validation: (id: string) =>
+    validation: (id: number) =>
       call<ValidationFinding[]>(() => apiClient.get(`/migration/batches/${id}/validation`)),
 
-    reconciliation: (id: string) =>
+    reconciliation: (id: number) =>
       call<ReconciliationReport>(() => apiClient.get(`/migration/batches/${id}/reconciliation`)),
 
-    rows: (id: string, problemsOnly = true, take = 200) =>
+    rows: (id: number, problemsOnly = true, take = 200) =>
       call<StagingRow[]>(() => apiClient.get(`/migration/batches/${id}/rows?${query({ problemsOnly, take })}`)),
 
-    stage: (locationId: string, fileName: string, entity: string, base64: string) =>
+    stage: (locationId: number, fileName: string, entity: string, base64: string) =>
       call<MigrationBatch>(() =>
         apiClient.post('/migration/stage', { locationId, fileName, entity, content: base64, isBase64: true })),
 
-    validate: (id: string) => call<MigrationBatch>(() => apiClient.post(`/migration/batches/${id}/validate`)),
+    validate: (id: number) => call<MigrationBatch>(() => apiClient.post(`/migration/batches/${id}/validate`)),
 
-    dryRun: (id: string, totals: LegacyControlTotals | null) =>
+    dryRun: (id: number, totals: LegacyControlTotals | null) =>
       call<ReconciliationReport>(() => apiClient.post(`/migration/batches/${id}/dry-run`, totals)),
 
-    import: (id: string, totals: LegacyControlTotals | null) =>
+    import: (id: number, totals: LegacyControlTotals | null) =>
       call<ReconciliationReport>(() => apiClient.post(`/migration/batches/${id}/import`, totals)),
 
-    cancel: (id: string) => call<void>(() => apiClient.post(`/migration/batches/${id}/cancel`)),
+    cancel: (id: number) => call<void>(() => apiClient.post(`/migration/batches/${id}/cancel`)),
   },
 
   /** Staff, the time clock and commissions (guide p.33, p.75–76). */
   staff: {
-    browse: (locationId: string, includeInactive = false) =>
+    browse: (locationId: number, includeInactive = false) =>
       call<StaffRow[]>(() => apiClient.get(`/staff?${query({ locationId, includeInactive })}`)),
 
-    myTimeClock: (locationId: string) =>
+    myTimeClock: (locationId: number) =>
       call<TimeClockState>(() => apiClient.get(`/staff/time-clock/me?${query({ locationId })}`)),
 
-    clockIn: (locationId: string) =>
+    clockIn: (locationId: number) =>
       call<TimeClockState>(() => apiClient.post('/staff/time-clock/in', { locationId })),
 
-    clockOut: (locationId: string) =>
+    clockOut: (locationId: number) =>
       call<TimeClockState>(() => apiClient.post('/staff/time-clock/out', { locationId })),
 
-    timeClock: (locationId: string, from: string, to: string, staffId?: string) =>
+    timeClock: (locationId: number, from: string, to: string, staffId?: number) =>
       call<TimeClockEntry[]>(() => apiClient.get(`/staff/time-clock?${query({ locationId, from, to, staffId })}`)),
 
-    amendTimeClock: (id: string, clockIn: string, clockOut: string | null) =>
+    amendTimeClock: (id: number, clockIn: string, clockOut: string | null) =>
       call<TimeClockEntry>(() => apiClient.put(`/staff/time-clock/${id}`, { clockIn, clockOut })),
 
-    deleteTimeClock: (id: string) => call<void>(() => apiClient.delete(`/staff/time-clock/${id}`)),
+    deleteTimeClock: (id: number) => call<void>(() => apiClient.delete(`/staff/time-clock/${id}`)),
 
-    commissionRules: (staffId: string) =>
+    commissionRules: (staffId: number) =>
       call<CommissionRule[]>(() => apiClient.get(`/staff/${staffId}/commission-rules`)),
 
     saveCommissionRule: (body: unknown) =>
       call<CommissionRule>(() => apiClient.post('/staff/commission-rules', body)),
 
-    deleteCommissionRule: (id: string) => call<void>(() => apiClient.delete(`/staff/commission-rules/${id}`)),
+    deleteCommissionRule: (id: number) => call<void>(() => apiClient.delete(`/staff/commission-rules/${id}`)),
 
-    hours: (locationId: string, from: string, to: string, staffId?: string) =>
+    hours: (locationId: number, from: string, to: string, staffId?: number) =>
       call<HoursReportResult>(() => apiClient.get(`/staff/reports/hours?${query({ locationId, from, to, staffId })}`)),
 
-    hoursExportUrl: (locationId: string, from: string, to: string, staffId?: string) =>
+    hoursExportUrl: (locationId: number, from: string, to: string, staffId?: number) =>
       `/api/proxy/staff/reports/hours/export?${query({ locationId, from, to, staffId })}`,
 
-    commissions: (locationId: string, from: string, to: string, staffId?: string, includeDetail = false) =>
+    commissions: (locationId: number, from: string, to: string, staffId?: number, includeDetail = false) =>
       call<CommissionReportResult>(() =>
         apiClient.get(`/staff/reports/commissions?${query({ locationId, from, to, staffId, includeDetail })}`)),
 
-    commissionsExportUrl: (locationId: string, from: string, to: string, staffId?: string) =>
+    commissionsExportUrl: (locationId: number, from: string, to: string, staffId?: number) =>
       `/api/proxy/staff/reports/commissions/export?${query({ locationId, from, to, staffId })}`,
   },
 
   /** The accounting link (doc 09 §1) — what to post, whether it can be posted, and what happened. */
   accounting: {
-    preflight: (locationId: string) =>
+    preflight: (locationId: number) =>
       call<PreflightReport>(() => apiClient.get(`/sync/accounting/preflight?${query({ locationId })}`)),
 
-    run: (entity: SyncEntityName, locationId: string, extra: SyncRunOptions = {}) =>
+    run: (entity: SyncEntityName, locationId: number, extra: SyncRunOptions = {}) =>
       call<SyncRunResult>(() =>
         apiClient.post(`/sync/accounting/push/${entity}?${query({ locationId, ...extra })}`)),
 
     /** The generated file itself, downloaded rather than fetched — it is meant to be handed on. */
-    exportUrl: (entity: SyncEntityName, locationId: string, extra: SyncRunOptions = {}) =>
+    exportUrl: (entity: SyncEntityName, locationId: number, extra: SyncRunOptions = {}) =>
       `/api/proxy/sync/accounting/${entity}/export?${query({ locationId, ...extra })}`,
 
     log: (filters: { entity?: string; status?: string; skip?: number; take?: number } = {}) =>
       call<SyncLogPage>(() => apiClient.get(`/sync/accounting/log?${query({ ...filters })}`)),
 
-    logDetail: (id: string) => call<SyncLogDetail>(() => apiClient.get(`/sync/accounting/log/${id}`)),
+    logDetail: (id: number) => call<SyncLogDetail>(() => apiClient.get(`/sync/accounting/log/${id}`)),
 
     mappings: (provider = 'csv') =>
       call<ExternalMapRow[]>(() => apiClient.get(`/sync/accounting/mappings?${query({ provider })}`)),
@@ -768,9 +768,9 @@ export const mastersApi = {
     saveMapping: (body: {
       provider: string;
       entityType: string;
-      localId?: string | null;
+      localId?: number | null;
       localKey?: string | null;
-      remoteId: string;
+      remoteId: number;
       remoteName?: string | null;
     }) => call<ExternalMapRow>(() => apiClient.post('/sync/accounting/mappings', body)),
   },
@@ -783,14 +783,14 @@ export const mastersApi = {
   },
 
   matrix: {
-    get: (productId: string) => call<Matrix>(() => apiClient.get(`/products/${productId}/matrix`)),
+    get: (productId: number) => call<Matrix>(() => apiClient.get(`/products/${productId}/matrix`)),
 
-    define: (productId: string, dimensions: MatrixDimension[]) =>
+    define: (productId: number, dimensions: MatrixDimension[]) =>
       call<Matrix>(() => apiClient.post(`/products/${productId}/matrix`, { dimensions })),
   },
 
   settings: {
-    get: (locationId: string) => call<SettingsSnapshot>(() => apiClient.get(`/settings?${query({ locationId })}`)),
+    get: (locationId: number) => call<SettingsSnapshot>(() => apiClient.get(`/settings?${query({ locationId })}`)),
 
     business: (body: unknown) => call<unknown>(() => apiClient.put('/settings/business', body)),
 
@@ -804,7 +804,7 @@ export const mastersApi = {
 
     station: (body: unknown) => call<unknown>(() => apiClient.post('/settings/stations', body)),
 
-    deactivateStation: (id: string) => call<void>(() => apiClient.post(`/settings/stations/${id}/deactivate`)),
+    deactivateStation: (id: number) => call<void>(() => apiClient.post(`/settings/stations/${id}/deactivate`)),
 
     printer: (body: unknown) => call<unknown>(() => apiClient.post('/settings/printers', body)),
 
@@ -816,7 +816,7 @@ export const mastersApi = {
 
     tender: (body: unknown) => call<unknown>(() => apiClient.post('/settings/tenders', body)),
 
-    removeTender: (id: string, locationId: string) =>
+    removeTender: (id: number, locationId: number) =>
       call<void>(() => apiClient.delete(`/settings/tenders/${id}?${query({ locationId })}`)),
 
     currency: (body: unknown) => call<unknown>(() => apiClient.post('/settings/currencies', body)),

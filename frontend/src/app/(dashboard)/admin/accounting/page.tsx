@@ -204,7 +204,7 @@ export default function AccountingSyncPage() {
             </thead>
             <tbody>
               {maps.map((map) => (
-                <tr key={map.id}>
+                <tr key={String(map.id)}>
                   <td className="py-0.5">{map.entityType}</td>
                   <td className="py-0.5">{map.localKey ?? map.localId ?? '—'}</td>
                   <td className="py-0.5">{map.remoteName ?? map.remoteId}</td>

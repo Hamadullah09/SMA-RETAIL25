@@ -33,6 +33,15 @@ import {
 } from '@/types/masters';
 
 /**
+ * The id a form holds while it is creating rather than editing.
+ *
+ * Zero, because that is what the domain means by it too: an entity that has not been saved has no
+ * id yet, and no row can ever be 0 � the sequence starts at 1. A string sentinel would have to be
+ * kept out of every type that says this is a record key.
+ */
+const NEW_RECORD = 0;
+
+/**
  * Inventory Browse + Form View (guide p.23–24, p.30–44).
  *
  * The grid is keyset-paged and patched live; the form is the legacy item screen's tabs, saved a
@@ -46,7 +55,7 @@ export default function ProductsPage() {
   const canDelete = auth.can('catalog.delete');
 
   const [search, setSearch] = useState('');
-  const [departmentId, setDepartmentId] = useState('');
+  const [departmentId, setDepartmentId] = useState<number | ''>('');
   const [type, setType] = useState<ProductType | ''>('');
   const [belowReorderPoint, setBelowReorderPoint] = useState(false);
   const [sort, setSort] = useState<ProductSort>('StockCode');
@@ -54,7 +63,7 @@ export default function ProductsPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [printing, setPrinting] = useState(false);
 
   const { data: departments = [] } = useQuery({
@@ -205,7 +214,7 @@ export default function ProductsPage() {
           ) : null}
 
           {canWrite ? (
-            <button type="button" className="pos-button-primary" onClick={() => setSelectedId('new')}>
+            <button type="button" className="pos-button-primary" onClick={() => setSelectedId(NEW_RECORD)}>
               New item
             </button>
           ) : null}
@@ -227,7 +236,7 @@ export default function ProductsPage() {
           >
             <option value="">All departments</option>
             {departments.map((department) => (
-              <option key={department.id} value={department.id}>
+              <option key={String(department.id)} value={department.id}>
                 {department.name} ({department.usageCount})
               </option>
             ))}
@@ -282,8 +291,8 @@ export default function ProductsPage() {
       form={
         selectedId && locationId ? (
           <ProductFormPanel
-            key={selectedId}
-            productId={selectedId === 'new' ? null : selectedId}
+            key={String(selectedId)}
+            productId={selectedId === NEW_RECORD ? null : selectedId}
             locationId={locationId}
             departments={departments}
             categories={categories}
@@ -341,7 +350,7 @@ function fromPick(picked: PickerOption | null): LinkedProduct | null {
  * Searches the catalogue for a link target, excluding the item being edited — an item cannot be its
  * own substitute, and the server refuses it, so offering it is only a way to earn an error.
  */
-function searchItems(locationId: string, term: string, excludeId: string): Promise<PickerOption[]> {
+function searchItems(locationId: number, term: string, excludeId: number): Promise<PickerOption[]> {
   return mastersApi.products
     .browse(locationId, { search: term, pageSize: 15 })
     .then((page) =>
@@ -405,8 +414,8 @@ function ProductFormPanel({
   onClose,
   onSaved,
 }: {
-  productId: string | null;
-  locationId: string;
+  productId: number | null;
+  locationId: number;
   departments: Array<{ id: string; name: string }>;
   categories: Array<{ id: string; name: string }>;
   canWrite: boolean;

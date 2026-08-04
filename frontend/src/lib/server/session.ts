@@ -43,8 +43,8 @@ export interface SessionUser {
   sub: string;
   name: string;
   email?: string;
-  staffId?: string;
-  locationId?: string;
+  staffId?: number;
+  locationId?: number;
   accessLevel?: number;
   roles: string[];
   permissions: string[];

@@ -8,11 +8,11 @@ export type StockMovementType = 'OpeningBalance' | 'Receipt' | 'Transfer' | 'Adj
 export type CountStatus = 'Open' | 'InProgress' | 'Recount' | 'Completed' | 'Cancelled';
 
 export interface Product {
-  id: string;
+  id: number;
   stockCode: string;
   name: string;
   type: ProductType;
-  departmentId?: string;
+  departmentId?: number;
   regularPrice: number;
   lastCost: number;
   avgCost: number;
@@ -22,11 +22,11 @@ export interface Product {
   binLocation?: string;
   description?: string;
   notes?: string;
-  locationId: string;
+  locationId: number;
 }
 
 export interface Customer {
-  id: string;
+  id: number;
   customerNumber: number;
   firstName: string;
   lastName: string;
@@ -42,11 +42,11 @@ export interface Customer {
   creditLimit?: number;
   balance?: number;
   isActive: boolean;
-  locationId: string;
+  locationId: number;
 }
 
 export interface CartLine {
-  id: string;
+  id: number;
   lineType: LineType;
   lineNumber: number;
   identifier?: string;
@@ -61,11 +61,11 @@ export interface CartLine {
 }
 
 export interface Cart {
-  id: string;
-  locationId: string;
-  terminalId: string;
-  staffId: string;
-  customerId?: string;
+  id: number;
+  locationId: number;
+  terminalId: number;
+  staffId: number;
+  customerId?: number;
   customerName?: string;
   transactionType: TransactionType;
   status: string;
@@ -79,7 +79,7 @@ export interface Cart {
 }
 
 export interface PaymentRecord {
-  id: string;
+  id: number;
   method: PaymentMethod;
   amount: number;
   reference?: string;
@@ -87,13 +87,13 @@ export interface PaymentRecord {
 }
 
 export interface SalesTransaction {
-  id: string;
+  id: number;
   transactionNumber: number;
   transactionType: TransactionType;
-  locationId: string;
-  terminalId: string;
-  staffId: string;
-  customerId?: string;
+  locationId: number;
+  terminalId: number;
+  staffId: number;
+  customerId?: number;
   customerName?: string;
   transactionDate: string;
   status: TransactionStatus;
@@ -107,10 +107,10 @@ export interface SalesTransaction {
 }
 
 export interface StockLevel {
-  id: string;
-  productId: string;
+  id: number;
+  productId: number;
   productName: string;
-  locationId: string;
+  locationId: number;
   onHand: number;
   reserved: number;
   available: number;
@@ -119,14 +119,14 @@ export interface StockLevel {
 }
 
 export interface Department {
-  id: string;
+  id: number;
   code: string;
   name: string;
-  parentDepartmentId?: string;
+  parentDepartmentId?: number;
 }
 
 export interface Supplier {
-  id: string;
+  id: number;
   code: string;
   name: string;
   contactName?: string;
@@ -135,14 +135,14 @@ export interface Supplier {
 }
 
 export interface Location {
-  id: string;
+  id: number;
   code: string;
   name: string;
   isActive: boolean;
 }
 
 export interface User {
-  id: string;
+  id: number;
   email: string;
   firstName?: string;
   lastName?: string;

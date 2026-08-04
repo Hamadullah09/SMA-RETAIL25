@@ -43,7 +43,7 @@ export default function PurchasingPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showGenerate, setShowGenerate] = useState(false);
 
   const load = useCallback(
@@ -130,7 +130,7 @@ export default function PurchasingPage() {
       form={
         selectedId && locationId ? (
           <PurchaseOrderPanel
-            key={selectedId}
+            key={String(selectedId)}
             purchaseOrderId={selectedId}
             canWrite={canWrite}
             canPostOrder={canPostOrder}
@@ -177,12 +177,12 @@ function GeneratePanel({
   onClose,
   onGenerated,
 }: {
-  locationId: string;
+  locationId: number;
   onClose: () => void;
-  onGenerated: (purchaseOrderId: string) => void;
+  onGenerated: (purchaseOrderId: number) => void;
 }) {
   const [suppliers, setSuppliers] = useState<SupplierRow[]>([]);
-  const [supplierId, setSupplierId] = useState('');
+  const [supplierId, setSupplierId] = useState<number | ''>('');
   const [strategy, setStrategy] = useState<OrderQuantityStrategy>('Blank');
   const [busy, setBusy] = useState(false);
 
@@ -230,7 +230,7 @@ function GeneratePanel({
           <select className={selectClass + ' w-full'} value={supplierId} onChange={(event) => setSupplierId(event.target.value)}>
             <option value="">Choose a supplier…</option>
             {suppliers.map((s) => (
-              <option key={s.id} value={s.id}>
+              <option key={String(s.id)} value={s.id}>
                 {s.company}
               </option>
             ))}
@@ -262,7 +262,7 @@ function PurchaseOrderPanel({
   onClose,
   onChanged,
 }: {
-  purchaseOrderId: string;
+  purchaseOrderId: number;
   canWrite: boolean;
   canPostOrder: boolean;
   canPostShipment: boolean;
@@ -380,7 +380,7 @@ function LinesTable({
   setBusy: (busy: boolean) => void;
   onChanged: () => Promise<void>;
 }) {
-  const remove = async (lineId: string) => {
+  const remove = async (lineId: number) => {
     setBusy(true);
     try {
       await mastersApi.purchaseOrders.removeLine(lineId);
@@ -410,7 +410,7 @@ function LinesTable({
       </thead>
       <tbody>
         {order.lines.map((line) => (
-          <tr key={line.id} className="border-t border-subtle">
+          <tr key={String(line.id)} className="border-t border-subtle">
             <td className="py-1">
               {line.stockCode} — {line.productName}
             </td>
@@ -437,8 +437,8 @@ function AddLinePanel({
   locationId,
   onAdded,
 }: {
-  purchaseOrderId: string;
-  locationId: string;
+  purchaseOrderId: number;
+  locationId: number;
   onAdded: () => Promise<void>;
 }) {
   const [term, setTerm] = useState('');
@@ -518,7 +518,7 @@ function AddLinePanel({
         {results.length > 0 ? (
           <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-subtle">
             {results.map((product) => (
-              <li key={product.id}>
+              <li key={String(product.id)}>
                 <button
                   type="button"
                   className="block w-full px-2 py-1 text-left text-label hover:bg-panel-hover"
@@ -588,7 +588,7 @@ function ReceivePanel({ order, onReceived }: { order: PurchaseOrderDetail; onRec
     >
       {outstanding.map((line) => (
         <NumberField
-          key={line.id}
+          key={String(line.id)}
           label={`${line.stockCode} (${line.orderQty - line.qtyReceived} remaining)`}
           value={qtys[line.id] ?? 0}
           onChange={(value) => setQtys((current) => ({ ...current, [line.id]: value }))}

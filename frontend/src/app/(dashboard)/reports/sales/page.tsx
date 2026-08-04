@@ -194,7 +194,7 @@ function SaleDetailPanel({
   onClose,
 }: {
   sale: SaleDetail;
-  stationId: string | undefined;
+  stationId: number | undefined;
   onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);

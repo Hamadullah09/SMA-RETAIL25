@@ -21,6 +21,15 @@ import { formatCurrency } from '@/lib/utils';
 import type { Address, ContactDetails, CustomerForm, CustomerRow, CustomerSort } from '@/types/masters';
 
 /**
+ * The id a form holds while it is creating rather than editing.
+ *
+ * Zero, because that is what the domain means by it too: an entity that has not been saved has no
+ * id yet, and no row can ever be 0 — the sequence starts at 1. A string sentinel would have to be
+ * kept out of every type that says this is a record key.
+ */
+const NEW_RECORD = 0;
+
+/**
  * Customer Browse + Form View (guide p.46â€“52).
  *
  * The account and pricing fields sit on the same screen as the name and address because they are
@@ -41,7 +50,7 @@ export default function CustomersPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const { data: clientTypes = [] } = useQuery({
     queryKey: ['client-types', locationId],
@@ -133,7 +142,7 @@ export default function CustomersPage() {
         <>
           <LiveBadge connected={connected} />
           {canWrite ? (
-            <button type="button" className="pos-button-primary" onClick={() => setSelectedId('new')}>
+            <button type="button" className="pos-button-primary" onClick={() => setSelectedId(NEW_RECORD)}>
               New customer
             </button>
           ) : null}
@@ -195,8 +204,8 @@ export default function CustomersPage() {
       form={
         selectedId && locationId ? (
           <CustomerFormPanel
-            key={selectedId}
-            customerId={selectedId === 'new' ? null : selectedId}
+            key={String(selectedId)}
+            customerId={selectedId === NEW_RECORD ? null : selectedId}
             locationId={locationId}
             canWrite={canWrite}
             canDelete={canDelete}
@@ -262,8 +271,8 @@ function CustomerFormPanel({
   onClose,
   onSaved,
 }: {
-  customerId: string | null;
-  locationId: string;
+  customerId: number | null;
+  locationId: number;
   canWrite: boolean;
   canDelete: boolean;
   onClose: () => void;

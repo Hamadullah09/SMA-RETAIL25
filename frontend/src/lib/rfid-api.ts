@@ -19,9 +19,9 @@ export type BeeperMode = 'Quiet' | 'AfterInventory' | 'EveryTag';
 export type ReaderProtocol = 'Llrp' | 'Http' | 'Mqtt' | 'Simulator' | 'UhfSerial';
 
 export interface ReaderProfile {
-  id: string;
-  locationId: string;
-  stationId: string | null;
+  id: number;
+  locationId: number;
+  stationId: number | null;
   name: string;
   host: string;
   port: number;
@@ -77,7 +77,7 @@ export interface ReaderDiagnostics {
 const AGENT = process.env.NEXT_PUBLIC_AGENT_URL ?? 'http://127.0.0.1:8477';
 
 export const rfidApi = {
-  list: async (locationId: string): Promise<ReaderProfile[]> => {
+  list: async (locationId: number): Promise<ReaderProfile[]> => {
     const response = await apiClient.get(`/terminals/readers?locationId=${locationId}`);
     return response.data as ReaderProfile[];
   },

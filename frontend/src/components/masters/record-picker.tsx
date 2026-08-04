@@ -12,7 +12,7 @@ import { Field } from '@/components/masters/browse-form';
  */
 
 export interface PickerOption {
-  id: string;
+  id: number;
   code: string;
   name: string;
 }

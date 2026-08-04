@@ -288,7 +288,7 @@ export function PaymentDialog() {
       <div className="grid grid-cols-3 gap-2">
         {tenders.map((tender) => (
           <button
-            key={tender.id}
+            key={String(tender.id)}
             type="button"
             onClick={() => setSelected(tender)}
             aria-pressed={selected?.id === tender.id}
@@ -635,7 +635,7 @@ export function FindDialog() {
 
       <ul className="max-h-72 overflow-y-auto">
         {results.map((product) => (
-          <li key={product.id}>
+          <li key={String(product.id)}>
             <button
               type="button"
               className="flex w-full items-center justify-between px-1 py-1.5 text-left text-body hover:bg-panel-hover"
@@ -673,7 +673,7 @@ export function SuspendedCartsDialog() {
       ) : (
         <ul className="max-h-72 overflow-y-auto">
           {carts.map((cart) => (
-            <li key={cart.id}>
+            <li key={String(cart.id)}>
               <button
                 type="button"
                 className="flex w-full items-center justify-between px-1 py-2 text-left text-body hover:bg-panel-hover"
@@ -857,7 +857,7 @@ export function VariantPickerDialog() {
       ) : (
         <ul className="grid max-h-72 grid-cols-2 gap-1 overflow-y-auto">
           {variants.map((variant) => (
-            <li key={variant.id}>
+            <li key={String(variant.id)}>
               <button
                 type="button"
                 className="pos-button w-full px-2 text-left text-body"
@@ -937,7 +937,7 @@ export function SerialPickerDialog() {
       ) : (
         <ul className="max-h-72 overflow-y-auto">
           {visible.map((unit) => (
-            <li key={unit.id}>
+            <li key={String(unit.id)}>
               <button
                 type="button"
                 className="flex w-full items-center justify-between px-1 py-1.5 text-left text-body hover:bg-panel-hover"
@@ -991,7 +991,7 @@ export function ClientDialog() {
 
       <ul className="max-h-72 overflow-y-auto">
         {results.map((customer) => (
-          <li key={customer.id}>
+          <li key={String(customer.id)}>
             <button
               type="button"
               className="flex w-full items-center justify-between px-1 py-1.5 text-left text-body hover:bg-panel-hover"

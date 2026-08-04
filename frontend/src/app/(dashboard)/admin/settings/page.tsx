@@ -80,7 +80,7 @@ export default function SettingsPage() {
 
   // A second administrator saving a tab reloads this one. Settings are small and rarely edited by
   // two people at once; reloading is simpler and safer than merging two half-edited forms.
-  useLiveGrid<{ id: string }>('settings', locationId, () => {}, {
+  useLiveGrid<{ id: number }>('settings', locationId, () => {}, {
     onSettingsChanged: () => void load(),
   });
 
@@ -181,7 +181,7 @@ function BusinessTab({
   canWrite,
   onSaved,
 }: {
-  locationId: string;
+  locationId: number;
   value: BusinessSettings;
   canWrite: boolean;
   onSaved: () => void | Promise<void>;
@@ -300,7 +300,7 @@ function TaxesTab({
   canWrite,
   onSaved,
 }: {
-  locationId: string;
+  locationId: number;
   rows: TaxSettings[];
   canWrite: boolean;
   onSaved: () => void | Promise<void>;
@@ -455,7 +455,7 @@ function PosTab({
   canWrite,
   onSaved,
 }: {
-  locationId: string;
+  locationId: number;
   value: PosSettings;
   tenders: TenderSettings[];
   canWrite: boolean;
@@ -574,7 +574,7 @@ function PrintersTab({
   canWrite,
   onSaved,
 }: {
-  locationId: string;
+  locationId: number;
   rows: PrinterSettings[];
   canWrite: boolean;
   onSaved: () => void | Promise<void>;
@@ -584,14 +584,14 @@ function PrintersTab({
 
   useEffect(() => setDrafts(rows), [rows]);
 
-  const patch = (id: string, changes: Partial<PrinterSettings>) =>
+  const patch = (id: number, changes: Partial<PrinterSettings>) =>
     setDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
 
   return (
     <>
       {drafts.map((printer) => (
         <FormSection
-          key={printer.id}
+          key={String(printer.id)}
           title={printer.name}
           hint="Every escape sequence is decimal ASCII. Epson cuts with 27,105; Star with 27,100,48."
           actions={canWrite ? <SaveButton busy={busy} onClick={() => void run(() => mastersApi.settings.printer({ locationId, profile: printer }))} /> : null}
@@ -679,7 +679,7 @@ function HardwareTab({
   canWrite,
   onSaved,
 }: {
-  locationId: string;
+  locationId: number;
   scales: ScaleSettings[];
   readers: ReaderSettings[];
   poleDisplays: PoleDisplaySettings[];
@@ -695,20 +695,20 @@ function HardwareTab({
   useEffect(() => setReaderDrafts(readers), [readers]);
   useEffect(() => setPoleDrafts(poleDisplays), [poleDisplays]);
 
-  const patchScale = (id: string, changes: Partial<ScaleSettings>) =>
+  const patchScale = (id: number, changes: Partial<ScaleSettings>) =>
     setScaleDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
 
-  const patchReader = (id: string, changes: Partial<ReaderSettings>) =>
+  const patchReader = (id: number, changes: Partial<ReaderSettings>) =>
     setReaderDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
 
-  const patchPole = (id: string, changes: Partial<PoleDisplaySettings>) =>
+  const patchPole = (id: number, changes: Partial<PoleDisplaySettings>) =>
     setPoleDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
 
   return (
     <>
       {scaleDrafts.map((scale) => (
         <FormSection
-          key={scale.id}
+          key={String(scale.id)}
           title={`Scale — ${scale.name}`}
           hint="Scales from different makers answer to different letters; a Mettler-Toledo weighs on W."
           actions={canWrite ? <SaveButton busy={busy} onClick={() => void run(() => mastersApi.settings.scale({ locationId, profile: scale }))} /> : null}
@@ -726,7 +726,7 @@ function HardwareTab({
 
       {readerDrafts.map((reader) => (
         <FormSection
-          key={reader.id}
+          key={String(reader.id)}
           title={`RFID reader — ${reader.name}`}
           hint="These thresholds are what keep the shelf behind the till out of the basket. They are found by trial on site."
           actions={canWrite ? <SaveButton busy={busy} onClick={() => void run(() => mastersApi.settings.reader({ locationId, profile: reader }))} /> : null}
@@ -777,7 +777,7 @@ function HardwareTab({
 
       {poleDrafts.map((pole) => (
         <FormSection
-          key={pole.id}
+          key={String(pole.id)}
           title={`Pole display — ${pole.name}`}
           hint="Line lengths differ by model: a PD3000 scrolls 45 characters on line 1 and holds 19 fixed on line 2."
           actions={canWrite ? <SaveButton busy={busy} onClick={() => void run(() => mastersApi.settings.poleDisplay({ locationId, profile: pole }))} /> : null}
@@ -822,7 +822,7 @@ function GroupingsTab({
   canWrite,
   canDelete,
 }: {
-  locationId: string;
+  locationId: number;
   canWrite: boolean;
   canDelete: boolean;
 }) {
@@ -858,13 +858,13 @@ function ReferenceList({
 }: {
   title: string;
   hint: string;
-  locationId: string;
+  locationId: number;
   canWrite: boolean;
   canDelete: boolean;
   api: {
-    list: (locationId: string, includeInactive?: boolean) => Promise<ReferenceRow[]>;
+    list: (locationId: number, includeInactive?: boolean) => Promise<ReferenceRow[]>;
     save: (body: unknown) => Promise<ReferenceRow>;
-    remove: (id: string) => Promise<void>;
+    remove: (id: number) => Promise<void>;
   };
 }) {
   const [rows, setRows] = useState<ReferenceRow[]>([]);
@@ -879,7 +879,7 @@ function ReferenceList({
 
   useEffect(load, [load]);
 
-  const patch = (id: string, changes: Partial<ReferenceRow>) =>
+  const patch = (id: number, changes: Partial<ReferenceRow>) =>
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
 
   const act = async (action: () => Promise<unknown>, success: string) => {
@@ -924,7 +924,7 @@ function ReferenceList({
       {rows.length === 0 ? <p className="text-label text-ink-muted">None yet.</p> : null}
 
       {rows.map((row) => (
-        <div key={row.id} className="grid grid-cols-[1fr_7rem_5rem_auto_auto] items-end gap-2 border-b border-subtle pb-2">
+        <div key={String(row.id)} className="grid grid-cols-[1fr_7rem_5rem_auto_auto] items-end gap-2 border-b border-subtle pb-2">
           <TextField label="Name" value={row.name} onChange={(v) => patch(row.id, { name: v })} disabled={!canWrite} />
           <TextField label="Code" value={row.code ?? ''} onChange={(v) => patch(row.id, { code: v })} disabled={!canWrite} />
           <NumberField label="Order" value={row.sortOrder} onChange={(v) => patch(row.id, { sortOrder: v })} step="1" disabled={!canWrite} />
@@ -996,7 +996,7 @@ function StationsTab({
   canWrite,
   onSaved,
 }: {
-  locationId: string;
+  locationId: number;
   settings: SettingsSnapshot;
   canWrite: boolean;
   onSaved: () => void | Promise<void>;
@@ -1006,7 +1006,7 @@ function StationsTab({
 
   useEffect(() => setDrafts(settings.stations), [settings.stations]);
 
-  const patch = (id: string, changes: Partial<StationSettings>) =>
+  const patch = (id: number, changes: Partial<StationSettings>) =>
     setDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
 
   const body = (station: StationSettings) => ({
@@ -1035,7 +1035,7 @@ function StationsTab({
     <>
       {drafts.map((station) => (
         <FormSection
-          key={station.id}
+          key={String(station.id)}
           title={`Station ${station.stationCode}${station.name ? ` — ${station.name}` : ''}`}
           hint={
             station.agentOnline
@@ -1181,7 +1181,7 @@ function TendersTab({
   canWrite,
   onSaved,
 }: {
-  locationId: string;
+  locationId: number;
   rows: TenderSettings[];
   canWrite: boolean;
   onSaved: () => void | Promise<void>;
@@ -1191,14 +1191,14 @@ function TendersTab({
 
   useEffect(() => setDrafts(rows), [rows]);
 
-  const patch = (id: string, changes: Partial<TenderSettings>) =>
+  const patch = (id: number, changes: Partial<TenderSettings>) =>
     setDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
 
   return (
     <>
       {drafts.map((tender) => (
         <FormSection
-          key={tender.id}
+          key={String(tender.id)}
           title={`${tender.displayName} (${tender.code})`}
           hint="The accounting key must match the account name in the accounting system exactly."
           actions={canWrite ? <SaveButton busy={busy} onClick={() => void run(() => mastersApi.settings.tender({ locationId, tender }))} /> : null}
@@ -1233,7 +1233,7 @@ function CurrenciesTab({
   canWrite,
   onSaved,
 }: {
-  locationId: string;
+  locationId: number;
   rows: CurrencySettings[];
   canWrite: boolean;
   onSaved: () => void | Promise<void>;
@@ -1243,14 +1243,14 @@ function CurrenciesTab({
 
   useEffect(() => setDrafts(rows), [rows]);
 
-  const patch = (id: string, changes: Partial<CurrencySettings>) =>
+  const patch = (id: number, changes: Partial<CurrencySettings>) =>
     setDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
 
   return (
     <>
       {drafts.map((currency) => (
         <FormSection
-          key={currency.id}
+          key={String(currency.id)}
           title={`${currency.code} — ${currency.name}${currency.isBaseCurrency ? ' (base)' : ''}`}
           hint={
             currency.isBaseCurrency
@@ -1300,7 +1300,7 @@ function NumberingTab({
   canWrite,
   onSaved,
 }: {
-  locationId: string;
+  locationId: number;
   rows: NumberSequenceSettings[];
   canWrite: boolean;
   onSaved: () => void | Promise<void>;
@@ -1310,7 +1310,7 @@ function NumberingTab({
 
   useEffect(() => setDrafts(rows), [rows]);
 
-  const patch = (id: string, changes: Partial<NumberSequenceSettings>) =>
+  const patch = (id: number, changes: Partial<NumberSequenceSettings>) =>
     setDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
 
   return (
@@ -1319,7 +1319,7 @@ function NumberingTab({
       hint="A migrated store sets these to its old counters so customer 4,182 is followed by 4,183. A number already issued cannot be reused."
     >
       {drafts.map((sequence) => (
-        <div key={sequence.id} className="grid grid-cols-[7rem_1fr_1fr_1fr_auto] items-end gap-2 border-b border-subtle pb-2">
+        <div key={String(sequence.id)} className="grid grid-cols-[7rem_1fr_1fr_1fr_auto] items-end gap-2 border-b border-subtle pb-2">
           <span className="pb-1 text-body">{sequence.kind}</span>
 
           <TextField label="Prefix" value={sequence.prefix} onChange={(v) => patch(sequence.id, { prefix: v })} disabled={!canWrite} />
@@ -1372,7 +1372,7 @@ function PricingTab({
   canWrite,
   onSaved,
 }: {
-  locationId: string;
+  locationId: number;
   rows: PricingRuleSettings[];
   canWrite: boolean;
   onSaved: () => void | Promise<void>;
@@ -1399,7 +1399,7 @@ function PricingTab({
     >
       <ol className="space-y-1">
         {drafts.map((rule, index) => (
-          <li key={rule.id} className="flex items-center gap-2 border-b border-subtle py-1 text-body">
+          <li key={String(rule.id)} className="flex items-center gap-2 border-b border-subtle py-1 text-body">
             <span className="w-6 text-ink-muted">{index + 1}</span>
             <span className="flex-1">{RULE_LABELS[rule.ruleKey] ?? rule.ruleKey}</span>
 
@@ -1445,7 +1445,7 @@ function UsersTab({
   canWrite,
   onSaved,
 }: {
-  locationId: string;
+  locationId: number;
   rows: import('@/types/masters').StaffSettings[];
   canWrite: boolean;
   onSaved: () => void | Promise<void>;
@@ -1455,14 +1455,14 @@ function UsersTab({
 
   useEffect(() => setDrafts(rows), [rows]);
 
-  const patch = (id: string, changes: Partial<import('@/types/masters').StaffSettings>) =>
+  const patch = (id: number, changes: Partial<import('@/types/masters').StaffSettings>) =>
     setDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
 
   return (
     <>
       {drafts.map((staff) => (
         <FormSection
-          key={staff.id}
+          key={String(staff.id)}
           title={`${staff.staffCode} — ${staff.firstName} ${staff.lastName}`}
           hint={
             staff.pinLocked

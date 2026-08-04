@@ -22,7 +22,7 @@ export default function SuppliersPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const load = useCallback(
     async (append: boolean, from: string | null) => {
@@ -84,7 +84,7 @@ export default function SuppliersPage() {
         <>
           <LiveBadge connected={connected} />
           {canWrite ? (
-            <button type="button" className="pos-button-primary" onClick={() => setSelectedId('new')}>
+            <button type="button" className="pos-button-primary" onClick={() => setSelectedId(NEW_RECORD)}>
               New supplier
             </button>
           ) : null}
@@ -123,8 +123,8 @@ export default function SuppliersPage() {
       form={
         selectedId && locationId ? (
           <SupplierFormPanel
-            key={selectedId}
-            supplierId={selectedId === 'new' ? null : selectedId}
+            key={String(selectedId)}
+            supplierId={selectedId === NEW_RECORD ? null : selectedId}
             locationId={locationId}
             canWrite={canWrite}
             onClose={() => setSelectedId(null)}
@@ -175,8 +175,8 @@ function SupplierFormPanel({
   onClose,
   onSaved,
 }: {
-  supplierId: string | null;
-  locationId: string;
+  supplierId: number | null;
+  locationId: number;
   canWrite: boolean;
   onClose: () => void;
   onSaved: () => void;

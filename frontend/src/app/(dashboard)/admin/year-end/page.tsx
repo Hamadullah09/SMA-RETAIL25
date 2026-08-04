@@ -192,7 +192,7 @@ export default function YearEndPage() {
             </thead>
             <tbody>
               {years.map((year) => (
-                <tr key={year.id} className="border-t border-subtle">
+                <tr key={String(year.id)} className="border-t border-subtle">
                   <td className="py-1 font-medium">{year.year}</td>
                   <td className="py-1">
                     {year.startsOn} to {year.endsOn}
@@ -302,7 +302,7 @@ export default function YearEndPage() {
               >
                 <option value="">Every closed year</option>
                 {years.filter((y) => y.status === 'Closed').map((y) => (
-                  <option key={y.id} value={y.year}>
+                  <option key={String(y.id)} value={y.year}>
                     {y.year}
                   </option>
                 ))}

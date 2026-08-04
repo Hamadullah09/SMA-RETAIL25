@@ -36,7 +36,7 @@ export default function RfidSettingsPage() {
   const canWrite = auth.can('terminals.register');
 
   const [readers, setReaders] = useState<ReaderProfile[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<number | null>(null);
   const [draft, setDraft] = useState<ReaderProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -108,11 +108,11 @@ export default function RfidSettingsPage() {
           <select
             className="pos-input"
             value={selected ?? ''}
-            onChange={(event) => setSelected(event.target.value)}
+            onChange={(event) => setSelected(Number(event.target.value))}
             aria-label="Reader"
           >
             {readers.map((reader) => (
-              <option key={reader.id} value={reader.id}>
+              <option key={String(reader.id)} value={reader.id}>
                 {reader.name}
               </option>
             ))}

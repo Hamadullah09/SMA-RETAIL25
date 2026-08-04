@@ -72,7 +72,7 @@ function CustomerPicker({
   locationId,
   onPick,
 }: {
-  locationId: string;
+  locationId: number;
   onPick: (customer: { id: string; customerNumber: number; fullName: string }) => void;
 }) {
   const [term, setTerm] = useState('');
@@ -102,7 +102,7 @@ function CustomerPicker({
       {results.length > 0 ? (
         <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-subtle">
           {results.map((r) => (
-            <li key={r.id}>
+            <li key={String(r.id)}>
               <button
                 type="button"
                 className="block w-full px-2 py-1 text-left text-label hover:bg-panel-hover"
@@ -123,7 +123,7 @@ function CustomerPicker({
 }
 
 interface DraftLine {
-  productId: string;
+  productId: number;
   stockCode: string;
   productName: string;
   quantity: number;
@@ -136,7 +136,7 @@ function LineBuilder({
   lines,
   onChange,
 }: {
-  locationId: string;
+  locationId: number;
   lines: DraftLine[];
   onChange: (lines: DraftLine[]) => void;
 }) {
@@ -197,7 +197,7 @@ function LineBuilder({
         {results.length > 0 ? (
           <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-subtle">
             {results.map((product) => (
-              <li key={product.id}>
+              <li key={String(product.id)}>
                 <button
                   type="button"
                   className="block w-full px-2 py-1 text-left text-label hover:bg-panel-hover"
@@ -242,11 +242,11 @@ function LineBuilder({
 // Customer orders
 // ---------------------------------------------------------------------------
 
-function CustomerOrdersTab({ locationId }: { locationId: string }) {
+function CustomerOrdersTab({ locationId }: { locationId: number }) {
   const auth = useAuth();
   const canWrite = auth.can('customer.write');
   const [rows, setRows] = useState<CustomerOrder[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showNew, setShowNew] = useState(false);
 
   const load = useCallback(async () => {
@@ -287,7 +287,7 @@ function CustomerOrdersTab({ locationId }: { locationId: string }) {
       }
       form={
         selectedId ? (
-          <CustomerOrderPanel key={selectedId} id={selectedId} canWrite={canWrite} onClose={() => setSelectedId(null)} onChanged={load} />
+          <CustomerOrderPanel key={String(selectedId)} id={selectedId} canWrite={canWrite} onClose={() => setSelectedId(null)} onChanged={load} />
         ) : showNew ? (
           <NewCustomerOrderPanel
             locationId={locationId}
@@ -309,11 +309,11 @@ function NewCustomerOrderPanel({
   onClose,
   onCreated,
 }: {
-  locationId: string;
+  locationId: number;
   onClose: () => void;
-  onCreated: (id: string) => void;
+  onCreated: (id: number) => void;
 }) {
-  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [customerId, setCustomerId] = useState<number | null>(null);
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
@@ -438,7 +438,7 @@ function CustomerOrderPanel({
           </thead>
           <tbody>
             {order.lines.map((line) => (
-              <tr key={line.id} className="border-t border-subtle">
+              <tr key={String(line.id)} className="border-t border-subtle">
                 <td className="py-1">{line.stockCode} — {line.productName}</td>
                 <td className="py-1 text-right pos-amount">{line.orderedQty}</td>
                 <td className="py-1 text-right pos-amount">{line.filledQty}</td>
@@ -463,11 +463,11 @@ function CustomerOrderPanel({
 // Layaways
 // ---------------------------------------------------------------------------
 
-function LayawaysTab({ locationId, tenders }: { locationId: string; tenders: TenderSettings[] }) {
+function LayawaysTab({ locationId, tenders }: { locationId: number; tenders: TenderSettings[] }) {
   const auth = useAuth();
   const canWrite = auth.can('customer.write');
   const [rows, setRows] = useState<Layaway[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showNew, setShowNew] = useState(false);
 
   const load = useCallback(async () => {
@@ -508,7 +508,7 @@ function LayawaysTab({ locationId, tenders }: { locationId: string; tenders: Ten
       }
       form={
         selectedId ? (
-          <LayawayPanel key={selectedId} id={selectedId} tenders={tenders} canWrite={canWrite} onClose={() => setSelectedId(null)} onChanged={load} />
+          <LayawayPanel key={String(selectedId)} id={selectedId} tenders={tenders} canWrite={canWrite} onClose={() => setSelectedId(null)} onChanged={load} />
         ) : showNew ? (
           <NewLayawayPanel
             locationId={locationId}
@@ -525,8 +525,8 @@ function LayawaysTab({ locationId, tenders }: { locationId: string; tenders: Ten
   );
 }
 
-function NewLayawayPanel({ locationId, onClose, onCreated }: { locationId: string; onClose: () => void; onCreated: (id: string) => void }) {
-  const [customerId, setCustomerId] = useState<string | null>(null);
+function NewLayawayPanel({ locationId, onClose, onCreated }: { locationId: number; onClose: () => void; onCreated: (id: number) => void }) {
+  const [customerId, setCustomerId] = useState<number | null>(null);
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -587,7 +587,7 @@ function LayawayPanel({
 }) {
   const [layaway, setLayaway] = useState<Layaway | null>(null);
   const [amount, setAmount] = useState(0);
-  const [tenderTypeId, setTenderTypeId] = useState('');
+  const [tenderTypeId, setTenderTypeId] = useState<number | ''>('');
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
@@ -660,7 +660,7 @@ function LayawayPanel({
         <table className="w-full text-label">
           <tbody>
             {layaway.lines.map((line) => (
-              <tr key={line.id} className="border-t border-subtle">
+              <tr key={String(line.id)} className="border-t border-subtle">
                 <td className="py-1">{line.stockCode} — {line.productName}</td>
                 <td className="py-1 text-right pos-amount">{line.quantity}</td>
                 <td className="py-1 text-right pos-amount">{currency(line.unitPrice)}</td>
@@ -680,7 +680,7 @@ function LayawayPanel({
                 value={tenderTypeId}
                 onChange={(event) => setTenderTypeId(event.target.value)}
               >
-                {tenders.map((t) => <option key={t.id} value={t.id}>{t.displayName}</option>)}
+                {tenders.map((t) => <option key={String(t.id)} value={t.id}>{t.displayName}</option>)}
               </select>
             </Field>
           </FormSection>
@@ -697,11 +697,11 @@ function LayawayPanel({
 // Price quotes
 // ---------------------------------------------------------------------------
 
-function PriceQuotesTab({ locationId }: { locationId: string }) {
+function PriceQuotesTab({ locationId }: { locationId: number }) {
   const auth = useAuth();
   const canWrite = auth.can('customer.write');
   const [rows, setRows] = useState<PriceQuote[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [showNew, setShowNew] = useState(false);
 
   const load = useCallback(async () => {
@@ -742,7 +742,7 @@ function PriceQuotesTab({ locationId }: { locationId: string }) {
       }
       form={
         selectedId ? (
-          <PriceQuotePanel key={selectedId} id={selectedId} canWrite={canWrite} onClose={() => setSelectedId(null)} onChanged={load} />
+          <PriceQuotePanel key={String(selectedId)} id={selectedId} canWrite={canWrite} onClose={() => setSelectedId(null)} onChanged={load} />
         ) : showNew ? (
           <NewPriceQuotePanel
             locationId={locationId}
@@ -759,8 +759,8 @@ function PriceQuotesTab({ locationId }: { locationId: string }) {
   );
 }
 
-function NewPriceQuotePanel({ locationId, onClose, onCreated }: { locationId: string; onClose: () => void; onCreated: (id: string) => void }) {
-  const [customerId, setCustomerId] = useState<string | null>(null);
+function NewPriceQuotePanel({ locationId, onClose, onCreated }: { locationId: number; onClose: () => void; onCreated: (id: number) => void }) {
+  const [customerId, setCustomerId] = useState<number | null>(null);
   const [lines, setLines] = useState<DraftLine[]>([]);
   const [expiresOn, setExpiresOn] = useState('');
   const [busy, setBusy] = useState(false);
@@ -881,7 +881,7 @@ function PriceQuotePanel({
         <table className="w-full text-label">
           <tbody>
             {quote.lines.map((line) => (
-              <tr key={line.id} className="border-t border-subtle">
+              <tr key={String(line.id)} className="border-t border-subtle">
                 <td className="py-1">{line.stockCode} — {line.productName}</td>
                 <td className="py-1 text-right pos-amount">{line.quantity}</td>
                 <td className="py-1 text-right pos-amount">{currency(line.unitPrice)}</td>

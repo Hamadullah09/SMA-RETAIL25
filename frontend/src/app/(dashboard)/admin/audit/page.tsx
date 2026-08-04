@@ -255,7 +255,7 @@ function AuditDetailPanel({ row, trail, onClose }: { row: AuditLogRow; trail: Au
         >
           <ol className="space-y-0.5 text-label">
             {trail.map((entry) => (
-              <li key={entry.id} className={cn(entry.id === row.id && 'font-medium')}>
+              <li key={String(entry.id)} className={cn(entry.id === row.id && 'font-medium')}>
                 {entry.action} {entry.entityType}
                 {entry.operation ? ` — ${entry.operation}` : ''}
               </li>

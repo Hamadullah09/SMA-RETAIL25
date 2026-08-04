@@ -15,7 +15,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000';
  *
  * Fetched on every connect and reconnect rather than cached: a ticket is single-use by design.
  */
-async function fetchHubTicket(stationId: string): Promise<string> {
+async function fetchHubTicket(stationId: number): Promise<string> {
   const response = await fetch('/api/auth/hub-ticket', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -39,9 +39,9 @@ export interface PosHubHandlers {
   onTagStreamStatus?: (payload: { readerOnline: boolean; readRate: number }) => void;
   onPeripheralStatus?: (status: PeripheralStatus) => void;
   onDrawerStateChanged?: (drawer: DrawerTotals) => void;
-  onPosMessage?: (payload: { productId: string; message: string }) => void;
+  onPosMessage?: (payload: { productId: number; message: string }) => void;
   onWeightReported?: (payload: { value: number; unit: string; stable: boolean }) => void;
-  onResyncRequired?: (payload: { cartId: string; serverRevision: number }) => void;
+  onResyncRequired?: (payload: { cartId: number; serverRevision: number }) => void;
   onConnectionChanged?: (connected: boolean) => void;
 }
 
@@ -58,9 +58,9 @@ export class PosHub {
 
   private handlers: PosHubHandlers = {};
 
-  private joinedCartId: string | null = null;
+  private joinedCartId: number | null = null;
 
-  async connect(stationId: string, locationId: string, handlers: PosHubHandlers): Promise<void> {
+  async connect(stationId: number, locationId: number, handlers: PosHubHandlers): Promise<void> {
     this.handlers = handlers;
 
     if (this.connection) {
@@ -115,7 +115,7 @@ export class PosHub {
     connection.on('CartResyncRequired', (payload) => this.handlers.onResyncRequired?.(payload));
   }
 
-  private async rejoin(stationId: string, locationId: string): Promise<void> {
+  private async rejoin(stationId: number, locationId: number): Promise<void> {
     if (this.connection?.state !== HubConnectionState.Connected) return;
 
     await this.connection.invoke('JoinStation', stationId);
@@ -126,14 +126,14 @@ export class PosHub {
     }
   }
 
-  async joinCart(cartId: string): Promise<void> {
+  async joinCart(cartId: number): Promise<void> {
     this.joinedCartId = cartId;
     if (this.connection?.state === HubConnectionState.Connected) {
       await this.connection.invoke('JoinCart', cartId);
     }
   }
 
-  async leaveCart(cartId: string): Promise<void> {
+  async leaveCart(cartId: number): Promise<void> {
     if (this.joinedCartId === cartId) this.joinedCartId = null;
     if (this.connection?.state === HubConnectionState.Connected) {
       await this.connection.invoke('LeaveCart', cartId);
@@ -141,7 +141,7 @@ export class PosHub {
   }
 
   /** Asks the server whether we are behind. Called whenever a revision gap is spotted. */
-  async requestResync(cartId: string, knownRevision: number): Promise<void> {
+  async requestResync(cartId: number, knownRevision: number): Promise<void> {
     if (this.connection?.state === HubConnectionState.Connected) {
       await this.connection.invoke('RequestCartResync', cartId, knownRevision);
     }

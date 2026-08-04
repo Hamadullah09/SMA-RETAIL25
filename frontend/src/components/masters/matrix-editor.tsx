@@ -147,7 +147,7 @@ export function MatrixEditor({ productId, canWrite }: { productId: string; canWr
             </thead>
             <tbody>
               {matrix.variants.map((variant) => (
-                <tr key={variant.id} className={cn(!variant.isActive && 'text-ink-muted line-through')}>
+                <tr key={String(variant.id)} className={cn(!variant.isActive && 'text-ink-muted line-through')}>
                   <td className="pos-amount">{variant.variantCode}</td>
                   <td>{variant.dim1Value}</td>
                   {matrix.dimensions.length > 1 ? <td>{variant.dim2Value ?? ''}</td> : null}

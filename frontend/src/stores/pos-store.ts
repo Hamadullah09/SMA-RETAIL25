@@ -39,7 +39,7 @@ export type PosDialog =
 
 /** A step-up request raised after a command answered 428 (doc 07 §Step-up). */
 export interface PendingApproval {
-  id: string;
+  id: number;
   permission: string;
   action: string;
   context: string | null;
@@ -47,7 +47,7 @@ export interface PendingApproval {
 
 /** Who the next sale is attributed to. Switched by PIN, inside the station's existing session. */
 export interface ActiveStaff {
-  staffId: string;
+  staffId: number;
   staffCode: string;
   fullName: string;
   accessLevel: number;
@@ -59,13 +59,13 @@ export interface ActiveStaff {
  * item. Held so the picker knows what to offer without the cashier scanning again.
  */
 export interface PendingSelection {
-  productId: string;
+  productId: number;
   identifier: string;
 }
 
 interface PosState {
-  stationId: string | null;
-  locationId: string | null;
+  stationId: number | null;
+  locationId: number | null;
   policy: StationPolicy | null;
 
   cart: Cart | null;
@@ -81,39 +81,39 @@ interface PosState {
   posMessage: string | null;
 
   dialog: PosDialog;
-  selectedLineId: string | null;
+  selectedLineId: number | null;
   pendingSelection: PendingSelection | null;
   pendingApproval: PendingApproval | null;
   activeStaff: ActiveStaff | null;
   busy: boolean;
   error: { code: string; message: string } | null;
-  lastSale: { transactionId: string; transactionNumber: number; changeGiven: number } | null;
+  lastSale: { transactionId: number; transactionNumber: number; changeGiven: number } | null;
 
-  initialise: (stationId: string, locationId: string) => Promise<void>;
+  initialise: (stationId: number, locationId: number) => Promise<void>;
   teardown: () => Promise<void>;
 
   ensureCart: () => Promise<Cart | null>;
   scan: (identifier: string) => Promise<void>;
-  addVariant: (variantId: string, quantity?: number) => Promise<void>;
-  addUnit: (unitId: string) => Promise<void>;
+  addVariant: (variantId: number, quantity?: number) => Promise<void>;
+  addUnit: (unitId: number) => Promise<void>;
   setReaderMode: (mode: 'Off' | 'OnDemand' | 'Continuous') => Promise<void>;
   switchStaff: (staffCode: string, pin: string) => Promise<void>;
   requestApproval: (permission: string, action: string, context?: string) => Promise<PendingApproval | null>;
   approveWithPin: (staffCode: string, pin: string) => Promise<void>;
-  updateLine: (lineId: string, body: Parameters<typeof posApi.updateLine>[2]) => Promise<void>;
-  removeLine: (lineId: string) => Promise<void>;
+  updateLine: (lineId: number, body: Parameters<typeof posApi.updateLine>[2]) => Promise<void>;
+  removeLine: (lineId: number) => Promise<void>;
   removeLastLine: () => Promise<void>;
   clearLines: () => Promise<void>;
   addAdjustment: (body: Parameters<typeof posApi.addAdjustment>[1]) => Promise<void>;
   addUnknownItem: (description: string, unitPrice: number, quantity: number) => Promise<void>;
   setTaxOverride: (tax1: boolean | null, tax2: boolean | null) => Promise<void>;
-  setCustomer: (customerId: string | null) => Promise<void>;
+  setCustomer: (customerId: number | null) => Promise<void>;
   suspend: (label?: string) => Promise<void>;
-  recall: (cartId: string) => Promise<void>;
+  recall: (cartId: number) => Promise<void>;
   complete: (tenders: TenderRequest[]) => Promise<boolean>;
   refreshDrawer: () => Promise<void>;
 
-  openDialog: (dialog: PosDialog, lineId?: string | null) => void;
+  openDialog: (dialog: PosDialog, lineId?: number | null) => void;
   closeDialog: () => void;
   clearError: () => void;
   dismissTag: (epc: string) => void;

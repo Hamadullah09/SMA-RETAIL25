@@ -30,13 +30,13 @@ async function fetchHubTicket(): Promise<string> {
 
 export interface RowChanged<TRow> {
   entity: string;
-  id: string;
+  id: number;
   row: TRow;
 }
 
 export interface LiveGridHandlers<TRow> {
   onRowChanged?: (event: RowChanged<TRow>) => void;
-  onRowRemoved?: (event: { entity: string; id: string }) => void;
+  onRowRemoved?: (event: { entity: string; id: number }) => void;
   onSettingsChanged?: (event: { section: string }) => void;
   onConnectionChanged?: (connected: boolean) => void;
 }
@@ -53,12 +53,12 @@ class InventoryHub {
 
   private handlers: LiveGridHandlers<unknown> = {};
 
-  private locationId: string | null = null;
+  private locationId: number | null = null;
 
   /** Reference counted, because several grids on one page share one socket. */
   private subscribers = 0;
 
-  async acquire(locationId: string, handlers: LiveGridHandlers<unknown>): Promise<void> {
+  async acquire(locationId: number, handlers: LiveGridHandlers<unknown>): Promise<void> {
     this.handlers = handlers;
     this.subscribers += 1;
 
@@ -83,7 +83,7 @@ class InventoryHub {
       .build();
 
     connection.on('RowChanged', (event: RowChanged<unknown>) => this.handlers.onRowChanged?.(event));
-    connection.on('RowRemoved', (event: { entity: string; id: string }) => this.handlers.onRowRemoved?.(event));
+    connection.on('RowRemoved', (event: { entity: string; id: number }) => this.handlers.onRowRemoved?.(event));
     connection.on('SettingsChanged', (event: { section: string }) => this.handlers.onSettingsChanged?.(event));
 
     connection.onreconnected(async () => {
@@ -126,9 +126,9 @@ const hub = new InventoryHub();
  * the selection of whoever happens to be reading the grid when someone else saves. The briefly-held
  * `changed` set drives a one-shot highlight so a live edit is visible rather than silent.
  */
-export function useLiveGrid<TRow extends { id: string }>(
+export function useLiveGrid<TRow extends { id: number }>(
   entity: string,
-  locationId: string | undefined,
+  locationId: number | undefined,
   setRows: (updater: (current: TRow[]) => TRow[]) => void,
   options: { onSettingsChanged?: (section: string) => void } = {},
 ): { connected: boolean; changed: ReadonlySet<string> } {
@@ -143,7 +143,7 @@ export function useLiveGrid<TRow extends { id: string }>(
   const settingsRef = useRef(options.onSettingsChanged);
   settingsRef.current = options.onSettingsChanged;
 
-  const flash = useCallback((id: string) => {
+  const flash = useCallback((id: number) => {
     setChanged((current) => new Set(current).add(id));
 
     window.setTimeout(() => {

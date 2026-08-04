@@ -24,7 +24,7 @@ export default function InventoryPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const load = useCallback(
     async (append: boolean, from: string | null) => {
@@ -123,7 +123,7 @@ export default function InventoryPage() {
       form={
         selectedId && locationId ? (
           <StockActionsPanel
-            key={selectedId}
+            key={String(selectedId)}
             productId={selectedId}
             locationId={locationId}
             row={rows.find((r) => r.id === selectedId) ?? null}
@@ -161,8 +161,8 @@ function StockActionsPanel({
   onClose,
   onChanged,
 }: {
-  productId: string;
-  locationId: string;
+  productId: number;
+  locationId: number;
   row: StockLevelRow | null;
   canReceive: boolean;
   canAdjust: boolean;

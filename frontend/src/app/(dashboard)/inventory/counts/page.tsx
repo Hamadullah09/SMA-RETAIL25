@@ -34,8 +34,8 @@ export default function StockCountsPage() {
   const [status, setStatus] = useState<StockCountStatus | ''>('');
   const [rows, setRows] = useState<StockCountRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [newDepartmentId, setNewDepartmentId] = useState('');
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [newDepartmentId, setNewDepartmentId] = useState<number | ''>('');
 
   const { data: departments = [] } = useQuery({
     queryKey: ['departments', locationId],
@@ -118,7 +118,7 @@ export default function StockCountsPage() {
             >
               <option value="">Whole shop</option>
               {departments.map((department) => (
-                <option key={department.id} value={department.id}>
+                <option key={String(department.id)} value={department.id}>
                   {department.name}
                 </option>
               ))}
@@ -154,7 +154,7 @@ export default function StockCountsPage() {
       form={
         selectedId ? (
           <CountPanel
-            key={selectedId}
+            key={String(selectedId)}
             countId={selectedId}
             canCount={canCount}
             onClose={() => setSelectedId(null)}
@@ -182,7 +182,7 @@ function CountPanel({
   onClose,
   onChanged,
 }: {
-  countId: string;
+  countId: number;
   canCount: boolean;
   onClose: () => void;
   onChanged: () => void;
@@ -333,7 +333,7 @@ function CountPanel({
           </thead>
           <tbody>
             {count.lines.map((line) => (
-              <tr key={line.id} className="border-t border-subtle">
+              <tr key={String(line.id)} className="border-t border-subtle">
                 <td className="py-1">{line.stockCode}</td>
                 <td className="py-1">
                   {line.productName}

@@ -54,9 +54,9 @@ export default function BulkAdjustPage() {
   const locationId = auth.user?.locationId;
   const canAdjust = auth.can('catalog.bulk_adjust');
 
-  const [departmentId, setDepartmentId] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [supplierId, setSupplierId] = useState('');
+  const [departmentId, setDepartmentId] = useState<number | ''>('');
+  const [categoryId, setCategoryId] = useState<number | ''>('');
+  const [supplierId, setSupplierId] = useState<number | ''>('');
   const [type, setType] = useState<ProductType | ''>('');
   const [search, setSearch] = useState('');
 
@@ -191,7 +191,7 @@ export default function BulkAdjustPage() {
             >
               <option value="">Any</option>
               {departments.map((department) => (
-                <option key={department.id} value={department.id}>
+                <option key={String(department.id)} value={department.id}>
                   {department.name}
                 </option>
               ))}
@@ -210,7 +210,7 @@ export default function BulkAdjustPage() {
             >
               <option value="">Any</option>
               {categories.map((category) => (
-                <option key={category.id} value={category.id}>
+                <option key={String(category.id)} value={category.id}>
                   {category.name}
                 </option>
               ))}
@@ -229,7 +229,7 @@ export default function BulkAdjustPage() {
             >
               <option value="">Any</option>
               {(suppliers?.items ?? []).map((supplier) => (
-                <option key={supplier.id} value={supplier.id}>
+                <option key={String(supplier.id)} value={supplier.id}>
                   {supplier.company}
                 </option>
               ))}

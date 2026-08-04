@@ -39,7 +39,7 @@ export interface CursorPage<T> {
 }
 
 export interface ProductRow {
-  id: string;
+  id: number;
   stockCode: string;
   name: string;
   type: ProductType;
@@ -79,7 +79,7 @@ export interface BonusPricing {
 }
 
 export interface ProductSupplierRow {
-  supplierId: string;
+  supplierId: number;
   supplierName: string;
   rank: number;
   cost: number;
@@ -89,21 +89,21 @@ export interface ProductSupplierRow {
 }
 
 export interface LinkedProduct {
-  id: string;
+  id: number;
   stockCode: string;
   name: string;
 }
 
 export interface KitComponentRow {
-  componentProductId: string;
+  componentProductId: number;
   stockCode: string;
   name: string;
   quantity: number;
 }
 
 export interface ProductForm {
-  id: string;
-  locationId: string;
+  id: number;
+  locationId: number;
   stockCode: string;
   name: string;
   description: string | null;
@@ -126,9 +126,9 @@ export interface ProductForm {
   posMessage: string | null;
   invoiceMessage: string | null;
   notes: string | null;
-  departmentId: string | null;
+  departmentId: number | null;
   departmentName: string | null;
-  categoryId: string | null;
+  categoryId: number | null;
   categoryName: string | null;
   substitute: LinkedProduct | null;
   tagAlong: LinkedProduct | null;
@@ -146,7 +146,7 @@ export interface ProductForm {
 }
 
 export interface ReferenceRow {
-  id: string;
+  id: number;
   name: string;
   code: string | null;
   sortOrder: number;
@@ -175,7 +175,7 @@ export interface ContactDetails {
 export type CustomerSort = 'Number' | 'Name' | 'Company' | 'Balance';
 
 export interface CustomerRow {
-  id: string;
+  id: number;
   customerNumber: number;
   firstName: string;
   lastName: string;
@@ -194,8 +194,8 @@ export interface CustomerRow {
 }
 
 export interface CustomerForm {
-  id: string;
-  locationId: string;
+  id: number;
+  locationId: number;
   customerNumber: number;
   firstName: string;
   lastName: string;
@@ -225,7 +225,7 @@ export interface CustomerForm {
 export type SupplierSort = 'Number' | 'Company';
 
 export interface SupplierRow {
-  id: string;
+  id: number;
   supplierNumber: string;
   company: string;
   contactName: string | null;
@@ -238,8 +238,8 @@ export interface SupplierRow {
 }
 
 export interface SupplierForm {
-  id: string;
-  locationId: string;
+  id: number;
+  locationId: number;
   supplierNumber: string;
   company: string;
   contactFirstName: string | null;
@@ -274,9 +274,9 @@ export const orderQuantityStrategies: { value: OrderQuantityStrategy; label: str
 export type PurchaseOrderStatus = 'Draft' | 'Posted' | 'PartiallyReceived' | 'Received' | 'Closed' | 'Cancelled';
 
 export interface PurchaseOrderRow {
-  id: string;
+  id: number;
   poNumber: number;
-  supplierId: string;
+  supplierId: number;
   supplierCompany: string;
   status: PurchaseOrderStatus;
   quantityStrategy: OrderQuantityStrategy;
@@ -287,8 +287,8 @@ export interface PurchaseOrderRow {
 }
 
 export interface PurchaseOrderLineRow {
-  id: string;
-  productId: string;
+  id: number;
+  productId: number;
   stockCode: string;
   productName: string;
   orderQty: number;
@@ -302,16 +302,16 @@ export interface PurchaseOrderLineRow {
 }
 
 export interface PurchaseOrderReceiptRow {
-  id: string;
+  id: number;
   receivedOn: string;
   freightTotal: number;
-  staffId: string;
+  staffId: number;
 }
 
 export type InvoiceStatus = 'Open' | 'Paid' | 'Void';
 
 export interface InvoiceRow {
-  id: string;
+  id: number;
   invoiceNumber: number;
   issuedOn: string;
   dueOn: string;
@@ -323,7 +323,7 @@ export interface InvoiceRow {
 }
 
 export interface CustomerAccountRow {
-  customerId: string;
+  customerId: number;
   accountNumber: number;
   customerName: string;
   creditLimit: number;
@@ -334,15 +334,15 @@ export interface CustomerAccountRow {
 export type AREntryType = 'Charge' | 'Payment' | 'LateCharge' | 'Refund' | 'Void' | 'Adjustment';
 
 export interface ArLedgerEntryRow {
-  id: string;
-  invoiceId: string;
+  id: number;
+  invoiceId: number;
   entryType: AREntryType;
   amount: number;
   occurredAt: string;
 }
 
 export interface CustomerStatement {
-  customerId: string;
+  customerId: number;
   customerName: string;
   accountNumber: number;
   creditLimit: number;
@@ -352,18 +352,18 @@ export interface CustomerStatement {
 }
 
 export interface GiftCard {
-  id: string;
+  id: number;
   serialNumber: string;
   originalValue: number;
   remainingValue: number;
-  issuedToCustomerId: string | null;
+  issuedToCustomerId: number | null;
   issuedOn: string;
   expiresOn: string | null;
   isActive: boolean;
 }
 
 export interface LoyaltyPolicy {
-  locationId: string;
+  locationId: number;
   isEnabled: boolean;
   pointsPerDollar: number;
   minimumRequired: number;
@@ -375,7 +375,7 @@ export interface LoyaltyPolicy {
 }
 
 export interface LoyaltyBalance {
-  customerId: string;
+  customerId: number;
   customerName: string;
   rewardPoints: number;
 }
@@ -383,14 +383,14 @@ export interface LoyaltyBalance {
 export type LoyaltyEntryType = 'Earned' | 'Redeemed' | 'ReturnClawback' | 'Manual';
 
 export interface LoyaltyLedgerEntryRow {
-  id: string;
+  id: number;
   entryType: LoyaltyEntryType;
   points: number;
   occurredAt: string;
 }
 
 export interface ReceivablesAgingRow {
-  customerId: string;
+  customerId: number;
   customerName: string;
   current: number;
   days30: number;
@@ -402,8 +402,8 @@ export interface ReceivablesAgingRow {
 export type CustomerOrderStatus = 'Open' | 'PartiallyFilled' | 'Filled' | 'Cancelled';
 
 export interface CustomerOrderLine {
-  id: string;
-  productId: string;
+  id: number;
+  productId: number;
   stockCode: string;
   productName: string;
   orderedQty: number;
@@ -412,9 +412,9 @@ export interface CustomerOrderLine {
 }
 
 export interface CustomerOrder {
-  id: string;
+  id: number;
   orderNumber: number;
-  customerId: string;
+  customerId: number;
   customerName: string;
   status: CustomerOrderStatus;
   orderedOn: string;
@@ -425,8 +425,8 @@ export interface CustomerOrder {
 export type LayawayStatus = 'Open' | 'PaidInFull' | 'Cancelled';
 
 export interface LayawayLine {
-  id: string;
-  productId: string;
+  id: number;
+  productId: number;
   stockCode: string;
   productName: string;
   quantity: number;
@@ -434,9 +434,9 @@ export interface LayawayLine {
 }
 
 export interface Layaway {
-  id: string;
+  id: number;
   layawayNumber: number;
-  customerId: string;
+  customerId: number;
   customerName: string;
   status: LayawayStatus;
   total: number;
@@ -448,8 +448,8 @@ export interface Layaway {
 export type PriceQuoteStatus = 'Open' | 'Converted' | 'Expired' | 'Cancelled';
 
 export interface PriceQuoteLine {
-  id: string;
-  productId: string;
+  id: number;
+  productId: number;
   stockCode: string;
   productName: string;
   quantity: number;
@@ -457,9 +457,9 @@ export interface PriceQuoteLine {
 }
 
 export interface PriceQuote {
-  id: string;
+  id: number;
   quoteNumber: number;
-  customerId: string;
+  customerId: number;
   customerName: string;
   status: PriceQuoteStatus;
   issuedOn: string;
@@ -469,7 +469,7 @@ export interface PriceQuote {
 }
 
 export interface StockLevelRow {
-  id: string;
+  id: number;
   stockCode: string;
   productName: string;
   onHand: number;
@@ -482,10 +482,10 @@ export interface StockLevelRow {
 }
 
 export interface PurchaseOrderDetail {
-  id: string;
+  id: number;
   poNumber: number;
-  locationId: string;
-  supplierId: string;
+  locationId: number;
+  supplierId: number;
   supplierCompany: string;
   status: PurchaseOrderStatus;
   quantityStrategy: OrderQuantityStrategy;
@@ -501,7 +501,7 @@ export type DeletedEntityKind = 'Product' | 'Customer' | 'Supplier' | 'Departmen
 
 export interface DeletedRow {
   kind: DeletedEntityKind;
-  id: string;
+  id: number;
   reference: string;
   name: string;
   deletedAt: string | null;
@@ -512,7 +512,7 @@ export interface DeletedRow {
 // --- Settings ------------------------------------------------------------------------------------
 
 export interface BusinessSettings {
-  locationId: string;
+  locationId: number;
   businessName: string;
   address: Address;
   contact: ContactDetails;
@@ -520,13 +520,13 @@ export interface BusinessSettings {
   taxRegistrationNumber: string | null;
   locationName: string;
   legacyCode: string;
-  timeZoneId: string;
+  timeZoneId: number;
   businessDayStart: string;
   baseCurrencyCode: string;
 }
 
 export interface TaxSettings {
-  id: string | null;
+  id: number | null;
   effectiveFrom: string;
   effectiveTo: string | null;
   tax1Enabled: boolean;
@@ -562,25 +562,25 @@ export interface PosSettings {
   printCreditCardSignatureLine: boolean;
   printClientNameOnSalesSlip: boolean;
   carryOverCityStateZip: boolean;
-  defaultTenderTypeId: string | null;
+  defaultTenderTypeId: number | null;
   abandonedCartTimeoutMinutes: number;
 }
 
 export type ReaderMode = 'Off' | 'OnDemand' | 'Continuous';
 
 export interface StationSettings {
-  id: string;
+  id: number;
   stationCode: string;
   name: string | null;
   fastScanMode: boolean | null;
   autoSaveSales: boolean | null;
   confirmBeforeSaving: boolean | null;
   scanRandomWeightBarcodes: boolean | null;
-  defaultTenderTypeId: string | null;
-  printerProfileId: string | null;
-  readerProfileId: string | null;
-  scaleProfileId: string | null;
-  poleDisplayProfileId: string | null;
+  defaultTenderTypeId: number | null;
+  printerProfileId: number | null;
+  readerProfileId: number | null;
+  scaleProfileId: number | null;
+  poleDisplayProfileId: number | null;
   readerMode: ReaderMode;
   isActive: boolean;
   agentVersion: string | null;
@@ -589,8 +589,8 @@ export interface StationSettings {
 }
 
 export interface PrinterSettings {
-  id: string;
-  stationId: string | null;
+  id: number;
+  stationId: number | null;
   name: string;
   setupCommand: string | null;
   cutterCommand: string | null;
@@ -610,8 +610,8 @@ export interface PrinterSettings {
 }
 
 export interface ScaleSettings {
-  id: string;
-  stationId: string | null;
+  id: number;
+  stationId: number | null;
   name: string;
   port: string;
   baudRate: number;
@@ -626,8 +626,8 @@ export interface ScaleSettings {
 }
 
 export interface PoleDisplaySettings {
-  id: string;
-  stationId: string | null;
+  id: number;
+  stationId: number | null;
   name: string;
   port: string;
   baudRate: number;
@@ -642,8 +642,8 @@ export interface PoleDisplaySettings {
 }
 
 export interface ReaderSettings {
-  id: string;
-  stationId: string | null;
+  id: number;
+  stationId: number | null;
   name: string;
   host: string;
   port: number;
@@ -663,7 +663,7 @@ export interface ReaderSettings {
 export type TenderBehaviour = 'Cash' | 'Card' | 'GiftCard' | 'GiftCertificate' | 'OnAccount' | 'Manual';
 
 export interface TenderSettings {
-  id: string;
+  id: number;
   code: string;
   displayName: string;
   behaviour: TenderBehaviour;
@@ -682,7 +682,7 @@ export interface TenderSettings {
 }
 
 export interface CurrencySettings {
-  id: string;
+  id: number;
   code: string;
   name: string;
   symbol: string;
@@ -706,7 +706,7 @@ export type SequenceKind =
   | 'Transfer';
 
 export interface NumberSequenceSettings {
-  id: string;
+  id: number;
   kind: SequenceKind;
   prefix: string;
   padWidth: number;
@@ -716,7 +716,7 @@ export interface NumberSequenceSettings {
 }
 
 export interface PricingRuleSettings {
-  id: string;
+  id: number;
   ruleKey: string;
   order: number;
   enabled: boolean;
@@ -724,8 +724,8 @@ export interface PricingRuleSettings {
 }
 
 export interface StaffSettings {
-  id: string;
-  userId: string;
+  id: number;
+  userId: number;
   staffCode: string;
   firstName: string;
   lastName: string;
@@ -757,7 +757,7 @@ export interface SettingsSnapshot {
 export type TransactionStatus = 'Completed' | 'Voided' | 'Reversal' | 'Suspended';
 
 export interface SalesLogRow {
-  id: string;
+  id: number;
   transactionNumber: number;
   completedAt: string;
   businessDate: string;
@@ -804,7 +804,7 @@ export interface SaleDetailTender {
 }
 
 export interface SaleDetail {
-  id: string;
+  id: number;
   transactionNumber: number;
   completedAt: string;
   status: TransactionStatus;
@@ -822,8 +822,8 @@ export interface SaleDetail {
   addOnCharge: number;
   grandTotal: number;
   changeGiven: number;
-  reversesTransactionId: string | null;
-  voidedByTransactionId: string | null;
+  reversesTransactionId: number | null;
+  voidedByTransactionId: number | null;
   voidReason: string | null;
 }
 
@@ -840,15 +840,15 @@ export type AuditAction =
   | 'StepUpDenied';
 
 export interface AuditLogRow {
-  id: string;
+  id: number;
   occurredAt: string;
   action: AuditAction;
   actorName: string | null;
-  actorStaffId: string | null;
-  stationId: string | null;
+  actorStaffId: number | null;
+  stationId: number | null;
   ipAddress: string | null;
   entityType: string;
-  entityId: string | null;
+  entityId: number | null;
   operation: string | null;
   beforeJson: string | null;
   afterJson: string | null;
@@ -871,7 +871,7 @@ export interface MatrixDimension {
 }
 
 export interface ProductVariant {
-  id: string;
+  id: number;
   variantCode: string;
   dim1Value: string;
   dim2Value: string | null;
@@ -882,7 +882,7 @@ export interface ProductVariant {
 }
 
 export interface Matrix {
-  productId: string;
+  productId: number;
   stockCode: string;
   name: string;
   dimensions: MatrixDimension[];
@@ -896,13 +896,13 @@ export interface Matrix {
 export type SalesAnalysisGroupBy = 'Product' | 'Department' | 'Client' | 'Day' | 'Week' | 'Month';
 
 export interface SalesAnalysisFilters {
-  locationId: string;
+  locationId: number;
   from: string;
   to: string;
   groupBy?: SalesAnalysisGroupBy;
-  departmentId?: string;
-  productId?: string;
-  customerId?: string;
+  departmentId?: number;
+  productId?: number;
+  customerId?: number;
   includeVoided?: boolean;
   top?: number;
   sortBy?: string;
@@ -946,7 +946,7 @@ export interface TaxReportResult {
 }
 
 export interface StockValuationRow {
-  departmentId: string | null;
+  departmentId: number | null;
   departmentName: string;
   productCount: number;
   unitsOnHand: number;
@@ -963,7 +963,7 @@ export interface StockValuationResult {
 }
 
 export interface StockValuationDetailRow {
-  productId: string;
+  productId: number;
   stockCode: string;
   name: string;
   departmentName: string;
@@ -982,7 +982,7 @@ export interface StockValuationDetailPage {
 export type StockPositionKind = 'Normal' | 'Understock' | 'Overstock';
 
 export interface StockPositionRow {
-  productId: string;
+  productId: number;
   stockCode: string;
   name: string;
   departmentName: string;
@@ -996,7 +996,7 @@ export interface StockPositionRow {
 }
 
 export interface OnOrderRow {
-  productId: string;
+  productId: number;
   stockCode: string;
   name: string;
   supplierName: string;
@@ -1029,7 +1029,7 @@ export interface StockReceivedPage {
 }
 
 export interface RewardPointsRow {
-  customerId: string;
+  customerId: number;
   customerName: string;
   earned: number;
   redeemed: number;
@@ -1052,7 +1052,7 @@ export type SyncEntityName = 'Customers' | 'Items' | 'Vendors' | 'Invoices' | 'P
 
 export interface SyncRunOptions {
   businessDate?: string;
-  purchaseOrderId?: string;
+  purchaseOrderId?: number;
   dueOn?: string;
 }
 
@@ -1075,7 +1075,7 @@ export interface PreflightReport {
 }
 
 export interface SyncLogRow {
-  id: string;
+  id: number;
   provider: string;
   direction: 'Push' | 'Pull';
   entity: string;
@@ -1098,11 +1098,11 @@ export interface SyncLogDetail extends SyncLogRow {
 }
 
 export interface ExternalMapRow {
-  id: string;
+  id: number;
   entityType: string;
-  localId: string | null;
+  localId: number | null;
   localKey: string | null;
-  remoteId: string;
+  remoteId: number;
   remoteName: string | null;
   lastSyncedAt: string | null;
 }
@@ -1121,12 +1121,12 @@ export interface LabelStockOption {
 }
 
 export interface LabelRequestLine {
-  productId: string;
+  productId: number;
   copies: number;
 }
 
 export interface PrintLabelsRequest {
-  locationId: string;
+  locationId: number;
   lines: LabelRequestLine[];
   stock: LabelStock;
   showBarcode: boolean;
@@ -1144,16 +1144,16 @@ export type PriceRounding = 'None' | 'NearestCent' | 'EndsIn99' | 'EndsIn95' | '
 
 /** Which items a batch operation touches. Everything null means every item at the location. */
 export interface BulkFilter {
-  locationId: string;
-  departmentId?: string | null;
-  categoryId?: string | null;
-  supplierId?: string | null;
+  locationId: number;
+  departmentId?: number | null;
+  categoryId?: number | null;
+  supplierId?: number | null;
   search?: string | null;
   type?: ProductType | null;
 }
 
 export interface BulkPricePreviewRow {
-  productId: string;
+  productId: number;
   stockCode: string;
   name: string;
   current: number;
@@ -1173,8 +1173,8 @@ export interface BulkPricePreview {
 export type TransferStatus = 'Draft' | 'InTransit' | 'Received' | 'Cancelled';
 
 export interface TransferLine {
-  id: string;
-  productId: string;
+  id: number;
+  productId: number;
   stockCode: string;
   productName: string;
   quantity: number;
@@ -1185,11 +1185,11 @@ export interface TransferLine {
 }
 
 export interface Transfer {
-  id: string;
+  id: number;
   transferNumber: number;
-  fromLocationId: string;
+  fromLocationId: number;
   fromLocationName: string;
-  toLocationId: string;
+  toLocationId: number;
   toLocationName: string;
   status: TransferStatus;
   notes: string | null;
@@ -1200,7 +1200,7 @@ export interface Transfer {
 }
 
 export interface TransferRow {
-  id: string;
+  id: number;
   transferNumber: number;
   fromLocationName: string;
   toLocationName: string;
@@ -1214,8 +1214,8 @@ export interface TransferRow {
 export type StockCountStatus = 'InProgress' | 'Posted' | 'Cancelled';
 
 export interface StockCountLine {
-  id: string;
-  productId: string;
+  id: number;
+  productId: number;
   stockCode: string;
   productName: string;
   countedQty: number;
@@ -1227,10 +1227,10 @@ export interface StockCountLine {
 }
 
 export interface StockCount {
-  id: string;
+  id: number;
   countNumber: number;
-  locationId: string;
-  departmentId: string | null;
+  locationId: number;
+  departmentId: number | null;
   departmentName: string | null;
   status: StockCountStatus;
   notes: string | null;
@@ -1244,7 +1244,7 @@ export interface StockCount {
 }
 
 export interface StockCountRow {
-  id: string;
+  id: number;
   countNumber: number;
   status: StockCountStatus;
   departmentName: string | null;
@@ -1263,7 +1263,7 @@ export interface CountImportResult {
 }
 
 export interface TransferDestination {
-  id: string;
+  id: number;
   code: string;
   name: string;
 }
@@ -1275,7 +1275,7 @@ export interface TransferDestination {
 export type CommissionType = 'Percentage' | 'Fixed' | 'PercentOfProfit';
 
 export interface StaffRow {
-  id: string;
+  id: number;
   staffCode: string;
   fullName: string;
   /** Legacy 0–4. Level 0 is the trainee preset, whose sales are practice. */
@@ -1286,8 +1286,8 @@ export interface StaffRow {
 }
 
 export interface TimeClockState {
-  entryId: string | null;
-  staffId: string;
+  entryId: number | null;
+  staffId: number;
   staffName: string;
   isClockedIn: boolean;
   clockedInAt: string | null;
@@ -1298,8 +1298,8 @@ export interface TimeClockState {
 }
 
 export interface TimeClockEntry {
-  id: string;
-  staffId: string;
+  id: number;
+  staffId: number;
   staffName: string;
   clockIn: string;
   clockOut: string | null;
@@ -1307,11 +1307,11 @@ export interface TimeClockEntry {
 }
 
 export interface CommissionRule {
-  id: string;
-  staffId: string;
-  productId: string | null;
+  id: number;
+  staffId: number;
+  productId: number | null;
   productName: string | null;
-  departmentId: string | null;
+  departmentId: number | null;
   departmentName: string | null;
   commissionType: CommissionType;
   value: number;
@@ -1320,7 +1320,7 @@ export interface CommissionRule {
 }
 
 export interface HoursRow {
-  staffId: string;
+  staffId: number;
   staffCode: string;
   staffName: string;
   shifts: number;
@@ -1339,7 +1339,7 @@ export interface HoursReportResult {
 }
 
 export interface CommissionRow {
-  staffId: string;
+  staffId: number;
   staffCode: string;
   staffName: string;
   lines: number;
@@ -1349,7 +1349,7 @@ export interface CommissionRow {
 }
 
 export interface CommissionDetailRow {
-  transactionId: string;
+  transactionId: number;
   transactionNumber: number;
   businessDate: string;
   stockCode: string;
@@ -1375,8 +1375,8 @@ export interface CommissionReportResult {
 export type FiscalYearStatus = 'Open' | 'Closed';
 
 export interface FiscalYear {
-  id: string;
-  locationId: string;
+  id: number;
+  locationId: number;
   year: number;
   startsOn: string;
   endsOn: string;
@@ -1429,7 +1429,7 @@ export interface LegacySourceKind {
 }
 
 export interface MigrationBatch {
-  id: string;
+  id: number;
   sourceFileName: string;
   entity: string;
   sourceHash: string;

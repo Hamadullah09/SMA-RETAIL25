@@ -28,7 +28,7 @@ export interface ObservedTag {
   firstSeenAt: string;
   lastSeenAt: string;
   /** Resolved item, when the EPC is one we know. Null for an unmapped tag. */
-  productId: string | null;
+  productId: number | null;
   stockCode: string | null;
   name: string | null;
 }
@@ -42,12 +42,12 @@ export interface RfidReaderStatus {
 }
 
 export interface RfidHubHandlers {
-  onTagsObserved?: (tags: ObservedTag[], stationId: string) => void;
-  onReaderStatus?: (status: RfidReaderStatus, stationId: string) => void;
+  onTagsObserved?: (tags: ObservedTag[], stationId: number) => void;
+  onReaderStatus?: (status: RfidReaderStatus, stationId: number) => void;
   onConnectionChanged?: (connected: boolean) => void;
 }
 
-async function fetchHubTicket(stationId: string): Promise<string> {
+async function fetchHubTicket(stationId: number): Promise<string> {
   const response = await fetch('/api/auth/hub-ticket', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -68,11 +68,11 @@ export class RfidHub {
 
   private handlers: RfidHubHandlers = {};
 
-  private stationId: string | null = null;
+  private stationId: number | null = null;
 
-  private locationId: string | null = null;
+  private locationId: number | null = null;
 
-  async connect(stationId: string, locationId: string, handlers: RfidHubHandlers): Promise<void> {
+  async connect(stationId: number, locationId: number, handlers: RfidHubHandlers): Promise<void> {
     this.handlers = handlers;
     this.stationId = stationId;
     this.locationId = locationId;
@@ -96,11 +96,11 @@ export class RfidHub {
       .configureLogging(LogLevel.Warning)
       .build();
 
-    connection.on('TagsObserved', (payload: { stationId: string; tags: ObservedTag[] }) =>
+    connection.on('TagsObserved', (payload: { stationId: number; tags: ObservedTag[] }) =>
       this.handlers.onTagsObserved?.(payload.tags, payload.stationId),
     );
 
-    connection.on('ReaderStatus', (payload: { stationId: string; status: RfidReaderStatus }) =>
+    connection.on('ReaderStatus', (payload: { stationId: number; status: RfidReaderStatus }) =>
       this.handlers.onReaderStatus?.(payload.status, payload.stationId),
     );
 

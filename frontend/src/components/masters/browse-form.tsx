@@ -239,7 +239,16 @@ export function CheckField({
   );
 }
 
-export function SelectField<T extends string>({
+/**
+ * A select whose options are either an enum or a set of record ids.
+ *
+ * `T` widened from `string` to `string | number` when entity keys became integers. A select is the
+ * one control that legitimately carries both — a product type is a string, a department is a row —
+ * and splitting it in two would have meant two components that drift apart. The empty string stays
+ * the "nothing chosen" value in both cases, because that is what an HTML `<option>` with no value
+ * actually reports.
+ */
+export function SelectField<T extends string | number>({
   label,
   value,
   options,
@@ -260,7 +269,13 @@ export function SelectField<T extends string>({
         className={inputClass}
         value={value}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value as T | '')}
+        // A <select> always reports a string, whatever went into the option. Casting that straight
+        // to T would hand a caller "5" while the type says 5 — which type-checks, renders, and then
+        // fails the moment anything compares it to a real id. The option it came from is looked up
+        // instead, so the value handed back is the one that was put in.
+        onChange={(event) =>
+          onChange(options.find((option) => String(option.value) === event.target.value)?.value ?? '')
+        }
       >
         {options.map((option) => (
           <option key={String(option.value)} value={option.value}>

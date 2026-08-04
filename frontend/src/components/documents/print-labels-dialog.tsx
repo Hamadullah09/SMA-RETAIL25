@@ -216,7 +216,7 @@ export function PrintLabelsDialog({
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <tr key={item.id} className="border-t border-subtle">
+                  <tr key={String(item.id)} className="border-t border-subtle">
                     <td className="px-2 py-1">{item.stockCode}</td>
                     <td className="px-2 py-1">{item.name}</td>
                     <td className="px-2 py-1 text-right">{formatCurrency(item.regularPrice)}</td>

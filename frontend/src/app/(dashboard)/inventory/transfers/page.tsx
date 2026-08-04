@@ -40,7 +40,7 @@ export default function TransfersPage() {
   const [includeInbound, setIncludeInbound] = useState(true);
   const [rows, setRows] = useState<TransferRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const { data: destinations = [] } = useQuery({
     queryKey: ['transfer-destinations', locationId],
@@ -105,7 +105,7 @@ export default function TransfersPage() {
     [],
   );
 
-  const create = async (toLocationId: string) => {
+  const create = async (toLocationId: number) => {
     if (!locationId) return;
 
     try {
@@ -131,7 +131,7 @@ export default function TransfersPage() {
           >
             <option value="">New transfer to…</option>
             {destinations.map((destination) => (
-              <option key={destination.id} value={destination.id}>
+              <option key={String(destination.id)} value={destination.id}>
                 {destination.name} ({destination.code})
               </option>
             ))}
@@ -180,7 +180,7 @@ export default function TransfersPage() {
       form={
         selectedId && locationId ? (
           <TransferPanel
-            key={selectedId}
+            key={String(selectedId)}
             transferId={selectedId}
             locationId={locationId}
             canTransfer={canTransfer}
@@ -210,8 +210,8 @@ function TransferPanel({
   onClose,
   onChanged,
 }: {
-  transferId: string;
-  locationId: string;
+  transferId: number;
+  locationId: number;
   canTransfer: boolean;
   onClose: () => void;
   onChanged: () => void;
@@ -323,7 +323,7 @@ function TransferPanel({
           </thead>
           <tbody>
             {transfer.lines.map((line) => (
-              <tr key={line.id} className="border-t border-subtle">
+              <tr key={String(line.id)} className="border-t border-subtle">
                 <td className="py-1">{line.stockCode}</td>
                 <td className="py-1">{line.productName}</td>
                 <td className="py-1 text-right">{line.quantity}</td>

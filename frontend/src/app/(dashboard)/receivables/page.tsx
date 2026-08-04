@@ -37,7 +37,7 @@ export default function ReceivablesPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [view, setView] = useState<'accounts' | 'aging' | 'giftCards' | 'loyalty'>('accounts');
   const [aging, setAging] = useState<ReceivablesAgingRow[]>([]);
   const [tenders, setTenders] = useState<TenderSettings[]>([]);
@@ -149,7 +149,7 @@ export default function ReceivablesPage() {
       form={
         selectedId ? (
           <StatementPanel
-            key={selectedId}
+            key={String(selectedId)}
             customerId={selectedId}
             tenders={tenders}
             canPay={canPay}
@@ -328,13 +328,13 @@ function GiftCardsPanel({ onClose }: { onClose: () => void }) {
   );
 }
 
-function LoyaltyPanel({ locationId, onClose }: { locationId: string; onClose: () => void }) {
+function LoyaltyPanel({ locationId, onClose }: { locationId: number; onClose: () => void }) {
   const [policy, setPolicy] = useState<LoyaltyPolicy | null>(null);
   const [busy, setBusy] = useState(false);
 
   const [term, setTerm] = useState('');
   const [results, setResults] = useState<{ id: string; customerNumber: number; fullName: string }[]>([]);
-  const [customerId, setCustomerId] = useState<string | null>(null);
+  const [customerId, setCustomerId] = useState<number | null>(null);
   const [balance, setBalance] = useState<LoyaltyBalance | null>(null);
   const [ledger, setLedger] = useState<LoyaltyLedgerEntryRow[]>([]);
   const [delta, setDelta] = useState(0);
@@ -372,7 +372,7 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: string; onClose: ()
     }
   };
 
-  const pickCustomer = async (id: string) => {
+  const pickCustomer = async (id: number) => {
     setCustomerId(id);
     setResults([]);
     setTerm('');
@@ -458,7 +458,7 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: string; onClose: ()
           {results.length > 0 ? (
             <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-subtle">
               {results.map((r) => (
-                <li key={r.id}>
+                <li key={String(r.id)}>
                   <button
                     type="button"
                     className="block w-full px-2 py-1 text-left text-label hover:bg-panel-hover"
@@ -499,7 +499,7 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: string; onClose: ()
                 </thead>
                 <tbody>
                   {ledger.map((entry) => (
-                    <tr key={entry.id} className="border-t border-subtle">
+                    <tr key={String(entry.id)} className="border-t border-subtle">
                       <td className="py-1">{new Date(entry.occurredAt).toLocaleString()}</td>
                       <td className="py-1">{entry.entryType}</td>
                       <td className="py-1 text-right pos-amount">{entry.points}</td>
@@ -524,7 +524,7 @@ function StatementPanel({
   onClose,
   onChanged,
 }: {
-  customerId: string;
+  customerId: number;
   tenders: TenderSettings[];
   canPay: boolean;
   canVoid: boolean;
@@ -534,7 +534,7 @@ function StatementPanel({
 }) {
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
   const [amount, setAmount] = useState(0);
-  const [tenderTypeId, setTenderTypeId] = useState('');
+  const [tenderTypeId, setTenderTypeId] = useState<number | ''>('');
   const [busy, setBusy] = useState(false);
 
   const reload = useCallback(async () => {
@@ -583,7 +583,7 @@ function StatementPanel({
     }
   };
 
-  const voidInvoice = async (invoiceId: string) => {
+  const voidInvoice = async (invoiceId: number) => {
     setBusy(true);
     try {
       await mastersApi.receivables.voidInvoice(invoiceId);
@@ -597,7 +597,7 @@ function StatementPanel({
     }
   };
 
-  const refundInvoice = async (invoiceId: string, invoiceTotal: number) => {
+  const refundInvoice = async (invoiceId: number, invoiceTotal: number) => {
     const value = window.prompt(`Refund how much of this invoice (up to ${currency(invoiceTotal)})?`);
     const parsed = value ? Number.parseFloat(value) : NaN;
     if (!parsed || parsed <= 0) return;
@@ -655,7 +655,7 @@ function StatementPanel({
           <Field label="Tender">
             <select className={selectClass + ' w-full'} value={tenderTypeId} onChange={(event) => setTenderTypeId(event.target.value)}>
               {tenders.map((t) => (
-                <option key={t.id} value={t.id}>
+                <option key={String(t.id)} value={t.id}>
                   {t.displayName}
                 </option>
               ))}
@@ -680,7 +680,7 @@ function StatementPanel({
           <tbody>
             {statement.invoices.map((invoice) => (
               <InvoiceRowView
-                key={invoice.id}
+                key={String(invoice.id)}
                 invoice={invoice}
                 canVoid={canVoid}
                 canRefund={canRefund}
@@ -757,7 +757,7 @@ function LedgerTable({ entries }: { entries: ArLedgerEntryRow[] }) {
       </thead>
       <tbody>
         {entries.map((entry) => (
-          <tr key={entry.id} className="border-t border-subtle">
+          <tr key={String(entry.id)} className="border-t border-subtle">
             <td className="py-1">{new Date(entry.occurredAt).toLocaleString()}</td>
             <td className="py-1">{entry.entryType}</td>
             <td className="py-1 text-right pos-amount">{currency(entry.amount)}</td>

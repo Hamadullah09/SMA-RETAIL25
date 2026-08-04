@@ -48,8 +48,8 @@ export function ProductGrid() {
 
   const [page, setPage] = useState<PosGridPage | null>(null);
   const [items, setItems] = useState<PosGridItem[]>([]);
-  const [departmentId, setDepartmentId] = useState<string | null>(null);
-  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [departmentId, setDepartmentId] = useState<number | null>(null);
+  const [categoryId, setCategoryId] = useState<number | null>(null);
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [skip, setSkip] = useState(0);
@@ -278,8 +278,8 @@ function GroupStrip({
 }: {
   label: string;
   groups: PosGridGroup[];
-  selected: string | null;
-  onSelect: (id: string | null) => void;
+  selected: number | null;
+  onSelect: (id: number | null) => void;
 }) {
   return (
     <div className="flex items-center gap-1 overflow-x-auto border-b border-subtle px-2 py-1.5" aria-label={label}>

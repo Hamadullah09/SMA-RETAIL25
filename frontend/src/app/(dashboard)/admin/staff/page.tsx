@@ -53,7 +53,7 @@ export default function StaffPage() {
   const [rows, setRows] = useState<StaffRow[]>([]);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     if (!locationId) return;
@@ -124,7 +124,7 @@ export default function StaffPage() {
       form={
         selectedId && locationId ? (
           <StaffPanel
-            key={selectedId}
+            key={String(selectedId)}
             staff={rows.find((r) => r.id === selectedId)!}
             locationId={locationId}
             canWrite={canWrite}
@@ -163,7 +163,7 @@ function StaffPanel({
   onClose,
 }: {
   staff: StaffRow;
-  locationId: string;
+  locationId: number;
   canWrite: boolean;
   canSeeHours: boolean;
   canSeeCommissions: boolean;
@@ -176,8 +176,8 @@ function StaffPanel({
   const [value, setValue] = useState(5);
   const [max, setMax] = useState('');
   const [scope, setScope] = useState<'all' | 'department' | 'product'>('all');
-  const [departmentId, setDepartmentId] = useState('');
-  const [productId, setProductId] = useState<string | null>(null);
+  const [departmentId, setDepartmentId] = useState<number | ''>('');
+  const [productId, setProductId] = useState<number | null>(null);
 
   const { data: departments = [] } = useQuery({
     queryKey: ['departments', locationId],
@@ -220,7 +220,7 @@ function StaffPanel({
     }
   };
 
-  const remove = async (id: string) => {
+  const remove = async (id: number) => {
     setBusy(true);
 
     try {
@@ -273,7 +273,7 @@ function StaffPanel({
           </thead>
           <tbody>
             {rules.map((rule) => (
-              <tr key={rule.id} className="border-t border-subtle">
+              <tr key={String(rule.id)} className="border-t border-subtle">
                 <td className="py-1">
                   {rule.productName ?? rule.departmentName ?? 'Everything they sell'}
                   {!rule.isActive ? <span className="ml-1 text-label">(off)</span> : null}
@@ -333,7 +333,7 @@ function StaffPanel({
                   >
                     <option value="">Choose…</option>
                     {departments.map((department) => (
-                      <option key={department.id} value={department.id}>
+                      <option key={String(department.id)} value={department.id}>
                         {department.name}
                       </option>
                     ))}
@@ -447,7 +447,7 @@ function ReportsPanel({
   canSeeHours,
   canSeeCommissions,
 }: {
-  locationId: string;
+  locationId: number;
   canSeeHours: boolean;
   canSeeCommissions: boolean;
 }) {
