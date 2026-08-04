@@ -49,7 +49,7 @@ public sealed class TenderTypesController : ControllerBase
 }
 
 public sealed record TenderTypeDto(
-    Guid Id,
+    long Id,
     string Code,
     string DisplayName,
     string Behaviour,

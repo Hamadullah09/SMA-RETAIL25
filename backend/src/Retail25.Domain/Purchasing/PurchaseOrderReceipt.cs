@@ -12,20 +12,20 @@ public sealed class PurchaseOrderReceipt : Entity, IAuditable
     {
     }
 
-    public Guid PurchaseOrderId { get; set; }
+    public long PurchaseOrderId { get; set; }
 
     public DateOnly ReceivedOn { get; set; }
 
     /// <summary>Freight/shipping cost distributed across received items (guide p.68).</summary>
     public decimal FreightTotal { get; set; }
 
-    public Guid StaffId { get; set; }
+    public long StaffId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 }

@@ -127,12 +127,12 @@ public sealed class StaffPinTests
         await audit.Received().RecordAsync(
             AuditAction.SignInFailed,
             Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string?>(),
-            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<long?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
 
         await audit.Received().RecordAsync(
             AuditAction.SignedIn,
             Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<string?>(),
-            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<Guid?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
+            Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<long?>(), Arg.Any<string?>(), Arg.Any<CancellationToken>());
     }
 
     /// <summary>The plaintext PIN is never stored, so a database read cannot recover it.</summary>
@@ -189,7 +189,7 @@ public sealed class StaffPinTests
         IAuditWriter? audit = null)
     {
         var hasher = new Argon2PinHasher();
-        var userId = Guid.NewGuid();
+        var userId = TestIds.Next();
 
         var staff = StaffProfile.Create(userId, staffCode, "Sarah", "Kaur", accessLevel: 3);
         staff.SetPin(hasher.Hash(pin));

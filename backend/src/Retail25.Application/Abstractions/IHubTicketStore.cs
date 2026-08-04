@@ -2,10 +2,10 @@ namespace Retail25.Application.Abstractions;
 
 /// <summary>What a hub ticket stands for once redeemed.</summary>
 public sealed record HubTicket(
-    Guid UserId,
-    Guid? StaffId,
-    Guid? StationId,
-    Guid? LocationId,
+    long UserId,
+    long? StaffId,
+    long? StationId,
+    long? LocationId,
     IReadOnlyList<string> Permissions);
 
 /// <summary>

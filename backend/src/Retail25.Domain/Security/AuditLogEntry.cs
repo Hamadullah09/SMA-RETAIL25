@@ -42,16 +42,16 @@ public sealed class AuditLogEntry : Entity
     public AuditAction Action { get; set; }
 
     /// <summary>The Identity user, if the actor was authenticated.</summary>
-    public Guid? ActorUserId { get; set; }
+    public long? ActorUserId { get; set; }
 
     /// <summary>The staff member, which is what a manager actually recognises.</summary>
-    public Guid? ActorStaffId { get; set; }
+    public long? ActorStaffId { get; set; }
 
     public string? ActorName { get; set; }
 
-    public Guid? StationId { get; set; }
+    public long? StationId { get; set; }
 
-    public Guid? LocationId { get; set; }
+    public long? LocationId { get; set; }
 
     /// <summary>Recorded because "which till" and "which machine" are different questions after a theft.</summary>
     public string? IpAddress { get; set; }
@@ -74,7 +74,7 @@ public sealed class AuditLogEntry : Entity
     public string? CorrelationId { get; set; }
 
     /// <summary>The supervisor who approved a step-up, when one occurred.</summary>
-    public Guid? ApproverStaffId { get; set; }
+    public long? ApproverStaffId { get; set; }
 
     public string? Reason { get; set; }
 
@@ -94,11 +94,11 @@ public sealed class AuditLogEntry : Entity
 
     /// <summary>Stamps the actor and request context onto a row the interceptor built.</summary>
     public AuditLogEntry WithActor(
-        Guid? userId,
-        Guid? staffId,
+        long? userId,
+        long? staffId,
         string? actorName,
-        Guid? stationId,
-        Guid? locationId,
+        long? stationId,
+        long? locationId,
         string? ipAddress,
         string? correlationId)
     {

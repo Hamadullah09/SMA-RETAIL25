@@ -18,7 +18,7 @@ public sealed class SuppliersController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> Browse(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] string? search,
         [FromQuery] bool deletedOnly = false,
         [FromQuery] SupplierSort sort = SupplierSort.Company,
@@ -29,23 +29,23 @@ public sealed class SuppliersController : ControllerBase
         => Ok(await _sender.Send(
             new BrowseSuppliersQuery(locationId, search, deletedOnly, sort, descending, cursor, pageSize), ct));
 
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:long}")]
+    public async Task<IActionResult> Get(long id, CancellationToken ct)
         => (await _sender.Send(new GetSupplierFormQuery(id), ct)).ToActionResult(this);
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateSupplierCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
-    [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] SupplierSection details, CancellationToken ct)
+    [HttpPut("{id:long}")]
+    public async Task<IActionResult> Update(long id, [FromBody] SupplierSection details, CancellationToken ct)
         => (await _sender.Send(new UpdateSupplierCommand(id, details), ct)).ToActionResult(this);
 
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    [HttpDelete("{id:long}")]
+    public async Task<IActionResult> Delete(long id, CancellationToken ct)
         => (await _sender.Send(new DeleteSupplierCommand(id), ct)).ToActionResult(this);
 
-    [HttpPost("{id:guid}/restore")]
-    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:long}/restore")]
+    public async Task<IActionResult> Restore(long id, CancellationToken ct)
         => (await _sender.Send(new RestoreSupplierCommand(id), ct)).ToActionResult(this);
 }

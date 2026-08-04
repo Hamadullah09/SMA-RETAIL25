@@ -15,12 +15,12 @@ namespace Retail25.Domain.UnitTests.Catalog;
 /// </summary>
 public sealed class SerializedUnitReassignTests
 {
-    private static readonly Guid Location = Guid.NewGuid();
+    private static readonly long Location = TestIds.Next();
 
     private static SerializedUnit InStock()
     {
         var unit = SerializedUnit.Create(
-            Guid.NewGuid(), Location, serialNumber: null, epc: "E28069150000600B40A75995", DateTimeOffset.UtcNow).Value;
+            TestIds.Next(), Location, serialNumber: null, epc: "E28069150000600B40A75995", DateTimeOffset.UtcNow).Value;
 
         unit.Commission();
         return unit;
@@ -30,7 +30,7 @@ public sealed class SerializedUnitReassignTests
     public void A_tag_in_stock_moves_to_the_new_item()
     {
         var unit = InStock();
-        var keyboard = Guid.NewGuid();
+        var keyboard = TestIds.Next();
 
         unit.ReassignTo(keyboard).IsSuccess.Should().BeTrue();
 
@@ -46,9 +46,9 @@ public sealed class SerializedUnitReassignTests
     public void Moving_a_tag_clears_a_variant_that_was_not_carried_over()
     {
         var unit = InStock();
-        unit.AssignVariant(Guid.NewGuid());
+        unit.AssignVariant(TestIds.Next());
 
-        unit.ReassignTo(Guid.NewGuid());
+        unit.ReassignTo(TestIds.Next());
 
         unit.VariantId.Should().BeNull();
     }
@@ -64,7 +64,7 @@ public sealed class SerializedUnitReassignTests
         var original = unit.ProductId;
         unit.ClaimForCart();
 
-        var moved = unit.ReassignTo(Guid.NewGuid());
+        var moved = unit.ReassignTo(TestIds.Next());
 
         moved.IsFailure.Should().BeTrue();
         moved.Error.Code.Should().Be(SerializedUnit.CannotReassign.Code);
@@ -79,7 +79,7 @@ public sealed class SerializedUnitReassignTests
         unit.ClaimForCart();
         unit.Sell();
 
-        unit.ReassignTo(Guid.NewGuid()).IsFailure.Should().BeTrue();
+        unit.ReassignTo(TestIds.Next()).IsFailure.Should().BeTrue();
     }
 
     /// <summary>
@@ -90,9 +90,9 @@ public sealed class SerializedUnitReassignTests
     public void A_tag_that_was_never_commissioned_cannot_be_moved()
     {
         var unit = SerializedUnit.Create(
-            Guid.NewGuid(), Location, serialNumber: null, epc: "E28069150000600B40A78D95", DateTimeOffset.UtcNow).Value;
+            TestIds.Next(), Location, serialNumber: null, epc: "E28069150000600B40A78D95", DateTimeOffset.UtcNow).Value;
 
         unit.State.Should().Be(SerializedUnitState.Provisioned);
-        unit.ReassignTo(Guid.NewGuid()).IsFailure.Should().BeTrue();
+        unit.ReassignTo(TestIds.Next()).IsFailure.Should().BeTrue();
     }
 }

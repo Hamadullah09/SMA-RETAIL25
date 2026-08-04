@@ -36,7 +36,7 @@ public sealed record RfidBatchResult(
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record AddRfidBatchCommand(Guid CartId, IReadOnlyList<TagRead> Tags) : IRequest<Result<RfidBatchResult>>;
+public sealed record AddRfidBatchCommand(long CartId, IReadOnlyList<TagRead> Tags) : IRequest<Result<RfidBatchResult>>;
 
 public sealed class AddRfidBatchHandler : IRequestHandler<AddRfidBatchCommand, Result<RfidBatchResult>>
 {
@@ -95,7 +95,7 @@ public sealed class AddRfidBatchHandler : IRequestHandler<AddRfidBatchCommand, R
         var stationId = snapshot.Cart.StationId;
 
         var rejected = new List<RejectedTag>();
-        var acceptedLineIds = new List<Guid>();
+        var acceptedLineIds = new List<long>();
 
         // Deduplicate inside the batch itself: a single antenna sweep can report the same tag from
         // two angles, and the agent's coalescing window does not span batches.

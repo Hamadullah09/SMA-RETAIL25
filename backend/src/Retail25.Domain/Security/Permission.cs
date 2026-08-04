@@ -55,11 +55,11 @@ public sealed class RolePermission : Entity
     {
     }
 
-    /// <summary>The ASP.NET Core Identity role id. Kept as a plain Guid so Domain stays free of Identity.</summary>
-    public Guid RoleId { get; set; }
+    /// <summary>The ASP.NET Core Identity role id. Kept as a plain long so Domain stays free of Identity.</summary>
+    public long RoleId { get; set; }
 
     public string PermissionKey { get; set; } = string.Empty;
 
-    public static RolePermission Create(Guid roleId, string permissionKey)
+    public static RolePermission Create(long roleId, string permissionKey)
         => new() { RoleId = roleId, PermissionKey = permissionKey };
 }

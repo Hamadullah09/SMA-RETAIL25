@@ -14,10 +14,10 @@ public interface IRfidNotifier
     /// <summary>
     /// Distinct tags observed at a station, already through the debounce window.
     /// </summary>
-    Task TagsObservedAsync(Guid locationId, Guid stationId, IReadOnlyList<ObservedTag> tags, CancellationToken ct = default);
+    Task TagsObservedAsync(long locationId, long stationId, IReadOnlyList<ObservedTag> tags, CancellationToken ct = default);
 
     /// <summary>Reader health, so a screen can say "not reading" rather than showing a still list.</summary>
-    Task ReaderStatusAsync(Guid locationId, Guid stationId, RfidReaderStatus status, CancellationToken ct = default);
+    Task ReaderStatusAsync(long locationId, long stationId, RfidReaderStatus status, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -39,7 +39,7 @@ public sealed record ObservedTag(
     int ReadCount,
     DateTimeOffset FirstSeenAt,
     DateTimeOffset LastSeenAt,
-    Guid? ProductId = null,
+    long? ProductId = null,
     string? StockCode = null,
     string? Name = null);
 

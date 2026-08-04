@@ -44,7 +44,7 @@ public sealed class ProductImage : Entity, IAuditable
     {
     }
 
-    public Guid ProductId { get; private set; }
+    public long ProductId { get; private set; }
 
     public byte[] Content { get; private set; } = [];
 
@@ -55,13 +55,13 @@ public sealed class ProductImage : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static Result<ProductImage> Create(Guid productId, byte[] content, string contentType)
+    public static Result<ProductImage> Create(long productId, byte[] content, string contentType)
     {
         var validated = Validate(content, contentType);
         if (validated.IsFailure)

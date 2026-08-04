@@ -13,9 +13,9 @@ public sealed class ScaleProfile : Entity, IAuditable, IStationScopedProfile
     {
     }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
-    public Guid? StationId { get; set; }
+    public long? StationId { get; set; }
 
     public string Name { get; set; } = "Default";
 
@@ -46,13 +46,13 @@ public sealed class ScaleProfile : Entity, IAuditable, IStationScopedProfile
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static ScaleProfile CreateDefault(Guid locationId) => new() { LocationId = locationId };
+    public static ScaleProfile CreateDefault(long locationId) => new() { LocationId = locationId };
 }
 
 /// <summary>
@@ -65,9 +65,9 @@ public sealed class PoleDisplayProfile : Entity, IAuditable, IStationScopedProfi
     {
     }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
-    public Guid? StationId { get; set; }
+    public long? StationId { get; set; }
 
     public string Name { get; set; } = "Default";
 
@@ -96,13 +96,13 @@ public sealed class PoleDisplayProfile : Entity, IAuditable, IStationScopedProfi
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static PoleDisplayProfile CreateDefault(Guid locationId) => new() { LocationId = locationId };
+    public static PoleDisplayProfile CreateDefault(long locationId) => new() { LocationId = locationId };
 
     /// <summary>Clips a line to the width this model can actually show, so text never wraps into noise.</summary>
     public string FitLine1(string? text) => Fit(text, Line1Width);

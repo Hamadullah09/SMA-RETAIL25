@@ -10,7 +10,7 @@ namespace Retail25.Application.Catalog;
 public sealed record MatrixDimensionDto(int Position, string Name, IReadOnlyList<string> Values);
 
 public sealed record ProductVariantDto(
-    Guid Id,
+    long Id,
     string VariantCode,
     string Dim1Value,
     string? Dim2Value,
@@ -20,7 +20,7 @@ public sealed record ProductVariantDto(
     bool IsActive);
 
 public sealed record MatrixDto(
-    Guid ProductId,
+    long ProductId,
     string StockCode,
     string Name,
     IReadOnlyList<MatrixDimensionDto> Dimensions,
@@ -37,15 +37,15 @@ public sealed record MatrixDto(
 /// </summary>
 [RequiresPermission(PermissionKeys.Catalog.Write)]
 public sealed record DefineMatrixCommand(
-    Guid ProductId,
+    long ProductId,
     IReadOnlyList<MatrixDimensionDto> Dimensions) : IRequest<Result<MatrixDto>>;
 
 [RequiresPermission(PermissionKeys.Catalog.Read)]
-public sealed record GetMatrixQuery(Guid ProductId) : IRequest<Result<MatrixDto>>;
+public sealed record GetMatrixQuery(long ProductId) : IRequest<Result<MatrixDto>>;
 
 /// <summary>Variants with stock at a location — the picker the till shows for a matrix item.</summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record ListVariantsQuery(Guid ProductId, Guid LocationId, bool InStockOnly = false)
+public sealed record ListVariantsQuery(long ProductId, long LocationId, bool InStockOnly = false)
     : IRequest<IReadOnlyList<ProductVariantDto>>;
 
 public sealed class MatrixHandlers
@@ -142,7 +142,7 @@ public sealed class MatrixHandlers
         return request.InStockOnly ? dtos.Where(v => v.OnHand > 0).ToList() : dtos;
     }
 
-    private async Task ReplaceDimensionsAsync(Guid productId, List<MatrixDimensionDto> dimensions, CancellationToken ct)
+    private async Task ReplaceDimensionsAsync(long productId, List<MatrixDimensionDto> dimensions, CancellationToken ct)
     {
         var existing = await _db.MatrixDimensions.Where(d => d.ProductId == productId).ToListAsync(ct);
         _db.MatrixDimensions.RemoveRange(existing);
@@ -162,7 +162,7 @@ public sealed class MatrixHandlers
     /// Deactivating rather than deleting is deliberate: a variant that has ever been sold is named by
     /// sale lines, and removing it would orphan history.
     /// </summary>
-    private async Task GenerateVariantsAsync(Guid productId, List<MatrixDimensionDto> dimensions, CancellationToken ct)
+    private async Task GenerateVariantsAsync(long productId, List<MatrixDimensionDto> dimensions, CancellationToken ct)
     {
         var existing = await _db.ProductVariants.Where(v => v.ProductId == productId).ToListAsync(ct);
         var byCode = existing.ToDictionary(v => v.VariantCode, StringComparer.OrdinalIgnoreCase);

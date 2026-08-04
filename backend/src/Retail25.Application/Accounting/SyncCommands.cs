@@ -25,11 +25,11 @@ public enum SyncEntity
 
 [RequiresPermission(PermissionKeys.System.SyncRun)]
 public sealed record TriggerAccountingSyncCommand(
-    Guid LocationId,
+    long LocationId,
     SyncEntity Entity,
     bool Pull = false,
     DateOnly? BusinessDate = null,
-    Guid? PurchaseOrderId = null,
+    long? PurchaseOrderId = null,
     DateOnly? DueOn = null) : IRequest<Result<SyncResult>>;
 
 // ---------------------------------------------------------------------------------------------
@@ -48,14 +48,14 @@ public sealed record PreflightReport(IReadOnlyList<PreflightCheck> Checks, bool 
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.System.SyncRun)]
-public sealed record PreflightAccountingSyncQuery(Guid LocationId) : IRequest<PreflightReport>;
+public sealed record PreflightAccountingSyncQuery(long LocationId) : IRequest<PreflightReport>;
 
 // ---------------------------------------------------------------------------------------------
 // Log and mappings
 // ---------------------------------------------------------------------------------------------
 
 public sealed record SyncLogRow(
-    Guid Id,
+    long Id,
     string Provider,
     SyncDirection Direction,
     string Entity,
@@ -76,12 +76,12 @@ public sealed record GetSyncLogQuery(
 
 /// <summary>The request and response of one attempt, for the troubleshooting drill-down.</summary>
 [RequiresPermission(PermissionKeys.System.SyncRun)]
-public sealed record GetSyncLogDetailQuery(Guid Id) : IRequest<Result<SyncLog>>;
+public sealed record GetSyncLogDetailQuery(long Id) : IRequest<Result<SyncLog>>;
 
 public sealed record ExternalMapRow(
-    Guid Id,
+    long Id,
     string EntityType,
-    Guid? LocalId,
+    long? LocalId,
     string? LocalKey,
     string RemoteId,
     string? RemoteName,
@@ -94,7 +94,7 @@ public sealed record GetExternalMapsQuery(string Provider = "csv") : IRequest<IR
 public sealed record UpsertExternalMapCommand(
     string Provider,
     string EntityType,
-    Guid? LocalId,
+    long? LocalId,
     string? LocalKey,
     string RemoteId,
     string? RemoteName) : IRequest<Result<ExternalMapRow>>;
@@ -175,7 +175,7 @@ public sealed class SyncHandlers
             .Where(m => m.Provider == _connector.Provider)
             .ToListAsync(ct);
 
-        bool Mapped(string entityType, string? localKey = null, Guid? localId = null) =>
+        bool Mapped(string entityType, string? localKey = null, long? localId = null) =>
             maps.Any(m => m.EntityType == entityType
                 && (localKey is null || m.LocalKey == localKey)
                 && (localId is null || m.LocalId == localId));

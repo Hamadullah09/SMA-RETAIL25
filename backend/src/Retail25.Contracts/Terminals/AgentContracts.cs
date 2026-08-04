@@ -21,7 +21,7 @@ public sealed record WeightReport(string StationId, decimal Value, string Unit, 
 /// A print job's outcome. A failure is reported but is never fatal: the sale is already saved and
 /// the receipt stays reprintable, which preserves the legacy "printer jammed" story (guide p.12).
 /// </summary>
-public sealed record PrintResult(string StationId, Guid TransactionId, bool Succeeded, string? Error);
+public sealed record PrintResult(string StationId, long TransactionId, bool Succeeded, string? Error);
 
 /// <summary>
 /// Method names on <c>TerminalHub</c>, in one place so the agent and the server cannot disagree

@@ -10,32 +10,32 @@ using Retail25.Domain.Orders;
 namespace Retail25.Application.Orders;
 
 public sealed record CustomerOrderLineDto(
-    Guid Id, Guid ProductId, string StockCode, string ProductName, decimal OrderedQty, decimal FilledQty, decimal UnitPrice);
+    long Id, long ProductId, string StockCode, string ProductName, decimal OrderedQty, decimal FilledQty, decimal UnitPrice);
 
 public sealed record CustomerOrderDto(
-    Guid Id,
+    long Id,
     long OrderNumber,
-    Guid CustomerId,
+    long CustomerId,
     string CustomerName,
     CustomerOrderStatus Status,
     DateOnly OrderedOn,
     string? Notes,
     IReadOnlyList<CustomerOrderLineDto> Lines);
 
-public sealed record CustomerOrderLineInput(Guid ProductId, decimal Quantity, decimal UnitPrice);
+public sealed record CustomerOrderLineInput(long ProductId, decimal Quantity, decimal UnitPrice);
 
 [RequiresPermission(PermissionKeys.Customer.Write)]
 public sealed record CreateCustomerOrderCommand(
-    Guid CustomerId, Guid LocationId, IReadOnlyList<CustomerOrderLineInput> Lines, string? Notes = null)
+    long CustomerId, long LocationId, IReadOnlyList<CustomerOrderLineInput> Lines, string? Notes = null)
     : IRequest<Result<CustomerOrderDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Read)]
 public sealed record BrowseCustomerOrdersQuery(
-    Guid LocationId, Guid? CustomerId = null, CustomerOrderStatus? Status = null, string? Cursor = null, int PageSize = 50)
+    long LocationId, long? CustomerId = null, CustomerOrderStatus? Status = null, string? Cursor = null, int PageSize = 50)
     : IRequest<CursorPage<CustomerOrderDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Read)]
-public sealed record GetCustomerOrderQuery(Guid CustomerOrderId) : IRequest<Result<CustomerOrderDto>>;
+public sealed record GetCustomerOrderQuery(long CustomerOrderId) : IRequest<Result<CustomerOrderDto>>;
 
 /// <summary>
 /// Fills as much of the order as current stock allows and releases the filled quantity's reservation.
@@ -43,10 +43,10 @@ public sealed record GetCustomerOrderQuery(Guid CustomerOrderId) : IRequest<Resu
 /// originally agreed price so the cashier rings them in at the price the customer was promised.
 /// </summary>
 [RequiresPermission(PermissionKeys.Customer.Write)]
-public sealed record FillCustomerOrderCommand(Guid CustomerOrderId) : IRequest<Result<CustomerOrderDto>>;
+public sealed record FillCustomerOrderCommand(long CustomerOrderId) : IRequest<Result<CustomerOrderDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Write)]
-public sealed record CancelCustomerOrderCommand(Guid CustomerOrderId) : IRequest<Result<CustomerOrderDto>>;
+public sealed record CancelCustomerOrderCommand(long CustomerOrderId) : IRequest<Result<CustomerOrderDto>>;
 
 public sealed class CustomerOrderHandlers :
     IRequestHandler<CreateCustomerOrderCommand, Result<CustomerOrderDto>>,
@@ -261,7 +261,7 @@ public sealed class CustomerOrderHandlers :
     }
 
     /// <summary>Adjusts the soft reservation on a product's stock level. Positive reserves, negative releases.</summary>
-    private async Task ReserveAsync(Guid productId, Guid locationId, decimal delta, CancellationToken ct)
+    private async Task ReserveAsync(long productId, long locationId, decimal delta, CancellationToken ct)
     {
         var level = await _db.StockLevels.FirstOrDefaultAsync(
             s => s.ProductId == productId && s.VariantId == null && s.LocationId == locationId, ct);

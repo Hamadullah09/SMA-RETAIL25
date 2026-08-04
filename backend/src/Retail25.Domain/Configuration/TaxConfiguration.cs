@@ -33,7 +33,7 @@ public sealed class TaxConfiguration : AggregateRoot, IAuditable
     {
     }
 
-    public Guid LocationId { get; private set; }
+    public long LocationId { get; private set; }
 
     /// <summary>First date this configuration applies to. Sales before it use the previous row.</summary>
     public DateOnly EffectiveFrom { get; private set; }
@@ -76,17 +76,17 @@ public sealed class TaxConfiguration : AggregateRoot, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     public bool IsCurrentOn(DateOnly businessDate)
         => businessDate >= EffectiveFrom && (EffectiveTo is null || businessDate <= EffectiveTo);
 
     public static Result<TaxConfiguration> Create(
-        Guid locationId,
+        long locationId,
         DateOnly effectiveFrom,
         bool tax1Enabled,
         string tax1Name,

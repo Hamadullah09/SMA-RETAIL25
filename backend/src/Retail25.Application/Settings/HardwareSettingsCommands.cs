@@ -18,19 +18,19 @@ namespace Retail25.Application.Settings;
 /// </summary>
 [RequiresPermission(PermissionKeys.Settings.Hardware)]
 public sealed record SaveStationCommand(
-    Guid LocationId,
-    Guid? Id,
+    long LocationId,
+    long? Id,
     string StationCode,
     string? Name,
     bool? FastScanMode,
     bool? AutoSaveSales,
     bool? ConfirmBeforeSaving,
     bool? ScanRandomWeightBarcodes,
-    Guid? DefaultTenderTypeId,
-    Guid? PrinterProfileId,
-    Guid? ReaderProfileId,
-    Guid? ScaleProfileId,
-    Guid? PoleDisplayProfileId,
+    long? DefaultTenderTypeId,
+    long? PrinterProfileId,
+    long? ReaderProfileId,
+    long? ScaleProfileId,
+    long? PoleDisplayProfileId,
     ReaderMode ReaderMode,
     bool IsActive) : IRequest<Result<StationSettingsDto>>;
 
@@ -39,19 +39,19 @@ public sealed record SaveStationCommand(
 /// and a drawer session is reconciled against it.
 /// </summary>
 [RequiresPermission(PermissionKeys.Settings.Hardware)]
-public sealed record DeactivateStationCommand(Guid StationId) : IRequest<Result>;
+public sealed record DeactivateStationCommand(long StationId) : IRequest<Result>;
 
 [RequiresPermission(PermissionKeys.Settings.Hardware)]
-public sealed record SavePrinterProfileCommand(Guid LocationId, PrinterSettingsDto Profile) : IRequest<Result<PrinterSettingsDto>>;
+public sealed record SavePrinterProfileCommand(long LocationId, PrinterSettingsDto Profile) : IRequest<Result<PrinterSettingsDto>>;
 
 [RequiresPermission(PermissionKeys.Settings.Hardware)]
-public sealed record SaveScaleProfileCommand(Guid LocationId, ScaleSettingsDto Profile) : IRequest<Result<ScaleSettingsDto>>;
+public sealed record SaveScaleProfileCommand(long LocationId, ScaleSettingsDto Profile) : IRequest<Result<ScaleSettingsDto>>;
 
 [RequiresPermission(PermissionKeys.Settings.Hardware)]
-public sealed record SavePoleDisplayProfileCommand(Guid LocationId, PoleDisplaySettingsDto Profile) : IRequest<Result<PoleDisplaySettingsDto>>;
+public sealed record SavePoleDisplayProfileCommand(long LocationId, PoleDisplaySettingsDto Profile) : IRequest<Result<PoleDisplaySettingsDto>>;
 
 [RequiresPermission(PermissionKeys.Settings.Hardware)]
-public sealed record SaveReaderProfileCommand(Guid LocationId, ReaderSettingsDto Profile) : IRequest<Result<ReaderSettingsDto>>;
+public sealed record SaveReaderProfileCommand(long LocationId, ReaderSettingsDto Profile) : IRequest<Result<ReaderSettingsDto>>;
 
 public sealed class HardwareSettingsHandlers
     : IRequestHandler<SaveStationCommand, Result<StationSettingsDto>>,
@@ -281,12 +281,12 @@ public sealed class HardwareSettingsHandlers
     /// </summary>
     private static async Task<TProfile> FindOrAddAsync<TProfile>(
         DbSet<TProfile> set,
-        Guid id,
+        long id,
         Func<TProfile> create,
         CancellationToken ct)
         where TProfile : Entity
     {
-        if (id != Guid.Empty)
+        if (id != 0L)
         {
             var existing = await set.FirstOrDefaultAsync(p => p.Id == id, ct);
             if (existing is not null)
@@ -305,7 +305,7 @@ public sealed class HardwareSettingsHandlers
     /// without waiting for its refresh interval or a restart.
     /// </summary>
     private async Task PushToStationsAsync(
-        Guid locationId,
+        long locationId,
         Func<Station, bool> uses,
         object profile,
         CancellationToken ct)

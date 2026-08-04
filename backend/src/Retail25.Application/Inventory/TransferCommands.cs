@@ -10,8 +10,8 @@ using Retail25.Domain.Configuration;
 namespace Retail25.Application.Inventory;
 
 public sealed record TransferLineDto(
-    Guid Id,
-    Guid ProductId,
+    long Id,
+    long ProductId,
     string StockCode,
     string ProductName,
     decimal Quantity,
@@ -21,11 +21,11 @@ public sealed record TransferLineDto(
     decimal SourceOnHand);
 
 public sealed record TransferDto(
-    Guid Id,
+    long Id,
     long TransferNumber,
-    Guid FromLocationId,
+    long FromLocationId,
     string FromLocationName,
-    Guid ToLocationId,
+    long ToLocationId,
     string ToLocationName,
     TransferStatus Status,
     string? Notes,
@@ -35,7 +35,7 @@ public sealed record TransferDto(
     IReadOnlyList<TransferLineDto> Lines);
 
 public sealed record TransferRowDto(
-    Guid Id,
+    long Id,
     long TransferNumber,
     string FromLocationName,
     string ToLocationName,
@@ -47,7 +47,7 @@ public sealed record TransferRowDto(
 
 [RequiresPermission(PermissionKeys.Inventory.Transfer)]
 public sealed record BrowseTransfersQuery(
-    Guid LocationId,
+    long LocationId,
     TransferStatus? Status = null,
     /// <summary>Include transfers heading here as well as leaving here — the receiving end's view.</summary>
     bool IncludeInbound = true,
@@ -55,38 +55,38 @@ public sealed record BrowseTransfersQuery(
     int Take = 50) : IRequest<IReadOnlyList<TransferRowDto>>;
 
 [RequiresPermission(PermissionKeys.Inventory.Transfer)]
-public sealed record GetTransferQuery(Guid TransferId) : IRequest<Result<TransferDto>>;
+public sealed record GetTransferQuery(long TransferId) : IRequest<Result<TransferDto>>;
 
-public sealed record TransferDestinationDto(Guid Id, string Code, string Name);
+public sealed record TransferDestinationDto(long Id, string Code, string Name);
 
 /// <summary>
 /// The other stores stock can be sent to. Excludes the one asking — a transfer to yourself is
 /// refused by the domain, so offering it is only a way to earn an error.
 /// </summary>
 [RequiresPermission(PermissionKeys.Inventory.Transfer)]
-public sealed record ListTransferDestinationsQuery(Guid ExcludeLocationId) : IRequest<IReadOnlyList<TransferDestinationDto>>;
+public sealed record ListTransferDestinationsQuery(long ExcludeLocationId) : IRequest<IReadOnlyList<TransferDestinationDto>>;
 
 [RequiresPermission(PermissionKeys.Inventory.Transfer)]
 public sealed record CreateTransferCommand(
-    Guid FromLocationId,
-    Guid ToLocationId,
+    long FromLocationId,
+    long ToLocationId,
     string? Notes = null) : IRequest<Result<TransferDto>>;
 
 /// <summary>Adds an item, or changes the quantity if it is already on the transfer.</summary>
 [RequiresPermission(PermissionKeys.Inventory.Transfer)]
 public sealed record UpsertTransferLineCommand(
-    Guid TransferId,
-    Guid ProductId,
+    long TransferId,
+    long ProductId,
     decimal Quantity) : IRequest<Result<TransferDto>>;
 
 [RequiresPermission(PermissionKeys.Inventory.Transfer)]
-public sealed record RemoveTransferLineCommand(Guid TransferId, Guid LineId) : IRequest<Result<TransferDto>>;
+public sealed record RemoveTransferLineCommand(long TransferId, long LineId) : IRequest<Result<TransferDto>>;
 
 /// <summary>The van leaves: stock comes off the source and the transfer becomes in-transit.</summary>
 [RequiresPermission(PermissionKeys.Inventory.Transfer)]
-public sealed record ShipTransferCommand(Guid TransferId) : IRequest<Result<TransferDto>>;
+public sealed record ShipTransferCommand(long TransferId) : IRequest<Result<TransferDto>>;
 
-public sealed record ReceiveTransferLine(Guid LineId, decimal Quantity);
+public sealed record ReceiveTransferLine(long LineId, decimal Quantity);
 
 /// <summary>
 /// The box is opened. Omitting <paramref name="Lines"/> receives everything outstanding, which is
@@ -94,11 +94,11 @@ public sealed record ReceiveTransferLine(Guid LineId, decimal Quantity);
 /// </summary>
 [RequiresPermission(PermissionKeys.Inventory.Transfer)]
 public sealed record ReceiveTransferCommand(
-    Guid TransferId,
+    long TransferId,
     IReadOnlyList<ReceiveTransferLine>? Lines = null) : IRequest<Result<TransferDto>>;
 
 [RequiresPermission(PermissionKeys.Inventory.Transfer)]
-public sealed record CancelTransferCommand(Guid TransferId) : IRequest<Result<TransferDto>>;
+public sealed record CancelTransferCommand(long TransferId) : IRequest<Result<TransferDto>>;
 
 /// <summary>
 /// Transfers between locations (guide p.20–21).
@@ -547,8 +547,8 @@ public sealed class TransferHandlers :
     }
 
     private async Task MoveStockAsync(
-        Guid productId, Guid locationId, MovementType type, decimal signedQuantity,
-        decimal unitCost, string reason, Guid referenceId, CancellationToken ct)
+        long productId, long locationId, MovementType type, decimal signedQuantity,
+        decimal unitCost, string reason, long referenceId, CancellationToken ct)
     {
         _db.StockLedgerEntries.Add(new StockLedgerEntry
         {
@@ -576,7 +576,7 @@ public sealed class TransferHandlers :
         level.OnHand += signedQuantity;
     }
 
-    private async Task<Dictionary<Guid, string>> LocationNamesAsync(IEnumerable<Guid> ids, CancellationToken ct)
+    private async Task<Dictionary<long, string>> LocationNamesAsync(IEnumerable<long> ids, CancellationToken ct)
     {
         var distinct = ids.Distinct().ToList();
 

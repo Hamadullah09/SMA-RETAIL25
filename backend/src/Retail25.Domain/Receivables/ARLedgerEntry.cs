@@ -22,9 +22,9 @@ public sealed class ARLedgerEntry : Entity
     {
     }
 
-    public Guid CustomerId { get; set; }
+    public long CustomerId { get; set; }
 
-    public Guid InvoiceId { get; set; }
+    public long InvoiceId { get; set; }
 
     public AREntryType EntryType { get; set; }
 

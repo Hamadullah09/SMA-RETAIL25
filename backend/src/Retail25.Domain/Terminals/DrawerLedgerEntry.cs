@@ -25,7 +25,7 @@ public sealed class DrawerLedgerEntry : Entity
     {
     }
 
-    public Guid DrawerSessionId { get; set; }
+    public long DrawerSessionId { get; set; }
 
     public DrawerEntryType EntryType { get; set; }
 
@@ -34,9 +34,9 @@ public sealed class DrawerLedgerEntry : Entity
 
     public string? Reason { get; set; }
 
-    public Guid? TransactionId { get; set; }
+    public long? TransactionId { get; set; }
 
-    public Guid StaffId { get; set; }
+    public long StaffId { get; set; }
 
     public DateTimeOffset OccurredAt { get; set; }
 
@@ -44,13 +44,13 @@ public sealed class DrawerLedgerEntry : Entity
     public bool AffectsCashTotal => EntryType != DrawerEntryType.NoSalePop;
 
     public static DrawerLedgerEntry Create(
-        Guid drawerSessionId,
+        long drawerSessionId,
         DrawerEntryType type,
         decimal signedAmount,
-        Guid staffId,
+        long staffId,
         DateTimeOffset now,
         string? reason = null,
-        Guid? transactionId = null)
+        long? transactionId = null)
         => new()
         {
             DrawerSessionId = drawerSessionId,
@@ -62,7 +62,7 @@ public sealed class DrawerLedgerEntry : Entity
             TransactionId = transactionId,
         };
 
-    public static Result<DrawerLedgerEntry> PayIn(Guid sessionId, decimal amount, string reason, Guid staffId, DateTimeOffset now)
+    public static Result<DrawerLedgerEntry> PayIn(long sessionId, decimal amount, string reason, long staffId, DateTimeOffset now)
     {
         if (amount <= 0m)
         {
@@ -77,7 +77,7 @@ public sealed class DrawerLedgerEntry : Entity
         return Result.Success(Create(sessionId, DrawerEntryType.PayIn, amount, staffId, now, reason.Trim()));
     }
 
-    public static Result<DrawerLedgerEntry> PayOut(Guid sessionId, decimal amount, string reason, Guid staffId, DateTimeOffset now)
+    public static Result<DrawerLedgerEntry> PayOut(long sessionId, decimal amount, string reason, long staffId, DateTimeOffset now)
     {
         if (amount <= 0m)
         {

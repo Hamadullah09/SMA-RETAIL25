@@ -24,9 +24,9 @@ public sealed class CustomerOrder : AggregateRoot, IAuditable
 
     public long OrderNumber { get; set; }
 
-    public Guid CustomerId { get; set; }
+    public long CustomerId { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public CustomerOrderStatus Status { get; set; } = CustomerOrderStatus.Open;
 
@@ -34,15 +34,15 @@ public sealed class CustomerOrder : AggregateRoot, IAuditable
 
     public string? Notes { get; set; }
 
-    public Guid StaffId { get; set; }
+    public long StaffId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 }
 
 /// <summary>One requested item on a customer order. Price is snapshotted at order time (guide convention).</summary>
@@ -52,11 +52,11 @@ public sealed class CustomerOrderLine : Entity, IAuditable
     {
     }
 
-    public Guid CustomerOrderId { get; set; }
+    public long CustomerOrderId { get; set; }
 
-    public Guid ProductId { get; set; }
+    public long ProductId { get; set; }
 
-    public Guid? VariantId { get; set; }
+    public long? VariantId { get; set; }
 
     public decimal OrderedQty { get; set; }
 
@@ -66,9 +66,9 @@ public sealed class CustomerOrderLine : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 }

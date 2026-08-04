@@ -9,7 +9,7 @@ using Retail25.Domain.Customers;
 namespace Retail25.Application.Loyalty;
 
 public sealed record LoyaltyPolicyDto(
-    Guid LocationId,
+    long LocationId,
     bool IsEnabled,
     decimal PointsPerDollar,
     int MinimumRequired,
@@ -19,17 +19,17 @@ public sealed record LoyaltyPolicyDto(
     decimal RewardFixedAmount,
     bool SuppressIfSubtotalDiscountApplied);
 
-public sealed record LoyaltyBalanceDto(Guid CustomerId, string CustomerName, int RewardPoints);
+public sealed record LoyaltyBalanceDto(long CustomerId, string CustomerName, int RewardPoints);
 
-public sealed record LoyaltyLedgerEntryDto(Guid Id, LoyaltyEntryType EntryType, int Points, DateTimeOffset OccurredAt);
+public sealed record LoyaltyLedgerEntryDto(long Id, LoyaltyEntryType EntryType, int Points, DateTimeOffset OccurredAt);
 
 [RequiresPermission(PermissionKeys.Settings.Read)]
-public sealed record GetLoyaltyPolicyQuery(Guid LocationId) : IRequest<LoyaltyPolicyDto>;
+public sealed record GetLoyaltyPolicyQuery(long LocationId) : IRequest<LoyaltyPolicyDto>;
 
 /// <summary>Find-or-create by location — the settings screen edits one row per store, created on first save.</summary>
 [RequiresPermission(PermissionKeys.Settings.Write)]
 public sealed record SaveLoyaltyPolicyCommand(
-    Guid LocationId,
+    long LocationId,
     bool IsEnabled,
     decimal PointsPerDollar,
     int MinimumRequired,
@@ -40,14 +40,14 @@ public sealed record SaveLoyaltyPolicyCommand(
     bool SuppressIfSubtotalDiscountApplied) : IRequest<Result<LoyaltyPolicyDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Read)]
-public sealed record GetLoyaltyBalanceQuery(Guid CustomerId) : IRequest<Result<LoyaltyBalanceDto>>;
+public sealed record GetLoyaltyBalanceQuery(long CustomerId) : IRequest<Result<LoyaltyBalanceDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Read)]
-public sealed record GetLoyaltyLedgerQuery(Guid CustomerId) : IRequest<IReadOnlyList<LoyaltyLedgerEntryDto>>;
+public sealed record GetLoyaltyLedgerQuery(long CustomerId) : IRequest<IReadOnlyList<LoyaltyLedgerEntryDto>>;
 
 /// <summary>A supervisor's correction outside the sale flow — a goodwill grant, or fixing a miscount.</summary>
 [RequiresPermission(PermissionKeys.Customer.Write)]
-public sealed record AdjustLoyaltyPointsCommand(Guid CustomerId, int PointsDelta, string Reason) : IRequest<Result<LoyaltyBalanceDto>>;
+public sealed record AdjustLoyaltyPointsCommand(long CustomerId, int PointsDelta, string Reason) : IRequest<Result<LoyaltyBalanceDto>>;
 
 public sealed class LoyaltyHandlers :
     IRequestHandler<GetLoyaltyPolicyQuery, LoyaltyPolicyDto>,
@@ -164,7 +164,7 @@ public sealed class LoyaltyHandlers :
         return Result.Success(new LoyaltyBalanceDto(customer.Id, customer.FullName, profile.RewardPoints));
     }
 
-    private static LoyaltyPolicyDto DefaultDto(Guid locationId) => new(locationId, false, 0m, 0, false, 0m, false, 0m, true);
+    private static LoyaltyPolicyDto DefaultDto(long locationId) => new(locationId, false, 0m, 0, false, 0m, false, 0m, true);
 
     private static LoyaltyPolicyDto ToDto(LoyaltyPolicy policy) => new(
         policy.LocationId,

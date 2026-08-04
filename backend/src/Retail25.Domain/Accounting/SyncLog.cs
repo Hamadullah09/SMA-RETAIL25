@@ -71,7 +71,7 @@ public sealed class ExternalEntityMap : Common.Entity
 
     /// <summary>Null for mappings that point at a remote concept rather than a local row —
     /// the bank account a day's takings post to, for instance.</summary>
-    public Guid? LocalId { get; set; }
+    public long? LocalId { get; set; }
 
     /// <summary>A stable local key for mappings with no row behind them, e.g. "BankAccount".</summary>
     public string? LocalKey { get; set; }

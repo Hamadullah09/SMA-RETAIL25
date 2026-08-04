@@ -10,18 +10,18 @@ namespace Retail25.Application.Abstractions;
 /// </summary>
 public interface ITerminalNotifier
 {
-    Task PrintReceiptAsync(Guid stationId, object receiptPayload, int copies, CancellationToken ct = default);
+    Task PrintReceiptAsync(long stationId, object receiptPayload, int copies, CancellationToken ct = default);
 
-    Task OpenDrawerAsync(Guid stationId, CancellationToken ct = default);
+    Task OpenDrawerAsync(long stationId, CancellationToken ct = default);
 
-    Task DisplayPoleAsync(Guid stationId, string line1, string line2, CancellationToken ct = default);
+    Task DisplayPoleAsync(long stationId, string line1, string line2, CancellationToken ct = default);
 
-    Task RequestWeightAsync(Guid stationId, CancellationToken ct = default);
+    Task RequestWeightAsync(long stationId, CancellationToken ct = default);
 
-    Task ZeroScaleAsync(Guid stationId, CancellationToken ct = default);
+    Task ZeroScaleAsync(long stationId, CancellationToken ct = default);
 
-    Task SetReaderModeAsync(Guid stationId, string mode, CancellationToken ct = default);
+    Task SetReaderModeAsync(long stationId, string mode, CancellationToken ct = default);
 
     /// <summary>Pushes a fresh device profile so a peripheral swap is a settings edit, not a site visit.</summary>
-    Task UpdateProfileAsync(Guid stationId, object profile, CancellationToken ct = default);
+    Task UpdateProfileAsync(long stationId, object profile, CancellationToken ct = default);
 }

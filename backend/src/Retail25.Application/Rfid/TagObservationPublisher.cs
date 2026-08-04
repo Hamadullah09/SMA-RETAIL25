@@ -47,7 +47,7 @@ public sealed class TagObservationPublisher
     /// per-tag chatter — a rejection notice per raw read is the same flood in a different pipe.
     /// </returns>
     public async Task<IReadOnlyList<TagRead>> PublishAsync(
-        Guid stationId,
+        long stationId,
         IReadOnlyList<TagRead> tags,
         CancellationToken ct = default)
     {
@@ -95,7 +95,7 @@ public sealed class TagObservationPublisher
                 Math.Max(tag.ReadCount, folded),
                 tag.FirstSeen,
                 tag.LastSeen,
-                item.ProductId == Guid.Empty ? null : item.ProductId,
+                item.ProductId == 0L ? null : item.ProductId,
                 item.StockCode,
                 item.Name));
         }
@@ -107,7 +107,7 @@ public sealed class TagObservationPublisher
 
     /// <summary>Reports the reader's own health alongside what the debouncer currently holds.</summary>
     public async Task PublishStatusAsync(
-        Guid stationId,
+        long stationId,
         bool connected,
         int readsPerSecond,
         string? detail = null,
@@ -125,7 +125,7 @@ public sealed class TagObservationPublisher
     /// per batch would put a database round trip on the path this class exists to keep clear.
     /// </para>
     /// </summary>
-    private async Task<Guid> LocationOfAsync(Guid stationId, CancellationToken ct)
+    private async Task<long> LocationOfAsync(long stationId, CancellationToken ct)
     {
         if (_registry.StationLocations.TryGetValue(stationId, out var known))
         {
@@ -138,7 +138,7 @@ public sealed class TagObservationPublisher
             .Select(s => s.LocationId)
             .FirstOrDefaultAsync(ct);
 
-        if (locationId != Guid.Empty)
+        if (locationId != 0L)
         {
             _registry.StationLocations[stationId] = locationId;
         }
@@ -154,11 +154,11 @@ public sealed class TagObservationPublisher
     /// because they are the ones that never resolve.
     /// </para>
     /// </summary>
-    private async Task<Dictionary<string, (Guid ProductId, string? StockCode, string? Name)>> ResolveAsync(
+    private async Task<Dictionary<string, (long ProductId, string? StockCode, string? Name)>> ResolveAsync(
         List<TagRead> tags,
         CancellationToken ct)
     {
-        var result = new Dictionary<string, (Guid, string?, string?)>(tags.Count, StringComparer.Ordinal);
+        var result = new Dictionary<string, (long, string?, string?)>(tags.Count, StringComparer.Ordinal);
         List<string>? unknown = null;
 
         foreach (var tag in tags)
@@ -199,7 +199,7 @@ public sealed class TagObservationPublisher
 
             foreach (var epc in unknown.Where(e => !result.ContainsKey(e)))
             {
-                var miss = (Guid.Empty, (string?)null, (string?)null);
+                var miss = (0L, (string?)null, (string?)null);
                 _registry.Catalogue[epc] = miss;
                 result[epc] = miss;
             }
@@ -230,23 +230,23 @@ public sealed class TagObservationPublisher
 /// </summary>
 public sealed class TagStreamRegistry
 {
-    private readonly ConcurrentDictionary<Guid, TagStreamDebouncer> _byStation = new();
+    private readonly ConcurrentDictionary<long, TagStreamDebouncer> _byStation = new();
 
     /// <summary>
     /// EPC → item, shared across stations because the mapping is a property of the tag, not the till.
-    /// <see cref="Guid.Empty"/> marks a tag known not to resolve.
+    /// <see cref="0L"/> marks a tag known not to resolve.
     /// </summary>
-    public ConcurrentDictionary<string, (Guid ProductId, string? StockCode, string? Name)> Catalogue { get; }
+    public ConcurrentDictionary<string, (long ProductId, string? StockCode, string? Name)> Catalogue { get; }
         = new(StringComparer.Ordinal);
 
     /// <summary>Station → store. Fixed for the life of the process; a till does not move between shops.</summary>
-    public ConcurrentDictionary<Guid, Guid> StationLocations { get; } = new();
+    public ConcurrentDictionary<long, long> StationLocations { get; } = new();
 
-    public TagStreamDebouncer For(Guid stationId)
+    public TagStreamDebouncer For(long stationId)
         => _byStation.GetOrAdd(stationId, static _ => new TagStreamDebouncer());
 
     /// <summary>Forgets a station's field. Called when its agent reconnects and the field is unknown.</summary>
-    public void Reset(Guid stationId)
+    public void Reset(long stationId)
     {
         if (_byStation.TryGetValue(stationId, out var debouncer))
         {

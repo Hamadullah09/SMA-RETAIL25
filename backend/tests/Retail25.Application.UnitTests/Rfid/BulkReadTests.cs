@@ -193,7 +193,7 @@ public sealed class BulkReadTests
         var epcs = await CommissionAsync(harness, product, 1);
 
         // The neighbouring till got there first.
-        await harness.Debouncer.TryClaimAsync(epcs[0], Guid.NewGuid(), TimeSpan.FromMinutes(1));
+        await harness.Debouncer.TryClaimAsync(epcs[0], TestIds.Next(), TimeSpan.FromMinutes(1));
 
         var cart = await harness.OpenCartAsync();
         var result = await handler.Handle(new AddRfidBatchCommand(cart.Id, Tags(epcs)), default);

@@ -13,9 +13,9 @@ public sealed class SaleTender : Entity
     {
     }
 
-    public Guid TransactionId { get; set; }
+    public long TransactionId { get; set; }
 
-    public Guid TenderTypeId { get; set; }
+    public long TenderTypeId { get; set; }
 
     public TenderBehaviour Behaviour { get; set; }
 
@@ -27,7 +27,7 @@ public sealed class SaleTender : Entity
 
     public decimal ChangeGiven { get; set; }
 
-    public Guid? CurrencyId { get; set; }
+    public long? CurrencyId { get; set; }
 
     /// <summary>Units of the tender currency per unit of the base currency (guide p.9).</summary>
     public decimal ExchangeRate { get; set; } = 1m;

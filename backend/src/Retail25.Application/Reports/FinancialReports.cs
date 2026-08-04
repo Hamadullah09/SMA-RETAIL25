@@ -34,7 +34,7 @@ public sealed record TaxReportResult(
 /// </summary>
 [RequiresPermission(PermissionKeys.Reports.Financial)]
 public sealed record GetTaxReportQuery(
-    Guid LocationId,
+    long LocationId,
     DateOnly From,
     DateOnly To,
     bool IncludeVoided = false) : IRequest<TaxReportResult>;
@@ -47,7 +47,7 @@ public sealed record ExportTaxReportQuery(GetTaxReportQuery Filter) : IRequest<s
 // ---------------------------------------------------------------------------------------------
 
 public sealed record RewardPointsRow(
-    Guid CustomerId,
+    long CustomerId,
     string CustomerName,
     int Earned,
     int Redeemed,
@@ -70,10 +70,10 @@ public sealed record RewardPointsResult(
 /// </summary>
 [RequiresPermission(PermissionKeys.Customer.Read)]
 public sealed record GetRewardPointsActivityQuery(
-    Guid LocationId,
+    long LocationId,
     DateOnly From,
     DateOnly To,
-    Guid? CustomerId = null) : IRequest<RewardPointsResult>;
+    long? CustomerId = null) : IRequest<RewardPointsResult>;
 
 [RequiresPermission(PermissionKeys.Customer.Read)]
 public sealed record ExportRewardPointsActivityQuery(GetRewardPointsActivityQuery Filter) : IRequest<string>;

@@ -12,7 +12,7 @@ public sealed class Customer : AggregateRoot, IAuditable, ISoftDeletable
     {
     }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     /// <summary>Legacy sequential customer number (guide p.46).</summary>
     public long CustomerNumber { get; set; }
@@ -48,17 +48,17 @@ public sealed class Customer : AggregateRoot, IAuditable, ISoftDeletable
 
     public DateTimeOffset? DeletedAt { get; set; }
 
-    public Guid? DeletedBy { get; set; }
+    public long? DeletedBy { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static Result<Customer> Create(Guid locationId, long customerNumber, string firstName, string lastName)
+    public static Result<Customer> Create(long locationId, long customerNumber, string firstName, string lastName)
     {
         if (string.IsNullOrWhiteSpace(firstName) && string.IsNullOrWhiteSpace(lastName))
             return Result.Failure<Customer>(new Error("customer.name_required", "At least a first or last name is required."));

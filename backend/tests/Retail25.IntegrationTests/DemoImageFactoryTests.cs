@@ -104,7 +104,7 @@ public sealed class DemoImageFactoryTests
     public void The_domain_accepts_it_as_a_real_png()
     {
         var created = ProductImage.Create(
-            Guid.NewGuid(), DemoImageFactory.Create("DEMO0006"), DemoImageFactory.ContentType);
+            TestIds.Next(), DemoImageFactory.Create("DEMO0006"), DemoImageFactory.ContentType);
 
         created.IsSuccess.Should().BeTrue($"it should pass validation, but failed with '{created.Error.Code}'");
         created.Value.ContentType.Should().Be("image/png");

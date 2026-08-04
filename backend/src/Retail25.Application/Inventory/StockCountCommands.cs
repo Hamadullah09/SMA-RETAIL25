@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
@@ -9,8 +10,8 @@ using Retail25.Domain.Configuration;
 namespace Retail25.Application.Inventory;
 
 public sealed record StockCountLineDto(
-    Guid Id,
-    Guid ProductId,
+    long Id,
+    long ProductId,
     string StockCode,
     string ProductName,
     decimal CountedQty,
@@ -21,10 +22,10 @@ public sealed record StockCountLineDto(
     string? Notes);
 
 public sealed record StockCountDto(
-    Guid Id,
+    long Id,
     long CountNumber,
-    Guid LocationId,
-    Guid? DepartmentId,
+    long LocationId,
+    long? DepartmentId,
     string? DepartmentName,
     StockCountStatus Status,
     string? Notes,
@@ -36,7 +37,7 @@ public sealed record StockCountDto(
     IReadOnlyList<StockCountLineDto> Lines);
 
 public sealed record StockCountRowDto(
-    Guid Id,
+    long Id,
     long CountNumber,
     StockCountStatus Status,
     string? DepartmentName,
@@ -54,7 +55,7 @@ public sealed record CountImportResult(
 
 [RequiresPermission(PermissionKeys.Inventory.Count)]
 public sealed record BrowseStockCountsQuery(
-    Guid LocationId,
+    long LocationId,
     StockCountStatus? Status = null,
     int Skip = 0,
     int Take = 50) : IRequest<IReadOnlyList<StockCountRowDto>>;
@@ -65,14 +66,14 @@ public sealed record BrowseStockCountsQuery(
 /// </summary>
 [RequiresPermission(PermissionKeys.Inventory.Count)]
 public sealed record GetStockCountQuery(
-    Guid CountId,
+    long CountId,
     bool VarianceOnly = false,
     int Take = 500) : IRequest<Result<StockCountDto>>;
 
 [RequiresPermission(PermissionKeys.Inventory.Count)]
 public sealed record StartStockCountCommand(
-    Guid LocationId,
-    Guid? DepartmentId = null,
+    long LocationId,
+    long? DepartmentId = null,
     string? Notes = null) : IRequest<Result<StockCountDto>>;
 
 /// <summary>One counted item, keyed by stock code because that is what a handheld or a sheet gives.</summary>
@@ -80,7 +81,7 @@ public sealed record CountedItem(string StockCode, decimal CountedQty, string? N
 
 [RequiresPermission(PermissionKeys.Inventory.Count)]
 public sealed record ImportCountLinesCommand(
-    Guid CountId,
+    long CountId,
     IReadOnlyList<CountedItem> Items) : IRequest<Result<CountImportResult>>;
 
 /// <summary>
@@ -88,21 +89,21 @@ public sealed record ImportCountLinesCommand(
 /// rather than in the browser so a file that half-works fails the same way for every client.
 /// </summary>
 [RequiresPermission(PermissionKeys.Inventory.Count)]
-public sealed record ImportCountCsvCommand(Guid CountId, string Csv) : IRequest<Result<CountImportResult>>;
+public sealed record ImportCountCsvCommand(long CountId, string Csv) : IRequest<Result<CountImportResult>>;
 
 [RequiresPermission(PermissionKeys.Inventory.Count)]
-public sealed record RemoveCountLineCommand(Guid CountId, Guid LineId) : IRequest<Result<StockCountDto>>;
+public sealed record RemoveCountLineCommand(long CountId, long LineId) : IRequest<Result<StockCountDto>>;
 
 /// <summary>Writes the variances to stock. This is the irreversible step.</summary>
 [RequiresPermission(PermissionKeys.Inventory.Count)]
-public sealed record PostStockCountCommand(Guid CountId, string? Reason = null) : IRequest<Result<StockCountDto>>;
+public sealed record PostStockCountCommand(long CountId, string? Reason = null) : IRequest<Result<StockCountDto>>;
 
 [RequiresPermission(PermissionKeys.Inventory.Count)]
-public sealed record CancelStockCountCommand(Guid CountId) : IRequest<Result<StockCountDto>>;
+public sealed record CancelStockCountCommand(long CountId) : IRequest<Result<StockCountDto>>;
 
 /// <summary>The variance sheet as a CSV, for the file that goes to whoever signs off shrinkage.</summary>
 [RequiresPermission(PermissionKeys.Inventory.Count)]
-public sealed record ExportStockCountQuery(Guid CountId, bool VarianceOnly = true) : IRequest<Result<string>>;
+public sealed record ExportStockCountQuery(long CountId, bool VarianceOnly = true) : IRequest<Result<string>>;
 
 /// <summary>
 /// Stock counts (guide p.22). Count, review the variances, then post.
@@ -424,7 +425,7 @@ public sealed class StockCountHandlers :
     /// </para>
     /// </summary>
     private async Task<Result<CountImportResult>> ImportAsync(
-        Guid countId, IReadOnlyList<CountedItem> items, CancellationToken ct)
+        long countId, IReadOnlyList<CountedItem> items, CancellationToken ct)
     {
         var count = await _db.StockCounts.FirstOrDefaultAsync(c => c.Id == countId, ct);
 
@@ -628,9 +629,9 @@ public sealed class StockCountHandlers :
         return fields;
     }
 
-    private async Task<Dictionary<Guid, string>> DepartmentNamesAsync(IEnumerable<Guid?> ids, CancellationToken ct)
+    private async Task<Dictionary<long, string>> DepartmentNamesAsync(IEnumerable<long?> ids, CancellationToken ct)
     {
-        var distinct = ids.OfType<Guid>().Distinct().ToList();
+        var distinct = ids.OfType<long>().Distinct().ToList();
 
         if (distinct.Count == 0)
         {

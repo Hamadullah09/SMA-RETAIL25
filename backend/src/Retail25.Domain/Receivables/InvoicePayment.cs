@@ -12,7 +12,7 @@ public sealed class InvoicePayment : Entity, IAuditable
     {
     }
 
-    public Guid InvoiceId { get; set; }
+    public long InvoiceId { get; set; }
 
     public decimal Amount { get; set; }
 
@@ -22,7 +22,7 @@ public sealed class InvoicePayment : Entity, IAuditable
     /// <summary>Portion applied to the invoice principal.</summary>
     public decimal AppliedToPrincipal { get; set; }
 
-    public Guid TenderTypeId { get; set; }
+    public long TenderTypeId { get; set; }
 
     /// <summary>Back-datable payment date (guide p.58).</summary>
     public DateOnly PaidOn { get; set; }
@@ -32,9 +32,9 @@ public sealed class InvoicePayment : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 }

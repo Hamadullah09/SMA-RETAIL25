@@ -23,12 +23,12 @@ public sealed class SalesController : ControllerBase
     /// <summary>The itemized sales log with filters (guide p.14–15).</summary>
     [HttpGet]
     public async Task<IActionResult> List(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
-        [FromQuery] Guid? stationId = null,
-        [FromQuery] Guid? staffId = null,
-        [FromQuery] Guid? customerId = null,
+        [FromQuery] long? stationId = null,
+        [FromQuery] long? staffId = null,
+        [FromQuery] long? customerId = null,
         [FromQuery] bool includeVoided = true,
         [FromQuery] bool includeTraining = false,
         [FromQuery] int skip = 0,
@@ -39,11 +39,11 @@ public sealed class SalesController : ControllerBase
     /// <summary>The same rows as CSV — the modern "Open In MS-Excel" (guide p.101).</summary>
     [HttpGet("export")]
     public async Task<IActionResult> Export(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
-        [FromQuery] Guid? stationId = null,
-        [FromQuery] Guid? staffId = null,
+        [FromQuery] long? stationId = null,
+        [FromQuery] long? staffId = null,
         [FromQuery] bool includeVoided = true,
         [FromQuery] bool includeTraining = false)
     {
@@ -53,17 +53,17 @@ public sealed class SalesController : ControllerBase
         return File(Encoding.UTF8.GetBytes(csv), "text/csv", "sales-log.csv");
     }
 
-    [HttpGet("{transactionId:guid}")]
-    public async Task<IActionResult> Get(Guid transactionId)
+    [HttpGet("{transactionId:long}")]
+    public async Task<IActionResult> Get(long transactionId)
         => (await _sender.Send(new GetSaleQuery(transactionId))).ToActionResult(this);
 
     /// <summary>
     /// Voids a sale by writing a reversal (guide p.14). Requires an idempotency key for the same
     /// reason completion does: a retried void must not reverse the sale twice.
     /// </summary>
-    [HttpPost("{transactionId:guid}/void")]
+    [HttpPost("{transactionId:long}/void")]
     public async Task<IActionResult> Void(
-        Guid transactionId,
+        long transactionId,
         [FromBody] VoidSaleRequest? request,
         [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey)
     {
@@ -81,8 +81,8 @@ public sealed class SalesController : ControllerBase
     }
 
     /// <summary>Reprints the document exactly as it was first issued (guide p.12, p.56).</summary>
-    [HttpPost("{transactionId:guid}/reprint")]
-    public async Task<IActionResult> Reprint(Guid transactionId, [FromBody] ReprintRequest? request)
+    [HttpPost("{transactionId:long}/reprint")]
+    public async Task<IActionResult> Reprint(long transactionId, [FromBody] ReprintRequest? request)
         => (await _sender.Send(new ReprintTransactionCommand(
             transactionId,
             request?.Format ?? ReceiptFormat.Slip40,
@@ -97,8 +97,8 @@ public sealed class SalesController : ControllerBase
             request.StationId, request.Format, request.Copies))).ToActionResult(this);
 
     /// <summary>F8: quantities and descriptions, no money (guide p.12).</summary>
-    [HttpPost("{transactionId:guid}/packing-slip")]
-    public async Task<IActionResult> PackingSlip(Guid transactionId, [FromBody] ReprintRequest? request)
+    [HttpPost("{transactionId:long}/packing-slip")]
+    public async Task<IActionResult> PackingSlip(long transactionId, [FromBody] ReprintRequest? request)
         => (await _sender.Send(new ReprintTransactionCommand(
             transactionId,
             ReceiptFormat.PackingSlip,
@@ -107,12 +107,12 @@ public sealed class SalesController : ControllerBase
             request?.SendToPrinter ?? true))).ToActionResult(this);
 }
 
-public sealed record VoidSaleRequest(string? Reason = null, Guid? ApprovedByStaffId = null);
+public sealed record VoidSaleRequest(string? Reason = null, long? ApprovedByStaffId = null);
 
 public sealed record ReprintRequest(
     ReceiptFormat Format = ReceiptFormat.Slip40,
     int Copies = 1,
-    Guid? StationId = null,
+    long? StationId = null,
     bool SendToPrinter = true);
 
-public sealed record ReprintLastRequest(Guid StationId, ReceiptFormat Format = ReceiptFormat.Slip40, int Copies = 1);
+public sealed record ReprintLastRequest(long StationId, ReceiptFormat Format = ReceiptFormat.Slip40, int Copies = 1);

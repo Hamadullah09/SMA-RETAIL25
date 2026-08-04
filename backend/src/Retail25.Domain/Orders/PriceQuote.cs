@@ -23,9 +23,9 @@ public sealed class PriceQuote : AggregateRoot, IAuditable
 
     public long QuoteNumber { get; set; }
 
-    public Guid CustomerId { get; set; }
+    public long CustomerId { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public PriceQuoteStatus Status { get; set; } = PriceQuoteStatus.Open;
 
@@ -35,15 +35,15 @@ public sealed class PriceQuote : AggregateRoot, IAuditable
 
     public decimal Total { get; set; }
 
-    public Guid StaffId { get; set; }
+    public long StaffId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 }
 
 public sealed class PriceQuoteLine : Entity
@@ -52,11 +52,11 @@ public sealed class PriceQuoteLine : Entity
     {
     }
 
-    public Guid PriceQuoteId { get; set; }
+    public long PriceQuoteId { get; set; }
 
-    public Guid ProductId { get; set; }
+    public long ProductId { get; set; }
 
-    public Guid? VariantId { get; set; }
+    public long? VariantId { get; set; }
 
     public decimal Quantity { get; set; }
 

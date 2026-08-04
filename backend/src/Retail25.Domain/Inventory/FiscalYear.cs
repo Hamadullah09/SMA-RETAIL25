@@ -44,7 +44,7 @@ public sealed class FiscalYear : AggregateRoot, IAuditable
     {
     }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     /// <summary>The year as people say it — 2026 for the year that mostly falls in 2026.</summary>
     public int Year { get; set; }
@@ -57,7 +57,7 @@ public sealed class FiscalYear : AggregateRoot, IAuditable
 
     public DateTimeOffset? ClosedAt { get; set; }
 
-    public Guid? ClosedBy { get; set; }
+    public long? ClosedBy { get; set; }
 
     /// <summary>How many archive rows the close wrote. Zero is a legitimate answer for a quiet year.</summary>
     public int ArchivedRows { get; set; }
@@ -68,15 +68,15 @@ public sealed class FiscalYear : AggregateRoot, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     public bool Contains(DateOnly date) => date >= StartsOn && date <= EndsOn;
 
-    public static Result<FiscalYear> Create(Guid locationId, int year, DateOnly startsOn, DateOnly endsOn, string? notes = null)
+    public static Result<FiscalYear> Create(long locationId, int year, DateOnly startsOn, DateOnly endsOn, string? notes = null)
     {
         if (endsOn < startsOn)
         {
@@ -97,10 +97,10 @@ public sealed class FiscalYear : AggregateRoot, IAuditable
     /// <summary>
     /// A calendar year, which is what most shops run on and what the legacy system assumed.
     /// </summary>
-    public static Result<FiscalYear> Calendar(Guid locationId, int year)
+    public static Result<FiscalYear> Calendar(long locationId, int year)
         => Create(locationId, year, new DateOnly(year, 1, 1), new DateOnly(year, 12, 31));
 
-    public Result Close(DateTimeOffset at, Guid? closedBy, int archivedRows, decimal archivedNetSales)
+    public Result Close(DateTimeOffset at, long? closedBy, int archivedRows, decimal archivedNetSales)
     {
         if (Status == FiscalYearStatus.Closed)
         {
@@ -158,23 +158,23 @@ public sealed class SalesHistoryArchive : Entity
     {
     }
 
-    public Guid FiscalYearId { get; set; }
+    public long FiscalYearId { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public int Year { get; set; }
 
     /// <summary>1–12. Calendar month of the business date, not of the fiscal year's own numbering.</summary>
     public int Month { get; set; }
 
-    public Guid ProductId { get; set; }
+    public long ProductId { get; set; }
 
     /// <summary>Kept so a deleted or renamed item still reads correctly years later.</summary>
     public string StockCodeSnapshot { get; set; } = string.Empty;
 
     public string NameSnapshot { get; set; } = string.Empty;
 
-    public Guid? DepartmentId { get; set; }
+    public long? DepartmentId { get; set; }
 
     public decimal QuantitySold { get; set; }
 

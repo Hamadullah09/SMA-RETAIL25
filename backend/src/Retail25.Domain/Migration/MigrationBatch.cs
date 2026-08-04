@@ -61,7 +61,7 @@ public sealed class MigrationBatch : AggregateRoot, IAuditable
     {
     }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public string SourceFileName { get; set; } = string.Empty;
 
@@ -106,16 +106,16 @@ public sealed class MigrationBatch : AggregateRoot, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     public bool CanImport => Stage == MigrationStage.DryRun && BlockingErrors == 0;
 
     public static MigrationBatch Stage_(
-        Guid locationId, string sourceFileName, string entity, string sourceHash, int rowsStaged, int rowsDeleted)
+        long locationId, string sourceFileName, string entity, string sourceHash, int rowsStaged, int rowsDeleted)
         => new()
         {
             LocationId = locationId,
@@ -210,7 +210,7 @@ public sealed class MigrationStagingRow : Entity
     {
     }
 
-    public Guid BatchId { get; set; }
+    public long BatchId { get; set; }
 
     /// <summary>Line number in the source file, so every report is row-addressable.</summary>
     public int RowNumber { get; set; }

@@ -17,7 +17,7 @@ public sealed class ReaderProfileTests
 {
     private static ReaderProfile Profile(string zones, int rssiFloor = -70, int minimumReads = 2)
     {
-        var profile = ReaderProfile.CreateDefault(Guid.NewGuid());
+        var profile = ReaderProfile.CreateDefault(TestIds.Next());
 
         profile.AntennaZones = zones;
         profile.RssiThresholdDbm = rssiFloor;

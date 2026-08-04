@@ -8,12 +8,12 @@ using Retail25.Domain.Orders;
 
 namespace Retail25.Application.Orders;
 
-public sealed record PriceQuoteLineDto(Guid Id, Guid ProductId, string StockCode, string ProductName, decimal Quantity, decimal UnitPrice);
+public sealed record PriceQuoteLineDto(long Id, long ProductId, string StockCode, string ProductName, decimal Quantity, decimal UnitPrice);
 
 public sealed record PriceQuoteDto(
-    Guid Id,
+    long Id,
     long QuoteNumber,
-    Guid CustomerId,
+    long CustomerId,
     string CustomerName,
     PriceQuoteStatus Status,
     DateOnly IssuedOn,
@@ -21,27 +21,27 @@ public sealed record PriceQuoteDto(
     decimal Total,
     IReadOnlyList<PriceQuoteLineDto> Lines);
 
-public sealed record PriceQuoteLineInput(Guid ProductId, decimal Quantity, decimal UnitPrice);
+public sealed record PriceQuoteLineInput(long ProductId, decimal Quantity, decimal UnitPrice);
 
 [RequiresPermission(PermissionKeys.Customer.Write)]
 public sealed record CreatePriceQuoteCommand(
-    Guid CustomerId, Guid LocationId, IReadOnlyList<PriceQuoteLineInput> Lines, DateOnly? ExpiresOn = null)
+    long CustomerId, long LocationId, IReadOnlyList<PriceQuoteLineInput> Lines, DateOnly? ExpiresOn = null)
     : IRequest<Result<PriceQuoteDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Read)]
 public sealed record BrowsePriceQuotesQuery(
-    Guid LocationId, Guid? CustomerId = null, PriceQuoteStatus? Status = null, string? Cursor = null, int PageSize = 50)
+    long LocationId, long? CustomerId = null, PriceQuoteStatus? Status = null, string? Cursor = null, int PageSize = 50)
     : IRequest<CursorPage<PriceQuoteDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Read)]
-public sealed record GetPriceQuoteQuery(Guid PriceQuoteId) : IRequest<Result<PriceQuoteDto>>;
+public sealed record GetPriceQuoteQuery(long PriceQuoteId) : IRequest<Result<PriceQuoteDto>>;
 
 /// <summary>Marks the quote Converted — the frontend rings the lines into the current cart at the held prices.</summary>
 [RequiresPermission(PermissionKeys.Customer.Write)]
-public sealed record ConvertPriceQuoteCommand(Guid PriceQuoteId) : IRequest<Result<PriceQuoteDto>>;
+public sealed record ConvertPriceQuoteCommand(long PriceQuoteId) : IRequest<Result<PriceQuoteDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Write)]
-public sealed record CancelPriceQuoteCommand(Guid PriceQuoteId) : IRequest<Result<PriceQuoteDto>>;
+public sealed record CancelPriceQuoteCommand(long PriceQuoteId) : IRequest<Result<PriceQuoteDto>>;
 
 public sealed class PriceQuoteHandlers :
     IRequestHandler<CreatePriceQuoteCommand, Result<PriceQuoteDto>>,

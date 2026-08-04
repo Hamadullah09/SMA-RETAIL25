@@ -112,10 +112,10 @@ public sealed class ReaderProfile : Entity, IAuditable, IStationScopedProfile
     {
     }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     /// <summary>Null means the profile is shared by the location; set means it belongs to one station.</summary>
-    public Guid? StationId { get; set; }
+    public long? StationId { get; set; }
 
     public string Name { get; set; } = "Default";
 
@@ -229,11 +229,11 @@ public sealed class ReaderProfile : Entity, IAuditable, IStationScopedProfile
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     /// <summary>
     /// Parses the antenna map. An unlisted antenna is <see cref="AntennaZone.Unassigned"/> and feeds
@@ -299,6 +299,6 @@ public sealed class ReaderProfile : Entity, IAuditable, IStationScopedProfile
     /// </summary>
     public const int UnmeasuredRssi = int.MinValue;
 
-    public static ReaderProfile CreateDefault(Guid locationId, string name = "Default")
+    public static ReaderProfile CreateDefault(long locationId, string name = "Default")
         => new() { LocationId = locationId, Name = name };
 }

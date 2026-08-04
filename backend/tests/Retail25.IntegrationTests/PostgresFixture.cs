@@ -76,7 +76,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         clock.Now.Returns(new DateTimeOffset(2026, 7, 29, 10, 0, 0, TimeSpan.Zero));
 
         var currentUser = Substitute.For<ICurrentUser>();
-        currentUser.UserId.Returns(Guid.NewGuid());
+        currentUser.UserId.Returns(TestIds.Next());
 
         var interceptor = new AuditingInterceptor(currentUser, Substitute.For<IRequestContext>(), clock);
 

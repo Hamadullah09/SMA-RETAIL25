@@ -1,3 +1,4 @@
+using System.Globalization;
 using Retail25.Application.Abstractions;
 using StackExchange.Redis;
 
@@ -19,11 +20,11 @@ public sealed class RedisTagDebouncer : ITagDebouncer
 
     public RedisTagDebouncer(IConnectionMultiplexer redis) => _redis = redis;
 
-    public async Task<bool> TryClaimAsync(string epc, Guid stationId, TimeSpan window, CancellationToken ct = default)
+    public async Task<bool> TryClaimAsync(string epc, long stationId, TimeSpan window, CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
         var key = Key(epc);
-        var owner = stationId.ToString("N");
+        var owner = stationId.ToString(CultureInfo.InvariantCulture);
 
         if (await db.StringSetAsync(key, owner, window, When.NotExists))
         {
@@ -42,23 +43,23 @@ public sealed class RedisTagDebouncer : ITagDebouncer
         return true;
     }
 
-    public async Task ReleaseAsync(string epc, Guid stationId, CancellationToken ct = default)
+    public async Task ReleaseAsync(string epc, long stationId, CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
         var key = Key(epc);
 
         // Only the holder may release, or one till would be able to free another's tag.
         var current = await db.StringGetAsync(key);
-        if (!current.IsNullOrEmpty && current == stationId.ToString("N"))
+        if (!current.IsNullOrEmpty && current == stationId.ToString(CultureInfo.InvariantCulture))
         {
             await db.KeyDeleteAsync(key);
         }
     }
 
-    public async Task<Guid?> GetHolderAsync(string epc, CancellationToken ct = default)
+    public async Task<long?> GetHolderAsync(string epc, CancellationToken ct = default)
     {
         var value = await _redis.GetDatabase().StringGetAsync(Key(epc));
-        return value.IsNullOrEmpty || !Guid.TryParse(value!, out var stationId) ? null : stationId;
+        return value.IsNullOrEmpty || !long.TryParse(value!, out var stationId) ? null : stationId;
     }
 
     private static RedisKey Key(string epc) => KeyPrefix + epc.Trim().ToUpperInvariant();

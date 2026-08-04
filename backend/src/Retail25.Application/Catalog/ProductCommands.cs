@@ -18,8 +18,8 @@ public sealed record ProductGeneralSection(
     string? Description,
     ProductType Type,
     string? Upc,
-    Guid? DepartmentId,
-    Guid? CategoryId,
+    long? DepartmentId,
+    long? CategoryId,
     string? BinLocation);
 
 public sealed record ProductTaxSection(bool Tax1Applies, bool Tax2Applies);
@@ -42,7 +42,7 @@ public sealed record ProductOrderingSection(
 
 public sealed record ProductMessagesSection(string? PosMessage, string? InvoiceMessage, string? Notes);
 
-public sealed record ProductLinksSection(Guid? SubstituteProductId, Guid? TagAlongProductId, Guid? ParentProductId);
+public sealed record ProductLinksSection(long? SubstituteProductId, long? TagAlongProductId, long? ParentProductId);
 
 public sealed record ProductKitSection(IReadOnlyList<KitComponentDto> Components);
 
@@ -51,7 +51,7 @@ public sealed record ProductKitSection(IReadOnlyList<KitComponentDto> Components
 /// <summary>Creates an item from the Form View's "new" state (guide p.30).</summary>
 [RequiresPermission(PermissionKeys.Catalog.Write)]
 public sealed record CreateProductCommand(
-    Guid LocationId,
+    long LocationId,
     ProductGeneralSection General,
     decimal RegularPrice,
     bool Tax1Applies = true,
@@ -62,7 +62,7 @@ public sealed record CreateProductCommand(
 /// </summary>
 [RequiresPermission(PermissionKeys.Catalog.Write)]
 public sealed record UpdateProductCommand(
-    Guid ProductId,
+    long ProductId,
     ProductGeneralSection? General = null,
     ProductTaxSection? Tax = null,
     ProductPricingSection? Pricing = null,
@@ -80,16 +80,16 @@ public sealed record UpdateProductCommand(
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Catalog.Write)]
-public sealed record CloneProductCommand(Guid ProductId, string NewStockCode, string? NewName = null)
+public sealed record CloneProductCommand(long ProductId, string NewStockCode, string? NewName = null)
     : IRequest<Result<ProductFormDto>>;
 
 /// <summary>Hides an item. Reversible through <see cref="RestoreProductCommand"/> (guide p.24).</summary>
 [RequiresPermission(PermissionKeys.Catalog.Delete)]
-public sealed record DeleteProductCommand(Guid ProductId) : IRequest<Result>;
+public sealed record DeleteProductCommand(long ProductId) : IRequest<Result>;
 
 /// <summary>The legacy "Undelete Items" command (guide p.24).</summary>
 [RequiresPermission(PermissionKeys.Catalog.Delete)]
-public sealed record RestoreProductCommand(Guid ProductId) : IRequest<Result>;
+public sealed record RestoreProductCommand(long ProductId) : IRequest<Result>;
 
 public sealed class ProductCommandHandlers
     : IRequestHandler<CreateProductCommand, Result<ProductFormDto>>,
@@ -384,7 +384,7 @@ public sealed class ProductCommandHandlers
         return Result.Success();
     }
 
-    private Task<bool> IsDuplicateAsync(Guid locationId, string stockCode, Guid? excluding, CancellationToken ct)
+    private Task<bool> IsDuplicateAsync(long locationId, string stockCode, long? excluding, CancellationToken ct)
     {
         var normalized = stockCode.Trim().ToUpperInvariant();
 
@@ -404,7 +404,7 @@ public sealed class ProductCommandHandlers
     /// price. None of them is referenced by history — sale lines snapshot the resolved price.
     /// </para>
     /// </summary>
-    private async Task<Result> ReplacePricingAsync(Guid productId, ProductPricingSection pricing, CancellationToken ct)
+    private async Task<Result> ReplacePricingAsync(long productId, ProductPricingSection pricing, CancellationToken ct)
     {
         _db.ProductPrices.RemoveRange(await _db.ProductPrices.Where(p => p.ProductId == productId).ToListAsync(ct));
         _db.PriceBreaks.RemoveRange(await _db.PriceBreaks.Where(b => b.ProductId == productId).ToListAsync(ct));
@@ -461,7 +461,7 @@ public sealed class ProductCommandHandlers
         return Result.Success();
     }
 
-    private async Task ReplaceSuppliersAsync(Guid productId, IReadOnlyList<ProductSupplierDto> suppliers, CancellationToken ct)
+    private async Task ReplaceSuppliersAsync(long productId, IReadOnlyList<ProductSupplierDto> suppliers, CancellationToken ct)
     {
         var existing = await _db.ProductSuppliers.Where(s => s.ProductId == productId).ToListAsync(ct);
         var wanted = (suppliers ?? []).ToList();
@@ -489,7 +489,7 @@ public sealed class ProductCommandHandlers
         }
     }
 
-    private async Task<Result> ReplaceKitAsync(Guid productId, IReadOnlyList<KitComponentDto> components, CancellationToken ct)
+    private async Task<Result> ReplaceKitAsync(long productId, IReadOnlyList<KitComponentDto> components, CancellationToken ct)
     {
         _db.KitComponents.RemoveRange(await _db.KitComponents.Where(k => k.KitProductId == productId).ToListAsync(ct));
 
@@ -523,6 +523,6 @@ public sealed class ProductCommandHandlers
         await _notifier.ProductChangedAsync(product.LocationId, product.Id, ct);
     }
 
-    private Task<Result<ProductFormDto>> FormAsync(Guid productId, CancellationToken ct)
+    private Task<Result<ProductFormDto>> FormAsync(long productId, CancellationToken ct)
         => _form.Handle(new GetProductFormQuery(productId), ct);
 }

@@ -50,13 +50,13 @@ public sealed record SalesAnalysisResult(
 /// </summary>
 [RequiresPermission(PermissionKeys.Reports.Sales)]
 public sealed record SalesAnalysisQuery(
-    Guid LocationId,
+    long LocationId,
     DateOnly From,
     DateOnly To,
     SalesAnalysisGroupBy GroupBy = SalesAnalysisGroupBy.Product,
-    Guid? DepartmentId = null,
-    Guid? ProductId = null,
-    Guid? CustomerId = null,
+    long? DepartmentId = null,
+    long? ProductId = null,
+    long? CustomerId = null,
     bool IncludeVoided = false,
     int? Top = null,
     string? SortBy = null,
@@ -264,18 +264,18 @@ public sealed class SalesAnalysisHandlers
 
     private static string GroupKeyFor(
         SalesAnalysisGroupBy groupBy,
-        Guid productId,
-        Guid? departmentId,
-        Guid? customerId,
+        long productId,
+        long? departmentId,
+        long? customerId,
         DateOnly businessDate) => groupBy switch
         {
-            SalesAnalysisGroupBy.Product => productId.ToString(),
-            SalesAnalysisGroupBy.Department => departmentId?.ToString() ?? string.Empty,
-            SalesAnalysisGroupBy.Client => customerId?.ToString() ?? string.Empty,
+            SalesAnalysisGroupBy.Product => productId.ToString(CultureInfo.InvariantCulture),
+            SalesAnalysisGroupBy.Department => departmentId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
+            SalesAnalysisGroupBy.Client => customerId?.ToString(CultureInfo.InvariantCulture) ?? string.Empty,
             SalesAnalysisGroupBy.Day => businessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
             SalesAnalysisGroupBy.Week => WeekKey(businessDate),
             SalesAnalysisGroupBy.Month => businessDate.ToString("yyyy-MM", CultureInfo.InvariantCulture),
-            _ => productId.ToString(),
+            _ => productId.ToString(CultureInfo.InvariantCulture),
         };
 
     private static string WeekKey(DateOnly date)
@@ -297,37 +297,37 @@ public sealed class SalesAnalysisHandlers
         {
             case SalesAnalysisGroupBy.Product:
             {
-                var ids = keys.Where(k => Guid.TryParse(k, out _)).Select(Guid.Parse).ToList();
+                var ids = keys.Where(k => long.TryParse(k, out _)).Select(long.Parse).ToList();
                 var products = await _db.Products.AsNoTracking()
                     .Where(p => ids.Contains(p.Id))
                     .Select(p => new { p.Id, p.StockCode, p.Name })
                     .ToListAsync(ct);
 
-                return products.ToDictionary(p => p.Id.ToString(), p => $"{p.StockCode} — {p.Name}");
+                return products.ToDictionary(p => p.Id.ToString(CultureInfo.InvariantCulture), p => $"{p.StockCode} — {p.Name}");
             }
 
             case SalesAnalysisGroupBy.Department:
             {
-                var ids = keys.Where(k => Guid.TryParse(k, out _)).Select(Guid.Parse).ToList();
+                var ids = keys.Where(k => long.TryParse(k, out _)).Select(long.Parse).ToList();
                 var departments = await _db.Departments.AsNoTracking()
                     .Where(d => ids.Contains(d.Id))
                     .Select(d => new { d.Id, d.Name })
                     .ToListAsync(ct);
 
-                var labels = departments.ToDictionary(d => d.Id.ToString(), d => d.Name);
+                var labels = departments.ToDictionary(d => d.Id.ToString(CultureInfo.InvariantCulture), d => d.Name);
                 labels[string.Empty] = "(no department)";
                 return labels;
             }
 
             case SalesAnalysisGroupBy.Client:
             {
-                var ids = keys.Where(k => Guid.TryParse(k, out _)).Select(Guid.Parse).ToList();
+                var ids = keys.Where(k => long.TryParse(k, out _)).Select(long.Parse).ToList();
                 var customers = await _db.Customers.AsNoTracking()
                     .Where(c => ids.Contains(c.Id))
                     .Select(c => new { c.Id, c.FullName })
                     .ToListAsync(ct);
 
-                var labels = customers.ToDictionary(c => c.Id.ToString(), c => c.FullName);
+                var labels = customers.ToDictionary(c => c.Id.ToString(CultureInfo.InvariantCulture), c => c.FullName);
                 labels[string.Empty] = "(walk-in)";
                 return labels;
             }
@@ -360,5 +360,5 @@ public sealed class SalesAnalysisHandlers
         decimal Discount,
         decimal Tax,
         decimal Cogs,
-        Guid TransactionId);
+        long TransactionId);
 }

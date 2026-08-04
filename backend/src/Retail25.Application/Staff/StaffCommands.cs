@@ -8,7 +8,7 @@ using Retail25.Domain.Staff;
 namespace Retail25.Application.Staff;
 
 public sealed record StaffRowDto(
-    Guid Id,
+    long Id,
     string StaffCode,
     string FullName,
     int AccessLevel,
@@ -18,8 +18,8 @@ public sealed record StaffRowDto(
 
 /// <summary>What the punch-clock widget shows: whether you are on, and since when.</summary>
 public sealed record TimeClockStateDto(
-    Guid? EntryId,
-    Guid StaffId,
+    long? EntryId,
+    long StaffId,
     string StaffName,
     bool IsClockedIn,
     DateTimeOffset? ClockedInAt,
@@ -27,19 +27,19 @@ public sealed record TimeClockStateDto(
     decimal HoursToday);
 
 public sealed record TimeClockEntryDto(
-    Guid Id,
-    Guid StaffId,
+    long Id,
+    long StaffId,
     string StaffName,
     DateTimeOffset ClockIn,
     DateTimeOffset? ClockOut,
     decimal? HoursWorked);
 
 public sealed record CommissionRuleDto(
-    Guid Id,
-    Guid StaffId,
-    Guid? ProductId,
+    long Id,
+    long StaffId,
+    long? ProductId,
     string? ProductName,
-    Guid? DepartmentId,
+    long? DepartmentId,
     string? DepartmentName,
     CommissionType CommissionType,
     decimal Value,
@@ -47,18 +47,18 @@ public sealed record CommissionRuleDto(
     bool IsActive);
 
 [RequiresPermission(PermissionKeys.Staff.Read)]
-public sealed record BrowseStaffQuery(Guid LocationId, bool IncludeInactive = false)
+public sealed record BrowseStaffQuery(long LocationId, bool IncludeInactive = false)
     : IRequest<IReadOnlyList<StaffRowDto>>;
 
 /// <summary>Where the signed-in person stands right now. Their own state, so no elevated permission.</summary>
 [RequiresPermission(PermissionKeys.Staff.TimeClock)]
-public sealed record GetMyTimeClockQuery(Guid LocationId) : IRequest<Result<TimeClockStateDto>>;
+public sealed record GetMyTimeClockQuery(long LocationId) : IRequest<Result<TimeClockStateDto>>;
 
 [RequiresPermission(PermissionKeys.Staff.TimeClock)]
-public sealed record ClockInCommand(Guid LocationId) : IRequest<Result<TimeClockStateDto>>;
+public sealed record ClockInCommand(long LocationId) : IRequest<Result<TimeClockStateDto>>;
 
 [RequiresPermission(PermissionKeys.Staff.TimeClock)]
-public sealed record ClockOutCommand(Guid LocationId) : IRequest<Result<TimeClockStateDto>>;
+public sealed record ClockOutCommand(long LocationId) : IRequest<Result<TimeClockStateDto>>;
 
 /// <summary>
 /// Anyone's punches for a window. Reading someone else's hours is a supervisor's job, so this is
@@ -66,10 +66,10 @@ public sealed record ClockOutCommand(Guid LocationId) : IRequest<Result<TimeCloc
 /// </summary>
 [RequiresPermission(PermissionKeys.Reports.Hours)]
 public sealed record BrowseTimeClockQuery(
-    Guid LocationId,
+    long LocationId,
     DateOnly From,
     DateOnly To,
-    Guid? StaffId = null) : IRequest<IReadOnlyList<TimeClockEntryDto>>;
+    long? StaffId = null) : IRequest<IReadOnlyList<TimeClockEntryDto>>;
 
 /// <summary>
 /// Corrects a punch — the forgotten clock-out, the shift started an hour late. Separate permission
@@ -77,29 +77,29 @@ public sealed record BrowseTimeClockQuery(
 /// </summary>
 [RequiresPermission(PermissionKeys.Staff.TimeClockEdit)]
 public sealed record AmendTimeClockEntryCommand(
-    Guid EntryId,
+    long EntryId,
     DateTimeOffset ClockIn,
     DateTimeOffset? ClockOut) : IRequest<Result<TimeClockEntryDto>>;
 
 [RequiresPermission(PermissionKeys.Staff.TimeClockEdit)]
-public sealed record DeleteTimeClockEntryCommand(Guid EntryId) : IRequest<Result>;
+public sealed record DeleteTimeClockEntryCommand(long EntryId) : IRequest<Result>;
 
 [RequiresPermission(PermissionKeys.Staff.Read)]
-public sealed record ListCommissionRulesQuery(Guid StaffId) : IRequest<IReadOnlyList<CommissionRuleDto>>;
+public sealed record ListCommissionRulesQuery(long StaffId) : IRequest<IReadOnlyList<CommissionRuleDto>>;
 
 [RequiresPermission(PermissionKeys.Staff.Write)]
 public sealed record SaveCommissionRuleCommand(
-    Guid? Id,
-    Guid StaffId,
+    long? Id,
+    long StaffId,
     CommissionType CommissionType,
     decimal Value,
-    Guid? ProductId = null,
-    Guid? DepartmentId = null,
+    long? ProductId = null,
+    long? DepartmentId = null,
     decimal? MaxCommission = null,
     bool IsActive = true) : IRequest<Result<CommissionRuleDto>>;
 
 [RequiresPermission(PermissionKeys.Staff.Write)]
-public sealed record DeleteCommissionRuleCommand(Guid Id) : IRequest<Result>;
+public sealed record DeleteCommissionRuleCommand(long Id) : IRequest<Result>;
 
 public sealed class StaffHandlers :
     IRequestHandler<BrowseStaffQuery, IReadOnlyList<StaffRowDto>>,
@@ -405,7 +405,7 @@ public sealed class StaffHandlers :
             ? await _db.StaffProfiles.AsNoTracking().FirstOrDefaultAsync(s => s.Id == id, ct)
             : null;
 
-    private async Task<TimeClockStateDto> StateAsync(StaffProfile staff, Guid locationId, CancellationToken ct)
+    private async Task<TimeClockStateDto> StateAsync(StaffProfile staff, long locationId, CancellationToken ct)
     {
         var open = await _db.TimeClockEntries.AsNoTracking()
             .FirstOrDefaultAsync(e => e.StaffId == staff.Id && e.ClockOut == null, ct);
@@ -432,7 +432,7 @@ public sealed class StaffHandlers :
             decimal.Round(closedToday + soFar, 2, MidpointRounding.AwayFromZero));
     }
 
-    private async Task<Dictionary<Guid, string>> StaffNamesAsync(IEnumerable<Guid> ids, CancellationToken ct)
+    private async Task<Dictionary<long, string>> StaffNamesAsync(IEnumerable<long> ids, CancellationToken ct)
     {
         var distinct = ids.Distinct().ToList();
 
@@ -449,8 +449,8 @@ public sealed class StaffHandlers :
     private async Task<IReadOnlyList<CommissionRuleDto>> DescribeAsync(
         IReadOnlyList<CommissionRule> rules, CancellationToken ct)
     {
-        var productIds = rules.Select(r => r.ProductId).OfType<Guid>().Distinct().ToList();
-        var departmentIds = rules.Select(r => r.DepartmentId).OfType<Guid>().Distinct().ToList();
+        var productIds = rules.Select(r => r.ProductId).OfType<long>().Distinct().ToList();
+        var departmentIds = rules.Select(r => r.DepartmentId).OfType<long>().Distinct().ToList();
 
         var products = productIds.Count == 0
             ? []

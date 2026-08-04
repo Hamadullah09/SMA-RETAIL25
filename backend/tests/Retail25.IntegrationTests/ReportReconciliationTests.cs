@@ -26,8 +26,8 @@ namespace Retail25.IntegrationTests;
 /// </param>
 /// <param name="Rang">What this suite added: £115.00 across three transactions.</param>
 public sealed record ReportScenario(
-    Guid LocationId,
-    Guid StationId,
+    long LocationId,
+    long StationId,
     string CodeA,
     string CodeB,
     string Suffix,
@@ -344,7 +344,7 @@ public sealed class ReportReconciliationTests
 
     // -------------------------------------------------------------------------------------------
 
-    private static async Task Create(ISender sender, Guid locationId, string stockCode, string name, decimal price)
+    private static async Task Create(ISender sender, long locationId, string stockCode, string name, decimal price)
     {
         var created = await sender.Send(new CreateProductCommand(
             locationId,
@@ -356,7 +356,7 @@ public sealed class ReportReconciliationTests
         created.IsSuccess.Should().BeTrue($"'{stockCode}' should be created, but failed with '{created.Error.Code}'");
     }
 
-    private static async Task Ring(ISender sender, Guid stationId, Guid tenderTypeId, params (string Code, decimal Qty)[] lines)
+    private static async Task Ring(ISender sender, long stationId, long tenderTypeId, params (string Code, decimal Qty)[] lines)
     {
         var cart = await sender.Send(new CreateCartCommand(stationId));
         cart.IsSuccess.Should().BeTrue();

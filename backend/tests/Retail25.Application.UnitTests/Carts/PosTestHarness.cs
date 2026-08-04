@@ -202,7 +202,7 @@ internal sealed class PosTestHarness : IDisposable
     /// </summary>
     public async Task<Domain.Staff.StaffProfile> SignInAsAsync(string code, int accessLevel)
     {
-        var staff = Domain.Staff.StaffProfile.Create(Guid.NewGuid(), code, code, "Tester", accessLevel);
+        var staff = Domain.Staff.StaffProfile.Create(TestIds.Next(), code, code, "Tester", accessLevel);
         Db.StaffProfiles.Add(staff);
         await Db.SaveChangesAsync();
 
@@ -211,11 +211,11 @@ internal sealed class PosTestHarness : IDisposable
     }
 
     public async Task<Domain.Staff.CommissionRule> AddCommissionRuleAsync(
-        Guid staffId,
+        long staffId,
         Domain.Staff.CommissionType type,
         decimal value,
-        Guid? productId = null,
-        Guid? departmentId = null,
+        long? productId = null,
+        long? departmentId = null,
         decimal? max = null)
     {
         var rule = Domain.Staff.CommissionRule.Create(staffId, type, value, productId, departmentId, max).Value;
@@ -226,7 +226,7 @@ internal sealed class PosTestHarness : IDisposable
 
     public async Task<Cart> OpenCartAsync()
     {
-        var cart = Cart.Open(Station.Id, Location.Id, CurrentUser.StaffId ?? Guid.NewGuid(), Clock.Now, 720);
+        var cart = Cart.Open(Station.Id, Location.Id, CurrentUser.StaffId ?? TestIds.Next(), Clock.Now, 720);
         await CartStore.SaveAsync(new CartSnapshot(cart));
         return cart;
     }
@@ -249,13 +249,13 @@ internal sealed class TestCurrentUser : ICurrentUser
 {
     private readonly HashSet<string> _permissions = new(PermissionKeys.All, StringComparer.Ordinal);
 
-    public Guid? UserId { get; set; } = Guid.NewGuid();
+    public long? UserId { get; set; } = TestIds.Next();
 
-    public Guid? StaffId { get; set; } = Guid.NewGuid();
+    public long? StaffId { get; set; } = TestIds.Next();
 
-    public Guid? StationId { get; set; }
+    public long? StationId { get; set; }
 
-    public Guid? LocationId { get; set; }
+    public long? LocationId { get; set; }
 
     public bool IsAuthenticated => true;
 
@@ -274,20 +274,20 @@ internal sealed class CountingSequenceGenerator : ISequenceGenerator
     private long _transaction;
     private long _invoice;
 
-    public Task<long> NextTransactionNumberAsync(Guid locationId, CancellationToken ct = default)
+    public Task<long> NextTransactionNumberAsync(long locationId, CancellationToken ct = default)
         => Task.FromResult(Interlocked.Increment(ref _transaction));
 
-    public Task<long> NextInvoiceNumberAsync(Guid locationId, CancellationToken ct = default)
+    public Task<long> NextInvoiceNumberAsync(long locationId, CancellationToken ct = default)
         => Task.FromResult(Interlocked.Increment(ref _invoice));
 
-    public Task<long> NextAsync(SequenceKind kind, Guid locationId, CancellationToken ct = default)
+    public Task<long> NextAsync(SequenceKind kind, long locationId, CancellationToken ct = default)
     {
         var next = _counters.GetValueOrDefault(kind) + 1;
         _counters[kind] = next;
         return Task.FromResult(next);
     }
 
-    public Task RestartAsync(SequenceKind kind, Guid locationId, long nextNumber, CancellationToken ct = default)
+    public Task RestartAsync(SequenceKind kind, long locationId, long nextNumber, CancellationToken ct = default)
     {
         _counters[kind] = nextNumber - 1;
         return Task.CompletedTask;
@@ -296,13 +296,13 @@ internal sealed class CountingSequenceGenerator : ISequenceGenerator
 
 internal sealed class InMemoryCartStore : ICartStore
 {
-    private readonly Dictionary<Guid, CartSnapshot> _carts = [];
-    private readonly Dictionary<Guid, Guid> _stationCarts = [];
+    private readonly Dictionary<long, CartSnapshot> _carts = [];
+    private readonly Dictionary<long, long> _stationCarts = [];
 
-    public Task<CartSnapshot?> GetAsync(Guid cartId, CancellationToken ct = default)
+    public Task<CartSnapshot?> GetAsync(long cartId, CancellationToken ct = default)
         => Task.FromResult(_carts.GetValueOrDefault(cartId));
 
-    public Task<CartSnapshot?> GetByStationAsync(Guid stationId, CancellationToken ct = default)
+    public Task<CartSnapshot?> GetByStationAsync(long stationId, CancellationToken ct = default)
         => Task.FromResult(_stationCarts.TryGetValue(stationId, out var cartId) ? _carts.GetValueOrDefault(cartId) : null);
 
     public Task SaveAsync(CartSnapshot snapshot, CancellationToken ct = default)
@@ -321,7 +321,7 @@ internal sealed class InMemoryCartStore : ICartStore
         return Task.CompletedTask;
     }
 
-    public Task RemoveAsync(Guid cartId, Guid stationId, CancellationToken ct = default)
+    public Task RemoveAsync(long cartId, long stationId, CancellationToken ct = default)
     {
         _carts.Remove(cartId);
         _stationCarts.Remove(stationId);
@@ -331,9 +331,9 @@ internal sealed class InMemoryCartStore : ICartStore
 
 internal sealed class InMemoryTagDebouncer : ITagDebouncer
 {
-    private readonly Dictionary<string, Guid> _claims = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, long> _claims = new(StringComparer.Ordinal);
 
-    public Task<bool> TryClaimAsync(string epc, Guid stationId, TimeSpan window, CancellationToken ct = default)
+    public Task<bool> TryClaimAsync(string epc, long stationId, TimeSpan window, CancellationToken ct = default)
     {
         var key = epc.ToUpperInvariant();
 
@@ -346,7 +346,7 @@ internal sealed class InMemoryTagDebouncer : ITagDebouncer
         return Task.FromResult(true);
     }
 
-    public Task ReleaseAsync(string epc, Guid stationId, CancellationToken ct = default)
+    public Task ReleaseAsync(string epc, long stationId, CancellationToken ct = default)
     {
         var key = epc.ToUpperInvariant();
 
@@ -358,6 +358,6 @@ internal sealed class InMemoryTagDebouncer : ITagDebouncer
         return Task.CompletedTask;
     }
 
-    public Task<Guid?> GetHolderAsync(string epc, CancellationToken ct = default)
-        => Task.FromResult(_claims.TryGetValue(epc.ToUpperInvariant(), out var holder) ? holder : (Guid?)null);
+    public Task<long?> GetHolderAsync(string epc, CancellationToken ct = default)
+        => Task.FromResult(_claims.TryGetValue(epc.ToUpperInvariant(), out var holder) ? holder : (long?)null);
 }

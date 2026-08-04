@@ -52,10 +52,10 @@ public enum PriceRounding
 
 /// <summary>Which items a batch operation touches. Empty means every item at the location.</summary>
 public sealed record BulkFilter(
-    Guid LocationId,
-    Guid? DepartmentId = null,
-    Guid? CategoryId = null,
-    Guid? SupplierId = null,
+    long LocationId,
+    long? DepartmentId = null,
+    long? CategoryId = null,
+    long? SupplierId = null,
     string? Search = null,
     ProductType? Type = null);
 
@@ -65,7 +65,7 @@ public sealed record BulkFilter(
 /// from backup.
 /// </summary>
 public sealed record BulkPricePreviewRow(
-    Guid ProductId,
+    long ProductId,
     string StockCode,
     string Name,
     decimal Current,

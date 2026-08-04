@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
 using Retail25.Domain.Accounting;
 using Retail25.Domain.Catalog;
+using Retail25.Domain.Common;
 using Retail25.Domain.Configuration;
 using Retail25.Domain.Customers;
 using Retail25.Domain.Inventory;
@@ -27,7 +28,7 @@ namespace Retail25.Infrastructure.Persistence;
 /// </para>
 /// </summary>
 public class ApplicationDbContext
-    : IdentityDbContext<Identity.ApplicationUser, Identity.ApplicationRole, Guid>,
+    : IdentityDbContext<Identity.ApplicationUser, Identity.ApplicationRole, long>,
       IApplicationDbContext,
       IDataProtectionKeyContext
 {
@@ -176,6 +177,7 @@ public class ApplicationDbContext
 
         // OpenIddict keeps its applications, authorizations, scopes and tokens in this context, so
         // token issuance participates in the same transaction as everything else.
-        builder.UseOpenIddict<Guid>();
+        builder.UseOpenIddict<long>();
     }
+
 }

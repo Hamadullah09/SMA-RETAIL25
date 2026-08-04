@@ -37,7 +37,7 @@ public interface IServerConnection
 
     Task<bool> ReportWeightAsync(decimal value, string unit, bool stable, CancellationToken ct);
 
-    Task<bool> ReportPrintResultAsync(Guid transactionId, bool succeeded, string? error, CancellationToken ct);
+    Task<bool> ReportPrintResultAsync(long transactionId, bool succeeded, string? error, CancellationToken ct);
 
     Task StopAsync(CancellationToken ct);
 }
@@ -191,7 +191,7 @@ public sealed class SignalRServerConnection : IServerConnection, IAsyncDisposabl
     public Task<bool> ReportWeightAsync(decimal value, string unit, bool stable, CancellationToken ct)
         => TryInvokeAsync(TerminalHubMethods.ToServer.ReportWeight, [_options.StationId, value, unit, stable], ct);
 
-    public Task<bool> ReportPrintResultAsync(Guid transactionId, bool succeeded, string? error, CancellationToken ct)
+    public Task<bool> ReportPrintResultAsync(long transactionId, bool succeeded, string? error, CancellationToken ct)
         => TryInvokeAsync(
             TerminalHubMethods.ToServer.ReportPrintResult,
             [_options.StationId, transactionId, succeeded, error],

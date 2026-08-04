@@ -42,7 +42,7 @@ public sealed class NumberSequence : Entity, IAuditable
     {
     }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public SequenceKind Kind { get; set; }
 
@@ -60,13 +60,13 @@ public sealed class NumberSequence : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static NumberSequence Create(Guid locationId, SequenceKind kind, long nextNumber = 1, string prefix = "", int padWidth = 0)
+    public static NumberSequence Create(long locationId, SequenceKind kind, long nextNumber = 1, string prefix = "", int padWidth = 0)
         => new()
         {
             LocationId = locationId,
@@ -124,7 +124,7 @@ public sealed class NumberSequence : Entity, IAuditable
     }
 
     /// <summary>Every kind a store needs on day one, all starting at 1.</summary>
-    public static IReadOnlyList<NumberSequence> SeedDefaults(Guid locationId)
+    public static IReadOnlyList<NumberSequence> SeedDefaults(long locationId)
         => Enum.GetValues<SequenceKind>()
             .Select(kind => Create(locationId, kind, 1, DefaultPrefix(kind), DefaultPad(kind)))
             .ToList();

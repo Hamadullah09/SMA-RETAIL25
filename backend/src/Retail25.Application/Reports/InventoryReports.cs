@@ -12,7 +12,7 @@ namespace Retail25.Application.Reports;
 // ---------------------------------------------------------------------------------------------
 
 public sealed record StockValuationRow(
-    Guid? DepartmentId,
+    long? DepartmentId,
     string DepartmentName,
     int ProductCount,
     decimal UnitsOnHand,
@@ -35,11 +35,11 @@ public sealed record StockValuationResult(
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Reports.CostVisibility)]
-public sealed record GetStockValuationQuery(Guid LocationId, Guid? DepartmentId = null)
+public sealed record GetStockValuationQuery(long LocationId, long? DepartmentId = null)
     : IRequest<StockValuationResult>;
 
 public sealed record StockValuationDetailRow(
-    Guid ProductId,
+    long ProductId,
     string StockCode,
     string Name,
     string DepartmentName,
@@ -54,13 +54,13 @@ public sealed record StockValuationDetailPage(IReadOnlyList<StockValuationDetail
 /// <summary>The line-by-line drill-down behind the department summary.</summary>
 [RequiresPermission(PermissionKeys.Reports.CostVisibility)]
 public sealed record GetStockValuationDetailQuery(
-    Guid LocationId,
-    Guid? DepartmentId = null,
+    long LocationId,
+    long? DepartmentId = null,
     int Skip = 0,
     int Take = 200) : IRequest<StockValuationDetailPage>;
 
 [RequiresPermission(PermissionKeys.Reports.CostVisibility)]
-public sealed record ExportStockValuationQuery(Guid LocationId, Guid? DepartmentId = null) : IRequest<string>;
+public sealed record ExportStockValuationQuery(long LocationId, long? DepartmentId = null) : IRequest<string>;
 
 // ---------------------------------------------------------------------------------------------
 // Understock / overstock (guide p.25–27)
@@ -74,7 +74,7 @@ public enum StockPosition
 }
 
 public sealed record StockPositionRow(
-    Guid ProductId,
+    long ProductId,
     string StockCode,
     string Name,
     string DepartmentName,
@@ -96,8 +96,8 @@ public sealed record StockPositionRow(
 /// </summary>
 [RequiresPermission(PermissionKeys.Reports.Inventory)]
 public sealed record GetStockPositionQuery(
-    Guid LocationId,
-    Guid? DepartmentId = null,
+    long LocationId,
+    long? DepartmentId = null,
     StockPosition? Only = null) : IRequest<IReadOnlyList<StockPositionRow>>;
 
 [RequiresPermission(PermissionKeys.Reports.Inventory)]
@@ -108,7 +108,7 @@ public sealed record ExportStockPositionQuery(GetStockPositionQuery Filter) : IR
 // ---------------------------------------------------------------------------------------------
 
 public sealed record OnOrderRow(
-    Guid ProductId,
+    long ProductId,
     string StockCode,
     string Name,
     string SupplierName,
@@ -124,9 +124,9 @@ public sealed record OnOrderRow(
 /// <summary>Everything bought but not yet on the shelf — the other half of the reorder picture.</summary>
 [RequiresPermission(PermissionKeys.Reports.Inventory)]
 public sealed record GetOnOrderQuery(
-    Guid LocationId,
-    Guid? SupplierId = null,
-    Guid? DepartmentId = null) : IRequest<IReadOnlyList<OnOrderRow>>;
+    long LocationId,
+    long? SupplierId = null,
+    long? DepartmentId = null) : IRequest<IReadOnlyList<OnOrderRow>>;
 
 [RequiresPermission(PermissionKeys.Reports.Inventory)]
 public sealed record ExportOnOrderQuery(GetOnOrderQuery Filter) : IRequest<string>;
@@ -162,10 +162,10 @@ public sealed record StockReceivedPage(
 /// </summary>
 [RequiresPermission(PermissionKeys.Reports.Inventory)]
 public sealed record GetStockReceivedQuery(
-    Guid LocationId,
+    long LocationId,
     DateOnly From,
     DateOnly To,
-    Guid? SupplierId = null,
+    long? SupplierId = null,
     int Skip = 0,
     int Take = 200) : IRequest<StockReceivedPage>;
 
@@ -492,17 +492,17 @@ public sealed class InventoryReportHandlers
         => (new DateTimeOffset(from.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero),
             new DateTimeOffset(to.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero));
 
-    private IQueryable<Domain.Catalog.Product> ValuationProducts(Guid locationId, Guid? departmentId)
+    private IQueryable<Domain.Catalog.Product> ValuationProducts(long locationId, long? departmentId)
         => _db.Products.AsNoTracking()
             .Where(p => p.LocationId == locationId && !p.IsDeleted)
             .Where(p => departmentId == null || p.DepartmentId == departmentId);
 
-    private async Task<Dictionary<Guid, string>> DepartmentNamesAsync(CancellationToken ct)
+    private async Task<Dictionary<long, string>> DepartmentNamesAsync(CancellationToken ct)
         => await _db.Departments.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Name, ct);
 
     private static StockValuationDetailRow ToDetailRow(
         Domain.Catalog.Product product,
-        IReadOnlyDictionary<Guid, string> departments)
+        IReadOnlyDictionary<long, string> departments)
         => new(
             product.Id,
             product.StockCode,
@@ -546,7 +546,7 @@ public sealed class InventoryReportHandlers
 
     private async Task<List<StockReceivedRow>> ProjectReceiptsAsync(
         List<StockLedgerEntry> entries,
-        Guid? supplierFilter,
+        long? supplierFilter,
         CancellationToken ct)
     {
         if (entries.Count == 0)

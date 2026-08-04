@@ -17,23 +17,23 @@ public sealed class LoyaltyController : ControllerBase
     public LoyaltyController(ISender sender) => _sender = sender;
 
     [HttpGet("policy")]
-    public async Task<IActionResult> GetPolicy([FromQuery] Guid locationId, CancellationToken ct)
+    public async Task<IActionResult> GetPolicy([FromQuery] long locationId, CancellationToken ct)
         => Ok(await _sender.Send(new GetLoyaltyPolicyQuery(locationId), ct));
 
     [HttpPut("policy")]
     public async Task<IActionResult> SavePolicy([FromBody] SaveLoyaltyPolicyCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
-    [HttpGet("customers/{customerId:guid}/balance")]
-    public async Task<IActionResult> Balance(Guid customerId, CancellationToken ct)
+    [HttpGet("customers/{customerId:long}/balance")]
+    public async Task<IActionResult> Balance(long customerId, CancellationToken ct)
         => (await _sender.Send(new GetLoyaltyBalanceQuery(customerId), ct)).ToActionResult(this);
 
-    [HttpGet("customers/{customerId:guid}/ledger")]
-    public async Task<IActionResult> Ledger(Guid customerId, CancellationToken ct)
+    [HttpGet("customers/{customerId:long}/ledger")]
+    public async Task<IActionResult> Ledger(long customerId, CancellationToken ct)
         => Ok(await _sender.Send(new GetLoyaltyLedgerQuery(customerId), ct));
 
-    [HttpPost("customers/{customerId:guid}/adjust")]
-    public async Task<IActionResult> Adjust(Guid customerId, [FromBody] AdjustLoyaltyRequest request, CancellationToken ct)
+    [HttpPost("customers/{customerId:long}/adjust")]
+    public async Task<IActionResult> Adjust(long customerId, [FromBody] AdjustLoyaltyRequest request, CancellationToken ct)
         => (await _sender.Send(new AdjustLoyaltyPointsCommand(customerId, request.PointsDelta, request.Reason), ct))
             .ToActionResult(this);
 }

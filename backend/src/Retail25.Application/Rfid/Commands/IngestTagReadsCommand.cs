@@ -17,7 +17,7 @@ namespace Retail25.Application.Rfid.Commands;
 /// out-of-session so the feed can still show that the reader is alive.
 /// </para>
 /// </summary>
-public sealed record IngestTagReadsCommand(Guid StationId, IReadOnlyList<TagRead> Tags) : IRequest<Result<RfidBatchResult>>;
+public sealed record IngestTagReadsCommand(long StationId, IReadOnlyList<TagRead> Tags) : IRequest<Result<RfidBatchResult>>;
 
 public sealed class IngestTagReadsHandler : IRequestHandler<IngestTagReadsCommand, Result<RfidBatchResult>>
 {
@@ -86,12 +86,12 @@ public sealed class IngestTagReadsHandler : IRequestHandler<IngestTagReadsComman
 [RequiresPermission(PermissionKeys.Inventory.CommissionTags)]
 public sealed record CommissionTagCommand(
     string Epc,
-    Guid ProductId,
-    Guid LocationId,
-    Guid? VariantId = null,
-    string? SerialNumber = null) : IRequest<Result<Guid>>;
+    long ProductId,
+    long LocationId,
+    long? VariantId = null,
+    string? SerialNumber = null) : IRequest<Result<long>>;
 
-public sealed class CommissionTagHandler : IRequestHandler<CommissionTagCommand, Result<Guid>>
+public sealed class CommissionTagHandler : IRequestHandler<CommissionTagCommand, Result<long>>
 {
     public static readonly Error AlreadyMapped = new("epc.already_mapped", "That tag is already associated with an item.");
     public static readonly Error ProductNotFound = new("product.not_found", "No such item.");
@@ -107,13 +107,13 @@ public sealed class CommissionTagHandler : IRequestHandler<CommissionTagCommand,
         _tagStreams = tagStreams;
     }
 
-    public async Task<Result<Guid>> Handle(CommissionTagCommand request, CancellationToken ct)
+    public async Task<Result<long>> Handle(CommissionTagCommand request, CancellationToken ct)
     {
         var epc = request.Epc.Trim().ToUpperInvariant();
 
         if (await _db.SerializedUnits.AnyAsync(u => u.Epc == epc, ct))
         {
-            return Result.Failure<Guid>(AlreadyMapped.With("epc", epc));
+            return Result.Failure<long>(AlreadyMapped.With("epc", epc));
         }
 
         var product = await _db.Products.AsNoTracking()
@@ -121,13 +121,13 @@ public sealed class CommissionTagHandler : IRequestHandler<CommissionTagCommand,
 
         if (product is null)
         {
-            return Result.Failure<Guid>(ProductNotFound.With("productId", request.ProductId));
+            return Result.Failure<long>(ProductNotFound.With("productId", request.ProductId));
         }
 
         var created = SerializedUnit.Create(request.ProductId, request.LocationId, request.SerialNumber, epc, _clock.Now);
         if (created.IsFailure)
         {
-            return Result.Failure<Guid>(created.Error);
+            return Result.Failure<long>(created.Error);
         }
 
         var unit = created.Value;
@@ -136,7 +136,7 @@ public sealed class CommissionTagHandler : IRequestHandler<CommissionTagCommand,
         var commissioned = unit.Commission();
         if (commissioned.IsFailure)
         {
-            return Result.Failure<Guid>(commissioned.Error);
+            return Result.Failure<long>(commissioned.Error);
         }
 
         _db.SerializedUnits.Add(unit);
@@ -161,10 +161,10 @@ public sealed class CommissionTagHandler : IRequestHandler<CommissionTagCommand,
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Catalog.Write)]
-public sealed record ReassignTagCommand(string Epc, Guid ProductId, Guid? VariantId = null)
-    : IRequest<Result<Guid>>;
+public sealed record ReassignTagCommand(string Epc, long ProductId, long? VariantId = null)
+    : IRequest<Result<long>>;
 
-public sealed class ReassignTagHandler : IRequestHandler<ReassignTagCommand, Result<Guid>>
+public sealed class ReassignTagHandler : IRequestHandler<ReassignTagCommand, Result<long>>
 {
     public static readonly Error NotFound = new("epc.unknown", "That tag is not associated with anything yet.");
 
@@ -177,7 +177,7 @@ public sealed class ReassignTagHandler : IRequestHandler<ReassignTagCommand, Res
         _tagStreams = tagStreams;
     }
 
-    public async Task<Result<Guid>> Handle(ReassignTagCommand request, CancellationToken ct)
+    public async Task<Result<long>> Handle(ReassignTagCommand request, CancellationToken ct)
     {
         var epc = request.Epc.Trim().ToUpperInvariant();
 
@@ -185,7 +185,7 @@ public sealed class ReassignTagHandler : IRequestHandler<ReassignTagCommand, Res
 
         if (unit is null)
         {
-            return Result.Failure<Guid>(NotFound.With("epc", epc));
+            return Result.Failure<long>(NotFound.With("epc", epc));
         }
 
         var product = await _db.Products.AsNoTracking()
@@ -193,13 +193,13 @@ public sealed class ReassignTagHandler : IRequestHandler<ReassignTagCommand, Res
 
         if (product is null)
         {
-            return Result.Failure<Guid>(CommissionTagHandler.ProductNotFound.With("productId", request.ProductId));
+            return Result.Failure<long>(CommissionTagHandler.ProductNotFound.With("productId", request.ProductId));
         }
 
         var moved = unit.ReassignTo(request.ProductId, request.VariantId);
         if (moved.IsFailure)
         {
-            return Result.Failure<Guid>(moved.Error);
+            return Result.Failure<long>(moved.Error);
         }
 
         await _db.SaveChangesAsync(ct);

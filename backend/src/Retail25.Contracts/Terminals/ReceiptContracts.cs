@@ -42,7 +42,7 @@ public sealed record ReceiptTender(string Name, decimal Amount, decimal AmountTe
 /// </para>
 /// </summary>
 public sealed record ReceiptDocument(
-    Guid TransactionId,
+    long TransactionId,
     long TransactionNumber,
     ReceiptFormat Format,
     string BusinessName,

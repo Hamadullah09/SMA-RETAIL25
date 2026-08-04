@@ -56,11 +56,11 @@ public sealed class DocumentsController : ControllerBase
     }
 
     /// <summary>A single item's tag, for the one-off reprint from the item screen.</summary>
-    [HttpGet("labels/price-tag/{productId:guid}")]
+    [HttpGet("labels/price-tag/{productId:long}")]
     [Produces("application/pdf")]
     public async Task<IActionResult> SinglePriceTag(
-        Guid productId,
-        [FromQuery] Guid locationId,
+        long productId,
+        [FromQuery] long locationId,
         [FromQuery] LabelStock stock = LabelStock.Avery5160,
         [FromQuery] int copies = 1)
     {
@@ -72,9 +72,9 @@ public sealed class DocumentsController : ControllerBase
             : result.ToActionResult(this);
     }
 
-    [HttpGet("envelopes/statement/{customerId:guid}")]
+    [HttpGet("envelopes/statement/{customerId:long}")]
     [Produces("application/pdf")]
-    public async Task<IActionResult> StatementEnvelope(Guid customerId)
+    public async Task<IActionResult> StatementEnvelope(long customerId)
     {
         var result = await _sender.Send(new PrintStatementEnvelopeQuery(customerId));
 
@@ -86,9 +86,9 @@ public sealed class DocumentsController : ControllerBase
     [HttpGet("catalogue")]
     [Produces("application/pdf")]
     public async Task<IActionResult> Catalogue(
-        [FromQuery] Guid locationId,
-        [FromQuery] Guid? departmentId = null,
-        [FromQuery] Guid? categoryId = null,
+        [FromQuery] long locationId,
+        [FromQuery] long? departmentId = null,
+        [FromQuery] long? categoryId = null,
         [FromQuery] string? search = null)
     {
         var result = await _sender.Send(new PrintCatalogueQuery(locationId, departmentId, categoryId, search));
@@ -110,7 +110,7 @@ public sealed class DocumentsController : ControllerBase
 }
 
 public sealed record PrintLabelsRequest(
-    Guid LocationId,
+    long LocationId,
     IReadOnlyList<LabelRequestLine> Lines,
     LabelStock Stock = LabelStock.Avery5160,
     bool ShowBarcode = true,

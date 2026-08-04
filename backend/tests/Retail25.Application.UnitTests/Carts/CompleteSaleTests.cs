@@ -651,7 +651,7 @@ public sealed class CompleteSaleTests
             return cart;
         }
 
-        public Task<Domain.Common.Result<CompleteSaleResult>> CompleteAsync(Guid cartId, IReadOnlyList<TenderRequest> tenders)
+        public Task<Domain.Common.Result<CompleteSaleResult>> CompleteAsync(long cartId, IReadOnlyList<TenderRequest> tenders)
             => Complete.Handle(
                 new CompleteSaleCommand(cartId, tenders, Guid.NewGuid().ToString(), PrintReceipt: false),
                 default);

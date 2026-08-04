@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
@@ -9,7 +10,7 @@ using Retail25.Domain.Staff;
 namespace Retail25.Application.Auth;
 
 public sealed record StaffSessionDto(
-    Guid StaffId,
+    long StaffId,
     string StaffCode,
     string FullName,
     int AccessLevel,
@@ -25,15 +26,15 @@ public sealed record StaffSessionDto(
 /// world and the till.
 /// </para>
 /// </summary>
-public sealed record VerifyStaffPinCommand(string StaffCode, string Pin, Guid StationId) : IRequest<Result<StaffSessionDto>>;
+public sealed record VerifyStaffPinCommand(string StaffCode, string Pin, long StationId) : IRequest<Result<StaffSessionDto>>;
 
 /// <summary>Sets or replaces a staff PIN. A supervisor does this; a cashier cannot set their own.</summary>
 [RequiresPermission(PermissionKeys.Staff.Write)]
-public sealed record SetStaffPinCommand(Guid StaffId, string Pin) : IRequest<Result>;
+public sealed record SetStaffPinCommand(long StaffId, string Pin) : IRequest<Result>;
 
 /// <summary>Clears a lockout after the five attempts ran out (doc 07).</summary>
 [RequiresPermission(PermissionKeys.Staff.Write)]
-public sealed record UnlockStaffPinCommand(Guid StaffId) : IRequest<Result>;
+public sealed record UnlockStaffPinCommand(long StaffId) : IRequest<Result>;
 
 public sealed class StaffPinHandlers
     : IRequestHandler<VerifyStaffPinCommand, Result<StaffSessionDto>>,
@@ -82,7 +83,7 @@ public sealed class StaffPinHandlers
             await _audit.RecordAsync(
                 AuditAction.SignInFailed,
                 nameof(StaffProfile),
-                staff?.Id.ToString(),
+                staff?.Id.ToString(CultureInfo.InvariantCulture),
                 nameof(VerifyStaffPinCommand),
                 reason: "Unknown staff code or no PIN set",
                 ct: ct);
@@ -104,7 +105,7 @@ public sealed class StaffPinHandlers
             await _audit.RecordAsync(
                 AuditAction.SignInFailed,
                 nameof(StaffProfile),
-                staff.Id.ToString(),
+                staff.Id.ToString(CultureInfo.InvariantCulture),
                 nameof(VerifyStaffPinCommand),
                 reason: $"Incorrect PIN (attempt {staff.FailedPinAttempts} of {StaffProfile.MaxPinAttempts})",
                 ct: ct);
@@ -122,7 +123,7 @@ public sealed class StaffPinHandlers
         await _audit.RecordAsync(
             AuditAction.SignedIn,
             nameof(StaffProfile),
-            staff.Id.ToString(),
+            staff.Id.ToString(CultureInfo.InvariantCulture),
             nameof(VerifyStaffPinCommand),
             reason: "Staff switch at the till",
             ct: ct);
@@ -160,7 +161,7 @@ public sealed class StaffPinHandlers
         await _audit.RecordAsync(
             AuditAction.Updated,
             nameof(StaffProfile),
-            staff.Id.ToString(),
+            staff.Id.ToString(CultureInfo.InvariantCulture),
             nameof(SetStaffPinCommand),
             reason: "PIN set",
             ct: ct);
@@ -182,7 +183,7 @@ public sealed class StaffPinHandlers
         await _audit.RecordAsync(
             AuditAction.Updated,
             nameof(StaffProfile),
-            staff.Id.ToString(),
+            staff.Id.ToString(CultureInfo.InvariantCulture),
             nameof(UnlockStaffPinCommand),
             reason: "PIN lockout cleared",
             ct: ct);

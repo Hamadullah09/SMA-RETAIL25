@@ -28,7 +28,7 @@ public sealed class CartAdjustment : Entity
     {
     }
 
-    public Guid CartId { get; set; }
+    public long CartId { get; set; }
 
     public AdjustmentType Type { get; set; }
 
@@ -44,17 +44,17 @@ public sealed class CartAdjustment : Entity
     /// <summary>Serial number for a gift certificate, or the coupon code.</summary>
     public string? Serial { get; set; }
 
-    public Guid AppliedByStaffId { get; set; }
+    public long AppliedByStaffId { get; set; }
 
     public DateTimeOffset AppliedAt { get; set; }
 
     public static Result<CartAdjustment> Create(
-        Guid cartId,
+        long cartId,
         AdjustmentType type,
         string label,
         decimal amount,
         decimal percent,
-        Guid staffId,
+        long staffId,
         DateTimeOffset now,
         string? serial = null)
     {

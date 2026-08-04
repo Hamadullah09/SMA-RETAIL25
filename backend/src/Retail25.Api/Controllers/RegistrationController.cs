@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.ComponentModel.DataAnnotations;
 using System.Text;
 using System.Text.Encodings.Web;
@@ -98,7 +99,7 @@ public sealed class RegistrationController : ControllerBase
 
         var location = await _db.Locations
             .AsNoTracking()
-            .Select(l => (Guid?)l.Id)
+            .Select(l => (long?)l.Id)
             .FirstOrDefaultAsync(ct);
 
         var user = new ApplicationUser
@@ -168,7 +169,7 @@ public sealed class RegistrationController : ControllerBase
         await _audit.RecordAsync(
             AuditAction.Created,
             nameof(ApplicationUser),
-            user.Id.ToString(),
+            user.Id.ToString(CultureInfo.InvariantCulture),
             operation: "self-registration",
             reason: $"Self sign-up as {role}");
 
@@ -224,7 +225,7 @@ public sealed class RegistrationController : ControllerBase
         await _audit.RecordAsync(
             AuditAction.Executed,
             nameof(ApplicationUser),
-            user.Id.ToString(),
+            user.Id.ToString(CultureInfo.InvariantCulture),
             operation: "password-reset-requested");
 
         return Accepted();
@@ -287,7 +288,7 @@ public sealed class RegistrationController : ControllerBase
         await _audit.RecordAsync(
             AuditAction.Executed,
             nameof(ApplicationUser),
-            user.Id.ToString(),
+            user.Id.ToString(CultureInfo.InvariantCulture),
             operation: "password-reset-completed");
 
         return NoContent();
@@ -316,8 +317,29 @@ public sealed class RegistrationController : ControllerBase
         }
     }
 
-    /// <summary>Six characters off the user id — unique enough for a code, short enough to say aloud.</summary>
-    private static string StaffCode(Guid id) => id.ToString("N")[..6].ToUpperInvariant();
+    /// <summary>
+    /// Six digits of the user id — unique enough for a code, short enough to say aloud.
+    /// <para>
+    /// This used to slice six characters off a GUID's hyphen-less form. On a numeric id the same
+    /// expression is a crash rather than a code: <c>ToString("N")</c> means "number with group
+    /// separators", so a new user with id 5 produced "5.00" and slicing six characters off a
+    /// four-character string threw — on every sign-up, and only once ids were small enough.
+    /// </para>
+    /// <para>
+    /// Padded rather than truncated, so early users get 000001 rather than a code that is shorter
+    /// than the field everyone else's fits.
+    /// </para>
+    /// </summary>
+    private static string StaffCode(long id)
+    {
+        var digits = id.ToString(CultureInfo.InvariantCulture);
+
+        // Beyond six digits the low-order end is kept: it is the part that still differs between two
+        // accounts created a moment apart.
+        return digits.Length <= 6
+            ? digits.PadLeft(6, '0')
+            : digits[^6..];
+    }
 
     public sealed record RegisterRequest(
         [Required, EmailAddress, StringLength(256)] string Email,

@@ -9,18 +9,18 @@ namespace Retail25.Application.Catalog;
 
 /// <summary>One tile, or one row. What the till's grid draws, and nothing it does not.</summary>
 public sealed record PosGridItemDto(
-    Guid Id,
+    long Id,
     string StockCode,
     string Name,
     decimal RegularPrice,
     decimal OnHand,
     ProductType Type,
     bool HasImage,
-    Guid? DepartmentId,
-    Guid? CategoryId);
+    long? DepartmentId,
+    long? CategoryId);
 
 /// <summary>A heading the grid filters by — a department or a category, laid out the same way.</summary>
-public sealed record PosGridGroupDto(Guid Id, string Name, string? Code, int SortOrder, int ItemCount);
+public sealed record PosGridGroupDto(long Id, string Name, string? Code, int SortOrder, int ItemCount);
 
 /// <summary>
 /// The grid's contents plus the headings above it.
@@ -53,9 +53,9 @@ public sealed record PosGridDto(
 /// </summary>
 [RequiresPermission(PermissionKeys.Catalog.Read)]
 public sealed record PosGridQuery(
-    Guid LocationId,
-    Guid? DepartmentId = null,
-    Guid? CategoryId = null,
+    long LocationId,
+    long? DepartmentId = null,
+    long? CategoryId = null,
     string? Search = null,
     int Skip = 0,
     int Take = 60) : IRequest<Result<PosGridDto>>;

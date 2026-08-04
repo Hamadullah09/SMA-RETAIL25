@@ -4,8 +4,8 @@ namespace Retail25.Domain.Staff;
 /// <param name="LineNet">Net of discounts and before tax — what the line actually brought in.</param>
 /// <param name="LineCost">Extended cost, for percent-of-profit.</param>
 public sealed record CommissionableLine(
-    Guid ProductId,
-    Guid? DepartmentId,
+    long ProductId,
+    long? DepartmentId,
     decimal Quantity,
     decimal LineNet,
     decimal LineCost);

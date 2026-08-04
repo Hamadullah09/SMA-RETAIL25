@@ -21,9 +21,9 @@ public sealed class Invoice : AggregateRoot, IAuditable
 
     public long InvoiceNumber { get; set; }
 
-    public Guid CustomerId { get; set; }
+    public long CustomerId { get; set; }
 
-    public Guid TransactionId { get; set; }
+    public long TransactionId { get; set; }
 
     public DateOnly IssuedOn { get; set; }
 
@@ -41,13 +41,13 @@ public sealed class Invoice : AggregateRoot, IAuditable
 
     public InvoiceStatus Status { get; set; } = InvoiceStatus.Open;
 
-    public Guid StaffId { get; set; }
+    public long StaffId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 }

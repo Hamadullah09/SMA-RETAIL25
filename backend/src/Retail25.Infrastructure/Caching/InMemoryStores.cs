@@ -49,14 +49,14 @@ internal static class InMemoryStoreNotes
 /// </summary>
 public sealed class InMemoryCartStore : ICartStore
 {
-    private readonly ConcurrentDictionary<Guid, CartSnapshot> _carts = new();
-    private readonly ConcurrentDictionary<Guid, Guid> _byStation = new();
+    private readonly ConcurrentDictionary<long, CartSnapshot> _carts = new();
+    private readonly ConcurrentDictionary<long, long> _byStation = new();
     private readonly object _gate = new();
 
-    public Task<CartSnapshot?> GetAsync(Guid cartId, CancellationToken ct = default)
+    public Task<CartSnapshot?> GetAsync(long cartId, CancellationToken ct = default)
         => Task.FromResult(_carts.GetValueOrDefault(cartId));
 
-    public Task<CartSnapshot?> GetByStationAsync(Guid stationId, CancellationToken ct = default)
+    public Task<CartSnapshot?> GetByStationAsync(long stationId, CancellationToken ct = default)
     {
         if (_byStation.TryGetValue(stationId, out var cartId) && _carts.TryGetValue(cartId, out var snapshot))
         {
@@ -79,7 +79,7 @@ public sealed class InMemoryCartStore : ICartStore
         return Task.CompletedTask;
     }
 
-    public Task RemoveAsync(Guid cartId, Guid stationId, CancellationToken ct = default)
+    public Task RemoveAsync(long cartId, long stationId, CancellationToken ct = default)
     {
         lock (_gate)
         {
@@ -113,7 +113,7 @@ public sealed class InMemoryTagDebouncer : ITagDebouncer
 {
     private readonly ConcurrentDictionary<string, Claim> _claims = new(StringComparer.Ordinal);
 
-    public Task<bool> TryClaimAsync(string epc, Guid stationId, TimeSpan window, CancellationToken ct = default)
+    public Task<bool> TryClaimAsync(string epc, long stationId, TimeSpan window, CancellationToken ct = default)
     {
         var now = Stopwatch.GetTimestamp();
         var expiry = now + (long)(window.TotalSeconds * Stopwatch.Frequency);
@@ -144,7 +144,7 @@ public sealed class InMemoryTagDebouncer : ITagDebouncer
         }
     }
 
-    public Task ReleaseAsync(string epc, Guid stationId, CancellationToken ct = default)
+    public Task ReleaseAsync(string epc, long stationId, CancellationToken ct = default)
     {
         // Only the holder may release. Otherwise a second till could free a claim it does not own and
         // then immediately take it.
@@ -156,17 +156,17 @@ public sealed class InMemoryTagDebouncer : ITagDebouncer
         return Task.CompletedTask;
     }
 
-    public Task<Guid?> GetHolderAsync(string epc, CancellationToken ct = default)
+    public Task<long?> GetHolderAsync(string epc, CancellationToken ct = default)
     {
         if (_claims.TryGetValue(epc, out var existing) && existing.ExpiresAt > Stopwatch.GetTimestamp())
         {
-            return Task.FromResult<Guid?>(existing.StationId);
+            return Task.FromResult<long?>(existing.StationId);
         }
 
-        return Task.FromResult<Guid?>(null);
+        return Task.FromResult<long?>(null);
     }
 
-    private sealed record Claim(Guid StationId, long ExpiresAt);
+    private sealed record Claim(long StationId, long ExpiresAt);
 }
 
 /// <summary>

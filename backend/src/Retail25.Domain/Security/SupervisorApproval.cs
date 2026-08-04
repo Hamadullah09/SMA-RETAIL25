@@ -49,15 +49,15 @@ public sealed class SupervisorApproval : Entity
     /// <summary>Human-readable context shown to the approver: "Void sale #1042, $55.99".</summary>
     public string? Context { get; set; }
 
-    public Guid RequestedByStaffId { get; set; }
+    public long RequestedByStaffId { get; set; }
 
-    public Guid StationId { get; set; }
+    public long StationId { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public ApprovalStatus Status { get; set; } = ApprovalStatus.Pending;
 
-    public Guid? ApprovedByStaffId { get; set; }
+    public long? ApprovedByStaffId { get; set; }
 
     public DateTimeOffset RequestedAt { get; set; }
 
@@ -76,9 +76,9 @@ public sealed class SupervisorApproval : Entity
         string permission,
         string action,
         string? context,
-        Guid requestedByStaffId,
-        Guid stationId,
-        Guid locationId,
+        long requestedByStaffId,
+        long stationId,
+        long locationId,
         DateTimeOffset now) => new()
         {
             Permission = permission,
@@ -92,7 +92,7 @@ public sealed class SupervisorApproval : Entity
             ExpiresAt = now.Add(Lifetime),
         };
 
-    public Result Approve(Guid approverStaffId, DateTimeOffset now)
+    public Result Approve(long approverStaffId, DateTimeOffset now)
     {
         if (Status != ApprovalStatus.Pending)
         {
@@ -117,7 +117,7 @@ public sealed class SupervisorApproval : Entity
         return Result.Success();
     }
 
-    public Result Deny(Guid approverStaffId, string? reason, DateTimeOffset now)
+    public Result Deny(long approverStaffId, string? reason, DateTimeOffset now)
     {
         if (Status != ApprovalStatus.Pending)
         {

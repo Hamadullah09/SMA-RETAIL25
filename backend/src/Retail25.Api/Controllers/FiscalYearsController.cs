@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,7 +19,7 @@ public sealed class FiscalYearsController : ControllerBase
     public FiscalYearsController(ISender sender) => _sender = sender;
 
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] Guid locationId, CancellationToken ct)
+    public async Task<IActionResult> List([FromQuery] long locationId, CancellationToken ct)
         => Ok(await _sender.Send(new ListFiscalYearsQuery(locationId), ct));
 
     [HttpPost]
@@ -29,19 +30,19 @@ public sealed class FiscalYearsController : ControllerBase
     /// Closes the year. <c>dryRun=true</c> does every calculation and writes nothing, which is how
     /// this should be run the first time — the figures it reports are the ones the real close writes.
     /// </summary>
-    [HttpPost("{id:guid}/close")]
-    public async Task<IActionResult> Close(Guid id, [FromQuery] bool dryRun = false, CancellationToken ct = default)
+    [HttpPost("{id:long}/close")]
+    public async Task<IActionResult> Close(long id, [FromQuery] bool dryRun = false, CancellationToken ct = default)
         => (await _sender.Send(new RunFiscalYearCloseCommand(id, dryRun), ct)).ToActionResult(this);
 
-    [HttpPost("{id:guid}/reopen")]
-    public async Task<IActionResult> Reopen(Guid id, CancellationToken ct)
+    [HttpPost("{id:long}/reopen")]
+    public async Task<IActionResult> Reopen(long id, CancellationToken ct)
         => (await _sender.Send(new ReopenFiscalYearCommand(id), ct)).ToActionResult(this);
 
     [HttpGet("history")]
     public async Task<IActionResult> History(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] int? year = null,
-        [FromQuery] Guid? productId = null,
+        [FromQuery] long? productId = null,
         [FromQuery] int take = 500,
         CancellationToken ct = default)
         => Ok(await _sender.Send(new GetSalesHistoryQuery(locationId, year, productId, take), ct));
@@ -49,9 +50,9 @@ public sealed class FiscalYearsController : ControllerBase
     [HttpGet("history/export")]
     [Produces("text/csv")]
     public async Task<IActionResult> HistoryExport(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] int? year = null,
-        [FromQuery] Guid? productId = null,
+        [FromQuery] long? productId = null,
         CancellationToken ct = default)
     {
         var csv = await _sender.Send(

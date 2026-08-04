@@ -7,7 +7,7 @@ using Retail25.Domain.Common;
 namespace Retail25.Application.Documents;
 
 /// <summary>How many labels to print for one item.</summary>
-public sealed record LabelRequestLine(Guid ProductId, int Copies = 1);
+public sealed record LabelRequestLine(long ProductId, int Copies = 1);
 
 /// <summary>
 /// A sheet of price tags for the chosen items (guide App. L).
@@ -18,7 +18,7 @@ public sealed record LabelRequestLine(Guid ProductId, int Copies = 1);
 /// </summary>
 [RequiresPermission(PermissionKeys.Catalog.Read)]
 public sealed record PrintPriceTagsQuery(
-    Guid LocationId,
+    long LocationId,
     IReadOnlyList<LabelRequestLine> Lines,
     LabelStock Stock = LabelStock.Avery5160,
     bool BarcodeFirst = false,
@@ -27,14 +27,14 @@ public sealed record PrintPriceTagsQuery(
 
 /// <summary>A statement envelope for one customer, laid out for a #10 window.</summary>
 [RequiresPermission(PermissionKeys.Ar.Read)]
-public sealed record PrintStatementEnvelopeQuery(Guid CustomerId) : IRequest<Result<byte[]>>;
+public sealed record PrintStatementEnvelopeQuery(long CustomerId) : IRequest<Result<byte[]>>;
 
 /// <summary>The price list, filtered the same way the catalogue browse is.</summary>
 [RequiresPermission(PermissionKeys.Catalog.Read)]
 public sealed record PrintCatalogueQuery(
-    Guid LocationId,
-    Guid? DepartmentId = null,
-    Guid? CategoryId = null,
+    long LocationId,
+    long? DepartmentId = null,
+    long? CategoryId = null,
     string? Search = null) : IRequest<Result<byte[]>>;
 
 public sealed class DocumentHandlers

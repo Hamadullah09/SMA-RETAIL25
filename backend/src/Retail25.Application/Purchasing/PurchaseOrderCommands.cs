@@ -11,9 +11,9 @@ using Retail25.Domain.Sales;
 namespace Retail25.Application.Purchasing;
 
 public sealed record PurchaseOrderRowDto(
-    Guid Id,
+    long Id,
     long PoNumber,
-    Guid SupplierId,
+    long SupplierId,
     string SupplierCompany,
     PurchaseOrderStatus Status,
     OrderQuantityStrategy QuantityStrategy,
@@ -23,8 +23,8 @@ public sealed record PurchaseOrderRowDto(
     int LineCount);
 
 public sealed record PurchaseOrderLineDto(
-    Guid Id,
-    Guid ProductId,
+    long Id,
+    long ProductId,
     string StockCode,
     string ProductName,
     decimal OrderQty,
@@ -36,13 +36,13 @@ public sealed record PurchaseOrderLineDto(
     decimal OnOrderAtGeneration,
     decimal BackOrders);
 
-public sealed record PurchaseOrderReceiptDto(Guid Id, DateOnly ReceivedOn, decimal FreightTotal, Guid StaffId);
+public sealed record PurchaseOrderReceiptDto(long Id, DateOnly ReceivedOn, decimal FreightTotal, long StaffId);
 
 public sealed record PurchaseOrderDetailDto(
-    Guid Id,
+    long Id,
     long PoNumber,
-    Guid LocationId,
-    Guid SupplierId,
+    long LocationId,
+    long SupplierId,
     string SupplierCompany,
     PurchaseOrderStatus Status,
     OrderQuantityStrategy QuantityStrategy,
@@ -55,14 +55,14 @@ public sealed record PurchaseOrderDetailDto(
 
 [RequiresPermission(PermissionKeys.Purchasing.Read)]
 public sealed record BrowsePurchaseOrdersQuery(
-    Guid LocationId,
-    Guid? SupplierId = null,
+    long LocationId,
+    long? SupplierId = null,
     PurchaseOrderStatus? Status = null,
     string? Cursor = null,
     int PageSize = 50) : IRequest<CursorPage<PurchaseOrderRowDto>>;
 
 [RequiresPermission(PermissionKeys.Purchasing.Read)]
-public sealed record GetPurchaseOrderQuery(Guid PurchaseOrderId) : IRequest<Result<PurchaseOrderDetailDto>>;
+public sealed record GetPurchaseOrderQuery(long PurchaseOrderId) : IRequest<Result<PurchaseOrderDetailDto>>;
 
 /// <summary>
 /// Creates a draft PO for one supplier and, unless the strategy is <see cref="OrderQuantityStrategy.Blank"/>,
@@ -71,25 +71,25 @@ public sealed record GetPurchaseOrderQuery(Guid PurchaseOrderId) : IRequest<Resu
 /// grid every other strategy's output lands in.
 /// </summary>
 [RequiresPermission(PermissionKeys.Purchasing.Write)]
-public sealed record GeneratePurchaseOrderCommand(Guid LocationId, Guid SupplierId, OrderQuantityStrategy Strategy)
+public sealed record GeneratePurchaseOrderCommand(long LocationId, long SupplierId, OrderQuantityStrategy Strategy)
     : IRequest<Result<PurchaseOrderDetailDto>>;
 
 [RequiresPermission(PermissionKeys.Purchasing.Write)]
-public sealed record AddPurchaseOrderLineCommand(Guid PurchaseOrderId, Guid ProductId, decimal OrderQty, decimal CostEach, decimal CaseQty)
+public sealed record AddPurchaseOrderLineCommand(long PurchaseOrderId, long ProductId, decimal OrderQty, decimal CostEach, decimal CaseQty)
     : IRequest<Result<PurchaseOrderDetailDto>>;
 
 [RequiresPermission(PermissionKeys.Purchasing.Write)]
-public sealed record UpdatePurchaseOrderLineCommand(Guid LineId, decimal OrderQty, decimal CostEach)
+public sealed record UpdatePurchaseOrderLineCommand(long LineId, decimal OrderQty, decimal CostEach)
     : IRequest<Result<PurchaseOrderDetailDto>>;
 
 [RequiresPermission(PermissionKeys.Purchasing.Write)]
-public sealed record RemovePurchaseOrderLineCommand(Guid LineId) : IRequest<Result<PurchaseOrderDetailDto>>;
+public sealed record RemovePurchaseOrderLineCommand(long LineId) : IRequest<Result<PurchaseOrderDetailDto>>;
 
 /// <summary>Draft → Posted. Reserves the ordered quantity on every affected product's <c>OnOrder</c>.</summary>
 [RequiresPermission(PermissionKeys.Purchasing.PostOrder)]
-public sealed record PostPurchaseOrderCommand(Guid PurchaseOrderId) : IRequest<Result<PurchaseOrderDetailDto>>;
+public sealed record PostPurchaseOrderCommand(long PurchaseOrderId) : IRequest<Result<PurchaseOrderDetailDto>>;
 
-public sealed record ReceivePurchaseOrderLine(Guid LineId, decimal QtyReceived);
+public sealed record ReceivePurchaseOrderLine(long LineId, decimal QtyReceived);
 
 /// <summary>
 /// Records a shipment against a Posted or PartiallyReceived PO. Freight is allocated pro-rata by each
@@ -99,13 +99,13 @@ public sealed record ReceivePurchaseOrderLine(Guid LineId, decimal QtyReceived);
 /// </summary>
 [RequiresPermission(PermissionKeys.Purchasing.PostShipment)]
 public sealed record ReceivePurchaseOrderCommand(
-    Guid PurchaseOrderId,
+    long PurchaseOrderId,
     DateOnly ReceivedOn,
     decimal FreightTotal,
     IReadOnlyList<ReceivePurchaseOrderLine> Lines) : IRequest<Result<PurchaseOrderDetailDto>>;
 
 [RequiresPermission(PermissionKeys.Purchasing.Write)]
-public sealed record CancelPurchaseOrderCommand(Guid PurchaseOrderId) : IRequest<Result<PurchaseOrderDetailDto>>;
+public sealed record CancelPurchaseOrderCommand(long PurchaseOrderId) : IRequest<Result<PurchaseOrderDetailDto>>;
 
 public sealed class PurchaseOrderHandlers :
     IRequestHandler<BrowsePurchaseOrdersQuery, CursorPage<PurchaseOrderRowDto>>,
@@ -540,7 +540,7 @@ public sealed class PurchaseOrderHandlers :
             PurchaseOrderId = order.Id,
             ReceivedOn = request.ReceivedOn,
             FreightTotal = request.FreightTotal,
-            StaffId = _currentUser.StaffId ?? Guid.Empty,
+            StaffId = _currentUser.StaffId ?? 0L,
             CreatedAt = _clock.Now,
         };
         _db.PurchaseOrderReceipts.Add(receiptEntity);
@@ -641,7 +641,7 @@ public sealed class PurchaseOrderHandlers :
         return await PublishAndReturnAsync(order, ct);
     }
 
-    private IQueryable<PurchaseOrderLine> LinesForAsync(Guid purchaseOrderId, CancellationToken ct)
+    private IQueryable<PurchaseOrderLine> LinesForAsync(long purchaseOrderId, CancellationToken ct)
         => _db.PurchaseOrderLines.Where(l => l.PurchaseOrderId == purchaseOrderId);
 
     /// <summary>

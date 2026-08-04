@@ -220,13 +220,13 @@ public sealed class CommerceApiFixture : WebApplicationFactory<Program>, IAsyncL
 /// <summary>An acting user holding every permission the catalogue defines.</summary>
 public sealed class TestCurrentUser : ICurrentUser
 {
-    public Guid? UserId { get; set; } = Guid.NewGuid();
+    public long? UserId { get; set; } = TestIds.Next();
 
-    public Guid? StaffId { get; set; }
+    public long? StaffId { get; set; }
 
-    public Guid? StationId { get; set; }
+    public long? StationId { get; set; }
 
-    public Guid? LocationId { get; set; }
+    public long? LocationId { get; set; }
 
     public bool IsAuthenticated => true;
 

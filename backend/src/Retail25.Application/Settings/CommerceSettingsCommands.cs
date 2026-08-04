@@ -14,21 +14,21 @@ namespace Retail25.Application.Settings;
 /// administered here.
 /// </summary>
 [RequiresPermission(PermissionKeys.Settings.Write)]
-public sealed record SaveTenderTypeCommand(Guid LocationId, TenderSettingsDto Tender) : IRequest<Result<TenderSettingsDto>>;
+public sealed record SaveTenderTypeCommand(long LocationId, TenderSettingsDto Tender) : IRequest<Result<TenderSettingsDto>>;
 
 [RequiresPermission(PermissionKeys.Settings.Write)]
-public sealed record DeleteTenderTypeCommand(Guid LocationId, Guid TenderTypeId) : IRequest<Result>;
+public sealed record DeleteTenderTypeCommand(long LocationId, long TenderTypeId) : IRequest<Result>;
 
 /// <summary>Currencies and their rounding rules (guide p.9, p.84).</summary>
 [RequiresPermission(PermissionKeys.Settings.Write)]
-public sealed record SaveCurrencyCommand(Guid LocationId, CurrencySettingsDto Currency) : IRequest<Result<CurrencySettingsDto>>;
+public sealed record SaveCurrencyCommand(long LocationId, CurrencySettingsDto Currency) : IRequest<Result<CurrencySettingsDto>>;
 
 /// <summary>Users tab (guide p.82). Creates or edits the shop-floor identity, never the login.</summary>
 [RequiresPermission(PermissionKeys.System.UsersManage)]
 public sealed record SaveStaffCommand(
-    Guid LocationId,
-    Guid? Id,
-    Guid UserId,
+    long LocationId,
+    long? Id,
+    long UserId,
     string StaffCode,
     string FirstName,
     string LastName,
@@ -66,7 +66,7 @@ public sealed class CommerceSettingsHandlers
         var input = request.Tender;
         TenderType? tender = null;
 
-        if (input.Id != Guid.Empty)
+        if (input.Id != 0L)
         {
             tender = await _db.TenderTypes.FirstOrDefaultAsync(t => t.Id == input.Id, ct);
             if (tender is null)
@@ -150,7 +150,7 @@ public sealed class CommerceSettingsHandlers
         var input = request.Currency;
         Currency? currency = null;
 
-        if (input.Id != Guid.Empty)
+        if (input.Id != 0L)
         {
             currency = await _db.Currencies.FirstOrDefaultAsync(c => c.Id == input.Id, ct);
             if (currency is null)

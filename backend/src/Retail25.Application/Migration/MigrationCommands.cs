@@ -11,7 +11,7 @@ using Retail25.Domain.Migration;
 namespace Retail25.Application.Migration;
 
 public sealed record MigrationBatchDto(
-    Guid Id,
+    long Id,
     string SourceFileName,
     string Entity,
     string SourceHash,
@@ -39,20 +39,20 @@ public sealed record StagingRowDto(
     IReadOnlyDictionary<string, string?> Values);
 
 [RequiresPermission(PermissionKeys.System.MigrationRun)]
-public sealed record ListMigrationBatchesQuery(Guid LocationId) : IRequest<IReadOnlyList<MigrationBatchDto>>;
+public sealed record ListMigrationBatchesQuery(long LocationId) : IRequest<IReadOnlyList<MigrationBatchDto>>;
 
 [RequiresPermission(PermissionKeys.System.MigrationRun)]
-public sealed record GetMigrationBatchQuery(Guid BatchId) : IRequest<Result<MigrationBatchDto>>;
+public sealed record GetMigrationBatchQuery(long BatchId) : IRequest<Result<MigrationBatchDto>>;
 
 /// <summary>The analysis report, which is written at staging time and read back here.</summary>
 [RequiresPermission(PermissionKeys.System.MigrationRun)]
-public sealed record GetAnalysisQuery(Guid BatchId) : IRequest<Result<AnalysisReport>>;
+public sealed record GetAnalysisQuery(long BatchId) : IRequest<Result<AnalysisReport>>;
 
 [RequiresPermission(PermissionKeys.System.MigrationRun)]
-public sealed record GetValidationQuery(Guid BatchId) : IRequest<Result<IReadOnlyList<ValidationFinding>>>;
+public sealed record GetValidationQuery(long BatchId) : IRequest<Result<IReadOnlyList<ValidationFinding>>>;
 
 [RequiresPermission(PermissionKeys.System.MigrationRun)]
-public sealed record GetReconciliationQuery(Guid BatchId) : IRequest<Result<ReconciliationReport>>;
+public sealed record GetReconciliationQuery(long BatchId) : IRequest<Result<ReconciliationReport>>;
 
 /// <summary>
 /// Rows from staging. <paramref name="ProblemsOnly"/> is what an operator actually works from —
@@ -60,7 +60,7 @@ public sealed record GetReconciliationQuery(Guid BatchId) : IRequest<Result<Reco
 /// </summary>
 [RequiresPermission(PermissionKeys.System.MigrationRun)]
 public sealed record BrowseStagingQuery(
-    Guid BatchId,
+    long BatchId,
     bool ProblemsOnly = true,
     int Skip = 0,
     int Take = 200) : IRequest<Result<IReadOnlyList<StagingRowDto>>>;
@@ -75,14 +75,14 @@ public sealed record BrowseStagingQuery(
 /// </summary>
 [RequiresPermission(PermissionKeys.System.MigrationRun)]
 public sealed record StageMigrationFileCommand(
-    Guid LocationId,
+    long LocationId,
     string FileName,
     string Entity,
     string Content,
     bool IsBase64 = false) : IRequest<Result<MigrationBatchDto>>;
 
 [RequiresPermission(PermissionKeys.System.MigrationRun)]
-public sealed record ValidateMigrationBatchCommand(Guid BatchId) : IRequest<Result<MigrationBatchDto>>;
+public sealed record ValidateMigrationBatchCommand(long BatchId) : IRequest<Result<MigrationBatchDto>>;
 
 /// <summary>
 /// The dry run (doc 09 §3). Transforms every row exactly as the import would and writes nothing,
@@ -90,7 +90,7 @@ public sealed record ValidateMigrationBatchCommand(Guid BatchId) : IRequest<Resu
 /// </summary>
 [RequiresPermission(PermissionKeys.System.MigrationRun)]
 public sealed record DryRunMigrationCommand(
-    Guid BatchId,
+    long BatchId,
     LegacyControlTotals? LegacyTotals = null) : IRequest<Result<ReconciliationReport>>;
 
 /// <summary>
@@ -99,11 +99,11 @@ public sealed record DryRunMigrationCommand(
 /// </summary>
 [RequiresPermission(PermissionKeys.System.MigrationRun)]
 public sealed record ImportMigrationBatchCommand(
-    Guid BatchId,
+    long BatchId,
     LegacyControlTotals? LegacyTotals = null) : IRequest<Result<ReconciliationReport>>;
 
 [RequiresPermission(PermissionKeys.System.MigrationRun)]
-public sealed record CancelMigrationBatchCommand(Guid BatchId) : IRequest<Result>;
+public sealed record CancelMigrationBatchCommand(long BatchId) : IRequest<Result>;
 
 public sealed class MigrationHandlers :
     IRequestHandler<ListMigrationBatchesQuery, IReadOnlyList<MigrationBatchDto>>,
@@ -410,7 +410,7 @@ public sealed class MigrationHandlers :
         return Result.Success();
     }
 
-    private async Task<Result<(MigrationBatch Batch, List<StagedRow> Rows)>> LoadForRunAsync(Guid batchId, CancellationToken ct)
+    private async Task<Result<(MigrationBatch Batch, List<StagedRow> Rows)>> LoadForRunAsync(long batchId, CancellationToken ct)
     {
         var batch = await _db.MigrationBatches.FirstOrDefaultAsync(b => b.Id == batchId, ct);
 
@@ -438,7 +438,7 @@ public sealed class MigrationHandlers :
     }
 
     private async Task<Result<T>> ReadReportAsync<T>(
-        Guid batchId, Func<MigrationBatch, string?> select, CancellationToken ct)
+        long batchId, Func<MigrationBatch, string?> select, CancellationToken ct)
     {
         var batch = await _db.MigrationBatches.AsNoTracking().FirstOrDefaultAsync(b => b.Id == batchId, ct);
 

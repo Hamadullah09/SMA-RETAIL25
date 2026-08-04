@@ -11,7 +11,7 @@ namespace Retail25.Application.Inventory;
 /// <summary>One row of the stock-levels grid. <c>Id</c> is the product's id — there is no separate
 /// stock-level entity identity, so the row's key is the thing it is a projection of.</summary>
 public sealed record StockLevelRowDto(
-    Guid Id,
+    long Id,
     string StockCode,
     string ProductName,
     decimal OnHand,
@@ -24,7 +24,7 @@ public sealed record StockLevelRowDto(
 
 [RequiresPermission(PermissionKeys.Catalog.Read)]
 public sealed record BrowseStockLevelsQuery(
-    Guid LocationId,
+    long LocationId,
     string? Search = null,
     bool BelowReorderOnly = false,
     string? Cursor = null,
@@ -33,8 +33,8 @@ public sealed record BrowseStockLevelsQuery(
 /// <summary>Manual, item-by-item receipt with no purchase order behind it (guide p.20).</summary>
 [RequiresPermission(PermissionKeys.Inventory.Receive)]
 public sealed record ReceiveStockCommand(
-    Guid ProductId,
-    Guid LocationId,
+    long ProductId,
+    long LocationId,
     decimal Quantity,
     decimal UnitCost) : IRequest<Result<StockLevelRowDto>>;
 
@@ -45,8 +45,8 @@ public sealed record ReceiveStockCommand(
 /// </summary>
 [RequiresPermission(PermissionKeys.Inventory.Adjust)]
 public sealed record AdjustStockCommand(
-    Guid ProductId,
-    Guid LocationId,
+    long ProductId,
+    long LocationId,
     decimal QuantityDelta,
     string Reason) : IRequest<Result<StockLevelRowDto>>;
 
@@ -56,7 +56,7 @@ public sealed record AdjustStockCommand(
 /// yields <see cref="Product.CaseQty"/> units of it.
 /// </summary>
 [RequiresPermission(PermissionKeys.Inventory.Adjust)]
-public sealed record BreakCaseCommand(Guid ParentProductId, Guid LocationId, decimal CasesToBreak) : IRequest<Result>;
+public sealed record BreakCaseCommand(long ParentProductId, long LocationId, decimal CasesToBreak) : IRequest<Result>;
 
 public sealed class InventoryHandlers :
     IRequestHandler<BrowseStockLevelsQuery, CursorPage<StockLevelRowDto>>,
@@ -226,7 +226,7 @@ public sealed class InventoryHandlers :
     }
 
     private async Task WriteMovementAsync(
-        Guid productId, Guid locationId, MovementType type, decimal signedQuantity, decimal unitCost, string? reason, CancellationToken ct)
+        long productId, long locationId, MovementType type, decimal signedQuantity, decimal unitCost, string? reason, CancellationToken ct)
     {
         _db.StockLedgerEntries.Add(new StockLedgerEntry
         {
@@ -252,7 +252,7 @@ public sealed class InventoryHandlers :
         level.OnHand += signedQuantity;
     }
 
-    private async Task<StockLevelRowDto> PublishAndReturnAsync(Product product, Guid locationId, CancellationToken ct)
+    private async Task<StockLevelRowDto> PublishAndReturnAsync(Product product, long locationId, CancellationToken ct)
     {
         var committed = await _db.StockLevels.AsNoTracking()
             .Where(s => s.ProductId == product.Id && s.VariantId == null && s.LocationId == locationId)

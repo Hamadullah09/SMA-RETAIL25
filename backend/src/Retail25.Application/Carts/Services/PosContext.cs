@@ -32,7 +32,7 @@ public sealed record PosContext(
 
     public bool ScanRandomWeightBarcodes => Station.ScanRandomWeightBarcodes ?? Policy.ScanRandomWeightBarcodes;
 
-    public Guid? DefaultTenderTypeId => Station.DefaultTenderTypeId ?? Policy.DefaultTenderTypeId;
+    public long? DefaultTenderTypeId => Station.DefaultTenderTypeId ?? Policy.DefaultTenderTypeId;
 }
 
 /// <summary>
@@ -55,7 +55,7 @@ public sealed class PosContextLoader
         _clock = clock;
     }
 
-    public async Task<Result<PosContext>> LoadAsync(Guid stationId, CancellationToken ct)
+    public async Task<Result<PosContext>> LoadAsync(long stationId, CancellationToken ct)
     {
         var station = await _db.Stations.AsNoTracking().FirstOrDefaultAsync(s => s.Id == stationId, ct);
         if (station is null)

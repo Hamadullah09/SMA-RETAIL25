@@ -11,11 +11,11 @@ public sealed class PurchaseOrderLine : Entity, IAuditable
     {
     }
 
-    public Guid PurchaseOrderId { get; set; }
+    public long PurchaseOrderId { get; set; }
 
-    public Guid ProductId { get; set; }
+    public long ProductId { get; set; }
 
-    public Guid? VariantId { get; set; }
+    public long? VariantId { get; set; }
 
     /// <summary>Order quantity in cases if CaseQty > 1; split cases allowed (guide p.66).</summary>
     public decimal OrderQty { get; set; }
@@ -37,9 +37,9 @@ public sealed class PurchaseOrderLine : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 }

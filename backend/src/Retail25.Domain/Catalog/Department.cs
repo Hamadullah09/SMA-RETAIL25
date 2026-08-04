@@ -12,7 +12,7 @@ public sealed class Department : AggregateRoot, IAuditable, ISoftDeletable
     {
     }
 
-    public Guid LocationId { get; private set; }
+    public long LocationId { get; private set; }
 
     public string Name { get; private set; } = string.Empty;
 
@@ -26,17 +26,17 @@ public sealed class Department : AggregateRoot, IAuditable, ISoftDeletable
 
     public DateTimeOffset? DeletedAt { get; set; }
 
-    public Guid? DeletedBy { get; set; }
+    public long? DeletedBy { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static Result<Department> Create(Guid locationId, string name, string? code = null, int sortOrder = 0)
+    public static Result<Department> Create(long locationId, string name, string? code = null, int sortOrder = 0)
     {
         if (string.IsNullOrWhiteSpace(name))
             return Result.Failure<Department>(new Error("department.name_required", "A department name is required."));

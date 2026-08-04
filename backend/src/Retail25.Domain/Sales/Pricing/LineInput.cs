@@ -11,7 +11,7 @@ namespace Retail25.Domain.Sales.Pricing;
 /// <param name="ManualUnitPrice">Staff price override from the item-detail window (guide p.6).</param>
 /// <param name="EmbeddedPrice">Net price read out of a Type 2 random-weight barcode (guide p.98).</param>
 public sealed record LineInput(
-    Guid LineId,
+    long LineId,
     int Sequence,
     Product Product,
     ProductVariant? Variant,

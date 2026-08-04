@@ -17,7 +17,7 @@ public enum CustomerSort
 }
 
 public sealed record CustomerRowDto(
-    Guid Id,
+    long Id,
     long CustomerNumber,
     string FirstName,
     string LastName,
@@ -39,8 +39,8 @@ public sealed record CustomerRowDto(
 /// the account, and the pricing profile that follows them onto every cart.
 /// </summary>
 public sealed record CustomerFormDto(
-    Guid Id,
-    Guid LocationId,
+    long Id,
+    long LocationId,
     long CustomerNumber,
     string FirstName,
     string LastName,
@@ -72,7 +72,7 @@ public sealed record CustomerFormDto(
 /// </summary>
 [RequiresPermission(PermissionKeys.Customer.Read)]
 public sealed record BrowseCustomersQuery(
-    Guid LocationId,
+    long LocationId,
     string? Search = null,
     string? ClientType = null,
     bool WithBalanceOnly = false,
@@ -83,11 +83,11 @@ public sealed record BrowseCustomersQuery(
     int PageSize = 50) : IRequest<CursorPage<CustomerRowDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Read)]
-public sealed record GetCustomerFormQuery(Guid CustomerId) : IRequest<Result<CustomerFormDto>>;
+public sealed record GetCustomerFormQuery(long CustomerId) : IRequest<Result<CustomerFormDto>>;
 
 /// <summary>The distinct client types in use, for the browse filter and the form's picker.</summary>
 [RequiresPermission(PermissionKeys.Customer.Read)]
-public sealed record ListClientTypesQuery(Guid LocationId) : IRequest<IReadOnlyList<string>>;
+public sealed record ListClientTypesQuery(long LocationId) : IRequest<IReadOnlyList<string>>;
 
 public sealed class CustomerBrowseHandlers
     : IRequestHandler<BrowseCustomersQuery, CursorPage<CustomerRowDto>>,

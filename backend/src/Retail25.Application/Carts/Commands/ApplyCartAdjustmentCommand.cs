@@ -20,7 +20,7 @@ namespace Retail25.Application.Carts.Commands;
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
 public sealed record ApplyCartAdjustmentCommand(
-    Guid CartId,
+    long CartId,
     AdjustmentType Type,
     string Label,
     decimal Amount = 0m,
@@ -28,7 +28,7 @@ public sealed record ApplyCartAdjustmentCommand(
     string? Serial = null) : IRequest<Result<CartDto>>;
 
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record RemoveCartAdjustmentCommand(Guid CartId, Guid AdjustmentId) : IRequest<Result<CartDto>>;
+public sealed record RemoveCartAdjustmentCommand(long CartId, long AdjustmentId) : IRequest<Result<CartDto>>;
 
 public sealed class ApplyCartAdjustmentHandler
     : IRequestHandler<ApplyCartAdjustmentCommand, Result<CartDto>>,

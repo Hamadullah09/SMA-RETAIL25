@@ -29,7 +29,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
 
     public QueryTranslationTests(PostgresFixture postgres) => _postgres = postgres;
 
-    private Guid LocationId => _scope.LocationId;
+    private long LocationId => _scope.LocationId;
 
     public async Task InitializeAsync() => _scope = await ApplicationDbContextScope.CreateAsync(_postgres, "query_translation");
 
@@ -169,7 +169,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
 /// <summary>A migrated database with one seeded location, disposed with the test class.</summary>
 internal sealed class ApplicationDbContextScope : IDisposable
 {
-    private ApplicationDbContextScope(Retail25.Infrastructure.Persistence.ApplicationDbContext db, Guid locationId)
+    private ApplicationDbContextScope(Retail25.Infrastructure.Persistence.ApplicationDbContext db, long locationId)
     {
         Db = db;
         LocationId = locationId;
@@ -177,7 +177,7 @@ internal sealed class ApplicationDbContextScope : IDisposable
 
     public Retail25.Infrastructure.Persistence.ApplicationDbContext Db { get; }
 
-    public Guid LocationId { get; }
+    public long LocationId { get; }
 
     public static async Task<ApplicationDbContextScope> CreateAsync(PostgresFixture postgres, string databaseName)
     {

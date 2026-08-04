@@ -23,9 +23,9 @@ public sealed class Layaway : AggregateRoot, IAuditable
 
     public long LayawayNumber { get; set; }
 
-    public Guid CustomerId { get; set; }
+    public long CustomerId { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public LayawayStatus Status { get; set; } = LayawayStatus.Open;
 
@@ -36,15 +36,15 @@ public sealed class Layaway : AggregateRoot, IAuditable
 
     public DateOnly CreatedOn { get; set; }
 
-    public Guid StaffId { get; set; }
+    public long StaffId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 }
 
 public sealed class LayawayLine : Entity
@@ -53,11 +53,11 @@ public sealed class LayawayLine : Entity
     {
     }
 
-    public Guid LayawayId { get; set; }
+    public long LayawayId { get; set; }
 
-    public Guid ProductId { get; set; }
+    public long ProductId { get; set; }
 
-    public Guid? VariantId { get; set; }
+    public long? VariantId { get; set; }
 
     public decimal Quantity { get; set; }
 
@@ -71,11 +71,11 @@ public sealed class LayawayPayment : Entity
     {
     }
 
-    public Guid LayawayId { get; set; }
+    public long LayawayId { get; set; }
 
     public decimal Amount { get; set; }
 
-    public Guid TenderTypeId { get; set; }
+    public long TenderTypeId { get; set; }
 
     public DateOnly PaidOn { get; set; }
 

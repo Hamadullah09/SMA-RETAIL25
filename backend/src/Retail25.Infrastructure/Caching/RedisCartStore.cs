@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
@@ -38,16 +39,16 @@ public sealed class RedisCartStore : ICartStore
         _logger = logger;
     }
 
-    public async Task<CartSnapshot?> GetAsync(Guid cartId, CancellationToken ct = default)
+    public async Task<CartSnapshot?> GetAsync(long cartId, CancellationToken ct = default)
     {
         var value = await _redis.GetDatabase().StringGetAsync(CartKey(cartId));
         return value.IsNullOrEmpty ? null : Deserialize(value!, cartId);
     }
 
-    public async Task<CartSnapshot?> GetByStationAsync(Guid stationId, CancellationToken ct = default)
+    public async Task<CartSnapshot?> GetByStationAsync(long stationId, CancellationToken ct = default)
     {
         var cartId = await _redis.GetDatabase().StringGetAsync(StationKey(stationId));
-        if (cartId.IsNullOrEmpty || !Guid.TryParse(cartId!, out var id))
+        if (cartId.IsNullOrEmpty || !long.TryParse(cartId!, out var id))
         {
             return null;
         }
@@ -72,7 +73,7 @@ public sealed class RedisCartStore : ICartStore
         // the next customer can start a sale.
         if (snapshot.Cart.IsActive)
         {
-            tasks.Add(batch.StringSetAsync(StationKey(snapshot.Cart.StationId), snapshot.Cart.Id.ToString(), Ttl));
+            tasks.Add(batch.StringSetAsync(StationKey(snapshot.Cart.StationId), snapshot.Cart.Id.ToString(CultureInfo.InvariantCulture), Ttl));
         }
         else
         {
@@ -83,13 +84,13 @@ public sealed class RedisCartStore : ICartStore
         await Task.WhenAll(tasks);
     }
 
-    public async Task RemoveAsync(Guid cartId, Guid stationId, CancellationToken ct = default)
+    public async Task RemoveAsync(long cartId, long stationId, CancellationToken ct = default)
     {
         var db = _redis.GetDatabase();
         await db.KeyDeleteAsync([CartKey(cartId), StationKey(stationId)]);
     }
 
-    private CartSnapshot? Deserialize(string payload, Guid cartId)
+    private CartSnapshot? Deserialize(string payload, long cartId)
     {
         try
         {
@@ -104,7 +105,7 @@ public sealed class RedisCartStore : ICartStore
         }
     }
 
-    private static RedisKey CartKey(Guid cartId) => CartKeyPrefix + cartId.ToString("N");
+    private static RedisKey CartKey(long cartId) => CartKeyPrefix + cartId.ToString(CultureInfo.InvariantCulture);
 
-    private static RedisKey StationKey(Guid stationId) => $"{StationKeyPrefix}{stationId:N}:cart";
+    private static RedisKey StationKey(long stationId) => $"{StationKeyPrefix}{stationId:N}:cart";
 }

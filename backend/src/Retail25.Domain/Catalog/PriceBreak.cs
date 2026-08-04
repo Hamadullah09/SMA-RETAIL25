@@ -12,7 +12,7 @@ public sealed class PriceBreak : Entity
     {
     }
 
-    public Guid ProductId { get; private set; }
+    public long ProductId { get; private set; }
 
     /// <summary>Which price level this break applies to (2–4; level 1 is always the base).</summary>
     public int Level { get; private set; }
@@ -20,7 +20,7 @@ public sealed class PriceBreak : Entity
     /// <summary>Minimum quantity to trigger this price level.</summary>
     public decimal MinQuantity { get; private set; }
 
-    public static Result<PriceBreak> Create(Guid productId, int level, decimal minQuantity)
+    public static Result<PriceBreak> Create(long productId, int level, decimal minQuantity)
     {
         if (level is < 2 or > 4)
             return Result.Failure<PriceBreak>(new Error("break.level_out_of_range", "Break point levels must be between 2 and 4."));

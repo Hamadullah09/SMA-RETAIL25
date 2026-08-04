@@ -25,7 +25,7 @@ public sealed class MigrationPipelineTests
 
     private static string Base64(string content) => Convert.ToBase64String(Encoding.UTF8.GetBytes(content));
 
-    private static async Task<Guid> StageAsync(MastersTestHarness harness, string content, string entity = "Inventory")
+    private static async Task<long> StageAsync(MastersTestHarness harness, string content, string entity = "Inventory")
     {
         var staged = await harness.Migration.Handle(
             new StageMigrationFileCommand(harness.Location.Id, "TSTINV.DBF", entity, Base64(content), IsBase64: true),
@@ -35,7 +35,7 @@ public sealed class MigrationPipelineTests
         return staged.Value.Id;
     }
 
-    private static async Task<Guid> StagedAndValidatedAsync(MastersTestHarness harness, string content)
+    private static async Task<long> StagedAndValidatedAsync(MastersTestHarness harness, string content)
     {
         var id = await StageAsync(harness, content);
         await harness.Migration.Handle(new ValidateMigrationBatchCommand(id), CancellationToken.None);

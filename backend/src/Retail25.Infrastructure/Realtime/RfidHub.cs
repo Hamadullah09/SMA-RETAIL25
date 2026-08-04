@@ -25,23 +25,23 @@ public sealed class RfidHub : Hub
 {
     /// <summary>Watch one till's reader.</summary>
     public Task SubscribeToStation(string stationId)
-        => Guid.TryParse(stationId, out var id)
+        => long.TryParse(stationId, out var id)
             ? Groups.AddToGroupAsync(Context.ConnectionId, RfidGroups.Station(id))
             : Task.CompletedTask;
 
     public Task UnsubscribeFromStation(string stationId)
-        => Guid.TryParse(stationId, out var id)
+        => long.TryParse(stationId, out var id)
             ? Groups.RemoveFromGroupAsync(Context.ConnectionId, RfidGroups.Station(id))
             : Task.CompletedTask;
 
     /// <summary>Watch every reader in a store — what a stock count or a goods-in bench wants.</summary>
     public Task SubscribeToLocation(string locationId)
-        => Guid.TryParse(locationId, out var id)
+        => long.TryParse(locationId, out var id)
             ? Groups.AddToGroupAsync(Context.ConnectionId, RfidGroups.Location(id))
             : Task.CompletedTask;
 
     public Task UnsubscribeFromLocation(string locationId)
-        => Guid.TryParse(locationId, out var id)
+        => long.TryParse(locationId, out var id)
             ? Groups.RemoveFromGroupAsync(Context.ConnectionId, RfidGroups.Location(id))
             : Task.CompletedTask;
 }
@@ -49,9 +49,9 @@ public sealed class RfidHub : Hub
 /// <summary>Group names for the read feed. Prefixed so they cannot collide with <see cref="PosGroups"/>.</summary>
 public static class RfidGroups
 {
-    public static string Station(Guid stationId) => $"rfid:station:{stationId}";
+    public static string Station(long stationId) => $"rfid:station:{stationId}";
 
-    public static string Location(Guid locationId) => $"rfid:location:{locationId}";
+    public static string Location(long locationId) => $"rfid:location:{locationId}";
 }
 
 /// <summary>
@@ -69,8 +69,8 @@ public sealed class RfidNotifier : IRfidNotifier
     public RfidNotifier(IHubContext<RfidHub> hub) => _hub = hub;
 
     public Task TagsObservedAsync(
-        Guid locationId,
-        Guid stationId,
+        long locationId,
+        long stationId,
         IReadOnlyList<ObservedTag> tags,
         CancellationToken ct = default)
     {
@@ -87,8 +87,8 @@ public sealed class RfidNotifier : IRfidNotifier
     }
 
     public Task ReaderStatusAsync(
-        Guid locationId,
-        Guid stationId,
+        long locationId,
+        long stationId,
         RfidReaderStatus status,
         CancellationToken ct = default)
         => _hub.Clients

@@ -26,7 +26,7 @@ public sealed class StaffProfile : Entity, IAuditable
     {
     }
 
-    public Guid UserId { get; set; }
+    public long UserId { get; set; }
 
     /// <summary>Short code shown on screen and printed on receipts, e.g. <c>SK</c>.</summary>
     public string StaffCode { get; set; } = string.Empty;
@@ -52,11 +52,11 @@ public sealed class StaffProfile : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     public string FullName => $"{FirstName} {LastName}".Trim();
 
@@ -64,7 +64,7 @@ public sealed class StaffProfile : Entity, IAuditable
 
     public bool IsPinLocked(DateTimeOffset now) => PinLockedUntil is { } until && now < until;
 
-    public static StaffProfile Create(Guid userId, string staffCode, string firstName, string lastName, int accessLevel)
+    public static StaffProfile Create(long userId, string staffCode, string firstName, string lastName, int accessLevel)
         => new()
         {
             UserId = userId,

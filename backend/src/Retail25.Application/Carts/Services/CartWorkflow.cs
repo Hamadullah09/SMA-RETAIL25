@@ -38,7 +38,7 @@ public sealed class CartWorkflow
     public IDateTime Clock => _clock;
 
     /// <summary>Loads and prices a cart without changing anything. Backs the live totals panel.</summary>
-    public async Task<Result<CartQuote>> QuoteAsync(Guid cartId, CancellationToken ct)
+    public async Task<Result<CartQuote>> QuoteAsync(long cartId, CancellationToken ct)
     {
         var snapshot = await _store.GetAsync(cartId, ct);
         if (snapshot is null)
@@ -61,7 +61,7 @@ public sealed class CartWorkflow
     /// state. A failed mutation is not saved and not broadcast.
     /// </summary>
     public async Task<Result<CartDto>> MutateAsync(
-        Guid cartId,
+        long cartId,
         Func<CartSnapshot, PosContext, CancellationToken, Task<Result>> mutate,
         CancellationToken ct,
         bool requireActive = true)
@@ -95,8 +95,13 @@ public sealed class CartWorkflow
 
         snapshot.Cart.Touch(_clock.Now, context.Policy.AbandonedCartTimeoutMinutes);
 
-        var quote = await _pricing.QuoteAsync(snapshot, context, ct);
+        // Price, save, then render. Pricing must come first because the engine writes its answer
+        // onto the lines and that is what gets persisted; rendering must come last because line ids
+        // are assigned by the database, and a DTO built before the save carries 0 for every new line
+        // — which the till then sends straight back as "remove line 0".
+        var quote = (await _pricing.QuoteAsync(snapshot, context, ct));
         await _store.SaveAsync(snapshot, ct);
+        quote = quote.Reproject();
 
         await _notifier.CartUpdatedAsync(snapshot.Cart.LocationId, snapshot.Cart.Id, quote.Dto, snapshot.Cart.Revision, ct);
         await _notifier.TotalsChangedAsync(snapshot.Cart.LocationId, snapshot.Cart.Id, quote.Dto.Totals, snapshot.Cart.Revision, ct);
@@ -107,8 +112,13 @@ public sealed class CartWorkflow
     /// <summary>Prices, persists and broadcasts a snapshot the caller has already mutated and validated.</summary>
     public async Task<CartDto> PublishAsync(CartSnapshot snapshot, PosContext context, CancellationToken ct)
     {
-        var quote = await _pricing.QuoteAsync(snapshot, context, ct);
+        // Price, save, then render. Pricing must come first because the engine writes its answer
+        // onto the lines and that is what gets persisted; rendering must come last because line ids
+        // are assigned by the database, and a DTO built before the save carries 0 for every new line
+        // — which the till then sends straight back as "remove line 0".
+        var quote = (await _pricing.QuoteAsync(snapshot, context, ct));
         await _store.SaveAsync(snapshot, ct);
+        quote = quote.Reproject();
         await _notifier.CartUpdatedAsync(snapshot.Cart.LocationId, snapshot.Cart.Id, quote.Dto, snapshot.Cart.Revision, ct);
         return quote.Dto;
     }

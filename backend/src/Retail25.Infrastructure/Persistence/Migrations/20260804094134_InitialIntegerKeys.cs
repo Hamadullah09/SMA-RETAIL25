@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Retail25.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialSchema : Migration
+    public partial class InitialIntegerKeys : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -16,9 +16,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "ar_ledger_entries",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    customer_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    invoice_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    customer_id = table.Column<long>(type: "bigint", nullable: false),
+                    invoice_id = table.Column<long>(type: "bigint", nullable: false),
                     entry_type = table.Column<int>(type: "integer", nullable: false),
                     amount = table.Column<decimal>(type: "numeric", nullable: false),
                     occurred_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -33,7 +34,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "AspNetRoles",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     legacy_level = table.Column<int>(type: "integer", nullable: true),
                     description = table.Column<string>(type: "text", nullable: true),
                     name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
@@ -49,10 +51,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "AspNetUsers",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     display_name = table.Column<string>(type: "text", nullable: false),
                     is_enabled = table.Column<bool>(type: "boolean", nullable: false),
-                    default_location_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    default_location_id = table.Column<long>(type: "bigint", nullable: true),
                     last_signed_in_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     user_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     normalized_user_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
@@ -78,14 +81,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "audit_log_entries",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     occurred_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     action = table.Column<string>(type: "character varying(24)", maxLength: 24, nullable: false),
-                    actor_user_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    actor_staff_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    actor_user_id = table.Column<long>(type: "bigint", nullable: true),
+                    actor_staff_id = table.Column<long>(type: "bigint", nullable: true),
                     actor_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    station_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    station_id = table.Column<long>(type: "bigint", nullable: true),
+                    location_id = table.Column<long>(type: "bigint", nullable: true),
                     ip_address = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     entity_type = table.Column<string>(type: "character varying(80)", maxLength: 80, nullable: false),
                     entity_id = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
@@ -93,7 +97,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     before_json = table.Column<string>(type: "jsonb", nullable: true),
                     after_json = table.Column<string>(type: "jsonb", nullable: true),
                     correlation_id = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
-                    approver_staff_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    approver_staff_id = table.Column<long>(type: "bigint", nullable: true),
                     reason = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
@@ -106,8 +110,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "bonus_pricings",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
                     buy_qty = table.Column<decimal>(type: "numeric", nullable: false),
                     free_qty = table.Column<decimal>(type: "numeric", nullable: false),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
@@ -121,8 +126,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "business_profiles",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     business_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     address_line1 = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
                     address_line2 = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
@@ -139,9 +145,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     licence_number = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: true),
                     tax_registration_number = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -153,14 +159,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "cart_adjustments",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    cart_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    cart_id = table.Column<long>(type: "bigint", nullable: false),
                     type = table.Column<string>(type: "character varying(24)", maxLength: 24, nullable: false),
                     label = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: false),
                     amount = table.Column<decimal>(type: "numeric(19,4)", precision: 19, scale: 4, nullable: false),
                     percent = table.Column<decimal>(type: "numeric(7,2)", precision: 7, scale: 2, nullable: false),
                     serial = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
-                    applied_by_staff_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    applied_by_staff_id = table.Column<long>(type: "bigint", nullable: false),
                     applied_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
@@ -173,11 +180,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "cart_lines",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    cart_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    variant_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    serialized_unit_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    cart_id = table.Column<long>(type: "bigint", nullable: false),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    variant_id = table.Column<long>(type: "bigint", nullable: true),
+                    serialized_unit_id = table.Column<long>(type: "bigint", nullable: true),
                     epc = table.Column<string>(type: "text", nullable: true),
                     source = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     quantity = table.Column<decimal>(type: "numeric(18,4)", precision: 18, scale: 4, nullable: false),
@@ -213,12 +221,13 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "cart_tax_overrides",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    cart_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    cart_id = table.Column<long>(type: "bigint", nullable: false),
                     tax1 = table.Column<bool>(type: "boolean", nullable: true),
                     tax2 = table.Column<bool>(type: "boolean", nullable: true),
                     applies_from_sequence = table.Column<int>(type: "integer", nullable: false),
-                    applied_by_staff_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    applied_by_staff_id = table.Column<long>(type: "bigint", nullable: false),
                     applied_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
@@ -231,22 +240,23 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "carts",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    station_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    staff_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    customer_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    station_id = table.Column<long>(type: "bigint", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    staff_id = table.Column<long>(type: "bigint", nullable: false),
+                    customer_id = table.Column<long>(type: "bigint", nullable: true),
                     status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     held_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     suspended_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    suspended_by_staff_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    suspended_by_staff_id = table.Column<long>(type: "bigint", nullable: true),
                     next_line_sequence = table.Column<int>(type: "integer", nullable: false),
                     revision = table.Column<int>(type: "integer", nullable: false),
-                    completed_transaction_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    completed_transaction_id = table.Column<long>(type: "bigint", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     expires_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
@@ -259,19 +269,20 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "categories",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     name = table.Column<string>(type: "text", nullable: false),
                     code = table.Column<string>(type: "text", nullable: true),
                     sort_order = table.Column<int>(type: "integer", nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    deleted_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    deleted_by = table.Column<long>(type: "bigint", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -280,21 +291,52 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "commission_ledger_entries",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    staff_id = table.Column<long>(type: "bigint", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    transaction_id = table.Column<long>(type: "bigint", nullable: false),
+                    sale_line_id = table.Column<long>(type: "bigint", nullable: false),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    stock_code_snapshot = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    department_id = table.Column<long>(type: "bigint", nullable: true),
+                    commission_rule_id = table.Column<long>(type: "bigint", nullable: true),
+                    commission_type = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    rate_applied = table.Column<decimal>(type: "numeric(9,4)", precision: 9, scale: 4, nullable: false),
+                    line_net = table.Column<decimal>(type: "numeric(19,2)", precision: 19, scale: 2, nullable: false),
+                    line_cost = table.Column<decimal>(type: "numeric(19,3)", precision: 19, scale: 3, nullable: false),
+                    quantity = table.Column<decimal>(type: "numeric(18,4)", precision: 18, scale: 4, nullable: false),
+                    amount = table.Column<decimal>(type: "numeric(19,2)", precision: 19, scale: 2, nullable: false),
+                    was_capped = table.Column<bool>(type: "boolean", nullable: false),
+                    business_date = table.Column<DateOnly>(type: "date", nullable: false),
+                    occurred_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_commission_ledger_entries", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "commission_rules",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    staff_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    department_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    commission_type = table.Column<int>(type: "integer", nullable: false),
-                    value = table.Column<decimal>(type: "numeric", nullable: false),
-                    max_commission = table.Column<decimal>(type: "numeric", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    staff_id = table.Column<long>(type: "bigint", nullable: false),
+                    product_id = table.Column<long>(type: "bigint", nullable: true),
+                    department_id = table.Column<long>(type: "bigint", nullable: true),
+                    commission_type = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    value = table.Column<decimal>(type: "numeric(9,4)", precision: 9, scale: 4, nullable: false),
+                    max_commission = table.Column<decimal>(type: "numeric(19,2)", precision: 19, scale: 2, nullable: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -306,7 +348,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "currencies",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     code = table.Column<string>(type: "text", nullable: false),
                     name = table.Column<string>(type: "text", nullable: false),
                     symbol = table.Column<string>(type: "text", nullable: false),
@@ -318,9 +361,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     exchange_rate = table.Column<decimal>(type: "numeric", nullable: false),
                     exchange_rate_updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -332,15 +375,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "customer_accounts",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    customer_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    customer_id = table.Column<long>(type: "bigint", nullable: false),
                     account_number = table.Column<long>(type: "bigint", nullable: false),
                     credit_limit = table.Column<decimal>(type: "numeric", nullable: false),
                     balance_due = table.Column<decimal>(type: "numeric", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -349,20 +393,68 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "customer_order_lines",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    customer_order_id = table.Column<long>(type: "bigint", nullable: false),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    variant_id = table.Column<long>(type: "bigint", nullable: true),
+                    ordered_qty = table.Column<decimal>(type: "numeric", nullable: false),
+                    filled_qty = table.Column<decimal>(type: "numeric", nullable: false),
+                    unit_price = table.Column<decimal>(type: "numeric", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_customer_order_lines", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "customer_orders",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    order_number = table.Column<long>(type: "bigint", nullable: false),
+                    customer_id = table.Column<long>(type: "bigint", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false),
+                    ordered_on = table.Column<DateOnly>(type: "date", nullable: false),
+                    notes = table.Column<string>(type: "text", nullable: true),
+                    staff_id = table.Column<long>(type: "bigint", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_customer_orders", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "customer_pricing_profiles",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    customer_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    customer_id = table.Column<long>(type: "bigint", nullable: false),
                     usual_discount_pct = table.Column<decimal>(type: "numeric", nullable: false),
                     price_level = table.Column<int>(type: "integer", nullable: false),
                     exempt_tax1 = table.Column<bool>(type: "boolean", nullable: false),
                     exempt_tax2 = table.Column<bool>(type: "boolean", nullable: false),
                     reward_points = table.Column<int>(type: "integer", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -374,8 +466,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "customers",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     customer_number = table.Column<long>(type: "bigint", nullable: false),
                     first_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     last_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
@@ -406,11 +499,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     last_mailing_on = table.Column<DateOnly>(type: "date", nullable: true),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    deleted_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    deleted_by = table.Column<long>(type: "bigint", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -419,22 +512,37 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "data_protection_keys",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    friendly_name = table.Column<string>(type: "text", nullable: true),
+                    xml = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_data_protection_keys", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "departments",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     code = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
                     sort_order = table.Column<int>(type: "integer", nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    deleted_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    deleted_by = table.Column<long>(type: "bigint", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -446,13 +554,14 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "drawer_ledger_entries",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    drawer_session_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    drawer_session_id = table.Column<long>(type: "bigint", nullable: false),
                     entry_type = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     amount = table.Column<decimal>(type: "numeric(19,4)", precision: 19, scale: 4, nullable: false),
                     reason = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
-                    transaction_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    staff_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    transaction_id = table.Column<long>(type: "bigint", nullable: true),
+                    staff_id = table.Column<long>(type: "bigint", nullable: false),
                     occurred_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
@@ -465,11 +574,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "drawer_sessions",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    station_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    opened_by_staff_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    closed_by_staff_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    station_id = table.Column<long>(type: "bigint", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    opened_by_staff_id = table.Column<long>(type: "bigint", nullable: false),
+                    closed_by_staff_id = table.Column<long>(type: "bigint", nullable: true),
                     opening_float = table.Column<decimal>(type: "numeric(19,4)", precision: 19, scale: 4, nullable: false),
                     status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     business_date = table.Column<DateOnly>(type: "date", nullable: false),
@@ -486,9 +596,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     cost_of_goods_sold = table.Column<decimal>(type: "numeric(19,4)", precision: 19, scale: 4, nullable: false),
                     transaction_count = table.Column<int>(type: "integer", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -497,21 +607,94 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "gift_certificates",
+                name: "external_entity_maps",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    provider = table.Column<string>(type: "text", nullable: false),
+                    entity_type = table.Column<string>(type: "text", nullable: false),
+                    local_id = table.Column<long>(type: "bigint", nullable: true),
+                    local_key = table.Column<string>(type: "text", nullable: true),
+                    remote_id = table.Column<string>(type: "text", nullable: false),
+                    remote_name = table.Column<string>(type: "text", nullable: true),
+                    last_synced_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    content_hash = table.Column<string>(type: "text", nullable: true),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_external_entity_maps", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "fiscal_years",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    year = table.Column<int>(type: "integer", nullable: false),
+                    starts_on = table.Column<DateOnly>(type: "date", nullable: false),
+                    ends_on = table.Column<DateOnly>(type: "date", nullable: false),
+                    status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    closed_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    closed_by = table.Column<long>(type: "bigint", nullable: true),
+                    archived_rows = table.Column<int>(type: "integer", nullable: false),
+                    archived_net_sales = table.Column<decimal>(type: "numeric(19,2)", precision: 19, scale: 2, nullable: false),
+                    notes = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_fiscal_years", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "gift_cards",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     serial_number = table.Column<string>(type: "text", nullable: false),
                     original_value = table.Column<decimal>(type: "numeric", nullable: false),
                     remaining_value = table.Column<decimal>(type: "numeric", nullable: false),
-                    issued_to_customer_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    issued_to_customer_id = table.Column<long>(type: "bigint", nullable: true),
                     issued_on = table.Column<DateOnly>(type: "date", nullable: false),
                     expires_on = table.Column<DateOnly>(type: "date", nullable: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_gift_cards", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "gift_certificates",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    serial_number = table.Column<string>(type: "text", nullable: false),
+                    original_value = table.Column<decimal>(type: "numeric", nullable: false),
+                    remaining_value = table.Column<decimal>(type: "numeric", nullable: false),
+                    issued_to_customer_id = table.Column<long>(type: "bigint", nullable: true),
+                    issued_on = table.Column<DateOnly>(type: "date", nullable: false),
+                    expires_on = table.Column<DateOnly>(type: "date", nullable: true),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -523,18 +706,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "invoice_payments",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    invoice_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    invoice_id = table.Column<long>(type: "bigint", nullable: false),
                     amount = table.Column<decimal>(type: "numeric", nullable: false),
                     applied_to_penalty = table.Column<decimal>(type: "numeric", nullable: false),
                     applied_to_principal = table.Column<decimal>(type: "numeric", nullable: false),
-                    tender_type_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    tender_type_id = table.Column<long>(type: "bigint", nullable: false),
                     paid_on = table.Column<DateOnly>(type: "date", nullable: false),
                     was_distributed = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -546,10 +730,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "invoices",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     invoice_number = table.Column<long>(type: "bigint", nullable: false),
-                    customer_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    transaction_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    customer_id = table.Column<long>(type: "bigint", nullable: false),
+                    transaction_id = table.Column<long>(type: "bigint", nullable: false),
                     issued_on = table.Column<DateOnly>(type: "date", nullable: false),
                     due_on = table.Column<DateOnly>(type: "date", nullable: false),
                     invoice_total = table.Column<decimal>(type: "numeric(19,4)", precision: 19, scale: 4, nullable: false),
@@ -557,11 +742,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     balance_due = table.Column<decimal>(type: "numeric(19,4)", precision: 19, scale: 4, nullable: false),
                     last_payment_on = table.Column<DateOnly>(type: "date", nullable: true),
                     status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    staff_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    staff_id = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -573,9 +758,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "kit_components",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    kit_product_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    component_product_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    kit_product_id = table.Column<long>(type: "bigint", nullable: false),
+                    component_product_id = table.Column<long>(type: "bigint", nullable: false),
                     quantity = table.Column<decimal>(type: "numeric", nullable: false),
                     reduce_stock = table.Column<bool>(type: "boolean", nullable: false),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
@@ -589,15 +775,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "late_charge_policies",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     monthly_rate = table.Column<decimal>(type: "numeric", nullable: false),
                     grace_period_days = table.Column<int>(type: "integer", nullable: false),
                     is_enabled = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -606,10 +793,72 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "layaway_lines",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    layaway_id = table.Column<long>(type: "bigint", nullable: false),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    variant_id = table.Column<long>(type: "bigint", nullable: true),
+                    quantity = table.Column<decimal>(type: "numeric", nullable: false),
+                    unit_price = table.Column<decimal>(type: "numeric", nullable: false),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_layaway_lines", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "layaway_payments",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    layaway_id = table.Column<long>(type: "bigint", nullable: false),
+                    amount = table.Column<decimal>(type: "numeric", nullable: false),
+                    tender_type_id = table.Column<long>(type: "bigint", nullable: false),
+                    paid_on = table.Column<DateOnly>(type: "date", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_layaway_payments", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "layaways",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    layaway_number = table.Column<long>(type: "bigint", nullable: false),
+                    customer_id = table.Column<long>(type: "bigint", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false),
+                    total = table.Column<decimal>(type: "numeric", nullable: false),
+                    amount_paid = table.Column<decimal>(type: "numeric", nullable: false),
+                    created_on = table.Column<DateOnly>(type: "date", nullable: false),
+                    staff_id = table.Column<long>(type: "bigint", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_layaways", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "locations",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     legacy_code = table.Column<string>(type: "character varying(3)", maxLength: 3, nullable: false),
                     address_line1 = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
@@ -630,11 +879,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    deleted_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    deleted_by = table.Column<long>(type: "bigint", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -646,9 +895,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "loyalty_ledger_entries",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    customer_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    transaction_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    customer_id = table.Column<long>(type: "bigint", nullable: false),
+                    transaction_id = table.Column<long>(type: "bigint", nullable: true),
                     entry_type = table.Column<int>(type: "integer", nullable: false),
                     points = table.Column<int>(type: "integer", nullable: false),
                     occurred_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
@@ -663,8 +913,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "loyalty_policies",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     is_enabled = table.Column<bool>(type: "boolean", nullable: false),
                     points_per_dollar = table.Column<decimal>(type: "numeric", nullable: false),
                     minimum_required = table.Column<int>(type: "integer", nullable: false),
@@ -674,9 +925,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     reward_fixed_amount = table.Column<decimal>(type: "numeric", nullable: false),
                     suppress_if_subtotal_discount_applied = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -688,8 +939,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "matrix_dimensions",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
                     position = table.Column<int>(type: "integer", nullable: false),
                     name = table.Column<string>(type: "text", nullable: false),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
@@ -700,20 +952,77 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "migration_batches",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    source_file_name = table.Column<string>(type: "character varying(260)", maxLength: 260, nullable: false),
+                    entity = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    source_hash = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: false),
+                    stage = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    rows_staged = table.Column<int>(type: "integer", nullable: false),
+                    rows_deleted_in_source = table.Column<int>(type: "integer", nullable: false),
+                    blocking_errors = table.Column<int>(type: "integer", nullable: false),
+                    warnings = table.Column<int>(type: "integer", nullable: false),
+                    rows_imported = table.Column<int>(type: "integer", nullable: false),
+                    rows_skipped = table.Column<int>(type: "integer", nullable: false),
+                    analysis_json = table.Column<string>(type: "jsonb", nullable: true),
+                    validation_json = table.Column<string>(type: "jsonb", nullable: true),
+                    reconciliation_json = table.Column<string>(type: "jsonb", nullable: true),
+                    validated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    dry_run_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    imported_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    notes = table.Column<string>(type: "character varying(1000)", maxLength: 1000, nullable: true),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_migration_batches", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "migration_staging_rows",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    batch_id = table.Column<long>(type: "bigint", nullable: false),
+                    row_number = table.Column<int>(type: "integer", nullable: false),
+                    payload_json = table.Column<string>(type: "jsonb", nullable: false),
+                    is_deleted_in_source = table.Column<bool>(type: "boolean", nullable: false),
+                    legacy_key = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: true),
+                    is_valid = table.Column<bool>(type: "boolean", nullable: true),
+                    problems = table.Column<string>(type: "character varying(2000)", maxLength: 2000, nullable: true),
+                    outcome = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_migration_staging_rows", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "number_sequences",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     kind = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     prefix = table.Column<string>(type: "character varying(10)", maxLength: 10, nullable: false),
                     pad_width = table.Column<int>(type: "integer", nullable: false),
                     next_number = table.Column<long>(type: "bigint", nullable: false),
                     high_water_mark = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -725,7 +1034,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "OpenIddictApplications",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     application_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     client_id = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     client_secret = table.Column<string>(type: "text", nullable: true),
@@ -751,7 +1061,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "OpenIddictScopes",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     concurrency_token = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     description = table.Column<string>(type: "text", nullable: true),
                     descriptions = table.Column<string>(type: "text", nullable: true),
@@ -770,7 +1081,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "permissions",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     key = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     description = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     group = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
@@ -786,9 +1098,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "pole_display_profiles",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    station_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    station_id = table.Column<long>(type: "bigint", nullable: true),
                     name = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     port = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     baud_rate = table.Column<int>(type: "integer", nullable: false),
@@ -801,9 +1114,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     line2command = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -815,8 +1128,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "pos_policies",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     apply_tax1 = table.Column<bool>(type: "boolean", nullable: false),
                     apply_tax2 = table.Column<bool>(type: "boolean", nullable: false),
                     allow_tax_override = table.Column<bool>(type: "boolean", nullable: false),
@@ -833,12 +1147,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     print_credit_card_signature_line = table.Column<bool>(type: "boolean", nullable: false),
                     print_client_name_on_sales_slip = table.Column<bool>(type: "boolean", nullable: false),
                     carry_over_city_state_zip = table.Column<bool>(type: "boolean", nullable: false),
-                    default_tender_type_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    default_tender_type_id = table.Column<long>(type: "bigint", nullable: true),
                     abandoned_cart_timeout_minutes = table.Column<int>(type: "integer", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -850,8 +1164,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "price_breaks",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
                     level = table.Column<int>(type: "integer", nullable: false),
                     min_quantity = table.Column<decimal>(type: "numeric", nullable: false),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
@@ -862,19 +1177,63 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "price_quote_lines",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    price_quote_id = table.Column<long>(type: "bigint", nullable: false),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    variant_id = table.Column<long>(type: "bigint", nullable: true),
+                    quantity = table.Column<decimal>(type: "numeric", nullable: false),
+                    unit_price = table.Column<decimal>(type: "numeric", nullable: false),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_price_quote_lines", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "price_quotes",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    quote_number = table.Column<long>(type: "bigint", nullable: false),
+                    customer_id = table.Column<long>(type: "bigint", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    status = table.Column<int>(type: "integer", nullable: false),
+                    issued_on = table.Column<DateOnly>(type: "date", nullable: false),
+                    expires_on = table.Column<DateOnly>(type: "date", nullable: true),
+                    total = table.Column<decimal>(type: "numeric", nullable: false),
+                    staff_id = table.Column<long>(type: "bigint", nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_price_quotes", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "pricing_rule_settings",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     rule_key = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
                     order = table.Column<int>(type: "integer", nullable: false),
                     enabled = table.Column<bool>(type: "boolean", nullable: false),
                     parameters_json = table.Column<string>(type: "jsonb", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -886,9 +1245,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "printer_profiles",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    station_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    station_id = table.Column<long>(type: "bigint", nullable: true),
                     name = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     setup_command = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: true),
                     cutter_command = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: true),
@@ -906,9 +1266,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     open_drawer_on_print = table.Column<bool>(type: "boolean", nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -920,8 +1280,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "product_prices",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
                     level = table.Column<int>(type: "integer", nullable: false),
                     price = table.Column<decimal>(type: "numeric", nullable: false),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
@@ -935,18 +1296,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "product_suppliers",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    supplier_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    supplier_id = table.Column<long>(type: "bigint", nullable: false),
                     rank = table.Column<int>(type: "integer", nullable: false),
                     cost = table.Column<decimal>(type: "numeric", nullable: false),
                     reorder_number = table.Column<string>(type: "text", nullable: true),
                     case_qty = table.Column<decimal>(type: "numeric", nullable: false),
                     minimum_order_qty = table.Column<decimal>(type: "numeric", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -958,8 +1320,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "product_variants",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
                     dim1value = table.Column<string>(type: "text", nullable: false),
                     dim2value = table.Column<string>(type: "text", nullable: true),
                     dim3value = table.Column<string>(type: "text", nullable: true),
@@ -968,9 +1331,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     on_hand = table.Column<decimal>(type: "numeric", nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -982,8 +1345,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "products",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     stock_code = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
                     name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     description = table.Column<string>(type: "text", nullable: true),
@@ -1006,18 +1370,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     pos_message = table.Column<string>(type: "text", nullable: true),
                     invoice_message = table.Column<string>(type: "text", nullable: true),
                     notes = table.Column<string>(type: "text", nullable: true),
-                    department_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    category_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    substitute_product_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    tag_along_product_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    parent_product_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    has_image = table.Column<bool>(type: "boolean", nullable: false),
+                    department_id = table.Column<long>(type: "bigint", nullable: true),
+                    category_id = table.Column<long>(type: "bigint", nullable: true),
+                    substitute_product_id = table.Column<long>(type: "bigint", nullable: true),
+                    tag_along_product_id = table.Column<long>(type: "bigint", nullable: true),
+                    parent_product_id = table.Column<long>(type: "bigint", nullable: true),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    deleted_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    deleted_by = table.Column<long>(type: "bigint", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1029,10 +1394,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "purchase_order_lines",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    purchase_order_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    variant_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    purchase_order_id = table.Column<long>(type: "bigint", nullable: false),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    variant_id = table.Column<long>(type: "bigint", nullable: true),
                     order_qty = table.Column<decimal>(type: "numeric", nullable: false),
                     case_qty = table.Column<decimal>(type: "numeric", nullable: false),
                     cost_each = table.Column<decimal>(type: "numeric", nullable: false),
@@ -1042,9 +1408,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     on_order_at_generation = table.Column<decimal>(type: "numeric", nullable: false),
                     back_orders = table.Column<decimal>(type: "numeric", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1056,15 +1422,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "purchase_order_receipts",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    purchase_order_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    purchase_order_id = table.Column<long>(type: "bigint", nullable: false),
                     received_on = table.Column<DateOnly>(type: "date", nullable: false),
                     freight_total = table.Column<decimal>(type: "numeric", nullable: false),
-                    staff_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    staff_id = table.Column<long>(type: "bigint", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1076,10 +1443,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "purchase_orders",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     po_number = table.Column<long>(type: "bigint", nullable: false),
-                    supplier_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    supplier_id = table.Column<long>(type: "bigint", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     status = table.Column<int>(type: "integer", nullable: false),
                     quantity_strategy = table.Column<int>(type: "integer", nullable: false),
                     header_text = table.Column<string>(type: "text", nullable: true),
@@ -1088,9 +1456,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     total = table.Column<decimal>(type: "numeric", nullable: false),
                     accounting_bill_ref = table.Column<string>(type: "text", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1102,9 +1470,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "reader_profiles",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    station_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    station_id = table.Column<long>(type: "bigint", nullable: true),
                     name = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     host = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: false),
                     port = table.Column<int>(type: "integer", nullable: false),
@@ -1118,11 +1487,21 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     max_batch_size = table.Column<int>(type: "integer", nullable: false),
                     auto_accept_batches = table.Column<bool>(type: "boolean", nullable: false),
                     continuous_mode = table.Column<bool>(type: "boolean", nullable: false),
+                    output_power_dbm = table.Column<string>(type: "text", nullable: false),
+                    region = table.Column<int>(type: "integer", nullable: false),
+                    frequency_start_index = table.Column<int>(type: "integer", nullable: false),
+                    frequency_end_index = table.Column<int>(type: "integer", nullable: false),
+                    link_profile = table.Column<int>(type: "integer", nullable: false),
+                    beeper = table.Column<int>(type: "integer", nullable: false),
+                    antenna_return_loss_threshold_db = table.Column<int>(type: "integer", nullable: false),
+                    impinj_fast_tid = table.Column<bool>(type: "boolean", nullable: false),
+                    dense_reader_mode = table.Column<bool>(type: "boolean", nullable: false),
+                    device_address = table.Column<int>(type: "integer", nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1134,8 +1513,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "role_permissions",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    role_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    role_id = table.Column<long>(type: "bigint", nullable: false),
                     permission_key = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
@@ -1148,8 +1528,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "sale_adjustments",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    transaction_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    transaction_id = table.Column<long>(type: "bigint", nullable: false),
                     type = table.Column<string>(type: "character varying(24)", maxLength: 24, nullable: false),
                     label = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: false),
                     amount = table.Column<decimal>(type: "numeric(19,4)", precision: 19, scale: 4, nullable: false),
@@ -1165,12 +1546,13 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "sale_lines",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    transaction_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    transaction_id = table.Column<long>(type: "bigint", nullable: false),
                     sequence = table.Column<int>(type: "integer", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    variant_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    serialized_unit_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    variant_id = table.Column<long>(type: "bigint", nullable: true),
+                    serialized_unit_id = table.Column<long>(type: "bigint", nullable: true),
                     epc = table.Column<string>(type: "character varying(96)", maxLength: 96, nullable: true),
                     serial_number = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     stock_code_snapshot = table.Column<string>(type: "character varying(24)", maxLength: 24, nullable: true),
@@ -1203,8 +1585,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "sale_pricings",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
                     discount_pct = table.Column<decimal>(type: "numeric", nullable: false),
                     starts_on = table.Column<DateOnly>(type: "date", nullable: false),
                     ends_on = table.Column<DateOnly>(type: "date", nullable: false),
@@ -1219,8 +1602,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "sale_tax_snapshots",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    transaction_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    transaction_id = table.Column<long>(type: "bigint", nullable: false),
                     tax1name = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
                     tax1rate = table.Column<decimal>(type: "numeric(9,4)", precision: 9, scale: 4, nullable: false),
                     tax2name = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
@@ -1242,14 +1626,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "sale_tenders",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    transaction_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    tender_type_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    transaction_id = table.Column<long>(type: "bigint", nullable: false),
+                    tender_type_id = table.Column<long>(type: "bigint", nullable: false),
                     behaviour = table.Column<string>(type: "character varying(24)", maxLength: 24, nullable: false),
                     amount = table.Column<decimal>(type: "numeric(19,4)", precision: 19, scale: 4, nullable: false),
                     amount_tendered = table.Column<decimal>(type: "numeric(19,4)", precision: 19, scale: 4, nullable: false),
                     change_given = table.Column<decimal>(type: "numeric(19,4)", precision: 19, scale: 4, nullable: false),
-                    currency_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    currency_id = table.Column<long>(type: "bigint", nullable: true),
                     exchange_rate = table.Column<decimal>(type: "numeric(18,8)", precision: 18, scale: 8, nullable: false),
                     reference = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     auth_code = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
@@ -1263,16 +1648,43 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "sales_history_archives",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    fiscal_year_id = table.Column<long>(type: "bigint", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    year = table.Column<int>(type: "integer", nullable: false),
+                    month = table.Column<int>(type: "integer", nullable: false),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    stock_code_snapshot = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    name_snapshot = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    department_id = table.Column<long>(type: "bigint", nullable: true),
+                    quantity_sold = table.Column<decimal>(type: "numeric(18,4)", precision: 18, scale: 4, nullable: false),
+                    net_sales = table.Column<decimal>(type: "numeric(19,2)", precision: 19, scale: 2, nullable: false),
+                    cost_of_goods_sold = table.Column<decimal>(type: "numeric(19,3)", precision: 19, scale: 3, nullable: false),
+                    transaction_count = table.Column<int>(type: "integer", nullable: false),
+                    archived_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_sales_history_archives", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "sales_transactions",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     transaction_number = table.Column<long>(type: "bigint", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    station_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    staff_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    customer_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    drawer_session_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    station_id = table.Column<long>(type: "bigint", nullable: false),
+                    staff_id = table.Column<long>(type: "bigint", nullable: false),
+                    customer_id = table.Column<long>(type: "bigint", nullable: true),
+                    drawer_session_id = table.Column<long>(type: "bigint", nullable: true),
                     business_date = table.Column<DateOnly>(type: "date", nullable: false),
                     subtotal = table.Column<decimal>(type: "numeric(19,4)", precision: 19, scale: 4, nullable: false),
                     discount_total = table.Column<decimal>(type: "numeric(19,4)", precision: 19, scale: 4, nullable: false),
@@ -1286,17 +1698,18 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     loyalty_points_earned = table.Column<int>(type: "integer", nullable: false),
                     loyalty_points_redeemed = table.Column<int>(type: "integer", nullable: false),
                     status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    voided_by_transaction_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    reverses_transaction_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    is_training = table.Column<bool>(type: "boolean", nullable: false),
+                    voided_by_transaction_id = table.Column<long>(type: "bigint", nullable: true),
+                    reverses_transaction_id = table.Column<long>(type: "bigint", nullable: true),
                     void_reason = table.Column<string>(type: "text", nullable: true),
-                    void_approved_by_staff_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    invoice_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    void_approved_by_staff_id = table.Column<long>(type: "bigint", nullable: true),
+                    invoice_id = table.Column<long>(type: "bigint", nullable: true),
                     reprint_count = table.Column<int>(type: "integer", nullable: false),
                     completed_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1308,9 +1721,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "scale_profiles",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    station_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    station_id = table.Column<long>(type: "bigint", nullable: true),
                     name = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     port = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     baud_rate = table.Column<int>(type: "integer", nullable: false),
@@ -1323,9 +1737,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     timeout_ms = table.Column<int>(type: "integer", nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1337,19 +1751,20 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "serialized_units",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    variant_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    variant_id = table.Column<long>(type: "bigint", nullable: true),
                     serial_number = table.Column<string>(type: "character varying(64)", maxLength: 64, nullable: true),
                     epc = table.Column<string>(type: "character varying(96)", maxLength: 96, nullable: true),
                     state = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     received_on = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     last_seen_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1361,8 +1776,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "staff_profiles",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    user_id = table.Column<long>(type: "bigint", nullable: false),
                     staff_code = table.Column<string>(type: "character varying(8)", maxLength: 8, nullable: false),
                     first_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
                     last_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
@@ -1372,9 +1788,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     access_level = table.Column<int>(type: "integer", nullable: false),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1386,28 +1802,29 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "stations",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     station_code = table.Column<string>(type: "character varying(3)", maxLength: 3, nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     fast_scan_mode = table.Column<bool>(type: "boolean", nullable: true),
                     auto_save_sales = table.Column<bool>(type: "boolean", nullable: true),
                     confirm_before_saving = table.Column<bool>(type: "boolean", nullable: true),
                     scan_random_weight_barcodes = table.Column<bool>(type: "boolean", nullable: true),
-                    default_tender_type_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    printer_profile_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    reader_profile_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    scale_profile_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    pole_display_profile_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    default_tender_type_id = table.Column<long>(type: "bigint", nullable: true),
+                    printer_profile_id = table.Column<long>(type: "bigint", nullable: true),
+                    reader_profile_id = table.Column<long>(type: "bigint", nullable: true),
+                    scale_profile_id = table.Column<long>(type: "bigint", nullable: true),
+                    pole_display_profile_id = table.Column<long>(type: "bigint", nullable: true),
                     reader_mode = table.Column<string>(type: "character varying(16)", maxLength: 16, nullable: false),
                     agent_version = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: true),
                     last_heartbeat = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     agent_token_hash = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: true),
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1416,17 +1833,47 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "stock_count_lines",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    stock_count_id = table.Column<long>(type: "bigint", nullable: false),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    variant_id = table.Column<long>(type: "bigint", nullable: true),
+                    stock_code = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    product_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    counted_qty = table.Column<decimal>(type: "numeric(18,4)", precision: 18, scale: 4, nullable: false),
+                    system_qty_at_count = table.Column<decimal>(type: "numeric(18,4)", precision: 18, scale: 4, nullable: false),
+                    unit_cost = table.Column<decimal>(type: "numeric(19,3)", precision: 19, scale: 3, nullable: false),
+                    notes = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_stock_count_lines", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "stock_counts",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    status = table.Column<int>(type: "integer", nullable: false),
-                    notes = table.Column<string>(type: "text", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    count_number = table.Column<long>(type: "bigint", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
+                    status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    notes = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    department_id = table.Column<long>(type: "bigint", nullable: true),
+                    posted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1438,18 +1885,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "stock_ledger_entries",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    variant_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    variant_id = table.Column<long>(type: "bigint", nullable: true),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     movement_type = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     quantity = table.Column<decimal>(type: "numeric(18,4)", precision: 18, scale: 4, nullable: false),
                     unit_cost = table.Column<decimal>(type: "numeric(19,3)", precision: 19, scale: 3, nullable: false),
                     reference_type = table.Column<string>(type: "text", nullable: true),
-                    reference_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    reference_id = table.Column<long>(type: "bigint", nullable: true),
                     reason = table.Column<string>(type: "text", nullable: true),
                     occurred_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    staff_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    staff_id = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1461,10 +1909,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "stock_levels",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    product_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    variant_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    variant_id = table.Column<long>(type: "bigint", nullable: true),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     on_hand = table.Column<decimal>(type: "numeric(18,4)", precision: 18, scale: 4, nullable: false),
                     on_order = table.Column<decimal>(type: "numeric(18,4)", precision: 18, scale: 4, nullable: false),
                     committed = table.Column<decimal>(type: "numeric(18,4)", precision: 18, scale: 4, nullable: false),
@@ -1477,18 +1926,47 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "stock_transfer_lines",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    stock_transfer_id = table.Column<long>(type: "bigint", nullable: false),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    variant_id = table.Column<long>(type: "bigint", nullable: true),
+                    stock_code = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    product_name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    quantity = table.Column<decimal>(type: "numeric(18,4)", precision: 18, scale: 4, nullable: false),
+                    quantity_received = table.Column<decimal>(type: "numeric(18,4)", precision: 18, scale: 4, nullable: false),
+                    unit_cost = table.Column<decimal>(type: "numeric(19,3)", precision: 19, scale: 3, nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_stock_transfer_lines", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "stock_transfers",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    from_location_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    to_location_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    status = table.Column<int>(type: "integer", nullable: false),
-                    notes = table.Column<string>(type: "text", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    transfer_number = table.Column<long>(type: "bigint", nullable: false),
+                    from_location_id = table.Column<long>(type: "bigint", nullable: false),
+                    to_location_id = table.Column<long>(type: "bigint", nullable: false),
+                    status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    notes = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    shipped_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    received_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1500,15 +1978,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "supervisor_approvals",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     permission = table.Column<string>(type: "character varying(60)", maxLength: 60, nullable: false),
                     action = table.Column<string>(type: "character varying(120)", maxLength: 120, nullable: false),
                     context = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    requested_by_staff_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    station_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    requested_by_staff_id = table.Column<long>(type: "bigint", nullable: false),
+                    station_id = table.Column<long>(type: "bigint", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     status = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    approved_by_staff_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    approved_by_staff_id = table.Column<long>(type: "bigint", nullable: true),
                     requested_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     expires_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     answered_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
@@ -1525,8 +2004,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "suppliers",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     supplier_number = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     company = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
                     contact_first_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
@@ -1546,11 +2026,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     contact_website = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    deleted_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    deleted_by = table.Column<long>(type: "bigint", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1559,11 +2039,35 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "sync_logs",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    provider = table.Column<string>(type: "text", nullable: false),
+                    direction = table.Column<int>(type: "integer", nullable: false),
+                    entity = table.Column<string>(type: "text", nullable: false),
+                    request_payload = table.Column<string>(type: "text", nullable: true),
+                    response_payload = table.Column<string>(type: "text", nullable: true),
+                    status = table.Column<int>(type: "integer", nullable: false),
+                    error_message = table.Column<string>(type: "text", nullable: true),
+                    record_count = table.Column<int>(type: "integer", nullable: false),
+                    occurred_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    duration_ms = table.Column<long>(type: "bigint", nullable: false),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_sync_logs", x => x.id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "tax_configurations",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     effective_from = table.Column<DateOnly>(type: "date", nullable: false),
                     effective_to = table.Column<DateOnly>(type: "date", nullable: true),
                     tax1enabled = table.Column<bool>(type: "boolean", nullable: false),
@@ -1580,9 +2084,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     taxation_type = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
                     registration_number = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1594,7 +2098,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "tender_types",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     code = table.Column<string>(type: "text", nullable: false),
                     display_name = table.Column<string>(type: "text", nullable: false),
                     behaviour = table.Column<int>(type: "integer", nullable: false),
@@ -1612,11 +2117,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     is_active = table.Column<bool>(type: "boolean", nullable: false),
                     is_deleted = table.Column<bool>(type: "boolean", nullable: false),
                     deleted_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    deleted_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    deleted_by = table.Column<long>(type: "bigint", nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1628,16 +2133,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "time_clock_entries",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    staff_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    location_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    staff_id = table.Column<long>(type: "bigint", nullable: false),
+                    location_id = table.Column<long>(type: "bigint", nullable: false),
                     clock_in = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
                     clock_out = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    hours_worked = table.Column<decimal>(type: "numeric", nullable: true),
+                    hours_worked = table.Column<decimal>(type: "numeric(9,4)", precision: 9, scale: 4, nullable: true),
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
-                    created_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
                     modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
-                    modified_by = table.Column<Guid>(type: "uuid", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
                     row_version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -1651,7 +2157,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    role_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    role_id = table.Column<long>(type: "bigint", nullable: false),
                     claim_type = table.Column<string>(type: "text", nullable: true),
                     claim_value = table.Column<string>(type: "text", nullable: true)
                 },
@@ -1672,7 +2178,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    user_id = table.Column<long>(type: "bigint", nullable: false),
                     claim_type = table.Column<string>(type: "text", nullable: true),
                     claim_value = table.Column<string>(type: "text", nullable: true)
                 },
@@ -1694,7 +2200,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     login_provider = table.Column<string>(type: "text", nullable: false),
                     provider_key = table.Column<string>(type: "text", nullable: false),
                     provider_display_name = table.Column<string>(type: "text", nullable: true),
-                    user_id = table.Column<Guid>(type: "uuid", nullable: false)
+                    user_id = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -1711,8 +2217,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "AspNetUserRoles",
                 columns: table => new
                 {
-                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
-                    role_id = table.Column<Guid>(type: "uuid", nullable: false)
+                    user_id = table.Column<long>(type: "bigint", nullable: false),
+                    role_id = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -1735,7 +2241,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "AspNetUserTokens",
                 columns: table => new
                 {
-                    user_id = table.Column<Guid>(type: "uuid", nullable: false),
+                    user_id = table.Column<long>(type: "bigint", nullable: false),
                     login_provider = table.Column<string>(type: "text", nullable: false),
                     name = table.Column<string>(type: "text", nullable: false),
                     value = table.Column<string>(type: "text", nullable: true)
@@ -1755,8 +2261,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "OpenIddictAuthorizations",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    application_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    application_id = table.Column<long>(type: "bigint", nullable: true),
                     concurrency_token = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     creation_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     properties = table.Column<string>(type: "text", nullable: true),
@@ -1776,12 +2283,40 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "product_images",
+                columns: table => new
+                {
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    product_id = table.Column<long>(type: "bigint", nullable: false),
+                    content = table.Column<byte[]>(type: "bytea", nullable: false),
+                    content_type = table.Column<string>(type: "character varying(40)", maxLength: 40, nullable: false),
+                    e_tag = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false),
+                    created_by = table.Column<long>(type: "bigint", nullable: true),
+                    modified_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    modified_by = table.Column<long>(type: "bigint", nullable: true),
+                    row_version = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_product_images", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_product_images_products_product_id",
+                        column: x => x.product_id,
+                        principalTable: "products",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "OpenIddictTokens",
                 columns: table => new
                 {
-                    id = table.Column<Guid>(type: "uuid", nullable: false),
-                    application_id = table.Column<Guid>(type: "uuid", nullable: true),
-                    authorization_id = table.Column<Guid>(type: "uuid", nullable: true),
+                    id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    application_id = table.Column<long>(type: "bigint", nullable: true),
+                    authorization_id = table.Column<long>(type: "bigint", nullable: true),
                     concurrency_token = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     creation_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     expiration_date = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
@@ -1894,6 +2429,32 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 filter: "status = 'Active'");
 
             migrationBuilder.CreateIndex(
+                name: "ix_commission_ledger_entries_location_id_business_date",
+                table: "commission_ledger_entries",
+                columns: new[] { "location_id", "business_date" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_commission_ledger_entries_staff_id_business_date",
+                table: "commission_ledger_entries",
+                columns: new[] { "staff_id", "business_date" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_commission_ledger_entries_transaction_id",
+                table: "commission_ledger_entries",
+                column: "transaction_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_commission_rules_staff_id",
+                table: "commission_rules",
+                column: "staff_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_commission_rules_staff_id_product_id_department_id",
+                table: "commission_rules",
+                columns: new[] { "staff_id", "product_id", "department_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "ix_customers_location_id_customer_number",
                 table: "customers",
                 columns: new[] { "location_id", "customer_number" },
@@ -1917,6 +2478,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 filter: "status = 'Open'");
 
             migrationBuilder.CreateIndex(
+                name: "ix_fiscal_years_location_id_starts_on",
+                table: "fiscal_years",
+                columns: new[] { "location_id", "starts_on" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_fiscal_years_location_id_year",
+                table: "fiscal_years",
+                columns: new[] { "location_id", "year" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "ix_invoices_customer_id_status",
                 table: "invoices",
                 columns: new[] { "customer_id", "status" },
@@ -1932,6 +2504,26 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 table: "locations",
                 column: "legacy_code",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_migration_batches_location_id_stage",
+                table: "migration_batches",
+                columns: new[] { "location_id", "stage" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_migration_batches_source_hash",
+                table: "migration_batches",
+                column: "source_hash");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_migration_staging_rows_batch_id_legacy_key",
+                table: "migration_staging_rows",
+                columns: new[] { "batch_id", "legacy_key" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_migration_staging_rows_batch_id_row_number",
+                table: "migration_staging_rows",
+                columns: new[] { "batch_id", "row_number" });
 
             migrationBuilder.CreateIndex(
                 name: "ix_number_sequences_location_id_kind",
@@ -1995,6 +2587,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 columns: new[] { "location_id", "station_id" });
 
             migrationBuilder.CreateIndex(
+                name: "ix_product_images_product_id",
+                table: "product_images",
+                column: "product_id",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "ix_products_location_id_stock_code",
                 table: "products",
                 columns: new[] { "location_id", "stock_code" },
@@ -2037,6 +2635,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "ix_sale_tenders_transaction_id",
                 table: "sale_tenders",
                 column: "transaction_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_sales_history_archives_fiscal_year_id",
+                table: "sales_history_archives",
+                column: "fiscal_year_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_sales_history_archives_location_id_year_month_product_id",
+                table: "sales_history_archives",
+                columns: new[] { "location_id", "year", "month", "product_id" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "ix_sales_transactions_location_id_completed_at",
@@ -2084,6 +2693,28 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "ix_stock_count_lines_stock_count_id",
+                table: "stock_count_lines",
+                column: "stock_count_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_stock_count_lines_stock_count_id_product_id_variant_id",
+                table: "stock_count_lines",
+                columns: new[] { "stock_count_id", "product_id", "variant_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_stock_counts_location_id_count_number",
+                table: "stock_counts",
+                columns: new[] { "location_id", "count_number" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_stock_counts_location_id_status",
+                table: "stock_counts",
+                columns: new[] { "location_id", "status" });
+
+            migrationBuilder.CreateIndex(
                 name: "ix_stock_ledger_entries_product_id_location_id_occurred_at",
                 table: "stock_ledger_entries",
                 columns: new[] { "product_id", "location_id", "occurred_at" });
@@ -2095,6 +2726,33 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "ix_stock_transfer_lines_stock_transfer_id",
+                table: "stock_transfer_lines",
+                column: "stock_transfer_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_stock_transfer_lines_stock_transfer_id_product_id_variant_id",
+                table: "stock_transfer_lines",
+                columns: new[] { "stock_transfer_id", "product_id", "variant_id" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_stock_transfers_from_location_id_status",
+                table: "stock_transfers",
+                columns: new[] { "from_location_id", "status" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_stock_transfers_from_location_id_transfer_number",
+                table: "stock_transfers",
+                columns: new[] { "from_location_id", "transfer_number" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_stock_transfers_to_location_id_status",
+                table: "stock_transfers",
+                columns: new[] { "to_location_id", "status" });
+
+            migrationBuilder.CreateIndex(
                 name: "ix_supervisor_approvals_location_id_status_expires_at",
                 table: "supervisor_approvals",
                 columns: new[] { "location_id", "status", "expires_at" });
@@ -2104,6 +2762,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 table: "tax_configurations",
                 columns: new[] { "location_id", "effective_from" },
                 descending: new bool[0]);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_time_clock_entries_location_id_clock_in",
+                table: "time_clock_entries",
+                columns: new[] { "location_id", "clock_in" });
+
+            migrationBuilder.CreateIndex(
+                name: "ix_time_clock_entries_staff_id_clock_in",
+                table: "time_clock_entries",
+                columns: new[] { "staff_id", "clock_in" });
         }
 
         /// <inheritdoc />
@@ -2152,6 +2820,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "categories");
 
             migrationBuilder.DropTable(
+                name: "commission_ledger_entries");
+
+            migrationBuilder.DropTable(
                 name: "commission_rules");
 
             migrationBuilder.DropTable(
@@ -2161,10 +2832,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "customer_accounts");
 
             migrationBuilder.DropTable(
+                name: "customer_order_lines");
+
+            migrationBuilder.DropTable(
+                name: "customer_orders");
+
+            migrationBuilder.DropTable(
                 name: "customer_pricing_profiles");
 
             migrationBuilder.DropTable(
                 name: "customers");
+
+            migrationBuilder.DropTable(
+                name: "data_protection_keys");
 
             migrationBuilder.DropTable(
                 name: "departments");
@@ -2174,6 +2854,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "drawer_sessions");
+
+            migrationBuilder.DropTable(
+                name: "external_entity_maps");
+
+            migrationBuilder.DropTable(
+                name: "fiscal_years");
+
+            migrationBuilder.DropTable(
+                name: "gift_cards");
 
             migrationBuilder.DropTable(
                 name: "gift_certificates");
@@ -2191,6 +2880,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "late_charge_policies");
 
             migrationBuilder.DropTable(
+                name: "layaway_lines");
+
+            migrationBuilder.DropTable(
+                name: "layaway_payments");
+
+            migrationBuilder.DropTable(
+                name: "layaways");
+
+            migrationBuilder.DropTable(
                 name: "locations");
 
             migrationBuilder.DropTable(
@@ -2201,6 +2899,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "matrix_dimensions");
+
+            migrationBuilder.DropTable(
+                name: "migration_batches");
+
+            migrationBuilder.DropTable(
+                name: "migration_staging_rows");
 
             migrationBuilder.DropTable(
                 name: "number_sequences");
@@ -2224,10 +2928,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "price_breaks");
 
             migrationBuilder.DropTable(
+                name: "price_quote_lines");
+
+            migrationBuilder.DropTable(
+                name: "price_quotes");
+
+            migrationBuilder.DropTable(
                 name: "pricing_rule_settings");
 
             migrationBuilder.DropTable(
                 name: "printer_profiles");
+
+            migrationBuilder.DropTable(
+                name: "product_images");
 
             migrationBuilder.DropTable(
                 name: "product_prices");
@@ -2237,9 +2950,6 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "product_variants");
-
-            migrationBuilder.DropTable(
-                name: "products");
 
             migrationBuilder.DropTable(
                 name: "purchase_order_lines");
@@ -2272,6 +2982,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "sale_tenders");
 
             migrationBuilder.DropTable(
+                name: "sales_history_archives");
+
+            migrationBuilder.DropTable(
                 name: "sales_transactions");
 
             migrationBuilder.DropTable(
@@ -2287,6 +3000,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "stations");
 
             migrationBuilder.DropTable(
+                name: "stock_count_lines");
+
+            migrationBuilder.DropTable(
                 name: "stock_counts");
 
             migrationBuilder.DropTable(
@@ -2296,6 +3012,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 name: "stock_levels");
 
             migrationBuilder.DropTable(
+                name: "stock_transfer_lines");
+
+            migrationBuilder.DropTable(
                 name: "stock_transfers");
 
             migrationBuilder.DropTable(
@@ -2303,6 +3022,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "suppliers");
+
+            migrationBuilder.DropTable(
+                name: "sync_logs");
 
             migrationBuilder.DropTable(
                 name: "tax_configurations");
@@ -2321,6 +3043,9 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "OpenIddictAuthorizations");
+
+            migrationBuilder.DropTable(
+                name: "products");
 
             migrationBuilder.DropTable(
                 name: "OpenIddictApplications");

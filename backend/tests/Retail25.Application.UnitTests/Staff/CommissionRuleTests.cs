@@ -161,7 +161,7 @@ public sealed class CommissionRuleTests
         var staff = await harness.AddStaffAsync("SK", "Sam", "Kerr");
 
         var result = await harness.StaffCommands.Handle(
-            new SaveCommissionRuleCommand(Guid.NewGuid(), staff.Id, CommissionType.Percentage, 5m),
+            new SaveCommissionRuleCommand(TestIds.Next(), staff.Id, CommissionType.Percentage, 5m),
             CancellationToken.None);
 
         result.Error.Should().Be(StaffHandlers.RuleNotFound);

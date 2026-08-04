@@ -66,7 +66,7 @@ public sealed class DemoDataSeeder
         var locationId = await _db.Locations
             .AsNoTracking()
             .OrderBy(l => l.LegacyCode)
-            .Select(l => (Guid?)l.Id)
+            .Select(l => (long?)l.Id)
             .FirstOrDefaultAsync(ct);
 
         if (locationId is null)
@@ -192,7 +192,7 @@ public sealed class DemoDataSeeder
         ("HDWR", "HDWR-FIX", "Fixings"),
     ];
 
-    private async Task<Dictionary<string, Guid>> SeedDepartmentsAsync(Guid locationId, CancellationToken ct)
+    private async Task<Dictionary<string, long>> SeedDepartmentsAsync(long locationId, CancellationToken ct)
     {
         var existing = await _db.Departments
             .Where(d => d.LocationId == locationId)
@@ -223,7 +223,7 @@ public sealed class DemoDataSeeder
         return existing;
     }
 
-    private async Task<Dictionary<string, Guid>> SeedCategoriesAsync(Guid locationId, CancellationToken ct)
+    private async Task<Dictionary<string, long>> SeedCategoriesAsync(long locationId, CancellationToken ct)
     {
         var existing = await _db.Categories
             .Where(c => c.LocationId == locationId)
@@ -285,9 +285,9 @@ public sealed class DemoDataSeeder
     };
 
     private List<Product> SeedProducts(
-        Guid locationId,
-        Dictionary<string, Guid> departments,
-        Dictionary<string, Guid> categories)
+        long locationId,
+        Dictionary<string, long> departments,
+        Dictionary<string, long> categories)
     {
         // Fixed seed. The catalogue has to be the same on every machine, or a bug reported against
         // DEMO-0042 cannot be reproduced.
@@ -460,7 +460,7 @@ public sealed class DemoDataSeeder
     /// </summary>
     private static readonly string[] TaggedDepartments = ["APRL", "ELEC", "HDWR"];
 
-    private int SeedSerializedUnits(Guid locationId, List<Product> products)
+    private int SeedSerializedUnits(long locationId, List<Product> products)
     {
         var taggedCategories = CategoryPlan
             .Where(c => TaggedDepartments.Contains(c.Department, StringComparer.Ordinal))

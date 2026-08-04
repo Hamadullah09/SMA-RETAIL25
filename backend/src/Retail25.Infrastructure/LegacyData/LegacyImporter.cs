@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Migration;
@@ -587,7 +588,7 @@ public sealed class LegacyImporter : ILegacyImporter
         _db.StockLevels.Add(StockLevel.Create(product.Id, null, batch.LocationId));
     }
 
-    private void Map(string entityType, string legacyKey, Guid localId, string? name)
+    private void Map(string entityType, string legacyKey, long localId, string? name)
         => _db.ExternalEntityMaps.Add(new ExternalEntityMap
         {
             Provider = Provider,
@@ -606,7 +607,7 @@ public sealed class LegacyImporter : ILegacyImporter
                 .ToListAsync(ct))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-    private Guid FindOrCreate<T>(Dictionary<string, T> cache, string name, Guid locationId, bool isDepartment)
+    private long FindOrCreate<T>(Dictionary<string, T> cache, string name, long locationId, bool isDepartment)
         where T : class
     {
         if (cache.TryGetValue(name, out var existing))

@@ -30,13 +30,13 @@ public sealed class SequenceGenerator : ISequenceGenerator
 
     public SequenceGenerator(ApplicationDbContext db) => _db = db;
 
-    public Task<long> NextTransactionNumberAsync(Guid locationId, CancellationToken ct = default)
+    public Task<long> NextTransactionNumberAsync(long locationId, CancellationToken ct = default)
         => NextAsync(SequenceKind.Transaction, locationId, ct);
 
-    public Task<long> NextInvoiceNumberAsync(Guid locationId, CancellationToken ct = default)
+    public Task<long> NextInvoiceNumberAsync(long locationId, CancellationToken ct = default)
         => NextAsync(SequenceKind.Invoice, locationId, ct);
 
-    public async Task<long> NextAsync(SequenceKind kind, Guid locationId, CancellationToken ct = default)
+    public async Task<long> NextAsync(SequenceKind kind, long locationId, CancellationToken ct = default)
     {
         // The name is built from a fixed prefix, a known enum name and a GUID in "N" form, so it
         // contains only letters, digits and underscores. Nothing here is user-supplied, which is what
@@ -73,7 +73,7 @@ public sealed class SequenceGenerator : ISequenceGenerator
         return Convert.ToInt64(value, CultureInfo.InvariantCulture);
     }
 
-    public async Task RestartAsync(SequenceKind kind, Guid locationId, long nextNumber, CancellationToken ct = default)
+    public async Task RestartAsync(SequenceKind kind, long locationId, long nextNumber, CancellationToken ct = default)
     {
         var name = $"seq_{kind.ToString().ToLowerInvariant()}_{locationId:N}";
         var startAt = Math.Max(1L, nextNumber).ToString(CultureInfo.InvariantCulture);

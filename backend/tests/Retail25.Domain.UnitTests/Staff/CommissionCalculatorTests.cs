@@ -10,13 +10,13 @@ namespace Retail25.Domain.UnitTests.Staff;
 /// </summary>
 public sealed class CommissionCalculatorTests
 {
-    private static readonly Guid Staff = Guid.NewGuid();
-    private static readonly Guid Widget = Guid.NewGuid();
-    private static readonly Guid Gadget = Guid.NewGuid();
-    private static readonly Guid Hardware = Guid.NewGuid();
+    private static readonly long Staff = TestIds.Next();
+    private static readonly long Widget = TestIds.Next();
+    private static readonly long Gadget = TestIds.Next();
+    private static readonly long Hardware = TestIds.Next();
 
     private static CommissionRule Rule(
-        CommissionType type, decimal value, Guid? productId = null, Guid? departmentId = null, decimal? max = null)
+        CommissionType type, decimal value, long? productId = null, long? departmentId = null, decimal? max = null)
         => CommissionRule.Create(Staff, type, value, productId, departmentId, max).Value;
 
     private static CommissionableLine Line(decimal net = 100m, decimal cost = 60m, decimal quantity = 1m)
@@ -158,7 +158,7 @@ public sealed class CommissionCalculatorTests
     [Fact]
     public void A_rule_for_another_department_does_not_apply()
     {
-        var rules = new[] { Rule(CommissionType.Percentage, 10m, departmentId: Guid.NewGuid()) };
+        var rules = new[] { Rule(CommissionType.Percentage, 10m, departmentId: TestIds.Next()) };
 
         CommissionCalculator.Resolve(rules, Line()).Should().BeNull();
     }

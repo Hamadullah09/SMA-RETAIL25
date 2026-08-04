@@ -17,26 +17,26 @@ namespace Retail25.Application.Catalog;
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Catalog.Read)]
-public sealed record ListDepartmentsQuery(Guid LocationId, bool IncludeInactive = false)
+public sealed record ListDepartmentsQuery(long LocationId, bool IncludeInactive = false)
     : IRequest<IReadOnlyList<ReferenceRowDto>>;
 
 [RequiresPermission(PermissionKeys.Catalog.Read)]
-public sealed record ListCategoriesQuery(Guid LocationId, bool IncludeInactive = false)
+public sealed record ListCategoriesQuery(long LocationId, bool IncludeInactive = false)
     : IRequest<IReadOnlyList<ReferenceRowDto>>;
 
 [RequiresPermission(PermissionKeys.Catalog.Write)]
-public sealed record SaveDepartmentCommand(Guid LocationId, Guid? Id, string Name, string? Code, int SortOrder, bool IsActive)
+public sealed record SaveDepartmentCommand(long LocationId, long? Id, string Name, string? Code, int SortOrder, bool IsActive)
     : IRequest<Result<ReferenceRowDto>>;
 
 [RequiresPermission(PermissionKeys.Catalog.Write)]
-public sealed record SaveCategoryCommand(Guid LocationId, Guid? Id, string Name, string? Code, int SortOrder, bool IsActive)
+public sealed record SaveCategoryCommand(long LocationId, long? Id, string Name, string? Code, int SortOrder, bool IsActive)
     : IRequest<Result<ReferenceRowDto>>;
 
 [RequiresPermission(PermissionKeys.Catalog.Delete)]
-public sealed record DeleteDepartmentCommand(Guid Id) : IRequest<Result>;
+public sealed record DeleteDepartmentCommand(long Id) : IRequest<Result>;
 
 [RequiresPermission(PermissionKeys.Catalog.Delete)]
-public sealed record DeleteCategoryCommand(Guid Id) : IRequest<Result>;
+public sealed record DeleteCategoryCommand(long Id) : IRequest<Result>;
 
 public sealed class ReferenceDataHandlers
     : IRequestHandler<ListDepartmentsQuery, IReadOnlyList<ReferenceRowDto>>,
@@ -203,7 +203,7 @@ public sealed class ReferenceDataHandlers
     /// How many live items each grouping holds. Shown in the settings list so an administrator can
     /// see what a rename or a deactivation will affect before doing it.
     /// </summary>
-    private async Task<Dictionary<Guid, int>> CountsAsync(Guid locationId, bool byDepartment, CancellationToken ct)
+    private async Task<Dictionary<long, int>> CountsAsync(long locationId, bool byDepartment, CancellationToken ct)
     {
         var products = _db.Products.AsNoTracking().Where(p => p.LocationId == locationId && !p.IsDeleted);
 

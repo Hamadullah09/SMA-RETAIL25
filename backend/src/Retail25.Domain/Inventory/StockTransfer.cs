@@ -48,9 +48,9 @@ public sealed class StockTransfer : AggregateRoot, IAuditable
 
     public long TransferNumber { get; set; }
 
-    public Guid FromLocationId { get; set; }
+    public long FromLocationId { get; set; }
 
-    public Guid ToLocationId { get; set; }
+    public long ToLocationId { get; set; }
 
     public TransferStatus Status { get; set; } = TransferStatus.Draft;
 
@@ -64,13 +64,13 @@ public sealed class StockTransfer : AggregateRoot, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static Result<StockTransfer> Create(Guid fromLocationId, Guid toLocationId, long transferNumber, string? notes = null)
+    public static Result<StockTransfer> Create(long fromLocationId, long toLocationId, long transferNumber, string? notes = null)
     {
         if (fromLocationId == toLocationId)
         {
@@ -162,11 +162,11 @@ public sealed class StockTransferLine : Entity, IAuditable
     {
     }
 
-    public Guid StockTransferId { get; set; }
+    public long StockTransferId { get; set; }
 
-    public Guid ProductId { get; set; }
+    public long ProductId { get; set; }
 
-    public Guid? VariantId { get; set; }
+    public long? VariantId { get; set; }
 
     /// <summary>Copied from the source product so the destination can be created if it is new there.</summary>
     public string StockCode { get; set; } = string.Empty;
@@ -191,14 +191,14 @@ public sealed class StockTransferLine : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     public static Result<StockTransferLine> Create(
-        Guid transferId, Guid productId, string stockCode, string productName, decimal quantity, decimal unitCost)
+        long transferId, long productId, string stockCode, string productName, decimal quantity, decimal unitCost)
     {
         if (quantity <= 0m)
         {

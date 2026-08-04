@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -94,7 +95,7 @@ public static class IdentityRegistration
             .AddCore(options => options
                 .UseEntityFrameworkCore()
                 .UseDbContext<ApplicationDbContext>()
-                .ReplaceDefaultEntities<Guid>())
+                .ReplaceDefaultEntities<long>())
             .AddServer(options =>
             {
                 options
@@ -279,7 +280,7 @@ public sealed class ApplicationClaimsPrincipalFactory : UserClaimsPrincipalFacto
         var staff = await _db.StaffProfiles.AsNoTracking().FirstOrDefaultAsync(s => s.UserId == user.Id);
         if (staff is not null)
         {
-            identity.AddClaim(new Claim(AuthConstants.StaffIdClaim, staff.Id.ToString()));
+            identity.AddClaim(new Claim(AuthConstants.StaffIdClaim, staff.Id.ToString(CultureInfo.InvariantCulture)));
             identity.AddClaim(new Claim(
                 AuthConstants.AccessLevelClaim,
                 staff.AccessLevel.ToString(System.Globalization.CultureInfo.InvariantCulture)));
@@ -287,7 +288,7 @@ public sealed class ApplicationClaimsPrincipalFactory : UserClaimsPrincipalFacto
 
         if (user.DefaultLocationId is { } locationId)
         {
-            identity.AddClaim(new Claim(AuthConstants.LocationIdClaim, locationId.ToString()));
+            identity.AddClaim(new Claim(AuthConstants.LocationIdClaim, locationId.ToString(CultureInfo.InvariantCulture)));
         }
 
         return identity;

@@ -9,7 +9,7 @@ using Retail25.Domain.Receivables;
 namespace Retail25.Application.Receivables;
 
 public sealed record InvoiceRowDto(
-    Guid Id,
+    long Id,
     long InvoiceNumber,
     DateOnly IssuedOn,
     DateOnly DueOn,
@@ -20,17 +20,17 @@ public sealed record InvoiceRowDto(
     DateOnly? LastPaymentOn);
 
 public sealed record CustomerAccountRowDto(
-    Guid CustomerId,
+    long CustomerId,
     long AccountNumber,
     string CustomerName,
     decimal CreditLimit,
     decimal BalanceDue,
     int OpenInvoiceCount);
 
-public sealed record ArLedgerEntryDto(Guid Id, Guid InvoiceId, AREntryType EntryType, decimal Amount, DateTimeOffset OccurredAt);
+public sealed record ArLedgerEntryDto(long Id, long InvoiceId, AREntryType EntryType, decimal Amount, DateTimeOffset OccurredAt);
 
 public sealed record CustomerStatementDto(
-    Guid CustomerId,
+    long CustomerId,
     string CustomerName,
     long AccountNumber,
     decimal CreditLimit,
@@ -39,7 +39,7 @@ public sealed record CustomerStatementDto(
     IReadOnlyList<ArLedgerEntryDto> Ledger);
 
 public sealed record ReceivablesAgingRowDto(
-    Guid CustomerId,
+    long CustomerId,
     string CustomerName,
     decimal Current,
     decimal Days30,
@@ -49,17 +49,17 @@ public sealed record ReceivablesAgingRowDto(
 
 [RequiresPermission(PermissionKeys.Ar.Read)]
 public sealed record BrowseCustomerAccountsQuery(
-    Guid LocationId,
+    long LocationId,
     string? Search = null,
     bool WithBalanceOnly = false,
     string? Cursor = null,
     int PageSize = 50) : IRequest<CursorPage<CustomerAccountRowDto>>;
 
 [RequiresPermission(PermissionKeys.Ar.Read)]
-public sealed record GetCustomerStatementQuery(Guid CustomerId) : IRequest<Result<CustomerStatementDto>>;
+public sealed record GetCustomerStatementQuery(long CustomerId) : IRequest<Result<CustomerStatementDto>>;
 
 [RequiresPermission(PermissionKeys.Ar.Read)]
-public sealed record GetReceivablesAgingQuery(Guid LocationId) : IRequest<IReadOnlyList<ReceivablesAgingRowDto>>;
+public sealed record GetReceivablesAgingQuery(long LocationId) : IRequest<IReadOnlyList<ReceivablesAgingRowDto>>;
 
 public sealed record TakeInvoicePaymentResult(decimal AmountApplied, decimal AmountUnapplied, IReadOnlyList<InvoiceRowDto> UpdatedInvoices);
 
@@ -69,15 +69,15 @@ public sealed record TakeInvoicePaymentResult(decimal AmountApplied, decimal Amo
 /// ledger after the fact.
 /// </summary>
 [RequiresPermission(PermissionKeys.Ar.Payment)]
-public sealed record TakeInvoicePaymentCommand(Guid CustomerId, decimal Amount, Guid TenderTypeId, string? Reference = null)
+public sealed record TakeInvoicePaymentCommand(long CustomerId, decimal Amount, long TenderTypeId, string? Reference = null)
     : IRequest<Result<TakeInvoicePaymentResult>>;
 
 [RequiresPermission(PermissionKeys.Ar.VoidInvoice)]
-public sealed record VoidInvoiceCommand(Guid InvoiceId, string? Reason = null) : IRequest<Result<InvoiceRowDto>>;
+public sealed record VoidInvoiceCommand(long InvoiceId, string? Reason = null) : IRequest<Result<InvoiceRowDto>>;
 
 /// <summary>Reverses a prior payment (e.g. a bounced cheque) — never more than was actually paid.</summary>
 [RequiresPermission(PermissionKeys.Ar.Refund)]
-public sealed record RefundInvoiceCommand(Guid InvoiceId, decimal Amount, string? Reason = null) : IRequest<Result<InvoiceRowDto>>;
+public sealed record RefundInvoiceCommand(long InvoiceId, decimal Amount, string? Reason = null) : IRequest<Result<InvoiceRowDto>>;
 
 /// <summary>
 /// Posts one month's late charge to every open invoice past its grace period, for every
@@ -86,7 +86,7 @@ public sealed record RefundInvoiceCommand(Guid InvoiceId, decimal Amount, string
 /// administrator forcing a run) and by the nightly recurring job.
 /// </summary>
 [RequiresPermission(PermissionKeys.Ar.LateCharges)]
-public sealed record AccrueLateChargesCommand(Guid? LocationId = null) : IRequest<Result<int>>;
+public sealed record AccrueLateChargesCommand(long? LocationId = null) : IRequest<Result<int>>;
 
 public sealed class ReceivablesHandlers :
     IRequestHandler<BrowseCustomerAccountsQuery, CursorPage<CustomerAccountRowDto>>,

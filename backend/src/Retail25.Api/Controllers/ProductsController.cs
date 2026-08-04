@@ -32,8 +32,8 @@ public sealed class ProductsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> List(
         [FromQuery] string? search,
-        [FromQuery] Guid? locationId,
-        [FromQuery] Guid? departmentId,
+        [FromQuery] long? locationId,
+        [FromQuery] long? departmentId,
         [FromQuery] int take = 100,
         CancellationToken ct = default)
     {
@@ -64,7 +64,7 @@ public sealed class ProductsController : ControllerBase
     [HttpGet("search")]
     public async Task<IActionResult> Search(
         [FromQuery] string term,
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] int take = 25,
         CancellationToken ct = default)
         => Ok(await _resolver.SearchAsync(term, locationId, Math.Clamp(take, 1, 100), ct));
@@ -76,7 +76,7 @@ public sealed class ProductsController : ControllerBase
     [HttpGet("lookup")]
     public async Task<IActionResult> Lookup(
         [FromQuery] string identifier,
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] bool scanRandomWeightBarcodes = false,
         CancellationToken ct = default)
     {
@@ -102,8 +102,8 @@ public sealed class ProductsController : ControllerBase
         });
     }
 
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:long}")]
+    public async Task<IActionResult> Get(long id, CancellationToken ct)
     {
         var product = await _db.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct);
         return product is null ? NotFound() : Ok(product);
@@ -127,8 +127,8 @@ public sealed class ProductsController : ControllerBase
         return CreatedAtAction(nameof(Get), new { id = result.Value.Id }, result.Value);
     }
 
-    [HttpPatch("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProductRequest request, CancellationToken ct)
+    [HttpPatch("{id:long}")]
+    public async Task<IActionResult> Update(long id, [FromBody] UpdateProductRequest request, CancellationToken ct)
     {
         var product = await _db.Products.FirstOrDefaultAsync(p => p.Id == id, ct);
         if (product is null)
@@ -153,9 +153,9 @@ public sealed class ProductsController : ControllerBase
     /// </summary>
     [HttpGet("grid")]
     public async Task<IActionResult> Grid(
-        [FromQuery] Guid locationId,
-        [FromQuery] Guid? departmentId,
-        [FromQuery] Guid? categoryId,
+        [FromQuery] long locationId,
+        [FromQuery] long? departmentId,
+        [FromQuery] long? categoryId,
         [FromQuery] string? search,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 60,
@@ -176,9 +176,9 @@ public sealed class ProductsController : ControllerBase
     /// still appears at once.
     /// </para>
     /// </summary>
-    [HttpGet("{id:guid}/image")]
+    [HttpGet("{id:long}/image")]
     [Produces("image/png", "image/jpeg", "image/webp")]
-    public async Task<IActionResult> GetImage(Guid id, CancellationToken ct)
+    public async Task<IActionResult> GetImage(long id, CancellationToken ct)
     {
         var result = await _sender.Send(new GetProductImageQuery(id), ct);
 
@@ -202,9 +202,9 @@ public sealed class ProductsController : ControllerBase
     }
 
     /// <summary>Attaches or replaces the picture shown on the till's product grid.</summary>
-    [HttpPut("{id:guid}/image")]
+    [HttpPut("{id:long}/image")]
     [RequestSizeLimit(ProductImage.MaximumBytes + 4096)]
-    public async Task<IActionResult> SetImage(Guid id, IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> SetImage(long id, IFormFile file, CancellationToken ct)
     {
         if (file is null || file.Length == 0)
         {
@@ -226,8 +226,8 @@ public sealed class ProductsController : ControllerBase
         return result.IsFailure ? ResultExtensions.Problem(result.Error, this) : NoContent();
     }
 
-    [HttpDelete("{id:guid}/image")]
-    public async Task<IActionResult> RemoveImage(Guid id, CancellationToken ct)
+    [HttpDelete("{id:long}/image")]
+    public async Task<IActionResult> RemoveImage(long id, CancellationToken ct)
     {
         var result = await _sender.Send(new RemoveProductImageCommand(id), ct);
         return result.IsFailure ? ResultExtensions.Problem(result.Error, this) : NoContent();
@@ -235,7 +235,7 @@ public sealed class ProductsController : ControllerBase
 }
 
 public sealed record CreateProductRequest(
-    Guid LocationId,
+    long LocationId,
     string StockCode,
     string Name,
     ProductType Type,

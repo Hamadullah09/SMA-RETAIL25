@@ -34,12 +34,12 @@ public sealed class StaffSessionController : ControllerBase
         => (await _sender.Send(new VerifyStaffPinCommand(request.StaffCode, request.Pin, request.StationId)))
             .ToActionResult(this);
 
-    [HttpPost("{staffId:guid}/pin")]
-    public async Task<IActionResult> SetPin(Guid staffId, [FromBody] SetPinRequest request)
+    [HttpPost("{staffId:long}/pin")]
+    public async Task<IActionResult> SetPin(long staffId, [FromBody] SetPinRequest request)
         => (await _sender.Send(new SetStaffPinCommand(staffId, request.Pin))).ToActionResult(this);
 
-    [HttpPost("{staffId:guid}/unlock")]
-    public async Task<IActionResult> Unlock(Guid staffId)
+    [HttpPost("{staffId:long}/unlock")]
+    public async Task<IActionResult> Unlock(long staffId)
         => (await _sender.Send(new UnlockStaffPinCommand(staffId))).ToActionResult(this);
 }
 
@@ -63,23 +63,23 @@ public sealed class ApprovalsController : ControllerBase
             request.Permission, request.Action, request.Context, request.StationId))).ToActionResult(this);
 
     /// <summary>Inline approval with a supervisor's PIN, without leaving the till.</summary>
-    [HttpPost("{approvalId:guid}/approve-with-pin")]
+    [HttpPost("{approvalId:long}/approve-with-pin")]
     [EnableRateLimiting("pin")]
-    public async Task<IActionResult> ApproveWithPin(Guid approvalId, [FromBody] ApproveWithPinRequest request)
+    public async Task<IActionResult> ApproveWithPin(long approvalId, [FromBody] ApproveWithPinRequest request)
         => (await _sender.Send(new ApproveWithPinCommand(approvalId, request.StaffCode, request.Pin)))
             .ToActionResult(this);
 
     /// <summary>Approval by a supervisor already signed in at another station.</summary>
-    [HttpPost("{approvalId:guid}/approve")]
-    public async Task<IActionResult> Approve(Guid approvalId)
+    [HttpPost("{approvalId:long}/approve")]
+    public async Task<IActionResult> Approve(long approvalId)
         => (await _sender.Send(new ApproveSupervisorRequestCommand(approvalId))).ToActionResult(this);
 
-    [HttpPost("{approvalId:guid}/deny")]
-    public async Task<IActionResult> Deny(Guid approvalId, [FromBody] DenyRequest? request)
+    [HttpPost("{approvalId:long}/deny")]
+    public async Task<IActionResult> Deny(long approvalId, [FromBody] DenyRequest? request)
         => (await _sender.Send(new DenySupervisorRequestCommand(approvalId, request?.Reason))).ToActionResult(this);
 
     [HttpGet("pending")]
-    public async Task<IActionResult> Pending([FromQuery] Guid locationId)
+    public async Task<IActionResult> Pending([FromQuery] long locationId)
         => Ok(await _sender.Send(new ListPendingApprovalsQuery(locationId)));
 }
 
@@ -98,8 +98,8 @@ public sealed class AuditController : ControllerBase
     public async Task<IActionResult> List(
         [FromQuery] DateTimeOffset? from = null,
         [FromQuery] DateTimeOffset? to = null,
-        [FromQuery] Guid? actorStaffId = null,
-        [FromQuery] Guid? stationId = null,
+        [FromQuery] long? actorStaffId = null,
+        [FromQuery] long? stationId = null,
         [FromQuery] string? entityType = null,
         [FromQuery] string? entityId = null,
         [FromQuery] AuditAction? action = null,
@@ -114,11 +114,11 @@ public sealed class AuditController : ControllerBase
         => Ok(await _sender.Send(new AuditTrailForRequestQuery(correlationId)));
 }
 
-public sealed record VerifyPinRequest(string StaffCode, string Pin, Guid StationId);
+public sealed record VerifyPinRequest(string StaffCode, string Pin, long StationId);
 
 public sealed record SetPinRequest(string Pin);
 
-public sealed record ApprovalRequest(string Permission, string Action, string? Context, Guid StationId);
+public sealed record ApprovalRequest(string Permission, string Action, string? Context, long StationId);
 
 public sealed record ApproveWithPinRequest(string StaffCode, string Pin);
 

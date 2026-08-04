@@ -28,7 +28,7 @@ public sealed class PermissionResolver : IPermissionResolver
         _cache = cache;
     }
 
-    public async Task<IReadOnlySet<string>> ResolveForUserAsync(Guid userId, CancellationToken ct = default)
+    public async Task<IReadOnlySet<string>> ResolveForUserAsync(long userId, CancellationToken ct = default)
     {
         if (_cache.TryGetValue(CacheKey(userId), out IReadOnlySet<string>? cached) && cached is not null)
         {
@@ -59,7 +59,7 @@ public sealed class PermissionResolver : IPermissionResolver
         return set;
     }
 
-    public Task InvalidateAsync(Guid userId, CancellationToken ct = default)
+    public Task InvalidateAsync(long userId, CancellationToken ct = default)
     {
         _cache.Remove(CacheKey(userId));
         return Task.CompletedTask;
@@ -77,5 +77,5 @@ public sealed class PermissionResolver : IPermissionResolver
         return Task.CompletedTask;
     }
 
-    private static string CacheKey(Guid userId) => $"permissions:{userId:N}";
+    private static string CacheKey(long userId) => $"permissions:{userId:N}";
 }

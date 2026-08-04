@@ -12,7 +12,7 @@ public sealed class MatrixDimension : Entity
     {
     }
 
-    public Guid ProductId { get; private set; }
+    public long ProductId { get; private set; }
 
     /// <summary>Dimension order (1, 2, or 3).</summary>
     public int Position { get; private set; }
@@ -20,7 +20,7 @@ public sealed class MatrixDimension : Entity
     /// <summary>User-chosen name, e.g. "Colour", "Size".</summary>
     public string Name { get; private set; } = string.Empty;
 
-    public static Result<MatrixDimension> Create(Guid productId, int position, string name)
+    public static Result<MatrixDimension> Create(long productId, int position, string name)
     {
         if (position is < 1 or > 3)
             return Result.Failure<MatrixDimension>(new Error("dimension.position_invalid", "Dimension position must be 1, 2, or 3."));

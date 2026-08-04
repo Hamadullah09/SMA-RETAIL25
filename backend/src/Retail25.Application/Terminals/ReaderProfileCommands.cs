@@ -16,9 +16,9 @@ namespace Retail25.Application.Terminals;
 /// </para>
 /// </summary>
 public sealed record ReaderProfileDto(
-    Guid Id,
-    Guid LocationId,
-    Guid? StationId,
+    long Id,
+    long LocationId,
+    long? StationId,
     string Name,
     string Host,
     int Port,
@@ -48,10 +48,10 @@ public sealed record ReaderProfileDto(
     bool IsActive);
 
 [RequiresPermission(PermissionKeys.Terminals.Read)]
-public sealed record ListReaderProfilesQuery(Guid LocationId) : IRequest<IReadOnlyList<ReaderProfileDto>>;
+public sealed record ListReaderProfilesQuery(long LocationId) : IRequest<IReadOnlyList<ReaderProfileDto>>;
 
 [RequiresPermission(PermissionKeys.Terminals.Read)]
-public sealed record GetReaderProfileQuery(Guid Id) : IRequest<Result<ReaderProfileDto>>;
+public sealed record GetReaderProfileQuery(long Id) : IRequest<Result<ReaderProfileDto>>;
 
 /// <summary>
 /// Changes a reader's settings.
@@ -63,7 +63,7 @@ public sealed record GetReaderProfileQuery(Guid Id) : IRequest<Result<ReaderProf
 /// </summary>
 [RequiresPermission(PermissionKeys.Terminals.Register)]
 public sealed record UpdateReaderProfileCommand(
-    Guid Id,
+    long Id,
     string Name,
     string Host,
     int Port,

@@ -9,11 +9,11 @@ using Retail25.Domain.Receivables;
 namespace Retail25.Application.Receivables;
 
 public sealed record GiftCardDto(
-    Guid Id,
+    long Id,
     string SerialNumber,
     decimal OriginalValue,
     decimal RemainingValue,
-    Guid? IssuedToCustomerId,
+    long? IssuedToCustomerId,
     DateOnly IssuedOn,
     DateOnly? ExpiresOn,
     bool IsActive);
@@ -24,7 +24,7 @@ public sealed record GiftCardDto(
 /// the "card" is really just a line on the receipt.
 /// </summary>
 [RequiresPermission(PermissionKeys.Ar.Payment)]
-public sealed record IssueGiftCardCommand(decimal Value, string? SerialNumber = null, Guid? CustomerId = null, DateOnly? ExpiresOn = null)
+public sealed record IssueGiftCardCommand(decimal Value, string? SerialNumber = null, long? CustomerId = null, DateOnly? ExpiresOn = null)
     : IRequest<Result<GiftCardDto>>;
 
 [RequiresPermission(PermissionKeys.Ar.Read)]

@@ -13,7 +13,7 @@ public sealed class LoyaltyPolicy : AggregateRoot, IAuditable
     {
     }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public bool IsEnabled { get; set; }
 
@@ -42,9 +42,9 @@ public sealed class LoyaltyPolicy : AggregateRoot, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 }

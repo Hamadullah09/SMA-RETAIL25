@@ -51,13 +51,13 @@ public sealed class CurrentUser : ICurrentUser
     // "sub", not ClaimTypes.NameIdentifier: IdentityRegistration configures
     // IdentityOptions.ClaimsIdentity.UserIdClaimType = OpenIddictConstants.Claims.Subject, so that is
     // the claim type every issued token actually carries — the long-form URI is never present.
-    public Guid? UserId => IsAuthenticated ? ParseGuid(User!.FindFirstValue(OpenIddictConstants.Claims.Subject)) : null;
+    public long? UserId => IsAuthenticated ? ParseGuid(User!.FindFirstValue(OpenIddictConstants.Claims.Subject)) : null;
 
-    public Guid? StaffId => IsAuthenticated ? ParseGuid(User!.FindFirstValue(StaffIdClaim)) : null;
+    public long? StaffId => IsAuthenticated ? ParseGuid(User!.FindFirstValue(StaffIdClaim)) : null;
 
-    public Guid? StationId => IsAuthenticated ? ParseGuid(User!.FindFirstValue(StationIdClaim)) : null;
+    public long? StationId => IsAuthenticated ? ParseGuid(User!.FindFirstValue(StationIdClaim)) : null;
 
-    public Guid? LocationId => IsAuthenticated ? ParseGuid(User!.FindFirstValue(LocationIdClaim)) : null;
+    public long? LocationId => IsAuthenticated ? ParseGuid(User!.FindFirstValue(LocationIdClaim)) : null;
 
     public bool IsAuthenticated => User?.Identity?.IsAuthenticated == true;
 
@@ -120,6 +120,6 @@ public sealed class CurrentUser : ICurrentUser
             : new HashSet<string>(StringComparer.Ordinal);
     }
 
-    private static Guid? ParseGuid(string? value)
-        => Guid.TryParse(value, out var guid) ? guid : null;
+    private static long? ParseGuid(string? value)
+        => long.TryParse(value, out var guid) ? guid : null;
 }

@@ -18,7 +18,7 @@ public sealed class InventoryController : ControllerBase
 
     [HttpGet("stock-levels")]
     public async Task<IActionResult> StockLevels(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] string? search,
         [FromQuery] bool belowReorderOnly = false,
         [FromQuery] string? cursor = null,

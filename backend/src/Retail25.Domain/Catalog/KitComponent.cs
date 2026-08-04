@@ -12,9 +12,9 @@ public sealed class KitComponent : Entity
     {
     }
 
-    public Guid KitProductId { get; private set; }
+    public long KitProductId { get; private set; }
 
-    public Guid ComponentProductId { get; private set; }
+    public long ComponentProductId { get; private set; }
 
     /// <summary>Quantity of this component consumed per unit of the kit sold.</summary>
     public decimal Quantity { get; private set; }
@@ -22,7 +22,7 @@ public sealed class KitComponent : Entity
     /// <summary>If true, the component stock is reduced when the kit is sold.</summary>
     public bool ReduceStock { get; private set; } = true;
 
-    public static Result<KitComponent> Create(Guid kitProductId, Guid componentProductId, decimal quantity)
+    public static Result<KitComponent> Create(long kitProductId, long componentProductId, decimal quantity)
     {
         if (quantity <= 0)
             return Result.Failure<KitComponent>(new Error("kit.quantity_invalid", "Component quantity must be greater than zero."));

@@ -31,9 +31,9 @@ public sealed class AccountingSyncController : ControllerBase
     public async Task<IActionResult> Trigger(
         string direction,
         SyncEntity entity,
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly? businessDate = null,
-        [FromQuery] Guid? purchaseOrderId = null,
+        [FromQuery] long? purchaseOrderId = null,
         [FromQuery] DateOnly? dueOn = null)
     {
         var pull = string.Equals(direction, "pull", StringComparison.OrdinalIgnoreCase);
@@ -48,9 +48,9 @@ public sealed class AccountingSyncController : ControllerBase
     [HttpGet("{entity}/export")]
     public async Task<IActionResult> Export(
         SyncEntity entity,
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly? businessDate = null,
-        [FromQuery] Guid? purchaseOrderId = null,
+        [FromQuery] long? purchaseOrderId = null,
         [FromQuery] DateOnly? dueOn = null)
     {
         var result = await _sender.Send(new TriggerAccountingSyncCommand(
@@ -78,7 +78,7 @@ public sealed class AccountingSyncController : ControllerBase
     /// legacy integration failed silently (guide p.109–111).
     /// </summary>
     [HttpGet("preflight")]
-    public async Task<IActionResult> Preflight([FromQuery] Guid locationId)
+    public async Task<IActionResult> Preflight([FromQuery] long locationId)
         => Ok(await _sender.Send(new PreflightAccountingSyncQuery(locationId)));
 
     [HttpGet("log")]
@@ -90,8 +90,8 @@ public sealed class AccountingSyncController : ControllerBase
         => Ok(await _sender.Send(new GetSyncLogQuery(entity, status, skip, take)));
 
     /// <summary>One attempt in full — the modern "Last QB Request / Last QB Response" (guide p.111).</summary>
-    [HttpGet("log/{id:guid}")]
-    public async Task<IActionResult> LogDetail(Guid id)
+    [HttpGet("log/{id:long}")]
+    public async Task<IActionResult> LogDetail(long id)
         => (await _sender.Send(new GetSyncLogDetailQuery(id))).ToActionResult(this);
 
     [HttpGet("mappings")]
@@ -108,7 +108,7 @@ public sealed class AccountingSyncController : ControllerBase
 public sealed record UpsertMappingRequest(
     string Provider,
     string EntityType,
-    Guid? LocalId,
+    long? LocalId,
     string? LocalKey,
     string RemoteId,
     string? RemoteName);

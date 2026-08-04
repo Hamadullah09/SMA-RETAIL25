@@ -30,13 +30,13 @@ public sealed class ReportsController : ControllerBase
     /// </summary>
     [HttpGet("sales-analysis")]
     public async Task<IActionResult> SalesAnalysis(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
         [FromQuery] SalesAnalysisGroupBy groupBy = SalesAnalysisGroupBy.Product,
-        [FromQuery] Guid? departmentId = null,
-        [FromQuery] Guid? productId = null,
-        [FromQuery] Guid? customerId = null,
+        [FromQuery] long? departmentId = null,
+        [FromQuery] long? productId = null,
+        [FromQuery] long? customerId = null,
         [FromQuery] bool includeVoided = false,
         [FromQuery] int? top = null,
         [FromQuery] string? sortBy = null)
@@ -46,11 +46,11 @@ public sealed class ReportsController : ControllerBase
 
     [HttpGet("sales-analysis/export")]
     public async Task<IActionResult> ExportSalesAnalysis(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
         [FromQuery] SalesAnalysisGroupBy groupBy = SalesAnalysisGroupBy.Product,
-        [FromQuery] Guid? departmentId = null,
+        [FromQuery] long? departmentId = null,
         [FromQuery] bool includeVoided = false,
         [FromQuery] string? sortBy = null)
     {
@@ -63,13 +63,13 @@ public sealed class ReportsController : ControllerBase
     /// <summary>The same analysis with cost, margin and COGS — the owner's view.</summary>
     [HttpGet("margin")]
     public async Task<IActionResult> Margin(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
         [FromQuery] SalesAnalysisGroupBy groupBy = SalesAnalysisGroupBy.Product,
-        [FromQuery] Guid? departmentId = null,
-        [FromQuery] Guid? productId = null,
-        [FromQuery] Guid? customerId = null,
+        [FromQuery] long? departmentId = null,
+        [FromQuery] long? productId = null,
+        [FromQuery] long? customerId = null,
         [FromQuery] bool includeVoided = false,
         [FromQuery] int? top = null,
         [FromQuery] string? sortBy = null)
@@ -79,11 +79,11 @@ public sealed class ReportsController : ControllerBase
 
     [HttpGet("margin/export")]
     public async Task<IActionResult> ExportMargin(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
         [FromQuery] SalesAnalysisGroupBy groupBy = SalesAnalysisGroupBy.Product,
-        [FromQuery] Guid? departmentId = null,
+        [FromQuery] long? departmentId = null,
         [FromQuery] bool includeVoided = false,
         [FromQuery] string? sortBy = null)
     {
@@ -99,7 +99,7 @@ public sealed class ReportsController : ControllerBase
 
     [HttpGet("tax")]
     public async Task<IActionResult> Tax(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
         [FromQuery] bool includeVoided = false)
@@ -107,7 +107,7 @@ public sealed class ReportsController : ControllerBase
 
     [HttpGet("tax/export")]
     public async Task<IActionResult> ExportTax(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
         [FromQuery] bool includeVoided = false)
@@ -122,22 +122,22 @@ public sealed class ReportsController : ControllerBase
 
     [HttpGet("stock-value")]
     public async Task<IActionResult> StockValue(
-        [FromQuery] Guid locationId,
-        [FromQuery] Guid? departmentId = null)
+        [FromQuery] long locationId,
+        [FromQuery] long? departmentId = null)
         => Ok(await _sender.Send(new GetStockValuationQuery(locationId, departmentId)));
 
     [HttpGet("stock-value/detail")]
     public async Task<IActionResult> StockValueDetail(
-        [FromQuery] Guid locationId,
-        [FromQuery] Guid? departmentId = null,
+        [FromQuery] long locationId,
+        [FromQuery] long? departmentId = null,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 200)
         => Ok(await _sender.Send(new GetStockValuationDetailQuery(locationId, departmentId, skip, take)));
 
     [HttpGet("stock-value/export")]
     public async Task<IActionResult> ExportStockValue(
-        [FromQuery] Guid locationId,
-        [FromQuery] Guid? departmentId = null)
+        [FromQuery] long locationId,
+        [FromQuery] long? departmentId = null)
     {
         var csv = await _sender.Send(new ExportStockValuationQuery(locationId, departmentId));
         return Csv(csv, "stock-valuation");
@@ -149,15 +149,15 @@ public sealed class ReportsController : ControllerBase
 
     [HttpGet("stock-position")]
     public async Task<IActionResult> StockPosition(
-        [FromQuery] Guid locationId,
-        [FromQuery] Guid? departmentId = null,
+        [FromQuery] long locationId,
+        [FromQuery] long? departmentId = null,
         [FromQuery] StockPosition? only = null)
         => Ok(await _sender.Send(new GetStockPositionQuery(locationId, departmentId, only)));
 
     [HttpGet("stock-position/export")]
     public async Task<IActionResult> ExportStockPosition(
-        [FromQuery] Guid locationId,
-        [FromQuery] Guid? departmentId = null,
+        [FromQuery] long locationId,
+        [FromQuery] long? departmentId = null,
         [FromQuery] StockPosition? only = null)
     {
         var csv = await _sender.Send(new ExportStockPositionQuery(
@@ -172,16 +172,16 @@ public sealed class ReportsController : ControllerBase
 
     [HttpGet("on-order")]
     public async Task<IActionResult> OnOrder(
-        [FromQuery] Guid locationId,
-        [FromQuery] Guid? supplierId = null,
-        [FromQuery] Guid? departmentId = null)
+        [FromQuery] long locationId,
+        [FromQuery] long? supplierId = null,
+        [FromQuery] long? departmentId = null)
         => Ok(await _sender.Send(new GetOnOrderQuery(locationId, supplierId, departmentId)));
 
     [HttpGet("on-order/export")]
     public async Task<IActionResult> ExportOnOrder(
-        [FromQuery] Guid locationId,
-        [FromQuery] Guid? supplierId = null,
-        [FromQuery] Guid? departmentId = null)
+        [FromQuery] long locationId,
+        [FromQuery] long? supplierId = null,
+        [FromQuery] long? departmentId = null)
     {
         var csv = await _sender.Send(new ExportOnOrderQuery(new GetOnOrderQuery(locationId, supplierId, departmentId)));
         return Csv(csv, "on-order");
@@ -193,20 +193,20 @@ public sealed class ReportsController : ControllerBase
 
     [HttpGet("stock-received")]
     public async Task<IActionResult> StockReceived(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
-        [FromQuery] Guid? supplierId = null,
+        [FromQuery] long? supplierId = null,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 200)
         => Ok(await _sender.Send(new GetStockReceivedQuery(locationId, from, to, supplierId, skip, take)));
 
     [HttpGet("stock-received/export")]
     public async Task<IActionResult> ExportStockReceived(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
-        [FromQuery] Guid? supplierId = null)
+        [FromQuery] long? supplierId = null)
     {
         var csv = await _sender.Send(new ExportStockReceivedQuery(
             new GetStockReceivedQuery(locationId, from, to, supplierId, 0, int.MaxValue)));
@@ -220,18 +220,18 @@ public sealed class ReportsController : ControllerBase
 
     [HttpGet("reward-points")]
     public async Task<IActionResult> RewardPoints(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
-        [FromQuery] Guid? customerId = null)
+        [FromQuery] long? customerId = null)
         => Ok(await _sender.Send(new GetRewardPointsActivityQuery(locationId, from, to, customerId)));
 
     [HttpGet("reward-points/export")]
     public async Task<IActionResult> ExportRewardPoints(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
-        [FromQuery] Guid? customerId = null)
+        [FromQuery] long? customerId = null)
     {
         var csv = await _sender.Send(new ExportRewardPointsActivityQuery(
             new GetRewardPointsActivityQuery(locationId, from, to, customerId)));

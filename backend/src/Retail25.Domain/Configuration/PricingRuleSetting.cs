@@ -51,7 +51,7 @@ public sealed class PricingRuleSetting : Entity, IAuditable
     {
     }
 
-    public Guid LocationId { get; private set; }
+    public long LocationId { get; private set; }
 
     /// <summary>One of <see cref="PricingRuleKeys"/>. Unknown keys are ignored by the resolver.</summary>
     public string RuleKey { get; private set; } = string.Empty;
@@ -66,13 +66,13 @@ public sealed class PricingRuleSetting : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static Result<PricingRuleSetting> Create(Guid locationId, string ruleKey, int order, bool enabled = true, string? parametersJson = null)
+    public static Result<PricingRuleSetting> Create(long locationId, string ruleKey, int order, bool enabled = true, string? parametersJson = null)
     {
         if (string.IsNullOrWhiteSpace(ruleKey))
         {
@@ -96,7 +96,7 @@ public sealed class PricingRuleSetting : Entity, IAuditable
     public void SetParameters(string? parametersJson) => ParametersJson = parametersJson;
 
     /// <summary>The working default ladder for a new location, in the documented order.</summary>
-    public static IReadOnlyList<PricingRuleSetting> SeedDefaults(Guid locationId)
+    public static IReadOnlyList<PricingRuleSetting> SeedDefaults(long locationId)
     {
         var settings = new List<PricingRuleSetting>(PricingRuleKeys.DefaultOrder.Count);
         for (var i = 0; i < PricingRuleKeys.DefaultOrder.Count; i++)

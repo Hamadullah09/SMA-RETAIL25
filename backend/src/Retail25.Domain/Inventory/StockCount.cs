@@ -33,26 +33,26 @@ public sealed class StockCount : AggregateRoot, IAuditable
 
     public long CountNumber { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public StockCountStatus Status { get; set; } = StockCountStatus.InProgress;
 
     public string? Notes { get; set; }
 
     /// <summary>Optional narrowing — a count of one department rather than the whole shop.</summary>
-    public Guid? DepartmentId { get; set; }
+    public long? DepartmentId { get; set; }
 
     public DateTimeOffset? PostedAt { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static StockCount Start(Guid locationId, long countNumber, Guid? departmentId = null, string? notes = null)
+    public static StockCount Start(long locationId, long countNumber, long? departmentId = null, string? notes = null)
         => new()
         {
             CountNumber = countNumber,
@@ -113,11 +113,11 @@ public sealed class StockCountLine : Entity, IAuditable
     {
     }
 
-    public Guid StockCountId { get; set; }
+    public long StockCountId { get; set; }
 
-    public Guid ProductId { get; set; }
+    public long ProductId { get; set; }
 
-    public Guid? VariantId { get; set; }
+    public long? VariantId { get; set; }
 
     public string StockCode { get; set; } = string.Empty;
 
@@ -138,14 +138,14 @@ public sealed class StockCountLine : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     public static Result<StockCountLine> Create(
-        Guid countId, Guid productId, string stockCode, string productName,
+        long countId, long productId, string stockCode, string productName,
         decimal countedQty, decimal systemQty, decimal unitCost, string? notes = null)
     {
         if (countedQty < 0m)

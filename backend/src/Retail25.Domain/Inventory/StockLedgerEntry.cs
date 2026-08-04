@@ -27,11 +27,11 @@ public sealed class StockLedgerEntry : Entity
     {
     }
 
-    public Guid ProductId { get; set; }
+    public long ProductId { get; set; }
 
-    public Guid? VariantId { get; set; }
+    public long? VariantId { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public MovementType MovementType { get; set; }
 
@@ -45,11 +45,11 @@ public sealed class StockLedgerEntry : Entity
     public string? ReferenceType { get; set; }
 
     /// <summary>Id of the referencing entity (e.g. SalesTransaction.Id, PurchaseOrder.Id).</summary>
-    public Guid? ReferenceId { get; set; }
+    public long? ReferenceId { get; set; }
 
     public string? Reason { get; set; }
 
     public DateTimeOffset OccurredAt { get; set; }
 
-    public Guid? StaffId { get; set; }
+    public long? StaffId { get; set; }
 }

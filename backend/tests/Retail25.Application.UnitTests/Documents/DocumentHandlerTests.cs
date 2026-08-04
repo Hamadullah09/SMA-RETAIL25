@@ -121,7 +121,7 @@ public sealed class DocumentHandlerTests
 
         var result = await Handlers(harness).Handle(
             new PrintPriceTagsQuery(harness.Location.Id,
-                [new LabelRequestLine(here.Id), new LabelRequestLine(Guid.NewGuid())]),
+                [new LabelRequestLine(here.Id), new LabelRequestLine(TestIds.Next())]),
             CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
@@ -148,7 +148,7 @@ public sealed class DocumentHandlerTests
         using var harness = await MastersTestHarness.CreateAsync();
 
         var result = await Handlers(harness).Handle(
-            new PrintPriceTagsQuery(harness.Location.Id, [new LabelRequestLine(Guid.NewGuid())]),
+            new PrintPriceTagsQuery(harness.Location.Id, [new LabelRequestLine(TestIds.Next())]),
             CancellationToken.None);
 
         result.Error.Should().Be(DocumentHandlers.NothingToPrint);
@@ -209,7 +209,7 @@ public sealed class DocumentHandlerTests
         using var harness = await MastersTestHarness.CreateAsync();
 
         var result = await Handlers(harness).Handle(
-            new PrintStatementEnvelopeQuery(Guid.NewGuid()), CancellationToken.None);
+            new PrintStatementEnvelopeQuery(TestIds.Next()), CancellationToken.None);
 
         result.Error.Should().Be(DocumentHandlers.CustomerNotFound);
     }

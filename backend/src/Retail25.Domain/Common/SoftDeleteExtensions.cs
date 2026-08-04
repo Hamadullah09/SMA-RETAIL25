@@ -21,7 +21,7 @@ public static class SoftDeleteExtensions
         entity.DeletedBy = null;
     }
 
-    public static void MarkDeleted(this ISoftDeletable entity, DateTimeOffset now, Guid? actor)
+    public static void MarkDeleted(this ISoftDeletable entity, DateTimeOffset now, long? actor)
     {
         ArgumentNullException.ThrowIfNull(entity);
 

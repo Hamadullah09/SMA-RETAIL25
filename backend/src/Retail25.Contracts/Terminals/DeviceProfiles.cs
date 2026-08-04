@@ -69,7 +69,7 @@ public enum BeeperMode
 /// </para>
 /// </summary>
 public sealed record ReaderProfileContract(
-    Guid Id,
+    long Id,
     string Name,
     string Host,
     int Port,
@@ -104,7 +104,7 @@ public sealed record ReaderProfileContract(
 /// <c>27,105</c> and Star with <c>27,100,48</c> and a store replacing a printer should not need a build.
 /// </summary>
 public sealed record PrinterProfileContract(
-    Guid Id,
+    long Id,
     string Name,
     string? Port,
     string? SetupCommand,
@@ -122,7 +122,7 @@ public sealed record PrinterProfileContract(
     bool OpenDrawerOnPrint);
 
 public sealed record ScaleProfileContract(
-    Guid Id,
+    long Id,
     string Name,
     string Port,
     int BaudRate,
@@ -135,7 +135,7 @@ public sealed record ScaleProfileContract(
     int TimeoutMs);
 
 public sealed record PoleDisplayProfileContract(
-    Guid Id,
+    long Id,
     string Name,
     string Port,
     int BaudRate,
@@ -152,7 +152,7 @@ public sealed record PoleDisplayProfileContract(
 /// whenever an administrator changes it, so a peripheral swap is a settings edit (doc 06 §7).
 /// </summary>
 public sealed record TerminalProfileContract(
-    Guid StationId,
+    long StationId,
     string StationCode,
     ReaderMode ReaderMode,
     ReaderProfileContract? Reader,

@@ -8,7 +8,7 @@ using Retail25.Domain.Staff;
 namespace Retail25.Application.Reports;
 
 public sealed record HoursRow(
-    Guid StaffId,
+    long StaffId,
     string StaffCode,
     string StaffName,
     int Shifts,
@@ -27,16 +27,16 @@ public sealed record HoursReportResult(
 /// <summary>Hours worked over a period (guide p.75–76).</summary>
 [RequiresPermission(PermissionKeys.Reports.Hours)]
 public sealed record HoursReportQuery(
-    Guid LocationId,
+    long LocationId,
     DateOnly From,
     DateOnly To,
-    Guid? StaffId = null) : IRequest<HoursReportResult>;
+    long? StaffId = null) : IRequest<HoursReportResult>;
 
 [RequiresPermission(PermissionKeys.Reports.Hours)]
 public sealed record ExportHoursReportQuery(HoursReportQuery Inner) : IRequest<string>;
 
 public sealed record CommissionRow(
-    Guid StaffId,
+    long StaffId,
     string StaffCode,
     string StaffName,
     int Lines,
@@ -45,7 +45,7 @@ public sealed record CommissionRow(
     int CappedLines);
 
 public sealed record CommissionDetailRow(
-    Guid TransactionId,
+    long TransactionId,
     long TransactionNumber,
     DateOnly BusinessDate,
     string StockCode,
@@ -71,10 +71,10 @@ public sealed record CommissionReportResult(
 /// </summary>
 [RequiresPermission(PermissionKeys.Reports.Commissions)]
 public sealed record CommissionReportQuery(
-    Guid LocationId,
+    long LocationId,
     DateOnly From,
     DateOnly To,
-    Guid? StaffId = null,
+    long? StaffId = null,
     /// <summary>Line-by-line detail. Only meaningful for one person, so it needs <see cref="StaffId"/>.</summary>
     bool IncludeDetail = false,
     int DetailTake = 500) : IRequest<CommissionReportResult>;
@@ -233,7 +233,7 @@ public sealed class StaffReportHandlers :
         return csv.ToString();
     }
 
-    private async Task<Dictionary<Guid, StaffProfile>> StaffAsync(IEnumerable<Guid> ids, CancellationToken ct)
+    private async Task<Dictionary<long, StaffProfile>> StaffAsync(IEnumerable<long> ids, CancellationToken ct)
     {
         var distinct = ids.Distinct().ToList();
 

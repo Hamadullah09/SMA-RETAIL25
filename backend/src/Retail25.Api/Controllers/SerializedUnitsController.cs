@@ -23,8 +23,8 @@ public sealed class SerializedUnitsController : ControllerBase
     /// <summary>The picker shown when a serialized item is rung by its parent code (guide p.42).</summary>
     [HttpGet("available")]
     public async Task<IActionResult> Available(
-        [FromQuery] Guid productId,
-        [FromQuery] Guid locationId,
+        [FromQuery] long productId,
+        [FromQuery] long locationId,
         [FromQuery] int take = 50)
         => Ok(await _sender.Send(new ListAvailableUnitsQuery(productId, locationId, take)));
 
@@ -62,7 +62,7 @@ public sealed class SerializedUnitsController : ControllerBase
 /// <summary>Matrix items: the dimension grid and the variants it generates (guide p.39–40).</summary>
 [ApiController]
 [Authorize]
-[Route("api/v1/products/{productId:guid}/matrix")]
+[Route("api/v1/products/{productId:long}/matrix")]
 [Produces("application/json")]
 public sealed class MatrixController : ControllerBase
 {
@@ -71,36 +71,36 @@ public sealed class MatrixController : ControllerBase
     public MatrixController(ISender sender) => _sender = sender;
 
     [HttpGet]
-    public async Task<IActionResult> Get(Guid productId)
+    public async Task<IActionResult> Get(long productId)
         => (await _sender.Send(new GetMatrixQuery(productId))).ToActionResult(this);
 
     /// <summary>Defines the dimensions and generates the cross product of their values.</summary>
     [HttpPut]
-    public async Task<IActionResult> Define(Guid productId, [FromBody] DefineMatrixRequest request)
+    public async Task<IActionResult> Define(long productId, [FromBody] DefineMatrixRequest request)
         => (await _sender.Send(new DefineMatrixCommand(productId, request.Dimensions))).ToActionResult(this);
 
     /// <summary>The variant picker at the till, optionally limited to what is actually on the shelf.</summary>
     [HttpGet("variants")]
     public async Task<IActionResult> Variants(
-        Guid productId,
-        [FromQuery] Guid locationId,
+        long productId,
+        [FromQuery] long locationId,
         [FromQuery] bool inStockOnly = false)
         => Ok(await _sender.Send(new ListVariantsQuery(productId, locationId, inStockOnly)));
 }
 
-public sealed record ReassignTagRequest(string Epc, Guid ProductId, Guid? VariantId = null);
+public sealed record ReassignTagRequest(string Epc, long ProductId, long? VariantId = null);
 
 public sealed record CommissionTagRequest(
     string Epc,
-    Guid ProductId,
-    Guid LocationId,
-    Guid? VariantId = null,
+    long ProductId,
+    long LocationId,
+    long? VariantId = null,
     string? SerialNumber = null);
 
 public sealed record CommissionBatchRequest(
-    Guid ProductId,
-    Guid LocationId,
+    long ProductId,
+    long LocationId,
     IReadOnlyList<string> Epcs,
-    Guid? VariantId = null);
+    long? VariantId = null);
 
 public sealed record DefineMatrixRequest(IReadOnlyList<MatrixDimensionDto> Dimensions);

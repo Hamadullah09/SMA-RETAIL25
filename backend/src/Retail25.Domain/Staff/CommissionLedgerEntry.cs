@@ -16,23 +16,23 @@ public sealed class CommissionLedgerEntry : Entity
     {
     }
 
-    public Guid StaffId { get; set; }
+    public long StaffId { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
-    public Guid TransactionId { get; set; }
+    public long TransactionId { get; set; }
 
-    public Guid SaleLineId { get; set; }
+    public long SaleLineId { get; set; }
 
-    public Guid ProductId { get; set; }
+    public long ProductId { get; set; }
 
     /// <summary>Kept for the report so a deleted or renamed item still reads correctly.</summary>
     public string StockCodeSnapshot { get; set; } = string.Empty;
 
-    public Guid? DepartmentId { get; set; }
+    public long? DepartmentId { get; set; }
 
     /// <summary>Which rule produced this. Null once the rule itself has been deleted.</summary>
-    public Guid? CommissionRuleId { get; set; }
+    public long? CommissionRuleId { get; set; }
 
     public CommissionType CommissionType { get; set; }
 

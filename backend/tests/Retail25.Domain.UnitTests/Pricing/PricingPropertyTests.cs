@@ -16,7 +16,7 @@ namespace Retail25.Domain.UnitTests.Pricing;
 /// </summary>
 public sealed class PricingPropertyTests
 {
-    private static readonly Guid LocationId = Guid.NewGuid();
+    private static readonly long LocationId = TestIds.Next();
 
     /// <summary>Prices and quantities a real catalogue would contain, at realistic magnitudes.</summary>
     private static Gen<decimal> Price => Gen.Int[1, 500_00].Select(cents => cents / 100m);
@@ -138,7 +138,7 @@ public sealed class PricingPropertyTests
             var product = Product.Create(LocationId, $"SKU{i:D4}", $"Item {i}", ProductType.Standard, price).Value;
 
             lines.Add(new LineInput(
-                Guid.NewGuid(),
+                TestIds.Next(),
                 i + 1,
                 product,
                 null,

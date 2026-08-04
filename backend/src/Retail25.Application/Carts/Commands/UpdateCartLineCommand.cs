@@ -19,8 +19,8 @@ namespace Retail25.Application.Carts.Commands;
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
 public sealed record UpdateCartLineCommand(
-    Guid CartId,
-    Guid LineId,
+    long CartId,
+    long LineId,
     decimal? Quantity = null,
     decimal? ManualPrice = null,
     decimal? ManualDiscountPct = null,

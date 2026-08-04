@@ -8,11 +8,11 @@ using Retail25.Domain.Common;
 namespace Retail25.Application.Rfid.Commands;
 
 public sealed record SerializedUnitDto(
-    Guid Id,
+    long Id,
     string? SerialNumber,
     string? Epc,
     SerializedUnitState State,
-    Guid? VariantId,
+    long? VariantId,
     string? VariantLabel,
     DateTimeOffset ReceivedOn,
     DateTimeOffset? LastSeenAt);
@@ -26,7 +26,7 @@ public sealed record SerializedUnitDto(
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record ListAvailableUnitsQuery(Guid ProductId, Guid LocationId, int Take = 50)
+public sealed record ListAvailableUnitsQuery(long ProductId, long LocationId, int Take = 50)
     : IRequest<IReadOnlyList<SerializedUnitDto>>;
 
 /// <summary>
@@ -40,10 +40,10 @@ public sealed record ListAvailableUnitsQuery(Guid ProductId, Guid LocationId, in
 /// </summary>
 [RequiresPermission(PermissionKeys.Inventory.CommissionTags)]
 public sealed record CommissionTagBatchCommand(
-    Guid ProductId,
-    Guid LocationId,
+    long ProductId,
+    long LocationId,
     IReadOnlyList<string> Epcs,
-    Guid? VariantId = null) : IRequest<Result<CommissionBatchResult>>;
+    long? VariantId = null) : IRequest<Result<CommissionBatchResult>>;
 
 public sealed record CommissionedTag(string Epc, bool Succeeded, string? Reason);
 

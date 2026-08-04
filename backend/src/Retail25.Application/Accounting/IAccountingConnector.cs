@@ -10,7 +10,7 @@ public sealed record SyncResult(bool Success, int RecordCount, string? Error = n
 }
 
 /// <summary>Which slice of data to push. A null range means everything not yet synced.</summary>
-public sealed record SyncScope(Guid LocationId, DateOnly? From = null, DateOnly? To = null);
+public sealed record SyncScope(long LocationId, DateOnly? From = null, DateOnly? To = null);
 
 /// <summary>
 /// The port the accounting system sits behind (doc 09 §1), replacing the legacy QB-XML link that
@@ -39,14 +39,14 @@ public interface IAccountingConnector
     /// A day's takings as one journal per location, built from closed drawer sessions (guide p.111).
     /// The source rows are marked as posted rather than cleared, so the day can always be re-read.
     /// </summary>
-    Task<SyncResult> PostPosRevenueAsync(Guid locationId, DateOnly businessDate, CancellationToken ct);
+    Task<SyncResult> PostPosRevenueAsync(long locationId, DateOnly businessDate, CancellationToken ct);
 
     /// <summary>A received purchase order as an A/P bill, due 30 days out by default (guide p.112–113).</summary>
-    Task<SyncResult> PostBillAsync(Guid purchaseOrderId, DateOnly dueOn, CancellationToken ct);
+    Task<SyncResult> PostBillAsync(long purchaseOrderId, DateOnly dueOn, CancellationToken ct);
 
-    Task<SyncResult> PullCustomersAsync(Guid locationId, CancellationToken ct);
+    Task<SyncResult> PullCustomersAsync(long locationId, CancellationToken ct);
 
-    Task<SyncResult> PullItemsAsync(Guid locationId, CancellationToken ct);
+    Task<SyncResult> PullItemsAsync(long locationId, CancellationToken ct);
 
-    Task<SyncResult> PullVendorsAsync(Guid locationId, CancellationToken ct);
+    Task<SyncResult> PullVendorsAsync(long locationId, CancellationToken ct);
 }

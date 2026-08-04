@@ -27,7 +27,7 @@ public sealed class ProfileStore
 
     /// <summary>Used until the server answers, so the agent starts sanely rather than not at all.</summary>
     public static ReaderProfileContract DefaultReader { get; } = new(
-        Guid.Empty,
+        0L,
         "Default",
         "127.0.0.1",
         5084,

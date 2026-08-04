@@ -12,11 +12,11 @@ public sealed class StockLevel : Entity
     {
     }
 
-    public Guid ProductId { get; set; }
+    public long ProductId { get; set; }
 
-    public Guid? VariantId { get; set; }
+    public long? VariantId { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public decimal OnHand { get; set; }
 
@@ -30,7 +30,7 @@ public sealed class StockLevel : Entity
     /// <summary>Available = OnHand - Committed.</summary>
     public decimal Available => OnHand - Committed;
 
-    public static StockLevel Create(Guid productId, Guid? variantId, Guid locationId)
+    public static StockLevel Create(long productId, long? variantId, long locationId)
     {
         return new StockLevel
         {

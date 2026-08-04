@@ -180,7 +180,7 @@ public sealed class UhfSerialCodecTests
     [Fact]
     public void A_reader_that_reports_no_signal_strength_is_not_filtered_out()
     {
-        var profile = ReaderProfile.CreateDefault(Guid.NewGuid());
+        var profile = ReaderProfile.CreateDefault(TestIds.Next());
         profile.RssiThresholdDbm = -70;
         profile.MinimumReadCount = 2;
 

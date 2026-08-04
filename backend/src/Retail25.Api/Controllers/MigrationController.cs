@@ -29,28 +29,28 @@ public sealed class MigrationController : ControllerBase
     public IActionResult Kinds() => Ok(_reader.Kinds);
 
     [HttpGet("batches")]
-    public async Task<IActionResult> Batches([FromQuery] Guid locationId, CancellationToken ct)
+    public async Task<IActionResult> Batches([FromQuery] long locationId, CancellationToken ct)
         => Ok(await _sender.Send(new ListMigrationBatchesQuery(locationId), ct));
 
-    [HttpGet("batches/{id:guid}")]
-    public async Task<IActionResult> Batch(Guid id, CancellationToken ct)
+    [HttpGet("batches/{id:long}")]
+    public async Task<IActionResult> Batch(long id, CancellationToken ct)
         => (await _sender.Send(new GetMigrationBatchQuery(id), ct)).ToActionResult(this);
 
-    [HttpGet("batches/{id:guid}/analysis")]
-    public async Task<IActionResult> Analysis(Guid id, CancellationToken ct)
+    [HttpGet("batches/{id:long}/analysis")]
+    public async Task<IActionResult> Analysis(long id, CancellationToken ct)
         => (await _sender.Send(new GetAnalysisQuery(id), ct)).ToActionResult(this);
 
-    [HttpGet("batches/{id:guid}/validation")]
-    public async Task<IActionResult> Validation(Guid id, CancellationToken ct)
+    [HttpGet("batches/{id:long}/validation")]
+    public async Task<IActionResult> Validation(long id, CancellationToken ct)
         => (await _sender.Send(new GetValidationQuery(id), ct)).ToActionResult(this);
 
-    [HttpGet("batches/{id:guid}/reconciliation")]
-    public async Task<IActionResult> Reconciliation(Guid id, CancellationToken ct)
+    [HttpGet("batches/{id:long}/reconciliation")]
+    public async Task<IActionResult> Reconciliation(long id, CancellationToken ct)
         => (await _sender.Send(new GetReconciliationQuery(id), ct)).ToActionResult(this);
 
-    [HttpGet("batches/{id:guid}/rows")]
+    [HttpGet("batches/{id:long}/rows")]
     public async Task<IActionResult> Rows(
-        Guid id,
+        long id,
         [FromQuery] bool problemsOnly = true,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 200,
@@ -65,21 +65,21 @@ public sealed class MigrationController : ControllerBase
     public async Task<IActionResult> Stage([FromBody] StageMigrationFileCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
-    [HttpPost("batches/{id:guid}/validate")]
-    public async Task<IActionResult> Validate(Guid id, CancellationToken ct)
+    [HttpPost("batches/{id:long}/validate")]
+    public async Task<IActionResult> Validate(long id, CancellationToken ct)
         => (await _sender.Send(new ValidateMigrationBatchCommand(id), ct)).ToActionResult(this);
 
     /// <summary>Transforms every row and writes nothing, reporting the totals the import would produce.</summary>
-    [HttpPost("batches/{id:guid}/dry-run")]
-    public async Task<IActionResult> DryRun(Guid id, [FromBody] LegacyControlTotals? totals, CancellationToken ct)
+    [HttpPost("batches/{id:long}/dry-run")]
+    public async Task<IActionResult> DryRun(long id, [FromBody] LegacyControlTotals? totals, CancellationToken ct)
         => (await _sender.Send(new DryRunMigrationCommand(id, totals), ct)).ToActionResult(this);
 
     /// <summary>Refuses without a passing dry run for the same batch.</summary>
-    [HttpPost("batches/{id:guid}/import")]
-    public async Task<IActionResult> Import(Guid id, [FromBody] LegacyControlTotals? totals, CancellationToken ct)
+    [HttpPost("batches/{id:long}/import")]
+    public async Task<IActionResult> Import(long id, [FromBody] LegacyControlTotals? totals, CancellationToken ct)
         => (await _sender.Send(new ImportMigrationBatchCommand(id, totals), ct)).ToActionResult(this);
 
-    [HttpPost("batches/{id:guid}/cancel")]
-    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
+    [HttpPost("batches/{id:long}/cancel")]
+    public async Task<IActionResult> Cancel(long id, CancellationToken ct)
         => (await _sender.Send(new CancelMigrationBatchCommand(id), ct)).ToActionResult(this);
 }

@@ -18,11 +18,11 @@ namespace Retail25.Application.Carts.Commands;
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.TaxOverride)]
-public sealed record SetCartTaxOverrideCommand(Guid CartId, bool? Tax1, bool? Tax2) : IRequest<Result<CartDto>>;
+public sealed record SetCartTaxOverrideCommand(long CartId, bool? Tax1, bool? Tax2) : IRequest<Result<CartDto>>;
 
 /// <summary>Attaches a customer, which re-prices the whole cart against their level and discount (guide p.52).</summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record AssignCartCustomerCommand(Guid CartId, Guid? CustomerId) : IRequest<Result<CartDto>>;
+public sealed record AssignCartCustomerCommand(long CartId, long? CustomerId) : IRequest<Result<CartDto>>;
 
 public sealed class CartContextHandlers
     : IRequestHandler<SetCartTaxOverrideCommand, Result<CartDto>>,

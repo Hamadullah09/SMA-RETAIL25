@@ -195,7 +195,7 @@ internal sealed class MastersTestHarness : IDisposable
         decimal price = 10m,
         decimal onHand = 0m,
         ProductType type = ProductType.Standard,
-        Guid? departmentId = null)
+        long? departmentId = null)
     {
         var product = Product.Create(Location.Id, stockCode, name, type, price).Value;
         product.UpdateStockLevels(onHand, 0m);
@@ -217,7 +217,7 @@ internal sealed class MastersTestHarness : IDisposable
     public async Task<Domain.Staff.StaffProfile> AddStaffAsync(
         string code, string firstName, string lastName, int accessLevel = 2)
     {
-        var staff = Domain.Staff.StaffProfile.Create(Guid.NewGuid(), code, firstName, lastName, accessLevel);
+        var staff = Domain.Staff.StaffProfile.Create(TestIds.Next(), code, firstName, lastName, accessLevel);
         Db.StaffProfiles.Add(staff);
         await Db.SaveChangesAsync();
         return staff;
@@ -235,7 +235,7 @@ internal sealed class MastersTestHarness : IDisposable
 
     /// <summary>An item at a location other than the harness's default one.</summary>
     public async Task<Product> AddProductAtAsync(
-        Guid locationId, string stockCode, string name, decimal price = 10m, decimal onHand = 0m)
+        long locationId, string stockCode, string name, decimal price = 10m, decimal onHand = 0m)
     {
         var product = Product.Create(locationId, stockCode, name, ProductType.Standard, price).Value;
         product.UpdateStockLevels(onHand, 0m);
@@ -300,20 +300,20 @@ internal sealed class MastersTestHarness : IDisposable
     }
 
     public async Task<Invoice> AddInvoiceAsync(
-        Guid customerId, decimal invoiceTotal, DateOnly issuedOn, DateOnly dueOn, decimal penaltyAccrued = 0m)
+        long customerId, decimal invoiceTotal, DateOnly issuedOn, DateOnly dueOn, decimal penaltyAccrued = 0m)
     {
         var invoice = new Invoice
         {
             InvoiceNumber = DateTime.UtcNow.Ticks,
             CustomerId = customerId,
-            TransactionId = Guid.NewGuid(),
+            TransactionId = TestIds.Next(),
             IssuedOn = issuedOn,
             DueOn = dueOn,
             InvoiceTotal = invoiceTotal,
             BalanceDue = invoiceTotal,
             PenaltyAccrued = penaltyAccrued,
             Status = InvoiceStatus.Open,
-            StaffId = Guid.NewGuid(),
+            StaffId = TestIds.Next(),
             CreatedAt = Clock.Now,
         };
 
@@ -351,8 +351,8 @@ internal sealed class MastersTestHarness : IDisposable
         decimal unitPrice,
         decimal unitCost,
         DateOnly businessDate,
-        Guid? customerId = null,
-        Guid? staffId = null,
+        long? customerId = null,
+        long? staffId = null,
         decimal tax1 = 0m,
         decimal tax2 = 0m,
         bool isTraining = false,
@@ -364,8 +364,8 @@ internal sealed class MastersTestHarness : IDisposable
         {
             TransactionNumber = DateTime.UtcNow.Ticks,
             LocationId = Location.Id,
-            StationId = Guid.NewGuid(),
-            StaffId = staffId ?? Guid.NewGuid(),
+            StationId = TestIds.Next(),
+            StaffId = staffId ?? TestIds.Next(),
             CustomerId = customerId,
             BusinessDate = businessDate,
             CompletedAt = businessDate.ToDateTime(new TimeOnly(12, 0)),
@@ -422,7 +422,7 @@ internal sealed class MastersTestHarness : IDisposable
         decimal quantity,
         decimal unitCost = 0m,
         DateTimeOffset? occurredAt = null,
-        Guid? referenceId = null,
+        long? referenceId = null,
         string? referenceType = null)
     {
         var entry = new StockLedgerEntry

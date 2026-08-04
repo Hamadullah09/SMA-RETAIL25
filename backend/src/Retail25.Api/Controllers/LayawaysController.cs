@@ -19,29 +19,29 @@ public sealed class LayawaysController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> Browse(
-        [FromQuery] Guid locationId,
-        [FromQuery] Guid? customerId,
+        [FromQuery] long locationId,
+        [FromQuery] long? customerId,
         [FromQuery] LayawayStatus? status,
         [FromQuery] string? cursor = null,
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
         => Ok(await _sender.Send(new BrowseLayawaysQuery(locationId, customerId, status, cursor, pageSize), ct));
 
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:long}")]
+    public async Task<IActionResult> Get(long id, CancellationToken ct)
         => (await _sender.Send(new GetLayawayQuery(id), ct)).ToActionResult(this);
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateLayawayCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
-    [HttpPost("{id:guid}/payments")]
-    public async Task<IActionResult> TakePayment(Guid id, [FromBody] TakeLayawayPaymentRequest request, CancellationToken ct)
+    [HttpPost("{id:long}/payments")]
+    public async Task<IActionResult> TakePayment(long id, [FromBody] TakeLayawayPaymentRequest request, CancellationToken ct)
         => (await _sender.Send(new TakeLayawayPaymentCommand(id, request.Amount, request.TenderTypeId), ct)).ToActionResult(this);
 
-    [HttpPost("{id:guid}/cancel")]
-    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
+    [HttpPost("{id:long}/cancel")]
+    public async Task<IActionResult> Cancel(long id, CancellationToken ct)
         => (await _sender.Send(new CancelLayawayCommand(id), ct)).ToActionResult(this);
 }
 
-public sealed record TakeLayawayPaymentRequest(decimal Amount, Guid TenderTypeId);
+public sealed record TakeLayawayPaymentRequest(decimal Amount, long TenderTypeId);

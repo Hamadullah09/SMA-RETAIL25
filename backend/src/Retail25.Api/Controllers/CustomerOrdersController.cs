@@ -19,27 +19,27 @@ public sealed class CustomerOrdersController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> Browse(
-        [FromQuery] Guid locationId,
-        [FromQuery] Guid? customerId,
+        [FromQuery] long locationId,
+        [FromQuery] long? customerId,
         [FromQuery] CustomerOrderStatus? status,
         [FromQuery] string? cursor = null,
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
         => Ok(await _sender.Send(new BrowseCustomerOrdersQuery(locationId, customerId, status, cursor, pageSize), ct));
 
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:long}")]
+    public async Task<IActionResult> Get(long id, CancellationToken ct)
         => (await _sender.Send(new GetCustomerOrderQuery(id), ct)).ToActionResult(this);
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCustomerOrderCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
-    [HttpPost("{id:guid}/fill")]
-    public async Task<IActionResult> Fill(Guid id, CancellationToken ct)
+    [HttpPost("{id:long}/fill")]
+    public async Task<IActionResult> Fill(long id, CancellationToken ct)
         => (await _sender.Send(new FillCustomerOrderCommand(id), ct)).ToActionResult(this);
 
-    [HttpPost("{id:guid}/cancel")]
-    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
+    [HttpPost("{id:long}/cancel")]
+    public async Task<IActionResult> Cancel(long id, CancellationToken ct)
         => (await _sender.Send(new CancelCustomerOrderCommand(id), ct)).ToActionResult(this);
 }

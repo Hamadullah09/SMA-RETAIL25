@@ -21,22 +21,22 @@ namespace Retail25.Application.Carts.Commands;
 
 /// <summary>One leg of the split payment as the till sends it (guide p.8).</summary>
 public sealed record TenderRequest(
-    Guid TenderTypeId,
+    long TenderTypeId,
     decimal Amount,
     decimal AmountTendered = 0m,
     string? Reference = null,
     string? CardToken = null,
-    Guid? CurrencyId = null,
+    long? CurrencyId = null,
     decimal ExchangeRate = 1m);
 
 public sealed record CompleteSaleResult(
-    Guid TransactionId,
+    long TransactionId,
     long TransactionNumber,
     decimal GrandTotal,
     decimal ChangeGiven,
     decimal RoundingAdjustment,
     int LoyaltyPointsEarned,
-    Guid? InvoiceId,
+    long? InvoiceId,
     ReceiptDocument? Receipt);
 
 /// <summary>
@@ -50,7 +50,7 @@ public sealed record CompleteSaleResult(
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
 public sealed record CompleteSaleCommand(
-    Guid CartId,
+    long CartId,
     IReadOnlyList<TenderRequest> Tenders,
     string IdempotencyKey,
     bool PrintReceipt = true,
@@ -288,7 +288,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     private async Task<Result<TenderSettlement>> SettleAsync(
         CompleteSaleCommand request,
         SalePricingResult pricing,
-        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        IReadOnlyDictionary<long, TenderType> tenderTypes,
         PosContext context,
         CartSnapshot snapshot,
         CancellationToken ct)
@@ -424,7 +424,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     private void WriteTenders(
         SalesTransaction transaction,
         TenderSettlement settlement,
-        IReadOnlyDictionary<Guid, TenderType> tenderTypes)
+        IReadOnlyDictionary<long, TenderType> tenderTypes)
     {
         foreach (var tender in settlement.Tenders)
         {
@@ -524,9 +524,9 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
 
     private async Task MoveStockAsync(
         SalesTransaction transaction,
-        Guid productId,
-        Guid? variantId,
-        Guid locationId,
+        long productId,
+        long? variantId,
+        long locationId,
         decimal signedQuantity,
         decimal unitCost,
         MovementType movementType,
@@ -647,7 +647,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     /// on the wire would let a real sale be marked as practice and disappear from every report.
     /// </para>
     /// </summary>
-    private async Task<bool> IsTrainingSaleAsync(Guid? staffId, CancellationToken ct)
+    private async Task<bool> IsTrainingSaleAsync(long? staffId, CancellationToken ct)
     {
         if (staffId is not { } id)
         {
@@ -675,7 +675,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     /// </para>
     /// </summary>
     private static Result CheckTrainingTenders(
-        CompleteSaleCommand request, IReadOnlyDictionary<Guid, TenderType> tenderTypes)
+        CompleteSaleCommand request, IReadOnlyDictionary<long, TenderType> tenderTypes)
     {
         foreach (var tender in request.Tenders)
         {
@@ -711,7 +711,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         SalesTransaction transaction,
         SalePricingResult pricing,
         IReadOnlyList<SaleLine> saleLines,
-        Guid? staffId,
+        long? staffId,
         CancellationToken ct)
     {
         if (staffId is not { } id)
@@ -782,7 +782,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     private async Task ApplyGiftCertificatesAsync(
         CartSnapshot snapshot,
         TenderSettlement settlement,
-        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        IReadOnlyDictionary<long, TenderType> tenderTypes,
         CancellationToken ct)
     {
         foreach (var tender in settlement.Tenders)
@@ -811,7 +811,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     /// <summary>Spends a gift card's stored value by the tendered amount, mirroring the gift-certificate tender above.</summary>
     private async Task ApplyGiftCardsAsync(
         TenderSettlement settlement,
-        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        IReadOnlyDictionary<long, TenderType> tenderTypes,
         CancellationToken ct)
     {
         foreach (var tender in settlement.Tenders)
@@ -835,7 +835,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     private async Task<Result> ApplyOnAccountAsync(
         SalesTransaction transaction,
         TenderSettlement settlement,
-        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        IReadOnlyDictionary<long, TenderType> tenderTypes,
         PosContext context,
         DateTimeOffset now,
         CancellationToken ct)
@@ -902,9 +902,9 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         DrawerSession session,
         SalesTransaction transaction,
         TenderSettlement settlement,
-        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        IReadOnlyDictionary<long, TenderType> tenderTypes,
         SalePricingResult pricing,
-        Guid staffId,
+        long staffId,
         DateTimeOffset now)
     {
         var cashMovement = settlement.Tenders

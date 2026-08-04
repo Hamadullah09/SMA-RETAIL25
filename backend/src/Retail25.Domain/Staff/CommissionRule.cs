@@ -36,13 +36,13 @@ public sealed class CommissionRule : Entity, IAuditable
     {
     }
 
-    public Guid StaffId { get; set; }
+    public long StaffId { get; set; }
 
     /// <summary>Optional: specific product this rule applies to. Null = applies to all.</summary>
-    public Guid? ProductId { get; set; }
+    public long? ProductId { get; set; }
 
     /// <summary>Optional: specific department this rule applies to.</summary>
-    public Guid? DepartmentId { get; set; }
+    public long? DepartmentId { get; set; }
 
     public CommissionType CommissionType { get; set; }
 
@@ -56,11 +56,11 @@ public sealed class CommissionRule : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     /// <summary>
     /// How narrowly this rule aims. Higher wins when several rules could apply to one line: an
@@ -70,11 +70,11 @@ public sealed class CommissionRule : Entity, IAuditable
     public int Specificity => ProductId is not null ? 2 : DepartmentId is not null ? 1 : 0;
 
     public static Result<CommissionRule> Create(
-        Guid staffId,
+        long staffId,
         CommissionType commissionType,
         decimal value,
-        Guid? productId = null,
-        Guid? departmentId = null,
+        long? productId = null,
+        long? departmentId = null,
         decimal? maxCommission = null)
     {
         if (productId is not null && departmentId is not null)

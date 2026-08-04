@@ -11,11 +11,11 @@ namespace Retail25.Application.Carts.Commands;
 
 /// <summary>Deletes one line — the legacy F6 "delete last line" and any click on the cart list (guide p.10).</summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record RemoveCartLineCommand(Guid CartId, Guid LineId) : IRequest<Result<CartDto>>;
+public sealed record RemoveCartLineCommand(long CartId, long LineId) : IRequest<Result<CartDto>>;
 
 /// <summary>Empties the cart without abandoning it, so the cashier keeps the same sale open.</summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record ClearCartCommand(Guid CartId) : IRequest<Result<CartDto>>;
+public sealed record ClearCartCommand(long CartId) : IRequest<Result<CartDto>>;
 
 public sealed class RemoveCartLineHandler
     : IRequestHandler<RemoveCartLineCommand, Result<CartDto>>,
@@ -63,7 +63,7 @@ public sealed class RemoveCartLineHandler
     /// A removed line hands its tag back: the unit returns to stock and the Redis claim is dropped so
     /// the next station to read it can sell it (doc 06 §1).
     /// </summary>
-    private async Task ReleaseUnitAsync(Guid? unitId, string? epc, Guid stationId, CancellationToken ct)
+    private async Task ReleaseUnitAsync(long? unitId, string? epc, long stationId, CancellationToken ct)
     {
         if (unitId is { } id)
         {

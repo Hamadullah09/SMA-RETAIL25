@@ -266,7 +266,7 @@ public sealed class ProductImageAndGridTests
 
     // ---------------------------------------------------------------------------------------------
 
-    private async Task<(Guid Location, Guid Station)> Context(ApplicationDbContext db)
+    private async Task<(long Location, long Station)> Context(ApplicationDbContext db)
     {
         var location = await db.Locations.AsNoTracking().FirstAsync();
         var station = await db.Stations.AsNoTracking().FirstAsync();
@@ -277,7 +277,7 @@ public sealed class ProductImageAndGridTests
         return (location.Id, station.Id);
     }
 
-    private static async Task<ProductFormDto> NewProduct(ISender sender, Guid location, string name)
+    private static async Task<ProductFormDto> NewProduct(ISender sender, long location, string name)
     {
         var stockCode = $"IMG{Guid.NewGuid():N}"[..12].ToUpperInvariant();
 

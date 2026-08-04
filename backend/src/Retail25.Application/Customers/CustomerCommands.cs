@@ -35,23 +35,23 @@ public sealed record CustomerAccountSection(
 /// </summary>
 [RequiresPermission(PermissionKeys.Customer.Write)]
 public sealed record CreateCustomerCommand(
-    Guid LocationId,
+    long LocationId,
     CustomerIdentitySection Identity,
     CustomerAddressSection? Addresses = null,
     CustomerAccountSection? Account = null) : IRequest<Result<CustomerFormDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Write)]
 public sealed record UpdateCustomerCommand(
-    Guid CustomerId,
+    long CustomerId,
     CustomerIdentitySection? Identity = null,
     CustomerAddressSection? Addresses = null,
     CustomerAccountSection? Account = null) : IRequest<Result<CustomerFormDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Delete)]
-public sealed record DeleteCustomerCommand(Guid CustomerId) : IRequest<Result>;
+public sealed record DeleteCustomerCommand(long CustomerId) : IRequest<Result>;
 
 [RequiresPermission(PermissionKeys.Customer.Delete)]
-public sealed record RestoreCustomerCommand(Guid CustomerId) : IRequest<Result>;
+public sealed record RestoreCustomerCommand(long CustomerId) : IRequest<Result>;
 
 public sealed class CustomerCommandHandlers
     : IRequestHandler<CreateCustomerCommand, Result<CustomerFormDto>>,

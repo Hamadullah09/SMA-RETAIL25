@@ -14,7 +14,7 @@ namespace Retail25.Application.UnitTests.Bulk;
 /// </summary>
 public sealed class StockTransferTests
 {
-    private static async Task<(MastersTestHarness Harness, Guid ToLocationId)> TwoStoresAsync()
+    private static async Task<(MastersTestHarness Harness, long ToLocationId)> TwoStoresAsync()
     {
         var harness = await MastersTestHarness.CreateAsync();
         var destination = await harness.AddLocationAsync("Second Store", "SND");
@@ -22,7 +22,7 @@ public sealed class StockTransferTests
     }
 
     private static async Task<TransferDto> DraftAsync(
-        MastersTestHarness harness, Guid toLocationId, Guid productId, decimal quantity)
+        MastersTestHarness harness, long toLocationId, long productId, decimal quantity)
     {
         var created = await harness.Transfers.Handle(
             new CreateTransferCommand(harness.Location.Id, toLocationId), CancellationToken.None);
@@ -50,7 +50,7 @@ public sealed class StockTransferTests
         using var harness = await MastersTestHarness.CreateAsync();
 
         var result = await harness.Transfers.Handle(
-            new CreateTransferCommand(harness.Location.Id, Guid.NewGuid()), CancellationToken.None);
+            new CreateTransferCommand(harness.Location.Id, TestIds.Next()), CancellationToken.None);
 
         result.Error.Should().Be(TransferHandlers.LocationNotFound);
     }

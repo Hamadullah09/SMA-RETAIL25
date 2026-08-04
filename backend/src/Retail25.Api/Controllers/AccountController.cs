@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using Microsoft.AspNetCore.Antiforgery;
@@ -148,7 +149,7 @@ public sealed class AccountController : Controller
             await _audit.RecordAsync(
                 AuditAction.SignInFailed,
                 nameof(ApplicationUser),
-                user.Id.ToString(),
+                user.Id.ToString(CultureInfo.InvariantCulture),
                 "password",
                 reason: "Account locked out");
 
@@ -171,7 +172,7 @@ public sealed class AccountController : Controller
             await _audit.RecordAsync(
                 AuditAction.SignInFailed,
                 nameof(ApplicationUser),
-                user.Id.ToString(),
+                user.Id.ToString(CultureInfo.InvariantCulture),
                 "password",
                 reason: "Incorrect password");
 

@@ -18,11 +18,11 @@ namespace Retail25.Application.Carts.Commands;
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Suspend)]
-public sealed record SuspendCartCommand(Guid CartId, string? Label = null) : IRequest<Result<SuspendedCartDto>>;
+public sealed record SuspendCartCommand(long CartId, string? Label = null) : IRequest<Result<SuspendedCartDto>>;
 
 /// <summary>Brings a parked sale back, at whichever till asks for it (guide p.11).</summary>
 [RequiresPermission(PermissionKeys.Pos.Recall)]
-public sealed record RecallCartCommand(Guid CartId, Guid StationId) : IRequest<Result<CartDto>>;
+public sealed record RecallCartCommand(long CartId, long StationId) : IRequest<Result<CartDto>>;
 
 public sealed class SuspendCartHandler
     : IRequestHandler<SuspendCartCommand, Result<SuspendedCartDto>>,

@@ -23,9 +23,9 @@ public sealed class CsvExportConnectorTests
 
         harness.Db.DrawerSessions.Add(new DrawerSession
         {
-            StationId = Guid.NewGuid(),
+            StationId = TestIds.Next(),
             LocationId = harness.Location.Id,
-            OpenedByStaffId = Guid.NewGuid(),
+            OpenedByStaffId = TestIds.Next(),
             BusinessDate = Day,
             Status = DrawerSessionStatus.Closed,
             NetSales = 1000m,
@@ -56,9 +56,9 @@ public sealed class CsvExportConnectorTests
 
         harness.Db.DrawerSessions.Add(new DrawerSession
         {
-            StationId = Guid.NewGuid(),
+            StationId = TestIds.Next(),
             LocationId = harness.Location.Id,
-            OpenedByStaffId = Guid.NewGuid(),
+            OpenedByStaffId = TestIds.Next(),
             BusinessDate = Day,
             Status = DrawerSessionStatus.Open,
             NetSales = 500m,
@@ -143,7 +143,7 @@ public sealed class CsvExportConnectorTests
         using var harness = await MastersTestHarness.CreateAsync();
         var connector = new CsvExportConnector(harness.Db, harness.Clock);
 
-        var result = await connector.PostBillAsync(Guid.NewGuid(), new DateOnly(2026, 8, 1), CancellationToken.None);
+        var result = await connector.PostBillAsync(TestIds.Next(), new DateOnly(2026, 8, 1), CancellationToken.None);
 
         result.Success.Should().BeFalse();
         result.Error.Should().NotBeNullOrEmpty();

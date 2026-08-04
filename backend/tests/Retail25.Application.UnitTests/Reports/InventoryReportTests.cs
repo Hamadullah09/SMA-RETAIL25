@@ -199,7 +199,7 @@ public sealed class InventoryReportTests
             PurchaseOrderId = order.Id,
             ReceivedOn = new DateOnly(2026, 7, 10),
             FreightTotal = 15m,
-            StaffId = Guid.NewGuid(),
+            StaffId = TestIds.Next(),
         };
         harness.Db.PurchaseOrderReceipts.Add(receipt);
         await harness.Db.SaveChangesAsync();

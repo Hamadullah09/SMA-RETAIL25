@@ -347,7 +347,7 @@ public sealed class IdentitySeeder
             return;
         }
 
-        var location = await _db.Locations.AsNoTracking().Select(l => (Guid?)l.Id).FirstOrDefaultAsync(ct);
+        var location = await _db.Locations.AsNoTracking().Select(l => (long?)l.Id).FirstOrDefaultAsync(ct);
 
         var user = new ApplicationUser
         {

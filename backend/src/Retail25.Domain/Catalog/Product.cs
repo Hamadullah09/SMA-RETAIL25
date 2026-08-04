@@ -18,7 +18,7 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
     {
     }
 
-    public Guid LocationId { get; private set; }
+    public long LocationId { get; private set; }
 
     /// <summary>Unique per location, legacy 5-digit code (guide p.31).</summary>
     public string StockCode { get; private set; } = string.Empty;
@@ -99,18 +99,18 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
 
     // --- Relationships ---
 
-    public Guid? DepartmentId { get; private set; }
+    public long? DepartmentId { get; private set; }
 
-    public Guid? CategoryId { get; private set; }
+    public long? CategoryId { get; private set; }
 
     /// <summary>Substitute item if this one is out of stock (guide p.42).</summary>
-    public Guid? SubstituteProductId { get; private set; }
+    public long? SubstituteProductId { get; private set; }
 
     /// <summary>Tag-along item added automatically when this item is sold (guide p.42).</summary>
-    public Guid? TagAlongProductId { get; private set; }
+    public long? TagAlongProductId { get; private set; }
 
     /// <summary>Parent item for case-break (guide p.43). If set, this is the individual unit.</summary>
-    public Guid? ParentProductId { get; private set; }
+    public long? ParentProductId { get; private set; }
 
     // --- Audit ---
 
@@ -118,18 +118,18 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
 
     public DateTimeOffset? DeletedAt { get; set; }
 
-    public Guid? DeletedBy { get; set; }
+    public long? DeletedBy { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     public static Result<Product> Create(
-        Guid locationId,
+        long locationId,
         string stockCode,
         string name,
         ProductType type,
@@ -202,16 +202,16 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
         ShipWeight = shipWeight;
     }
 
-    public void SetLinks(Guid? substituteId, Guid? tagAlongId, Guid? parentId)
+    public void SetLinks(long? substituteId, long? tagAlongId, long? parentId)
     {
         SubstituteProductId = substituteId;
         TagAlongProductId = tagAlongId;
         ParentProductId = parentId;
     }
 
-    public void SetDepartment(Guid? departmentId) => DepartmentId = departmentId;
+    public void SetDepartment(long? departmentId) => DepartmentId = departmentId;
 
-    public void SetCategory(Guid? categoryId) => CategoryId = categoryId;
+    public void SetCategory(long? categoryId) => CategoryId = categoryId;
 
     /// <summary>
     /// Renames the stock code. Uniqueness per location is a database constraint and is checked by

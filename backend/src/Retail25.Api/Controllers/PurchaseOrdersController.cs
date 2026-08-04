@@ -19,52 +19,52 @@ public sealed class PurchaseOrdersController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> Browse(
-        [FromQuery] Guid locationId,
-        [FromQuery] Guid? supplierId,
+        [FromQuery] long locationId,
+        [FromQuery] long? supplierId,
         [FromQuery] PurchaseOrderStatus? status,
         [FromQuery] string? cursor = null,
         [FromQuery] int pageSize = 50,
         CancellationToken ct = default)
         => Ok(await _sender.Send(new BrowsePurchaseOrdersQuery(locationId, supplierId, status, cursor, pageSize), ct));
 
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:long}")]
+    public async Task<IActionResult> Get(long id, CancellationToken ct)
         => (await _sender.Send(new GetPurchaseOrderQuery(id), ct)).ToActionResult(this);
 
     [HttpPost("generate")]
     public async Task<IActionResult> Generate([FromBody] GeneratePurchaseOrderCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
-    [HttpPost("{id:guid}/lines")]
-    public async Task<IActionResult> AddLine(Guid id, [FromBody] AddPurchaseOrderLineRequest request, CancellationToken ct)
+    [HttpPost("{id:long}/lines")]
+    public async Task<IActionResult> AddLine(long id, [FromBody] AddPurchaseOrderLineRequest request, CancellationToken ct)
         => (await _sender.Send(
             new AddPurchaseOrderLineCommand(id, request.ProductId, request.OrderQty, request.CostEach, request.CaseQty), ct))
             .ToActionResult(this);
 
-    [HttpPut("lines/{lineId:guid}")]
-    public async Task<IActionResult> UpdateLine(Guid lineId, [FromBody] UpdatePurchaseOrderLineRequest request, CancellationToken ct)
+    [HttpPut("lines/{lineId:long}")]
+    public async Task<IActionResult> UpdateLine(long lineId, [FromBody] UpdatePurchaseOrderLineRequest request, CancellationToken ct)
         => (await _sender.Send(new UpdatePurchaseOrderLineCommand(lineId, request.OrderQty, request.CostEach), ct))
             .ToActionResult(this);
 
-    [HttpDelete("lines/{lineId:guid}")]
-    public async Task<IActionResult> RemoveLine(Guid lineId, CancellationToken ct)
+    [HttpDelete("lines/{lineId:long}")]
+    public async Task<IActionResult> RemoveLine(long lineId, CancellationToken ct)
         => (await _sender.Send(new RemovePurchaseOrderLineCommand(lineId), ct)).ToActionResult(this);
 
-    [HttpPost("{id:guid}/post")]
-    public async Task<IActionResult> Post(Guid id, CancellationToken ct)
+    [HttpPost("{id:long}/post")]
+    public async Task<IActionResult> Post(long id, CancellationToken ct)
         => (await _sender.Send(new PostPurchaseOrderCommand(id), ct)).ToActionResult(this);
 
-    [HttpPost("{id:guid}/receive")]
-    public async Task<IActionResult> Receive(Guid id, [FromBody] ReceivePurchaseOrderRequest request, CancellationToken ct)
+    [HttpPost("{id:long}/receive")]
+    public async Task<IActionResult> Receive(long id, [FromBody] ReceivePurchaseOrderRequest request, CancellationToken ct)
         => (await _sender.Send(new ReceivePurchaseOrderCommand(id, request.ReceivedOn, request.FreightTotal, request.Lines), ct))
             .ToActionResult(this);
 
-    [HttpPost("{id:guid}/cancel")]
-    public async Task<IActionResult> Cancel(Guid id, CancellationToken ct)
+    [HttpPost("{id:long}/cancel")]
+    public async Task<IActionResult> Cancel(long id, CancellationToken ct)
         => (await _sender.Send(new CancelPurchaseOrderCommand(id), ct)).ToActionResult(this);
 }
 
-public sealed record AddPurchaseOrderLineRequest(Guid ProductId, decimal OrderQty, decimal CostEach, decimal CaseQty);
+public sealed record AddPurchaseOrderLineRequest(long ProductId, decimal OrderQty, decimal CostEach, decimal CaseQty);
 
 public sealed record UpdatePurchaseOrderLineRequest(decimal OrderQty, decimal CostEach);
 

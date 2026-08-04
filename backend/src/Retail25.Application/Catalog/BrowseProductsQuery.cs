@@ -32,10 +32,10 @@ public enum ProductSort
 /// </summary>
 [RequiresPermission(PermissionKeys.Catalog.Read)]
 public sealed record BrowseProductsQuery(
-    Guid LocationId,
+    long LocationId,
     string? Search = null,
-    Guid? DepartmentId = null,
-    Guid? CategoryId = null,
+    long? DepartmentId = null,
+    long? CategoryId = null,
     ProductType? Type = null,
     bool BelowReorderPoint = false,
     bool DeletedOnly = false,
@@ -46,7 +46,7 @@ public sealed record BrowseProductsQuery(
 
 /// <summary>The full Form View record for one item.</summary>
 [RequiresPermission(PermissionKeys.Catalog.Read)]
-public sealed record GetProductFormQuery(Guid ProductId) : IRequest<Result<ProductFormDto>>;
+public sealed record GetProductFormQuery(long ProductId) : IRequest<Result<ProductFormDto>>;
 
 public sealed class BrowseProductsHandlers
     : IRequestHandler<BrowseProductsQuery, CursorPage<ProductRowDto>>,
@@ -249,7 +249,7 @@ public sealed class BrowseProductsHandlers
         var components = await _db.KitComponents.AsNoTracking()
             .Where(k => k.KitProductId == product.Id).ToListAsync(ct);
 
-        var referencedIds = new List<Guid>();
+        var referencedIds = new List<long>();
         AddIfPresent(referencedIds, product.SubstituteProductId);
         AddIfPresent(referencedIds, product.TagAlongProductId);
         AddIfPresent(referencedIds, product.ParentProductId);
@@ -354,8 +354,8 @@ public sealed class BrowseProductsHandlers
     /// </summary>
     internal static ProductRowDto ToRow(
         Product product,
-        IReadOnlyDictionary<Guid, string> departments,
-        IReadOnlyDictionary<Guid, string> categories)
+        IReadOnlyDictionary<long, string> departments,
+        IReadOnlyDictionary<long, string> categories)
         => new(
             product.Id,
             product.StockCode,
@@ -374,7 +374,7 @@ public sealed class BrowseProductsHandlers
             product.Upc,
             product.IsDeleted);
 
-    private static void AddIfPresent(List<Guid> target, Guid? id)
+    private static void AddIfPresent(List<long> target, long? id)
     {
         if (id is { } value)
         {
@@ -382,6 +382,6 @@ public sealed class BrowseProductsHandlers
         }
     }
 
-    private static LinkedProductDto? Lookup(IReadOnlyDictionary<Guid, LinkedProductDto> map, Guid? id)
+    private static LinkedProductDto? Lookup(IReadOnlyDictionary<long, LinkedProductDto> map, long? id)
         => id is { } value && map.TryGetValue(value, out var dto) ? dto : null;
 }

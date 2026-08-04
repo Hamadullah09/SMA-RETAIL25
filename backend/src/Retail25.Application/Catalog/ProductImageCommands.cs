@@ -18,11 +18,11 @@ public sealed record ProductImageDto(byte[] Content, string ContentType, string 
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Catalog.Write)]
-public sealed record SetProductImageCommand(Guid ProductId, byte[] Content, string ContentType)
+public sealed record SetProductImageCommand(long ProductId, byte[] Content, string ContentType)
     : IRequest<Result>;
 
 [RequiresPermission(PermissionKeys.Catalog.Write)]
-public sealed record RemoveProductImageCommand(Guid ProductId) : IRequest<Result>;
+public sealed record RemoveProductImageCommand(long ProductId) : IRequest<Result>;
 
 /// <summary>
 /// Reads an item's picture.
@@ -32,7 +32,7 @@ public sealed record RemoveProductImageCommand(Guid ProductId) : IRequest<Result
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Catalog.Read)]
-public sealed record GetProductImageQuery(Guid ProductId) : IRequest<Result<ProductImageDto>>;
+public sealed record GetProductImageQuery(long ProductId) : IRequest<Result<ProductImageDto>>;
 
 public sealed class ProductImageHandlers :
     IRequestHandler<SetProductImageCommand, Result>,

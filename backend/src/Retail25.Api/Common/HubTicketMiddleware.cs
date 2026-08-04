@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using OpenIddict.Abstractions;
 using Retail25.Application.Abstractions;
@@ -63,22 +64,22 @@ public sealed class HubTicketMiddleware
 
         var identity = new ClaimsIdentity("HubTicket", OpenIddictConstants.Claims.Name, OpenIddictConstants.Claims.Role);
 
-        identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, ticket.UserId.ToString()));
-        identity.AddClaim(new Claim(OpenIddictConstants.Claims.Subject, ticket.UserId.ToString()));
+        identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, ticket.UserId.ToString(CultureInfo.InvariantCulture)));
+        identity.AddClaim(new Claim(OpenIddictConstants.Claims.Subject, ticket.UserId.ToString(CultureInfo.InvariantCulture)));
 
         if (ticket.StaffId is { } staffId)
         {
-            identity.AddClaim(new Claim(AuthConstants.StaffIdClaim, staffId.ToString()));
+            identity.AddClaim(new Claim(AuthConstants.StaffIdClaim, staffId.ToString(CultureInfo.InvariantCulture)));
         }
 
         if (ticket.StationId is { } stationId)
         {
-            identity.AddClaim(new Claim(AuthConstants.StationIdClaim, stationId.ToString()));
+            identity.AddClaim(new Claim(AuthConstants.StationIdClaim, stationId.ToString(CultureInfo.InvariantCulture)));
         }
 
         if (ticket.LocationId is { } locationId)
         {
-            identity.AddClaim(new Claim(AuthConstants.LocationIdClaim, locationId.ToString()));
+            identity.AddClaim(new Claim(AuthConstants.LocationIdClaim, locationId.ToString(CultureInfo.InvariantCulture)));
         }
 
         foreach (var permission in ticket.Permissions)

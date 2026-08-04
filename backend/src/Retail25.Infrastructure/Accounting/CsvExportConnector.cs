@@ -118,7 +118,7 @@ public sealed class CsvExportConnector : IAccountingConnector
             return (invoices.Count, csv.ToString());
         }, ct);
 
-    public Task<SyncResult> PostPosRevenueAsync(Guid locationId, DateOnly businessDate, CancellationToken ct)
+    public Task<SyncResult> PostPosRevenueAsync(long locationId, DateOnly businessDate, CancellationToken ct)
         => RunAsync(SyncDirection.Push, "PosRevenue", new SyncScope(locationId, businessDate, businessDate), async () =>
         {
             var sessions = await _db.DrawerSessions
@@ -158,7 +158,7 @@ public sealed class CsvExportConnector : IAccountingConnector
             return (sessions.Count, csv.ToString());
         }, ct);
 
-    public Task<SyncResult> PostBillAsync(Guid purchaseOrderId, DateOnly dueOn, CancellationToken ct)
+    public Task<SyncResult> PostBillAsync(long purchaseOrderId, DateOnly dueOn, CancellationToken ct)
         => RunAsync(SyncDirection.Push, "Bill", null, async () =>
         {
             var order = await _db.PurchaseOrders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == purchaseOrderId, ct);
@@ -195,11 +195,11 @@ public sealed class CsvExportConnector : IAccountingConnector
 
     // Pulls are a no-op for a file adapter: a CSV file is something we write, not something the
     // accounting system answers with. Reported honestly rather than faked as an empty success.
-    public Task<SyncResult> PullCustomersAsync(Guid locationId, CancellationToken ct) => NotSupported("Customers");
+    public Task<SyncResult> PullCustomersAsync(long locationId, CancellationToken ct) => NotSupported("Customers");
 
-    public Task<SyncResult> PullItemsAsync(Guid locationId, CancellationToken ct) => NotSupported("Items");
+    public Task<SyncResult> PullItemsAsync(long locationId, CancellationToken ct) => NotSupported("Items");
 
-    public Task<SyncResult> PullVendorsAsync(Guid locationId, CancellationToken ct) => NotSupported("Vendors");
+    public Task<SyncResult> PullVendorsAsync(long locationId, CancellationToken ct) => NotSupported("Vendors");
 
     private static Task<SyncResult> NotSupported(string entity)
         => Task.FromResult(SyncResult.Failed(

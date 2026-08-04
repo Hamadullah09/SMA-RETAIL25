@@ -12,7 +12,7 @@ namespace Retail25.Application.UnitTests.Bulk;
 /// </summary>
 public sealed class StockCountTests
 {
-    private static async Task<StockCountDto> OpenCountAsync(MastersTestHarness harness, Guid? departmentId = null)
+    private static async Task<StockCountDto> OpenCountAsync(MastersTestHarness harness, long? departmentId = null)
     {
         var started = await harness.StockCounts.Handle(
             new StartStockCountCommand(harness.Location.Id, departmentId), CancellationToken.None);

@@ -20,9 +20,9 @@ public sealed class LoyaltyLedgerEntry : Entity
     {
     }
 
-    public Guid CustomerId { get; set; }
+    public long CustomerId { get; set; }
 
-    public Guid? TransactionId { get; set; }
+    public long? TransactionId { get; set; }
 
     public LoyaltyEntryType EntryType { get; set; }
 
@@ -31,7 +31,7 @@ public sealed class LoyaltyLedgerEntry : Entity
 
     public DateTimeOffset OccurredAt { get; set; }
 
-    public static LoyaltyLedgerEntry Earn(Guid customerId, Guid transactionId, int points, DateTimeOffset at)
+    public static LoyaltyLedgerEntry Earn(long customerId, long transactionId, int points, DateTimeOffset at)
     {
         return new LoyaltyLedgerEntry
         {
@@ -43,7 +43,7 @@ public sealed class LoyaltyLedgerEntry : Entity
         };
     }
 
-    public static LoyaltyLedgerEntry Redeem(Guid customerId, int points, DateTimeOffset at)
+    public static LoyaltyLedgerEntry Redeem(long customerId, int points, DateTimeOffset at)
     {
         return new LoyaltyLedgerEntry
         {
@@ -54,7 +54,7 @@ public sealed class LoyaltyLedgerEntry : Entity
         };
     }
 
-    public static LoyaltyLedgerEntry Clawback(Guid customerId, Guid transactionId, int points, DateTimeOffset at)
+    public static LoyaltyLedgerEntry Clawback(long customerId, long transactionId, int points, DateTimeOffset at)
     {
         return new LoyaltyLedgerEntry
         {
@@ -70,7 +70,7 @@ public sealed class LoyaltyLedgerEntry : Entity
     /// A supervisor's manual correction — a goodwill grant, a fix for a miscounted sale. Signed:
     /// positive to grant, negative to take back.
     /// </summary>
-    public static LoyaltyLedgerEntry Manual(Guid customerId, int points, DateTimeOffset at)
+    public static LoyaltyLedgerEntry Manual(long customerId, int points, DateTimeOffset at)
     {
         return new LoyaltyLedgerEntry
         {

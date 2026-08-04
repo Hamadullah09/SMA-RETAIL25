@@ -26,7 +26,7 @@ public sealed class GiftCard : AggregateRoot, IAuditable
 
     public decimal RemainingValue { get; set; }
 
-    public Guid? IssuedToCustomerId { get; set; }
+    public long? IssuedToCustomerId { get; set; }
 
     public DateOnly IssuedOn { get; set; }
 
@@ -36,13 +36,13 @@ public sealed class GiftCard : AggregateRoot, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static Result<GiftCard> Issue(string serialNumber, decimal value, DateOnly issuedOn, Guid? customerId, DateOnly? expiresOn)
+    public static Result<GiftCard> Issue(string serialNumber, decimal value, DateOnly issuedOn, long? customerId, DateOnly? expiresOn)
     {
         if (string.IsNullOrWhiteSpace(serialNumber))
         {

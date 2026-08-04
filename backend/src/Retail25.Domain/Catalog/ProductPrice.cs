@@ -12,14 +12,14 @@ public sealed class ProductPrice : Entity
     {
     }
 
-    public Guid ProductId { get; private set; }
+    public long ProductId { get; private set; }
 
     /// <summary>Price level 1–4. Level 1 is the default; levels 2–4 are used for break points and client-assigned pricing.</summary>
     public int Level { get; private set; }
 
     public decimal Price { get; private set; }
 
-    public static Result<ProductPrice> Create(Guid productId, int level, decimal price)
+    public static Result<ProductPrice> Create(long productId, int level, decimal price)
     {
         if (level is < 1 or > 4)
             return Result.Failure<ProductPrice>(new Error("price.level_out_of_range", "Price level must be between 1 and 4."));

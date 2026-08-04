@@ -292,7 +292,7 @@ public sealed class RfidToCartTests
 
     // ---------------------------------------------------------------------------------------------
 
-    private async Task<(Guid Location, Guid Station)> Context(ApplicationDbContext db)
+    private async Task<(long Location, long Station)> Context(ApplicationDbContext db)
     {
         var location = await db.Locations.AsNoTracking().FirstAsync();
         var station = await db.Stations.AsNoTracking().FirstAsync();
@@ -307,7 +307,7 @@ public sealed class RfidToCartTests
     /// Voids whatever sale is open at the till, so a gating test starts from a closed till however
     /// the suite happened to be ordered.
     /// </summary>
-    private static async Task CloseAnyOpenCart(ISender sender, Guid stationId)
+    private static async Task CloseAnyOpenCart(ISender sender, long stationId)
     {
         var existing = await sender.Send(new GetStationCartQuery(stationId));
 
@@ -325,7 +325,7 @@ public sealed class RfidToCartTests
     /// £20 shirts total £225: the jacket and the coat from earlier tests were still on the counter.
     /// </para>
     /// </summary>
-    private static async Task<Guid> OpenEmptyCart(ISender sender, Guid stationId)
+    private static async Task<long> OpenEmptyCart(ISender sender, long stationId)
     {
         var cart = await Ok(sender.Send(new CreateCartCommand(stationId)));
 

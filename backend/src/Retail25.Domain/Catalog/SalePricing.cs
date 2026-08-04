@@ -14,7 +14,7 @@ public sealed class SalePricing : Entity
     {
     }
 
-    public Guid ProductId { get; private set; }
+    public long ProductId { get; private set; }
 
     public decimal DiscountPct { get; private set; }
 
@@ -24,7 +24,7 @@ public sealed class SalePricing : Entity
 
     public bool IsActive(DateOnly businessDate) => businessDate >= StartsOn && businessDate <= EndsOn;
 
-    public static Result<SalePricing> Create(Guid productId, decimal discountPct, DateOnly startsOn, DateOnly endsOn)
+    public static Result<SalePricing> Create(long productId, decimal discountPct, DateOnly startsOn, DateOnly endsOn)
     {
         if (discountPct < 0 || discountPct > 100)
             return Result.Failure<SalePricing>(new Error("sale.discount_invalid", "Sale discount must be between 0 and 100 percent."));

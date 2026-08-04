@@ -27,13 +27,13 @@ public sealed class DrawerSession : AggregateRoot, IAuditable
     {
     }
 
-    public Guid StationId { get; set; }
+    public long StationId { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
-    public Guid OpenedByStaffId { get; set; }
+    public long OpenedByStaffId { get; set; }
 
-    public Guid? ClosedByStaffId { get; set; }
+    public long? ClosedByStaffId { get; set; }
 
     public decimal OpeningFloat { get; set; }
 
@@ -71,18 +71,18 @@ public sealed class DrawerSession : AggregateRoot, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     public bool IsOpen => Status == DrawerSessionStatus.Open;
 
     public static Result<DrawerSession> Open(
-        Guid stationId,
-        Guid locationId,
-        Guid staffId,
+        long stationId,
+        long locationId,
+        long staffId,
         decimal openingFloat,
         DateOnly businessDate,
         DateTimeOffset now)
@@ -111,7 +111,7 @@ public sealed class DrawerSession : AggregateRoot, IAuditable
     public Result Close(
         decimal countedCash,
         decimal expectedCash,
-        Guid staffId,
+        long staffId,
         DateTimeOffset now,
         string? tenderTotalsJson = null,
         string? departmentNetSalesJson = null)

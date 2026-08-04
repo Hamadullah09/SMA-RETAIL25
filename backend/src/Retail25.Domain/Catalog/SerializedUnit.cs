@@ -35,9 +35,9 @@ public sealed class SerializedUnit : Entity, IAuditable
     {
     }
 
-    public Guid ProductId { get; private set; }
+    public long ProductId { get; private set; }
 
-    public Guid? VariantId { get; private set; }
+    public long? VariantId { get; private set; }
 
     /// <summary>Legacy serial number (guide p.42). May be null for RFID-only items.</summary>
     public string? SerialNumber { get; private set; }
@@ -47,7 +47,7 @@ public sealed class SerializedUnit : Entity, IAuditable
 
     public SerializedUnitState State { get; private set; } = SerializedUnitState.Provisioned;
 
-    public Guid LocationId { get; private set; }
+    public long LocationId { get; private set; }
 
     /// <summary>When this unit was first received into the system.</summary>
     public DateTimeOffset ReceivedOn { get; private set; }
@@ -57,15 +57,15 @@ public sealed class SerializedUnit : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     public static Result<SerializedUnit> Create(
-        Guid productId,
-        Guid locationId,
+        long productId,
+        long locationId,
         string? serialNumber,
         string? epc,
         DateTimeOffset receivedOn)
@@ -164,7 +164,7 @@ public sealed class SerializedUnit : Entity, IAuditable
     /// has to say which — otherwise a bulk read tells you a shirt left the shop but not which one to
     /// deduct from stock.
     /// </summary>
-    public void AssignVariant(Guid? variantId) => VariantId = variantId;
+    public void AssignVariant(long? variantId) => VariantId = variantId;
 
     public static readonly Error CannotReassign = new(
         "unit.cannot_reassign",
@@ -183,7 +183,7 @@ public sealed class SerializedUnit : Entity, IAuditable
     /// happened — changing what it refers to would rewrite both.
     /// </para>
     /// </summary>
-    public Result ReassignTo(Guid productId, Guid? variantId = null)
+    public Result ReassignTo(long productId, long? variantId = null)
     {
         if (State != SerializedUnitState.InStock)
         {

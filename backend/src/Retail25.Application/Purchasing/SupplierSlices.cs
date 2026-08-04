@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
@@ -16,7 +17,7 @@ public enum SupplierSort
 }
 
 public sealed record SupplierRowDto(
-    Guid Id,
+    long Id,
     string SupplierNumber,
     string Company,
     string? ContactName,
@@ -28,8 +29,8 @@ public sealed record SupplierRowDto(
     bool IsDeleted);
 
 public sealed record SupplierFormDto(
-    Guid Id,
-    Guid LocationId,
+    long Id,
+    long LocationId,
     string SupplierNumber,
     string Company,
     string? ContactFirstName,
@@ -53,7 +54,7 @@ public sealed record SupplierSection(
 /// <summary>The supplier Browse View (guide p.59–62), sharing the catalogue browse's paging shape.</summary>
 [RequiresPermission(PermissionKeys.Purchasing.Read)]
 public sealed record BrowseSuppliersQuery(
-    Guid LocationId,
+    long LocationId,
     string? Search = null,
     bool DeletedOnly = false,
     SupplierSort Sort = SupplierSort.Company,
@@ -62,24 +63,24 @@ public sealed record BrowseSuppliersQuery(
     int PageSize = 50) : IRequest<CursorPage<SupplierRowDto>>;
 
 [RequiresPermission(PermissionKeys.Purchasing.Read)]
-public sealed record GetSupplierFormQuery(Guid SupplierId) : IRequest<Result<SupplierFormDto>>;
+public sealed record GetSupplierFormQuery(long SupplierId) : IRequest<Result<SupplierFormDto>>;
 
 /// <summary>
 /// Creates a supplier. Like the customer number, the supplier number comes from the location's
 /// administered sequence so a migrated store carries on from where it left off.
 /// </summary>
 [RequiresPermission(PermissionKeys.Purchasing.Write)]
-public sealed record CreateSupplierCommand(Guid LocationId, SupplierSection Details, string? SupplierNumber = null)
+public sealed record CreateSupplierCommand(long LocationId, SupplierSection Details, string? SupplierNumber = null)
     : IRequest<Result<SupplierFormDto>>;
 
 [RequiresPermission(PermissionKeys.Purchasing.Write)]
-public sealed record UpdateSupplierCommand(Guid SupplierId, SupplierSection Details) : IRequest<Result<SupplierFormDto>>;
+public sealed record UpdateSupplierCommand(long SupplierId, SupplierSection Details) : IRequest<Result<SupplierFormDto>>;
 
 [RequiresPermission(PermissionKeys.Purchasing.Write)]
-public sealed record DeleteSupplierCommand(Guid SupplierId) : IRequest<Result>;
+public sealed record DeleteSupplierCommand(long SupplierId) : IRequest<Result>;
 
 [RequiresPermission(PermissionKeys.Purchasing.Write)]
-public sealed record RestoreSupplierCommand(Guid SupplierId) : IRequest<Result>;
+public sealed record RestoreSupplierCommand(long SupplierId) : IRequest<Result>;
 
 public sealed class SupplierHandlers
     : IRequestHandler<BrowseSuppliersQuery, CursorPage<SupplierRowDto>>,
@@ -290,7 +291,7 @@ public sealed class SupplierHandlers
 
     private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    private async Task<Dictionary<Guid, int>> ItemCountsAsync(List<Guid> supplierIds, CancellationToken ct)
+    private async Task<Dictionary<long, int>> ItemCountsAsync(List<long> supplierIds, CancellationToken ct)
         => supplierIds.Count == 0
             ? []
             : await _db.ProductSuppliers.AsNoTracking()

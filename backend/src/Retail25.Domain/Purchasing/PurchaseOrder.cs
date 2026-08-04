@@ -34,9 +34,9 @@ public sealed class PurchaseOrder : AggregateRoot, IAuditable
 
     public long PoNumber { get; set; }
 
-    public Guid SupplierId { get; set; }
+    public long SupplierId { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public PurchaseOrderStatus Status { get; set; } = PurchaseOrderStatus.Draft;
 
@@ -56,9 +56,9 @@ public sealed class PurchaseOrder : AggregateRoot, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 }

@@ -9,12 +9,12 @@ using Retail25.Domain.Orders;
 
 namespace Retail25.Application.Orders;
 
-public sealed record LayawayLineDto(Guid Id, Guid ProductId, string StockCode, string ProductName, decimal Quantity, decimal UnitPrice);
+public sealed record LayawayLineDto(long Id, long ProductId, string StockCode, string ProductName, decimal Quantity, decimal UnitPrice);
 
 public sealed record LayawayDto(
-    Guid Id,
+    long Id,
     long LayawayNumber,
-    Guid CustomerId,
+    long CustomerId,
     string CustomerName,
     LayawayStatus Status,
     decimal Total,
@@ -22,26 +22,26 @@ public sealed record LayawayDto(
     DateOnly CreatedOn,
     IReadOnlyList<LayawayLineDto> Lines);
 
-public sealed record LayawayLineInput(Guid ProductId, decimal Quantity, decimal UnitPrice);
+public sealed record LayawayLineInput(long ProductId, decimal Quantity, decimal UnitPrice);
 
 [RequiresPermission(PermissionKeys.Customer.Write)]
-public sealed record CreateLayawayCommand(Guid CustomerId, Guid LocationId, IReadOnlyList<LayawayLineInput> Lines)
+public sealed record CreateLayawayCommand(long CustomerId, long LocationId, IReadOnlyList<LayawayLineInput> Lines)
     : IRequest<Result<LayawayDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Read)]
 public sealed record BrowseLayawaysQuery(
-    Guid LocationId, Guid? CustomerId = null, LayawayStatus? Status = null, string? Cursor = null, int PageSize = 50)
+    long LocationId, long? CustomerId = null, LayawayStatus? Status = null, string? Cursor = null, int PageSize = 50)
     : IRequest<CursorPage<LayawayDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Read)]
-public sealed record GetLayawayQuery(Guid LayawayId) : IRequest<Result<LayawayDto>>;
+public sealed record GetLayawayQuery(long LayawayId) : IRequest<Result<LayawayDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Write)]
-public sealed record TakeLayawayPaymentCommand(Guid LayawayId, decimal Amount, Guid TenderTypeId) : IRequest<Result<LayawayDto>>;
+public sealed record TakeLayawayPaymentCommand(long LayawayId, decimal Amount, long TenderTypeId) : IRequest<Result<LayawayDto>>;
 
 /// <summary>Releases the reserved stock and refunds nothing automatically — a cancelled layaway's deposit is handled by the store's own policy.</summary>
 [RequiresPermission(PermissionKeys.Customer.Write)]
-public sealed record CancelLayawayCommand(Guid LayawayId) : IRequest<Result<LayawayDto>>;
+public sealed record CancelLayawayCommand(long LayawayId) : IRequest<Result<LayawayDto>>;
 
 public sealed class LayawayHandlers :
     IRequestHandler<CreateLayawayCommand, Result<LayawayDto>>,
@@ -252,7 +252,7 @@ public sealed class LayawayHandlers :
         return Result.Success(await ToDtoAsync(layaway, ct));
     }
 
-    private async Task ReserveAsync(Guid productId, Guid locationId, decimal delta, CancellationToken ct)
+    private async Task ReserveAsync(long productId, long locationId, decimal delta, CancellationToken ct)
     {
         var level = await _db.StockLevels.FirstOrDefaultAsync(
             s => s.ProductId == productId && s.VariantId == null && s.LocationId == locationId, ct);

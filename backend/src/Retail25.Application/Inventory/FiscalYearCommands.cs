@@ -10,8 +10,8 @@ using Retail25.Domain.Sales;
 namespace Retail25.Application.Inventory;
 
 public sealed record FiscalYearDto(
-    Guid Id,
-    Guid LocationId,
+    long Id,
+    long LocationId,
     int Year,
     DateOnly StartsOn,
     DateOnly EndsOn,
@@ -49,12 +49,12 @@ public sealed record FiscalYearCloseResult(
     IReadOnlyList<string> Warnings);
 
 [RequiresPermission(PermissionKeys.Inventory.YearEnd)]
-public sealed record ListFiscalYearsQuery(Guid LocationId) : IRequest<IReadOnlyList<FiscalYearDto>>;
+public sealed record ListFiscalYearsQuery(long LocationId) : IRequest<IReadOnlyList<FiscalYearDto>>;
 
 /// <summary>Opens a year so it can be traded in and later closed. Calendar years unless told otherwise.</summary>
 [RequiresPermission(PermissionKeys.Inventory.YearEnd)]
 public sealed record OpenFiscalYearCommand(
-    Guid LocationId,
+    long LocationId,
     int Year,
     DateOnly? StartsOn = null,
     DateOnly? EndsOn = null,
@@ -68,7 +68,7 @@ public sealed record OpenFiscalYearCommand(
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Inventory.YearEnd)]
-public sealed record RunFiscalYearCloseCommand(Guid FiscalYearId, bool DryRun = false)
+public sealed record RunFiscalYearCloseCommand(long FiscalYearId, bool DryRun = false)
     : IRequest<Result<FiscalYearCloseResult>>;
 
 /// <summary>
@@ -76,14 +76,14 @@ public sealed record RunFiscalYearCloseCommand(Guid FiscalYearId, bool DryRun = 
 /// this drops the archive rows and the checkpoints, and the ledger they came from is untouched.
 /// </summary>
 [RequiresPermission(PermissionKeys.Inventory.YearEnd)]
-public sealed record ReopenFiscalYearCommand(Guid FiscalYearId) : IRequest<Result<FiscalYearDto>>;
+public sealed record ReopenFiscalYearCommand(long FiscalYearId) : IRequest<Result<FiscalYearDto>>;
 
 /// <summary>The archive, which is the point of having closed the year at all.</summary>
 [RequiresPermission(PermissionKeys.Reports.Sales)]
 public sealed record GetSalesHistoryQuery(
-    Guid LocationId,
+    long LocationId,
     int? Year = null,
-    Guid? ProductId = null,
+    long? ProductId = null,
     int Take = 500) : IRequest<IReadOnlyList<ArchiveRowDto>>;
 
 [RequiresPermission(PermissionKeys.Reports.Sales)]
@@ -436,9 +436,9 @@ public sealed class FiscalYearHandlers :
     /// gap in the data look like a real item.
     /// </summary>
     private sealed record YearLine(
-        Guid TransactionId,
+        long TransactionId,
         DateOnly BusinessDate,
-        Guid ProductId,
+        long ProductId,
         string? StockCode,
         string? Name,
         decimal Quantity,

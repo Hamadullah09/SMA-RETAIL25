@@ -8,7 +8,7 @@ using Retail25.Domain.Sales;
 namespace Retail25.Application.Sales.Queries;
 
 public sealed record SalesLogRow(
-    Guid Id,
+    long Id,
     long TransactionNumber,
     DateTimeOffset CompletedAt,
     DateOnly BusinessDate,
@@ -35,12 +35,12 @@ public sealed record SalesLogPage(IReadOnlyList<SalesLogRow> Rows, int TotalCoun
 /// </summary>
 [RequiresPermission(PermissionKeys.Reports.Sales)]
 public sealed record SalesLogQuery(
-    Guid LocationId,
+    long LocationId,
     DateOnly? From = null,
     DateOnly? To = null,
-    Guid? StationId = null,
-    Guid? StaffId = null,
-    Guid? CustomerId = null,
+    long? StationId = null,
+    long? StaffId = null,
+    long? CustomerId = null,
     bool IncludeVoided = true,
 
     /// <summary>
@@ -58,7 +58,7 @@ public sealed record ExportSalesLogQuery(SalesLogQuery Filter) : IRequest<string
 
 /// <summary>One sale in full, for the drill-down and the reprint preview.</summary>
 [RequiresPermission(PermissionKeys.Reports.Sales)]
-public sealed record GetSaleQuery(Guid TransactionId) : IRequest<Result<SaleDetailDto>>;
+public sealed record GetSaleQuery(long TransactionId) : IRequest<Result<SaleDetailDto>>;
 
 public sealed record SaleDetailLineDto(
     int Sequence,
@@ -77,7 +77,7 @@ public sealed record SaleDetailLineDto(
 public sealed record SaleDetailTenderDto(string TenderName, decimal Amount, decimal AmountTendered, decimal ChangeGiven, string? Reference);
 
 public sealed record SaleDetailDto(
-    Guid Id,
+    long Id,
     long TransactionNumber,
     DateTimeOffset CompletedAt,
     TransactionStatus Status,
@@ -95,8 +95,8 @@ public sealed record SaleDetailDto(
     decimal AddOnCharge,
     decimal GrandTotal,
     decimal ChangeGiven,
-    Guid? ReversesTransactionId,
-    Guid? VoidedByTransactionId,
+    long? ReversesTransactionId,
+    long? VoidedByTransactionId,
     string? VoidReason);
 
 public sealed class SalesLogHandlers

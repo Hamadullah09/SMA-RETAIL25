@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Retail25.Application.Abstractions;
@@ -42,7 +43,7 @@ public sealed class PosHub : Hub
     /// </summary>
     public async Task RequestCartResync(string cartId, int knownRevision)
     {
-        if (!Guid.TryParse(cartId, out var id))
+        if (!long.TryParse(cartId, out var id))
         {
             return;
         }
@@ -63,15 +64,15 @@ public static class PosGroups
 {
     public static string Station(string stationId) => $"station:{stationId}";
 
-    public static string Station(Guid stationId) => Station(stationId.ToString());
+    public static string Station(long stationId) => Station(stationId.ToString(CultureInfo.InvariantCulture));
 
     public static string Location(string locationId) => $"location:{locationId}";
 
-    public static string Location(Guid locationId) => Location(locationId.ToString());
+    public static string Location(long locationId) => Location(locationId.ToString(CultureInfo.InvariantCulture));
 
     public static string Cart(string cartId) => $"cart:{cartId}";
 
-    public static string Cart(Guid cartId) => Cart(cartId.ToString());
+    public static string Cart(long cartId) => Cart(cartId.ToString(CultureInfo.InvariantCulture));
 
     public static string Grid(string entity, string filterHash) => $"grid:{entity}:{filterHash}";
 }
