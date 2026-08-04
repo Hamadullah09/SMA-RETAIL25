@@ -44,8 +44,8 @@ export function SalesTrend({ rows }: { rows: SalesAnalysisRow[] }) {
         <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
           <defs>
             <linearGradient id="salesFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgb(var(--accent))" stopOpacity={0.35} />
-              <stop offset="100%" stopColor="rgb(var(--accent))" stopOpacity={0.02} />
+              <stop offset="0%" stopColor="oklch(var(--accent))" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="oklch(var(--accent))" stopOpacity={0.02} />
             </linearGradient>
           </defs>
 
@@ -86,7 +86,7 @@ export function SalesTrend({ rows }: { rows: SalesAnalysisRow[] }) {
           <Area
             type="monotone"
             dataKey="net"
-            stroke="rgb(var(--accent))"
+            stroke="oklch(var(--accent))"
             strokeWidth={2}
             fill="url(#salesFill)"
           />

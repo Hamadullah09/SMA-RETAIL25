@@ -75,7 +75,7 @@ function Health({ label, ok }: { label: string; ok: boolean }) {
       <span
         aria-hidden
         className="h-2 w-2 rounded-full"
-        style={{ backgroundColor: ok ? 'rgb(var(--positive))' : 'rgb(var(--negative))' }}
+        style={{ backgroundColor: ok ? 'oklch(var(--positive))' : 'oklch(var(--negative))' }}
       />
       <span className="sr-only">{ok ? `${label} online` : `${label} offline`}</span>
       <span aria-hidden>{label}</span>
@@ -92,7 +92,7 @@ export function ConnectionBanner() {
     <div
       role="status"
       className="border-b px-3 py-1.5 text-label font-medium"
-      style={{ borderColor: 'rgb(var(--warning))', color: 'rgb(var(--warning))' }}
+      style={{ borderColor: 'oklch(var(--warning))', color: 'oklch(var(--warning))' }}
     >
       Disconnected from the server — reconnecting. Totals on screen may be stale.
     </div>
@@ -143,7 +143,7 @@ export function LiveFeed() {
       ) : (
         <div className="flex items-center justify-between gap-2 px-3 py-1.5 text-label">
           <span className="flex items-center gap-2 text-live">
-            <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: 'rgb(var(--live))' }} />
+            <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: 'oklch(var(--live))' }} />
             Reading
             <span className="tabular">{readRate}</span>
             tags/s
@@ -230,7 +230,7 @@ export function CartList() {
                   {ORIGIN_LABELS[line.priceOrigin] ? (
                     <span
                       className="pos-badge shrink-0"
-                      style={{ backgroundColor: 'rgb(var(--positive) / 0.12)', color: 'rgb(var(--positive))' }}
+                      style={{ backgroundColor: 'oklch(var(--positive) / 0.12)', color: 'oklch(var(--positive))' }}
                     >
                       {ORIGIN_LABELS[line.priceOrigin]}
                     </span>
@@ -238,7 +238,7 @@ export function CartList() {
                   {line.lineType !== 'Sale' ? (
                     <span
                       className="pos-badge shrink-0"
-                      style={{ backgroundColor: 'rgb(var(--negative) / 0.12)', color: 'rgb(var(--negative))' }}
+                      style={{ backgroundColor: 'oklch(var(--negative) / 0.12)', color: 'oklch(var(--negative))' }}
                     >
                       {line.lineType === 'Return' ? 'RETURN' : 'TRADE'}
                     </span>
@@ -312,7 +312,7 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'pos
   return (
     <div className="flex justify-between">
       <dt className="text-ink-muted">{label}</dt>
-      <dd className="pos-amount" style={tone === 'positive' ? { color: 'rgb(var(--positive))' } : undefined}>
+      <dd className="pos-amount" style={tone === 'positive' ? { color: 'oklch(var(--positive))' } : undefined}>
         {value}
       </dd>
     </div>
@@ -482,7 +482,7 @@ export function PosMessageBanner() {
     <div
       role="status"
       className="pos-panel px-3 py-2 text-body"
-      style={{ borderColor: 'rgb(var(--warning))', color: 'rgb(var(--warning))' }}
+      style={{ borderColor: 'oklch(var(--warning))', color: 'oklch(var(--warning))' }}
     >
       {message}
     </div>

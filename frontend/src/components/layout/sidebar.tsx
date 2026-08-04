@@ -136,12 +136,13 @@ export function Sidebar() {
               // which of ten links was the current one.
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'flex items-center gap-3 rounded px-3 py-2 text-body font-medium transition-colors',
+                'flex items-center gap-3 rounded-md px-3.5 py-2 text-body transition-colors',
                 active
-                  // Carried by weight and a left rule as well as by fill, so it survives being
-                  // looked at by someone who cannot separate the two greys.
-                  ? 'bg-panel-hover text-ink shadow-[inset_2px_0_0_0_rgb(var(--accent))]'
-                  : 'text-ink-muted hover:bg-panel-hover hover:text-ink',
+                  // Tint, hue and weight together. Three signals rather than one, so the current
+                  // page still reads for someone who cannot separate two similar greys — which the
+                  // previous fill-only treatment relied on entirely.
+                  ? 'bg-accent-soft font-semibold text-accent-text'
+                  : 'font-medium text-ink-muted hover:bg-panel-hover hover:text-ink',
               )}
               title={!sidebarOpen ? label : undefined}
             >

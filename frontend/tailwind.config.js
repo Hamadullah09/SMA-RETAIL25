@@ -42,17 +42,27 @@ module.exports = {
           faint: 'rgb(var(--text-faint) / <alpha-value>)',
         },
 
-        /** The primary action. Contrast, not a colour (doc 08 — review-blocking). */
+        /**
+         * The primary action.
+         *
+         * oklch rather than rgb: the token holds `L C H`, and the alpha slot stays free so
+         * `bg-accent/10` still works. `soft` is the tint an active nav item or a chip sits on, and
+         * `text` is the accent at a lightness that reads *on* that tint — one colour, three jobs,
+         * rather than three colours that have to be kept in step by hand.
+         */
         accent: {
-          DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
+          DEFAULT: 'oklch(var(--accent) / <alpha-value>)',
+          strong: 'oklch(var(--accent-strong) / <alpha-value>)',
+          soft: 'oklch(var(--accent-soft) / <alpha-value>)',
+          text: 'oklch(var(--accent-text) / <alpha-value>)',
           foreground: 'rgb(var(--accent-foreground) / <alpha-value>)',
         },
 
-        /** The only four meanings colour is allowed to carry (doc 08). */
-        positive: 'rgb(var(--positive) / <alpha-value>)',
-        warning: 'rgb(var(--warning) / <alpha-value>)',
-        negative: 'rgb(var(--negative) / <alpha-value>)',
-        live: 'rgb(var(--live) / <alpha-value>)',
+        /** The only four meanings colour is allowed to carry. */
+        positive: 'oklch(var(--positive) / <alpha-value>)',
+        warning: 'oklch(var(--warning) / <alpha-value>)',
+        negative: 'oklch(var(--negative) / <alpha-value>)',
+        live: 'oklch(var(--live) / <alpha-value>)',
       },
 
       /**
@@ -93,11 +103,15 @@ module.exports = {
       },
 
       /**
-       * One shadow level, and it is for overlays only (doc 08: "shadow: none except overlays").
-       * Depth on the page itself comes from borders.
+       * Three steps, and they still mean "this is above the page" rather than decoration. Borders do
+       * the work between things that sit *on* the page; these are for a raised panel, a popover and a
+       * dialog respectively. Each is defined per colour scheme, because a black blur on a near-black
+       * ground is invisible and needs to be deeper to read at all.
        */
       boxShadow: {
-        overlay: '0 16px 40px -12px rgb(0 0 0 / 0.25), 0 4px 12px -4px rgb(0 0 0 / 0.12)',
+        raised: 'var(--shadow-1)',
+        popover: 'var(--shadow-2)',
+        overlay: 'var(--shadow-3)',
       },
 
       /** Drives the shell so a header height change cannot silently break a page's scroll box. */

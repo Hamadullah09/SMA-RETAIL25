@@ -3,44 +3,56 @@
 @tailwind utilities;
 
 /**
- * Design tokens (doc 08).
+ * Design tokens.
  *
- * Flat zinc surfaces, an accent that is contrast rather than colour, and exactly four semantic
- * colours: positive, warning, negative, live. Colour carries meaning here or it is not used — a till
- * that decorates with colour has nowhere left to go when something is actually wrong.
+ * Cool near-neutrals with a single indigo accent and four semantic colours: positive, warning,
+ * negative, live. Colour still carries meaning rather than decorating — a till that decorates with
+ * colour has nowhere left to go when something is actually wrong — but the accent is now a hue
+ * rather than pure contrast, so a primary action reads as one at a glance instead of as "the dark
+ * button".
  *
- * Every colour is a bare `R G B` triplet so tailwind.config.js can wrap it in
- * `rgb(var(--x) / <alpha-value>)`. That is what gives every token a real utility class with working
- * hover, opacity and dark variants. There used to be a second, parallel set of HSL tokens
- * (`--background`, `--card`, `--muted`) that no component could vary and that had drifted out of
- * step with these; it is gone.
+ * Neutrals stay bare `R G B` triplets and the accents are `L C H` triples, both consumed through
+ * `<alpha-value>` wrappers in tailwind.config.js. That indirection is what gives every token a real
+ * utility class with working hover, opacity and dark variants.
+ *
+ * The accent and semantics are in oklch on purpose. Its lightness is perceptual, so the light and
+ * dark values below are the *same* colour at two readable lightnesses rather than two colours picked
+ * by eye — which is how the old palette ended up with an amber that was 2.1:1 on white.
+ *
+ * Lines and hovers are pre-blended solids rather than translucent overlays. At 8% the difference is
+ * invisible, and a solid keeps `border-subtle/50` and every other opacity utility meaning what it
+ * says instead of compounding two alphas.
  */
 @layer base {
   :root {
-    --surface: 250 250 250;         /* zinc-50  */
+    --surface: 250 250 251;
     --panel: 255 255 255;
-    --panel-hover: 244 244 245;     /* zinc-100 — referenced by four hover states and never defined,
-                                       so those rows had no hover at all */
-    --panel-sunken: 250 250 250;    /* table headers, inset regions */
+    --panel-hover: 245 245 246;
+    --panel-sunken: 247 247 249;    /* table headers, inset regions */
 
-    --border: 228 228 231;          /* zinc-200 */
-    --border-strong: 212 212 216;   /* zinc-300 — the edge of an active control */
+    --border: 232 232 234;
+    --border-strong: 216 217 222;   /* the edge of an active control */
 
-    --text: 24 24 27;               /* zinc-900 */
-    --text-muted: 82 82 91;         /* zinc-600 — was zinc-500, which is 4.0:1 on white at 13px */
-    --text-faint: 113 113 122;      /* zinc-500 — decorative only, never load-bearing */
+    --text: 28 30 39;
+    --text-muted: 108 113 131;
+    --text-faint: 142 146 161;      /* decorative only, never load-bearing */
 
-    --accent: 24 24 27;
-    --accent-foreground: 250 250 250;
+    /* oklch, as `L C H`. Split into one variable so the alpha slot stays free for Tailwind. */
+    --accent: 0.52 0.17 265;
+    --accent-strong: 0.46 0.17 265; /* hover and press */
+    --accent-soft: 0.95 0.035 265;  /* the tint behind an active nav item or a chip */
+    --accent-text: 0.45 0.17 265;   /* accent-coloured text, on the soft tint or on the page */
+    --accent-foreground: 255 255 255;
 
-    --positive: 5 150 105;          /* emerald-600 */
-    --warning: 180 83 9;            /* amber-700 — amber-500 is 2.1:1 on white and unreadable */
-    --negative: 220 38 38;          /* red-600     */
-    --live: 2 132 199;              /* sky-600     */
+    --positive: 0.52 0.13 160;
+    --warning: 0.55 0.13 75;
+    --negative: 0.53 0.16 25;
+    --live: 0.55 0.13 230;
 
-    --radius: 4px;
-    --radius-dense: 2px;
-    --radius-lg: 6px;
+    /* Rounder than before. The old 4px read as "unstyled" next to the density of the type. */
+    --radius: 10px;
+    --radius-dense: 8px;
+    --radius-lg: 14px;
 
     /* Layout constants. Written once so a header height change cannot silently break the scroll box
        on nine pages that had each hard-coded calc(100vh - 8rem). */
@@ -54,34 +66,50 @@
        the density doc 08 asks for. */
     --control-height-touch: 2.75rem;
 
-    --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-sans: 'Onest', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+
+    /* Depth, in three steps. Borders still do most of the work on the page itself; these are for
+       things that genuinely sit above it — a raised panel, a popover, a dialog. */
+    --shadow-1: 0 1px 3px rgb(20 22 40 / 0.05);
+    --shadow-2: 0 10px 28px rgb(20 22 40 / 0.10);
+    --shadow-3: 0 24px 60px rgb(20 22 40 / 0.18);
   }
 
   /* POS terminals sit under fluorescent light all day; staff prefer dark. Activated by a class on
      <html> — the previous block could never take effect, because darkMode was not configured in the
      Tailwind config and nothing ever set the class. */
   .dark {
-    --surface: 9 9 11;              /* zinc-950 */
-    --panel: 24 24 27;              /* zinc-900 */
-    --panel-hover: 39 39 42;        /* zinc-800 */
-    --panel-sunken: 18 18 20;
+    --surface: 19 20 25;
+    --panel: 27 29 37;
+    --panel-hover: 40 42 49;
+    --panel-sunken: 23 24 31;
 
-    --border: 39 39 42;             /* zinc-800 */
-    --border-strong: 63 63 70;      /* zinc-700 */
+    --border: 39 40 45;
+    --border-strong: 56 58 67;
 
-    --text: 244 244 245;            /* zinc-100 */
-    --text-muted: 161 161 170;      /* zinc-400 */
-    --text-faint: 113 113 122;      /* zinc-500 */
+    --text: 236 238 244;
+    --text-muted: 146 152 171;
+    --text-faint: 118 124 142;
 
-    --accent: 244 244 245;
-    --accent-foreground: 24 24 27;
+    /* The same hue, lifted. Because oklch lightness is perceptual, these are the light values moved
+       up the scale rather than a second palette that has to be re-checked against the ground. */
+    --accent: 0.62 0.16 265;
+    --accent-strong: 0.68 0.16 265;
+    --accent-soft: 0.38 0.09 265;
+    --accent-text: 0.78 0.11 265;
+    --accent-foreground: 255 255 255;
 
-    /* Lifted for a dark ground: the light-mode values are too dark to read on zinc-950. */
-    --positive: 52 211 153;         /* emerald-400 */
-    --warning: 251 191 36;          /* amber-400   */
-    --negative: 248 113 113;        /* red-400     */
-    --live: 56 189 248;             /* sky-400     */
+    --positive: 0.75 0.12 160;
+    --warning: 0.78 0.12 75;
+    --negative: 0.72 0.14 25;
+    --live: 0.75 0.11 230;
+
+    /* Shadows do almost nothing on a dark ground — a black blur on near-black is invisible. Depth
+       here comes from the panel being lighter than the page, so these only deepen rather than lift. */
+    --shadow-1: 0 1px 3px rgb(0 0 0 / 0.30);
+    --shadow-2: 0 10px 28px rgb(0 0 0 / 0.45);
+    --shadow-3: 0 24px 60px rgb(0 0 0 / 0.60);
   }
 }
 
@@ -135,7 +163,7 @@
 @layer components {
   /* Panels are delimited by a 1px border and whitespace. No cards inside cards (doc 08). */
   .pos-panel {
-    @apply rounded border border-subtle bg-panel;
+    @apply rounded-lg border border-subtle bg-panel shadow-raised;
   }
 
   .pos-panel-header {
@@ -163,7 +191,7 @@
   }
 
   .pos-button-primary:hover:not(:disabled) {
-    @apply opacity-90;
+    @apply border-accent-strong bg-accent-strong;
   }
 
   .pos-button-danger {
@@ -193,7 +221,12 @@
    * three of them ended up a pixel taller than the rest.
    */
   .pos-input {
-    @apply min-h-control rounded-sm border border-subtle bg-panel px-2 text-body text-ink placeholder:text-ink-faint;
+    @apply min-h-control rounded-sm border border-subtle bg-panel px-2.5 text-body text-ink placeholder:text-ink-faint;
+  }
+
+  /* The accent belongs on the field being typed into, not only on its focus ring. */
+  .pos-input:focus-visible {
+    @apply border-accent;
   }
 
   .pos-input:disabled {
@@ -210,7 +243,7 @@
   }
 
   .pos-badge {
-    @apply inline-flex items-center rounded-sm px-1.5 text-caption font-medium uppercase leading-5 tracking-wide;
+    @apply inline-flex items-center rounded-full px-2 text-caption font-semibold uppercase leading-5 tracking-wide;
   }
 
   /* A link that reads as one without being blue. */
@@ -287,7 +320,7 @@
 
 /* Live regions animate once, briefly. A POS screen that breathes is one nobody can read. */
 @keyframes pos-settle {
-  from { background-color: rgb(var(--live) / 0.12); }
+  from { background-color: oklch(var(--live) / 0.12); }
   to { background-color: transparent; }
 }
 

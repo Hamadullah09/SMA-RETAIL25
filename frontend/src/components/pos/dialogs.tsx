@@ -227,7 +227,7 @@ function TaxToggle({
       disabled={disabled}
       aria-pressed={active}
       className="pos-button px-2 text-body"
-      style={active ? { borderColor: 'rgb(var(--positive))', color: 'rgb(var(--positive))' } : undefined}
+      style={active ? { borderColor: 'oklch(var(--positive))', color: 'oklch(var(--positive))' } : undefined}
     >
       <span className="pos-fkey pl-0"><kbd>{hotkey}</kbd></span>
       {label} {active ? 'on' : 'off'}
@@ -293,7 +293,7 @@ export function PaymentDialog() {
             onClick={() => setSelected(tender)}
             aria-pressed={selected?.id === tender.id}
             className="pos-button px-2 text-body"
-            style={selected?.id === tender.id ? { borderColor: 'rgb(var(--accent))', borderWidth: 2 } : undefined}
+            style={selected?.id === tender.id ? { borderColor: 'oklch(var(--accent))', borderWidth: 2 } : undefined}
           >
             {tender.displayName}
           </button>
@@ -582,7 +582,7 @@ function DrawerRow({
   tone?: 'positive' | 'negative';
   strong?: boolean;
 }) {
-  const colour = tone === 'positive' ? 'rgb(var(--positive))' : tone === 'negative' ? 'rgb(var(--negative))' : undefined;
+  const colour = tone === 'positive' ? 'oklch(var(--positive))' : tone === 'negative' ? 'oklch(var(--negative))' : undefined;
 
   return (
     <div className="flex justify-between">
@@ -868,7 +868,7 @@ export function VariantPickerDialog() {
                   <span>{[variant.dim1Value, variant.dim2Value, variant.dim3Value].filter(Boolean).join(' / ')}</span>
                   <span
                     className="tabular text-label"
-                    style={{ color: variant.onHand > 0 ? 'rgb(var(--text-muted))' : 'rgb(var(--negative))' }}
+                    style={{ color: variant.onHand > 0 ? 'rgb(var(--text-muted))' : 'oklch(var(--negative))' }}
                   >
                     {variant.onHand}
                   </span>

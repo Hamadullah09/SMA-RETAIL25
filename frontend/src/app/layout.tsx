@@ -1,9 +1,16 @@
 import type { Metadata } from 'next';
-import { Inter, JetBrains_Mono } from 'next/font/google';
+import { Onest, JetBrains_Mono } from 'next/font/google';
 import { Providers } from '@/components/providers';
 import './globals.css';
 
-const inter = Inter({
+/**
+ * The UI face.
+ *
+ * Onest rather than Inter. Both are neutral grotesques, but Onest carries slightly more character
+ * at the small sizes this application actually uses — a back office runs at 12 to 13px, where Inter
+ * flattens into something that reads as "a form" rather than as a product.
+ */
+const sans = Onest({
   subsets: ['latin'],
   variable: '--font-sans',
   display: 'swap',
@@ -49,7 +56,7 @@ const themeBootstrap = `
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
