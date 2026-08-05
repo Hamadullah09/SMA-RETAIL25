@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
-import { KpiTile, Panel, RankedBars, TileSkeleton } from '@/components/dashboard/kpi';
+import { EmptyState, KpiTile, Panel, RankedBars, TileSkeleton } from '@/components/dashboard/kpi';
 import { SalesTrend } from '@/components/dashboard/sales-trend';
 import { formatCurrency } from '@/lib/utils';
 
@@ -220,9 +220,7 @@ export default function DashboardPage() {
             {stock.isPending ? (
               <div className="h-32 animate-pulse rounded-sm bg-panel-sunken" />
             ) : understocked.length === 0 ? (
-              <p className="py-6 text-center text-body text-ink-muted">
-                Every line is above its reorder point.
-              </p>
+              <EmptyState>Every line is above its reorder point.</EmptyState>
             ) : (
               <ul className="space-y-0.5">
                 {understocked.slice(0, 6).map((row) => (
@@ -255,7 +253,7 @@ export default function DashboardPage() {
             {onOrder.isPending ? (
               <div className="h-32 animate-pulse rounded-sm bg-panel-sunken" />
             ) : outstandingPos.length === 0 ? (
-              <p className="py-6 text-center text-body text-ink-muted">Nothing outstanding.</p>
+              <EmptyState>Nothing outstanding.</EmptyState>
             ) : (
               <>
                 <p className="mb-2 text-body text-ink-muted">

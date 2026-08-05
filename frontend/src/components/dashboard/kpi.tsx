@@ -33,14 +33,17 @@ export function KpiTile({
       {...(href ? { href } : {})}
       className={cn(
         'pos-panel flex flex-col justify-between p-4',
-        href && 'transition-colors hover:bg-panel-hover',
+        // A linked tile lifts rather than tints: the shadow step and half-pixel rise say
+        // "clickable" without repainting the figure someone is trying to read.
+        href &&
+          'transition-all duration-150 hover:-translate-y-0.5 hover:border-strong hover:shadow-popover',
       )}
     >
-      <p className="text-label font-medium uppercase tracking-wide text-ink-faint">{label}</p>
+      <p className="text-label font-medium uppercase tracking-wide text-ink-muted">{label}</p>
 
       <p
         className={cn(
-          'pos-amount mt-2 text-display font-semibold leading-none tabular-nums',
+          'pos-amount mt-2.5 text-display font-semibold leading-none tracking-tight tabular-nums',
           tone === 'positive' && 'text-positive',
           tone === 'warning' && 'text-warning',
           tone === 'negative' && 'text-negative',
@@ -50,7 +53,7 @@ export function KpiTile({
         {value}
       </p>
 
-      {hint ? <p className="mt-1.5 text-caption text-ink-muted">{hint}</p> : null}
+      {hint ? <p className="mt-2 text-caption text-ink-muted">{hint}</p> : null}
     </Wrapper>
   );
 }
@@ -92,7 +95,7 @@ export function RankedBars({
   empty: string;
 }) {
   if (rows.length === 0) {
-    return <p className="py-6 text-center text-body text-ink-muted">{empty}</p>;
+    return <EmptyState>{empty}</EmptyState>;
   }
 
   const largest = Math.max(...rows.map((r) => Math.abs(r.value)), 1);
@@ -118,6 +121,18 @@ export function RankedBars({
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * Nothing to show, said so it reads as a state rather than a failure. The dashed border marks the
+ * region a list would fill, so an empty panel still has a shape.
+ */
+export function EmptyState({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex min-h-[6rem] items-center justify-center rounded-md border border-dashed border-subtle bg-panel-sunken/60 px-4 py-6">
+      <p className="text-center text-body text-ink-muted">{children}</p>
+    </div>
   );
 }
 

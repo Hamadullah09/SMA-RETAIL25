@@ -111,14 +111,21 @@ export function Sidebar() {
         )}
       >
       <div className="flex h-header shrink-0 items-center justify-between border-b border-subtle px-3">
-        {sidebarOpen ? <span className="text-h3 font-semibold tracking-tight">Retail 25</span> : null}
+        {sidebarOpen ? (
+          <span className="flex min-w-0 items-center gap-2.5">
+            <span className="pos-brand-mark h-7 w-7 text-label" aria-hidden>
+              25
+            </span>
+            <span className="truncate text-h3 font-semibold tracking-tight">Retail 25</span>
+          </span>
+        ) : null}
 
         <button
           type="button"
           onClick={toggleSidebar}
           aria-expanded={sidebarOpen}
           aria-label={sidebarOpen ? 'Collapse the menu' : 'Expand the menu'}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-ink-muted transition-colors hover:bg-panel-hover hover:text-ink"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-ink-muted transition-colors duration-150 hover:bg-panel-hover hover:text-ink"
         >
           {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
         </button>
@@ -137,17 +144,23 @@ export function Sidebar() {
               // which of ten links was the current one.
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'flex items-center gap-3 rounded-md px-3.5 py-2 text-body transition-colors',
+                'relative flex items-center gap-3 rounded-md px-3.5 py-2 text-body transition-colors duration-150',
                 active
-                  // Tint, hue and weight together. Three signals rather than one, so the current
-                  // page still reads for someone who cannot separate two similar greys — which the
-                  // previous fill-only treatment relied on entirely.
+                  // Tint, hue, weight and an edge marker together. Four signals rather than one, so
+                  // the current page still reads for someone who cannot separate two similar greys —
+                  // which the previous fill-only treatment relied on entirely.
                   ? 'bg-accent-soft font-semibold text-accent-text'
                   : 'font-medium text-ink-muted hover:bg-panel-hover hover:text-ink',
               )}
               title={!sidebarOpen ? label : undefined}
             >
-              <Icon className="h-4 w-4 shrink-0" aria-hidden />
+              {active ? (
+                <span
+                  aria-hidden
+                  className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-accent"
+                />
+              ) : null}
+              <Icon className={cn('h-4 w-4 shrink-0', active && 'text-accent-text')} aria-hidden />
               {sidebarOpen ? <span className="truncate">{label}</span> : null}
             </Link>
           );
@@ -158,7 +171,7 @@ export function Sidebar() {
         <button
           type="button"
           onClick={() => void auth.signOut()}
-          className="flex w-full items-center gap-3 rounded px-3 py-2 text-body font-medium text-ink-muted transition-colors hover:bg-panel-hover hover:text-ink"
+          className="flex w-full items-center gap-3 rounded-md px-3.5 py-2 text-body font-medium text-ink-muted transition-colors duration-150 hover:bg-panel-hover hover:text-ink"
         >
           <LogOut className="h-4 w-4 shrink-0" aria-hidden />
           {sidebarOpen ? <span>Sign out</span> : null}
@@ -175,7 +188,7 @@ export function Header() {
   const { toggleDrawer } = useUIStore();
 
   return (
-    <header className="sticky top-0 z-30 flex h-header items-center justify-between gap-4 border-b border-subtle bg-panel px-4">
+    <header className="sticky top-0 z-30 flex h-header items-center justify-between gap-4 border-b border-subtle bg-panel/85 px-4 backdrop-blur-md">
       {/*
         The only way to reach navigation below `lg`, where the rail is off-canvas. Hidden from `lg`
         up, where the rail is always visible and this would be a button that appears to do nothing.
@@ -188,7 +201,7 @@ export function Header() {
           type="button"
           onClick={toggleDrawer}
           aria-label="Open the menu"
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-ink-muted transition-colors hover:bg-panel-hover hover:text-ink lg:hidden"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded text-ink-muted transition-colors duration-150 hover:bg-panel-hover hover:text-ink lg:hidden"
         >
           <Menu className="h-5 w-5" aria-hidden />
         </button>
@@ -205,8 +218,16 @@ export function Header() {
         <PunchClock />
         <ThemeToggle />
 
-        <span className="hidden truncate text-ink-muted sm:inline">
-          {user?.name || user?.email || 'Signed in'}
+        {/* Who is signed in, as a face rather than a floating string: an initial on the accent
+            tint, then the name. The initial survives a narrow header where the name truncates. */}
+        <span className="hidden min-w-0 items-center gap-2 sm:flex">
+          <span
+            aria-hidden
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-label font-semibold text-accent-text"
+          >
+            {(user?.name || user?.email || 'S').charAt(0).toUpperCase()}
+          </span>
+          <span className="truncate text-ink-muted">{user?.name || user?.email || 'Signed in'}</span>
         </span>
 
         <kbd className="pos-kbd hidden sm:inline">Ctrl+K</kbd>

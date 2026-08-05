@@ -21,7 +21,7 @@ const buttonVariants = cva('', {
       // No border and no fill until hovered — for icon controls sitting inside other chrome, where
       // a bordered button would draw a box around something that is not a region.
       ghost:
-        'inline-flex min-h-control items-center justify-center gap-1.5 rounded px-2 text-body font-medium text-ink-muted transition-colors hover:bg-panel-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40',
+        'inline-flex min-h-control items-center justify-center gap-1.5 rounded px-2 text-body font-medium text-ink-muted transition-colors duration-150 hover:bg-panel-hover hover:text-ink disabled:cursor-not-allowed disabled:opacity-40',
       link: 'pos-link text-body font-medium',
     },
     size: {
