@@ -207,6 +207,18 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         };
 
         _db.SalesTransactions.Add(transaction);
+
+        // Saved here, before anything reads its id.
+        //
+        // The transaction's id is assigned by the database, so it is 0 until this line. Eight things
+        // below take it — the tax snapshot, every sale line, every tender, the loyalty entry, the
+        // cart's completion marker, the receipt — and under the previous GUID keys they could all be
+        // built first because the id existed the moment the object did.
+        //
+        // This is still one database transaction: the pipeline's TransactionBehavior wraps the whole
+        // handler, so a failure after this point rolls the sale back exactly as before.
+        await _db.SaveChangesAsync(ct);
+
         _db.SaleTaxSnapshots.Add(SaleTaxSnapshot.From(transaction.Id, context.Tax));
 
         var saleLines = WriteLines(transaction, snapshot, pricing);

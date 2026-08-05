@@ -124,6 +124,11 @@ public sealed class VoidSaleHandler : IRequestHandler<VoidSaleCommand, Result<Vo
 
         _db.SalesTransactions.Add(reversal);
 
+        // Saved before its id is read. Without this the original sale records "voided by transaction
+        // 0" — which points at nothing, so the reversal can never be found from the sale it reverses.
+        // Still inside the pipeline's transaction, so a later failure rolls both back together.
+        await _db.SaveChangesAsync(ct);
+
         var voided = original.Void(reversal.Id, approver ?? 0L, request.Reason, now);
         if (voided.IsFailure)
         {

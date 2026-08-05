@@ -89,10 +89,23 @@ public sealed class DemoDataSeeder
 
         var departments = await SeedDepartmentsAsync(locationId.Value, ct);
         var categories = await SeedCategoriesAsync(locationId.Value, ct);
-        var products = SeedProducts(locationId.Value, departments, categories);
+        // Two passes, because entity ids are assigned by the database.
+        //
+        // Products first, saved, and only then the rows that reference them by id. Building a stock
+        // level or a picture in the same pass would capture Id 0 for every one of them — a foreign
+        // key violation where a constraint exists, and silent corruption where one does not.
+        //
+        // The figures each child row needs travel in a list rather than a dictionary keyed by the
+        // product. An entity's hash is derived from its id, and its id changes from 0 to a real value
+        // at exactly this save — so a product stored as a key before the save cannot be found after
+        // it. That is not a quirk of this method; it is true of every dictionary keyed by an entity
+        // that spans a SaveChanges.
+        var planned = SeedProducts(locationId.Value, departments, categories);
+        var products = planned.Select(p => p.Product).ToList();
 
         await _db.SaveChangesAsync(ct);
 
+        SeedProductChildren(locationId.Value, planned);
         var units = SeedSerializedUnits(locationId.Value, products);
         await _db.SaveChangesAsync(ct);
 
@@ -199,6 +212,7 @@ public sealed class DemoDataSeeder
             .ToDictionaryAsync(d => d.Code ?? d.Name, d => d.Id, StringComparer.OrdinalIgnoreCase, ct);
 
         var order = 0;
+        var added = new List<(string Code, Department Department)>();
 
         foreach (var (code, name, _) in DepartmentPlan)
         {
@@ -217,7 +231,23 @@ public sealed class DemoDataSeeder
             }
 
             _db.Departments.Add(created.Value);
-            existing[code] = created.Value.Id;
+            added.Add((code, created.Value));
+        }
+
+        // Saved before the ids are read, because the database assigns them.
+        //
+        // Reading Id here without saving first is the failure that has no symptom: it returns 0 for
+        // every new row, every product is then filed under department 0, and nothing complains —
+        // there is no foreign key on that column to object. The catalogue looks fine until the till's
+        // department strip is empty and the RFID seeding finds no categories to tag.
+        if (added.Count > 0)
+        {
+            await _db.SaveChangesAsync(ct);
+
+            foreach (var (code, department) in added)
+            {
+                existing[code] = department.Id;
+            }
         }
 
         return existing;
@@ -230,6 +260,7 @@ public sealed class DemoDataSeeder
             .ToDictionaryAsync(c => c.Code ?? c.Name, c => c.Id, StringComparer.OrdinalIgnoreCase, ct);
 
         var order = 0;
+        var added = new List<(string Code, Category Category)>();
 
         foreach (var (_, code, name) in CategoryPlan)
         {
@@ -248,7 +279,18 @@ public sealed class DemoDataSeeder
             }
 
             _db.Categories.Add(created.Value);
-            existing[code] = created.Value.Id;
+            added.Add((code, created.Value));
+        }
+
+        // Saved before the ids are read. See SeedDepartmentsAsync for why this is not optional.
+        if (added.Count > 0)
+        {
+            await _db.SaveChangesAsync(ct);
+
+            foreach (var (code, category) in added)
+            {
+                existing[code] = category.Id;
+            }
         }
 
         return existing;
@@ -284,7 +326,10 @@ public sealed class DemoDataSeeder
         ["HDWR-FIX"] = (["Zinc plated", "Stainless", "Galvanised", "Hex head", "Wood", "Masonry", "Self-tapping", "Countersunk"], ["screws 4x40 100pk", "screws 4x30 100pk", "nails 50mm 500g", "bolts M8 20pk", "screws 5x60 50pk", "plugs 7mm 100pk", "screws 3.5x25 200pk", "screws 4x50 100pk"]),
     };
 
-    private List<Product> SeedProducts(
+    /// <summary>A product, plus the two figures its child rows need once it has an id.</summary>
+    private sealed record PlannedProduct(Product Product, decimal OnHand, decimal Retail);
+
+    private List<PlannedProduct> SeedProducts(
         long locationId,
         Dictionary<string, long> departments,
         Dictionary<string, long> categories)
@@ -292,7 +337,7 @@ public sealed class DemoDataSeeder
         // Fixed seed. The catalogue has to be the same on every machine, or a bug reported against
         // DEMO-0042 cannot be reproduced.
         var random = new Random(25_2025);
-        var products = new List<Product>();
+        var products = new List<PlannedProduct>();
         var sequence = 0;
 
         foreach (var (departmentCode, categoryCode, _) in CategoryPlan)
@@ -365,30 +410,15 @@ public sealed class DemoDataSeeder
 
                 _db.Products.Add(product);
 
-                // The stock ledger's own row. Product.OnHand and StockLevel.OnHand are written in
-                // lockstep everywhere else in the system; seeding is not an exception.
-                var level = StockLevel.Create(product.Id, null, locationId);
-                level.OnHand = onHand;
-                _db.StockLevels.Add(level);
-
-                AddTieredPrices(product, price);
-
-                // Roughly two items in three get a picture. Not all of them, on purpose: a real shop
-                // photographs its catalogue over months, and the till's grid has to look right when
-                // some tiles have a photograph and the rest fall back to a monogram.
-                if (sequence % 3 != 0)
-                {
-                    var image = ProductImage.Create(
-                        product.Id, DemoImageFactory.Create(stockCode), DemoImageFactory.ContentType);
-
-                    if (image.IsSuccess)
-                    {
-                        _db.ProductImages.Add(image.Value);
-                        product.SetHasImage(true);
-                    }
-                }
-
-                products.Add(product);
+                // Nothing that references this product by id is created here.
+                //
+                // Its id is assigned by the database, so it is 0 until SaveChanges. Building a stock
+                // level, a price tier or a picture now would point every one of them at product 0 —
+                // which is a foreign-key violation on the first save, and would have been silent
+                // corruption on any table without the constraint. See SeedProductChildren.
+                // The two figures a child row needs travel alongside the product rather than in a
+                // lookup keyed by it � see the comment at the call site.
+                products.Add(new PlannedProduct(product, onHand, price));
             }
         }
 
@@ -399,6 +429,48 @@ public sealed class DemoDataSeeder
     /// Trade and wholesale rows. Retail is <see cref="Product.RegularPrice"/> and is not duplicated
     /// here — two places holding the shelf price is two places to disagree.
     /// </summary>
+    /// <summary>
+    /// Everything that points at a product by id: its stock level, its price tiers and its picture.
+    /// <para>
+    /// A second pass, run after the products have been saved and therefore have real ids. Under the
+    /// previous GUID keys all of this sat inline in <see cref="SeedProducts"/>, because an id existed
+    /// the moment the object did; with database-assigned keys that same code captured 0 for every
+    /// row and the first save failed on the product-image foreign key.
+    /// </para>
+    /// </summary>
+    private void SeedProductChildren(long locationId, List<PlannedProduct> planned)
+    {
+        for (var index = 0; index < planned.Count; index++)
+        {
+            var (product, onHand, retail) = planned[index];
+
+            // The stock ledger's own row. Product.OnHand and StockLevel.OnHand are written in
+            // lockstep everywhere else in the system; seeding is not an exception.
+            var level = StockLevel.Create(product.Id, null, locationId);
+            level.OnHand = onHand;
+            _db.StockLevels.Add(level);
+
+            AddTieredPrices(product, retail);
+
+            // Roughly two items in three get a picture. Not all of them, on purpose: a real shop
+            // photographs its catalogue over months, and the till's grid has to look right when some
+            // tiles have a photograph and the rest fall back to a monogram.
+            if ((index + 1) % 3 == 0)
+            {
+                continue;
+            }
+
+            var image = ProductImage.Create(
+                product.Id, DemoImageFactory.Create(product.StockCode), DemoImageFactory.ContentType);
+
+            if (image.IsSuccess)
+            {
+                _db.ProductImages.Add(image.Value);
+                product.SetHasImage(true);
+            }
+        }
+    }
+
     private void AddTieredPrices(Product product, decimal retail)
     {
         foreach (var (level, discount) in new[] { (TradeLevel, TradeDiscount), (WholesaleLevel, WholesaleDiscount) })

@@ -77,5 +77,5 @@ public sealed class PermissionResolver : IPermissionResolver
         return Task.CompletedTask;
     }
 
-    private static string CacheKey(long userId) => $"permissions:{userId:N}";
+    private static string CacheKey(long userId) => $"permissions:{userId}";
 }

@@ -143,6 +143,9 @@ public sealed class LegacyImporter : ILegacyImporter
         else
         {
             await _db.SaveChangesAsync(ct);
+
+            // The groupings now have ids, so the products that need them can be pointed at them.
+            await ApplyPendingGroupingsAsync(ct);
         }
 
         return new ReconciliationReport(
@@ -410,14 +413,24 @@ public sealed class LegacyImporter : ILegacyImporter
             product.UpdateDetails(fitted!, null, null, null, null);
             product.UpdatePricing(price, cost, cost);
 
+            // The grouping entities are recorded rather than their ids, because the ids do not exist
+            // yet. ApplyPendingGroupingsAsync fills them in after the save.
+            Department? department = null;
+            Category? category = null;
+
             if (row.Values.GetValueOrDefault("Department") is { } departmentName && departmentName.Length > 0)
             {
-                product.SetDepartment(FindOrCreate(departments, departmentName, batch.LocationId, isDepartment: true));
+                department = FindOrCreate(departments, departmentName, batch.LocationId, isDepartment: true);
             }
 
             if (row.Values.GetValueOrDefault("Category") is { } categoryName && categoryName.Length > 0)
             {
-                product.SetCategory(FindOrCreate(categories, categoryName, batch.LocationId, isDepartment: false));
+                category = FindOrCreate(categories, categoryName, batch.LocationId, isDepartment: false);
+            }
+
+            if (department is not null || category is not null)
+            {
+                _pendingGroupings.Add((product, department, category));
             }
 
             if (LegacyFieldParsing.TryDecimal(row.Values.GetValueOrDefault("PackQuantity"), out var pack) && pack > 0m)
@@ -607,12 +620,23 @@ public sealed class LegacyImporter : ILegacyImporter
                 .ToListAsync(ct))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-    private long FindOrCreate<T>(Dictionary<string, T> cache, string name, long locationId, bool isDepartment)
+
+    /// <summary>
+    /// Finds or creates a department or category, returning the entity rather than its id.
+    /// <para>
+    /// The entity, because ids are assigned by the database and this runs before anything is saved —
+    /// and on a dry run, before nothing is saved at all. Returning <c>Id</c> here would hand back 0
+    /// for every grouping the import creates, and every imported product would be filed under a
+    /// department that does not exist, with no constraint to notice. The caller records the pairing
+    /// and applies it in <see cref="ApplyPendingGroupingsAsync"/> once the ids are real.
+    /// </para>
+    /// </summary>
+    private T FindOrCreate<T>(Dictionary<string, T> cache, string name, long locationId, bool isDepartment)
         where T : class
     {
         if (cache.TryGetValue(name, out var existing))
         {
-            return isDepartment ? (existing as Department)!.Id : (existing as Category)!.Id;
+            return existing;
         }
 
         if (isDepartment)
@@ -620,13 +644,51 @@ public sealed class LegacyImporter : ILegacyImporter
             var department = Department.Create(locationId, name).Value;
             _db.Departments.Add(department);
             cache[name] = (department as T)!;
-            return department.Id;
+            return (department as T)!;
         }
 
         var category = Category.Create(locationId, name).Value;
         _db.Categories.Add(category);
         cache[name] = (category as T)!;
-        return category.Id;
+        return (category as T)!;
+    }
+
+    /// <summary>
+    /// Products whose department or category was created during this import, waiting for the save
+    /// that gives those groupings their ids.
+    /// </summary>
+    private readonly List<(Product Product, Department? Department, Category? Category)> _pendingGroupings = [];
+
+    /// <summary>
+    /// Fills in the grouping ids once they exist, and saves again.
+    /// <para>
+    /// Only reached on a real import. A dry run clears the change tracker instead, so these pairings
+    /// are discarded with everything else — which is right, because nothing was written for them to
+    /// point at.
+    /// </para>
+    /// </summary>
+    private async Task ApplyPendingGroupingsAsync(CancellationToken ct)
+    {
+        if (_pendingGroupings.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var (product, department, category) in _pendingGroupings)
+        {
+            if (department is not null)
+            {
+                product.SetDepartment(department.Id);
+            }
+
+            if (category is not null)
+            {
+                product.SetCategory(category.Id);
+            }
+        }
+
+        _pendingGroupings.Clear();
+        await _db.SaveChangesAsync(ct);
     }
 
     /// <summary>

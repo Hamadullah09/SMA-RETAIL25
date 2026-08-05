@@ -49,8 +49,19 @@ public abstract class Entity
         return ReferenceEquals(this, other) || (Id != 0 && other.Id == Id);
     }
 
-    // Unsaved entities all hash alike. That is legal — equality still tells them apart — and the
-    // alternative, hashing on identity, would change an entity's hash the moment it was saved.
+    /// <summary>
+    /// Hashed on the id, which means an unsaved entity's hash <b>changes when it is saved</b>.
+    /// <para>
+    /// Unavoidable — the id is the identity, and the database assigns it — but it has one sharp edge
+    /// worth stating: <b>never key a dictionary or a set by an entity across a SaveChanges</b>. The
+    /// entry goes in hashed as 0 and is looked up hashed as its real id, so it is simply not found.
+    /// Carry what you need in a list or key by something stable, such as the stock code.
+    /// </para>
+    /// <para>
+    /// Unsaved entities also all hash alike. That part is harmless: equality still tells them apart,
+    /// and they only share a bucket.
+    /// </para>
+    /// </summary>
     public override int GetHashCode() => HashCode.Combine(GetType(), Id);
 }
 

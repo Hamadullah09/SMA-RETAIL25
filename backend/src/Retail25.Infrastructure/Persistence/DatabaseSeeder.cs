@@ -211,6 +211,15 @@ public sealed class DatabaseSeeder
         _db.ScaleProfiles.Add(scale);
         _db.PoleDisplayProfiles.Add(pole);
 
+        // Saved before the station is told about them.
+        //
+        // The profiles' ids are assigned by the database, so reading them here without saving first
+        // wires the station to profile 0 four times over — and nothing objects, because a station's
+        // peripheral columns are nullable references with no constraint behind them. The till would
+        // simply come up with no printer, no reader, no scale and no pole display, and the reason
+        // would be invisible in the data.
+        await _db.SaveChangesAsync(ct);
+
         station.AssignPeripherals(printer.Id, reader.Id, scale.Id, pole.Id);
         _db.Stations.Add(station);
     }

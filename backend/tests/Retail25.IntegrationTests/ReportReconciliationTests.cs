@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Retail25.Application.Carts.Commands;
 using Retail25.Application.Catalog;
+using Retail25.Application.Drawer;
 using Retail25.Application.Reports;
 using Retail25.Application.Sales.Queries;
 using Retail25.Domain.Catalog;
@@ -89,6 +90,14 @@ public sealed class ReportReconciliationTests
 
         var cash = await db.TenderTypes.AsNoTracking().FirstAsync(t => t.Behaviour == TenderBehaviour.Cash);
 
+        // A cash sale needs an open drawer, and this scenario rings three of them.
+        //
+        // The suite used to pass without this, which is worse than it sounds: the fixture was falling
+        // back to sharing the developer's own database, where a drawer had been opened by hand at
+        // some point, so the requirement was being met by leftover state rather than by the test.
+        // Once the role could create its own database the borrowed drawer went with it.
+        await sender.Send(new OpenDrawerSessionCommand(station.Id, OpeningFloat: 200.00m));
+
         await Ring(sender, station.Id, cash.Id, (codeA, 2m));
         await Ring(sender, station.Id, cash.Id, (codeB, 3m));
         await Ring(sender, station.Id, cash.Id, (codeA, 1m), (codeB, 1m));
@@ -112,7 +121,7 @@ public sealed class ReportReconciliationTests
     // Needs a database of its own. Both this and the tax-exempt assertion below measure the whole
     // location for the whole day, and that number is only answerable when nothing else has rung a
     // sale into it. On the shared-database fallback a previous run's taxed sale sits in the same
-    // window and the two figures differ by exactly its tax — a real difference, correctly reported,
+    // window and the two figures differ by exactly its tax ï¿½ a real difference, correctly reported,
     // about data this test did not create.
     [RequiresIsolatedDatabaseFact]
     public async Task Sales_analysis_reconciles_against_the_sales_log()

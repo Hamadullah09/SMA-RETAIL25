@@ -107,5 +107,5 @@ public sealed class RedisCartStore : ICartStore
 
     private static RedisKey CartKey(long cartId) => CartKeyPrefix + cartId.ToString(CultureInfo.InvariantCulture);
 
-    private static RedisKey StationKey(long stationId) => $"{StationKeyPrefix}{stationId:N}:cart";
+    private static RedisKey StationKey(long stationId) => $"{StationKeyPrefix}{stationId}:cart";
 }

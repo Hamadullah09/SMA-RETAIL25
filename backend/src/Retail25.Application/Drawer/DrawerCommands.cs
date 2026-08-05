@@ -127,6 +127,11 @@ public sealed class DrawerHandlers
 
         var session = created.Value;
         _db.DrawerSessions.Add(session);
+
+        // Saved before its id is read: the opening-float entry has to point at a real session, and
+        // the id is the database's to assign. One transaction still, courtesy of the pipeline.
+        await _db.SaveChangesAsync(ct);
+
         _db.DrawerLedgerEntries.Add(DrawerLedgerEntry.Create(
             session.Id,
             DrawerEntryType.OpeningFloat,

@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
@@ -24,8 +23,6 @@ namespace Retail25.Infrastructure.Persistence;
 /// </summary>
 public sealed class SequenceGenerator : ISequenceGenerator
 {
-    private static readonly ConcurrentDictionary<string, byte> EnsuredSequences = new(StringComparer.Ordinal);
-
     private readonly ApplicationDbContext _db;
 
     public SequenceGenerator(ApplicationDbContext db) => _db = db;
@@ -38,28 +35,31 @@ public sealed class SequenceGenerator : ISequenceGenerator
 
     public async Task<long> NextAsync(SequenceKind kind, long locationId, CancellationToken ct = default)
     {
-        // The name is built from a fixed prefix, a known enum name and a GUID in "N" form, so it
-        // contains only letters, digits and underscores. Nothing here is user-supplied, which is what
-        // makes the raw interpolation safe — an identifier cannot be a bound parameter in PostgreSQL.
-        var name = $"seq_{kind.ToString().ToLowerInvariant()}_{locationId:N}";
+        // The name is built from a fixed prefix, a known enum name and a numeric id, so it contains
+        // only letters, digits and underscores. Nothing here is user-supplied, which is what makes
+        // the raw interpolation safe — an identifier cannot be a bound parameter in PostgreSQL.
+        var name = SequenceName(kind, locationId);
 
-        // Sequences are created lazily so adding a location is a data operation, not a migration.
-        if (EnsuredSequences.TryAdd(name, 0))
-        {
-            var start = await _db.NumberSequences.AsNoTracking()
-                .Where(s => s.LocationId == locationId && s.Kind == kind)
-                .Select(s => (long?)s.NextNumber)
-                .FirstOrDefaultAsync(ct) ?? 1L;
+        // Created unconditionally, every time, before the number is drawn.
+        //
+        // Two rejected alternatives, both of which were tried here. A process-wide "already created"
+        // set is an assumption about a database made by a process that outlives it: with integer keys
+        // every fresh database's location id is 1, so one database's sequence name masked another's,
+        // and a test that recreated its database under the same name hit the same thing. And catching
+        // the "relation does not exist" error to create it on demand cannot work inside a
+        // transaction, because PostgreSQL aborts the whole transaction on any failed statement — the
+        // recovery would run against a connection that refuses everything until rollback.
+        //
+        // So: one extra idempotent statement per number issued. That is a real cost on a till that
+        // rings a sale a second, and it is still the right trade against issuing a duplicate invoice
+        // number or failing a sale outright.
+        await EnsureSequenceAsync(kind, locationId, name, ct);
 
-            var startAt = Math.Max(1L, start).ToString(CultureInfo.InvariantCulture);
+        return await NextValueAsync(name, ct);
+    }
 
-#pragma warning disable EF1002
-            await _db.Database.ExecuteSqlRawAsync(
-                "CREATE SEQUENCE IF NOT EXISTS \"" + name + "\" AS bigint START " + startAt + " INCREMENT 1",
-                ct);
-#pragma warning restore EF1002
-        }
-
+    private async Task<long> NextValueAsync(string name, CancellationToken ct)
+    {
         if (_db.Database.GetDbConnection().State != System.Data.ConnectionState.Open)
         {
             await _db.Database.OpenConnectionAsync(ct);
@@ -73,9 +73,29 @@ public sealed class SequenceGenerator : ISequenceGenerator
         return Convert.ToInt64(value, CultureInfo.InvariantCulture);
     }
 
+    /// <summary>
+    /// Creates the sequence, starting from the administered <see cref="NumberSequence"/> row so a
+    /// migrated store's numbering continues rather than restarting at 1.
+    /// </summary>
+    private async Task EnsureSequenceAsync(SequenceKind kind, long locationId, string name, CancellationToken ct)
+    {
+        var start = await _db.NumberSequences.AsNoTracking()
+            .Where(s => s.LocationId == locationId && s.Kind == kind)
+            .Select(s => (long?)s.NextNumber)
+            .FirstOrDefaultAsync(ct) ?? 1L;
+
+        var startAt = Math.Max(1L, start).ToString(CultureInfo.InvariantCulture);
+
+#pragma warning disable EF1002
+        await _db.Database.ExecuteSqlRawAsync(
+            "CREATE SEQUENCE IF NOT EXISTS \"" + name + "\" AS bigint START " + startAt + " INCREMENT 1",
+            ct);
+#pragma warning restore EF1002
+    }
+
     public async Task RestartAsync(SequenceKind kind, long locationId, long nextNumber, CancellationToken ct = default)
     {
-        var name = $"seq_{kind.ToString().ToLowerInvariant()}_{locationId:N}";
+        var name = SequenceName(kind, locationId);
         var startAt = Math.Max(1L, nextNumber).ToString(CultureInfo.InvariantCulture);
 
 #pragma warning disable EF1002
@@ -87,7 +107,8 @@ public sealed class SequenceGenerator : ISequenceGenerator
             "ALTER SEQUENCE \"" + name + "\" RESTART WITH " + startAt,
             ct);
 #pragma warning restore EF1002
-
-        EnsuredSequences.TryAdd(name, 0);
     }
+
+    private static string SequenceName(SequenceKind kind, long locationId)
+        => string.Create(CultureInfo.InvariantCulture, $"seq_{kind.ToString().ToLowerInvariant()}_{locationId}");
 }
