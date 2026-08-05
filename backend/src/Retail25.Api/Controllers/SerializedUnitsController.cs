@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Retail25.Api.Common;
 using Retail25.Application.Catalog;
 using Retail25.Application.Rfid.Commands;
+using Retail25.Domain.Common;
 
 namespace Retail25.Api.Controllers;
 
@@ -57,6 +58,52 @@ public sealed class SerializedUnitsController : ControllerBase
             request.LocationId,
             request.Epcs,
             request.VariantId))).ToActionResult(this);
+
+    /// <summary>
+    /// Loads a tag export — items and their tags in one file — into a location's catalogue.
+    /// <para>
+    /// <c>dryRun</c> reports what the file would do and writes nothing, which is the only safe way
+    /// to look at a file somebody has been editing by hand before it touches a live catalogue.
+    /// </para>
+    /// </summary>
+    [HttpPost("import")]
+    [RequestSizeLimit(MaximumImportBytes)]
+    public async Task<IActionResult> Import(
+        [FromForm] long locationId,
+        IFormFile file,
+        CancellationToken ct,
+        [FromForm] bool dryRun = false,
+        [FromForm] bool? resetToInStock = null)
+    {
+        if (file is null || file.Length == 0)
+        {
+            return ResultExtensions.Problem(new Error("import.empty", "No file was uploaded."), this);
+        }
+
+        if (file.Length > MaximumImportBytes)
+        {
+            return ResultExtensions.Problem(
+                new Error("import.too_large", $"An import file may be at most {MaximumImportBytes / 1024 / 1024} MB."),
+                this);
+        }
+
+        // Bounded by the check above. The byte-order mark is honoured because these files come out
+        // of a spreadsheet as often as out of a database, and Excel writes one.
+        using var reader = new StreamReader(
+            file.OpenReadStream(),
+            System.Text.Encoding.UTF8,
+            detectEncodingFromByteOrderMarks: true);
+
+        var csv = await reader.ReadToEndAsync(ct);
+
+        var result = await _sender.Send(
+            new ImportEpcCatalogCommand(locationId, csv, dryRun, resetToInStock ?? true), ct);
+
+        return result.ToActionResult(this);
+    }
+
+    /// <summary>A quarter of a million tags at the widths this file uses. Well past any real export.</summary>
+    private const int MaximumImportBytes = 8 * 1024 * 1024;
 }
 
 /// <summary>Matrix items: the dimension grid and the variants it generates (guide p.39–40).</summary>

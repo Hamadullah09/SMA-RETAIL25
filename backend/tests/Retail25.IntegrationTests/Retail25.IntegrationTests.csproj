@@ -32,4 +32,13 @@
     <ProjectReference Include="..\..\src\Retail25.Infrastructure\Retail25.Infrastructure.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      The real tag export the EPC importer was built for, kept verbatim. Its value as a fixture is
+      precisely that nobody tidied it: the annotation row, the half-renamed name column, the eleven
+      EPCs transcribed with a leading G. A cleaned-up copy would test a file that does not exist.
+    -->
+    <Content Include="TestData\epc-catalog-export.csv" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>
