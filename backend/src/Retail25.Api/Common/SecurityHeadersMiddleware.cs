@@ -12,8 +12,26 @@ namespace Retail25.Api.Common;
 public sealed class SecurityHeadersMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly string _contentSecurityPolicy;
 
-    public SecurityHeadersMiddleware(RequestDelegate next) => _next = next;
+    public SecurityHeadersMiddleware(RequestDelegate next, IConfiguration configuration)
+    {
+        _next = next;
+
+        // Chrome applies `form-action` to the whole redirect chain of a form submission, and a
+        // successful login POST ends in a redirect to the web app's callback. With 'self' alone the
+        // browser blocks that redirect: the credentials are accepted, the session cookie is set,
+        // and the operator is left staring at the login form as if nothing happened.
+        var webOrigin = configuration["Auth:WebOrigin"] ?? "http://localhost:3000";
+
+        _contentSecurityPolicy =
+            "default-src 'none'; " +
+            "style-src 'unsafe-inline'; " +   // the login page's own <style> block, nothing external
+            "img-src 'self' data:; " +
+            $"form-action 'self' {webOrigin.TrimEnd('/')}; " +
+            "frame-ancestors 'none'; " +
+            "base-uri 'none'";
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -23,13 +41,7 @@ public sealed class SecurityHeadersMiddleware
 
         // The API never serves executable content or embeds anything. `default-src 'none'` means a
         // reflected-XSS payload has nothing it is permitted to load or run.
-        headers["Content-Security-Policy"] =
-            "default-src 'none'; " +
-            "style-src 'unsafe-inline'; " +   // the login page's own <style> block, nothing external
-            "img-src 'self' data:; " +
-            "form-action 'self'; " +
-            "frame-ancestors 'none'; " +
-            "base-uri 'none'";
+        headers["Content-Security-Policy"] = _contentSecurityPolicy;
 
         headers["X-Content-Type-Options"] = "nosniff";
         headers["X-Frame-Options"] = "DENY";
