@@ -252,6 +252,16 @@ public sealed class MigrationHandlers :
 
         _db.MigrationBatches.Add(batch);
 
+        // Saved before a single row references it.
+        //
+        // This one hid better than most. The batch's id is assigned by the database, so it is 0 until
+        // a save — and the loop below saves every 500 rows. The first chunk therefore recorded
+        // BatchId 0 and every row after it recorded the real id: the batch looked staged, the counts
+        // on the batch itself were right, and only queries that join back by BatchId came up exactly
+        // 500 short, whatever the size of the file. A twenty-thousand-row import reported 19,500
+        // importable and a five-thousand-row one reported 4,500.
+        await _db.SaveChangesAsync(ct);
+
         var written = 0;
 
         foreach (var row in source.Rows)

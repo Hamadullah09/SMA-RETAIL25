@@ -99,6 +99,12 @@ public sealed class CustomerCommandHandlers
 
         _db.Customers.Add(customer);
 
+        // Saved before the account and profile are built, because both take the customer's id and the
+        // database is what assigns it. Without this they are created against customer 0 — and then
+        // the first on-account sale is refused with "this customer has no account", which is true of
+        // the row and false of the customer.
+        await _db.SaveChangesAsync(ct);
+
         // Every customer gets an account and a pricing profile at creation, even at the defaults.
         // Creating them lazily would mean the first on-account sale writes configuration rows inside
         // a payment transaction, which is the worst possible moment to discover a constraint.
