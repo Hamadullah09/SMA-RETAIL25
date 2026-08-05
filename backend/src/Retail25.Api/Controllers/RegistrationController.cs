@@ -344,7 +344,7 @@ public sealed class RegistrationController : ControllerBase
     public sealed record RegisterRequest(
         [Required, EmailAddress, StringLength(256)] string Email,
         [Required, StringLength(128, MinimumLength = 1)] string DisplayName,
-        [Required, StringLength(256, MinimumLength = 12)] string Password);
+        [Required, StringLength(256, MinimumLength = 8)] string Password);
 
     public sealed record ForgotPasswordRequest(
         [Required, EmailAddress, StringLength(256)] string Email);
@@ -352,5 +352,5 @@ public sealed class RegistrationController : ControllerBase
     public sealed record ResetPasswordRequest(
         [Required, EmailAddress, StringLength(256)] string Email,
         [Required] string Token,
-        [Required, StringLength(256, MinimumLength = 12)] string Password);
+        [Required, StringLength(256, MinimumLength = 8)] string Password);
 }

@@ -6,7 +6,7 @@ import { AuthField, AuthLink, AuthNotice, AuthShell } from '@/components/auth/au
 import { postAccount, type AccountProblem } from '@/lib/account-api';
 
 /** Matches the API's own floor. Enforced there too — this is a courtesy, not the control. */
-const MIN_PASSWORD = 12;
+const MIN_PASSWORD = 8;
 
 export default function SignUpPage() {
   const router = useRouter();

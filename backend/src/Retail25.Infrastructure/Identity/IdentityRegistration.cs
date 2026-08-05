@@ -62,9 +62,9 @@ public static class IdentityRegistration
                 options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
                 options.Lockout.AllowedForNewUsers = true;
 
-                options.Password.RequiredLength = 12;
+                options.Password.RequiredLength = 8;
                 options.Password.RequireDigit = true;
-                options.Password.RequireLowercase = true;
+                options.Password.RequireLowercase = false;
                 options.Password.RequireUppercase = true;
                 options.Password.RequireNonAlphanumeric = false;
 

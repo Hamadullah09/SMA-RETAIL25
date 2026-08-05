@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { AuthField, AuthLink, AuthNotice, AuthShell } from '@/components/auth/auth-shell';
 import { postAccount, type AccountProblem } from '@/lib/account-api';
 
-const MIN_PASSWORD = 12;
+const MIN_PASSWORD = 8;
 
 export default function ResetPasswordPage() {
   // useSearchParams needs a Suspense boundary or the whole route opts out of static rendering and
