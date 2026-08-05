@@ -493,3 +493,24 @@ docker compose -f deploy/docker-compose.yml up
 ```bash
 cd frontend && E2E_PASSWORD='…' npx playwright test
 ```
+
+## Addendum — 2026-08-06
+
+What changed since the last revision, live-verified on the LocalDB stack:
+
+- **Backup and restore shipped.** Administration → Backup and restore takes, lists and restores
+  whole-database backups (`system.backup` permission; SQL Server `BACKUP`/`RESTORE` exactly as the
+  [restore runbook](runbooks/restore.md) prescribes). A live backup was taken through the UI and
+  passed `RESTORE VERIFYONLY`.
+- **The rate limiter no longer caps the whole shop.** All three policies were one shared fixed
+  window per process — 300 requests/minute across *every* signed-in user was a hard multi-user
+  ceiling. They now partition per user (per IP before sign-in).
+- **Password policy is 8+ characters with a digit**, enforced identically in the Identity options,
+  the request DTO annotations and both frontend forms — the three layers previously disagreed after
+  any single-layer change, which read as a silently broken form.
+- **Tests after these changes: 719 passing, 0 failing** (110 domain · 497 application · 94 terminal
+  agent · 13 architecture · 5 integration; 75 integration tests skip without Docker). The headline
+  test table above predates the SQL Server move and this addendum supersedes its counts.
+- **UI modernization pass** at the token level: gradient primary actions, layered shadow scale,
+  refreshed light/dark ramps (AA contrast kept), hero sign-in, navigation and dashboard polish.
+  Every screen inherits it through the shared tokens; no component class was renamed.
