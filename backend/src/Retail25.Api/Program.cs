@@ -156,30 +156,33 @@ builder.Services.AddAntiforgery(options =>
 // --- Rate limiting ---
 // The endpoints worth guessing at: token exchange, PIN verification and identifier lookup. Without
 // a limit, a four-digit PIN on a machine sitting in a shop is guessable in an afternoon.
+//
+// Every policy is partitioned per caller — by user id once signed in, by client IP before that. A
+// single shared window would make the limit a ceiling on the whole shop rather than on the one
+// misbehaving caller: at 300 requests a minute shared, thirty tills starve each other long before
+// any of them is abusive.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    options.AddFixedWindowLimiter("auth", limiter =>
-    {
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.PermitLimit = 20;
-        limiter.QueueLimit = 0;
-    });
+    static string Caller(HttpContext http)
+        => http.User.Identity?.IsAuthenticated == true
+            ? http.User.Identity.Name ?? "authenticated"
+            : http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-    options.AddFixedWindowLimiter("pin", limiter =>
-    {
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.PermitLimit = 10;
-        limiter.QueueLimit = 0;
-    });
+    static RateLimitPartition<string> PerCaller(HttpContext http, string policy, int permitLimit)
+        => RateLimitPartition.GetFixedWindowLimiter(
+            $"{policy}:{Caller(http)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = permitLimit,
+                QueueLimit = 0,
+            });
 
-    options.AddFixedWindowLimiter("lookup", limiter =>
-    {
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.PermitLimit = 300;
-        limiter.QueueLimit = 0;
-    });
+    options.AddPolicy("auth", http => PerCaller(http, "auth", 20));
+    options.AddPolicy("pin", http => PerCaller(http, "pin", 10));
+    options.AddPolicy("lookup", http => PerCaller(http, "lookup", 300));
 });
 
 builder.Services.AddResponseCompression();
