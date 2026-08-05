@@ -19,26 +19,12 @@ namespace Retail25.Domain.Catalog;
 /// </summary>
 public sealed class ProductImage : Entity, IAuditable
 {
-    /// <summary>Anything larger is a photograph nobody needed at 96 pixels on a till.</summary>
-    public const int MaximumBytes = 2 * 1024 * 1024;
+    /// <inheritdoc cref="ImageContent.MaximumBytes"/>
+    public const int MaximumBytes = ImageContent.MaximumBytes;
 
-    public static readonly Error TooLarge = new(
-        "image.too_large",
-        $"An image may be at most {MaximumBytes / 1024 / 1024} MB.");
+    public static readonly Error TooLarge = ImageContent.TooLarge;
 
-    public static readonly Error UnsupportedType = new(
-        "image.unsupported_type",
-        "Images must be PNG, JPEG or WebP.");
-
-    /// <summary>
-    /// What a browser will actually render, and nothing else.
-    /// <para>
-    /// An allow-list rather than a block-list: this content type is echoed back on the response, and
-    /// letting a caller choose it freely is how an "image" upload becomes a stored cross-site
-    /// scripting vector.
-    /// </para>
-    /// </summary>
-    private static readonly string[] Allowed = ["image/png", "image/jpeg", "image/webp"];
+    public static readonly Error UnsupportedType = ImageContent.UnsupportedType;
 
     private ProductImage()
     {
@@ -63,7 +49,7 @@ public sealed class ProductImage : Entity, IAuditable
 
     public static Result<ProductImage> Create(long productId, byte[] content, string contentType)
     {
-        var validated = Validate(content, contentType);
+        var validated = ImageContent.Validate(content, contentType);
         if (validated.IsFailure)
         {
             return Result.Failure<ProductImage>(validated.Error);
@@ -77,7 +63,7 @@ public sealed class ProductImage : Entity, IAuditable
 
     public Result Replace(byte[] content, string contentType)
     {
-        var validated = Validate(content, contentType);
+        var validated = ImageContent.Validate(content, contentType);
         if (validated.IsFailure)
         {
             return validated;
@@ -85,49 +71,8 @@ public sealed class ProductImage : Entity, IAuditable
 
         Content = content;
         ContentType = contentType.ToLowerInvariant();
-        ETag = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(content))[..16];
+        ETag = ImageContent.ETagFor(content);
 
         return Result.Success();
     }
-
-    private static Result Validate(byte[] content, string contentType)
-    {
-        if (content is null || content.Length == 0)
-        {
-            return Result.Failure(new Error("image.empty", "The image is empty."));
-        }
-
-        if (content.Length > MaximumBytes)
-        {
-            return Result.Failure(TooLarge);
-        }
-
-        if (!Allowed.Contains(contentType?.ToLowerInvariant(), StringComparer.Ordinal))
-        {
-            return Result.Failure(UnsupportedType);
-        }
-
-        // The declared type is checked against the bytes. A caller can claim anything in a header;
-        // the magic number is the only part of an upload that is not simply taken on trust.
-        return LooksLike(content, contentType!.ToLowerInvariant())
-            ? Result.Success()
-            : Result.Failure(UnsupportedType.With("reason", "the file's contents do not match its declared type"));
-    }
-
-    private static bool LooksLike(byte[] content, string contentType) => contentType switch
-    {
-        // \x89 P N G \r \n \x1A \n
-        "image/png" => content.Length > 8
-            && content[0] == 0x89 && content[1] == 0x50 && content[2] == 0x4E && content[3] == 0x47,
-
-        // JPEG always opens with the Start-of-Image marker.
-        "image/jpeg" => content.Length > 3 && content[0] == 0xFF && content[1] == 0xD8,
-
-        // RIFF....WEBP
-        "image/webp" => content.Length > 12
-            && content[0] == 0x52 && content[1] == 0x49 && content[2] == 0x46 && content[3] == 0x46
-            && content[8] == 0x57 && content[9] == 0x45 && content[10] == 0x42 && content[11] == 0x50,
-
-        _ => false,
-    };
 }

@@ -148,6 +148,7 @@ public class ApplicationDbContext
 
     // --- Configuration ---
     public DbSet<Location> Locations => Set<Location>();
+    public DbSet<BrandingAsset> BrandingAssets => Set<BrandingAsset>();
     public DbSet<BusinessProfile> BusinessProfiles => Set<BusinessProfile>();
     public DbSet<TaxConfiguration> TaxConfigurations => Set<TaxConfiguration>();
     public DbSet<PosPolicy> PosPolicies => Set<PosPolicy>();

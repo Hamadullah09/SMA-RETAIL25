@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { PunchClock } from '@/components/staff/punch-clock';
 import { ThemeToggle } from '@/components/shell/theme-toggle';
+import { CompanyLogo } from '@/components/layout/branding';
 import { useAuth } from '@/lib/auth-config';
 import { useUIStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils';
@@ -182,7 +183,7 @@ export function Header() {
         The app name itself lives in the sidebar. Repeating it here was the second <h1> on every
         page, and two of them means neither is the page's title.
       */}
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
           onClick={toggleDrawer}
@@ -191,6 +192,13 @@ export function Header() {
         >
           <Menu className="h-5 w-5" aria-hidden />
         </button>
+
+        {/*
+          The shop's own mark, uploaded through the admin screens. Nothing renders when a store has
+          not uploaded one, so an unbranded installation is a header that looks deliberate rather
+          than one with a hole in it.
+        */}
+        <CompanyLogo className="h-7 w-auto max-w-[180px] shrink-0 object-contain" />
       </div>
 
       <div className="flex items-center gap-3 text-body">

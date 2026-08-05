@@ -117,6 +117,7 @@ public interface IApplicationDbContext
 
     // --- Configuration ---
     DbSet<Location> Locations { get; }
+    DbSet<BrandingAsset> BrandingAssets { get; }
     DbSet<BusinessProfile> BusinessProfiles { get; }
     DbSet<TaxConfiguration> TaxConfigurations { get; }
     DbSet<PosPolicy> PosPolicies { get; }

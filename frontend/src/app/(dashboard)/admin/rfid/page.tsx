@@ -13,6 +13,7 @@ import {
   type RfLinkProfile,
 } from '@/lib/rfid-api';
 import { CheckField, FormSection, NumberField, SelectField, TextField } from '@/components/masters/browse-form';
+import { TagImportSection } from '@/components/masters/tag-import';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { cn } from '@/lib/utils';
@@ -130,6 +131,13 @@ export default function RfidSettingsPage() {
             <ConnectionSection draft={draft} patch={patch} canWrite={canWrite} busy={busy} onSave={save} />
             <RadioSection draft={draft} patch={patch} canWrite={canWrite} busy={busy} onSave={save} />
             <ReadZoneSection draft={draft} patch={patch} canWrite={canWrite} busy={busy} onSave={save} />
+
+            {/*
+              Configuring a reader and giving it something to recognise are the same job in
+              practice: a correctly tuned reader that reads nothing but unknown tags is indist-
+              inguishable, at the counter, from a broken one.
+            */}
+            <TagImportSection locationId={locationId} canWrite={auth.can('inventory.commission_tags')} />
           </div>
 
           <DiagnosticsPanel profile={draft} canWrite={canWrite} />

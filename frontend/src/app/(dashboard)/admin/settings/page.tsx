@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { CheckField, Field, FormSection, NumberField, SelectField, TextField } from '@/components/masters/browse-form';
+import { BrandingTab } from '@/components/layout/branding-settings';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { useLiveGrid } from '@/lib/inventory-hub';
@@ -35,6 +36,7 @@ import type {
 
 const TABS = [
   'Business ID',
+  'Branding',
   'Taxes',
   'POS',
   'Groupings',
@@ -116,6 +118,7 @@ export default function SettingsPage() {
 
       <div className="max-w-3xl">
         {tab === 'Business ID' ? <BusinessTab locationId={locationId} value={settings.business} canWrite={canWrite} onSaved={load} /> : null}
+        {tab === 'Branding' ? <BrandingTab locationId={locationId} canWrite={canWrite} /> : null}
         {tab === 'Taxes' ? <TaxesTab locationId={locationId} rows={settings.taxes} canWrite={canTaxes} onSaved={load} /> : null}
         {tab === 'POS' ? <PosTab locationId={locationId} value={settings.pos} tenders={settings.tenders} canWrite={canWrite} onSaved={load} /> : null}
         {tab === 'Groupings' ? <GroupingsTab locationId={locationId} canWrite={auth.can('catalog.write')} canDelete={auth.can('catalog.delete')} /> : null}
