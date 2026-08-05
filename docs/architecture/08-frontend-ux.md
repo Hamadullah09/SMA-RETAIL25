@@ -19,18 +19,27 @@ Hard rules (these are review-blocking):
 - **Density over air.** Grid row height 32px (comfortable) / 28px (compact). The POS list shows
   ≥ 12 lines without scrolling at 1366×768.
 
-### Token sketch
+### Tokens
+
+Every colour is a CSS custom property in `globals.css`, surfaced to Tailwind by name in
+`tailwind.config.js`. Nothing in a component names a colour directly.
 
 ```
-surface        zinc-50   / zinc-950         (light / dark)
-panel          white     / zinc-900
-border         zinc-200  / zinc-800
-text           zinc-900  / zinc-100
-text-muted     zinc-500  / zinc-400
-accent         zinc-900  / zinc-100         (primary action = high contrast, not a colour)
-positive emerald-600 · warning amber-500 · negative red-600 · live sky-500
-radius         4px (2px on dense controls) · shadow: none except overlays
+surface  panel  panel-hover  panel-sunken       the four grounds; panels never nest
+subtle  strong                                   the 1px borders that do the work cards would
+ink  ink-muted  ink-faint                        three text weights, no more
+accent  accent-strong  accent-soft  accent-text  one hue, four jobs
+positive · warning · negative · live             the only four meanings colour carries
 ```
+
+The accent tokens hold `L C H` and are consumed as `oklch(var(--accent) / <alpha-value>)`, which
+keeps the alpha slot free so `bg-accent/10` still works. `soft` is the tint an active nav item sits
+on; `text` is the same hue at a lightness that reads *on* that tint — one colour kept in step by
+construction rather than three colours kept in step by hand.
+
+Type is Onest for the interface and a mono face for anything that has to be read back aloud —
+EPCs, stock codes, references. Sizes are a named scale (`caption` / `label` / `body` / `h3` …) with
+line height travelling with the size, so a heading never needs correcting at the call site.
 
 Dark mode is first-class: POS terminals sit under fluorescent light all day and staff prefer dark;
 back office defaults to light.
@@ -166,10 +175,49 @@ at 60fps.
   silent failure.
 - Rejected RFID tags appear in the feed with a plain-language reason and stay visible for 10s.
 
+## Branding & white-labelling
+
+Two images per location, uploaded through Settings → Branding and stored in `branding_assets`.
+Nothing about a particular customer is in the bundle, so a reseller opening a new shop changes two
+images and ships no code.
+
+**The watermark** is `position: fixed; inset: 0`, flex-centred, sized as a share of the shorter
+viewport edge (`max-h-[45vmin] max-w-[60vmin]`) so it is the same size relative to the screen on a
+1366×768 till and a 27-inch back-office monitor. A fixed pixel width fills one and vanishes on the
+other.
+
+It is drawn **under** the content, which is the opposite of what the word usually means. A mark at
+20% laid over body text costs real contrast on every screen in the application, read all day by
+people who did not choose the logo — and that fights the contrast rule three sections up. Underneath
+it still carries across the gutters and the empty half of a till's item list, which at a counter is
+most of the screen. Implementation: the watermark sits at `z-0` inside the root, and the chrome and
+page sit in a sibling at `z-10`.
+
+Two properties on it are load-bearing rather than decorative. `pointer-events: none`, because the
+element covers the whole viewport and without it swallows every click in the application —
+a total loss of function in exchange for a decoration. And `aria-hidden`, because a screen reader
+announcing the company logo before every screen is noise; the shop's name is already in the header.
+
+Opacity is stored per asset, defaulted to 20%, adjustable from the same panel. It is a default and
+not a constant because a pale logo and a dark one do not carry at the same weight, and the only way
+to find the right figure is to look at it.
+
+**The company logo** sits in the header, sized by height alone (`h-7 w-auto max-w-[180px]`) so a
+wide wordmark and a square badge both sit on the same baseline without anyone cropping either to a
+template. Nothing renders when a store has not uploaded one — an unbranded installation looks
+deliberate rather than broken.
+
+Both are served from `/api/v1/locations/{id}/branding/{slot}` with a strong ETag and
+`Cache-Control: private, max-age=86400, must-revalidate`, and the URL carries the ETag as a cache
+buster. The server tag alone would get a browser to a replaced logo on its next revalidation, and
+for a day-long max-age "next revalidation" is tomorrow — which reads to the administrator as a
+failed upload, so they do it again.
+
 ## Accessibility & ergonomics
 
 - Everything reachable by keyboard; visible focus rings (2px, offset).
-- Contrast ≥ 4.5:1 for text, ≥ 3:1 for UI boundaries, in both themes.
+- Contrast ≥ 4.5:1 for text, ≥ 3:1 for UI boundaries, in both themes. The watermark does not erode
+  this, by construction — see above.
 - Touch targets ≥ 44px on POS controls (touchscreen tills are common; the legacy system had "Pad"
   buttons for exactly this, p.7).
 - Screen-reader labels on all icon-only controls; `aria-live="polite"` on the totals region so
@@ -177,6 +225,27 @@ at 60fps.
 - Respects `prefers-reduced-motion`.
 - Target hardware: 1366×768 minimum for POS, 1440×900+ for back office; layout degrades to a
   stacked single column on tablets for handheld RFID stocktaking.
+
+### Feedback for a scan
+
+RFID removes the one signal a barcode scanner always gave: the beep. A cashier who passes an item
+over a scanner and hears nothing tries again immediately. Waving a basket at an antenna gives them
+nothing — and the screen is not a substitute, because at the moment the item is scanned the cashier
+is looking at the item.
+
+Three channels, all at once:
+
+| | |
+|---|---|
+| **Audible** | Three distinguishable tones — one short high blip for accepted, two lower blips for refused, one longer mid tone for a tag nothing recognises. Three rather than one, because "did that work" is exactly the question being asked and a single beep answers it wrongly half the time. Synthesised with the Web Audio API: no assets, no network, tunable in place. One tone per batch, not per line — a basket of thirty is one action, and thirty blips is an alarm. |
+| **On the list** | The line appears in the sale, priced. |
+| **On the tag feed** | Every tag in the field, including the ones that do not resolve. An unknown tag is the most interesting row on that panel: it is either stock nobody commissioned or a customer's own coat, and the difference matters. |
+
+Sound is on by default and switchable from the tag feed itself rather than from a settings screen —
+three tills within earshot is three beeps nobody can attribute, and the person who needs it off is
+standing at the counter. Pressing the control plays the tone it is enabling, which answers "is this
+working" and doubles as the user gesture browsers require before an `AudioContext` will make any
+sound at all.
 
 ## Performance budgets (POS route)
 

@@ -1,7 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Volume2, VolumeX } from 'lucide-react';
 import { RfidHub, type ObservedTag, type RfidReaderStatus } from '@/lib/rfid-hub';
+import { playScanTone } from '@/lib/scan-feedback';
+import { useUIStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils';
 
 /**
@@ -115,11 +118,15 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
           {unknownCount > 0 ? ` · ${unknownCount} not recognised` : ''}
         </span>
 
-        {status ? (
-          <span className="pos-amount tabular-nums" title="Raw reads per second, before debounce">
-            {status.readsPerSecond}/s
-          </span>
-        ) : null}
+        <span className="flex items-center gap-2">
+          {status ? (
+            <span className="pos-amount tabular-nums" title="Raw reads per second, before debounce">
+              {status.readsPerSecond}/s
+            </span>
+          ) : null}
+
+          <ScanSoundToggle />
+        </span>
       </div>
 
       <ul className="min-h-0 flex-1 overflow-y-auto">
@@ -134,6 +141,40 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
         )}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Whether the till beeps.
+ *
+ * Here rather than in a settings screen because it is a per-person, per-shift decision: three tills
+ * within earshot is three beeps nobody can attribute, and the person who needs it off is the person
+ * standing at the counter, not an administrator.
+ *
+ * Pressing it plays the tone it is turning on. That is the only way to answer "is it working" —
+ * and it doubles as the user gesture the browser requires before it will let an AudioContext make
+ * any sound at all.
+ */
+function ScanSoundToggle() {
+  const { scanSound, toggleScanSound } = useUIStore();
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        toggleScanSound();
+        if (!scanSound) playScanTone('accepted');
+      }}
+      aria-pressed={scanSound}
+      title={scanSound ? 'Scan sounds are on' : 'Scan sounds are off'}
+      className={cn(
+        'inline-flex h-5 items-center gap-1 rounded px-1.5 text-caption transition-colors',
+        scanSound ? 'text-ink-muted hover:bg-panel-hover' : 'text-ink-faint hover:bg-panel-hover',
+      )}
+    >
+      {scanSound ? <Volume2 className="h-3.5 w-3.5" aria-hidden /> : <VolumeX className="h-3.5 w-3.5" aria-hidden />}
+      <span className="sr-only">{scanSound ? 'Turn scan sounds off' : 'Turn scan sounds on'}</span>
+    </button>
   );
 }
 

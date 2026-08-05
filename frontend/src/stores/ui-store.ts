@@ -21,6 +21,17 @@ interface UIState {
   drawerOpen: boolean;
   toggleDrawer: () => void;
   closeDrawer: () => void;
+
+  /**
+   * Whether the till makes a sound when a tag is scanned.
+   *
+   * On by default, because RFID takes away the beep a barcode scanner always gave and the cashier
+   * is looking at the item rather than the screen at the moment it matters. Off is a real
+   * preference all the same — a counter with three tills within earshot is a counter where nobody
+   * can tell whose beep just went.
+   */
+  scanSound: boolean;
+  toggleScanSound: () => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -33,13 +44,17 @@ export const useUIStore = create<UIState>()(
       drawerOpen: false,
       toggleDrawer: () => set((s) => ({ drawerOpen: !s.drawerOpen })),
       closeDrawer: () => set({ drawerOpen: false }),
+
+      scanSound: true,
+      toggleScanSound: () => set((s) => ({ scanSound: !s.scanSound })),
     }),
     {
       name: 'r25.ui',
 
-      // Only the desktop preference survives a reload. Listing it explicitly rather than excluding
-      // the rest means a transient flag added later cannot accidentally become persistent.
-      partialize: (state) => ({ sidebarOpen: state.sidebarOpen }),
+      // Only the durable preferences survive a reload. Listing them explicitly rather than
+      // excluding the rest means a transient flag added later cannot accidentally become
+      // persistent.
+      partialize: (state) => ({ sidebarOpen: state.sidebarOpen, scanSound: state.scanSound }),
     },
   ),
 );

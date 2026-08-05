@@ -3,6 +3,8 @@
 import { create } from 'zustand';
 import { posApi, PosApiError } from '@/lib/pos-api';
 import { posHub } from '@/lib/pos-hub';
+import { playScanTone } from '@/lib/scan-feedback';
+import { useUIStore } from '@/stores/ui-store';
 import type {
   Cart,
   DrawerTotals,
@@ -192,11 +194,25 @@ export const usePosStore = create<PosState>((set, get) => ({
         }
 
         set({ cart: { ...cart, revision, lines: [...cart.lines, ...lines] } });
+
+        // The beep RFID takes away. One tone per batch rather than one per line: a basket of thirty
+        // is one action from the cashier's point of view, and thirty blips is an alarm.
+        if (lines.some((line) => line.epc) && useUIStore.getState().scanSound) {
+          playScanTone('accepted');
+        }
       },
-      onCartLineRejected: ({ epc, reason, message }) =>
+      onCartLineRejected: ({ epc, reason, message }) => {
+        if (useUIStore.getState().scanSound) {
+          // An unrecognised tag sounds unlike a refused one. The first is usually a customer's own
+          // coat and needs no action; the second is stock that will not sell until somebody
+          // intervenes, and a cashier has to be able to tell those apart without reading.
+          playScanTone(reason === 'epc.unknown' ? 'unknown' : 'rejected');
+        }
+
         set((state) => ({
           rejectedTags: [{ epc, reason, message, at: Date.now() }, ...state.rejectedTags].slice(0, 20),
-        })),
+        }));
+      },
       onTagStreamStatus: ({ readerOnline, readRate }) => set({ readerOnline, readRate }),
       onPeripheralStatus: (peripherals) => set({ peripherals, readerOnline: peripherals.readerOnline }),
       onDrawerStateChanged: (drawer) => set({ drawer }),

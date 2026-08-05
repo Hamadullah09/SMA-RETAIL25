@@ -25,10 +25,11 @@ self-hosted, web-based enterprise POS + Inventory + AR/AP platform.
 | 05 | [Application Layer, API & Realtime](05-application-api-realtime.md) | CQRS slices, endpoint map, SignalR hub contracts, domain events, outbox. |
 | 06 | [RFID & Hardware Bridge](06-rfid-and-hardware-bridge.md) | EPC lifecycle, LLRP ingest, Redis debouncing, peripherals, offline queue. |
 | 07 | [Security & Identity](07-security-and-identity.md) | OpenIddict/PKCE flow, BFF cookies, legacy access levels 0–4 → permissions, audit. |
-| 08 | [Frontend & UX](08-frontend-ux.md) | Miller's-Law POS layout, keyboard map, screen inventory, design system rules. |
+| 08 | [Frontend & UX](08-frontend-ux.md) | Miller's-Law POS layout, keyboard map, screen inventory, design tokens, branding and scan feedback. |
 | 09 | [Integration & Data Migration](09-integration-migration.md) | Accounting sync (replaces QB-XML), DBF importer, multi-store replication (replaces FTP). |
 | 10 | [NFRs, Deployment, Testing](10-nfr-deployment-testing.md) | Topology, performance budgets, observability, backup/DR, test strategy. |
 | 11 | [Delivery Roadmap](11-delivery-roadmap.md) | Phases 0–8, exit criteria per phase, risk register. |
+| 12 | [Schema Reference](12-schema-reference.md) | The physical DDL by module, conventions, and the EPC lookup path. Generated companion: [`schema.sql`](schema.sql). |
 
 ## Architectural stance in one page
 
