@@ -168,6 +168,61 @@ public class ApplicationDbContext
         builder.Properties<Domain.ValueObjects.Percentage>()
             .HaveConversion<ValueObjectConverters.PercentageConverter>()
             .HavePrecision(9, 4);
+
+        // The floor for every decimal that no configuration sets explicitly.
+        //
+        // On PostgreSQL an unspecified decimal became `numeric` — arbitrary precision, no
+        // truncation, and therefore nothing to think about. SQL Server has no such type: EF maps an
+        // unconfigured decimal to `decimal(18,2)`, which rounds a tax amount computed at four
+        // decimals on the way into the column and gives no error doing it. Sixty-six properties in
+        // this model were relying on the PostgreSQL behaviour, including tax amounts, change given,
+        // rounding adjustments and every cost.
+        //
+        // 19,4 is the model's own most common explicit choice and the widest scale it uses outside
+        // one exchange-rate column, so this cannot narrow anything: quantities carry four decimals,
+        // costs three, money two, and fifteen integer digits is past any figure a shop will ring.
+        //
+        // Set here rather than in a configuration because ConfigureConventions runs first — every
+        // explicit HasPrecision in an IEntityTypeConfiguration still wins, and this only fills the
+        // gaps. That includes gaps that do not exist yet: a decimal added next year gets 19,4
+        // instead of silently getting 18,2.
+        builder.Properties<decimal>().HavePrecision(19, 4);
+    }
+
+    /// <inheritdoc />
+    public async Task SetStagingVerdictAsync(
+        long batchId,
+        int? rowNumber,
+        bool isValid,
+        string? problems,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = MigrationStagingRows.Where(r => r.BatchId == batchId);
+
+        if (rowNumber is { } number)
+        {
+            rows = rows.Where(r => r.RowNumber == number);
+        }
+
+        // The in-memory provider is not a database and cannot translate ExecuteUpdate. It backs the
+        // handler unit tests, which are about which rows get blocked and what the message says —
+        // not about how the verdict reaches the disk. That part is covered where it is real, by the
+        // twenty-thousand-row integration test against a running SQL Server.
+        if (!Database.IsRelational())
+        {
+            foreach (var row in await rows.ToListAsync(cancellationToken))
+            {
+                row.IsValid = isValid;
+                row.Problems = problems;
+            }
+
+            await SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        await rows.ExecuteUpdateAsync(
+            set => set.SetProperty(r => r.IsValid, isValid).SetProperty(r => r.Problems, problems),
+            cancellationToken);
     }
 
     protected override void OnModelCreating(ModelBuilder builder)

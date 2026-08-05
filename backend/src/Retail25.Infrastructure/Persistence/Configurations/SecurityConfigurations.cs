@@ -55,8 +55,8 @@ public sealed class AuditLogEntryConfiguration : IEntityTypeConfiguration<AuditL
 
         // JSONB so a diff can be queried, not just displayed: "which sales had their price
         // overridden last month" is a real question and it should not need a table scan of strings.
-        builder.Property(e => e.BeforeJson).HasColumnType("jsonb");
-        builder.Property(e => e.AfterJson).HasColumnType("jsonb");
+        builder.Property(e => e.BeforeJson).HasColumnType("nvarchar(max)");
+        builder.Property(e => e.AfterJson).HasColumnType("nvarchar(max)");
 
         builder.HasIndex(e => e.OccurredAt);
         builder.HasIndex(e => new { e.ActorStaffId, e.OccurredAt });

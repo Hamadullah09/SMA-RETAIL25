@@ -1,5 +1,5 @@
 using Hangfire;
-using Hangfire.PostgreSql;
+using Hangfire.SqlServer;
 using MediatR;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -37,13 +37,31 @@ public static class DependencyInjection
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<AuditingInterceptor>();
 
+        // snake_case is kept on SQL Server, where it is not the house style. The column names are a
+        // published interface by now — the schema reference, the reporting views a store's
+        // accountant writes, the external system that wanted numeric ids — and renaming ninety
+        // tables' worth of columns to earn a convention nobody outside the database can see is a
+        // migration with all of the risk and none of the benefit.
         services.AddDbContext<ApplicationDbContext>((provider, options) =>
-            options.UseNpgsql(
+            options.UseSqlServer(
                     configuration.GetConnectionString("DefaultConnection"),
-                    npgsql =>
+                    sqlServer =>
                     {
-                        npgsql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
-                        npgsql.EnableRetryOnFailure(3);
+                        sqlServer.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
+                        sqlServer.EnableRetryOnFailure(3);
+
+                        // The SQL Server provider batches 42 statements by default; Npgsql batched
+                        // 1000. Nothing about the application changed in the move between them, but
+                        // a twenty-thousand-row legacy import went from seconds to over the command
+                        // timeout — twenty-four times the round trips, on the one operation in the
+                        // system that is all round trips.
+                        //
+                        // 200 rather than higher because SQL Server caps a command at 2100
+                        // parameters and EF splits a batch that would exceed it, so past a point
+                        // this number stops meaning anything for wide rows while still applying to
+                        // narrow ones. Staging rows are narrow, and they are the ones that come in
+                        // twenty thousand at a time.
+                        sqlServer.MaxBatchSize(200);
                     })
                 .UseSnakeCaseNamingConvention()
                 .AddInterceptors(provider.GetRequiredService<AuditingInterceptor>()));
@@ -119,7 +137,7 @@ public static class DependencyInjection
 
     /// <summary>
     /// The store for the late-charge recurring job (doc: <c>LateChargePolicy</c>, "applied by a
-    /// nightly Hangfire job"). Same Postgres database as everything else — a second datastore for one
+    /// nightly Hangfire job"). Same SQL Server database as everything else — a second datastore for one
     /// job's bookkeeping would be a second thing that can be down.
     /// </summary>
     private static void AddHangfire(IServiceCollection services, IConfiguration configuration)
@@ -128,8 +146,7 @@ public static class DependencyInjection
             .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
             .UseSimpleAssemblyNameTypeSerializer()
             .UseRecommendedSerializerSettings()
-            .UsePostgreSqlStorage(options =>
-                options.UseNpgsqlConnection(configuration.GetConnectionString("DefaultConnection"))));
+            .UseSqlServerStorage(configuration.GetConnectionString("DefaultConnection")));
 
         services.AddHangfireServer();
     }

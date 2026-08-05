@@ -129,4 +129,25 @@ public interface IApplicationDbContext
     DbSet<LateChargePolicy> LateChargePolicies { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Writes a validation verdict onto staged rows without loading them.
+    /// <para>
+    /// A method of its own because the row-by-row form does not scale and the scale is the point:
+    /// validating a twenty-thousand-item inventory export means a verdict on twenty thousand rows,
+    /// and doing that through the change tracker is twenty thousand UPDATE statements. That was
+    /// survivable on PostgreSQL, whose driver batched a thousand statements per round trip, and
+    /// took sixteen minutes on SQL Server, which batches tens.
+    /// </para>
+    /// <para>
+    /// <paramref name="rowNumber"/> null means every row in the batch — the "all clear" that runs
+    /// first, before the handful with findings are corrected individually.
+    /// </para>
+    /// </summary>
+    Task SetStagingVerdictAsync(
+        long batchId,
+        int? rowNumber,
+        bool isValid,
+        string? problems,
+        CancellationToken cancellationToken = default);
 }

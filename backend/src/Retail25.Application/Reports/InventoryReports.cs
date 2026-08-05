@@ -520,8 +520,13 @@ public sealed class InventoryReportHandlers
         CancellationToken ct)
     {
         // Anchored to UTC deliberately. DateOnly.ToDateTime yields Kind=Unspecified, which converts
-        // to DateTimeOffset using the *server's* local offset — and Npgsql refuses any non-UTC
-        // offset for a timestamptz column, so the query throws rather than merely reading oddly.
+        // to DateTimeOffset using the *server's* local offset — so a report run on a machine set to
+        // anything but UTC would answer for a window shifted by that offset. It read as a quiet
+        // wrong answer rather than an error, which is the worse of the two.
+        //
+        // Under Npgsql this also threw outright, because timestamptz accepts no offset but zero.
+        // SQL Server's datetimeoffset accepts any of them, so the engine no longer catches this —
+        // the anchoring is now the only thing that does.
         var (from, to) = DayRangeUtc(request.From, request.To);
 
         var query = _db.StockLedgerEntries.AsNoTracking()

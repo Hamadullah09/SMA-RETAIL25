@@ -21,17 +21,17 @@ namespace Retail25.IntegrationTests;
 /// fifty thousand rows to show fifty.
 /// </para>
 /// </summary>
-[Collection(PostgresCollection.Name)]
+[Collection(SqlServerCollection.Name)]
 public sealed class QueryTranslationTests : IAsyncLifetime
 {
-    private readonly PostgresFixture _postgres;
+    private readonly SqlServerFixture _sqlServer;
     private ApplicationDbContextScope _scope = null!;
 
-    public QueryTranslationTests(PostgresFixture postgres) => _postgres = postgres;
+    public QueryTranslationTests(SqlServerFixture sqlServer) => _sqlServer = sqlServer;
 
     private long LocationId => _scope.LocationId;
 
-    public async Task InitializeAsync() => _scope = await ApplicationDbContextScope.CreateAsync(_postgres, "query_translation");
+    public async Task InitializeAsync() => _scope = await ApplicationDbContextScope.CreateAsync(_sqlServer, "query_translation");
 
     public Task DisposeAsync()
     {
@@ -98,7 +98,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
     }
 
     [RequiresIsolatedDatabaseFact]
-    public async Task A_percentage_and_an_owned_address_round_trip_through_postgres()
+    public async Task A_percentage_and_an_owned_address_round_trip_through_sqlServer()
     {
         var tax = TaxConfiguration.Create(
             LocationId,
@@ -179,10 +179,10 @@ internal sealed class ApplicationDbContextScope : IDisposable
 
     public long LocationId { get; }
 
-    public static async Task<ApplicationDbContextScope> CreateAsync(PostgresFixture postgres, string databaseName)
+    public static async Task<ApplicationDbContextScope> CreateAsync(SqlServerFixture sqlServer, string databaseName)
     {
-        var connection = await postgres.CreateEmptyDatabaseAsync(databaseName);
-        var db = postgres.CreateContext(connection);
+        var connection = await sqlServer.CreateEmptyDatabaseAsync(databaseName);
+        var db = sqlServer.CreateContext(connection);
 
         await db.Database.MigrateAsync();
 

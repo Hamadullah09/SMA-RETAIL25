@@ -25,7 +25,20 @@ public abstract class Entity
     /// <summary>Zero until the row is inserted. Assigned by the database, not by the domain.</summary>
     public long Id { get; internal set; }
 
-    /// <summary>PostgreSQL <c>xmin</c> system column, mapped for optimistic concurrency.</summary>
+    /// <summary>
+    /// A column, and <b>not currently a concurrency token</b>.
+    /// <para>
+    /// It was written to be PostgreSQL's <c>xmin</c> system column, and the mapping that would have
+    /// made that true was never added — no <c>UseXminAsConcurrencyToken</c>, no
+    /// <c>IsConcurrencyToken</c>. It is a plain <c>bigint</c> that nothing writes and nothing checks,
+    /// so two clerks editing one product both save and neither is told. The comment claiming
+    /// otherwise outlived the engine it named; this one says what is there.
+    /// </para>
+    /// <para>
+    /// On SQL Server the fix is a <c>byte[]</c> with <c>IsRowVersion()</c>, which the engine
+    /// maintains itself. Tracked separately — do not rely on this field until it is done.
+    /// </para>
+    /// </summary>
     public uint RowVersion { get; protected set; }
 
     /// <summary>

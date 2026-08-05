@@ -110,9 +110,9 @@ via the same endpoint. `Track Staff Sales Or Commissions` (p.82) forces a PIN be
 - Gift card numbers hashed at rest; only the last 4 displayed.
 - TLS 1.2+ everywhere including the LAN. Self-signed is *not* acceptable for the station↔server hop —
   the deploy ships an internal CA or ACME setup.
-- Secrets from environment/Key Vault; none in the repo. Postgres, Redis and Hangfire all password-
+- Secrets from environment/Key Vault; none in the repo. SQL Server, Redis and Hangfire all password-
   protected and bound to the internal network.
-- Postgres at-rest encryption via volume/disk encryption; `pgcrypto` for the few PII columns that
+- SQL Server at-rest encryption via TDE or volume encryption; `ENCRYPTBYKEY` for the few PII columns that
   need column-level protection (customer email/phone are *not* among them — they must be searchable).
 - Sensitive settings (gateway keys, accounting client secrets) encrypted with ASP.NET Core Data
   Protection keys persisted to the DB and protected by a certificate.

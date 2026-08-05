@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Hosting;
-using Npgsql;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Retail25.Application.Abstractions;
-using Testcontainers.PostgreSql;
+using Testcontainers.MsSql;
 using Testcontainers.Redis;
 using Xunit;
 
@@ -22,7 +22,7 @@ namespace Retail25.IntegrationTests;
 /// URL, a migration the Identity tables need, a rate limiter that rejects the second request.
 /// </para>
 /// <para>
-/// Its own containers rather than <see cref="PostgresFixture"/>'s: this one runs migrations and
+/// Its own containers rather than <see cref="SqlServerFixture"/>'s: this one runs migrations and
 /// seeds an administrator, and the query-translation suite asserts against a database it populated
 /// itself. Sharing one would make each suite's fixtures the other's mystery rows.
 /// </para>
@@ -52,47 +52,46 @@ public sealed class AuthApiFixture : WebApplicationFactory<Program>, IAsyncLifet
     private const string TestDatabase = "retail25_auth_tests";
 
     /// <summary>
-    /// Same escape hatch <see cref="PostgresFixture"/> offers: point at a PostgreSQL that already
+    /// Same escape hatch <see cref="SqlServerFixture"/> offers: point at a SQL Server that already
     /// exists instead of starting a container, for a machine where Docker cannot run. CI has a real
     /// daemon and takes the container path.
     /// </summary>
-    private static readonly string? ExternalPostgres =
-        Environment.GetEnvironmentVariable("RETAIL25_TEST_PG_CONNECTION");
+    private static readonly string? ExternalSqlServer =
+        Environment.GetEnvironmentVariable("RETAIL25_TEST_SQL_CONNECTION");
 
     private static readonly string? ExternalRedis =
         Environment.GetEnvironmentVariable("RETAIL25_TEST_REDIS");
 
-    private readonly PostgreSqlContainer? _postgres = ExternalPostgres is null
-        ? new PostgreSqlBuilder()
-            .WithImage("postgres:16-alpine")
-            .WithDatabase(TestDatabase)
-            .WithUsername("retail25")
-            .WithPassword("retail25")
+    // No WithDatabase/WithUsername: the SQL Server image ships a fixed `sa` login and creates no
+    // user database, so the fixture's own database is created below like any other server's.
+    private readonly MsSqlContainer? _sqlServer = ExternalSqlServer is null
+        ? new MsSqlBuilder()
+            .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
             .Build()
         : null;
 
     /// <summary>
     /// A Redis container when Docker can provide one, and nothing at all when it cannot — see the
     /// same field on <see cref="CommerceApiFixture"/>. Building it unconditionally threw in the
-    /// constructor on a bench with PostgreSQL but no daemon, turning "cannot run here" into eighteen
+    /// constructor on a bench with SQL Server but no daemon, turning "cannot run here" into eighteen
     /// red tests that said nothing about the code.
     /// </summary>
     private readonly RedisContainer? _redis = ExternalRedis is null && DockerProbe.IsAvailable
         ? new RedisBuilder().WithImage("redis:7-alpine").Build()
         : null;
 
-    private string _postgresConnection = string.Empty;
+    private string _sqlConnection = string.Empty;
 
     public async Task InitializeAsync()
     {
-        if (_postgres is not null)
+        if (_sqlServer is not null)
         {
-            await _postgres.StartAsync();
-            _postgresConnection = _postgres.GetConnectionString();
+            await _sqlServer.StartAsync();
+            _sqlConnection = _sqlServer.GetConnectionString();
         }
         else
         {
-            _postgresConnection = await PrepareExternalDatabaseAsync(ExternalPostgres!);
+            _sqlConnection = await PrepareExternalDatabaseAsync(ExternalSqlServer!);
         }
 
         if (_redis is not null)
@@ -109,9 +108,9 @@ public sealed class AuthApiFixture : WebApplicationFactory<Program>, IAsyncLifet
     {
         await base.DisposeAsync();
 
-        if (_postgres is not null)
+        if (_sqlServer is not null)
         {
-            await _postgres.DisposeAsync();
+            await _sqlServer.DisposeAsync();
         }
 
         if (_redis is not null)
@@ -131,37 +130,23 @@ public sealed class AuthApiFixture : WebApplicationFactory<Program>, IAsyncLifet
     /// </summary>
     private static async Task<string> PrepareExternalDatabaseAsync(string adminConnection)
     {
-        var builder = new NpgsqlConnectionStringBuilder(adminConnection) { Database = "postgres" };
-
         try
         {
-            await using var connection = new NpgsqlConnection(builder.ConnectionString);
-            await connection.OpenAsync();
-
-            await using (var drop = new NpgsqlCommand(
-                $"DROP DATABASE IF EXISTS \"{TestDatabase}\" WITH (FORCE)", connection))
-            {
-                await drop.ExecuteNonQueryAsync();
-            }
-
-            await using var create = new NpgsqlCommand($"CREATE DATABASE \"{TestDatabase}\"", connection);
-            await create.ExecuteNonQueryAsync();
-
-            return new NpgsqlConnectionStringBuilder(adminConnection) { Database = TestDatabase }.ConnectionString;
+            return await SqlServerDatabases.RecreateAsync(adminConnection, TestDatabase);
         }
-        catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.InsufficientPrivilege)
+        catch (SqlException error) when (SqlServerDatabases.IsPermissionError(error))
         {
-            // The role cannot create databases. Rather than failing every test on a permissions
+            // The login cannot create databases. Rather than failing every test on a permissions
             // problem that has nothing to do with the code, fall back to the database it was pointed
             // at. That is a real trade and it is stated here rather than hidden: every test in this
             // suite generates its own unique email, so they neither collide with each other nor with
             // whatever is already in that database — but they do leave rows behind.
             //
-            // The clean run is the container path, or `ALTER ROLE <role> CREATEDB`.
+            // The clean run is the container path, or `ALTER SERVER ROLE dbcreator ADD MEMBER [login]`.
             Console.WriteLine(
-                $"[AuthApiFixture] Cannot create '{TestDatabase}' — the role lacks CREATEDB. "
+                $"[AuthApiFixture] Cannot create '{TestDatabase}' — the login may not create databases. "
                 + "Falling back to the supplied database; test accounts will be left behind. "
-                + "Grant CREATEDB or run with Docker for an isolated run.");
+                + "Grant dbcreator or run with Docker for an isolated run.");
 
             return adminConnection;
         }
@@ -172,7 +157,7 @@ public sealed class AuthApiFixture : WebApplicationFactory<Program>, IAsyncLifet
         builder.ConfigureHostConfiguration(configuration => configuration.AddInMemoryCollection(
             new Dictionary<string, string?>
             {
-                ["ConnectionStrings:DefaultConnection"] = _postgresConnection,
+                ["ConnectionStrings:DefaultConnection"] = _sqlConnection,
                 ["ConnectionStrings:Redis"] = _redis?.GetConnectionString() ?? ExternalRedis ?? string.Empty,
 
                 // In-process when there is no Redis to be had. These tests are about tokens and

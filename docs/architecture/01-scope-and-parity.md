@@ -84,7 +84,7 @@ Legend — **Status**: `PARITY` (behaviour preserved) · `MODERNIZED` (same outc
 | Export inventory (`.DTA` field order) | p.28 | PARITY | CSV/XLSX export | 6 |
 | Duplicate check (stock code) | p.29 | MODERNIZED | Unique index per location; report for pre-existing dupes at import | 2 |
 | **Year-End close** (archive, clear histories, roll monthly to last-year) | p.29 | PARITY | `FiscalYearClose` job — archives to `sales_history_archive`, no data destroyed | 6 |
-| Rebuild Indexes / Reindex | p.29 | DROPPED | PostgreSQL. Reason: the failure mode does not exist. |
+| Rebuild Indexes / Reindex | p.29 | DROPPED | SQL Server maintains its own indexes. Reason: the failure mode does not exist. |
 | Multiple inventories / **Locations** (3-char code), New/Select/Delete | p.44 | PARITY | `Location` entity; legacy 3-char code kept as `LegacyCode` | 2 |
 | Reports: Sales, Inventory (all/combined/separate counts, hide onhand), Top Sellers, Analysis, Stock Value, Understock/Overstock, On Order, Stock Received | p.25–27 | PARITY | Report module; Overstock keeps the legacy heuristic (3-week sales, on-order, base stock) | 6 |
 
@@ -160,7 +160,7 @@ Legend — **Status**: `PARITY` (behaviour preserved) · `MODERNIZED` (same outc
 | Pinpad (Verifone 1000 / SC5000, DSIClient-X) | p.81, p.105 | MODERNIZED | Modern EMV terminal via `IPaymentGateway` (see Q1) | 5 |
 | Weigh scale: enable, comms type, **Get Weight char (`W`)**, **Zero char (`Z`)** | p.81 | PARITY | Agent `System.IO.Ports` driver | 4 |
 | Users: require passwords, supervisor password to void, track staff sales, time clock, **access levels 0–4** | p.81–83 | MODERNIZED | Role + permission model mapped from levels — see [07](07-security-and-identity.md) | 1 |
-| Assigned numbers: next customer / invoice / PO number | p.83 | PARITY | Postgres sequences per location, seeded from legacy values | 2 |
+| Assigned numbers: next customer / invoice / PO number | p.83 | PARITY | SQL Server sequences per location, seeded from legacy values | 2 |
 | Bonus points setup | p.83–84 | PARITY | `LoyaltyPolicy` | 5 |
 | Overdue finance charges (rate, grace) | p.84 | PARITY | `LateChargePolicy` | 5 |
 | **Minimum tender** (smallest coin, default 0.01) | p.84 | PARITY | Drives cash rounding | 3 |

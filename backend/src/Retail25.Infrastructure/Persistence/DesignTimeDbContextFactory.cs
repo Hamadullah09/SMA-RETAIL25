@@ -19,14 +19,19 @@ namespace Retail25.Infrastructure.Persistence;
 /// </summary>
 public sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<ApplicationDbContext>
 {
-    private const string Fallback = "Host=localhost;Port=5432;Database=retail25;Username=postgres;Password=postgres";
+    /// <summary>
+    /// LocalDB, which every machine with the SQL Server tooling already has. Never connected to
+    /// during <c>migrations add</c> — it only has to be a string the provider will parse.
+    /// </summary>
+    private const string Fallback =
+        "Server=(localdb)\\MSSQLLocalDB;Database=retail25;Trusted_Connection=True;TrustServerCertificate=True";
 
     public ApplicationDbContext CreateDbContext(string[] args)
     {
         var connection = Environment.GetEnvironmentVariable("RETAIL25_DESIGN_CONNECTION") ?? Fallback;
 
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseNpgsql(connection, npgsql => npgsql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName))
+            .UseSqlServer(connection, sql => sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName))
             .UseSnakeCaseNamingConvention()
             .Options;
 

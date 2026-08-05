@@ -300,19 +300,33 @@ public sealed class MigrationHandlers :
             return Result.Failure<MigrationBatchDto>(MigrationBatch.AlreadyImported);
         }
 
-        var rows = await _db.MigrationStagingRows.Where(r => r.BatchId == batch.Id).OrderBy(r => r.RowNumber).ToListAsync(ct);
+        // AsNoTracking: these rows are read to be validated, and the verdict is written back below
+        // by set operations rather than by mutating each one. Tracking twenty thousand entities to
+        // change two properties on each is twenty thousand UPDATE statements — which was inside the
+        // command timeout on PostgreSQL, where the driver batched a thousand statements per round
+        // trip, and is minutes on SQL Server, which batches tens. The engine exposed it; the shape
+        // was always wrong.
+        var rows = await _db.MigrationStagingRows.AsNoTracking()
+            .Where(r => r.BatchId == batch.Id).OrderBy(r => r.RowNumber).ToListAsync(ct);
 
         var findings = await _importer.ValidateAsync(batch, rows.Select(ToStaged).ToList(), ct);
         var byRow = findings.GroupBy(f => f.RowNumber).ToDictionary(g => g.Key, g => g.ToList());
 
-        foreach (var row in rows)
-        {
-            var problems = byRow.GetValueOrDefault(row.RowNumber);
+        // The common case in one statement: a file where most rows are fine.
+        await _db.SetStagingVerdictAsync(batch.Id, null, isValid: true, problems: null, ct);
 
-            row.IsValid = problems is null || problems.TrueForAll(p => p.Severity == FindingSeverity.Warning);
-            row.Problems = problems is null
-                ? null
-                : string.Join('\n', problems.Select(p => $"{p.Column ?? "row"}: {p.Message}"));
+        // Then only the rows that actually have something to say. A file where every row is broken
+        // costs a statement per row again — and that is a file whose real problem is not this loop.
+        foreach (var group in byRow)
+        {
+            var problems = group.Value;
+
+            await _db.SetStagingVerdictAsync(
+                batch.Id,
+                group.Key,
+                problems.TrueForAll(p => p.Severity == FindingSeverity.Warning),
+                string.Join('\n', problems.Select(p => $"{p.Column ?? "row"}: {p.Message}")),
+                ct);
         }
 
         batch.RecordValidation(

@@ -72,7 +72,7 @@ LLRP RO_ACCESS_REPORT
 | Redis (`SET NX PX`) | 3 s (configurable per reader profile) | **cross-station** arbitration and idempotency across agent reconnects — the reason the brief specifies Redis |
 
 Redis keys: `tag:{epc}` (claim), `station:{id}:cart` (active cart), `cart:{id}` (serialized cart
-state, TTL 12 h, write-behind to Postgres on suspend/complete), `epcmap:{epc}` (resolution cache).
+state, TTL 12 h, write-behind to SQL Server on suspend/complete), `epcmap:{epc}` (resolution cache).
 
 ### Anti-false-positive controls
 
@@ -177,7 +177,7 @@ The agent is resilient; the *business* is not fully offline-capable in v1 (see Q
 | Agent crashed | Windows service auto-restart; browser detects `PeripheralStatus` loss within 15 s. |
 
 If Q4 comes back as "the store must keep selling through an outage", the design change is a
-store-local API + Postgres replica with conflict-free number ranges per station — a Phase 8 item,
+store-local API + a SQL Server replica with conflict-free number ranges per station — a Phase 8 item,
 scoped but not built in v1.
 
 ## 7. Deployment & updates

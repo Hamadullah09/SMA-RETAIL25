@@ -2,9 +2,9 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Retail25.Infrastructure.Persistence;
 
 #nullable disable
@@ -12,8 +12,8 @@ using Retail25.Infrastructure.Persistence;
 namespace Retail25.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260804094134_InitialIntegerKeys")]
-    partial class InitialIntegerKeys
+    [Migration("20260805081608_InitialSqlServer")]
+    partial class InitialSqlServer
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -21,25 +21,25 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "8.0.11")
-                .HasAnnotation("Relational:MaxIdentifierLength", 63);
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
-            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("FriendlyName")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("friendly_name");
 
                     b.Property<string>("Xml")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("xml");
 
                     b.HasKey("Id")
@@ -52,17 +52,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("claim_type");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("claim_value");
 
                     b.Property<long>("RoleId")
@@ -82,17 +82,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ClaimType")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("claim_type");
 
                     b.Property<string>("ClaimValue")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("claim_value");
 
                     b.Property<long>("UserId")
@@ -111,15 +111,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<long>", b =>
                 {
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("login_provider");
 
                     b.Property<string>("ProviderKey")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("provider_key");
 
                     b.Property<string>("ProviderDisplayName")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("provider_display_name");
 
                     b.Property<long>("UserId")
@@ -161,15 +161,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("user_id");
 
                     b.Property<string>("LoginProvider")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("login_provider");
 
                     b.Property<string>("Name")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(450)")
                         .HasColumnName("name");
 
                     b.Property<string>("Value")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("value");
 
                     b.HasKey("UserId", "LoginProvider", "Name")
@@ -185,72 +185,72 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("ApplicationType")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("application_type");
 
                     b.Property<string>("ClientId")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("nvarchar(100)")
                         .HasColumnName("client_id");
 
                     b.Property<string>("ClientSecret")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("client_secret");
 
                     b.Property<string>("ClientType")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("client_type");
 
                     b.Property<string>("ConcurrencyToken")
                         .IsConcurrencyToken()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("concurrency_token");
 
                     b.Property<string>("ConsentType")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("consent_type");
 
                     b.Property<string>("DisplayName")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("display_name");
 
                     b.Property<string>("DisplayNames")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("display_names");
 
                     b.Property<string>("JsonWebKeySet")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("json_web_key_set");
 
                     b.Property<string>("Permissions")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("permissions");
 
                     b.Property<string>("PostLogoutRedirectUris")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("post_logout_redirect_uris");
 
                     b.Property<string>("Properties")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("properties");
 
                     b.Property<string>("RedirectUris")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("redirect_uris");
 
                     b.Property<string>("Requirements")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("requirements");
 
                     b.Property<string>("Settings")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("settings");
 
                     b.HasKey("Id")
@@ -258,7 +258,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ClientId")
                         .IsUnique()
-                        .HasDatabaseName("ix_open_iddict_applications_client_id");
+                        .HasDatabaseName("ix_open_iddict_applications_client_id")
+                        .HasFilter("[client_id] IS NOT NULL");
 
                     b.ToTable("OpenIddictApplications", (string)null);
                 });
@@ -270,7 +271,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<long?>("ApplicationId")
                         .HasColumnType("bigint")
@@ -279,34 +280,34 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("ConcurrencyToken")
                         .IsConcurrencyToken()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("concurrency_token");
 
                     b.Property<DateTime?>("CreationDate")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetime2")
                         .HasColumnName("creation_date");
 
                     b.Property<string>("Properties")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("properties");
 
                     b.Property<string>("Scopes")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("scopes");
 
                     b.Property<string>("Status")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("status");
 
                     b.Property<string>("Subject")
                         .HasMaxLength(400)
-                        .HasColumnType("character varying(400)")
+                        .HasColumnType("nvarchar(400)")
                         .HasColumnName("subject");
 
                     b.Property<string>("Type")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("type");
 
                     b.HasKey("Id")
@@ -325,41 +326,41 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("ConcurrencyToken")
                         .IsConcurrencyToken()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("concurrency_token");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
 
                     b.Property<string>("Descriptions")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("descriptions");
 
                     b.Property<string>("DisplayName")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("display_name");
 
                     b.Property<string>("DisplayNames")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("display_names");
 
                     b.Property<string>("Name")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("name");
 
                     b.Property<string>("Properties")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("properties");
 
                     b.Property<string>("Resources")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("resources");
 
                     b.HasKey("Id")
@@ -367,7 +368,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Name")
                         .IsUnique()
-                        .HasDatabaseName("ix_open_iddict_scopes_name");
+                        .HasDatabaseName("ix_open_iddict_scopes_name")
+                        .HasFilter("[name] IS NOT NULL");
 
                     b.ToTable("OpenIddictScopes", (string)null);
                 });
@@ -379,7 +381,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<long?>("ApplicationId")
                         .HasColumnType("bigint")
@@ -392,47 +394,47 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("ConcurrencyToken")
                         .IsConcurrencyToken()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("concurrency_token");
 
                     b.Property<DateTime?>("CreationDate")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetime2")
                         .HasColumnName("creation_date");
 
                     b.Property<DateTime?>("ExpirationDate")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetime2")
                         .HasColumnName("expiration_date");
 
                     b.Property<string>("Payload")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("payload");
 
                     b.Property<string>("Properties")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("properties");
 
                     b.Property<DateTime?>("RedemptionDate")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetime2")
                         .HasColumnName("redemption_date");
 
                     b.Property<string>("ReferenceId")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("nvarchar(100)")
                         .HasColumnName("reference_id");
 
                     b.Property<string>("Status")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("status");
 
                     b.Property<string>("Subject")
                         .HasMaxLength(400)
-                        .HasColumnType("character varying(400)")
+                        .HasColumnType("nvarchar(400)")
                         .HasColumnName("subject");
 
                     b.Property<string>("Type")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("type");
 
                     b.HasKey("Id")
@@ -443,7 +445,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ReferenceId")
                         .IsUnique()
-                        .HasDatabaseName("ix_open_iddict_tokens_reference_id");
+                        .HasDatabaseName("ix_open_iddict_tokens_reference_id")
+                        .HasFilter("[reference_id] IS NOT NULL");
 
                     b.HasIndex("ApplicationId", "Status", "Subject", "Type")
                         .HasDatabaseName("ix_open_iddict_tokens_application_id_status_subject_type");
@@ -458,19 +461,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("ContentHash")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("content_hash");
 
                     b.Property<string>("EntityType")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("entity_type");
 
                     b.Property<DateTimeOffset?>("LastSyncedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("last_synced_at");
 
                     b.Property<long?>("LocalId")
@@ -478,21 +481,21 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("local_id");
 
                     b.Property<string>("LocalKey")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("local_key");
 
                     b.Property<string>("Provider")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("provider");
 
                     b.Property<string>("RemoteId")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("remote_id");
 
                     b.Property<string>("RemoteName")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("remote_name");
 
                     b.Property<long>("RowVersion")
@@ -512,10 +515,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<int>("Direction")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("direction");
 
                     b.Property<long>("DurationMs")
@@ -524,32 +527,32 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Entity")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("entity");
 
                     b.Property<string>("ErrorMessage")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("error_message");
 
                     b.Property<DateTimeOffset>("OccurredAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("occurred_at");
 
                     b.Property<string>("Provider")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("provider");
 
                     b.Property<int>("RecordCount")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("record_count");
 
                     b.Property<string>("RequestPayload")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("request_payload");
 
                     b.Property<string>("ResponsePayload")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("response_payload");
 
                     b.Property<long>("RowVersion")
@@ -557,7 +560,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<int>("Status")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("status");
 
                     b.HasKey("Id")
@@ -573,14 +576,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("BuyQty")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("buy_qty");
 
                     b.Property<decimal>("FreeQty")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("free_qty");
 
                     b.Property<long>("ProductId")
@@ -604,14 +609,14 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Code")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("code");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -619,7 +624,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("deleted_at");
 
                     b.Property<long?>("DeletedBy")
@@ -627,11 +632,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("deleted_by");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_deleted");
 
                     b.Property<long>("LocationId")
@@ -639,7 +644,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -648,7 +653,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("name");
 
                     b.Property<long>("RowVersion")
@@ -656,7 +661,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("sort_order");
 
                     b.HasKey("Id")
@@ -672,15 +677,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Code")
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("code");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -688,7 +693,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("deleted_at");
 
                     b.Property<long?>("DeletedBy")
@@ -696,11 +701,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("deleted_by");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_deleted");
 
                     b.Property<long>("LocationId")
@@ -708,7 +713,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -718,7 +723,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("nvarchar(100)")
                         .HasColumnName("name");
 
                     b.Property<long>("RowVersion")
@@ -726,7 +731,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("sort_order");
 
                     b.HasKey("Id")
@@ -746,7 +751,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<long>("ComponentProductId")
                         .HasColumnType("bigint")
@@ -757,11 +762,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("kit_product_id");
 
                     b.Property<decimal>("Quantity")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("quantity");
 
                     b.Property<bool>("ReduceStock")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("reduce_stock");
 
                     b.Property<long>("RowVersion")
@@ -781,15 +787,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("name");
 
                     b.Property<int>("Position")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("position");
 
                     b.Property<long>("ProductId")
@@ -813,14 +819,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<int>("Level")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("level");
 
                     b.Property<decimal>("MinQuantity")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("min_quantity");
 
                     b.Property<long>("ProductId")
@@ -844,23 +851,25 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("AvgCost")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("avg_cost");
 
                     b.Property<int>("BaseStock")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("base_stock");
 
                     b.Property<string>("BinLocation")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("bin_location");
 
                     b.Property<decimal>("CaseQty")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("case_qty");
 
                     b.Property<long?>("CategoryId")
@@ -868,7 +877,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("category_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -876,7 +885,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("deleted_at");
 
                     b.Property<long?>("DeletedBy")
@@ -888,27 +897,29 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("department_id");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
 
                     b.Property<decimal>("GrossMarginPct")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("gross_margin_pct");
 
                     b.Property<bool>("HasImage")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("has_image");
 
                     b.Property<string>("InvoiceMessage")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("invoice_message");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_deleted");
 
                     b.Property<decimal>("LastCost")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("last_cost");
 
                     b.Property<long>("LocationId")
@@ -916,7 +927,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -926,19 +937,21 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("name");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("notes");
 
                     b.Property<decimal>("OnHand")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("on_hand");
 
                     b.Property<decimal>("OnOrder")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("on_order");
 
                     b.Property<long?>("ParentProductId")
@@ -946,19 +959,20 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("parent_product_id");
 
                     b.Property<string>("PosMessage")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("pos_message");
 
                     b.Property<decimal>("RegularPrice")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("regular_price");
 
                     b.Property<int>("ReorderPoint")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("reorder_point");
 
                     b.Property<int>("ReorderQty")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("reorder_qty");
 
                     b.Property<long>("RowVersion")
@@ -966,13 +980,14 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<decimal>("ShipWeight")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("ship_weight");
 
                     b.Property<string>("StockCode")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
+                        .HasColumnType("nvarchar(30)")
                         .HasColumnName("stock_code");
 
                     b.Property<long?>("SubstituteProductId")
@@ -984,20 +999,20 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("tag_along_product_id");
 
                     b.Property<bool>("Tax1Applies")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax1applies");
 
                     b.Property<bool>("Tax2Applies")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax2applies");
 
                     b.Property<int>("Type")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("type");
 
                     b.Property<string>("Upc")
                         .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
+                        .HasColumnType("nvarchar(30)")
                         .HasColumnName("upc");
 
                     b.HasKey("Id")
@@ -1006,7 +1021,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.HasIndex("LocationId", "StockCode")
                         .IsUnique()
                         .HasDatabaseName("ix_products_location_id_stock_code")
-                        .HasFilter("NOT is_deleted");
+                        .HasFilter("[is_deleted] = 0");
 
                     b.ToTable("products", (string)null);
                 });
@@ -1018,21 +1033,21 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<byte[]>("Content")
                         .IsRequired()
-                        .HasColumnType("bytea")
+                        .HasColumnType("varbinary(max)")
                         .HasColumnName("content");
 
                     b.Property<string>("ContentType")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
+                        .HasColumnType("nvarchar(40)")
                         .HasColumnName("content_type");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -1042,11 +1057,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("ETag")
                         .IsRequired()
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
+                        .HasColumnType("nvarchar(32)")
                         .HasColumnName("e_tag");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -1078,14 +1093,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<int>("Level")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("level");
 
                     b.Property<decimal>("Price")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("price");
 
                     b.Property<long>("ProductId")
@@ -1109,18 +1125,20 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("CaseQty")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("case_qty");
 
                     b.Property<decimal>("Cost")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("cost");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -1128,11 +1146,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<decimal>("MinimumOrderQty")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("minimum_order_qty");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -1144,11 +1163,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("product_id");
 
                     b.Property<int>("Rank")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("rank");
 
                     b.Property<string>("ReorderNumber")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("reorder_number");
 
                     b.Property<long>("RowVersion")
@@ -1172,10 +1191,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -1184,23 +1203,23 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Dim1Value")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("dim1value");
 
                     b.Property<string>("Dim2Value")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("dim2value");
 
                     b.Property<string>("Dim3Value")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("dim3value");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -1208,7 +1227,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<decimal>("OnHand")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("on_hand");
 
                     b.Property<long>("ProductId")
@@ -1220,12 +1240,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<string>("Upc")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("upc");
 
                     b.Property<string>("VariantCode")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("variant_code");
 
                     b.HasKey("Id")
@@ -1241,10 +1261,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("DiscountPct")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("discount_pct");
 
                     b.Property<DateOnly>("EndsOn")
@@ -1276,10 +1297,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -1288,11 +1309,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Epc")
                         .HasMaxLength(96)
-                        .HasColumnType("character varying(96)")
+                        .HasColumnType("nvarchar(96)")
                         .HasColumnName("epc");
 
                     b.Property<DateTimeOffset?>("LastSeenAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("last_seen_at");
 
                     b.Property<long>("LocationId")
@@ -1300,7 +1321,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -1312,7 +1333,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("product_id");
 
                     b.Property<DateTimeOffset>("ReceivedOn")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("received_on");
 
                     b.Property<long>("RowVersion")
@@ -1321,13 +1342,13 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("SerialNumber")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("serial_number");
 
                     b.Property<string>("State")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("state");
 
                     b.Property<long?>("VariantId")
@@ -1340,12 +1361,82 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.HasIndex("Epc")
                         .IsUnique()
                         .HasDatabaseName("ix_serialized_units_epc")
-                        .HasFilter("epc IS NOT NULL");
+                        .HasFilter("[epc] IS NOT NULL");
 
                     b.HasIndex("ProductId", "State")
                         .HasDatabaseName("ix_serialized_units_product_id_state");
 
                     b.ToTable("serialized_units", (string)null);
+                });
+
+            modelBuilder.Entity("Retail25.Domain.Configuration.BrandingAsset", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)")
+                        .HasColumnName("content");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("created_at");
+
+                    b.Property<long?>("CreatedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("created_by");
+
+                    b.Property<string>("ETag")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)")
+                        .HasColumnName("e_tag");
+
+                    b.Property<long>("LocationId")
+                        .HasColumnType("bigint")
+                        .HasColumnName("location_id");
+
+                    b.Property<DateTimeOffset?>("ModifiedAt")
+                        .HasColumnType("datetimeoffset")
+                        .HasColumnName("modified_at");
+
+                    b.Property<long?>("ModifiedBy")
+                        .HasColumnType("bigint")
+                        .HasColumnName("modified_by");
+
+                    b.Property<int>("OpacityPct")
+                        .HasColumnType("int")
+                        .HasColumnName("opacity_pct");
+
+                    b.Property<long>("RowVersion")
+                        .HasColumnType("bigint")
+                        .HasColumnName("row_version");
+
+                    b.Property<string>("Slot")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasColumnName("slot");
+
+                    b.HasKey("Id")
+                        .HasName("pk_branding_assets");
+
+                    b.HasIndex("LocationId", "Slot")
+                        .IsUnique()
+                        .HasDatabaseName("ix_branding_assets_location_id_slot");
+
+                    b.ToTable("branding_assets", (string)null);
                 });
 
             modelBuilder.Entity("Retail25.Domain.Configuration.BusinessProfile", b =>
@@ -1355,16 +1446,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("BusinessName")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("business_name");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -1373,7 +1464,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("LicenceNumber")
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("licence_number");
 
                     b.Property<long>("LocationId")
@@ -1381,7 +1472,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -1394,7 +1485,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("TaxRegistrationNumber")
                         .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
+                        .HasColumnType("nvarchar(40)")
                         .HasColumnName("tax_registration_number");
 
                     b.HasKey("Id")
@@ -1414,15 +1505,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("code");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -1430,27 +1521,29 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<decimal>("ExchangeRate")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("exchange_rate");
 
                     b.Property<DateTimeOffset?>("ExchangeRateUpdatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("exchange_rate_updated_at");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<bool>("IsBaseCurrency")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_base_currency");
 
                     b.Property<decimal>("MinimumTender")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("minimum_tender");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -1459,11 +1552,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("name");
 
                     b.Property<int>("Rounding")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("rounding");
 
                     b.Property<long>("RowVersion")
@@ -1471,12 +1564,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<int>("Scale")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("scale");
 
                     b.Property<string>("Symbol")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("symbol");
 
                     b.HasKey("Id")
@@ -1492,20 +1585,20 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("BaseCurrencyCode")
                         .IsRequired()
                         .HasMaxLength(3)
-                        .HasColumnType("character varying(3)")
+                        .HasColumnType("nvarchar(3)")
                         .HasColumnName("base_currency_code");
 
                     b.Property<TimeOnly>("BusinessDayStart")
-                        .HasColumnType("time without time zone")
+                        .HasColumnType("time")
                         .HasColumnName("business_day_start");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -1513,7 +1606,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("deleted_at");
 
                     b.Property<long?>("DeletedBy")
@@ -1521,21 +1614,21 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("deleted_by");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_deleted");
 
                     b.Property<string>("LegacyCode")
                         .IsRequired()
                         .HasMaxLength(3)
-                        .HasColumnType("character varying(3)")
+                        .HasColumnType("nvarchar(3)")
                         .HasColumnName("legacy_code");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -1545,7 +1638,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("nvarchar(100)")
                         .HasColumnName("name");
 
                     b.Property<long>("RowVersion")
@@ -1555,7 +1648,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("TimeZoneId")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("time_zone_id");
 
                     b.HasKey("Id")
@@ -1575,10 +1668,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -1586,11 +1679,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<bool>("FixedEnabled")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("fixed_enabled");
 
                     b.Property<bool>("IsEnabled")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_enabled");
 
                     b.Property<long>("LocationId")
@@ -1598,11 +1691,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<int>("MinimumRequired")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("minimum_required");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -1610,19 +1703,22 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<bool>("PercentEnabled")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("percent_enabled");
 
                     b.Property<decimal>("PointsPerDollar")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("points_per_dollar");
 
                     b.Property<decimal>("RewardFixedAmount")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("reward_fixed_amount");
 
                     b.Property<decimal>("RewardPercent")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("reward_percent");
 
                     b.Property<long>("RowVersion")
@@ -1630,7 +1726,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<bool>("SuppressIfSubtotalDiscountApplied")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("suppress_if_subtotal_discount_applied");
 
                     b.HasKey("Id")
@@ -1646,10 +1742,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -1663,7 +1759,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
+                        .HasColumnType("nvarchar(30)")
                         .HasColumnName("kind");
 
                     b.Property<long>("LocationId")
@@ -1671,7 +1767,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -1683,13 +1779,13 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("next_number");
 
                     b.Property<int>("PadWidth")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("pad_width");
 
                     b.Property<string>("Prefix")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
+                        .HasColumnType("nvarchar(10)")
                         .HasColumnName("prefix");
 
                     b.Property<long>("RowVersion")
@@ -1713,46 +1809,46 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<int>("AbandonedCartTimeoutMinutes")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("abandoned_cart_timeout_minutes");
 
                     b.Property<bool>("AllowItemListEdit")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("allow_item_list_edit");
 
                     b.Property<bool>("AllowTaxOverride")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("allow_tax_override");
 
                     b.Property<bool>("ApplyAddOnCharge")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("apply_add_on_charge");
 
                     b.Property<bool>("ApplyTax1")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("apply_tax1");
 
                     b.Property<bool>("ApplyTax2")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("apply_tax2");
 
                     b.Property<bool>("AutoSaveSales")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("auto_save_sales");
 
                     b.Property<bool>("CarryOverCityStateZip")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("carry_over_city_state_zip");
 
                     b.Property<bool>("ConfirmBeforeSavingSales")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("confirm_before_saving_sales");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -1764,7 +1860,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("default_tender_type_id");
 
                     b.Property<bool>("FastScanMode")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("fast_scan_mode");
 
                     b.Property<long>("LocationId")
@@ -1772,7 +1868,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -1780,15 +1876,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<bool>("PrintClientNameOnSalesSlip")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("print_client_name_on_sales_slip");
 
                     b.Property<bool>("PrintCreditCardSignatureLine")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("print_credit_card_signature_line");
 
                     b.Property<bool>("RequireSupervisorToVoid")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("require_supervisor_to_void");
 
                     b.Property<long>("RowVersion")
@@ -1796,19 +1892,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<bool>("ScanRandomWeightBarcodes")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("scan_random_weight_barcodes");
 
                     b.Property<bool>("StaffMayDiscount")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("staff_may_discount");
 
                     b.Property<bool>("TrackStaffSales")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("track_staff_sales");
 
                     b.Property<bool>("UseEmployeeTimeClock")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("use_employee_time_clock");
 
                     b.HasKey("Id")
@@ -1824,10 +1920,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -1835,7 +1931,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<bool>("Enabled")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("enabled");
 
                     b.Property<long>("LocationId")
@@ -1843,7 +1939,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -1851,11 +1947,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<int>("Order")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("order");
 
                     b.Property<string>("ParametersJson")
-                        .HasColumnType("jsonb")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("parameters_json");
 
                     b.Property<long>("RowVersion")
@@ -1865,7 +1961,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("RuleKey")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
+                        .HasColumnType("nvarchar(40)")
                         .HasColumnName("rule_key");
 
                     b.HasKey("Id")
@@ -1885,29 +1981,29 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<bool>("AddOnChargeEnabled")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("add_on_charge_enabled");
 
                     b.Property<string>("AddOnChargeName")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("add_on_charge_name");
 
                     b.Property<decimal>("AddOnChargeRate")
                         .HasPrecision(7, 4)
-                        .HasColumnType("numeric(7,4)")
+                        .HasColumnType("decimal(7,4)")
                         .HasColumnName("add_on_charge_rate");
 
                     b.Property<bool>("AddOnChargeTaxable")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("add_on_charge_taxable");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -1927,7 +2023,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -1936,7 +2032,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("RegistrationNumber")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("registration_number");
 
                     b.Property<long>("RowVersion")
@@ -1944,43 +2040,43 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<bool>("Tax1Enabled")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax1enabled");
 
                     b.Property<string>("Tax1Name")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("tax1name");
 
                     b.Property<decimal>("Tax1Rate")
                         .HasPrecision(7, 4)
-                        .HasColumnType("numeric(7,4)")
+                        .HasColumnType("decimal(7,4)")
                         .HasColumnName("tax1rate");
 
                     b.Property<bool>("Tax2Compound")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax2compound");
 
                     b.Property<bool>("Tax2Enabled")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax2enabled");
 
                     b.Property<string>("Tax2Name")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("tax2name");
 
                     b.Property<decimal>("Tax2Rate")
                         .HasPrecision(7, 4)
-                        .HasColumnType("numeric(7,4)")
+                        .HasColumnType("decimal(7,4)")
                         .HasColumnName("tax2rate");
 
                     b.Property<string>("TaxationType")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("taxation_type");
 
                     b.HasKey("Id")
@@ -2000,31 +2096,31 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<bool>("AllowedForRefunds")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("allowed_for_refunds");
 
                     b.Property<bool>("AllowsOverTender")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("allows_over_tender");
 
                     b.Property<int>("Behaviour")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("behaviour");
 
                     b.Property<string>("Code")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("code");
 
                     b.Property<bool>("CountsTowardsDrawerCash")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("counts_towards_drawer_cash");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -2032,11 +2128,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<string>("CurrencyCode")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("currency_code");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("deleted_at");
 
                     b.Property<long?>("DeletedBy")
@@ -2045,27 +2141,27 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("display_name");
 
                     b.Property<string>("ExternalAccountingKey")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("external_accounting_key");
 
                     b.Property<string>("IconKey")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("icon_key");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_deleted");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -2073,19 +2169,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<bool>("OpensCashDrawer")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("opens_cash_drawer");
 
                     b.Property<bool>("PrintsSignatureCopy")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("prints_signature_copy");
 
                     b.Property<bool>("RequiresReference")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("requires_reference");
 
                     b.Property<bool>("RoundsToMinimumTender")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("rounds_to_minimum_tender");
 
                     b.Property<long>("RowVersion")
@@ -2093,7 +2189,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("sort_order");
 
                     b.HasKey("Id")
@@ -2109,7 +2205,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateOnly?>("Birthday")
                         .HasColumnType("date")
@@ -2117,16 +2213,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ClientType")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("client_type");
 
                     b.Property<string>("Company")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("company");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -2138,7 +2234,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("customer_number");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("deleted_at");
 
                     b.Property<long?>("DeletedBy")
@@ -2148,11 +2244,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("nvarchar(100)")
                         .HasColumnName("first_name");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_deleted");
 
                     b.Property<DateOnly?>("LastMailingOn")
@@ -2162,7 +2258,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("nvarchar(100)")
                         .HasColumnName("last_name");
 
                     b.Property<DateOnly?>("LastPurchaseOn")
@@ -2174,7 +2270,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -2183,7 +2279,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Notes")
                         .HasMaxLength(4000)
-                        .HasColumnType("character varying(4000)")
+                        .HasColumnType("nvarchar(4000)")
                         .HasColumnName("notes");
 
                     b.Property<long>("RowVersion")
@@ -2192,7 +2288,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Title")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("title");
 
                     b.HasKey("Id")
@@ -2212,18 +2308,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<long>("AccountNumber")
                         .HasColumnType("bigint")
                         .HasColumnName("account_number");
 
                     b.Property<decimal>("BalanceDue")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("balance_due");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -2231,7 +2328,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<decimal>("CreditLimit")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("credit_limit");
 
                     b.Property<long>("CustomerId")
@@ -2239,7 +2337,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("customer_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -2263,10 +2361,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -2278,15 +2376,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("customer_id");
 
                     b.Property<bool>("ExemptTax1")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("exempt_tax1");
 
                     b.Property<bool>("ExemptTax2")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("exempt_tax2");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -2294,11 +2392,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<int>("PriceLevel")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("price_level");
 
                     b.Property<int>("RewardPoints")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("reward_points");
 
                     b.Property<long>("RowVersion")
@@ -2306,7 +2404,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<decimal>("UsualDiscountPct")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("usual_discount_pct");
 
                     b.HasKey("Id")
@@ -2322,22 +2421,22 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<long>("CustomerId")
                         .HasColumnType("bigint")
                         .HasColumnName("customer_id");
 
                     b.Property<int>("EntryType")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("entry_type");
 
                     b.Property<DateTimeOffset>("OccurredAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("occurred_at");
 
                     b.Property<int>("Points")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("points");
 
                     b.Property<long>("RowVersion")
@@ -2361,19 +2460,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("ArchivedNetSales")
                         .HasPrecision(19, 2)
-                        .HasColumnType("numeric(19,2)")
+                        .HasColumnType("decimal(19,2)")
                         .HasColumnName("archived_net_sales");
 
                     b.Property<int>("ArchivedRows")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("archived_rows");
 
                     b.Property<DateTimeOffset?>("ClosedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("closed_at");
 
                     b.Property<long?>("ClosedBy")
@@ -2381,7 +2480,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("closed_by");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -2397,7 +2496,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -2406,7 +2505,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
+                        .HasColumnType("nvarchar(500)")
                         .HasColumnName("notes");
 
                     b.Property<long>("RowVersion")
@@ -2420,11 +2519,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("status");
 
                     b.Property<int>("Year")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("year");
 
                     b.HasKey("Id")
@@ -2447,15 +2546,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("ArchivedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("archived_at");
 
                     b.Property<decimal>("CostOfGoodsSold")
                         .HasPrecision(19, 3)
-                        .HasColumnType("numeric(19,3)")
+                        .HasColumnType("decimal(19,3)")
                         .HasColumnName("cost_of_goods_sold");
 
                     b.Property<long?>("DepartmentId")
@@ -2471,18 +2570,18 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<int>("Month")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("month");
 
                     b.Property<string>("NameSnapshot")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("name_snapshot");
 
                     b.Property<decimal>("NetSales")
                         .HasPrecision(19, 2)
-                        .HasColumnType("numeric(19,2)")
+                        .HasColumnType("decimal(19,2)")
                         .HasColumnName("net_sales");
 
                     b.Property<long>("ProductId")
@@ -2491,7 +2590,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("QuantitySold")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("quantity_sold");
 
                     b.Property<long>("RowVersion")
@@ -2501,15 +2600,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("StockCodeSnapshot")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
+                        .HasColumnType("nvarchar(30)")
                         .HasColumnName("stock_code_snapshot");
 
                     b.Property<int>("TransactionCount")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("transaction_count");
 
                     b.Property<int>("Year")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("year");
 
                     b.HasKey("Id")
@@ -2532,14 +2631,14 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<long>("CountNumber")
                         .HasColumnType("bigint")
                         .HasColumnName("count_number");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -2555,7 +2654,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -2564,11 +2663,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
+                        .HasColumnType("nvarchar(500)")
                         .HasColumnName("notes");
 
                     b.Property<DateTimeOffset?>("PostedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("posted_at");
 
                     b.Property<long>("RowVersion")
@@ -2578,7 +2677,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("status");
 
                     b.HasKey("Id")
@@ -2601,15 +2700,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("CountedQty")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("counted_qty");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -2617,7 +2716,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -2626,7 +2725,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Notes")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("notes");
 
                     b.Property<long>("ProductId")
@@ -2636,7 +2735,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("ProductName")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("product_name");
 
                     b.Property<long>("RowVersion")
@@ -2646,7 +2745,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("StockCode")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
+                        .HasColumnType("nvarchar(30)")
                         .HasColumnName("stock_code");
 
                     b.Property<long>("StockCountId")
@@ -2655,12 +2754,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("SystemQtyAtCount")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("system_qty_at_count");
 
                     b.Property<decimal>("UnitCost")
                         .HasPrecision(19, 3)
-                        .HasColumnType("numeric(19,3)")
+                        .HasColumnType("decimal(19,3)")
                         .HasColumnName("unit_cost");
 
                     b.Property<long?>("VariantId")
@@ -2675,7 +2774,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("StockCountId", "ProductId", "VariantId")
                         .IsUnique()
-                        .HasDatabaseName("ix_stock_count_lines_stock_count_id_product_id_variant_id");
+                        .HasDatabaseName("ix_stock_count_lines_stock_count_id_product_id_variant_id")
+                        .HasFilter("[variant_id] IS NOT NULL");
 
                     b.ToTable("stock_count_lines", (string)null);
                 });
@@ -2687,7 +2787,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<long>("LocationId")
                         .HasColumnType("bigint")
@@ -2696,11 +2796,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("MovementType")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("movement_type");
 
                     b.Property<DateTimeOffset>("OccurredAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("occurred_at");
 
                     b.Property<long>("ProductId")
@@ -2709,11 +2809,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("quantity");
 
                     b.Property<string>("Reason")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("reason");
 
                     b.Property<long?>("ReferenceId")
@@ -2721,7 +2821,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("reference_id");
 
                     b.Property<string>("ReferenceType")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("reference_type");
 
                     b.Property<long>("RowVersion")
@@ -2734,7 +2834,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("UnitCost")
                         .HasPrecision(19, 3)
-                        .HasColumnType("numeric(19,3)")
+                        .HasColumnType("decimal(19,3)")
                         .HasColumnName("unit_cost");
 
                     b.Property<long?>("VariantId")
@@ -2757,15 +2857,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("Committed")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("committed");
 
                     b.Property<DateTimeOffset?>("LastSoldOn")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("last_sold_on");
 
                     b.Property<long>("LocationId")
@@ -2774,12 +2874,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("OnHand")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("on_hand");
 
                     b.Property<decimal>("OnOrder")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("on_order");
 
                     b.Property<long>("ProductId")
@@ -2799,7 +2899,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProductId", "VariantId", "LocationId")
                         .IsUnique()
-                        .HasDatabaseName("ix_stock_levels_product_id_variant_id_location_id");
+                        .HasDatabaseName("ix_stock_levels_product_id_variant_id_location_id")
+                        .HasFilter("[variant_id] IS NOT NULL");
 
                     b.ToTable("stock_levels", (string)null);
                 });
@@ -2811,10 +2912,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -2826,7 +2927,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("from_location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -2835,11 +2936,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
+                        .HasColumnType("nvarchar(500)")
                         .HasColumnName("notes");
 
                     b.Property<DateTimeOffset?>("ReceivedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("received_at");
 
                     b.Property<long>("RowVersion")
@@ -2847,13 +2948,13 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<DateTimeOffset?>("ShippedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("shipped_at");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("status");
 
                     b.Property<long>("ToLocationId")
@@ -2887,10 +2988,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -2898,7 +2999,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -2912,17 +3013,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("ProductName")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("product_name");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("quantity");
 
                     b.Property<decimal>("QuantityReceived")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("quantity_received");
 
                     b.Property<long>("RowVersion")
@@ -2932,7 +3033,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("StockCode")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
+                        .HasColumnType("nvarchar(30)")
                         .HasColumnName("stock_code");
 
                     b.Property<long>("StockTransferId")
@@ -2941,7 +3042,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("UnitCost")
                         .HasPrecision(19, 3)
-                        .HasColumnType("numeric(19,3)")
+                        .HasColumnType("decimal(19,3)")
                         .HasColumnName("unit_cost");
 
                     b.Property<long?>("VariantId")
@@ -2956,7 +3057,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("StockTransferId", "ProductId", "VariantId")
                         .IsUnique()
-                        .HasDatabaseName("ix_stock_transfer_lines_stock_transfer_id_product_id_variant_id");
+                        .HasDatabaseName("ix_stock_transfer_lines_stock_transfer_id_product_id_variant_id")
+                        .HasFilter("[variant_id] IS NOT NULL");
 
                     b.ToTable("stock_transfer_lines", (string)null);
                 });
@@ -2968,18 +3070,18 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("AnalysisJson")
-                        .HasColumnType("jsonb")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("analysis_json");
 
                     b.Property<int>("BlockingErrors")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("blocking_errors");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -2987,17 +3089,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<DateTimeOffset?>("DryRunAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("dry_run_at");
 
                     b.Property<string>("Entity")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
+                        .HasColumnType("nvarchar(30)")
                         .HasColumnName("entity");
 
                     b.Property<DateTimeOffset?>("ImportedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("imported_at");
 
                     b.Property<long>("LocationId")
@@ -3005,7 +3107,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -3014,11 +3116,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Notes")
                         .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
+                        .HasColumnType("nvarchar(1000)")
                         .HasColumnName("notes");
 
                     b.Property<string>("ReconciliationJson")
-                        .HasColumnType("jsonb")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("reconciliation_json");
 
                     b.Property<long>("RowVersion")
@@ -3026,49 +3128,49 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<int>("RowsDeletedInSource")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("rows_deleted_in_source");
 
                     b.Property<int>("RowsImported")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("rows_imported");
 
                     b.Property<int>("RowsSkipped")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("rows_skipped");
 
                     b.Property<int>("RowsStaged")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("rows_staged");
 
                     b.Property<string>("SourceFileName")
                         .IsRequired()
                         .HasMaxLength(260)
-                        .HasColumnType("character varying(260)")
+                        .HasColumnType("nvarchar(260)")
                         .HasColumnName("source_file_name");
 
                     b.Property<string>("SourceHash")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("source_hash");
 
                     b.Property<string>("Stage")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("stage");
 
                     b.Property<DateTimeOffset?>("ValidatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("validated_at");
 
                     b.Property<string>("ValidationJson")
-                        .HasColumnType("jsonb")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("validation_json");
 
                     b.Property<int>("Warnings")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("warnings");
 
                     b.HasKey("Id")
@@ -3090,42 +3192,42 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<long>("BatchId")
                         .HasColumnType("bigint")
                         .HasColumnName("batch_id");
 
                     b.Property<bool>("IsDeletedInSource")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_deleted_in_source");
 
                     b.Property<bool?>("IsValid")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_valid");
 
                     b.Property<string>("LegacyKey")
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("legacy_key");
 
                     b.Property<string>("Outcome")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("outcome");
 
                     b.Property<string>("PayloadJson")
                         .IsRequired()
-                        .HasColumnType("jsonb")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("payload_json");
 
                     b.Property<string>("Problems")
                         .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
+                        .HasColumnType("nvarchar(2000)")
                         .HasColumnName("problems");
 
                     b.Property<int>("RowNumber")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("row_number");
 
                     b.Property<long>("RowVersion")
@@ -3151,10 +3253,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -3170,7 +3272,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -3178,7 +3280,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("notes");
 
                     b.Property<long>("OrderNumber")
@@ -3198,7 +3300,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("staff_id");
 
                     b.Property<int>("Status")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("status");
 
                     b.HasKey("Id")
@@ -3214,10 +3316,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -3229,11 +3331,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("customer_order_id");
 
                     b.Property<decimal>("FilledQty")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("filled_qty");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -3241,7 +3344,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<decimal>("OrderedQty")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("ordered_qty");
 
                     b.Property<long>("ProductId")
@@ -3253,7 +3357,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<decimal>("UnitPrice")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("unit_price");
 
                     b.Property<long?>("VariantId")
@@ -3273,14 +3378,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("AmountPaid")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("amount_paid");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -3304,7 +3410,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -3320,11 +3426,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("staff_id");
 
                     b.Property<int>("Status")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("status");
 
                     b.Property<decimal>("Total")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("total");
 
                     b.HasKey("Id")
@@ -3340,7 +3447,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<long>("LayawayId")
                         .HasColumnType("bigint")
@@ -3351,7 +3458,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("product_id");
 
                     b.Property<decimal>("Quantity")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("quantity");
 
                     b.Property<long>("RowVersion")
@@ -3359,7 +3467,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<decimal>("UnitPrice")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("unit_price");
 
                     b.Property<long?>("VariantId")
@@ -3379,14 +3488,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("Amount")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long>("LayawayId")
@@ -3418,10 +3528,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -3445,7 +3555,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -3465,11 +3575,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("staff_id");
 
                     b.Property<int>("Status")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("status");
 
                     b.Property<decimal>("Total")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("total");
 
                     b.HasKey("Id")
@@ -3485,7 +3596,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<long>("PriceQuoteId")
                         .HasColumnType("bigint")
@@ -3496,7 +3607,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("product_id");
 
                     b.Property<decimal>("Quantity")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("quantity");
 
                     b.Property<long>("RowVersion")
@@ -3504,7 +3616,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<decimal>("UnitPrice")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("unit_price");
 
                     b.Property<long?>("VariantId")
@@ -3524,14 +3637,14 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("AccountingBillRef")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("accounting_bill_ref");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -3543,7 +3656,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("due_on");
 
                     b.Property<string>("HeaderText")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("header_text");
 
                     b.Property<long>("LocationId")
@@ -3551,7 +3664,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -3567,7 +3680,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("posted_on");
 
                     b.Property<int>("QuantityStrategy")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("quantity_strategy");
 
                     b.Property<long>("RowVersion")
@@ -3575,7 +3688,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<int>("Status")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("status");
 
                     b.Property<long>("SupplierId")
@@ -3583,7 +3696,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("supplier_id");
 
                     b.Property<decimal>("Total")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("total");
 
                     b.HasKey("Id")
@@ -3599,22 +3713,25 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("BackOrders")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("back_orders");
 
                     b.Property<decimal>("CaseQty")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("case_qty");
 
                     b.Property<decimal>("CostEach")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("cost_each");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -3622,11 +3739,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<decimal>("InStockAtGeneration")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("in_stock_at_generation");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -3634,15 +3752,18 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<decimal>("OnOrderAtGeneration")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("on_order_at_generation");
 
                     b.Property<decimal>("OrderCost")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("order_cost");
 
                     b.Property<decimal>("OrderQty")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("order_qty");
 
                     b.Property<long>("ProductId")
@@ -3654,7 +3775,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("purchase_order_id");
 
                     b.Property<decimal>("QtyReceived")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("qty_received");
 
                     b.Property<long>("RowVersion")
@@ -3678,10 +3800,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -3689,11 +3811,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<decimal>("FreightTotal")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("freight_total");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -3729,26 +3852,26 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Company")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("company");
 
                     b.Property<string>("ContactFirstName")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("nvarchar(100)")
                         .HasColumnName("contact_first_name");
 
                     b.Property<string>("ContactLastName")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("nvarchar(100)")
                         .HasColumnName("contact_last_name");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -3756,7 +3879,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("deleted_at");
 
                     b.Property<long?>("DeletedBy")
@@ -3764,7 +3887,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("deleted_by");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_deleted");
 
                     b.Property<long>("LocationId")
@@ -3772,7 +3895,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -3786,12 +3909,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("SupplierNumber")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("supplier_number");
 
                     b.Property<string>("Title")
                         .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasColumnType("nvarchar(50)")
                         .HasColumnName("title");
 
                     b.HasKey("Id")
@@ -3807,10 +3930,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("Amount")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<long>("CustomerId")
@@ -3818,7 +3942,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("customer_id");
 
                     b.Property<int>("EntryType")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("entry_type");
 
                     b.Property<long>("InvoiceId")
@@ -3826,7 +3950,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("invoice_id");
 
                     b.Property<DateTimeOffset>("OccurredAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("occurred_at");
 
                     b.Property<long>("RowVersion")
@@ -3846,10 +3970,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -3861,7 +3985,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("expires_on");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<DateOnly>("IssuedOn")
@@ -3873,7 +3997,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("issued_to_customer_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -3881,11 +4005,13 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<decimal>("OriginalValue")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("original_value");
 
                     b.Property<decimal>("RemainingValue")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("remaining_value");
 
                     b.Property<long>("RowVersion")
@@ -3894,7 +4020,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("SerialNumber")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("serial_number");
 
                     b.HasKey("Id")
@@ -3910,10 +4036,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -3925,7 +4051,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("expires_on");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<DateOnly>("IssuedOn")
@@ -3937,7 +4063,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("issued_to_customer_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -3945,11 +4071,13 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<decimal>("OriginalValue")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("original_value");
 
                     b.Property<decimal>("RemainingValue")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("remaining_value");
 
                     b.Property<long>("RowVersion")
@@ -3958,7 +4086,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("SerialNumber")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("serial_number");
 
                     b.HasKey("Id")
@@ -3974,15 +4102,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("BalanceDue")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("balance_due");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -4003,7 +4131,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("InvoiceTotal")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("invoice_total");
 
                     b.Property<DateOnly>("IssuedOn")
@@ -4015,7 +4143,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("last_payment_on");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -4024,7 +4152,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("PenaltyAccrued")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("penalty_accrued");
 
                     b.Property<long>("RowVersion")
@@ -4038,7 +4166,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("status");
 
                     b.Property<long>("TransactionId")
@@ -4053,7 +4181,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CustomerId", "Status")
                         .HasDatabaseName("ix_invoices_customer_id_status")
-                        .HasFilter("status = 'Open'");
+                        .HasFilter("[status] = 'Open'");
 
                     b.ToTable("invoices", (string)null);
                 });
@@ -4065,22 +4193,25 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("Amount")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<decimal>("AppliedToPenalty")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("applied_to_penalty");
 
                     b.Property<decimal>("AppliedToPrincipal")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("applied_to_principal");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -4092,7 +4223,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("invoice_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -4112,7 +4243,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("tender_type_id");
 
                     b.Property<bool>("WasDistributed")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("was_distributed");
 
                     b.HasKey("Id")
@@ -4128,10 +4259,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -4139,11 +4270,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<int>("GracePeriodDays")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("grace_period_days");
 
                     b.Property<bool>("IsEnabled")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_enabled");
 
                     b.Property<long>("LocationId")
@@ -4151,7 +4282,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -4159,7 +4290,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<decimal>("MonthlyRate")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("monthly_rate");
 
                     b.Property<long>("RowVersion")
@@ -4179,14 +4311,14 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<long?>("CompletedTransactionId")
                         .HasColumnType("bigint")
                         .HasColumnName("completed_transaction_id");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -4198,12 +4330,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("customer_id");
 
                     b.Property<DateTimeOffset?>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("expires_at");
 
                     b.Property<string>("HeldName")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("nvarchar(100)")
                         .HasColumnName("held_name");
 
                     b.Property<long>("LocationId")
@@ -4211,7 +4343,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -4219,11 +4351,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<int>("NextLineSequence")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("next_line_sequence");
 
                     b.Property<int>("Revision")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("revision");
 
                     b.Property<long>("RowVersion")
@@ -4241,11 +4373,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("status");
 
                     b.Property<DateTimeOffset?>("SuspendedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("suspended_at");
 
                     b.Property<long?>("SuspendedByStaffId")
@@ -4257,7 +4389,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("StationId", "Status")
                         .HasDatabaseName("ix_carts_station_id_status")
-                        .HasFilter("status = 'Active'");
+                        .HasFilter("[status] = 'Active'");
 
                     b.ToTable("carts", (string)null);
                 });
@@ -4269,15 +4401,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<DateTimeOffset>("AppliedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("applied_at");
 
                     b.Property<long>("AppliedByStaffId")
@@ -4291,12 +4423,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Label")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasColumnType("nvarchar(120)")
                         .HasColumnName("label");
 
                     b.Property<decimal>("Percent")
                         .HasPrecision(7, 2)
-                        .HasColumnType("numeric(7,2)")
+                        .HasColumnType("decimal(7,2)")
                         .HasColumnName("percent");
 
                     b.Property<long>("RowVersion")
@@ -4305,13 +4437,13 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Serial")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("serial");
 
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(24)
-                        .HasColumnType("character varying(24)")
+                        .HasColumnType("nvarchar(24)")
                         .HasColumnName("type");
 
                     b.HasKey("Id")
@@ -4330,56 +4462,60 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<long>("CartId")
                         .HasColumnType("bigint")
                         .HasColumnName("cart_id");
 
                     b.Property<decimal?>("EmbeddedPrice")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("embedded_price");
 
                     b.Property<string>("Epc")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("epc");
 
                     b.Property<decimal>("ExtendedNet")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("extended_net");
 
                     b.Property<decimal>("LineDiscountPct")
                         .HasPrecision(7, 2)
-                        .HasColumnType("numeric(7,2)")
+                        .HasColumnType("decimal(7,2)")
                         .HasColumnName("line_discount_pct");
 
                     b.Property<string>("LineType")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("line_type");
 
                     b.Property<decimal?>("ManualDiscountPct")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("manual_discount_pct");
 
                     b.Property<decimal?>("ManualUnitPrice")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("manual_unit_price");
 
                     b.Property<string>("NameSnapshot")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("name_snapshot");
 
                     b.Property<string>("Note")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("note");
 
                     b.Property<string>("PriceOrigin")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("price_origin");
 
                     b.Property<long>("ProductId")
@@ -4388,15 +4524,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("quantity");
 
                     b.Property<int?>("RequestedPriceLevel")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("requested_price_level");
 
                     b.Property<bool>("ReturnToStock")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("return_to_stock");
 
                     b.Property<long>("RowVersion")
@@ -4404,7 +4540,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<int>("Sequence")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("sequence");
 
                     b.Property<long?>("SerializedUnitId")
@@ -4414,46 +4550,48 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("source");
 
                     b.Property<string>("StockCodeSnapshot")
                         .HasMaxLength(24)
-                        .HasColumnType("character varying(24)")
+                        .HasColumnType("nvarchar(24)")
                         .HasColumnName("stock_code_snapshot");
 
                     b.Property<decimal>("Tax1Amount")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("tax1amount");
 
                     b.Property<bool>("Tax1Applies")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax1applies");
 
                     b.Property<bool?>("Tax1Override")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax1override");
 
                     b.Property<decimal>("Tax2Amount")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("tax2amount");
 
                     b.Property<bool>("Tax2Applies")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax2applies");
 
                     b.Property<bool?>("Tax2Override")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax2override");
 
                     b.Property<decimal>("UnitCostSnapshot")
                         .HasPrecision(19, 3)
-                        .HasColumnType("numeric(19,3)")
+                        .HasColumnType("decimal(19,3)")
                         .HasColumnName("unit_cost_snapshot");
 
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("unit_price");
 
                     b.Property<long?>("VariantId")
@@ -4476,10 +4614,10 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("AppliedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("applied_at");
 
                     b.Property<long>("AppliedByStaffId")
@@ -4487,7 +4625,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("applied_by_staff_id");
 
                     b.Property<int>("AppliesFromSequence")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("applies_from_sequence");
 
                     b.Property<long>("CartId")
@@ -4499,11 +4637,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<bool?>("Tax1")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax1");
 
                     b.Property<bool?>("Tax2")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax2");
 
                     b.HasKey("Id")
@@ -4523,17 +4661,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<string>("Label")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasColumnType("nvarchar(120)")
                         .HasColumnName("label");
 
                     b.Property<long>("RowVersion")
@@ -4542,7 +4680,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Serial")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("serial");
 
                     b.Property<long>("TransactionId")
@@ -4552,7 +4690,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(24)
-                        .HasColumnType("character varying(24)")
+                        .HasColumnType("nvarchar(24)")
                         .HasColumnName("type");
 
                     b.HasKey("Id")
@@ -4571,48 +4709,48 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("ChargeableQuantity")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("chargeable_quantity");
 
                     b.Property<decimal>("DiscountPct")
                         .HasPrecision(7, 2)
-                        .HasColumnType("numeric(7,2)")
+                        .HasColumnType("decimal(7,2)")
                         .HasColumnName("discount_pct");
 
                     b.Property<string>("Epc")
                         .HasMaxLength(96)
-                        .HasColumnType("character varying(96)")
+                        .HasColumnType("nvarchar(96)")
                         .HasColumnName("epc");
 
                     b.Property<decimal>("ExtendedNet")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("extended_net");
 
                     b.Property<string>("LineType")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("line_type");
 
                     b.Property<string>("NameSnapshot")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("name_snapshot");
 
                     b.Property<string>("Note")
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
+                        .HasColumnType("nvarchar(500)")
                         .HasColumnName("note");
 
                     b.Property<string>("PriceOrigin")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("price_origin");
 
                     b.Property<long>("ProductId")
@@ -4621,16 +4759,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("ProratedAdjustment")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("prorated_adjustment");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("quantity");
 
                     b.Property<bool>("ReturnedToStock")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("returned_to_stock");
 
                     b.Property<long>("RowVersion")
@@ -4638,12 +4776,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<int>("Sequence")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("sequence");
 
                     b.Property<string>("SerialNumber")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("serial_number");
 
                     b.Property<long?>("SerializedUnitId")
@@ -4653,35 +4791,35 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Source")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("source");
 
                     b.Property<string>("StockCodeSnapshot")
                         .HasMaxLength(24)
-                        .HasColumnType("character varying(24)")
+                        .HasColumnType("nvarchar(24)")
                         .HasColumnName("stock_code_snapshot");
 
                     b.Property<decimal>("Tax1Amount")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("tax1amount");
 
                     b.Property<bool>("Tax1Applies")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax1applies");
 
                     b.Property<decimal>("Tax2Amount")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("tax2amount");
 
                     b.Property<bool>("Tax2Applies")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax2applies");
 
                     b.Property<decimal>("TaxableNet")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("taxable_net");
 
                     b.Property<long>("TransactionId")
@@ -4690,12 +4828,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("UnitCostSnapshot")
                         .HasPrecision(19, 3)
-                        .HasColumnType("numeric(19,3)")
+                        .HasColumnType("decimal(19,3)")
                         .HasColumnName("unit_cost_snapshot");
 
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("unit_price");
 
                     b.Property<long?>("VariantId")
@@ -4721,21 +4859,21 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("AddOnName")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
+                        .HasColumnType("nvarchar(40)")
                         .HasColumnName("add_on_name");
 
                     b.Property<decimal>("AddOnRate")
                         .HasPrecision(9, 4)
-                        .HasColumnType("numeric(9,4)")
+                        .HasColumnType("decimal(9,4)")
                         .HasColumnName("add_on_rate");
 
                     b.Property<bool>("AddOnTaxable")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("add_on_taxable");
 
                     b.Property<long>("RowVersion")
@@ -4745,36 +4883,36 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Tax1Name")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
+                        .HasColumnType("nvarchar(40)")
                         .HasColumnName("tax1name");
 
                     b.Property<decimal>("Tax1Rate")
                         .HasPrecision(9, 4)
-                        .HasColumnType("numeric(9,4)")
+                        .HasColumnType("decimal(9,4)")
                         .HasColumnName("tax1rate");
 
                     b.Property<bool>("Tax2Compound")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax2compound");
 
                     b.Property<string>("Tax2Name")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
+                        .HasColumnType("nvarchar(40)")
                         .HasColumnName("tax2name");
 
                     b.Property<decimal>("Tax2Rate")
                         .HasPrecision(9, 4)
-                        .HasColumnType("numeric(9,4)")
+                        .HasColumnType("decimal(9,4)")
                         .HasColumnName("tax2rate");
 
                     b.Property<bool>("TaxInclusive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("tax_inclusive");
 
                     b.Property<string>("TaxRegistrationNumber")
                         .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
+                        .HasColumnType("nvarchar(40)")
                         .HasColumnName("tax_registration_number");
 
                     b.Property<long>("TransactionId")
@@ -4798,37 +4936,37 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<decimal>("AmountTendered")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("amount_tendered");
 
                     b.Property<string>("AuthCode")
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
+                        .HasColumnType("nvarchar(32)")
                         .HasColumnName("auth_code");
 
                     b.Property<string>("Behaviour")
                         .IsRequired()
                         .HasMaxLength(24)
-                        .HasColumnType("character varying(24)")
+                        .HasColumnType("nvarchar(24)")
                         .HasColumnName("behaviour");
 
                     b.Property<string>("CardLast4")
                         .HasMaxLength(4)
-                        .HasColumnType("character varying(4)")
+                        .HasColumnType("nvarchar(4)")
                         .HasColumnName("card_last4");
 
                     b.Property<decimal>("ChangeGiven")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("change_given");
 
                     b.Property<long?>("CurrencyId")
@@ -4837,17 +4975,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("ExchangeRate")
                         .HasPrecision(18, 8)
-                        .HasColumnType("numeric(18,8)")
+                        .HasColumnType("decimal(18,8)")
                         .HasColumnName("exchange_rate");
 
                     b.Property<string>("GatewayReference")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("gateway_reference");
 
                     b.Property<string>("Reference")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("reference");
 
                     b.Property<long>("RowVersion")
@@ -4878,11 +5016,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("AddOnChargeTotal")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("add_on_charge_total");
 
                     b.Property<DateOnly>("BusinessDate")
@@ -4890,20 +5028,21 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("business_date");
 
                     b.Property<decimal>("ChangeGiven")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("change_given");
 
                     b.Property<DateTimeOffset>("CompletedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("completed_at");
 
                     b.Property<decimal>("CostOfGoodsSold")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("cost_of_goods_sold");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -4916,7 +5055,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("DiscountTotal")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("discount_total");
 
                     b.Property<long?>("DrawerSessionId")
@@ -4925,7 +5064,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("GrandTotal")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("grand_total");
 
                     b.Property<long?>("InvoiceId")
@@ -4933,7 +5072,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("invoice_id");
 
                     b.Property<bool>("IsTraining")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_training");
 
                     b.Property<long>("LocationId")
@@ -4941,15 +5080,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<int>("LoyaltyPointsEarned")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("loyalty_points_earned");
 
                     b.Property<int>("LoyaltyPointsRedeemed")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("loyalty_points_redeemed");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -4957,7 +5096,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<int>("ReprintCount")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("reprint_count");
 
                     b.Property<long?>("ReversesTransactionId")
@@ -4965,7 +5104,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("reverses_transaction_id");
 
                     b.Property<decimal>("RoundingAdjustment")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("rounding_adjustment");
 
                     b.Property<long>("RowVersion")
@@ -4983,22 +5123,22 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("status");
 
                     b.Property<decimal>("Subtotal")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("subtotal");
 
                     b.Property<decimal>("Tax1Total")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("tax1total");
 
                     b.Property<decimal>("Tax2Total")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("tax2total");
 
                     b.Property<long>("TransactionNumber")
@@ -5010,7 +5150,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("void_approved_by_staff_id");
 
                     b.Property<string>("VoidReason")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("void_reason");
 
                     b.Property<long?>("VoidedByTransactionId")
@@ -5036,17 +5176,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Action")
                         .IsRequired()
                         .HasMaxLength(24)
-                        .HasColumnType("character varying(24)")
+                        .HasColumnType("nvarchar(24)")
                         .HasColumnName("action");
 
                     b.Property<string>("ActorName")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("actor_name");
 
                     b.Property<long?>("ActorStaffId")
@@ -5058,7 +5198,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("actor_user_id");
 
                     b.Property<string>("AfterJson")
-                        .HasColumnType("jsonb")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("after_json");
 
                     b.Property<long?>("ApproverStaffId")
@@ -5066,28 +5206,28 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("approver_staff_id");
 
                     b.Property<string>("BeforeJson")
-                        .HasColumnType("jsonb")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("before_json");
 
                     b.Property<string>("CorrelationId")
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
+                        .HasColumnType("nvarchar(128)")
                         .HasColumnName("correlation_id");
 
                     b.Property<string>("EntityId")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("entity_id");
 
                     b.Property<string>("EntityType")
                         .IsRequired()
                         .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
+                        .HasColumnType("nvarchar(80)")
                         .HasColumnName("entity_type");
 
                     b.Property<string>("IpAddress")
                         .HasMaxLength(64)
-                        .HasColumnType("character varying(64)")
+                        .HasColumnType("nvarchar(64)")
                         .HasColumnName("ip_address");
 
                     b.Property<long?>("LocationId")
@@ -5095,17 +5235,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset>("OccurredAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("occurred_at");
 
                     b.Property<string>("Operation")
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasColumnType("nvarchar(120)")
                         .HasColumnName("operation");
 
                     b.Property<string>("Reason")
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
+                        .HasColumnType("nvarchar(500)")
                         .HasColumnName("reason");
 
                     b.Property<long>("RowVersion")
@@ -5141,28 +5281,28 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("description");
 
                     b.Property<string>("Group")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("character varying(40)")
+                        .HasColumnType("nvarchar(40)")
                         .HasColumnName("group");
 
                     b.Property<bool>("IsSensitive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_sensitive");
 
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("key");
 
                     b.Property<long>("RowVersion")
@@ -5186,12 +5326,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("PermissionKey")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("permission_key");
 
                     b.Property<long>("RoleId")
@@ -5219,16 +5359,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Action")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasColumnType("nvarchar(120)")
                         .HasColumnName("action");
 
                     b.Property<DateTimeOffset?>("AnsweredAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("answered_at");
 
                     b.Property<long?>("ApprovedByStaffId")
@@ -5236,21 +5376,21 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("approved_by_staff_id");
 
                     b.Property<DateTimeOffset?>("ConsumedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("consumed_at");
 
                     b.Property<string>("Context")
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
+                        .HasColumnType("nvarchar(500)")
                         .HasColumnName("context");
 
                     b.Property<string>("DenialReason")
                         .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
+                        .HasColumnType("nvarchar(500)")
                         .HasColumnName("denial_reason");
 
                     b.Property<DateTimeOffset>("ExpiresAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("expires_at");
 
                     b.Property<long>("LocationId")
@@ -5260,11 +5400,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Permission")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("permission");
 
                     b.Property<DateTimeOffset>("RequestedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("requested_at");
 
                     b.Property<long>("RequestedByStaffId")
@@ -5282,7 +5422,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("status");
 
                     b.HasKey("Id")
@@ -5301,11 +5441,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(19, 2)
-                        .HasColumnType("numeric(19,2)")
+                        .HasColumnType("decimal(19,2)")
                         .HasColumnName("amount");
 
                     b.Property<DateOnly>("BusinessDate")
@@ -5319,7 +5459,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("CommissionType")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("commission_type");
 
                     b.Property<long?>("DepartmentId")
@@ -5328,12 +5468,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("LineCost")
                         .HasPrecision(19, 3)
-                        .HasColumnType("numeric(19,3)")
+                        .HasColumnType("decimal(19,3)")
                         .HasColumnName("line_cost");
 
                     b.Property<decimal>("LineNet")
                         .HasPrecision(19, 2)
-                        .HasColumnType("numeric(19,2)")
+                        .HasColumnType("decimal(19,2)")
                         .HasColumnName("line_net");
 
                     b.Property<long>("LocationId")
@@ -5341,7 +5481,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset>("OccurredAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("occurred_at");
 
                     b.Property<long>("ProductId")
@@ -5350,12 +5490,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(18, 4)
-                        .HasColumnType("numeric(18,4)")
+                        .HasColumnType("decimal(18,4)")
                         .HasColumnName("quantity");
 
                     b.Property<decimal>("RateApplied")
                         .HasPrecision(9, 4)
-                        .HasColumnType("numeric(9,4)")
+                        .HasColumnType("decimal(9,4)")
                         .HasColumnName("rate_applied");
 
                     b.Property<long>("RowVersion")
@@ -5373,7 +5513,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("StockCodeSnapshot")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
+                        .HasColumnType("nvarchar(30)")
                         .HasColumnName("stock_code_snapshot");
 
                     b.Property<long>("TransactionId")
@@ -5381,7 +5521,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("transaction_id");
 
                     b.Property<bool>("WasCapped")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("was_capped");
 
                     b.HasKey("Id")
@@ -5406,16 +5546,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("CommissionType")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("commission_type");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -5427,16 +5567,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("department_id");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<decimal?>("MaxCommission")
                         .HasPrecision(19, 2)
-                        .HasColumnType("numeric(19,2)")
+                        .HasColumnType("decimal(19,2)")
                         .HasColumnName("max_commission");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -5457,7 +5597,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("Value")
                         .HasPrecision(9, 4)
-                        .HasColumnType("numeric(9,4)")
+                        .HasColumnType("decimal(9,4)")
                         .HasColumnName("value");
 
                     b.HasKey("Id")
@@ -5468,7 +5608,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("StaffId", "ProductId", "DepartmentId")
                         .IsUnique()
-                        .HasDatabaseName("ix_commission_rules_staff_id_product_id_department_id");
+                        .HasDatabaseName("ix_commission_rules_staff_id_product_id_department_id")
+                        .HasFilter("[product_id] IS NOT NULL AND [department_id] IS NOT NULL");
 
                     b.ToTable("commission_rules", (string)null);
                 });
@@ -5480,14 +5621,14 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<int>("AccessLevel")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("access_level");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -5495,27 +5636,27 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<int>("FailedPinAttempts")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("failed_pin_attempts");
 
                     b.Property<string>("FirstName")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("nvarchar(100)")
                         .HasColumnName("first_name");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("nvarchar(100)")
                         .HasColumnName("last_name");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -5524,11 +5665,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PinHash")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("pin_hash");
 
                     b.Property<DateTimeOffset?>("PinLockedUntil")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("pin_locked_until");
 
                     b.Property<long>("RowVersion")
@@ -5538,7 +5679,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("StaffCode")
                         .IsRequired()
                         .HasMaxLength(8)
-                        .HasColumnType("character varying(8)")
+                        .HasColumnType("nvarchar(8)")
                         .HasColumnName("staff_code");
 
                     b.Property<long>("UserId")
@@ -5566,18 +5707,18 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTimeOffset>("ClockIn")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("clock_in");
 
                     b.Property<DateTimeOffset?>("ClockOut")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("clock_out");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -5586,7 +5727,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal?>("HoursWorked")
                         .HasPrecision(9, 4)
-                        .HasColumnType("numeric(9,4)")
+                        .HasColumnType("decimal(9,4)")
                         .HasColumnName("hours_worked");
 
                     b.Property<long>("LocationId")
@@ -5594,7 +5735,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -5628,11 +5769,11 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("amount");
 
                     b.Property<long>("DrawerSessionId")
@@ -5642,16 +5783,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("EntryType")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("entry_type");
 
                     b.Property<DateTimeOffset>("OccurredAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("occurred_at");
 
                     b.Property<string>("Reason")
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("reason");
 
                     b.Property<long>("RowVersion")
@@ -5682,14 +5823,14 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateOnly>("BusinessDate")
                         .HasColumnType("date")
                         .HasColumnName("business_date");
 
                     b.Property<DateTimeOffset?>("ClosedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("closed_at");
 
                     b.Property<long?>("ClosedByStaffId")
@@ -5698,16 +5839,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("CostOfGoodsSold")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("cost_of_goods_sold");
 
                     b.Property<decimal?>("CountedCash")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("counted_cash");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -5715,12 +5856,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<string>("DepartmentNetSalesJson")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("department_net_sales_json");
 
                     b.Property<decimal>("ExpectedCash")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("expected_cash");
 
                     b.Property<long>("LocationId")
@@ -5728,7 +5869,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -5736,11 +5877,12 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("modified_by");
 
                     b.Property<decimal>("NetSales")
-                        .HasColumnType("numeric")
+                        .HasPrecision(19, 4)
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("net_sales");
 
                     b.Property<DateTimeOffset>("OpenedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("opened_at");
 
                     b.Property<long>("OpenedByStaffId")
@@ -5749,7 +5891,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<decimal>("OpeningFloat")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("opening_float");
 
                     b.Property<long>("RowVersion")
@@ -5763,30 +5905,30 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
+                        .HasColumnType("nvarchar(20)")
                         .HasColumnName("status");
 
                     b.Property<decimal>("Tax1Collected")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("tax1collected");
 
                     b.Property<decimal>("Tax2Collected")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("tax2collected");
 
                     b.Property<string>("TenderTotalsJson")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("tender_totals_json");
 
                     b.Property<int>("TransactionCount")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("transaction_count");
 
                     b.Property<decimal>("Variance")
                         .HasPrecision(19, 4)
-                        .HasColumnType("numeric(19,4)")
+                        .HasColumnType("decimal(19,4)")
                         .HasColumnName("variance");
 
                     b.HasKey("Id")
@@ -5794,7 +5936,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("StationId", "Status")
                         .HasDatabaseName("ix_drawer_sessions_station_id_status")
-                        .HasFilter("status = 'Open'");
+                        .HasFilter("[status] = 'Open'");
 
                     b.ToTable("drawer_sessions", (string)null);
                 });
@@ -5806,20 +5948,20 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<int>("BaudRate")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("baud_rate");
 
                     b.Property<string>("ClearCommand")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("clear_command");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -5829,37 +5971,37 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("IdleLine1")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("idle_line1");
 
                     b.Property<string>("IdleLine2")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("idle_line2");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<string>("Line1Command")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("line1command");
 
                     b.Property<int>("Line1Width")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("line1width");
 
                     b.Property<string>("Line2Command")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("line2command");
 
                     b.Property<int>("Line2Width")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("line2width");
 
                     b.Property<long>("LocationId")
@@ -5867,7 +6009,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -5877,13 +6019,13 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("name");
 
                     b.Property<string>("Port")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("port");
 
                     b.Property<long>("RowVersion")
@@ -5910,19 +6052,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("BlackCommand")
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasColumnType("nvarchar(120)")
                         .HasColumnName("black_command");
 
                     b.Property<int>("Columns")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("columns");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -5931,33 +6073,33 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("CutterCommand")
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasColumnType("nvarchar(120)")
                         .HasColumnName("cutter_command");
 
                     b.Property<int>("DefaultCopies")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("default_copies");
 
                     b.Property<int>("DrawerRepeat")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("drawer_repeat");
 
                     b.Property<string>("DrawerTrigger")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasColumnType("nvarchar(120)")
                         .HasColumnName("drawer_trigger");
 
                     b.Property<bool>("ExtraCopyOnCard")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("extra_copy_on_card");
 
                     b.Property<bool>("InitializeSerial")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("initialize_serial");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<long>("LocationId")
@@ -5965,7 +6107,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -5975,31 +6117,31 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("name");
 
                     b.Property<bool>("OpenDrawerOnPrint")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("open_drawer_on_print");
 
                     b.Property<string>("Output")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("output");
 
                     b.Property<bool>("PageEject")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("page_eject");
 
                     b.Property<string>("Port")
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasColumnType("nvarchar(120)")
                         .HasColumnName("port");
 
                     b.Property<string>("RedCommand")
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasColumnType("nvarchar(120)")
                         .HasColumnName("red_command");
 
                     b.Property<long>("RowVersion")
@@ -6008,7 +6150,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("SetupCommand")
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasColumnType("nvarchar(120)")
                         .HasColumnName("setup_command");
 
                     b.Property<long?>("StationId")
@@ -6031,36 +6173,36 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<int>("AntennaReturnLossThresholdDb")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("antenna_return_loss_threshold_db");
 
                     b.Property<string>("AntennaZones")
                         .IsRequired()
                         .HasMaxLength(200)
-                        .HasColumnType("character varying(200)")
+                        .HasColumnType("nvarchar(200)")
                         .HasColumnName("antenna_zones");
 
                     b.Property<bool>("AutoAcceptBatches")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("auto_accept_batches");
 
                     b.Property<int>("Beeper")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("beeper");
 
                     b.Property<int>("CoalesceMs")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("coalesce_ms");
 
                     b.Property<bool>("ContinuousMode")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("continuous_mode");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -6068,45 +6210,45 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<int>("DebounceMs")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("debounce_ms");
 
                     b.Property<bool>("DenseReaderMode")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("dense_reader_mode");
 
                     b.Property<int>("DeviceAddress")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("device_address");
 
                     b.Property<int>("FlushIntervalMs")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("flush_interval_ms");
 
                     b.Property<int>("FrequencyEndIndex")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("frequency_end_index");
 
                     b.Property<int>("FrequencyStartIndex")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("frequency_start_index");
 
                     b.Property<string>("Host")
                         .IsRequired()
                         .HasMaxLength(120)
-                        .HasColumnType("character varying(120)")
+                        .HasColumnType("nvarchar(120)")
                         .HasColumnName("host");
 
                     b.Property<bool>("ImpinjFastTid")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("impinj_fast_tid");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<int>("LinkProfile")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("link_profile");
 
                     b.Property<long>("LocationId")
@@ -6114,15 +6256,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<int>("MaxBatchSize")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("max_batch_size");
 
                     b.Property<int>("MinimumReadCount")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("minimum_read_count");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -6132,26 +6274,26 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("name");
 
                     b.Property<string>("OutputPowerDbm")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("output_power_dbm");
 
                     b.Property<int>("Port")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("port");
 
                     b.Property<string>("Protocol")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("protocol");
 
                     b.Property<int>("Region")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("region");
 
                     b.Property<long>("RowVersion")
@@ -6159,7 +6301,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("row_version");
 
                     b.Property<int>("RssiThresholdDbm")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("rssi_threshold_dbm");
 
                     b.Property<long?>("StationId")
@@ -6182,14 +6324,14 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<int>("BaudRate")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("baud_rate");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -6197,17 +6339,17 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_by");
 
                     b.Property<int>("DataBits")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("data_bits");
 
                     b.Property<string>("GetWeightCommand")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("get_weight_command");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<long>("LocationId")
@@ -6215,7 +6357,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -6225,19 +6367,19 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("name");
 
                     b.Property<string>("Parity")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("parity");
 
                     b.Property<string>("Port")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("character varying(60)")
+                        .HasColumnType("nvarchar(60)")
                         .HasColumnName("port");
 
                     b.Property<long>("RowVersion")
@@ -6251,23 +6393,23 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("StopBits")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("stop_bits");
 
                     b.Property<int>("TimeoutMs")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("timeout_ms");
 
                     b.Property<string>("Unit")
                         .IsRequired()
                         .HasMaxLength(8)
-                        .HasColumnType("character varying(8)")
+                        .HasColumnType("nvarchar(8)")
                         .HasColumnName("unit");
 
                     b.Property<string>("ZeroCommand")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("zero_command");
 
                     b.HasKey("Id")
@@ -6286,28 +6428,28 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("AgentTokenHash")
                         .HasMaxLength(128)
-                        .HasColumnType("character varying(128)")
+                        .HasColumnType("nvarchar(128)")
                         .HasColumnName("agent_token_hash");
 
                     b.Property<string>("AgentVersion")
                         .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
+                        .HasColumnType("nvarchar(32)")
                         .HasColumnName("agent_version");
 
                     b.Property<bool?>("AutoSaveSales")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("auto_save_sales");
 
                     b.Property<bool?>("ConfirmBeforeSaving")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("confirm_before_saving");
 
                     b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("created_at");
 
                     b.Property<long?>("CreatedBy")
@@ -6319,15 +6461,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("default_tender_type_id");
 
                     b.Property<bool?>("FastScanMode")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("fast_scan_mode");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_active");
 
                     b.Property<DateTimeOffset?>("LastHeartbeat")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("last_heartbeat");
 
                     b.Property<long>("LocationId")
@@ -6335,7 +6477,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("location_id");
 
                     b.Property<DateTimeOffset?>("ModifiedAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("modified_at");
 
                     b.Property<long?>("ModifiedBy")
@@ -6344,7 +6486,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasColumnType("nvarchar(100)")
                         .HasColumnName("name");
 
                     b.Property<long?>("PoleDisplayProfileId")
@@ -6358,7 +6500,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.Property<string>("ReaderMode")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("character varying(16)")
+                        .HasColumnType("nvarchar(16)")
                         .HasColumnName("reader_mode");
 
                     b.Property<long?>("ReaderProfileId")
@@ -6374,13 +6516,13 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnName("scale_profile_id");
 
                     b.Property<bool?>("ScanRandomWeightBarcodes")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("scan_random_weight_barcodes");
 
                     b.Property<string>("StationCode")
                         .IsRequired()
                         .HasMaxLength(3)
-                        .HasColumnType("character varying(3)")
+                        .HasColumnType("nvarchar(3)")
                         .HasColumnName("station_code");
 
                     b.HasKey("Id")
@@ -6400,29 +6542,29 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("concurrency_stamp");
 
                     b.Property<string>("Description")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("description");
 
                     b.Property<int?>("LegacyLevel")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("legacy_level");
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("name");
 
                     b.Property<string>("NormalizedName")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("normalized_name");
 
                     b.HasKey("Id")
@@ -6430,7 +6572,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("NormalizedName")
                         .IsUnique()
-                        .HasDatabaseName("RoleNameIndex");
+                        .HasDatabaseName("RoleNameIndex")
+                        .HasFilter("[normalized_name] IS NOT NULL");
 
                     b.ToTable("AspNetRoles", (string)null);
                 });
@@ -6442,15 +6585,15 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint")
                         .HasColumnName("id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<int>("AccessFailedCount")
-                        .HasColumnType("integer")
+                        .HasColumnType("int")
                         .HasColumnName("access_failed_count");
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("concurrency_stamp");
 
                     b.Property<long?>("DefaultLocationId")
@@ -6459,67 +6602,67 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("DisplayName")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("display_name");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("email");
 
                     b.Property<bool>("EmailConfirmed")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("email_confirmed");
 
                     b.Property<bool>("IsEnabled")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("is_enabled");
 
                     b.Property<DateTimeOffset?>("LastSignedInAt")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("last_signed_in_at");
 
                     b.Property<bool>("LockoutEnabled")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("lockout_enabled");
 
                     b.Property<DateTimeOffset?>("LockoutEnd")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("datetimeoffset")
                         .HasColumnName("lockout_end");
 
                     b.Property<string>("NormalizedEmail")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("normalized_email");
 
                     b.Property<string>("NormalizedUserName")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("normalized_user_name");
 
                     b.Property<string>("PasswordHash")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("password_hash");
 
                     b.Property<string>("PhoneNumber")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("phone_number");
 
                     b.Property<bool>("PhoneNumberConfirmed")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("phone_number_confirmed");
 
                     b.Property<string>("SecurityStamp")
-                        .HasColumnType("text")
+                        .HasColumnType("nvarchar(max)")
                         .HasColumnName("security_stamp");
 
                     b.Property<bool>("TwoFactorEnabled")
-                        .HasColumnType("boolean")
+                        .HasColumnType("bit")
                         .HasColumnName("two_factor_enabled");
 
                     b.Property<string>("UserName")
                         .HasMaxLength(256)
-                        .HasColumnType("character varying(256)")
+                        .HasColumnType("nvarchar(256)")
                         .HasColumnName("user_name");
 
                     b.HasKey("Id")
@@ -6530,7 +6673,8 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
-                        .HasDatabaseName("UserNameIndex");
+                        .HasDatabaseName("UserNameIndex")
+                        .HasFilter("[normalized_user_name] IS NOT NULL");
 
                     b.ToTable("AspNetUsers", (string)null);
                 });
@@ -6597,7 +6741,7 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                     b.HasOne("OpenIddict.EntityFrameworkCore.Models.OpenIddictEntityFrameworkCoreApplication<long>", "Application")
                         .WithMany("Authorizations")
                         .HasForeignKey("ApplicationId")
-                        .HasConstraintName("fk_open_iddict_authorizations_open_iddict_applications_application");
+                        .HasConstraintName("fk_open_iddict_authorizations_open_iddict_applications_application_id");
 
                     b.Navigation("Application");
                 });
@@ -6629,6 +6773,16 @@ namespace Retail25.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_product_images_products_product_id");
                 });
 
+            modelBuilder.Entity("Retail25.Domain.Configuration.BrandingAsset", b =>
+                {
+                    b.HasOne("Retail25.Domain.Configuration.Location", null)
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_branding_assets_locations_location_id");
+                });
+
             modelBuilder.Entity("Retail25.Domain.Configuration.BusinessProfile", b =>
                 {
                     b.OwnsOne("Retail25.Domain.ValueObjects.Address", "Address", b1 =>
@@ -6639,32 +6793,32 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                             b1.Property<string>("City")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("address_city");
 
                             b1.Property<string>("Country")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("address_country");
 
                             b1.Property<string>("Line1")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("address_line1");
 
                             b1.Property<string>("Line2")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("address_line2");
 
                             b1.Property<string>("PostalCode")
                                 .HasMaxLength(20)
-                                .HasColumnType("character varying(20)")
+                                .HasColumnType("nvarchar(20)")
                                 .HasColumnName("address_postal_code");
 
                             b1.Property<string>("StateOrProvince")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("address_state_or_province");
 
                             b1.HasKey("BusinessProfileId");
@@ -6684,32 +6838,32 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                             b1.Property<string>("Email")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("contact_email");
 
                             b1.Property<string>("Extension")
                                 .HasMaxLength(10)
-                                .HasColumnType("character varying(10)")
+                                .HasColumnType("nvarchar(10)")
                                 .HasColumnName("contact_extension");
 
                             b1.Property<string>("Fax")
                                 .HasMaxLength(30)
-                                .HasColumnType("character varying(30)")
+                                .HasColumnType("nvarchar(30)")
                                 .HasColumnName("contact_fax");
 
                             b1.Property<string>("Mobile")
                                 .HasMaxLength(30)
-                                .HasColumnType("character varying(30)")
+                                .HasColumnType("nvarchar(30)")
                                 .HasColumnName("contact_mobile");
 
                             b1.Property<string>("Phone")
                                 .HasMaxLength(30)
-                                .HasColumnType("character varying(30)")
+                                .HasColumnType("nvarchar(30)")
                                 .HasColumnName("contact_phone");
 
                             b1.Property<string>("Website")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("contact_website");
 
                             b1.HasKey("BusinessProfileId");
@@ -6738,32 +6892,32 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                             b1.Property<string>("City")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("address_city");
 
                             b1.Property<string>("Country")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("address_country");
 
                             b1.Property<string>("Line1")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("address_line1");
 
                             b1.Property<string>("Line2")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("address_line2");
 
                             b1.Property<string>("PostalCode")
                                 .HasMaxLength(20)
-                                .HasColumnType("character varying(20)")
+                                .HasColumnType("nvarchar(20)")
                                 .HasColumnName("address_postal_code");
 
                             b1.Property<string>("StateOrProvince")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("address_state_or_province");
 
                             b1.HasKey("LocationId");
@@ -6783,32 +6937,32 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                             b1.Property<string>("Email")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("contact_email");
 
                             b1.Property<string>("Extension")
                                 .HasMaxLength(10)
-                                .HasColumnType("character varying(10)")
+                                .HasColumnType("nvarchar(10)")
                                 .HasColumnName("contact_extension");
 
                             b1.Property<string>("Fax")
                                 .HasMaxLength(30)
-                                .HasColumnType("character varying(30)")
+                                .HasColumnType("nvarchar(30)")
                                 .HasColumnName("contact_fax");
 
                             b1.Property<string>("Mobile")
                                 .HasMaxLength(30)
-                                .HasColumnType("character varying(30)")
+                                .HasColumnType("nvarchar(30)")
                                 .HasColumnName("contact_mobile");
 
                             b1.Property<string>("Phone")
                                 .HasMaxLength(30)
-                                .HasColumnType("character varying(30)")
+                                .HasColumnType("nvarchar(30)")
                                 .HasColumnName("contact_phone");
 
                             b1.Property<string>("Website")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("contact_website");
 
                             b1.HasKey("LocationId");
@@ -6837,32 +6991,32 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                             b1.Property<string>("City")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("billing_address_city");
 
                             b1.Property<string>("Country")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("billing_address_country");
 
                             b1.Property<string>("Line1")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("billing_address_line1");
 
                             b1.Property<string>("Line2")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("billing_address_line2");
 
                             b1.Property<string>("PostalCode")
                                 .HasMaxLength(20)
-                                .HasColumnType("character varying(20)")
+                                .HasColumnType("nvarchar(20)")
                                 .HasColumnName("billing_address_postal_code");
 
                             b1.Property<string>("StateOrProvince")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("billing_address_state_or_province");
 
                             b1.HasKey("CustomerId");
@@ -6882,32 +7036,32 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                             b1.Property<string>("Email")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("contact_email");
 
                             b1.Property<string>("Extension")
                                 .HasMaxLength(10)
-                                .HasColumnType("character varying(10)")
+                                .HasColumnType("nvarchar(10)")
                                 .HasColumnName("contact_extension");
 
                             b1.Property<string>("Fax")
                                 .HasMaxLength(30)
-                                .HasColumnType("character varying(30)")
+                                .HasColumnType("nvarchar(30)")
                                 .HasColumnName("contact_fax");
 
                             b1.Property<string>("Mobile")
                                 .HasMaxLength(30)
-                                .HasColumnType("character varying(30)")
+                                .HasColumnType("nvarchar(30)")
                                 .HasColumnName("contact_mobile");
 
                             b1.Property<string>("Phone")
                                 .HasMaxLength(30)
-                                .HasColumnType("character varying(30)")
+                                .HasColumnType("nvarchar(30)")
                                 .HasColumnName("contact_phone");
 
                             b1.Property<string>("Website")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("contact_website");
 
                             b1.HasKey("CustomerId");
@@ -6927,32 +7081,32 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                             b1.Property<string>("City")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("ship_to_address_city");
 
                             b1.Property<string>("Country")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("ship_to_address_country");
 
                             b1.Property<string>("Line1")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("ship_to_address_line1");
 
                             b1.Property<string>("Line2")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("ship_to_address_line2");
 
                             b1.Property<string>("PostalCode")
                                 .HasMaxLength(20)
-                                .HasColumnType("character varying(20)")
+                                .HasColumnType("nvarchar(20)")
                                 .HasColumnName("ship_to_address_postal_code");
 
                             b1.Property<string>("StateOrProvince")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("ship_to_address_state_or_province");
 
                             b1.HasKey("CustomerId");
@@ -6984,32 +7138,32 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                             b1.Property<string>("City")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("address_city");
 
                             b1.Property<string>("Country")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("address_country");
 
                             b1.Property<string>("Line1")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("address_line1");
 
                             b1.Property<string>("Line2")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("address_line2");
 
                             b1.Property<string>("PostalCode")
                                 .HasMaxLength(20)
-                                .HasColumnType("character varying(20)")
+                                .HasColumnType("nvarchar(20)")
                                 .HasColumnName("address_postal_code");
 
                             b1.Property<string>("StateOrProvince")
                                 .HasMaxLength(100)
-                                .HasColumnType("character varying(100)")
+                                .HasColumnType("nvarchar(100)")
                                 .HasColumnName("address_state_or_province");
 
                             b1.HasKey("SupplierId");
@@ -7029,32 +7183,32 @@ namespace Retail25.Infrastructure.Persistence.Migrations
 
                             b1.Property<string>("Email")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("contact_email");
 
                             b1.Property<string>("Extension")
                                 .HasMaxLength(10)
-                                .HasColumnType("character varying(10)")
+                                .HasColumnType("nvarchar(10)")
                                 .HasColumnName("contact_extension");
 
                             b1.Property<string>("Fax")
                                 .HasMaxLength(30)
-                                .HasColumnType("character varying(30)")
+                                .HasColumnType("nvarchar(30)")
                                 .HasColumnName("contact_fax");
 
                             b1.Property<string>("Mobile")
                                 .HasMaxLength(30)
-                                .HasColumnType("character varying(30)")
+                                .HasColumnType("nvarchar(30)")
                                 .HasColumnName("contact_mobile");
 
                             b1.Property<string>("Phone")
                                 .HasMaxLength(30)
-                                .HasColumnType("character varying(30)")
+                                .HasColumnType("nvarchar(30)")
                                 .HasColumnName("contact_phone");
 
                             b1.Property<string>("Website")
                                 .HasMaxLength(200)
-                                .HasColumnType("character varying(200)")
+                                .HasColumnType("nvarchar(200)")
                                 .HasColumnName("contact_website");
 
                             b1.HasKey("SupplierId");

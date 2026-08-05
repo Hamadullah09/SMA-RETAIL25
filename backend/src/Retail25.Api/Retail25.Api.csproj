@@ -26,7 +26,7 @@
     <PackageReference Include="Swashbuckle.AspNetCore" />
     <!-- MigrateAsync lives in the relational assembly; the startup path applies migrations. -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
-    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
+    <PackageReference Include="AspNetCore.HealthChecks.SqlServer" />
     <PackageReference Include="AspNetCore.HealthChecks.Redis" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>

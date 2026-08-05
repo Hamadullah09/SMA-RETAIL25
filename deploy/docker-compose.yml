@@ -3,21 +3,25 @@
 # default, rather than left for a reader to discover from a stack trace.
 
 services:
-  postgres:
-    image: postgres:16-alpine
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
     environment:
-      POSTGRES_DB: retail25
-      POSTGRES_USER: retail25
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpassword123}
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-DevPassword123!}
+      MSSQL_PID: Developer
     ports:
-      - "5432:5432"
+      - "1433:1433"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - sqldata:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U retail25"]
-      interval: 5s
+      # The engine answers on the port well before it will accept a query, so the check has to be a
+      # query. `SELECT 1` against master is the cheapest one that proves the difference — without it
+      # the API starts against a listening socket and fails its first migration.
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 10
+      start_period: 20s
 
   redis:
     image: redis:7-alpine
@@ -53,7 +57,7 @@ services:
       context: ../backend
       dockerfile: ../deploy/Dockerfile.api
     environment:
-      - ConnectionStrings__DefaultConnection=Host=postgres;Database=retail25;Username=retail25;Password=${POSTGRES_PASSWORD:-devpassword123}
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=retail25;User Id=sa;Password=${MSSQL_SA_PASSWORD:-DevPassword123!};TrustServerCertificate=True;MultipleActiveResultSets=True
       # Inside the compose network this is the service name. It read `localhost` before, which is the
       # API container itself — so the cart, the tag debouncer and the hub backplane all failed to
       # connect and the till came up unable to ring anything.
@@ -69,7 +73,7 @@ services:
     ports:
       - "5000:8080"
     depends_on:
-      postgres:
+      sqlserver:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -94,5 +98,5 @@ services:
       - api
 
 volumes:
-  pgdata:
+  sqldata:
   redisdata:

@@ -253,7 +253,9 @@ public static class EpcCatalogCsv
     /// Returned in UTC, always.
     /// <para>
     /// The file writes its timestamps in the exporting machine's local offset — <c>+0500</c> — and
-    /// PostgreSQL's <c>timestamptz</c> accepts nothing but zero through Npgsql. The instant is
+    /// The instant is the same either way; only its spelling changes. Npgsql rejected a non-zero
+    /// offset outright for <c>timestamptz</c> and SQL Server accepts one, so this is now about
+    /// storing what the rest of the system stores rather than about being allowed to store it. The
     /// unchanged; only its spelling is. Left alone, every row in this file throws on save.
     /// </para>
     /// </summary>

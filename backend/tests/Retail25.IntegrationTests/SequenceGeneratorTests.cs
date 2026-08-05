@@ -15,15 +15,15 @@ namespace Retail25.IntegrationTests;
 /// per-workstation counter did collide, and this is the test that says ours does not.
 /// </para>
 /// </summary>
-[Collection(PostgresCollection.Name)]
+[Collection(SqlServerCollection.Name)]
 public sealed class SequenceGeneratorTests : IAsyncLifetime
 {
-    private readonly PostgresFixture _postgres;
+    private readonly SqlServerFixture _sqlServer;
     private ApplicationDbContextScope _scope = null!;
 
-    public SequenceGeneratorTests(PostgresFixture postgres) => _postgres = postgres;
+    public SequenceGeneratorTests(SqlServerFixture sqlServer) => _sqlServer = sqlServer;
 
-    public async Task InitializeAsync() => _scope = await ApplicationDbContextScope.CreateAsync(_postgres, "sequences");
+    public async Task InitializeAsync() => _scope = await ApplicationDbContextScope.CreateAsync(_sqlServer, "sequences");
 
     public Task DisposeAsync()
     {
@@ -57,7 +57,7 @@ public sealed class SequenceGeneratorTests : IAsyncLifetime
 
         var issued = await Task.WhenAll(Enumerable.Range(0, 25).Select(async _ =>
         {
-            await using var db = _postgres.CreateContext(_scope.Db.Database.GetConnectionString());
+            await using var db = _sqlServer.CreateContext(_scope.Db.Database.GetConnectionString());
             return await new SequenceGenerator(db).NextAsync(SequenceKind.Transaction, _scope.LocationId);
         }));
 

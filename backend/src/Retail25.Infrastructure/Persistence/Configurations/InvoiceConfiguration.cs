@@ -24,7 +24,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
             .HasMaxLength(20);
 
         builder.HasIndex(i => new { i.CustomerId, i.Status })
-            .HasFilter("status = 'Open'");
+            .HasFilter("[status] = 'Open'");
 
         builder.HasIndex(i => i.InvoiceNumber);
 

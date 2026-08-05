@@ -1,15 +1,15 @@
 using Microsoft.EntityFrameworkCore;
-using Npgsql;
+using Microsoft.Data.SqlClient;
 using NSubstitute;
 using Retail25.Application.Abstractions;
 using Retail25.Infrastructure.Persistence;
-using Testcontainers.PostgreSql;
+using Testcontainers.MsSql;
 using Xunit;
 
 namespace Retail25.IntegrationTests;
 
 /// <summary>
-/// A real PostgreSQL 16 for the tests that cannot be answered without one.
+/// A real SQL Server for the tests that cannot be answered without one.
 /// <para>
 /// The unit suites run against the in-memory provider, which is the right trade for handler
 /// behaviour but is silent about two whole classes of defect: a LINQ expression that cannot be
@@ -18,27 +18,24 @@ namespace Retail25.IntegrationTests;
 /// codebase that the unit tests passed straight through.
 /// </para>
 /// <para>
-/// One container for the whole collection, because starting Postgres costs seconds and the tests
+/// One container for the whole collection, because starting SQL Server costs seconds and the tests
 /// here do not need isolation from each other — each seeds the rows it asserts on.
 /// </para>
 /// </summary>
-public sealed class PostgresFixture : IAsyncLifetime
+public sealed class SqlServerFixture : IAsyncLifetime
 {
     /// <summary>
     /// Points the suite at a server that already exists instead of starting a container — for a
-    /// machine where Docker cannot run at all (no nested virtualization) but a real PostgreSQL is
+    /// machine where Docker cannot run at all (no nested virtualization) but a real SQL Server is
     /// reachable some other way. Not used by CI; CI has a real Docker daemon and gets full isolation
     /// from Testcontainers instead.
     /// </summary>
     private static readonly string? ExternalConnectionString =
-        Environment.GetEnvironmentVariable("RETAIL25_TEST_PG_CONNECTION");
+        Environment.GetEnvironmentVariable("RETAIL25_TEST_SQL_CONNECTION");
 
-    private readonly PostgreSqlContainer? _container = ExternalConnectionString is null
-        ? new PostgreSqlBuilder()
-            .WithImage("postgres:16-alpine")
-            .WithDatabase("retail25_tests")
-            .WithUsername("retail25")
-            .WithPassword("retail25")
+    private readonly MsSqlContainer? _container = ExternalConnectionString is null
+        ? new MsSqlBuilder()
+            .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
             .Build()
         : null;
 
@@ -81,9 +78,9 @@ public sealed class PostgresFixture : IAsyncLifetime
         var interceptor = new AuditingInterceptor(currentUser, Substitute.For<IRequestContext>(), clock);
 
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-            .UseNpgsql(
+            .UseSqlServer(
                 connectionString ?? ConnectionString,
-                npgsql => npgsql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName))
+                sql => sql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName))
             .UseSnakeCaseNamingConvention()
             .AddInterceptors(interceptor)
             .Options;
@@ -96,38 +93,22 @@ public sealed class PostgresFixture : IAsyncLifetime
     /// can prove something about a database nothing has touched yet.
     /// <para>
     /// Several tests reuse the same database name across the life of the process (one per test
-    /// class, recreated on every test method), and Npgsql pools physical connections per connection
-    /// string rather than per <see cref="ApplicationDbContext"/> instance. Disposing a context
-    /// returns its connection to that pool as idle rather than closing the socket — so the next test
-    /// against the same name would otherwise reuse a live-looking connection whose backend process
-    /// <c>DROP DATABASE ... WITH (FORCE)</c> has just killed server-side, and fail with a raw socket
-    /// reset instead of a database error. Clearing the pool for this exact connection string forces
-    /// the next checkout to open a genuinely new connection.
+    /// class, recreated on every test method), and the client pools physical connections per
+    /// connection string rather than per <see cref="ApplicationDbContext"/> instance. Disposing a
+    /// context returns its connection to that pool as idle rather than closing the socket — so the
+    /// next test against the same name would otherwise check out a live-looking connection to a
+    /// database that no longer exists, and fail on a connection error rather than anything to do
+    /// with the test. <see cref="SqlServerDatabases.RecreateAsync"/> clears the pool for exactly
+    /// that connection string; it also has to evict live sessions before the drop, which SQL Server
+    /// will not do for itself.
     /// </para>
     /// </summary>
-    public async Task<string> CreateEmptyDatabaseAsync(string name)
-    {
-        var builder = new NpgsqlConnectionStringBuilder(ConnectionString) { Database = name };
-        var targetConnectionString = builder.ConnectionString;
-
-        await using (var target = new NpgsqlConnection(targetConnectionString))
-        {
-            NpgsqlConnection.ClearPool(target);
-        }
-
-        await using var admin = CreateContext();
-
-#pragma warning disable EF1002 // The name is generated by the caller from a test method name.
-        await admin.Database.ExecuteSqlRawAsync($"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)");
-        await admin.Database.ExecuteSqlRawAsync($"CREATE DATABASE \"{name}\"");
-#pragma warning restore EF1002
-
-        return targetConnectionString;
-    }
+    public Task<string> CreateEmptyDatabaseAsync(string name)
+        => SqlServerDatabases.RecreateAsync(ConnectionString, name);
 }
 
 [CollectionDefinition(Name)]
-public sealed class PostgresCollection : ICollectionFixture<PostgresFixture>
+public sealed class SqlServerCollection : ICollectionFixture<SqlServerFixture>
 {
-    public const string Name = "postgres";
+    public const string Name = "sqlserver";
 }

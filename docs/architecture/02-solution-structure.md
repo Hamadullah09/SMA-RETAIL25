@@ -16,7 +16,7 @@ Retail25/
 │  └─ retail25-web/                     # Next.js 14 App Router
 ├─ agent/                               # shipped with backend solution, deployed separately
 ├─ deploy/
-│  ├─ docker-compose.yml                # postgres, redis, api, web, seq/otel-collector
+│  ├─ docker-compose.yml                # sqlserver, redis, api, web, seq/otel-collector
 │  ├─ docker-compose.prod.yml
 │  ├─ Dockerfile.api  Dockerfile.web
 │  ├─ nginx/ (or caddy/)                # TLS termination, single origin for API + web
@@ -152,7 +152,7 @@ backend/
 └─ tests/
    ├─ Retail25.Domain.UnitTests/          pricing/tax golden files, EPC state machine
    ├─ Retail25.Application.UnitTests/     handlers with in-memory fakes
-   ├─ Retail25.IntegrationTests/          Testcontainers: Postgres + Redis, real HTTP
+   ├─ Retail25.IntegrationTests/          Testcontainers: SQL Server + Redis, real HTTP
    ├─ Retail25.ArchitectureTests/         NetArchTest dependency rules
    └─ Retail25.LoadTests/                 k6/NBomber: 50 stations × bulk RFID
 ```
@@ -164,7 +164,7 @@ backend/
 | Mediation | `MediatR` | Brief mandates CQRS via MediatR |
 | Validation | `FluentValidation` | Pipeline behavior, no attribute soup |
 | Mapping | `Mapster` | Compile-time, faster than AutoMapper, no runtime config drift |
-| ORM | `Npgsql.EntityFrameworkCore.PostgreSQL` 8 | Explicit migrations per brief |
+| ORM | `Microsoft.EntityFrameworkCore.SqlServer` 8 | Explicit migrations per brief |
 | Auth server | `OpenIddict.Server.AspNetCore` 5.x | Brief mandate |
 | Background jobs | `Hangfire.PostgreSql` | Durable retries + dashboard for late charges/sync/close |
 | PDF | `QuestPDF` | Invoices, statements, POs, labels, price tags |

@@ -295,7 +295,7 @@ public sealed class ReportReconciliationTests
     /// does not exist — neither of which the in-memory provider would ever reveal.
     /// </summary>
     [RequiresDockerFact]
-    public async Task Every_remaining_report_executes_against_real_postgres()
+    public async Task Every_remaining_report_executes_against_real_sql_server()
     {
         var scenario = await Scenario();
 

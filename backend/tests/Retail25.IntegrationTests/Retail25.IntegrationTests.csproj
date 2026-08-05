@@ -12,7 +12,7 @@
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="NSubstitute" />
-    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.MsSql" />
     <PackageReference Include="Testcontainers.Redis" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <!--
@@ -20,7 +20,7 @@
       migrations model differ directly, which live in the relational and design assemblies.
     -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

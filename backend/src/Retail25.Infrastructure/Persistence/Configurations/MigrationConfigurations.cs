@@ -16,9 +16,9 @@ public sealed class MigrationBatchConfiguration : IEntityTypeConfiguration<Migra
         builder.Property(e => e.SourceHash).HasMaxLength(64).IsRequired();
         builder.Property(e => e.Notes).HasMaxLength(1000);
 
-        builder.Property(e => e.AnalysisJson).HasColumnType("jsonb");
-        builder.Property(e => e.ValidationJson).HasColumnType("jsonb");
-        builder.Property(e => e.ReconciliationJson).HasColumnType("jsonb");
+        builder.Property(e => e.AnalysisJson).HasColumnType("nvarchar(max)");
+        builder.Property(e => e.ValidationJson).HasColumnType("nvarchar(max)");
+        builder.Property(e => e.ReconciliationJson).HasColumnType("nvarchar(max)");
 
         builder.Ignore(e => e.CanImport);
 
@@ -36,7 +36,7 @@ public sealed class MigrationStagingRowConfiguration : IEntityTypeConfiguration<
     {
         builder.HasKey(e => e.Id);
 
-        builder.Property(e => e.PayloadJson).HasColumnType("jsonb").IsRequired();
+        builder.Property(e => e.PayloadJson).HasColumnType("nvarchar(max)").IsRequired();
         builder.Property(e => e.LegacyKey).HasMaxLength(60);
         builder.Property(e => e.Problems).HasMaxLength(2000);
         builder.Property(e => e.Outcome).HasMaxLength(200);

@@ -8,6 +8,13 @@ An earlier revision of this file called phases 0, 3 and 4 complete when they wer
 audit found the gaps; this revision records them **closed**. What was fixed and why it mattered is in
 [The audit and what it closed](#the-audit-and-what-it-closed).
 
+> **On the database engine.** Everything below that names PostgreSQL was true on the date at the top.
+> The system has since migrated to SQL Server ([Phase 7.5](architecture/11-delivery-roadmap.md)), and
+> those references are left as written rather than rewritten — this file is a dated record of what was
+> demonstrable when, and editing history to match the present is how a record stops being evidence.
+> The current engine, and what the move cost, are in
+> [12-schema-reference.md](architecture/12-schema-reference.md).
+
 ## Headline
 
 | | |

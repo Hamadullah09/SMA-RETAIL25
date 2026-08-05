@@ -88,7 +88,7 @@ public sealed class DataProtectionPersistenceTests
         var services = new ServiceCollection();
 
         services.AddDbContext<ApplicationDbContext>(options => options
-            .UseNpgsql(_api.ConnectionString)
+            .UseSqlServer(_api.ConnectionString)
             .UseSnakeCaseNamingConvention());
 
         // The same two calls the application makes. SetApplicationName is half the fix: without it

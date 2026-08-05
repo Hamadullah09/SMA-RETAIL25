@@ -188,7 +188,7 @@ public sealed class FinancialReportHandlers
     public async Task<RewardPointsResult> Handle(GetRewardPointsActivityQuery request, CancellationToken ct)
     {
         // UTC-anchored: see InventoryReportHandlers.DayRangeUtc — an unspecified-kind DateTime picks
-        // up the server's local offset and Npgsql rejects it outright for a timestamptz column.
+        // up the server's local offset, which makes a report silently answer for the wrong day.
         var (from, to) = InventoryReportHandlers.DayRangeUtc(request.From, request.To);
 
         var customerIds = await _db.Customers.AsNoTracking()

@@ -14,19 +14,19 @@ namespace Retail25.IntegrationTests;
 /// <summary>
 /// Phase 0's exit criterion, stated as a test: <i>a migration applies to a clean database</i>.
 /// </summary>
-[Collection(PostgresCollection.Name)]
+[Collection(SqlServerCollection.Name)]
 public sealed class MigrationTests
 {
-    private readonly PostgresFixture _postgres;
+    private readonly SqlServerFixture _sqlServer;
 
-    public MigrationTests(PostgresFixture postgres) => _postgres = postgres;
+    public MigrationTests(SqlServerFixture sqlServer) => _sqlServer = sqlServer;
 
     [RequiresIsolatedDatabaseFact]
     public async Task The_migration_applies_to_a_clean_database()
     {
-        var connection = await _postgres.CreateEmptyDatabaseAsync("migration_clean");
+        var connection = await _sqlServer.CreateEmptyDatabaseAsync("migration_clean");
 
-        await using var db = _postgres.CreateContext(connection);
+        await using var db = _sqlServer.CreateContext(connection);
 
         await db.Database.MigrateAsync();
 
@@ -41,9 +41,9 @@ public sealed class MigrationTests
     [RequiresIsolatedDatabaseFact]
     public async Task Applying_the_migration_twice_is_a_no_op()
     {
-        var connection = await _postgres.CreateEmptyDatabaseAsync("migration_twice");
+        var connection = await _sqlServer.CreateEmptyDatabaseAsync("migration_twice");
 
-        await using var db = _postgres.CreateContext(connection);
+        await using var db = _sqlServer.CreateContext(connection);
 
         await db.Database.MigrateAsync();
         await db.Database.MigrateAsync();
@@ -55,7 +55,7 @@ public sealed class MigrationTests
     [RequiresIsolatedDatabaseFact]
     public void The_migrations_match_the_model()
     {
-        using var db = _postgres.CreateContext();
+        using var db = _sqlServer.CreateContext();
 
         // Mirrors MigrationsScaffolder.HasDifferences — the same comparison `dotnet ef migrations
         // add` runs internally to decide whether there is anything to scaffold. The snapshot model
@@ -88,9 +88,9 @@ public sealed class MigrationTests
     [RequiresIsolatedDatabaseFact]
     public async Task The_seeder_can_run_twice_without_duplicating_a_store()
     {
-        var connection = await _postgres.CreateEmptyDatabaseAsync("migration_seed");
+        var connection = await _sqlServer.CreateEmptyDatabaseAsync("migration_seed");
 
-        await using var db = _postgres.CreateContext(connection);
+        await using var db = _sqlServer.CreateContext(connection);
         await db.Database.MigrateAsync();
 
         var clock = Substitute.For<IDateTime>();

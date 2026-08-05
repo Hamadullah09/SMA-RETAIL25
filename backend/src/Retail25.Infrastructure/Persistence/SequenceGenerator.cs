@@ -7,12 +7,13 @@ using Retail25.Domain.Configuration;
 namespace Retail25.Infrastructure.Persistence;
 
 /// <summary>
-/// Document numbers from Postgres sequences, one per location and document kind.
+/// Document numbers from SQL Server sequences, one per location and document kind.
 /// <para>
 /// The legacy system kept a "next number" setting per workstation, which is why two tills selling at
-/// the same moment could produce the same invoice number. A sequence is transactional, monotonic and
-/// unaffected by rollback — a rolled-back sale burns a number, which is the correct trade: a gap is
-/// auditable, a duplicate is not.
+/// the same moment could produce the same invoice number. A sequence is monotonic and unaffected by
+/// rollback — a rolled-back sale burns a number, which is the correct trade: a gap is auditable, a
+/// duplicate is not. That property is the same on both engines, which is why this class survived the
+/// move from PostgreSQL with its behaviour intact.
 /// </para>
 /// <para>
 /// Each sequence is created on first use and <b>started from the administered
@@ -46,9 +47,11 @@ public sealed class SequenceGenerator : ISequenceGenerator
         // set is an assumption about a database made by a process that outlives it: with integer keys
         // every fresh database's location id is 1, so one database's sequence name masked another's,
         // and a test that recreated its database under the same name hit the same thing. And catching
-        // the "relation does not exist" error to create it on demand cannot work inside a
-        // transaction, because PostgreSQL aborts the whole transaction on any failed statement — the
-        // recovery would run against a connection that refuses everything until rollback.
+        // "no such sequence" to create it on demand was written against PostgreSQL, which aborts the
+        // whole transaction on any failed statement — the recovery ran against a connection that
+        // refused everything until rollback. SQL Server would tolerate that shape, but the reason to
+        // avoid it is the same on both: a recovery path that only runs on first use is a recovery
+        // path nobody exercises.
         //
         // So: one extra idempotent statement per number issued. That is a real cost on a till that
         // rings a sale a second, and it is still the right trade against issuing a duplicate invoice
@@ -66,7 +69,7 @@ public sealed class SequenceGenerator : ISequenceGenerator
         }
 
         await using var command = _db.Database.GetDbConnection().CreateCommand();
-        command.CommandText = "SELECT nextval('\"" + name + "\"')";
+        command.CommandText = "SELECT NEXT VALUE FOR [" + name + "]";
         command.Transaction = _db.Database.CurrentTransaction?.GetDbTransaction();
 
         var value = await command.ExecuteScalarAsync(ct);
@@ -87,9 +90,7 @@ public sealed class SequenceGenerator : ISequenceGenerator
         var startAt = Math.Max(1L, start).ToString(CultureInfo.InvariantCulture);
 
 #pragma warning disable EF1002
-        await _db.Database.ExecuteSqlRawAsync(
-            "CREATE SEQUENCE IF NOT EXISTS \"" + name + "\" AS bigint START " + startAt + " INCREMENT 1",
-            ct);
+        await _db.Database.ExecuteSqlRawAsync(CreateIfAbsent(name, startAt), ct);
 #pragma warning restore EF1002
     }
 
@@ -99,15 +100,26 @@ public sealed class SequenceGenerator : ISequenceGenerator
         var startAt = Math.Max(1L, nextNumber).ToString(CultureInfo.InvariantCulture);
 
 #pragma warning disable EF1002
-        await _db.Database.ExecuteSqlRawAsync(
-            "CREATE SEQUENCE IF NOT EXISTS \"" + name + "\" AS bigint START " + startAt + " INCREMENT 1",
-            ct);
+        await _db.Database.ExecuteSqlRawAsync(CreateIfAbsent(name, startAt), ct);
 
         await _db.Database.ExecuteSqlRawAsync(
-            "ALTER SEQUENCE \"" + name + "\" RESTART WITH " + startAt,
+            "ALTER SEQUENCE [" + name + "] RESTART WITH " + startAt,
             ct);
 #pragma warning restore EF1002
     }
+
+    /// <summary>
+    /// SQL Server has no <c>CREATE SEQUENCE IF NOT EXISTS</c>, so the guard is explicit.
+    /// <para>
+    /// <c>OBJECT_ID(…, 'SO')</c> rather than a query against <c>sys.sequences</c> by name: the
+    /// former resolves through the default schema the way every other statement in this connection
+    /// does, and the latter would match a sequence of the same name in a schema this code will never
+    /// use — reporting "already there" about an object it cannot draw from.
+    /// </para>
+    /// </summary>
+    private static string CreateIfAbsent(string name, string startAt)
+        => "IF OBJECT_ID(N'[" + name + "]', 'SO') IS NULL "
+           + "CREATE SEQUENCE [" + name + "] AS bigint START WITH " + startAt + " INCREMENT BY 1";
 
     private static string SequenceName(SequenceKind kind, long locationId)
         => string.Create(CultureInfo.InvariantCulture, $"seq_{kind.ToString().ToLowerInvariant()}_{locationId}");

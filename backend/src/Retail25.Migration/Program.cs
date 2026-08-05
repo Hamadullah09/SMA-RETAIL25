@@ -104,7 +104,7 @@ static async Task<int> ImportTags(string[] args)
     var dryRun = args.Contains("--dry-run");
 
     var options = new DbContextOptionsBuilder<ApplicationDbContext>()
-        .UseNpgsql(connection)
+        .UseSqlServer(connection)
         .UseSnakeCaseNamingConvention()
         .Options;
 

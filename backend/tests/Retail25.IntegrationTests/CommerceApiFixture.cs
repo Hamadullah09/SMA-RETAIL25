@@ -4,10 +4,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
-using Npgsql;
+using Microsoft.Data.SqlClient;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Common;
-using Testcontainers.PostgreSql;
+using Testcontainers.MsSql;
 using Testcontainers.Redis;
 using Xunit;
 
@@ -25,7 +25,7 @@ namespace Retail25.IntegrationTests;
 /// </para>
 /// <para>
 /// So <see cref="ICurrentUser"/> is replaced with one holding every permission. Everything else is
-/// the real application: real MediatR pipeline, real handlers, real EF Core against real Postgres,
+/// the real application: real MediatR pipeline, real handlers, real EF Core against real SQL Server,
 /// real money arithmetic.
 /// </para>
 /// </summary>
@@ -33,18 +33,17 @@ public sealed class CommerceApiFixture : WebApplicationFactory<Program>, IAsyncL
 {
     private const string TestDatabase = "retail25_commerce_tests";
 
-    private static readonly string? ExternalPostgres =
-        Environment.GetEnvironmentVariable("RETAIL25_TEST_PG_CONNECTION");
+    private static readonly string? ExternalSqlServer =
+        Environment.GetEnvironmentVariable("RETAIL25_TEST_SQL_CONNECTION");
 
     private static readonly string? ExternalRedis =
         Environment.GetEnvironmentVariable("RETAIL25_TEST_REDIS");
 
-    private readonly PostgreSqlContainer? _postgres = ExternalPostgres is null
-        ? new PostgreSqlBuilder()
-            .WithImage("postgres:16-alpine")
-            .WithDatabase(TestDatabase)
-            .WithUsername("retail25")
-            .WithPassword("retail25")
+    // No WithDatabase/WithUsername: the SQL Server image ships a fixed `sa` login and creates no
+    // user database, so the fixture's own database is created below like any other server's.
+    private readonly MsSqlContainer? _sqlServer = ExternalSqlServer is null
+        ? new MsSqlBuilder()
+            .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
             .Build()
         : null;
 
@@ -61,27 +60,27 @@ public sealed class CommerceApiFixture : WebApplicationFactory<Program>, IAsyncL
         ? new RedisBuilder().WithImage("redis:7-alpine").Build()
         : null;
 
-    private string _postgresConnection = string.Empty;
+    private string _sqlConnection = string.Empty;
 
     /// <summary>
     /// Where this fixture's database actually is, for a test that needs to stand a second, separate
     /// service provider over the same data — the closest a test gets to "the process restarted".
     /// </summary>
-    public string ConnectionString => _postgresConnection;
+    public string ConnectionString => _sqlConnection;
 
     /// <summary>The acting user. Mutable so a scenario can act as a specific staff member.</summary>
     public TestCurrentUser ActingUser { get; } = new();
 
     public async Task InitializeAsync()
     {
-        if (_postgres is not null)
+        if (_sqlServer is not null)
         {
-            await _postgres.StartAsync();
-            _postgresConnection = _postgres.GetConnectionString();
+            await _sqlServer.StartAsync();
+            _sqlConnection = _sqlServer.GetConnectionString();
         }
         else
         {
-            _postgresConnection = await PrepareExternalDatabaseAsync(ExternalPostgres!);
+            _sqlConnection = await PrepareExternalDatabaseAsync(ExternalSqlServer!);
         }
 
         if (_redis is not null)
@@ -96,7 +95,7 @@ public sealed class CommerceApiFixture : WebApplicationFactory<Program>, IAsyncL
     {
         await base.DisposeAsync();
 
-        if (_postgres is not null) await _postgres.DisposeAsync();
+        if (_sqlServer is not null) await _sqlServer.DisposeAsync();
         if (_redis is not null) await _redis.DisposeAsync();
     }
 
@@ -110,32 +109,18 @@ public sealed class CommerceApiFixture : WebApplicationFactory<Program>, IAsyncL
     /// </summary>
     private static async Task<string> PrepareExternalDatabaseAsync(string adminConnection)
     {
-        var builder = new NpgsqlConnectionStringBuilder(adminConnection) { Database = "postgres" };
-
         try
         {
-            await using var connection = new NpgsqlConnection(builder.ConnectionString);
-            await connection.OpenAsync();
-
-            await using (var drop = new NpgsqlCommand(
-                $"DROP DATABASE IF EXISTS \"{TestDatabase}\" WITH (FORCE)", connection))
-            {
-                await drop.ExecuteNonQueryAsync();
-            }
-
-            await using var create = new NpgsqlCommand($"CREATE DATABASE \"{TestDatabase}\"", connection);
-            await create.ExecuteNonQueryAsync();
-
-            return new NpgsqlConnectionStringBuilder(adminConnection) { Database = TestDatabase }.ConnectionString;
+            return await SqlServerDatabases.RecreateAsync(adminConnection, TestDatabase);
         }
-        catch (PostgresException error) when (error.SqlState == PostgresErrorCodes.InsufficientPrivilege)
+        catch (SqlException error) when (SqlServerDatabases.IsPermissionError(error))
         {
             // Same trade as AuthApiFixture, and a worse one here: these scenarios assert on totals,
             // so sharing a database with existing data means an assertion can pass for the wrong
             // reason. Every scenario therefore creates its own customer and its own product.
             Console.WriteLine(
-                $"[CommerceApiFixture] Cannot create '{TestDatabase}' — the role lacks CREATEDB. "
-                + "Falling back to the supplied database. Grant CREATEDB or run with Docker for isolation.");
+                $"[CommerceApiFixture] Cannot create '{TestDatabase}' — the login may not create databases. "
+                + "Falling back to the supplied database. Grant dbcreator or run with Docker for isolation.");
 
             return adminConnection;
         }
@@ -146,7 +131,7 @@ public sealed class CommerceApiFixture : WebApplicationFactory<Program>, IAsyncL
         builder.ConfigureHostConfiguration(configuration => configuration.AddInMemoryCollection(
             new Dictionary<string, string?>
             {
-                ["ConnectionStrings:DefaultConnection"] = _postgresConnection,
+                ["ConnectionStrings:DefaultConnection"] = _sqlConnection,
                 ["ConnectionStrings:Redis"] = _redis?.GetConnectionString() ?? ExternalRedis ?? string.Empty,
 
                 // In-process when there is no Redis. Safe here for the reason it is not safe in a shop:

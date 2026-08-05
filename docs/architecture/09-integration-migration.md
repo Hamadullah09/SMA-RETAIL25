@@ -66,7 +66,7 @@ stock updates. All four collapse into ordinary features of a shared database:
 | Stock updates (harmonize items/prices) | Single catalog; per-location price/stock overrides where a store genuinely differs |
 | Generic file transfer | Dropped |
 
-If stores must survive WAN outages (**Q4**), the Phase 8 design is: store-local API + Postgres
+If stores must survive WAN outages (**Q4**), the Phase 8 design is: store-local API + a SQL Server
 logical replication for reference data, station-scoped number ranges, and outbox-based upstream
 sync of sales. The schema already supports it (every ledger row carries `LocationId` and a
 globally-unique id), so this is additive, not a rewrite.

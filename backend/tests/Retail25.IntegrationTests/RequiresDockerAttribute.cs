@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using Npgsql;
+using Microsoft.Data.SqlClient;
 using Xunit;
 
 namespace Retail25.IntegrationTests;
@@ -7,7 +7,7 @@ namespace Retail25.IntegrationTests;
 /// <summary>
 /// A <see cref="FactAttribute"/> that skips when there is no Docker daemon to run a container on.
 /// <para>
-/// These tests need real PostgreSQL, and a developer without Docker Desktop running should get a
+/// These tests need real SQL Server, and a developer without Docker Desktop running should get a
 /// clear "skipped, needs Docker" rather than thirteen red failures that say nothing about their
 /// change. The alternative — leaving them to fail — trains people to ignore a red suite, which costs
 /// far more than the coverage is worth.
@@ -31,10 +31,10 @@ public sealed class RequiresDockerTheoryAttribute : TheoryAttribute
 /// <summary>
 /// For a suite that needs a database <em>of its own</em>, not merely a database.
 /// <para>
-/// <see cref="PostgresFixture"/>'s tests assert that a migration applies to a <em>clean</em> schema,
+/// <see cref="SqlServerFixture"/>'s tests assert that a migration applies to a <em>clean</em> schema,
 /// which cannot be answered on a database that already has one. Those tests therefore need the
 /// server to let them create one — a container always does; an external server only does if the role
-/// holds <c>CREATEDB</c>.
+/// holds permission to create databases.
 /// </para>
 /// <para>
 /// Distinguishing this from <see cref="RequiresDockerFactAttribute"/> matters because the two answers
@@ -69,7 +69,7 @@ public sealed class NotYetPassingFactAttribute : FactAttribute
 internal static class TestDatabase
 {
     private static readonly string? External =
-        Environment.GetEnvironmentVariable("RETAIL25_TEST_PG_CONNECTION");
+        Environment.GetEnvironmentVariable("RETAIL25_TEST_SQL_CONNECTION");
 
     private static readonly Lazy<bool> CanCreate = new(ProbeCreateDatabase, LazyThreadSafetyMode.ExecutionAndPublication);
 
@@ -77,7 +77,7 @@ internal static class TestDatabase
     public static string? SkipReasonForSharedDatabase =>
         DockerProbe.IsAvailable || !string.IsNullOrWhiteSpace(External)
             ? null
-            : "Needs a running Docker daemon, or RETAIL25_TEST_PG_CONNECTION pointed at a real PostgreSQL.";
+            : "Needs a running Docker daemon, or RETAIL25_TEST_SQL_CONNECTION pointed at a real SQL Server.";
 
     /// <summary>Null when a suite that must provision its own database is able to run.</summary>
     public static string? SkipReasonForOwnDatabase
@@ -91,14 +91,14 @@ internal static class TestDatabase
 
             if (string.IsNullOrWhiteSpace(External))
             {
-                return "Needs a running Docker daemon, or RETAIL25_TEST_PG_CONNECTION pointed at a real PostgreSQL.";
+                return "Needs a running Docker daemon, or RETAIL25_TEST_SQL_CONNECTION pointed at a real SQL Server.";
             }
 
             return CanCreate.Value
                 ? null
-                : "RETAIL25_TEST_PG_CONNECTION is set but its role cannot CREATE DATABASE, and this suite needs a "
+                : "RETAIL25_TEST_SQL_CONNECTION is set but its login cannot CREATE DATABASE, and this suite needs a "
                   + "database of its own to prove a migration applies to a clean schema. "
-                  + "Run `ALTER ROLE <role> CREATEDB;` as a superuser, or start Docker.";
+                  + "Grant dbcreator (`ALTER SERVER ROLE dbcreator ADD MEMBER [login]`), or start Docker.";
         }
     }
 
@@ -106,19 +106,23 @@ internal static class TestDatabase
     {
         try
         {
-            var builder = new NpgsqlConnectionStringBuilder(External!) { Database = "postgres" };
+            var builder = new SqlConnectionStringBuilder(External!) { InitialCatalog = "master" };
 
-            using var connection = new NpgsqlConnection(builder.ConnectionString);
+            using var connection = new SqlConnection(builder.ConnectionString);
             connection.Open();
 
-            using var command = new NpgsqlCommand(
-                "SELECT rolcreatedb OR rolsuper FROM pg_roles WHERE rolname = current_user", connection);
+            // Asks the permission itself rather than reading role membership. A login can reach
+            // CREATE DATABASE through sysadmin, dbcreator, or a direct server-level grant, and
+            // enumerating the routes gets one of them wrong eventually — this asks the engine the
+            // question the fixture is actually about to ask it.
+            using var command = new SqlCommand(
+                "SELECT CONVERT(bit, HAS_PERMS_BY_NAME(NULL, NULL, 'CREATE ANY DATABASE'))", connection);
 
             return command.ExecuteScalar() is true;
         }
         catch (Exception)
         {
-            // Unreachable, wrong credentials, no such role — all the same answer here.
+            // Unreachable, wrong credentials, no such login — all the same answer here.
             return false;
         }
     }

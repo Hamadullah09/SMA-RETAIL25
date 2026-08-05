@@ -57,9 +57,9 @@ var usesRedis = !string.Equals(
 
 // --- Health checks ---
 var health = builder.Services.AddHealthChecks()
-    .AddNpgSql(
+    .AddSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection")!,
-        name: "postgresql",
+        name: "sqlserver",
         tags: ["ready"]);
 
 // Not probed when nothing uses it. A red "redis" check on a bench that deliberately has no Redis
