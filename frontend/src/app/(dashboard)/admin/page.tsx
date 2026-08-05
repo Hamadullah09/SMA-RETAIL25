@@ -1,7 +1,7 @@
 'use client';
 
 import { NavIndex } from '@/components/shell/nav-card';
-import { BookOpenCheck, Building2, RotateCcw, ScrollText, Settings, Shield, Users } from 'lucide-react';
+import { BookOpenCheck, Building2, DatabaseBackup, RotateCcw, ScrollText, Settings, Shield, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth-config';
 
 /**
@@ -71,6 +71,14 @@ const sections = [
       'Read the old system’s files in, check them, rehearse the import, then do it. Nothing is written until the last step.',
     icon: ScrollText,
     permission: 'migration.run',
+  },
+  {
+    key: 'backup',
+    href: '/admin/backup',
+    title: 'Backup and restore',
+    description: 'Take a copy of the whole database, and put one back when the worst has happened.',
+    icon: DatabaseBackup,
+    permission: 'system.backup',
   },
   {
     key: 'users',

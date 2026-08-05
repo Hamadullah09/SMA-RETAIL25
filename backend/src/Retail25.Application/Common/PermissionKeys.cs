@@ -130,6 +130,10 @@ public static class PermissionKeys
         public const string MigrationRun = "migration.run";
         public const string SyncRun = "sync.run";
         public const string AuditRead = "audit.read";
+
+        /// <summary>Taking and restoring database backups. Restore in particular replaces every
+        /// table at once, so it sits with the other keys only an owner should hold.</summary>
+        public const string Backup = "system.backup";
     }
 
     /// <summary>Everything, for seeding the catalogue and for the administrator preset.</summary>
@@ -148,7 +152,7 @@ public static class PermissionKeys
         Reports.Inventory, Reports.Hours, Reports.Commissions,
         Settings.Read, Settings.Write, Settings.Taxes, Settings.Hardware,
         Terminals.Read, Terminals.Operate, Terminals.Register,
-        System.UsersManage, System.MigrationRun, System.SyncRun, System.AuditRead,
+        System.UsersManage, System.MigrationRun, System.SyncRun, System.AuditRead, System.Backup,
     ];
 
     /// <summary>

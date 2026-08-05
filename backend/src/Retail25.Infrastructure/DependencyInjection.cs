@@ -11,6 +11,7 @@ using Retail25.Application.Accounting;
 using Retail25.Infrastructure.Accounting;
 using Retail25.Application.Documents;
 using Retail25.Infrastructure.Documents;
+using Retail25.Application.Maintenance;
 using Retail25.Application.Migration;
 using Retail25.Application.Rfid;
 using Retail25.Infrastructure.LegacyData;
@@ -34,6 +35,7 @@ public static class DependencyInjection
         services.AddSingleton<IDateTime, SystemClock>();
         services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddScoped<IRequestContext, HttpRequestContext>();
+        services.AddSingleton<IDatabaseBackupService, Retail25.Infrastructure.Maintenance.SqlServerDatabaseBackupService>();
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<AuditingInterceptor>();
 
