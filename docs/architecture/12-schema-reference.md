@@ -267,8 +267,13 @@ An index is the last thing that matters here, not the first. At a counter the qu
    reading "not recognised" on every till indefinitely while the database says otherwise.
 5. **The index**, for what is left.
 
-The measured budget is 300 tags into a cart in under 300 ms, asserted in
-`BulkReadTests.cs`. Nothing in that budget is spent on the index.
+The target is in [10](10-nfr-deployment-testing.md): tag to rendered line, 300 ms at p95.
+`BulkReadTests.cs` puts 300 tags through one batch and asserts no duplicates, no rejections and a
+wall clock well under a per-tag round trip — a shape assertion, not the budget itself, because it
+runs against an in-memory provider where a timing number would mean nothing. The budget is measured
+where it is real, in the Playwright run against a live stack.
+
+Either way, the index is not where that time goes.
 
 ### The second index
 
