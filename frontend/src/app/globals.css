@@ -26,14 +26,19 @@
 @layer base {
   :root {
     /* A cool-tinted neutral ramp. The tint is a couple of points of blue, not a colour — enough to
-       stop the chrome reading as printer-grey next to the indigo accent, not enough to be noticed. */
-    --surface: 248 249 252;
-    --panel: 255 255 255;
-    --panel-hover: 244 245 249;
-    --panel-sunken: 246 247 250;    /* table headers, inset regions */
+       stop the chrome reading as printer-grey next to the indigo accent, not enough to be noticed.
 
-    --border: 228 230 236;
-    --border-strong: 209 212 222;   /* the edge of an active control */
+       The page is a soft grey and a panel is pure white, and the gap between them is deliberate. At
+       the previous 248/255 the two were three points apart, which is below the threshold at which an
+       edge reads as an edge — every card relied on its 1px border alone and the screen came out flat.
+       Six points plus the ambient shadow below is what makes a card sit *above* the page. */
+    --surface: 242 243 248;
+    --panel: 255 255 255;
+    --panel-hover: 244 245 250;
+    --panel-sunken: 247 248 251;    /* table headers, inset regions */
+
+    --border: 227 229 237;
+    --border-strong: 208 211 222;   /* the edge of an active control */
 
     --text: 23 26 38;
     --text-muted: 100 106 128;
@@ -45,6 +50,13 @@
     --accent-soft: 0.95 0.035 265;  /* the tint behind an active nav item or a chip */
     --accent-text: 0.45 0.17 265;   /* accent-coloured text, on the soft tint or on the page */
     --accent-foreground: 255 255 255;
+
+    /* The accent as a *fill under white text* — a filled nav row, the primary button, the brand
+       tile. Separate from `--accent` because the two have opposite constraints: `--accent` gets
+       lighter on a dark ground so it reads as a colour, and anything carrying white text has to get
+       *darker* to stay legible. Holding one value for both is what left white-on-indigo at 3.2:1 in
+       dark mode. Kept at or below oklch L 0.57, which is where white clears 4.5:1. */
+    --accent-fill: 0.52 0.17 265;
 
     /* The one place the accent is allowed to be more than a flat fill: the primary action and the
        hero surface. A gradient anywhere else is decoration. */
@@ -80,7 +92,7 @@
        things that genuinely sit above it — a raised panel, a popover, a dialog. Each step is two
        layers: a tight key shadow that draws the edge, and a soft ambient one that lifts it. One
        blur alone reads either as a smudge or as a hard drop; the pair reads as light. */
-    --shadow-1: 0 1px 2px rgb(18 20 45 / 0.06), 0 2px 8px rgb(18 20 45 / 0.04);
+    --shadow-1: 0 1px 2px rgb(18 20 45 / 0.05), 0 4px 14px rgb(18 20 45 / 0.06);
     --shadow-2: 0 2px 4px rgb(18 20 45 / 0.06), 0 12px 32px rgb(18 20 45 / 0.10);
     --shadow-3: 0 4px 12px rgb(18 20 45 / 0.08), 0 28px 72px rgb(18 20 45 / 0.20);
   }
@@ -91,13 +103,13 @@
   .dark {
     /* True dark, not black: the surface sits near oklch 0.20 with the same cool tint as the light
        ramp, and elevation is carried by each layer being a step lighter than the one below it. */
-    --surface: 16 17 23;
-    --panel: 29 31 41;
-    --panel-hover: 41 44 57;
-    --panel-sunken: 24 26 34;
+    --surface: 13 14 20;
+    --panel: 27 29 39;
+    --panel-hover: 38 41 54;
+    --panel-sunken: 22 24 32;
 
-    --border: 42 44 57;
-    --border-strong: 61 64 81;
+    --border: 44 47 60;
+    --border-strong: 63 66 84;
 
     --text: 237 239 246;
     --text-muted: 152 158 178;
@@ -111,9 +123,14 @@
     --accent-text: 0.78 0.11 265;
     --accent-foreground: 255 255 255;
 
-    /* Lifted with the rest of the palette so the primary button keeps its shape on a dark ground. */
-    --accent-grad: linear-gradient(180deg, oklch(0.655 0.15 263) 0%, oklch(0.575 0.165 267) 100%);
-    --accent-grad-hover: linear-gradient(180deg, oklch(0.70 0.145 263) 0%, oklch(0.62 0.16 267) 100%);
+    /* Deliberately *not* lifted with the rest of the palette. Everything else in this block moves up
+       the lightness scale to stay visible on a dark ground; a surface carrying white text has to
+       move the other way. Lifting it was measurable: white on the old 0.655 top stop came out at
+       3.2:1, so every primary button in the application was below AA in dark mode. */
+    --accent-fill: 0.545 0.17 265;
+
+    --accent-grad: linear-gradient(180deg, oklch(0.565 0.165 263) 0%, oklch(0.495 0.18 267) 100%);
+    --accent-grad-hover: linear-gradient(180deg, oklch(0.515 0.17 263) 0%, oklch(0.445 0.185 267) 100%);
 
     --positive: 0.75 0.12 160;
     --warning: 0.78 0.12 75;
@@ -181,8 +198,53 @@
     @apply rounded-lg border border-subtle bg-panel shadow-raised;
   }
 
+  /**
+   * A panel's title bar.
+   *
+   * Sentence case, semibold, full-strength ink — a card's title is the first thing read on it, and
+   * the previous 12px uppercase muted grey said the opposite: it read as a field label for the
+   * content rather than as the name of the card. The till overrides this back to compact uppercase
+   * below, because a header that costs 12px of height costs the cashier a line of the sale.
+   */
   .pos-panel-header {
-    @apply flex items-center justify-between gap-2 border-b border-subtle px-3 py-2 text-label font-medium uppercase tracking-wide text-ink-muted;
+    @apply flex items-center justify-between gap-3 border-b border-subtle px-4 py-3 text-body-lg font-semibold text-ink;
+  }
+
+  /* Groups the icon and the title into one flex item, so `justify-between` still pushes the action
+     to the far edge instead of stranding the icon there. */
+  .pos-panel-title {
+    @apply flex min-w-0 items-center gap-2;
+  }
+
+  .pos-panel-title > svg {
+    @apply h-4 w-4 shrink-0 text-ink-muted;
+  }
+
+  /*
+   * The right-hand slot: a hint, a link, a menu. It must not inherit the title's weight.
+   *
+   * `.normal-case` is matched as well as the explicit class because it is already the marker on
+   * every one of the seven existing action spans — it was there to undo the old `uppercase`, and
+   * reusing it means those sites are correct without being touched.
+   */
+  .pos-panel-header-action,
+  .pos-panel-header .normal-case {
+    @apply text-body font-normal text-ink-muted;
+  }
+
+  /**
+   * The till keeps the old header verbatim.
+   *
+   * `.pos-layout` has to show twelve cart lines at 1366x768 (doc 08). The back office gained 10px of
+   * header padding and 2px of type; five panels' worth of that is most of a line, and a line of the
+   * sale is the one thing the till cannot spend.
+   */
+  .pos-layout .pos-panel-header {
+    @apply gap-2 px-3 py-2 text-label font-medium uppercase tracking-wide text-ink-muted;
+  }
+
+  .pos-layout .pos-panel-header .normal-case {
+    @apply text-label text-ink-muted;
   }
 
   /**
@@ -208,7 +270,8 @@
      and the 1px inner highlight are what make it read as a pressable object rather than a painted
      rectangle; the flat `bg-accent` underneath is the fallback while the image paints. */
   .pos-button-primary {
-    @apply inline-flex min-h-control items-center justify-center gap-1.5 rounded border border-transparent bg-accent px-3 text-body font-semibold text-accent-foreground transition-shadow duration-150;
+    @apply inline-flex min-h-control items-center justify-center gap-1.5 rounded border border-transparent px-3 text-body font-semibold text-accent-foreground transition-shadow duration-150;
+    background-color: oklch(var(--accent-fill));
     background-image: var(--accent-grad);
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.16),
@@ -286,10 +349,46 @@
     box-shadow: inset 0 -1px 0 rgb(var(--border-strong));
   }
 
+  /**
+   * A status pill.
+   *
+   * Sentence case now. UPPERCASE WITH TRACKING is the house style of a 2015 admin theme, and it also
+   * shouts a value the user did not choose — "Enabled" is a fact, not an alarm.
+   *
+   * The tint is mixed from `currentColor` rather than declared, so a caller sets one thing — the
+   * text colour — and gets a matching wash and hairline for free. That is what the five call sites
+   * were each doing by hand, at four different opacities. A caller that genuinely wants a different
+   * fill still wins, because a `bg-*` utility outranks this components-layer rule.
+   */
   .pos-badge {
-    @apply inline-flex items-center gap-1 rounded-full px-2 text-caption font-semibold uppercase leading-5 tracking-wide;
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-caption font-medium leading-4;
+    background-color: color-mix(in oklch, currentColor 12%, transparent);
     /* A hairline of the badge's own colour, so a tinted pill keeps an edge on any ground. */
-    box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 22%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in oklch, currentColor 20%, transparent);
+  }
+
+  /**
+   * The headline figure on a stat tile.
+   *
+   * Size and weight live here rather than as utilities at the call site because `cn()` is
+   * `twMerge(clsx(…))`, and twMerge cannot tell a custom `text-display` (a size) from a custom
+   * `text-ink` (a colour) — it treats them as one group and keeps the last. The tile has carried
+   * both since it was written, so the number every manager reads first has been silently rendering
+   * at body size. A components-layer class is never passed through the merge, so it cannot be eaten.
+   */
+  .pos-kpi-value {
+    @apply text-display font-semibold leading-none tracking-tight tabular-nums;
+  }
+
+  /**
+   * The delta on a stat tile: an arrow and a percentage on a wash of its own hue.
+   *
+   * Separate from `.pos-badge` because it is a comparison rather than a state, and it is the one
+   * place a figure is allowed to be smaller than the tile's headline and still be read.
+   */
+  .pos-delta {
+    @apply inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-caption font-semibold leading-4 tabular-nums;
+    background-color: color-mix(in oklch, currentColor 14%, transparent);
   }
 
   /* A link that reads as one without being blue. */
@@ -311,11 +410,62 @@
      the brand is drawn once. */
   .pos-brand-mark {
     @apply inline-flex shrink-0 items-center justify-center rounded-md font-semibold text-accent-foreground;
-    background-color: oklch(var(--accent));
+    background-color: oklch(var(--accent-fill));
     background-image: var(--accent-grad);
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / 0.18),
       0 1px 2px oklch(var(--accent-strong) / 0.30);
+  }
+
+  /**
+   * One row of the sidebar.
+   *
+   * The current page is a solid accent fill rather than the previous tint-plus-edge-marker. A tint
+   * of the accent at 95% lightness is four points off the panel it sits on, which is a distinction
+   * that survives neither a glance nor a poorly calibrated counter monitor. A filled row is
+   * unmistakable at any angle, and it carries weight and hue with it, so nothing is lost for a
+   * reader who cannot separate the two hues — the fill is still the only dark row in the rail.
+   */
+  .pos-nav-item {
+    @apply relative flex h-10 items-center gap-3 rounded-md px-3 text-body font-medium text-ink-muted transition-colors duration-150;
+  }
+
+  .pos-nav-item:hover {
+    @apply bg-panel-hover text-ink;
+  }
+
+  .pos-nav-item[data-active='true'] {
+    @apply font-semibold text-accent-foreground;
+    background-color: oklch(var(--accent-fill));
+    background-image: var(--accent-grad);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.14),
+      0 1px 3px oklch(var(--accent-strong) / 0.35);
+  }
+
+  .pos-nav-item[data-active='true']:hover {
+    @apply text-accent-foreground;
+    background-image: var(--accent-grad-hover);
+  }
+
+  /* A child of an expanded group. Indented past the parent's icon so the tree reads down the gutter
+     rather than needing a rule drawn for it. */
+  .pos-nav-child {
+    @apply h-9 pl-11 text-body font-normal;
+  }
+
+  .pos-nav-section {
+    @apply px-3 pb-1 pt-4 text-caption font-semibold uppercase tracking-wider text-ink-muted;
+  }
+
+  /**
+   * The reference column of a table — a stock code, an invoice number, a customer.
+   *
+   * It is the column people click, so it is the one that says it can be clicked. Underlined on hover
+   * only: fifty rows of permanently underlined text is a screen of noise.
+   */
+  .pos-cell-link {
+    @apply font-medium text-accent-text underline-offset-2 hover:underline;
   }
 }
 

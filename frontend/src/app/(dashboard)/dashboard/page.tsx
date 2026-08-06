@@ -84,6 +84,15 @@ export default function DashboardPage() {
   const rows = trend.data?.rows ?? [];
   const todayRow = rows.find((r) => r.groupKey === today);
 
+  // Yesterday is already inside the fortnight the trend query returned, so the comparison is free —
+  // no second request, and it cannot disagree with the headline because it is the same array.
+  //
+  // Left off entirely when yesterday took nothing. A percentage against zero is either a division by
+  // zero or a fabricated "100%", and a shop that was shut yesterday should not be told it is up.
+  const yesterdayNet = rows.find((r) => r.groupKey === isoDate(-1))?.netSales ?? 0;
+  const todayNet = todayRow?.netSales ?? 0;
+  const salesDelta = yesterdayNet > 0 ? ((todayNet - yesterdayNet) / yesterdayNet) * 100 : undefined;
+
   const outstanding = (aging.data ?? []).reduce((sum, row) => sum + row.total, 0);
   const overdue = (aging.data ?? []).reduce((sum, row) => sum + row.days30 + row.days60 + row.days90Plus, 0);
   const outstandingPos = onOrder.data ?? [];
@@ -114,8 +123,13 @@ export default function DashboardPage() {
           ) : (
             <KpiTile
               label="Sales today"
-              value={formatCurrency(todayRow?.netSales ?? 0)}
+              value={formatCurrency(todayNet)}
               hint={`${todayRow?.transactionCount ?? 0} transaction${todayRow?.transactionCount === 1 ? '' : 's'}`}
+              delta={
+                salesDelta != null
+                  ? { percent: salesDelta, comparison: `vs yesterday ${formatCurrency(yesterdayNet)}` }
+                  : undefined
+              }
               href="/reports/sales"
             />
           )

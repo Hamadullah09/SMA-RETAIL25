@@ -137,32 +137,39 @@ export default function ReportsPage() {
   })).filter((group) => group.reports.length > 0);
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-h3 font-semibold">Reports</h1>
+    <div className="space-y-6 p-6">
+      <h1>Reports</h1>
 
       {groups.map((group) => (
-        <section key={group.heading} className="space-y-2">
-          <h2 className="pos-panel-header">{group.heading}</h2>
+        <section key={group.heading} className="space-y-3">
+          {/* `pos-panel-header` was on this heading, which drew a panel's bottom rule and padding
+              across a page with no panel under it. A section heading is not a card title. */}
+          <h2 className="pos-nav-section px-0 pt-0">{group.heading}</h2>
 
           <div className="grid gap-3 md:grid-cols-2">
             {group.reports.map((report) => (
               <Link
                 key={report.href}
                 href={report.href}
-                className="pos-panel block p-4 transition-colors hover:bg-panel-hover"
+                className="pos-panel group block p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-strong hover:shadow-popover"
               >
-                <span className="mb-1 flex items-center gap-2 text-body font-medium">
-                  <report.icon className="h-4 w-4" />
+                <span className="mb-1.5 flex items-center gap-2.5 text-body-lg font-semibold text-ink">
+                  <span
+                    aria-hidden
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-text transition-colors group-hover:bg-accent group-hover:text-accent-foreground"
+                  >
+                    <report.icon className="h-4 w-4" />
+                  </span>
                   {report.title}
                 </span>
-                <span className="block text-label text-ink-muted">{report.description}</span>
+                <span className="block text-body text-ink-muted">{report.description}</span>
               </Link>
             ))}
           </div>
         </section>
       ))}
 
-      <p className="max-w-2xl text-label text-ink-muted">
+      <p className="max-w-2xl text-body text-ink-muted">
         Labels and price tags, staff hours and commissions, bulk price changes, stock counts and transfers, the
         year-end close and the accounting sync are the rest of Phase 6 and are still being built.
       </p>

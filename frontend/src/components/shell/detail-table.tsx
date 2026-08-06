@@ -60,8 +60,10 @@ export function DetailTable<TRow>({
                 scope="col"
                 data-numeric={column.numeric ? '' : undefined}
                 style={column.width ? { width: column.width } : undefined}
+                // Sentence case, muted, on the sunken tint. A header row is scaffolding for the
+                // figures under it; uppercase gave it more presence than the data it labels.
                 className={cn(
-                  'border-b border-subtle px-2 py-1.5 text-label font-medium uppercase tracking-wide text-ink-muted',
+                  'border-b border-subtle px-3 py-2.5 text-label font-medium text-ink-muted',
                   column.numeric ? 'text-right' : 'text-left',
                 )}
               >
@@ -73,12 +75,15 @@ export function DetailTable<TRow>({
 
         <tbody>
           {rows.map((row, index) => (
-            <tr key={rowKey(row, index)} className="border-b border-subtle last:border-0">
+            <tr
+              key={rowKey(row, index)}
+              className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
+            >
               {columns.map((column) => (
                 <td
                   key={column.key}
                   data-numeric={column.numeric ? '' : undefined}
-                  className={cn('px-2 py-1.5 align-top', column.numeric && 'text-right')}
+                  className={cn('px-3 py-3 align-middle', column.numeric && 'text-right')}
                 >
                   {column.render(row, index)}
                 </td>

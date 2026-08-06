@@ -243,7 +243,10 @@ export const usePosStore = create<PosState>((set, get) => ({
         void posApi
           .cartForStation(stationId)
           .then(async (cart) => {
-            set({ cart });
+            // Clearing the error matters as much as taking the cart. "This cart is no longer
+            // active" is true at the moment the server restarts and false a second later, and a
+            // stale refusal left on a till reads as a broken till.
+            set({ cart, error: null });
             await posHub.joinCart(cart.id);
           })
           .catch(() => {

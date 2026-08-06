@@ -231,10 +231,10 @@ export function DataGrid<TRow>({
       aria-rowcount={sorted.length}
       className="pos-panel flex h-full min-h-0 flex-col"
     >
-      <div className="pos-panel-header gap-2">
-        <span>{sorted.length} rows</span>
+      <div className="pos-panel-header">
+        <span className="pos-panel-title">{sorted.length} rows</span>
 
-        <span className="flex items-center gap-2 normal-case">
+        <span className="pos-panel-header-action flex items-center gap-3">
           {views.map((view) => (
             <button key={view.name} type="button" className="underline" onClick={() => applyView(view)}>
               {view.name}
@@ -248,7 +248,7 @@ export function DataGrid<TRow>({
 
       <div
         role="row"
-        className="grid border-b border-subtle bg-panel-sunken text-label font-medium uppercase tracking-wide text-ink-muted"
+        className="grid border-b border-subtle bg-panel-sunken text-label font-medium text-ink-muted"
         style={{ gridTemplateColumns: visibleColumns.map((c) => `${c.width}px`).join(' '), minWidth: totalWidth }}
       >
         {visibleColumns.map((column) => {
