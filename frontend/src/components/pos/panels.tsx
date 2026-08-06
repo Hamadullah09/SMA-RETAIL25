@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState, type RefObject } from 'react';
+import Link from 'next/link';
+import { ChevronLeft } from 'lucide-react';
 import { usePosStore } from '@/stores/pos-store';
 import type { CartLine, PriceOrigin } from '@/types/pos';
 import { cn } from '@/lib/utils';
@@ -47,6 +49,19 @@ export function StatusBar() {
   return (
     <header className="pos-panel flex items-center justify-between px-3 py-2 text-label">
       <div className="flex items-center gap-4 text-ink-muted">
+        {/*
+          The way out. The till is the one screen with no sidebar — it takes the whole display on
+          purpose — and without this the only route back to the back office is the browser's own
+          back button, which a counter terminal in kiosk mode does not necessarily have.
+        */}
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium text-ink-muted transition-colors hover:bg-panel-hover hover:text-ink"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+          Back office
+        </Link>
+
         <span>
           Station <span className="font-medium text-ink">{policy?.stationCode ?? '—'}</span>
         </span>

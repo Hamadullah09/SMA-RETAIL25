@@ -169,10 +169,39 @@ export default function ReportsPage() {
         </section>
       ))}
 
-      <p className="max-w-2xl text-body text-ink-muted">
-        Labels and price tags, staff hours and commissions, bulk price changes, stock counts and transfers, the
-        year-end close and the accounting sync are the rest of Phase 6 and are still being built.
-      </p>
+      {/*
+        This paragraph used to say these six were "still being built". Every one of them shipped, and
+        a notice claiming otherwise sends the person who needs them away from a system that has them.
+        They are not reports — each is a screen of its own — so they are named here with a route
+        rather than described in the past tense.
+      */}
+      <section className="space-y-3">
+        <h2 className="pos-nav-section px-0 pt-0">Not reports, but often looked for here</h2>
+
+        <div className="flex flex-wrap gap-2">
+          <Link className="pos-button" href="/catalog/products">
+            Labels and price tags
+          </Link>
+          <Link className="pos-button" href="/admin/staff">
+            Staff hours and commissions
+          </Link>
+          <Link className="pos-button" href="/catalog/bulk">
+            Bulk price changes
+          </Link>
+          <Link className="pos-button" href="/inventory/counts">
+            Stock counts
+          </Link>
+          <Link className="pos-button" href="/inventory/transfers">
+            Stock transfers
+          </Link>
+          <Link className="pos-button" href="/admin/year-end">
+            Year-end close
+          </Link>
+          <Link className="pos-button" href="/admin/accounting">
+            Accounting sync
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }

@@ -30,8 +30,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Retail 25 POS',
-  description: 'Enterprise Point of Sale & ERP',
+  title: 'SMA Retail',
+  description: 'Point of sale, inventory and accounts in one place.',
 };
 
 /**

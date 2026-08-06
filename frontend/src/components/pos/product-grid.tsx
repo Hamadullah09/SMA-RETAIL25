@@ -130,8 +130,11 @@ export function ProductGrid() {
     [page],
   );
 
+  // h-full, not just min-h-0. The grid area is a plain block, so a panel without a height sizes to
+  // its list instead of to the space it was given — the tiles then run off the bottom of the screen
+  // and take the function-key bar with them, which is the one row that must never be out of reach.
   return (
-    <section className="pos-panel flex min-h-0 flex-col" aria-label="Products">
+    <section className="pos-panel flex h-full min-h-0 flex-col" aria-label="Products">
       <GridToolbar
         search={search}
         onSearch={setSearch}

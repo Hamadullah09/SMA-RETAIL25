@@ -26,6 +26,7 @@ import type { LucideIcon } from 'lucide-react';
 import { PunchClock } from '@/components/staff/punch-clock';
 import { ThemeToggle } from '@/components/shell/theme-toggle';
 import { CompanyLogo } from '@/components/layout/branding';
+import { SmaMark } from '@/components/layout/logo';
 import { useAuth } from '@/lib/auth-config';
 import { useUIStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils';
@@ -207,11 +208,9 @@ export function Sidebar() {
       <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-3.5">
         {showLabels ? (
           <span className="flex min-w-0 items-center gap-2.5">
-            <span className="pos-brand-mark h-9 w-9 text-body-lg" aria-hidden>
-              25
-            </span>
+            <SmaMark className="h-9 w-9 shrink-0 rounded-[10px]" />
             <span className="flex min-w-0 flex-col">
-              <span className="truncate text-body-lg font-semibold leading-tight tracking-tight">Retail 25</span>
+              <span className="truncate text-body-lg font-semibold leading-tight tracking-tight">SMA Retail</span>
               <span className="truncate text-caption leading-tight text-ink-muted">Retail management</span>
             </span>
           </span>
