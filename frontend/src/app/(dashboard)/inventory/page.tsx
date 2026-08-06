@@ -121,7 +121,7 @@ export default function InventoryPage() {
         />
       }
       form={
-        selectedId && locationId ? (
+        selectedId !== null && locationId ? (
           <StockActionsPanel
             key={String(selectedId)}
             productId={selectedId}

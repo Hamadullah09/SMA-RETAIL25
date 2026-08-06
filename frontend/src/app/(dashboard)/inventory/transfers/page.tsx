@@ -178,7 +178,7 @@ export default function TransfersPage() {
         />
       }
       form={
-        selectedId && locationId ? (
+        selectedId !== null && locationId ? (
           <TransferPanel
             key={String(selectedId)}
             transferId={selectedId}

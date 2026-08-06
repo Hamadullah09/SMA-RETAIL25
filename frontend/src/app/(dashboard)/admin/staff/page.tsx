@@ -122,7 +122,7 @@ export default function StaffPage() {
         />
       }
       form={
-        selectedId && locationId ? (
+        selectedId !== null && locationId ? (
           <StaffPanel
             key={String(selectedId)}
             staff={rows.find((r) => r.id === selectedId)!}

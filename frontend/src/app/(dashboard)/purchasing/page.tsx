@@ -129,7 +129,7 @@ export default function PurchasingPage() {
         />
       }
       form={
-        selectedId && locationId ? (
+        selectedId !== null && locationId ? (
           <PurchaseOrderPanel
             key={String(selectedId)}
             purchaseOrderId={selectedId}

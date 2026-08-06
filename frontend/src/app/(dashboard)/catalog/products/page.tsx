@@ -289,7 +289,7 @@ export default function ProductsPage() {
         />
       }
       form={
-        selectedId && locationId ? (
+        selectedId !== null && locationId ? (
           <ProductFormPanel
             key={String(selectedId)}
             productId={selectedId === NEW_RECORD ? null : selectedId}

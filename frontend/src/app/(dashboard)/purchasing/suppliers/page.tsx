@@ -130,7 +130,7 @@ export default function SuppliersPage() {
         />
       }
       form={
-        selectedId && locationId ? (
+        selectedId !== null && locationId ? (
           <SupplierFormPanel
             key={String(selectedId)}
             supplierId={selectedId === NEW_RECORD ? null : selectedId}

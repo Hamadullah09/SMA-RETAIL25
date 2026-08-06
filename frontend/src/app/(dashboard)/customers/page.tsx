@@ -27,6 +27,13 @@ import type { Address, ContactDetails, CustomerForm, CustomerRow, CustomerSort }
  * id yet, and no row can ever be 0 — the sequence starts at 1. A string sentinel would have to be
  * kept out of every type that says this is a record key.
  */
+/**
+ * The id a record has before it has one.
+ *
+ * Zero is falsy, so every guard that decides whether to show the form has to test it against null
+ * rather than for truth. Testing for truth is what made New customer a button that did nothing at
+ * all: it set the selection to 0, and `selectedId && …` read that as no selection.
+ */
 const NEW_RECORD = 0;
 
 /**
@@ -202,7 +209,7 @@ export default function CustomersPage() {
         />
       }
       form={
-        selectedId && locationId ? (
+        selectedId !== null && locationId ? (
           <CustomerFormPanel
             key={String(selectedId)}
             customerId={selectedId === NEW_RECORD ? null : selectedId}

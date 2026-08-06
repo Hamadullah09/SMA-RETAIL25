@@ -74,32 +74,65 @@ function CustomerPicker({
   onPick,
 }: {
   locationId: number;
-  onPick: (customer: { id: number; customerNumber: number; fullName: string }) => void;
+  onPick: (customer: { id: number; customerNumber: number; fullName: string } | null) => void;
 }) {
   const [term, setTerm] = useState('');
   const [results, setResults] = useState<{ id: number; customerNumber: number; fullName: string }[]>([]);
+  const [picked, setPicked] = useState(false);
+  const [searched, setSearched] = useState(false);
 
   useEffect(() => {
-    if (term.trim().length < 2) {
+    if (picked || term.trim().length < 2) {
       setResults([]);
+      setSearched(false);
       return;
     }
 
     const timer = window.setTimeout(() => {
-      void posApi.searchCustomers(term, locationId).then(setResults).catch(() => setResults([]));
+      void posApi
+        .searchCustomers(term, locationId)
+        .then((rows) => {
+          setResults(rows);
+          setSearched(true);
+        })
+        .catch(() => {
+          setResults([]);
+          setSearched(true);
+        });
     }, 200);
 
     return () => window.clearTimeout(timer);
-  }, [term, locationId]);
+  }, [term, locationId, picked]);
 
   return (
     <Field label="Customer">
       <input
         className="w-full pos-input"
         value={term}
-        onChange={(event) => setTerm(event.target.value)}
+        onChange={(event) => {
+          setTerm(event.target.value);
+
+          // Typing after a pick abandons it. Holding the old id while the box shows a different
+          // name is how an order gets raised against the wrong account.
+          if (picked) {
+            setPicked(false);
+            onPick(null);
+          }
+        }}
         placeholder="Name or customer number"
       />
+
+      {/*
+        The empty result has to say so. A name typed into a box that quietly matched nothing looks
+        exactly like a name that was accepted, and the only sign otherwise is a refusal at the end
+        that says to choose a customer — next to a box with a customer's name already in it.
+      */}
+      {!picked && searched && results.length === 0 ? (
+        <p className="mt-1 text-caption text-warning">
+          No customer matches “{term.trim()}”. Add them under Customers first — an order has to be
+          raised against an account that exists.
+        </p>
+      ) : null}
       {results.length > 0 ? (
         <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-subtle">
           {results.map((r) => (
@@ -109,6 +142,7 @@ function CustomerPicker({
                 className="block w-full px-2 py-1 text-left text-label hover:bg-panel-hover"
                 onClick={() => {
                   onPick(r);
+                  setPicked(true);
                   setResults([]);
                   setTerm(`#${r.customerNumber} — ${r.fullName}`);
                 }}
@@ -321,7 +355,7 @@ function NewCustomerOrderPanel({
 
   const create = async () => {
     if (!customerId || lines.length === 0) {
-      toast({ title: 'Choose a customer and at least one line', variant: 'destructive' });
+      toast({ title: !customerId ? 'Choose a customer from the list' : 'Add at least one line', description: !customerId ? 'Typing a name is not enough — pick the account from the suggestions.' : 'Choose an item, set the quantity, then press Add line.', variant: 'destructive' });
       return;
     }
 
@@ -349,7 +383,7 @@ function NewCustomerOrderPanel({
         <button type="button" className="pos-button" onClick={onClose}>Close</button>
       </div>
       <FormSection title="Customer">
-        <CustomerPicker locationId={locationId} onPick={(c) => setCustomerId(c.id)} />
+        <CustomerPicker locationId={locationId} onPick={(c) => setCustomerId(c?.id ?? null)} />
       </FormSection>
       <FormSection title="Lines" hint="Reserved against stock the moment the order is placed.">
         <LineBuilder locationId={locationId} lines={lines} onChange={setLines} />
@@ -533,7 +567,7 @@ function NewLayawayPanel({ locationId, onClose, onCreated }: { locationId: numbe
 
   const create = async () => {
     if (!customerId || lines.length === 0) {
-      toast({ title: 'Choose a customer and at least one line', variant: 'destructive' });
+      toast({ title: !customerId ? 'Choose a customer from the list' : 'Add at least one line', description: !customerId ? 'Typing a name is not enough — pick the account from the suggestions.' : 'Choose an item, set the quantity, then press Add line.', variant: 'destructive' });
       return;
     }
 
@@ -560,7 +594,7 @@ function NewLayawayPanel({ locationId, onClose, onCreated }: { locationId: numbe
         <button type="button" className="pos-button" onClick={onClose}>Close</button>
       </div>
       <FormSection title="Customer">
-        <CustomerPicker locationId={locationId} onPick={(c) => setCustomerId(c.id)} />
+        <CustomerPicker locationId={locationId} onPick={(c) => setCustomerId(c?.id ?? null)} />
       </FormSection>
       <FormSection
         title="Lines"
@@ -768,7 +802,7 @@ function NewPriceQuotePanel({ locationId, onClose, onCreated }: { locationId: nu
 
   const create = async () => {
     if (!customerId || lines.length === 0) {
-      toast({ title: 'Choose a customer and at least one line', variant: 'destructive' });
+      toast({ title: !customerId ? 'Choose a customer from the list' : 'Add at least one line', description: !customerId ? 'Typing a name is not enough — pick the account from the suggestions.' : 'Choose an item, set the quantity, then press Add line.', variant: 'destructive' });
       return;
     }
 
@@ -796,7 +830,7 @@ function NewPriceQuotePanel({ locationId, onClose, onCreated }: { locationId: nu
         <button type="button" className="pos-button" onClick={onClose}>Close</button>
       </div>
       <FormSection title="Customer">
-        <CustomerPicker locationId={locationId} onPick={(c) => setCustomerId(c.id)} />
+        <CustomerPicker locationId={locationId} onPick={(c) => setCustomerId(c?.id ?? null)} />
       </FormSection>
       <FormSection title="Lines" actions={<button type="button" className="underline" disabled={busy} onClick={() => void create()}>Create quote</button>}>
         <LineBuilder locationId={locationId} lines={lines} onChange={setLines} />
