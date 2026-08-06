@@ -98,7 +98,7 @@ export function useBranding(): BrandingState {
  * for the same reason in the other direction: a screen reader announcing the company logo before
  * every screen is noise, and the shop's name is already in the header.
  */
-export function Watermark() {
+export function Watermark({ layer = 'under' }: { layer?: 'under' | 'over' } = {}) {
   const { slot, imageUrl } = useBranding();
 
   const state = slot('Watermark');
@@ -109,7 +109,17 @@ export function Watermark() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none fixed inset-0 z-0 flex select-none items-center justify-center overflow-hidden"
+      /*
+       * `under` is right wherever the page has room around its panels — the mark shows through the
+       * gaps and nothing sits on top of a figure. The till has no gaps: it is opaque cards edge to
+       * edge, so a watermark beneath them is a watermark nobody ever sees. There it goes over
+       * instead, which is what the word usually means, still beneath dialogs and still deaf to the
+       * mouse. Opacity is a branding setting, so a till that finds it busy turns it down rather
+       * than filing a bug.
+       */
+      className={`pointer-events-none fixed inset-0 flex select-none items-center justify-center overflow-hidden ${
+        layer === 'over' ? 'z-20' : 'z-0'
+      }`}
     >
       <img
         src={source}

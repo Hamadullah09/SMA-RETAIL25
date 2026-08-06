@@ -36,8 +36,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return (
       <BrandingProvider>
         <div className="relative min-h-screen bg-surface">
-          <Watermark />
           <div className="relative z-10">{children}</div>
+          <Watermark layer="over" />
         </div>
       </BrandingProvider>
     );
