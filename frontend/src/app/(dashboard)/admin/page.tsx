@@ -1,7 +1,7 @@
 'use client';
 
 import { NavIndex } from '@/components/shell/nav-card';
-import { BookOpenCheck, Building2, DatabaseBackup, RotateCcw, ScrollText, Settings, Shield, Users } from 'lucide-react';
+import { BookOpenCheck, Building2, DatabaseBackup, Radio, RotateCcw, ScrollText, Settings, Shield, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth-config';
 
 /**
@@ -71,6 +71,15 @@ const sections = [
       'Read the old system’s files in, check them, rehearse the import, then do it. Nothing is written until the last step.',
     icon: ScrollText,
     permission: 'migration.run',
+  },
+  {
+    key: 'rfid',
+    href: '/admin/rfid',
+    title: 'RFID readers',
+    description:
+      'Connect a tag reader over the network, tune its antennas and radio, see its temperature and firmware, and bring tags in from a supplier file.',
+    icon: Radio,
+    permission: 'terminals.read',
   },
   {
     key: 'backup',

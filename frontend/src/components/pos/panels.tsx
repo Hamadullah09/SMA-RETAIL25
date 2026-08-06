@@ -111,7 +111,7 @@ export function ConnectionBanner() {
  * generic failure teaches staff to ignore the feed entirely.
  */
 export function LiveFeed() {
-  const { rejectedTags, readerOnline, readRate, dismissTag, setReaderMode, peripherals } = usePosStore();
+  const { rejectedTags, readerOnline, dismissTag, setReaderMode, peripherals } = usePosStore();
 
   // Rejections stay visible for ten seconds, then clear themselves (doc 08).
   useEffect(() => {
@@ -125,12 +125,16 @@ export function LiveFeed() {
     return () => clearInterval(timer);
   }, [rejectedTags, dismissTag]);
 
+  // The reading state, rate and the start/stop control live on the Tag reader panel — one place to
+  // look, one place to press. This strip only speaks up when something needs the cashier: the
+  // reader dropping offline, or a tag being refused.
   const hasReader = peripherals !== null;
-  if (!hasReader && rejectedTags.length === 0) return null;
+  const showOffline = hasReader && !readerOnline;
+  if (!showOffline && rejectedTags.length === 0) return null;
 
   return (
     <div className="border-b border-subtle">
-      {!readerOnline ? (
+      {showOffline ? (
         <div
           className="flex items-center justify-between gap-2 px-3 py-1.5 text-caption font-medium text-negative"
           role="status"
@@ -140,25 +144,7 @@ export function LiveFeed() {
             Retry
           </button>
         </div>
-      ) : (
-        <div className="flex items-center justify-between gap-2 px-3 py-1.5 text-label">
-          <span className="flex items-center gap-2 text-live">
-            <span aria-hidden className="h-2 w-2 rounded-full" style={{ backgroundColor: 'oklch(var(--live))' }} />
-            Reading
-            <span className="tabular">{readRate}</span>
-            tags/s
-          </span>
-
-          <span className="flex gap-2 text-ink-muted">
-            <button type="button" className="underline" onClick={() => void setReaderMode('Continuous')}>
-              Continuous
-            </button>
-            <button type="button" className="underline" onClick={() => void setReaderMode('Off')}>
-              Stop
-            </button>
-          </span>
-        </div>
-      )}
+      ) : null}
 
       {rejectedTags.length > 0 ? (
         <ul className="max-h-24 overflow-y-auto px-3 pb-1.5 text-label" aria-live="polite">

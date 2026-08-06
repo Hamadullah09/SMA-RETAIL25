@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Play, Square, Volume2, VolumeX } from 'lucide-react';
 import { RfidHub, type ObservedTag, type RfidReaderStatus } from '@/lib/rfid-hub';
 import { playScanTone } from '@/lib/scan-feedback';
+import { toast } from '@/components/ui/toaster';
 import { usePosStore } from '@/stores/pos-store';
 import { useUIStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils';
@@ -126,7 +127,7 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
             </span>
           ) : null}
 
-          <ReaderRunControls />
+          <ReaderRunControls statusReading={status ? status.connected : null} />
           <ScanSoundToggle />
         </span>
       </div>
@@ -147,36 +148,58 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
 }
 
 /**
- * Start and stop the reader's inventory from the till.
+ * Start and stop the reader from the till — one button, whose label is the state.
  *
  * On the panel rather than buried in settings, because stopping the antenna is a counter-side need:
  * a customer's tagged coat drifting into the field mid-sale is resolved by stopping the reader, not
- * by an administrator. Start puts the reader in continuous inventory; Stop turns the RF off.
+ * by an administrator. One toggle rather than a Start/Stop pair, so nobody has to know which of the
+ * two applies right now — and it answers every press with a toast, because a control that works
+ * silently is indistinguishable from one that is broken.
  */
-function ReaderRunControls() {
+function ReaderRunControls({ statusReading }: { statusReading: boolean | null }) {
   const setReaderMode = usePosStore((state) => state.setReaderMode);
+  const [busy, setBusy] = useState(false);
+
+  // The reader's own status report is the truth when it has arrived; until then the button
+  // remembers what it was last asked to do, so the label flips the moment it is pressed instead of
+  // waiting on the next status broadcast.
+  const [asked, setAsked] = useState<boolean | null>(null);
+  const reading = statusReading ?? asked ?? false;
+
+  const flip = async () => {
+    setBusy(true);
+
+    try {
+      const next = !reading;
+      await setReaderMode(next ? 'Continuous' : 'Off');
+      setAsked(next);
+      toast({
+        title: next ? 'Reader started' : 'Reader stopped',
+        description: next
+          ? 'Reading tags. Hold a tagged item near the antenna.'
+          : 'The antenna is off. Press Start when you want tags read again.',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
-    <span className="inline-flex items-center gap-1">
-      <button
-        type="button"
-        onClick={() => void setReaderMode('Continuous')}
-        title="Start reading tags continuously"
-        className="inline-flex h-5 items-center gap-1 rounded px-1.5 text-caption text-ink-muted transition-colors hover:bg-panel-hover"
-      >
-        <Play className="h-3.5 w-3.5" aria-hidden />
-        <span>Start</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => void setReaderMode('Off')}
-        title="Stop the reader"
-        className="inline-flex h-5 items-center gap-1 rounded px-1.5 text-caption text-ink-muted transition-colors hover:bg-panel-hover"
-      >
-        <Square className="h-3.5 w-3.5" aria-hidden />
-        <span>Stop</span>
-      </button>
-    </span>
+    <button
+      type="button"
+      onClick={() => void flip()}
+      disabled={busy}
+      title={reading ? 'Stop the reader' : 'Start reading tags'}
+      className={cn(
+        'inline-flex h-6 items-center gap-1 rounded px-2 text-caption font-medium transition-colors disabled:opacity-60',
+        reading
+          ? 'bg-negative/10 text-negative hover:bg-negative/20'
+          : 'bg-positive/10 text-positive hover:bg-positive/20',
+      )}
+    >
+      {reading ? <Square className="h-3 w-3" aria-hidden /> : <Play className="h-3 w-3" aria-hidden />}
+      <span>{reading ? 'Stop' : 'Start'}</span>
+    </button>
   );
 }
 
