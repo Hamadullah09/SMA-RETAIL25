@@ -188,17 +188,28 @@ export const usePosStore = create<PosState>((set, get) => ({
         const cart = get().cart;
         if (!cart) return;
 
+        // Already accounted for. A push can arrive after the cart was fetched over HTTP — on
+        // connect, on reconnect, after any mutation — and it then carries lines that fetch already
+        // returned. Appending those again is how one tagged item becomes four on the screen while
+        // the server holds one, and the cashier is looking at a total nobody will be charged.
+        if (revision <= cart.revision) return;
+
         // A gap in the revision sequence means we missed a message; ask rather than guess.
         if (revision > cart.revision + 1) {
           void posHub.requestResync(cart.id, cart.revision);
           return;
         }
 
-        set({ cart: { ...cart, revision, lines: [...cart.lines, ...lines] } });
+        // Belt and braces: a line is its position in the cart, so one that is already there cannot
+        // be added by a message, whatever the revision says.
+        const known = new Set(cart.lines.map((line) => line.sequence));
+        const fresh = lines.filter((line) => !known.has(line.sequence));
+
+        set({ cart: { ...cart, revision, lines: [...cart.lines, ...fresh] } });
 
         // The beep RFID takes away. One tone per batch rather than one per line: a basket of thirty
         // is one action from the cashier's point of view, and thirty blips is an alarm.
-        if (lines.some((line) => line.epc) && useUIStore.getState().scanSound) {
+        if (fresh.some((line) => line.epc) && useUIStore.getState().scanSound) {
           playScanTone('accepted');
         }
       },
@@ -218,7 +229,27 @@ export const usePosStore = create<PosState>((set, get) => ({
       onPeripheralStatus: (peripherals) => set({ peripherals, readerOnline: peripherals.readerOnline }),
       onDrawerStateChanged: (drawer) => set({ drawer }),
       onPosMessage: ({ message }) => set({ posMessage: message }),
-      onConnectionChanged: (connected) => set({ connected }),
+      onConnectionChanged: (connected) => {
+        set({ connected });
+
+        if (!connected) return;
+
+        // Coming back from a drop — or arriving for the first time. Whatever happened while the
+        // till was away exists only in the server's copy, so take that rather than trusting what
+        // is on screen, and rejoin the cart group so the next tag arrives on its own.
+        const stationId = get().stationId;
+        if (stationId === null) return;
+
+        void posApi
+          .cartForStation(stationId)
+          .then(async (cart) => {
+            set({ cart });
+            await posHub.joinCart(cart.id);
+          })
+          .catch(() => {
+            // No active cart at this station is an ordinary state, not a failure.
+          });
+      },
       onResyncRequired: async ({ cartId }) => {
         try {
           set({ cart: await posApi.getCart(cartId) });

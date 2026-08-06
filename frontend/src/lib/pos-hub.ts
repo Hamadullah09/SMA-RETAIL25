@@ -121,7 +121,11 @@ export class PosHub {
     await this.connection.invoke('JoinStation', stationId);
     await this.connection.invoke('JoinLocation', locationId);
 
-    if (this.joinedCartId) {
+    // `!== null`, not a truthiness test: a cart id of zero is a real cart, and testing it for truth
+    // is what silently stopped the till joining its own cart group. Nothing then arrived over the
+    // hub — no lines, no totals — and the only way to see a tag that had been read was to reload
+    // the page.
+    if (this.joinedCartId !== null) {
       await this.connection.invoke('JoinCart', this.joinedCartId);
     }
   }
