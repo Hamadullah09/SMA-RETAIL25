@@ -232,36 +232,63 @@ public sealed class AccountController : Controller
             <head>
               <meta charset="utf-8">
               <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>Sign in — Retail25</title>
+              <title>Sign in — SMA Retail</title>
               <style>
-                :root { color-scheme: light dark; }
-                body { margin:0; min-height:100vh; display:grid; place-items:center;
-                       background:#fafafa; color:#18181b;
-                       font:15px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif; }
-                @media (prefers-color-scheme: dark) { body { background:#09090b; color:#f4f4f5; } }
-                form { width:min(360px, 92vw); border:1px solid #e4e4e7; border-radius:4px;
-                       background:#fff; padding:24px; }
-                @media (prefers-color-scheme: dark) { form { background:#18181b; border-color:#27272a; } }
-                h1 { margin:0 0 4px; font-size:18px; font-weight:600; }
-                p.sub { margin:0 0 20px; color:#71717a; font-size:13px; }
-                label { display:block; margin-bottom:4px; font-size:13px; color:#71717a; }
-                input { width:100%; box-sizing:border-box; padding:8px 10px; margin-bottom:14px;
-                        border:1px solid #e4e4e7; border-radius:4px; background:transparent;
-                        color:inherit; font-size:15px; }
-                @media (prefers-color-scheme: dark) { input { border-color:#27272a; } }
-                input:focus-visible { outline:2px solid #18181b; outline-offset:1px; }
-                @media (prefers-color-scheme: dark) { input:focus-visible { outline-color:#f4f4f5; } }
-                button { width:100%; min-height:44px; border:0; border-radius:4px;
-                         background:#18181b; color:#fafafa; font-size:15px; font-weight:500;
-                         cursor:pointer; }
-                @media (prefers-color-scheme: dark) { button { background:#f4f4f5; color:#18181b; } }
-                .error { margin:0 0 14px; padding:8px 10px; border-radius:4px; font-size:13px;
+                /* The one screen every user of this system sees, and the only one the identity
+                   server draws itself. It sat on the app's defaults from before there was a design:
+                   a black button, square corners, no mark. Arriving here from the app read as being
+                   handed off to something else half-finished, so it now carries the same surface,
+                   radius, indigo action and mark as everything on the other side of the redirect.
+                   Values are literal rather than tokens because nothing here shares a stylesheet
+                   with the front end — they are copied from it deliberately. */
+                :root {
+                  color-scheme: light dark;
+                  --page:#f2f3f8; --card:#ffffff; --line:#e3e5ed;
+                  --ink:#171a26; --muted:#646a80; --ring:#5f63d8;
+                }
+                @media (prefers-color-scheme: dark) {
+                  :root { --page:#0d0e14; --card:#1b1d27; --line:#2c2f3c; --ink:#edeff6; --muted:#989eb2; }
+                }
+                * { box-sizing:border-box; }
+                body { margin:0; min-height:100vh; display:grid; place-items:center; padding:24px;
+                       background:var(--page); color:var(--ink);
+                       font:15px/1.55 'Onest', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+                form { width:min(400px, 100%); border:1px solid var(--line); border-radius:14px;
+                       background:var(--card); padding:32px;
+                       box-shadow:0 1px 2px rgba(18,20,45,.05), 0 4px 14px rgba(18,20,45,.06); }
+                .mark { display:block; width:44px; height:44px; margin-bottom:18px; }
+                h1 { margin:0 0 2px; font-size:22px; font-weight:600; letter-spacing:-.01em; }
+                p.sub { margin:0 0 24px; color:var(--muted); font-size:14px; }
+                label { display:block; margin-bottom:6px; font-size:13px; font-weight:500; }
+                input { width:100%; padding:10px 12px; margin-bottom:16px; min-height:40px;
+                        border:1px solid var(--line); border-radius:10px; background:transparent;
+                        color:inherit; font:inherit; }
+                input:focus-visible { outline:2px solid var(--ring); outline-offset:1px; border-color:var(--ring); }
+                button { width:100%; min-height:44px; border:0; border-radius:10px; color:#fff;
+                         background:linear-gradient(180deg,#6165da 0%,#4f51cc 100%);
+                         font-size:15px; font-weight:600; cursor:pointer; }
+                button:hover { background:linear-gradient(180deg,#565ad2 0%,#4547c0 100%); }
+                .error { margin:0 0 16px; padding:10px 12px; border-radius:10px; font-size:13px;
                          background:rgba(220,38,38,.1); color:#dc2626; }
+                @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
               </style>
             </head>
             <body>
               <form method="post" action="/account/login">
-                <h1>Retail25</h1>
+                <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+                  <defs>
+                    <linearGradient id="sma-signin" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stop-color="#FB9A2E"/>
+                      <stop offset="1" stop-color="#E8620E"/>
+                    </linearGradient>
+                  </defs>
+                  <rect width="64" height="64" rx="15" fill="url(#sma-signin)"/>
+                  <circle cx="27" cy="27" r="14" fill="none" stroke="#fff" stroke-width="4.5"/>
+                  <path d="M37.5 37.5 L50 50" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/>
+                  <path d="M24.2 23.5 v-2.2 a2.8 2.8 0 0 1 5.6 0 v2.2" fill="none" stroke="#fff" stroke-width="2"/>
+                  <rect x="21" y="23.5" width="12" height="10.5" rx="2.2" fill="#fff"/>
+                </svg>
+                <h1>SMA Retail</h1>
                 <p class="sub">Sign in to continue</p>
             """);
 
