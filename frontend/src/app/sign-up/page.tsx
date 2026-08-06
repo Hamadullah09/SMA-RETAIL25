@@ -45,7 +45,7 @@ export default function SignUpPage() {
   return (
     <AuthShell
       title="Create an account"
-      lead="New accounts start in training mode — you can practise at the till, and nothing you ring up is real until an administrator says otherwise."
+      lead="New accounts start in training mode — practise at the till, and nothing you ring up is real until an administrator says otherwise."
       footer={
         <>
           Already have one? <AuthLink href="/">Sign in</AuthLink>
@@ -110,7 +110,7 @@ export default function SignUpPage() {
             required
           />
           {mismatch ? (
-            <p id="confirm-error" role="alert" className="mt-1 text-caption text-negative">
+            <p id="confirm-error" role="alert" className="mt-1.5 text-caption text-negative">
               These two do not match.
             </p>
           ) : null}
@@ -118,7 +118,7 @@ export default function SignUpPage() {
 
         <button
           type="submit"
-          className="pos-button-primary mt-2 w-full"
+          className="pos-button-primary mt-1 w-full"
           disabled={busy || mismatch || password.length < MIN_PASSWORD}
         >
           {busy ? 'Creating the account…' : 'Create account'}

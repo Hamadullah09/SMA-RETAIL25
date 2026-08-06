@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
+import { AlertCircle, Boxes, CheckCircle2, Nfc, ScanBarcode, ShieldCheck } from 'lucide-react';
+import { SmaMark } from '@/components/layout/logo';
 
 /**
  * The frame every account screen sits in.
@@ -9,9 +11,39 @@ import type { ReactNode } from 'react';
  * email. The form column is the one that is always there, and it is never wider than a comfortable
  * reading measure even on a 27-inch monitor.
  *
- * The panel beside it is deliberately quiet — a statement of what the system is, not a marketing
- * hero. Someone reaching this screen is trying to get to work.
+ * The panel beside it states what the system is. It is allowed to be handsome — this is the first
+ * screen anyone sees — but it stays quiet, because someone reaching it is trying to get to work.
  */
+
+/**
+ * What the product does, in four lines.
+ *
+ * Kept here rather than passed in: every account screen shows the same four, and a hero that
+ * changed its argument depending on whether you were resetting a password would be odd.
+ */
+const FEATURES: ReadonlyArray<{
+  icon: ComponentType<{ className?: string }>;
+  term: string;
+  detail: string;
+}> = [
+  {
+    icon: ScanBarcode,
+    term: 'Till',
+    detail: 'Keyboard-first, and it keeps selling when the network does not.',
+  },
+  {
+    icon: Boxes,
+    term: 'Stock',
+    detail: 'One live count across every store, counted from a ledger rather than a guess.',
+  },
+  { icon: Nfc, term: 'Tags', detail: 'Read a whole basket of RFID tags at the counter.' },
+  {
+    icon: ShieldCheck,
+    term: 'Accounts',
+    detail: 'Receivables, statements and an audit trail that reconciles.',
+  },
+];
+
 export function AuthShell({
   title,
   lead,
@@ -24,60 +56,88 @@ export function AuthShell({
   footer?: ReactNode;
 }) {
   return (
-    <div className="grid min-h-screen bg-surface lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-      {/* Ordered second on a phone so the form is the first thing under the thumb, and first on a
-          desktop so the eye lands left-to-right the way the language reads. */}
-      <aside className="auth-hero order-2 hidden flex-col justify-between border-r border-subtle p-10 lg:order-1 lg:flex">
+    <div className="grid min-h-screen bg-surface lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      {/* Removed from the document below `lg` rather than reordered: on a phone the form is the
+          whole screen, and a hero the thumb has to scroll past to reach it is a tax. */}
+      <aside className="auth-hero relative hidden flex-col justify-between overflow-hidden border-r border-subtle p-10 lg:flex xl:p-14">
         <div>
-          <p className="flex items-center gap-2.5">
-            <span className="pos-brand-mark h-7 w-7 text-label" aria-hidden>
-              25
-            </span>
-            <span className="text-label font-semibold uppercase tracking-widest text-ink-muted">
-              Retail25
-            </span>
-          </p>
-          <p className="mt-8 max-w-md text-display font-semibold leading-tight tracking-tight text-ink">
+          <BrandLockup />
+
+          <p className="mt-12 max-w-md text-display font-semibold leading-tight tracking-tight text-ink">
             Point of sale, inventory and accounts in one place.
           </p>
-          <p className="mt-4 max-w-sm text-body-lg leading-relaxed text-ink-muted">
-            Built for the counter first — every till action is reachable from the keyboard, and the
-            back office reads the same data the moment it changes.
+          <p className="mt-4 max-w-md text-body-lg leading-relaxed text-ink-muted">
+            Built for the counter first. Every till action is reachable from the keyboard, and the
+            back office reads the same figures the moment they change.
           </p>
         </div>
 
-        <dl className="grid grid-cols-3 gap-3">
-          {[
-            ['Tills', 'Offline-tolerant'],
-            ['Stock', 'Live across stores'],
-            ['Tags', 'RFID at the counter'],
-          ].map(([term, detail]) => (
-            <div
-              key={term}
-              className="rounded-md border border-subtle bg-panel/70 px-3.5 py-3 shadow-raised backdrop-blur-sm"
-            >
-              <dt className="text-label font-medium uppercase tracking-wide text-accent-text">
-                {term}
-              </dt>
-              <dd className="mt-1 text-body text-ink-muted">{detail}</dd>
-            </div>
+        <ul className="mt-12 grid max-w-md gap-4">
+          {FEATURES.map(({ icon: Icon, term, detail }) => (
+            <li key={term} className="flex items-start gap-3">
+              <span
+                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-text"
+                aria-hidden
+              >
+                <Icon className="h-4 w-4" />
+              </span>
+              <span className="min-w-0">
+                <span className="block text-body-lg font-medium text-ink">{term}</span>
+                <span className="mt-0.5 block text-body leading-relaxed text-ink-muted">
+                  {detail}
+                </span>
+              </span>
+            </li>
           ))}
-        </dl>
+        </ul>
       </aside>
 
-      <main className="order-1 flex items-center justify-center p-6 lg:order-2">
-        <div className="w-full max-w-sm">
-          <div className="rounded-lg border border-subtle bg-panel p-6 shadow-popover sm:p-8">
-            <h1 className="text-h2 font-semibold tracking-tight text-ink">{title}</h1>
-            <p className="mt-1.5 text-body text-ink-muted">{lead}</p>
-
-            <div className="mt-8">{children}</div>
+      <main className="flex items-center justify-center px-5 py-10 sm:px-8">
+        <div className="w-full max-w-[25rem]">
+          {/* The hero's job on a phone, in one row. Without it the form arrives with no idea what
+              it belongs to, which is the wrong first impression for a screen asking for a password. */}
+          <div className="mb-8 flex justify-center lg:hidden">
+            <BrandLockup compact />
           </div>
 
-          {footer ? <div className="mt-6 px-1 text-body text-ink-muted">{footer}</div> : null}
+          <div className="animate-slide-up rounded-lg border border-subtle bg-panel p-6 shadow-popover sm:p-8">
+            <h1 className="text-h1 font-semibold tracking-tight text-ink">{title}</h1>
+            <p className="mt-2 text-body-lg leading-relaxed text-ink-muted">{lead}</p>
+
+            {/* `.auth-form` sizes the controls inside for a screen that is typed into once, rather
+                than for the dense grids `.pos-input` was drawn for. */}
+            <div className="auth-form mt-7">{children}</div>
+          </div>
+
+          {footer ? (
+            <div className="mt-6 text-center text-body leading-relaxed text-ink-muted">{footer}</div>
+          ) : null}
         </div>
       </main>
     </div>
+  );
+}
+
+/**
+ * The product's signature: the mark, the name, and what it is.
+ *
+ * The mark is the only place the brand orange appears. The accent everything else is drawn in stays
+ * indigo, so the eye still knows which thing on the screen is the button.
+ */
+function BrandLockup({ compact = false }: { compact?: boolean }) {
+  return (
+    <span className="flex items-center gap-3">
+      {/* Both lockups are in the document at every width — one is hidden by a breakpoint rather
+          than unmounted — so the two marks cannot share a gradient id. */}
+      <SmaMark
+        className={`${compact ? 'h-9 w-9' : 'h-11 w-11'} rounded-[23%] shadow-raised`}
+        gradientId={compact ? 'sma-mark-auth-compact' : 'sma-mark-auth-hero'}
+      />
+      <span className="leading-tight">
+        <span className="block text-h3 font-semibold tracking-tight text-ink">SMA Retail</span>
+        <span className="block text-label text-ink-muted">Retail management</span>
+      </span>
+    </span>
   );
 }
 
@@ -100,13 +160,15 @@ export function AuthField({
   children: ReactNode;
 }) {
   return (
-    <div className="mb-4">
-      <label htmlFor={id} className="mb-1 block text-label font-medium text-ink-muted">
+    <div className="mb-5">
+      <label htmlFor={id} className="mb-1.5 block text-body font-medium text-ink">
         {label}
       </label>
       {children}
+      {/* `text-ink-faint` is a decorative token and lands near 3:1 on the panel. A hint telling
+          someone how long their password has to be is not decoration, so it is muted, not faint. */}
       {hint ? (
-        <p id={`${id}-hint`} className="mt-1 text-caption text-ink-faint">
+        <p id={`${id}-hint`} className="mt-1.5 text-caption text-ink-muted">
           {hint}
         </p>
       ) : null}
@@ -117,30 +179,38 @@ export function AuthField({
 /**
  * A message the user must not miss.
  *
- * `role="alert"` so it is announced when it appears, and the tone is carried by an icon-free label
- * as well as by colour — a red border alone says nothing to anyone who cannot see it.
+ * `role="alert"` so it is announced when it appears, and the tone is carried by a worded label as
+ * well as by colour — a red border alone says nothing to anyone who cannot see it. The icon is
+ * `aria-hidden`, so it decorates the label rather than replacing it.
  */
 export function AuthNotice({ tone, children }: { tone: 'error' | 'success'; children: ReactNode }) {
   const isError = tone === 'error';
+  const Icon = isError ? AlertCircle : CheckCircle2;
 
   return (
     <p
       role="alert"
-      className={`mb-4 rounded-sm border px-3 py-2 text-body ${
+      className={`mb-5 flex items-start gap-2.5 rounded border px-3.5 py-3 text-body leading-relaxed ${
         isError
           ? 'border-negative/30 bg-negative/10 text-negative'
           : 'border-positive/30 bg-positive/10 text-positive'
       }`}
     >
-      <span className="font-medium">{isError ? 'Not done. ' : 'Done. '}</span>
-      {children}
+      <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <span>
+        <span className="font-medium">{isError ? 'Not done. ' : 'Done. '}</span>
+        {children}
+      </span>
     </p>
   );
 }
 
 export function AuthLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Link href={href} className="font-medium text-accent underline underline-offset-2">
+    <Link
+      href={href}
+      className="rounded-sm font-medium text-accent-text underline decoration-accent-text/40 underline-offset-2 transition-colors hover:decoration-current"
+    >
       {children}
     </Link>
   );

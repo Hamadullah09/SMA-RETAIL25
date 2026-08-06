@@ -40,7 +40,7 @@ function ResetPasswordForm() {
         lead="It may have been cut short by an email client."
         footer={<AuthLink href="/forgot-password">Ask for a new link</AuthLink>}
       >
-        <p className="text-body text-ink-muted">
+        <p className="text-body leading-relaxed text-ink-muted">
           Open the link directly from the message rather than copying part of it, or request another.
         </p>
       </AuthShell>
@@ -54,7 +54,7 @@ function ResetPasswordForm() {
         lead="Sign in with the new one."
         footer={<AuthLink href="/">Go to sign in</AuthLink>}
       >
-        <p className="text-body text-ink-muted">
+        <p className="text-body leading-relaxed text-ink-muted">
           Anywhere that account was still signed in has been signed out, including this browser. That
           is deliberate — if someone else had it, they no longer do.
         </p>
@@ -127,7 +127,7 @@ function ResetPasswordForm() {
             required
           />
           {mismatch ? (
-            <p id="confirm-error" role="alert" className="mt-1 text-caption text-negative">
+            <p id="confirm-error" role="alert" className="mt-1.5 text-caption text-negative">
               These two do not match.
             </p>
           ) : null}
@@ -135,7 +135,7 @@ function ResetPasswordForm() {
 
         <button
           type="submit"
-          className="pos-button-primary mt-2 w-full"
+          className="pos-button-primary mt-1 w-full"
           disabled={busy || mismatch || password.length < MIN_PASSWORD}
         >
           {busy ? 'Saving…' : 'Change password'}

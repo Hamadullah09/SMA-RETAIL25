@@ -63,6 +63,14 @@
     --accent-grad: linear-gradient(180deg, oklch(0.565 0.165 263) 0%, oklch(0.495 0.18 267) 100%);
     --accent-grad-hover: linear-gradient(180deg, oklch(0.52 0.17 263) 0%, oklch(0.45 0.18 267) 100%);
 
+    /* The brand orange, for artwork only.
+
+       It is deliberately not part of the accent ramp and has no utility class: the mark owns it,
+       and the one other place it appears is a wash behind that mark in the sign-in hero. An action
+       painted in it would compete with the indigo primary button, and then neither would read as
+       the thing to press. Same value in both themes — a logo does not change colour. */
+    --brand-warm: 251 154 46;
+
     --positive: 0.52 0.13 160;
     --warning: 0.55 0.13 75;
     --negative: 0.53 0.16 25;
@@ -430,13 +438,37 @@
   }
 
   /* The quiet mesh behind the sign-in hero. CSS gradients only, drawn from the accent and live
-     hues so both themes inherit it — no image, nothing to load before first paint. */
+     hues so both themes inherit it — no image, nothing to load before first paint.
+
+     The first stop is the brand orange, at an eighth of its strength and sitting behind the mark
+     rather than anywhere near a control. That is the only licence the orange gets outside the logo
+     itself: it warms the corner the eye lands in, and the accent stays indigo everywhere a user is
+     meant to click. */
   .auth-hero {
     background:
+      radial-gradient(38rem 28rem at 4% -14%, rgb(var(--brand-warm) / 0.12), transparent 62%),
       radial-gradient(56rem 40rem at 85% -12%, oklch(var(--accent) / 0.13), transparent 62%),
       radial-gradient(44rem 34rem at -12% 108%, oklch(var(--live) / 0.10), transparent 60%),
       radial-gradient(30rem 26rem at 45% 55%, oklch(var(--accent) / 0.05), transparent 65%),
       rgb(var(--panel-sunken));
+  }
+
+  /**
+   * The controls on an account screen.
+   *
+   * `.pos-input` and `.pos-button-primary` are drawn at 32px for the back office, where a manager
+   * scans a grid of forty fields and every pixel of height costs a row. An account screen is the
+   * opposite: four fields, typed once, sometimes on a phone held in one hand at the counter. Same
+   * classes, same colours, same focus treatment — just the comfortable end of the scale, and scoped
+   * here so nothing in the till or the back office moves.
+   */
+  .auth-form .pos-input {
+    @apply h-10 rounded px-3 text-body-lg;
+  }
+
+  .auth-form .pos-button,
+  .auth-form .pos-button-primary {
+    @apply h-11 rounded text-body-lg;
   }
 
   /* The product mark: the accent gradient in a small tile. Shared by the sidebar and the hero so

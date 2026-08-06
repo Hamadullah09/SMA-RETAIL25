@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { AuthLink, AuthNotice, AuthShell } from '@/components/auth/auth-shell';
 import { useAuth } from '@/lib/auth-config';
 
@@ -49,9 +50,9 @@ function LoginContent() {
       title="Sign in"
       lead="You will be taken to the secure sign-in page to enter your password."
       footer={
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <p>
-            Forgotten it? <AuthLink href="/forgot-password">Reset your password</AuthLink>
+            Forgotten your password? <AuthLink href="/forgot-password">Reset it</AuthLink>
           </p>
           <p>
             No account yet? <AuthLink href="/sign-up">Create one</AuthLink>
@@ -68,6 +69,7 @@ function LoginContent() {
         disabled={isLoading}
       >
         {isLoading ? 'Checking…' : 'Continue to sign in'}
+        {isLoading ? null : <ArrowRight className="h-4 w-4" aria-hidden />}
       </button>
 
       {/*
@@ -75,8 +77,9 @@ function LoginContent() {
         moment you are asked for a password is exactly what a phishing flow looks like, so the reason
         it happens is worth one sentence.
       */}
-      <p className="mt-4 text-caption text-ink-faint">
-        Passwords are only ever entered on the sign-in page itself, never on this one.
+      <p className="mt-5 flex items-start gap-2 text-caption leading-relaxed text-ink-muted">
+        <ShieldCheck className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+        <span>Passwords are only ever entered on the sign-in page itself, never on this one.</span>
       </p>
     </AuthShell>
   );

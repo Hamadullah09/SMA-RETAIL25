@@ -35,7 +35,7 @@ export default function ForgotPasswordPage() {
         lead="If that address has an account, a reset link is on its way."
         footer={<AuthLink href="/">Back to sign in</AuthLink>}
       >
-        <div className="space-y-3 text-body text-ink-muted">
+        <div className="space-y-3.5 text-body leading-relaxed text-ink-muted">
           {/*
             Phrased as a conditional on purpose, and the server answers the same way whether or not
             the address exists. "No account with that email" is a free list of who works here.
@@ -85,7 +85,7 @@ export default function ForgotPasswordPage() {
           />
         </AuthField>
 
-        <button type="submit" className="pos-button-primary mt-2 w-full" disabled={busy || email.length === 0}>
+        <button type="submit" className="pos-button-primary mt-1 w-full" disabled={busy || email.length === 0}>
           {busy ? 'Sending…' : 'Send the link'}
         </button>
       </form>

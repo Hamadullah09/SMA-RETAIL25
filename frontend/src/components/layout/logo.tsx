@@ -10,17 +10,30 @@
  * customer's own logo, and this system is white-labelled — the shop's name and logo come from the
  * branding rows, and this stands in only where the product itself is speaking.
  */
-export function SmaMark({ className }: { className?: string }) {
+/**
+ * `gradientId` exists because an SVG gradient is referenced by a document-wide id, not a local one.
+ * Two marks on the same page therefore both resolve to whichever def comes first — and when that
+ * first one sits inside a `display:none` subtree, as it does on the account screens where the hero
+ * is hidden below `lg`, the visible mark loses its fill and renders grey. Callers that can put two
+ * marks in one document pass a distinct id; a single mark never has to think about it.
+ */
+export function SmaMark({
+  className,
+  gradientId = 'sma-mark-tile',
+}: {
+  className?: string;
+  gradientId?: string;
+}) {
   return (
     <svg viewBox="0 0 64 64" className={className} role="img" aria-label="SMA Retail">
       <defs>
-        <linearGradient id="sma-mark-tile" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#FB9A2E" />
           <stop offset="1" stopColor="#E8620E" />
         </linearGradient>
       </defs>
 
-      <rect width="64" height="64" rx="15" fill="url(#sma-mark-tile)" />
+      <rect width="64" height="64" rx="15" fill={`url(#${gradientId})`} />
 
       {/* The glass. Its handle is heavier than its rim so the silhouette still reads once the
           detail inside the lens is too small to see. */}

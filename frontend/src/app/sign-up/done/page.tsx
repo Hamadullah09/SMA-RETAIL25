@@ -14,7 +14,7 @@ export default function SignUpDonePage() {
       lead="You can sign in now."
       footer={<AuthLink href="/">Go to sign in</AuthLink>}
     >
-      <div className="space-y-3 text-body text-ink-muted">
+      <div className="space-y-3.5 text-body leading-relaxed text-ink-muted">
         <p>
           Your account starts in <strong className="font-medium text-ink">training mode</strong>. You
           can open the till, ring items through and practise the whole flow — none of it touches real
