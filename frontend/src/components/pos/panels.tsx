@@ -186,7 +186,7 @@ export function CartList() {
       <ol className="min-h-0 flex-1 overflow-y-auto">
         {lines.length === 0 ? (
           <li className="px-3 py-8 text-center text-body text-ink-muted">
-            Scan an item, or press <kbd className="font-mono">F2</kbd> to find one.
+            Scan an item, or press <kbd className="font-mono">F9</kbd> to find one.
           </li>
         ) : (
           lines.map((line) => (
@@ -319,7 +319,7 @@ export function PaymentMatrix({ onPay }: { onPay: () => void }) {
 
       <div className="mt-2 grid grid-cols-2 gap-2">
         <button type="button" className="pos-button text-body" disabled={!cart} onClick={() => openDialog('credits')}>
-          Credits <span className="pos-fkey"><kbd>F3</kbd></span>
+          Credits <span className="pos-fkey"><kbd>F8</kbd></span>
         </button>
         <button type="button" className="pos-button text-body" disabled={!cart} onClick={() => openDialog('special')}>
           Special <span className="pos-fkey"><kbd>F11</kbd></span>

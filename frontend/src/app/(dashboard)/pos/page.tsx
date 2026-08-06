@@ -74,7 +74,6 @@ function PosScreen() {
     initialise,
     teardown,
     openDialog,
-    closeDialog,
     removeLastLine,
   } = usePosStore();
 
@@ -113,8 +112,13 @@ function PosScreen() {
 
   const hasLines = Boolean(cart && cart.lines.length > 0);
 
-  useHotkey('F2', () => openDialog('find'), { label: 'Find item', group: 'Sale' });
-  useHotkey('F3', () => openDialog('credits'), { label: 'Credits menu', group: 'Sale', disabled: !cart });
+  // F1 to F3 are deliberately unused. On the laptops and compact keyboards a shop actually buys,
+  // that row is media and brightness and needs Fn held down, and the browser claims F1 for help and
+  // F3 for its own find bar — so a till key there is a key that sometimes does something else.
+  // Everything therefore lives on F4 and up. Pay, Client, Delete and Reprint keep the positions
+  // they have always had; Find and Credits took over the two keys that were only doing something
+  // another key already did (F9 opened the payment dialog exactly as F4 does, and F12 closed a
+  // dialog exactly as Escape does).
   useHotkey('F4', () => hasLines && openDialog('payment'), { label: 'Pay', group: 'Sale', disabled: !hasLines });
   useHotkey('F5', () => openDialog('client'), { label: 'Client menu', group: 'Sale' });
   useHotkey('F6', () => void removeLastLine(), { label: 'Delete last line', group: 'Sale', disabled: !hasLines });
@@ -122,15 +126,15 @@ function PosScreen() {
     label: 'Reprint last sale',
     group: 'Documents',
   });
-  useHotkey('F8', () => lastSale && stationId && void posApi.packingSlip(lastSale.transactionId, stationId), {
+  useHotkey('F8', () => openDialog('credits'), { label: 'Credits menu', group: 'Sale', disabled: !cart });
+  useHotkey('F9', () => openDialog('find'), { label: 'Find item', group: 'Sale' });
+  useHotkey('F10', () => openDialog('drawer'), { label: 'Drawer menu', group: 'Drawer' });
+  useHotkey('F11', () => openDialog('special'), { label: 'Special menu', group: 'Sale' });
+  useHotkey('F12', () => lastSale && stationId && void posApi.packingSlip(lastSale.transactionId, stationId), {
     label: 'Packing slip',
     group: 'Documents',
     disabled: !lastSale,
   });
-  useHotkey('F9', () => hasLines && openDialog('payment'), { label: 'Save sale', group: 'Sale', disabled: !hasLines });
-  useHotkey('F10', () => openDialog('drawer'), { label: 'Drawer menu', group: 'Drawer' });
-  useHotkey('F11', () => openDialog('special'), { label: 'Special menu', group: 'Sale' });
-  useHotkey('F12', () => closeDialog(), { label: 'Close / cancel', group: 'Sale' });
   useHotkey('Ctrl+I', () => openDialog('staffSwitch'), { label: 'Enter staff ID', group: 'Session' });
   useHotkey('Ctrl+G', () => toggleGrid(), { label: 'Show / hide products', group: 'Sale' });
   useHotkey('Ctrl+/', () => openDialog('cheatSheet'), {
@@ -194,13 +198,12 @@ function PosScreen() {
         <FunctionKeyBar
           keys={[
             { key: 'Ctrl+G', label: gridOpen ? 'Hide items' : 'Show items', onSelect: toggleGrid },
-            { key: 'F2', label: 'Find', onSelect: () => openDialog('find') },
-            { key: 'F3', label: 'Credits', onSelect: () => openDialog('credits'), disabled: !cart },
             { key: 'F4', label: 'Pay', onSelect: () => openDialog('payment'), disabled: !hasLines },
             { key: 'F5', label: 'Client', onSelect: () => openDialog('client') },
             { key: 'F6', label: 'Delete', onSelect: () => void removeLastLine(), disabled: !hasLines },
             { key: 'F7', label: 'Reprint', onSelect: () => stationId && void posApi.reprintLast(stationId) },
-            { key: 'F9', label: 'Save', onSelect: () => openDialog('payment'), disabled: !hasLines },
+            { key: 'F8', label: 'Credits', onSelect: () => openDialog('credits'), disabled: !cart },
+            { key: 'F9', label: 'Find', onSelect: () => openDialog('find') },
             { key: 'F10', label: 'Drawer', onSelect: () => openDialog('drawer') },
             { key: 'F11', label: 'More', onSelect: () => openDialog('special') },
           ]}

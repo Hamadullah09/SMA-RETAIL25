@@ -112,7 +112,7 @@ export function ProductGrid() {
   const add = useCallback(
     (item: PosGridItem) => {
       // By stock code rather than id: that is the identifier the resolver takes, and it is the one
-      // that behaves the same whether the item came from a tile, a barcode or the F2 list.
+      // that behaves the same whether the item came from a tile, a barcode or the F9 list.
       void scan(item.stockCode);
     },
     [scan],

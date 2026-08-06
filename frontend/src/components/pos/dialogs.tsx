@@ -347,7 +347,7 @@ export function PaymentDialog() {
 
 /* ------------------------------------------------------------------------- credits menu */
 
-/** F3 Credits (guide p.7). Returns and trade-ins are lines, not sale-level credits. */
+/** F8 Credits (guide p.7). Returns and trade-ins are lines, not sale-level credits. */
 export function CreditsDialog() {
   const { closeDialog, addAdjustment, openDialog } = usePosStore();
   const [mode, setMode] = useState<null | 'discount' | 'coupon' | 'bottle'>(null);
@@ -359,10 +359,10 @@ export function CreditsDialog() {
   return (
     <Shell title="Credits" onClose={closeDialog}>
       <div className="space-y-2">
-        <MenuButton hotkey="F2" label="Subtotal discount" onSelect={() => setMode('discount')} />
-        <MenuButton hotkey="F3" label="Coupon" onSelect={() => setMode('coupon')} />
         <MenuButton hotkey="F4" label="Return an item" onSelect={() => openDialog('find')} />
+        <MenuButton hotkey="F5" label="Subtotal discount" onSelect={() => setMode('discount')} />
         <MenuButton hotkey="F6" label="Bottle return" onSelect={() => setMode('bottle')} />
+        <MenuButton hotkey="F7" label="Coupon" onSelect={() => setMode('coupon')} />
         <MenuButton
           hotkey="F8"
           label="Redeem loyalty reward"
@@ -437,7 +437,6 @@ export function SpecialDialog() {
   return (
     <Shell title="Special" onClose={closeDialog}>
       <div className="space-y-2">
-        <MenuButton hotkey="F2" label="Unknown item" onSelect={() => openDialog('unknownItem')} />
         <MenuButton hotkey="F4" label="Suspend this sale" onSelect={() => void suspend()} disabled={!cart} />
         <MenuButton hotkey="F5" label="Recall a suspended sale" onSelect={() => openDialog('suspended')} />
         <MenuButton
@@ -451,6 +450,7 @@ export function SpecialDialog() {
             )
           }
         />
+        <MenuButton hotkey="F7" label="Unknown item" onSelect={() => openDialog('unknownItem')} />
         <MenuButton hotkey="F9" label="Keyboard shortcuts" onSelect={() => openDialog('cheatSheet')} />
       </div>
 
@@ -537,7 +537,7 @@ export function DrawerDialog() {
     <Shell title="Drawer" onClose={closeDialog} wide>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <MenuButton hotkey="F2" label="Opening float" onSelect={() => setMode('float')} disabled={drawer?.status === 'Open'} />
+          <MenuButton hotkey="F4" label="Opening float" onSelect={() => setMode('float')} disabled={drawer?.status === 'Open'} />
           <MenuButton hotkey="F5" label="Pay in" onSelect={() => setMode('payIn')} disabled={drawer?.status !== 'Open'} />
           <MenuButton hotkey="F6" label="Pay out" onSelect={() => setMode('payOut')} disabled={drawer?.status !== 'Open'} />
           <MenuButton
