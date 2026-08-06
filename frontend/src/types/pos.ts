@@ -40,7 +40,13 @@ export type AdjustmentType =
   | 'LoyaltyReward';
 
 export interface CartLine {
-  id: number;
+  /**
+   * Position in the cart, and the only way to address a line.
+   *
+   * There is deliberately no id here: a cart lives in the cache until it is committed, so its lines
+   * have no database identity to carry. Declaring one produced `undefined` at runtime and a line
+   * detail dialog that opened onto nothing.
+   */
   sequence: number;
   productId: number;
   variantId: number | null;

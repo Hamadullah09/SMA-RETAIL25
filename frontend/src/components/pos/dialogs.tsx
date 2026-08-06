@@ -76,8 +76,8 @@ function MenuButton({
  * level → tax 1 → tax 2. Muscle memory is fifteen years deep, so the order is not ours to improve.
  */
 export function LineDetailDialog() {
-  const { cart, selectedLineId, closeDialog, updateLine, removeLine, policy } = usePosStore();
-  const line = cart?.lines.find((l) => l.id === selectedLineId);
+  const { cart, selectedLineSequence, closeDialog, updateLine, removeLine, policy } = usePosStore();
+  const line = cart?.lines.find((l) => l.sequence === selectedLineSequence);
 
   const [quantity, setQuantity] = useState('1');
   const [price, setPrice] = useState('');
@@ -98,9 +98,11 @@ export function LineDetailDialog() {
 
   if (!line) return null;
 
+  const tagged = Boolean(line.epc || line.serialNumber);
+
   const commit = () => {
-    void updateLine(line.id, {
-      quantity: Number(quantity) || line.quantity,
+    void updateLine(line.sequence, {
+      quantity: tagged ? line.quantity : Number(quantity) || line.quantity,
       manualPrice: price === '' ? null : Number(price),
       manualDiscountPct: discount === '' ? null : Number(discount),
       priceLevel: level === '' ? null : Number(level),
@@ -118,13 +120,21 @@ export function LineDetailDialog() {
           commit();
         }}
       >
-        <Field label="Quantity">
+        {/*
+          A tagged or serialized line is one physical thing, so the server refuses any other
+          quantity. Saying so on the field is the difference between a rule and a rejection: the
+          cashier who wants three scans three tags, rather than typing 3, pressing Accept, and
+          hunting for the error message that explains why nothing happened.
+        */}
+        <Field label="Quantity" hint={tagged ? 'one per tag' : undefined}>
           <input
             ref={quantityRef}
             value={quantity}
             onChange={(event) => setQuantity(event.target.value)}
             inputMode="decimal"
-            className="pos-amount w-full bg-transparent text-right outline-none"
+            disabled={tagged}
+            title={tagged ? 'This line is a tagged item. Scan another tag to sell another one.' : undefined}
+            className="pos-amount w-full bg-transparent text-right outline-none disabled:text-ink-faint"
           />
         </Field>
 
@@ -164,14 +174,14 @@ export function LineDetailDialog() {
             hotkey="F6"
             active={line.tax1Applies}
             disabled={!policy?.allowTaxOverride}
-            onToggle={() => void updateLine(line.id, { tax1Override: !line.tax1Applies })}
+            onToggle={() => void updateLine(line.sequence, { tax1Override: !line.tax1Applies })}
           />
           <TaxToggle
             label={`${cart?.totals.tax2Name || 'Tax 2'}`}
             hotkey="F7"
             active={line.tax2Applies}
             disabled={!policy?.allowTaxOverride}
-            onToggle={() => void updateLine(line.id, { tax2Override: !line.tax2Applies })}
+            onToggle={() => void updateLine(line.sequence, { tax2Override: !line.tax2Applies })}
           />
         </div>
 
@@ -181,7 +191,7 @@ export function LineDetailDialog() {
             type="button"
             className="pos-button-danger px-3"
             onClick={() => {
-              void removeLine(line.id);
+              void removeLine(line.sequence);
               closeDialog();
             }}
           >

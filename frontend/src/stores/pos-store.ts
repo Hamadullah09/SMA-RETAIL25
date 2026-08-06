@@ -83,7 +83,8 @@ interface PosState {
   posMessage: string | null;
 
   dialog: PosDialog;
-  selectedLineId: number | null;
+  /** Which line the detail dialog is editing, by cart position. Lines have no other identity. */
+  selectedLineSequence: number | null;
   pendingSelection: PendingSelection | null;
   pendingApproval: PendingApproval | null;
   activeStaff: ActiveStaff | null;
@@ -102,8 +103,8 @@ interface PosState {
   switchStaff: (staffCode: string, pin: string) => Promise<void>;
   requestApproval: (permission: string, action: string, context?: string) => Promise<PendingApproval | null>;
   approveWithPin: (staffCode: string, pin: string) => Promise<void>;
-  updateLine: (lineId: number, body: Parameters<typeof posApi.updateLine>[2]) => Promise<void>;
-  removeLine: (lineId: number) => Promise<void>;
+  updateLine: (sequence: number, body: Parameters<typeof posApi.updateLine>[2]) => Promise<void>;
+  removeLine: (sequence: number) => Promise<void>;
   removeLastLine: () => Promise<void>;
   clearLines: () => Promise<void>;
   addAdjustment: (body: Parameters<typeof posApi.addAdjustment>[1]) => Promise<void>;
@@ -115,7 +116,7 @@ interface PosState {
   complete: (tenders: TenderRequest[]) => Promise<boolean>;
   refreshDrawer: () => Promise<void>;
 
-  openDialog: (dialog: PosDialog, lineId?: number | null) => void;
+  openDialog: (dialog: PosDialog, sequence?: number | null) => void;
   closeDialog: () => void;
   clearError: () => void;
   dismissTag: (epc: string) => void;
@@ -142,7 +143,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   rejectedTags: [],
   posMessage: null,
   dialog: null,
-  selectedLineId: null,
+  selectedLineSequence: null,
   pendingSelection: null,
   pendingApproval: null,
   activeStaff: null,
@@ -393,14 +394,14 @@ export const usePosStore = create<PosState>((set, get) => ({
     }
   },
 
-  updateLine: async (lineId, body) => {
+  updateLine: async (sequence, body) => {
     const cart = get().cart;
     if (!cart) return;
 
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.updateLine(cart.id, lineId, body) });
+      set({ cart: await posApi.updateLine(cart.id, sequence, body) });
     } catch (error) {
       set({ error: describe(error) });
     } finally {
@@ -408,14 +409,14 @@ export const usePosStore = create<PosState>((set, get) => ({
     }
   },
 
-  removeLine: async (lineId) => {
+  removeLine: async (sequence) => {
     const cart = get().cart;
     if (!cart) return;
 
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.removeLine(cart.id, lineId) });
+      set({ cart: await posApi.removeLine(cart.id, sequence) });
     } catch (error) {
       set({ error: describe(error) });
     } finally {
@@ -427,7 +428,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   removeLastLine: async () => {
     const cart = get().cart;
     const last = cart?.lines[cart.lines.length - 1];
-    if (last) await get().removeLine(last.id);
+    if (last) await get().removeLine(last.sequence);
   },
 
   clearLines: async () => {
@@ -580,7 +581,8 @@ export const usePosStore = create<PosState>((set, get) => ({
     }
   },
 
-  openDialog: (dialog, lineId = null) => set({ dialog, selectedLineId: lineId ?? get().selectedLineId }),
+  openDialog: (dialog, sequence = null) =>
+    set({ dialog, selectedLineSequence: sequence ?? get().selectedLineSequence }),
   closeDialog: () => set({ dialog: null, pendingSelection: null }),
   clearError: () => set({ error: null }),
   dismissTag: (epc) => set((state) => ({ rejectedTags: state.rejectedTags.filter((t) => t.epc !== epc) })),

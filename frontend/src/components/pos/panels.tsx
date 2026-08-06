@@ -163,7 +163,7 @@ export function LiveFeed() {
 }
 
 export function CartList() {
-  const { cart, selectedLineId, openDialog, policy } = usePosStore();
+  const { cart, selectedLineSequence, openDialog, policy } = usePosStore();
   const symbol = policy?.currencySymbol ?? '$';
   const lines = cart?.lines ?? [];
 
@@ -190,15 +190,15 @@ export function CartList() {
           </li>
         ) : (
           lines.map((line) => (
-            <li key={line.id}>
+            <li key={line.sequence}>
               <button
                 type="button"
-                onClick={() => openDialog('lineDetail', line.id)}
+                onClick={() => openDialog('lineDetail', line.sequence)}
                 className={cn(
                   'grid w-full grid-cols-[64px_1fr_96px_96px] items-center gap-2 px-3 text-left text-body',
                   'h-8 hover:bg-panel-hover',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
-                  selectedLineId === line.id && 'bg-surface',
+                  selectedLineSequence === line.sequence && 'bg-surface',
                 )}
               >
                 <span className="pos-amount text-right">{quantity(line.quantity)}</span>
