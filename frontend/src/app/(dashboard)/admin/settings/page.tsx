@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { CheckField, Field, FormSection, NumberField, SelectField, TextField } from '@/components/masters/browse-form';
 import { BrandingTab } from '@/components/layout/branding-settings';
 import { toast } from '@/components/ui/toaster';
@@ -60,9 +61,22 @@ export default function SettingsPage() {
   const canHardware = auth.can('settings.hardware');
   const canUsers = auth.can('users.manage');
 
-  const [tab, setTab] = useState<Tab>('Business ID');
+  // Which tab to open can be asked for in the address, so a link can lead to the thing it names
+  // rather than to the front of a stack of thirteen tabs the reader then has to search.
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+
+  const [tab, setTab] = useState<Tab>(
+    () => (TABS as readonly string[]).includes(requestedTab ?? '') ? (requestedTab as Tab) : 'Business ID',
+  );
   const [settings, setSettings] = useState<SettingsSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if ((TABS as readonly string[]).includes(requestedTab ?? '')) {
+      setTab(requestedTab as Tab);
+    }
+  }, [requestedTab]);
 
   const load = useCallback(async () => {
     if (!locationId) return;

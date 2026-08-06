@@ -225,7 +225,15 @@ function ScanSoundToggle() {
         if (!scanSound) playScanTone('accepted');
       }}
       aria-pressed={scanSound}
-      title={scanSound ? 'Scan sounds are on' : 'Scan sounds are off'}
+      // Names what it actually governs. A reader's buzzer is a setting held on the reader itself —
+      // some refuse to have it changed over the network at all — so a cashier pressing this and
+      // still hearing the antenna beep has not found a broken button, they have found two sources
+      // of sound. Saying so here is cheaper than the support call.
+      title={
+        scanSound
+          ? "The till's own scan sound is on. The reader's buzzer is separate and is set on the reader."
+          : "The till's own scan sound is off. If beeping continues it is the reader's own buzzer, set on the reader."
+      }
       className={cn(
         'inline-flex h-5 items-center gap-1 rounded px-1.5 text-caption transition-colors',
         scanSound ? 'text-ink-muted hover:bg-panel-hover' : 'text-ink-faint hover:bg-panel-hover',

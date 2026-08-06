@@ -91,7 +91,7 @@ const sections = [
   },
   {
     key: 'users',
-    href: '/admin/settings',
+    href: '/admin/settings?tab=Users',
     title: 'Users and access',
     description: 'Staff codes, access levels and PIN state. Authorisation is by permission; the level is only a preset.',
     icon: Users,
@@ -99,7 +99,7 @@ const sections = [
   },
   {
     key: 'groupings',
-    href: '/admin/settings',
+    href: '/admin/settings?tab=Groupings',
     title: 'Departments and categories',
     description: 'The two lists every item is filed under and every sales report groups by.',
     icon: Building2,
@@ -107,7 +107,7 @@ const sections = [
   },
   {
     key: 'pricing',
-    href: '/admin/settings',
+    href: '/admin/settings?tab=Pricing',
     title: 'Price precedence',
     description: 'The order the pricing rules are consulted in. Reordering it is a settings change, not a release.',
     icon: Shield,
