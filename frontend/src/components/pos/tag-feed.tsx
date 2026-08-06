@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Volume2, VolumeX } from 'lucide-react';
+import { Play, Square, Volume2, VolumeX } from 'lucide-react';
 import { RfidHub, type ObservedTag, type RfidReaderStatus } from '@/lib/rfid-hub';
 import { playScanTone } from '@/lib/scan-feedback';
+import { usePosStore } from '@/stores/pos-store';
 import { useUIStore } from '@/stores/ui-store';
 import { cn } from '@/lib/utils';
 
@@ -125,6 +126,7 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
             </span>
           ) : null}
 
+          <ReaderRunControls />
           <ScanSoundToggle />
         </span>
       </div>
@@ -141,6 +143,40 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
         )}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Start and stop the reader's inventory from the till.
+ *
+ * On the panel rather than buried in settings, because stopping the antenna is a counter-side need:
+ * a customer's tagged coat drifting into the field mid-sale is resolved by stopping the reader, not
+ * by an administrator. Start puts the reader in continuous inventory; Stop turns the RF off.
+ */
+function ReaderRunControls() {
+  const setReaderMode = usePosStore((state) => state.setReaderMode);
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button
+        type="button"
+        onClick={() => void setReaderMode('Continuous')}
+        title="Start reading tags continuously"
+        className="inline-flex h-5 items-center gap-1 rounded px-1.5 text-caption text-ink-muted transition-colors hover:bg-panel-hover"
+      >
+        <Play className="h-3.5 w-3.5" aria-hidden />
+        <span>Start</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => void setReaderMode('Off')}
+        title="Stop the reader"
+        className="inline-flex h-5 items-center gap-1 rounded px-1.5 text-caption text-ink-muted transition-colors hover:bg-panel-hover"
+      >
+        <Square className="h-3.5 w-3.5" aria-hidden />
+        <span>Stop</span>
+      </button>
+    </span>
   );
 }
 
