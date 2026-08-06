@@ -21,19 +21,22 @@ public sealed class PosHub : Hub
 
     public PosHub(ICartStore cartStore) => _cartStore = cartStore;
 
-    public Task JoinStation(string stationId)
+    // Ids are numbers on the wire since the integer re-key: a string parameter here makes SignalR
+    // refuse the invocation outright ("Error binding arguments"), which the till shows as a server
+    // that never comes online.
+    public Task JoinStation(long stationId)
         => Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Station(stationId));
 
-    public Task LeaveStation(string stationId)
+    public Task LeaveStation(long stationId)
         => Groups.RemoveFromGroupAsync(Context.ConnectionId, PosGroups.Station(stationId));
 
-    public Task JoinLocation(string locationId)
+    public Task JoinLocation(long locationId)
         => Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Location(locationId));
 
-    public Task JoinCart(string cartId)
+    public Task JoinCart(long cartId)
         => Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Cart(cartId));
 
-    public Task LeaveCart(string cartId)
+    public Task LeaveCart(long cartId)
         => Groups.RemoveFromGroupAsync(Context.ConnectionId, PosGroups.Cart(cartId));
 
     /// <summary>
@@ -41,14 +44,9 @@ public sealed class PosHub : Hub
     /// revision rather than the whole cart keeps the round trip cheap; the client then fetches state
     /// over HTTP only if it is genuinely behind.
     /// </summary>
-    public async Task RequestCartResync(string cartId, int knownRevision)
+    public async Task RequestCartResync(long cartId, int knownRevision)
     {
-        if (!long.TryParse(cartId, out var id))
-        {
-            return;
-        }
-
-        var snapshot = await _cartStore.GetAsync(id, Context.ConnectionAborted);
+        var snapshot = await _cartStore.GetAsync(cartId, Context.ConnectionAborted);
 
         await Clients.Caller.SendAsync(
             "CartResyncRequired",
@@ -91,6 +89,6 @@ public sealed class InventoryHub : Hub
     public Task UnsubscribeFromGrid(string entity, string filterHash)
         => Groups.RemoveFromGroupAsync(Context.ConnectionId, PosGroups.Grid(entity, filterHash));
 
-    public Task JoinLocation(string locationId)
+    public Task JoinLocation(long locationId)
         => Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Location(locationId));
 }

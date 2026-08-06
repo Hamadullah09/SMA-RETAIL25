@@ -23,27 +23,22 @@ namespace Retail25.Infrastructure.Realtime;
 [Authorize(Policy = IdentityRegistration.HubAuthorizationPolicy)]
 public sealed class RfidHub : Hub
 {
-    /// <summary>Watch one till's reader.</summary>
-    public Task SubscribeToStation(string stationId)
-        => long.TryParse(stationId, out var id)
-            ? Groups.AddToGroupAsync(Context.ConnectionId, RfidGroups.Station(id))
-            : Task.CompletedTask;
+    // Ids are numbers on the wire since the integer re-key; a string parameter makes SignalR refuse
+    // the invocation before the method body ever runs.
 
-    public Task UnsubscribeFromStation(string stationId)
-        => long.TryParse(stationId, out var id)
-            ? Groups.RemoveFromGroupAsync(Context.ConnectionId, RfidGroups.Station(id))
-            : Task.CompletedTask;
+    /// <summary>Watch one till's reader.</summary>
+    public Task SubscribeToStation(long stationId)
+        => Groups.AddToGroupAsync(Context.ConnectionId, RfidGroups.Station(stationId));
+
+    public Task UnsubscribeFromStation(long stationId)
+        => Groups.RemoveFromGroupAsync(Context.ConnectionId, RfidGroups.Station(stationId));
 
     /// <summary>Watch every reader in a store — what a stock count or a goods-in bench wants.</summary>
-    public Task SubscribeToLocation(string locationId)
-        => long.TryParse(locationId, out var id)
-            ? Groups.AddToGroupAsync(Context.ConnectionId, RfidGroups.Location(id))
-            : Task.CompletedTask;
+    public Task SubscribeToLocation(long locationId)
+        => Groups.AddToGroupAsync(Context.ConnectionId, RfidGroups.Location(locationId));
 
-    public Task UnsubscribeFromLocation(string locationId)
-        => long.TryParse(locationId, out var id)
-            ? Groups.RemoveFromGroupAsync(Context.ConnectionId, RfidGroups.Location(id))
-            : Task.CompletedTask;
+    public Task UnsubscribeFromLocation(long locationId)
+        => Groups.RemoveFromGroupAsync(Context.ConnectionId, RfidGroups.Location(locationId));
 }
 
 /// <summary>Group names for the read feed. Prefixed so they cannot collide with <see cref="PosGroups"/>.</summary>
