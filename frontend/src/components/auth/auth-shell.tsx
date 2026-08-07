@@ -1,6 +1,16 @@
 import Link from 'next/link';
 import type { ComponentType, ReactNode } from 'react';
-import { AlertCircle, Boxes, CheckCircle2, Nfc, ScanBarcode, ShieldCheck } from 'lucide-react';
+import {
+  AlertCircle,
+  BarChart3,
+  Boxes,
+  CheckCircle2,
+  Nfc,
+  Receipt,
+  ScanBarcode,
+  Server,
+  Truck,
+} from 'lucide-react';
 import { SmaMark } from '@/components/layout/logo';
 
 /**
@@ -16,10 +26,14 @@ import { SmaMark } from '@/components/layout/logo';
  */
 
 /**
- * What the product does, in four lines.
+ * What the product does, in six.
  *
- * Kept here rather than passed in: every account screen shows the same four, and a hero that
- * changed its argument depending on whether you were resetting a password would be odd.
+ * Kept here rather than passed in: every account screen shows the same six, and a hero that changed
+ * its argument depending on whether you were resetting a password would be odd.
+ *
+ * Every line names something the system actually has a screen for. A landing page that promises a
+ * capability the menu does not contain is a support call on the first morning, and the person
+ * reading this is usually about to start a shift rather than about to buy anything.
  */
 const FEATURES: ReadonlyArray<{
   icon: ComponentType<{ className?: string }>;
@@ -28,19 +42,33 @@ const FEATURES: ReadonlyArray<{
 }> = [
   {
     icon: ScanBarcode,
-    term: 'Till',
-    detail: 'Keyboard-first, and it keeps selling when the network does not.',
+    term: 'Point of sale',
+    detail: 'Scan, tender, hold and refund. Every action on a key, the drawer counted at close.',
   },
   {
     icon: Boxes,
-    term: 'Stock',
-    detail: 'One live count across every store, counted from a ledger rather than a guess.',
+    term: 'Live stock',
+    detail: 'One count across every store, kept as a ledger so it can always be explained.',
   },
-  { icon: Nfc, term: 'Tags', detail: 'Read a whole basket of RFID tags at the counter.' },
   {
-    icon: ShieldCheck,
-    term: 'Accounts',
-    detail: 'Receivables, statements and an audit trail that reconciles.',
+    icon: Nfc,
+    term: 'RFID tags',
+    detail: 'Read a whole basket at the counter instead of scanning it item by item.',
+  },
+  {
+    icon: Truck,
+    term: 'Purchasing',
+    detail: 'Suppliers, orders and receiving, with cost carried through to margin.',
+  },
+  {
+    icon: Receipt,
+    term: 'Customer accounts',
+    detail: 'Invoices, layaways, statements and what is owed, aged.',
+  },
+  {
+    icon: BarChart3,
+    term: 'Reporting',
+    detail: 'Sales, margin and stock position, through to the year-end close.',
   },
 ];
 
@@ -59,37 +87,55 @@ export function AuthShell({
     <div className="grid min-h-screen bg-surface lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       {/* Removed from the document below `lg` rather than reordered: on a phone the form is the
           whole screen, and a hero the thumb has to scroll past to reach it is a tax. */}
-      <aside className="auth-hero relative hidden flex-col justify-between overflow-hidden border-r border-subtle p-10 lg:flex xl:p-14">
-        <div>
-          <BrandLockup />
+      {/* Removed from the document below `lg` rather than reordered: on a phone the form is the
+          whole screen, and a hero the thumb has to scroll past to reach it is a tax.
 
-          <p className="mt-12 max-w-md text-display font-semibold leading-tight tracking-tight text-ink">
-            Point of sale, inventory and accounts in one place.
-          </p>
-          <p className="mt-4 max-w-md text-body-lg leading-relaxed text-ink-muted">
-            Built for the counter first. Every till action is reachable from the keyboard, and the
-            back office reads the same figures the moment they change.
-          </p>
-        </div>
+          Laid out top-down with the closing line pushed down by `mt-auto`, rather than the two
+          halves being forced apart by `justify-between`. That split left a hand's width of nothing
+          across the middle of the first screen anyone sees, which reads as a page that failed to
+          finish loading. */}
+      <aside className="auth-hero relative hidden flex-col overflow-hidden border-r border-subtle p-10 lg:flex xl:p-14">
+        <BrandLockup />
 
-        <ul className="mt-12 grid max-w-md gap-4">
+        <h2 className="mt-10 max-w-lg text-display font-semibold leading-tight tracking-tight text-ink xl:mt-12">
+          Everything the shop runs on, in one system.
+        </h2>
+        <p className="mt-4 max-w-lg text-body-lg leading-relaxed text-ink-muted">
+          The counter, the stockroom and the books, kept in step. What a cashier rings up at the till
+          is what the back office reads a second later — one set of figures, not three that have to
+          be reconciled at the end of the week.
+        </p>
+
+        <ul className="mt-9 grid max-w-2xl gap-2.5 sm:grid-cols-2">
           {FEATURES.map(({ icon: Icon, term, detail }) => (
-            <li key={term} className="flex items-start gap-3">
-              <span
-                className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent-text"
-                aria-hidden
-              >
-                <Icon className="h-4 w-4" />
-              </span>
-              <span className="min-w-0">
-                <span className="block text-body-lg font-medium text-ink">{term}</span>
-                <span className="mt-0.5 block text-body leading-relaxed text-ink-muted">
-                  {detail}
+            <li
+              key={term}
+              className="rounded-lg border border-subtle bg-panel/70 p-3.5 shadow-raised backdrop-blur-sm"
+            >
+              <span className="flex items-center gap-2">
+                <span
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-text"
+                  aria-hidden
+                >
+                  <Icon className="h-3.5 w-3.5" />
                 </span>
+                <span className="text-body font-semibold text-ink">{term}</span>
+              </span>
+              <span className="mt-1.5 block text-caption leading-relaxed text-ink-muted">
+                {detail}
               </span>
             </li>
           ))}
         </ul>
+
+        {/* The one claim worth making on a sign-in page, because it is the one a shop owner asks
+            about first and it is true: this runs on their hardware, not on someone else's. */}
+        <p className="mt-auto flex items-start gap-2 pt-10 text-caption leading-relaxed text-ink-muted">
+          <Server className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>
+            Runs on your own server. The takings, the stock and the customer list stay in the shop.
+          </span>
+        </p>
       </aside>
 
       <main className="flex items-center justify-center px-5 py-10 sm:px-8">

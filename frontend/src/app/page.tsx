@@ -48,7 +48,7 @@ function LoginContent() {
   return (
     <AuthShell
       title="Sign in"
-      lead="You will be taken to the secure sign-in page to enter your password."
+      lead="Use the account your manager set up for you."
       footer={
         <div className="space-y-1.5">
           <p>
