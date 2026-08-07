@@ -1,8 +1,18 @@
 'use client';
 
-import { useEffect, useState, type RefObject } from 'react';
+import { useEffect, useRef, useState, type RefObject } from 'react';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import {
+  ChevronLeft,
+  Printer,
+  Radio,
+  Scale,
+  ScanLine,
+  Server,
+  TriangleAlert,
+  User,
+  X,
+} from 'lucide-react';
 import { usePosStore } from '@/stores/pos-store';
 import type { CartLine, PriceOrigin } from '@/types/pos';
 import { cn } from '@/lib/utils';
@@ -43,12 +53,20 @@ const SOURCE_LABELS: Partial<Record<CartLine['source'], string>> = {
 
 /* ------------------------------------------------------------------ region ⑤ status bar */
 
+/**
+ * The till's meta row: where this station is, what the drawer is doing, and whether the four things
+ * it depends on are alive.
+ *
+ * It renders bare rather than as its own panel. The status row, the scan box and the two banners are
+ * one object — the state of the till and the way into it — and drawing four bordered cards around
+ * four things a cashier reads as one is what made the old screen look like a settings page.
+ */
 export function StatusBar() {
-  const { policy, connected, readerOnline, peripherals, drawer, cart } = usePosStore();
+  const { policy, connected, readerOnline, peripherals, drawer, cart, lastSale } = usePosStore();
 
   return (
-    <header className="pos-panel flex items-center justify-between px-3 py-2 text-label">
-      <div className="flex items-center gap-4 text-ink-muted">
+    <header className="flex items-center justify-between gap-3 px-2.5 py-1 text-label">
+      <div className="flex min-w-0 items-center gap-3 text-ink-muted">
         {/*
           The way out. The till is the one screen with no sidebar — it takes the whole display on
           purpose — and without this the only route back to the back office is the browser's own
@@ -56,44 +74,83 @@ export function StatusBar() {
         */}
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium text-ink-muted transition-colors hover:bg-panel-hover hover:text-ink"
+          className="-ml-1 inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 font-medium text-ink-muted transition-colors hover:bg-panel-hover hover:text-ink"
         >
           <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
           Back office
         </Link>
 
-        <span>
-          Station <span className="font-medium text-ink">{policy?.stationCode ?? '—'}</span>
+        <span className="h-3.5 w-px shrink-0 bg-subtle" aria-hidden />
+
+        <span className="shrink-0">
+          Station <span className="font-semibold text-ink">{policy?.stationCode ?? '—'}</span>
         </span>
-        <span>
+
+        {/*
+          The drawer is stated as a word in both states rather than as a colour swap, for the same
+          reason the peripherals below are: "closed" in amber and "open" in green are the same shape
+          to a reader who cannot separate the hues.
+        */}
+        <span className="shrink-0">
           Drawer{' '}
-          <span className={cn('font-medium', drawer?.status === 'Open' ? 'text-positive' : 'text-warning')}>
+          <span className={cn('font-semibold', drawer?.status === 'Open' ? 'text-positive' : 'text-ink')}>
             {drawer?.status === 'Open' ? 'open' : 'closed'}
           </span>
         </span>
-        {cart?.heldName ? <span className="text-warning">Recalled: {cart.heldName}</span> : null}
+
+        {cart?.heldName ? (
+          <span className="pos-badge shrink-0 text-warning">Recalled: {cart.heldName}</span>
+        ) : null}
+
+        {/* Folded into this row rather than given a line of its own; it is a receipt, not an event. */}
+        {lastSale ? (
+          <span className="truncate text-ink-faint" role="status">
+            Sale #{lastSale.transactionNumber} saved
+            {lastSale.changeGiven > 0 ? ` · change ${money(lastSale.changeGiven)}` : ''}
+          </span>
+        ) : null}
       </div>
 
-      <div className="flex items-center gap-3">
-        <Health label="Server" ok={connected} />
-        <Health label="RFID" ok={readerOnline} />
-        <Health label="Printer" ok={peripherals?.printerOnline ?? false} />
-        <Health label="Scale" ok={peripherals?.scaleOnline ?? false} />
+      <div className="flex shrink-0 items-center gap-1" aria-label="Peripheral status">
+        <Health label="Server" icon={Server} ok={connected} />
+        <Health label="RFID" icon={Radio} ok={readerOnline} />
+        <Health label="Printer" icon={Printer} ok={peripherals?.printerOnline ?? false} />
+        <Health label="Scale" icon={Scale} ok={peripherals?.scaleOnline ?? false} />
       </div>
     </header>
   );
 }
 
-function Health({ label, ok }: { label: string; ok: boolean }) {
+/**
+ * One peripheral, told four ways: a glyph that changes shape, a word, a weight and — last — a hue.
+ *
+ * Colour is the cue a till can least afford to lean on. These four sit under fluorescent light on a
+ * cheap panel seen at an angle, and roughly one man in twelve cannot separate the green from the
+ * red that used to be the *only* difference between a working printer and a dead one.
+ */
+function Health({
+  label,
+  ok,
+  icon: Icon,
+}: {
+  label: string;
+  ok: boolean;
+  icon: typeof Server;
+}) {
   return (
-    <span className="flex items-center gap-1.5 text-ink-muted">
-      <span
-        aria-hidden
-        className="h-2 w-2 rounded-full"
-        style={{ backgroundColor: ok ? 'oklch(var(--positive))' : 'oklch(var(--negative))' }}
-      />
+    <span className="pos-health" data-state={ok ? 'up' : 'down'} title={ok ? `${label} online` : `${label} offline`}>
+      {ok ? (
+        <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+      ) : (
+        <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+      )}
       <span className="sr-only">{ok ? `${label} online` : `${label} offline`}</span>
       <span aria-hidden>{label}</span>
+      {ok ? null : (
+        <span aria-hidden className="opacity-80">
+          offline
+        </span>
+      )}
     </span>
   );
 }
@@ -106,9 +163,10 @@ export function ConnectionBanner() {
   return (
     <div
       role="status"
-      className="border-b px-3 py-1.5 text-label font-medium"
-      style={{ borderColor: 'oklch(var(--warning))', color: 'oklch(var(--warning))' }}
+      className="flex items-center gap-2 border-b border-subtle px-3 py-1.5 text-label font-semibold"
+      style={{ backgroundColor: 'oklch(var(--warning) / 0.12)', color: 'oklch(var(--warning))' }}
     >
+      <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden />
       Disconnected from the server — reconnecting. Totals on screen may be stale.
     </div>
   );
@@ -148,27 +206,29 @@ export function LiveFeed() {
   if (!showOffline && rejectedTags.length === 0) return null;
 
   return (
-    <div className="border-b border-subtle">
+    <div className="shrink-0 border-b border-subtle">
       {showOffline ? (
         <div
-          className="flex items-center justify-between gap-2 px-3 py-1.5 text-caption font-medium text-negative"
+          className="flex items-center justify-between gap-2 px-3 py-1.5 text-label font-semibold text-negative"
+          style={{ backgroundColor: 'oklch(var(--negative) / 0.10)' }}
           role="status"
         >
-          <span>Reader offline — scan or key items as normal.</span>
-          <button type="button" className="underline" onClick={() => void setReaderMode('OnDemand')}>
+          <span className="flex items-center gap-1.5">
+            <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            Reader offline — scan or key items as normal.
+          </span>
+          <button type="button" className="shrink-0 rounded px-1 underline" onClick={() => void setReaderMode('OnDemand')}>
             Retry
           </button>
         </div>
       ) : null}
 
       {rejectedTags.length > 0 ? (
-        <ul className="max-h-24 overflow-y-auto px-3 pb-1.5 text-label" aria-live="polite">
+        <ul className="max-h-20 overflow-y-auto px-3 py-1 text-label" aria-live="polite">
           {rejectedTags.map((tag) => (
             <li key={`${tag.epc}-${tag.at}`} className="pos-settling flex justify-between gap-2 py-0.5">
-              <span className="truncate font-mono text-caption text-ink-muted">
-                …{tag.epc.slice(-12)}
-              </span>
-              <span className="text-negative">{tag.message}</span>
+              <span className="truncate font-mono text-caption text-ink-muted">…{tag.epc.slice(-12)}</span>
+              <span className="shrink-0 font-medium text-negative">{tag.message}</span>
             </li>
           ))}
         </ul>
@@ -177,109 +237,168 @@ export function LiveFeed() {
   );
 }
 
+/**
+ * The sale itself — the thing on this screen a cashier looks at all day.
+ *
+ * It is given the whole left column and everything else is sized around it. Four columns, one shared
+ * grid definition, and exactly one line marked as the one being worked on.
+ */
 export function CartList() {
   const { cart, selectedLineSequence, openDialog, policy } = usePosStore();
   const symbol = policy?.currencySymbol ?? '$';
   const lines = cart?.lines ?? [];
+  const itemCount = cart?.totals?.itemCount ?? 0;
+
+  /*
+   * The line under the cashier's attention: the one they opened, or failing that the one that just
+   * landed. Selection is only ever set by opening a line, so on the ordinary scan-scan-scan path
+   * this resolves to the newest line — which is the one they are checking against the item in hand.
+   */
+  const currentSequence =
+    lines.find((line) => line.sequence === selectedLineSequence)?.sequence ??
+    (lines.length > 0 ? lines[lines.length - 1].sequence : null);
+
+  const currentRef = useRef<HTMLLIElement>(null);
+
+  // Line fifteen of a sale is below the fold, and a cashier cannot confirm a price they cannot see.
+  useEffect(() => {
+    currentRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [currentSequence, lines.length]);
 
   return (
-    <section className="pos-panel flex h-full min-h-0 flex-col" aria-label="Sale lines">
-      <div className="pos-panel-header">
+    <section className="pos-panel flex h-full min-h-0 flex-col overflow-hidden" aria-label="Sale lines">
+      <div className="pos-panel-header shrink-0">
         <span>Sale</span>
-        <span className="tabular">{lines.length} lines</span>
+        <span className="tabular text-ink-muted">
+          {lines.length === 0 ? 'empty' : `${itemCount} item${itemCount === 1 ? '' : 's'} · ${lines.length} lines`}
+        </span>
       </div>
 
       <LiveFeed />
 
-      <div className="grid grid-cols-[64px_1fr_96px_96px] gap-2 border-b border-subtle px-3 py-1 text-caption font-medium uppercase tracking-wide text-ink-muted">
-        <span className="text-right">Qty</span>
+      <div className="pos-cart-grid shrink-0 border-b border-subtle bg-panel-sunken py-1 pl-2 pr-3 text-caption font-semibold uppercase tracking-wide text-ink-muted">
+        <span className="pl-[3px] text-center">Qty</span>
         <span>Item</span>
         <span className="text-right">Price</span>
         <span className="text-right">Ext</span>
       </div>
 
-      <ol className="min-h-0 flex-1 overflow-y-auto">
-        {lines.length === 0 ? (
-          <li className="px-3 py-8 text-center text-body text-ink-muted">
-            Scan an item, or press <kbd className="font-mono">F9</kbd> to find one.
-          </li>
-        ) : (
-          lines.map((line) => (
-            <li key={line.sequence}>
-              <button
-                type="button"
-                onClick={() => openDialog('lineDetail', line.sequence)}
-                className={cn(
-                  'grid w-full grid-cols-[64px_1fr_96px_96px] items-center gap-2 px-3 text-left text-body',
-                  'h-8 hover:bg-panel-hover',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
-                  selectedLineSequence === line.sequence && 'bg-surface',
-                )}
-              >
-                <span className="pos-amount text-right">{quantity(line.quantity)}</span>
+      {lines.length === 0 ? (
+        <EmptySale />
+      ) : (
+        <ol className="min-h-0 flex-1 overflow-y-auto">
+          {lines.map((line) => {
+            const current = line.sequence === currentSequence;
 
-                <span className="flex min-w-0 items-center gap-1.5">
-                  <span className="truncate">{line.name}</span>
-                  {line.variantLabel ? (
-                    <span className="shrink-0 text-label text-ink-muted">{line.variantLabel}</span>
-                  ) : null}
-                  {SOURCE_LABELS[line.source] ? (
-                    <span className="pos-badge shrink-0 border border-subtle text-ink-muted">
-                      {SOURCE_LABELS[line.source]}
-                    </span>
-                  ) : null}
-                  {ORIGIN_LABELS[line.priceOrigin] ? (
-                    <span
-                      className="pos-badge shrink-0"
-                      style={{ backgroundColor: 'oklch(var(--positive) / 0.12)', color: 'oklch(var(--positive))' }}
-                    >
-                      {ORIGIN_LABELS[line.priceOrigin]}
-                    </span>
-                  ) : null}
-                  {line.lineType !== 'Sale' ? (
-                    <span
-                      className="pos-badge shrink-0"
-                      style={{ backgroundColor: 'oklch(var(--negative) / 0.12)', color: 'oklch(var(--negative))' }}
-                    >
-                      {line.lineType === 'Return' ? 'RETURN' : 'TRADE'}
-                    </span>
-                  ) : null}
-                </span>
+            return (
+              <li key={line.sequence} ref={current ? currentRef : undefined} className="border-b border-subtle/60">
+                <button
+                  type="button"
+                  onClick={() => openDialog('lineDetail', line.sequence)}
+                  data-current={current}
+                  aria-current={current ? 'true' : undefined}
+                  className="pos-cart-row pos-cart-grid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+                >
+                  <span className="flex justify-center">
+                    {line.quantity === 1 ? (
+                      <span className="pos-amount text-ink-muted">1</span>
+                    ) : (
+                      <span className="pos-qty-chip text-ink">{quantity(line.quantity)}</span>
+                    )}
+                  </span>
 
-                <span className="pos-amount text-right">{money(line.unitPrice, symbol)}</span>
-                <span className="pos-amount text-right font-medium">{money(line.extendedNet, symbol)}</span>
-              </button>
-            </li>
-          ))
-        )}
-      </ol>
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate text-body-lg text-ink">{line.name}</span>
+                    {line.variantLabel ? (
+                      <span className="shrink-0 text-label text-ink-muted">{line.variantLabel}</span>
+                    ) : null}
+                    {SOURCE_LABELS[line.source] ? (
+                      <span className="pos-badge shrink-0 text-ink-muted">{SOURCE_LABELS[line.source]}</span>
+                    ) : null}
+                    {ORIGIN_LABELS[line.priceOrigin] ? (
+                      <span className="pos-badge shrink-0 text-positive">{ORIGIN_LABELS[line.priceOrigin]}</span>
+                    ) : null}
+                    {line.lineType !== 'Sale' ? (
+                      <span className="pos-badge shrink-0 text-negative">
+                        {line.lineType === 'Return' ? 'RETURN' : 'TRADE'}
+                      </span>
+                    ) : null}
+                  </span>
+
+                  <span className="pos-amount pos-line-unit text-right text-label text-ink-muted">
+                    {money(line.unitPrice, symbol)}
+                  </span>
+
+                  {/* The figure the customer is being charged for this line: full ink, semibold,
+                      and the only thing in the row heavier than the item's own name. */}
+                  <span className="pos-amount text-right text-body-lg font-semibold text-ink">
+                    {money(line.extendedNet, symbol)}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      )}
     </section>
+  );
+}
+
+/**
+ * The empty sale.
+ *
+ * A cashier at the start of a shift, and a new starter on their first day, both look at this. One
+ * grey sentence told them nothing about the three ways an item can get onto the screen, and the
+ * cheapest place to teach that is the space that is empty anyway.
+ */
+function EmptySale() {
+  const openDialog = usePosStore((s) => s.openDialog);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-8 text-center">
+      <span
+        aria-hidden
+        className="mb-3 flex h-12 w-12 items-center justify-center rounded-full text-accent-text"
+        style={{ backgroundColor: 'oklch(var(--accent) / 0.10)' }}
+      >
+        <ScanLine className="h-6 w-6" />
+      </span>
+
+      <p className="text-h3 font-medium text-ink">Nothing on this sale yet</p>
+
+      <p className="mt-1 max-w-xs text-body text-ink-muted">
+        Scan a barcode, hold a tagged item near the antenna, or look the item up by name.
+      </p>
+
+      <button type="button" className="pos-button mt-4" onClick={() => openDialog('find')}>
+        <span className="pos-kbd">F9</span>
+        Find an item
+      </button>
+    </div>
   );
 }
 
 /* ---------------------------------------------------------------------- region ② totals */
 
+/**
+ * The money.
+ *
+ * The build-up is deliberately quiet and the grand total is deliberately enormous. It is the number
+ * read aloud at every sale and read off the screen by a customer standing a metre away, and at the
+ * old 24px it was the same size as the panel headings around it.
+ */
 export function TotalsPanel() {
   const { cart, policy } = usePosStore();
   const symbol = policy?.currencySymbol ?? '$';
   const totals = cart?.totals;
 
   return (
-    <section className="pos-panel" aria-label="Totals">
-      <div className="pos-panel-header">
-        <span>Totals</span>
-        {totals?.taxInclusive ? <span className="normal-case">tax included</span> : null}
-      </div>
-
-      <dl className="space-y-1 px-3 py-2 text-body" aria-live="polite">
+    <section aria-label="Totals">
+      <dl className="space-y-0.5 px-3 pb-2 pt-2 text-label" aria-live="polite">
         <Row label="Subtotal" value={money(totals?.subtotal ?? 0, symbol)} />
 
         {totals && totals.discountTotal > 0 ? (
-          <Row
-            label="Discounts"
-            value={`-${money(totals.discountTotal, symbol)}`}
-            tone="positive"
-          />
+          <Row label="Discounts" value={`-${money(totals.discountTotal, symbol)}`} tone="positive" />
         ) : null}
 
         {totals && totals.addOnCharge !== 0 ? (
@@ -293,27 +412,40 @@ export function TotalsPanel() {
         {totals && totals.tax2Total !== 0 ? (
           <Row label={totals.tax2Name} value={money(totals.tax2Total, symbol)} />
         ) : null}
-
-        <div className="mt-1 flex items-baseline justify-between border-t border-subtle pt-2">
-          <dt className="text-label font-medium uppercase tracking-wide text-ink-muted">Total</dt>
-          <dd className="pos-amount text-2xl font-semibold">{money(totals?.grandTotal ?? 0, symbol)}</dd>
-        </div>
-
-        {totals && totals.loyaltyPointsEarned > 0 ? (
-          <p className="pt-1 text-label text-ink-muted">
-            Earns <span className="tabular">{totals.loyaltyPointsEarned}</span> points
-          </p>
-        ) : null}
       </dl>
+
+      {/* Its own band, not another row in the list. The rule above it and the wash behind it are
+          what stop the eye reading straight past it as the sixth line of an arithmetic. */}
+      <div
+        className="flex items-end justify-between gap-2 border-y border-subtle px-3 py-2.5"
+        style={{ backgroundColor: 'oklch(var(--accent) / 0.07)' }}
+      >
+        <dt className="flex flex-col text-label font-semibold uppercase tracking-wide text-ink-muted">
+          Total
+          {totals?.taxInclusive ? (
+            <span className="text-caption font-normal normal-case tracking-normal">tax included</span>
+          ) : null}
+        </dt>
+        <dd className="pos-grand-total text-ink">{money(totals?.grandTotal ?? 0, symbol)}</dd>
+      </div>
+
+      {totals && totals.loyaltyPointsEarned > 0 ? (
+        <p className="px-3 pt-1.5 text-label text-ink-muted">
+          Earns <span className="tabular font-medium text-ink">{totals.loyaltyPointsEarned}</span> points
+        </p>
+      ) : null}
     </section>
   );
 }
 
 function Row({ label, value, tone }: { label: string; value: string; tone?: 'positive' }) {
   return (
-    <div className="flex justify-between">
-      <dt className="text-ink-muted">{label}</dt>
-      <dd className="pos-amount" style={tone === 'positive' ? { color: 'oklch(var(--positive))' } : undefined}>
+    <div className="flex justify-between gap-2">
+      <dt className="truncate text-ink-muted">{label}</dt>
+      <dd
+        className="pos-amount shrink-0 text-ink"
+        style={tone === 'positive' ? { color: 'oklch(var(--positive))' } : undefined}
+      >
         {value}
       </dd>
     </div>
@@ -327,17 +459,32 @@ export function PaymentMatrix({ onPay }: { onPay: () => void }) {
   const canPay = Boolean(cart && cart.lines.length > 0 && !busy);
 
   return (
-    <section className="pos-panel p-3" aria-label="Payment">
-      <button type="button" className="pos-button-primary w-full text-base" disabled={!canPay} onClick={onPay}>
-        Pay <span className="pos-fkey"><kbd>F4</kbd></span>
+    <section className="p-2.5" aria-label="Payment">
+      <button
+        type="button"
+        className="pos-button-primary w-full text-body-lg"
+        style={{ minHeight: '3.25rem' }}
+        disabled={!canPay}
+        onClick={onPay}
+      >
+        Pay
+        <span className="pos-fkey text-accent-foreground/80">
+          <kbd>F4</kbd>
+        </span>
       </button>
 
-      <div className="mt-2 grid grid-cols-2 gap-2">
+      <div className="mt-1.5 grid grid-cols-2 gap-1.5">
         <button type="button" className="pos-button text-body" disabled={!cart} onClick={() => openDialog('credits')}>
-          Credits <span className="pos-fkey"><kbd>F8</kbd></span>
+          Credits{' '}
+          <span className="pos-fkey px-0">
+            <kbd>F8</kbd>
+          </span>
         </button>
         <button type="button" className="pos-button text-body" disabled={!cart} onClick={() => openDialog('special')}>
-          Special <span className="pos-fkey"><kbd>F11</kbd></span>
+          Special{' '}
+          <span className="pos-fkey px-0">
+            <kbd>F11</kbd>
+          </span>
         </button>
       </div>
     </section>
@@ -352,62 +499,95 @@ export function CustomerPanel() {
   const customer = cart?.customer;
 
   return (
-    <section className="pos-panel" aria-label="Customer">
+    <section aria-label="Customer">
       <div className="pos-panel-header">
         <span>Customer</span>
-        <button type="button" className="text-caption normal-case underline" onClick={() => openDialog('client')}>
-          F5 Client
+        <button
+          type="button"
+          className="pos-fkey rounded-sm px-1 normal-case hover:bg-panel-hover hover:text-ink"
+          onClick={() => openDialog('client')}
+        >
+          <kbd>F5</kbd>
+          {customer ? 'Change' : 'Attach'}
         </button>
       </div>
 
       {customer ? (
-        <div className="space-y-1 px-3 py-2 text-body">
-          <div className="flex items-baseline justify-between">
-            <span className="font-medium">{customer.name}</span>
-            <span className="tabular text-label text-ink-muted">#{customer.customerNumber}</span>
+        <div className="space-y-1 px-3 py-1.5">
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="truncate text-body-lg font-semibold text-ink">{customer.name}</span>
+            <span className="tabular shrink-0 text-label text-ink-muted">#{customer.customerNumber}</span>
           </div>
 
-          <p className="text-label text-ink-muted">
-            Level {customer.priceLevel}
-            {customer.usualDiscountPct > 0 ? ` · ${customer.usualDiscountPct}% usual` : ''}
-            {customer.exemptTax1 ? ' · tax 1 exempt' : ''}
-            {customer.exemptTax2 ? ' · tax 2 exempt' : ''}
-          </p>
-
-          <div className="flex justify-between text-label">
-            <span className="text-ink-muted">Points</span>
-            <span className="tabular">{customer.rewardPoints}</span>
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="pos-badge text-ink-muted">Level {customer.priceLevel}</span>
+            {customer.usualDiscountPct > 0 ? (
+              <span className="pos-badge text-positive">{customer.usualDiscountPct}% usual</span>
+            ) : null}
+            {customer.exemptTax1 ? <span className="pos-badge text-ink-muted">Tax 1 exempt</span> : null}
+            {customer.exemptTax2 ? <span className="pos-badge text-ink-muted">Tax 2 exempt</span> : null}
           </div>
 
-          <div className="flex justify-between text-label">
-            <span className="text-ink-muted">Account balance</span>
-            <span className="pos-amount">{money(customer.accountBalance, symbol)}</span>
+          <div className="flex items-baseline justify-between gap-2 text-label">
+            <span className="text-ink-muted">
+              Points <span className="tabular font-medium text-ink">{customer.rewardPoints}</span>
+            </span>
+            <span className="text-ink-muted">
+              Balance{' '}
+              <span className="pos-amount font-medium text-ink">{money(customer.accountBalance, symbol)}</span>
+            </span>
+            <button
+              type="button"
+              className="inline-flex items-center gap-0.5 rounded px-1 text-label text-ink-muted underline hover:text-ink"
+              onClick={() => void setCustomer(null)}
+            >
+              <X className="h-3 w-3" aria-hidden />
+              Remove
+            </button>
           </div>
-
-          <button
-            type="button"
-            className="mt-1 text-label underline text-ink-muted"
-            onClick={() => void setCustomer(null)}
-          >
-            Remove customer
-          </button>
         </div>
       ) : (
-        <p className="px-3 py-3 text-body text-ink-muted">Walk-in sale.</p>
+        <p className="flex items-center gap-2 px-3 py-2 text-body text-ink-muted">
+          <User className="h-4 w-4 shrink-0 text-ink-faint" aria-hidden />
+          Walk-in sale
+        </p>
       )}
     </section>
   );
 }
 
+/**
+ * The side column, as one object.
+ *
+ * Customer, then money, then the way to take it — read top to bottom in the order the sale happens.
+ * They were three separate bordered cards, which made three unrelated things out of one sequence and
+ * spent 16px of the till's scarcest axis on the gaps between them.
+ */
+export function SidePanel({ onPay }: { onPay: () => void }) {
+  return (
+    <div className="pos-panel shrink-0 divide-y divide-subtle overflow-hidden">
+      <CustomerPanel />
+      <TotalsPanel />
+      <PaymentMatrix onPay={onPay} />
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------------ the scan box */
 
+/**
+ * Where every sale starts.
+ *
+ * Full width, touch height, and the only field on the screen — so there is never a question about
+ * where a wedge scanner's keystrokes are going.
+ */
 export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> }) {
   const { scan, busy, error, clearError } = usePosStore();
   const [value, setValue] = useState('');
 
   return (
     <form
-      className="pos-panel flex items-center gap-2 px-3 py-2"
+      className="flex h-11 items-center gap-2 border-t border-subtle px-3"
       onSubmit={(event) => {
         event.preventDefault();
         const entry = value;
@@ -415,7 +595,8 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
         void scan(entry);
       }}
     >
-      <label htmlFor="pos-scan" className="text-label uppercase tracking-wide text-ink-muted">
+      <label htmlFor="pos-scan" className="flex shrink-0 items-center gap-1.5 text-label font-semibold uppercase tracking-wide text-ink-muted">
+        <ScanLine className="h-4 w-4" aria-hidden />
         Scan
       </label>
 
@@ -432,12 +613,16 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
           if (error) clearError();
         }}
         placeholder="Barcode, stock code, tag or serial"
-        className="flex-1 bg-transparent text-body outline-none placeholder:text-ink-muted"
+        className="h-full min-w-0 flex-1 bg-transparent text-body-lg text-ink outline-none placeholder:text-ink-faint"
         disabled={busy}
       />
 
       {error ? (
-        <span className="text-label text-negative" role="alert">
+        <span
+          className="pos-badge shrink-0 font-semibold text-negative"
+          role="alert"
+        >
+          <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
           {error.message}
         </span>
       ) : null}
@@ -456,17 +641,11 @@ export interface FunctionKey {
 
 export function FunctionKeyBar({ keys }: { keys: FunctionKey[] }) {
   return (
-    <nav className="pos-panel flex flex-wrap items-center gap-1 px-2 py-1" aria-label="Function keys">
+    <nav className="pos-panel pos-keybar p-1" aria-label="Function keys">
       {keys.map((entry) => (
-        <button
-          key={entry.key}
-          type="button"
-          onClick={entry.onSelect}
-          disabled={entry.disabled}
-          className="pos-fkey rounded-sm hover:bg-panel-hover disabled:opacity-40"
-        >
-          <kbd>{entry.key}</kbd>
-          {entry.label}
+        <button key={entry.key} type="button" onClick={entry.onSelect} disabled={entry.disabled}>
+          <kbd className="pos-kbd shrink-0">{entry.key}</kbd>
+          <span className="truncate">{entry.label}</span>
         </button>
       ))}
     </nav>
@@ -482,8 +661,8 @@ export function PosMessageBanner() {
   return (
     <div
       role="status"
-      className="pos-panel px-3 py-2 text-body"
-      style={{ borderColor: 'oklch(var(--warning))', color: 'oklch(var(--warning))' }}
+      className="border-t border-subtle px-3 py-1.5 text-body font-medium"
+      style={{ backgroundColor: 'oklch(var(--warning) / 0.12)', color: 'oklch(var(--warning))' }}
     >
       {message}
     </div>

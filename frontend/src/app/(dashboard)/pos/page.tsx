@@ -7,14 +7,11 @@ import { posApi } from '@/lib/pos-api';
 import {
   CartList,
   ConnectionBanner,
-  CustomerPanel,
   FunctionKeyBar,
-  PaymentMatrix,
   PosMessageBanner,
   ScanBox,
+  SidePanel,
   StatusBar,
-  TotalsPanel,
-  money,
 } from '@/components/pos/panels';
 import { TagFeed } from '@/components/pos/tag-feed';
 import { ProductGrid } from '@/components/pos/product-grid';
@@ -65,17 +62,7 @@ export default function PosPage() {
 }
 
 function PosScreen() {
-  const {
-    cart,
-    dialog,
-    lastSale,
-    policy,
-    stationId,
-    initialise,
-    teardown,
-    openDialog,
-    removeLastLine,
-  } = usePosStore();
+  const { cart, dialog, lastSale, stationId, initialise, teardown, openDialog, removeLastLine } = usePosStore();
 
   const scanRef = useRef<HTMLInputElement>(null);
 
@@ -87,8 +74,11 @@ function PosScreen() {
    */
   const [gridOpen, setGridOpen] = useState(false);
 
+  // Closed unless this machine has been told otherwise. A till that mostly scans wants every pixel
+  // of the left column for the sale, and the picker is one key away — so the default is the one that
+  // costs a counter-service till a keystroke rather than the one that costs a scanning till its list.
   useEffect(() => {
-    setGridOpen(window.localStorage.getItem('retail25.pos.grid-open') !== 'false');
+    setGridOpen(window.localStorage.getItem('retail25.pos.grid-open') === 'true');
   }, []);
 
   const toggleGrid = () => {
@@ -158,17 +148,18 @@ function PosScreen() {
 
   return (
     <div className="pos-layout bg-surface text-ink" data-grid={gridOpen ? 'open' : 'closed'}>
-      <div className="pos-area-status space-y-2">
-        <ConnectionBanner />
-        <StatusBar />
-        <ScanBox inputRef={scanRef} />
-        <PosMessageBanner />
-        {lastSale ? (
-          <p className="px-1 text-label text-ink-muted" role="status">
-            Sale #{lastSale.transactionNumber} saved
-            {lastSale.changeGiven > 0 ? ` · change ${money(lastSale.changeGiven, policy?.currencySymbol)}` : ''}
-          </p>
-        ) : null}
+      {/*
+        The state of the till and the way into it, as one object rather than four stacked cards. The
+        banners are inside it because a warning about the connection belongs *on* the thing whose
+        readings it makes doubtful, not floating above it.
+      */}
+      <div className="pos-area-status">
+        <div className="pos-panel overflow-hidden">
+          <ConnectionBanner />
+          <StatusBar />
+          <ScanBox inputRef={scanRef} />
+          <PosMessageBanner />
+        </div>
       </div>
 
       <div className="pos-area-cart min-h-0">
@@ -181,17 +172,15 @@ function PosScreen() {
         </div>
       ) : null}
 
-      <div className="pos-area-side flex min-h-0 flex-col gap-2 overflow-y-auto">
-        <CustomerPanel />
-        <TotalsPanel />
+      <div className="pos-area-side flex min-h-0 flex-col gap-1.5 overflow-y-auto">
+        <SidePanel onPay={() => openDialog('payment')} />
 
         {/*
-          Above the payment keys, below the money. A cashier looks here when a tag does not read, and
-          that is a mid-sale moment — putting it off-screen would mean scrolling while holding an item.
+          Below the sale group, and given whatever height is left. A cashier looks here when a tag
+          does not read, and that is a mid-sale moment — so it takes the slack rather than being
+          pushed off the bottom, and it is the panel that shrinks when a customer's details grow.
         */}
         {CONFIGURED ? <TagFeed stationId={STATION_ID} locationId={LOCATION_ID} /> : null}
-
-        <PaymentMatrix onPay={() => openDialog('payment')} />
       </div>
 
       <div className="pos-area-keys">

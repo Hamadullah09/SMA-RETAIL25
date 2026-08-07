@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Play, Square, Volume2, VolumeX } from 'lucide-react';
+import { Play, Radio, Square, TriangleAlert, Volume2, VolumeX } from 'lucide-react';
 import { RfidHub, type ObservedTag, type RfidReaderStatus } from '@/lib/rfid-hub';
 import { playScanTone } from '@/lib/scan-feedback';
 import { toast } from '@/components/ui/toaster';
@@ -101,8 +101,13 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
   const unknownCount = useMemo(() => rows.filter((row) => !row.productId).length, [rows]);
 
   return (
-    <section className="pos-panel flex min-h-0 flex-col" aria-label="Tag reader">
-      <header className="pos-panel-header">
+    // flex-1 with a floor: it takes whatever height the sale group leaves, but never collapses to a
+    // header — a reader panel with no rows visible is a reader panel nobody will trust.
+    <section
+      className="pos-panel flex min-h-[9rem] flex-1 flex-col overflow-hidden"
+      aria-label="Tag reader"
+    >
+      <header className="pos-panel-header shrink-0">
         <span>Tag reader</span>
 
         {/*
@@ -110,22 +115,31 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
           like a reader with nothing in front of it, and the cashier has no way to tell which.
         */}
         <span className={cn('pos-badge normal-case', readerTone(connected, status))}>
+          {readerOffline(connected, status) ? (
+            <TriangleAlert className="h-3 w-3 shrink-0" aria-hidden />
+          ) : (
+            <Radio className="h-3 w-3 shrink-0" aria-hidden />
+          )}
           {readerLabel(connected, status)}
         </span>
       </header>
 
-      <div className="flex items-baseline justify-between border-b border-subtle px-3 py-1.5 text-label text-ink-muted">
-        <span>
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-subtle bg-panel-sunken px-3 py-1 text-label text-ink-muted">
+        <span className="truncate">
           {rows.length === 0 ? 'Nothing in the field' : `${rows.length} tag${rows.length === 1 ? '' : 's'} in the field`}
           {unknownCount > 0 ? ` · ${unknownCount} not recognised` : ''}
         </span>
 
-        <span className="flex items-center gap-2">
-          {status ? (
-            <span className="pos-amount tabular-nums" title="Raw reads per second, before debounce">
-              {status.readsPerSecond}/s
-            </span>
-          ) : null}
+        <span className="flex shrink-0 items-center gap-1.5">
+          {/* The slot is always drawn so the controls beside it never move, but an em dash rather
+              than a zero until the reader has actually reported: "no reading yet" and "reading
+              nothing" are different facts, and a fabricated 0/s is the more alarming of the two. */}
+          <span
+            className="pos-amount tabular-nums font-medium text-ink"
+            title="Raw reads per second, before debounce"
+          >
+            {status ? status.readsPerSecond : '—'}/s
+          </span>
 
           <ReaderRunControls statusReading={status ? status.connected : null} />
           <ScanSoundToggle />
@@ -134,10 +148,8 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
 
       <ul className="min-h-0 flex-1 overflow-y-auto">
         {rows.length === 0 ? (
-          <li className="px-3 py-6 text-center text-body text-ink-muted">
-            {connected
-              ? 'Hold a tagged item near the antenna.'
-              : 'Not connected to the reader feed.'}
+          <li className="px-3 py-5 text-center text-body text-ink-muted">
+            {connected ? 'Hold a tagged item near the antenna.' : 'Not connected to the reader feed.'}
           </li>
         ) : (
           rows.map((row) => <TagRow key={row.epc} row={row} />)
@@ -287,6 +299,11 @@ function readerLabel(connected: boolean, status: RfidReaderStatus | null): strin
 }
 
 function readerTone(connected: boolean, status: RfidReaderStatus | null): string {
-  if (!connected || (status && !status.connected)) return 'text-warning';
+  if (readerOffline(connected, status)) return 'text-warning';
   return 'text-live';
+}
+
+/** Drives the glyph as well as the hue, so the badge's two states differ in shape and not only tone. */
+function readerOffline(connected: boolean, status: RfidReaderStatus | null): boolean {
+  return !connected || Boolean(status && !status.connected);
 }
