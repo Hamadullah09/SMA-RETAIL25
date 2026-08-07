@@ -31,6 +31,7 @@ public sealed class AccountController : Controller
     private readonly IAuditWriter _audit;
     private readonly IAntiforgery _antiforgery;
     private readonly AntiforgeryOptions _antiforgeryOptions;
+    private readonly IConfiguration _configuration;
     private readonly ILogger<AccountController> _logger;
 
     public AccountController(
@@ -39,6 +40,7 @@ public sealed class AccountController : Controller
         IAuditWriter audit,
         IAntiforgery antiforgery,
         IOptions<AntiforgeryOptions> antiforgeryOptions,
+        IConfiguration configuration,
         ILogger<AccountController> logger)
     {
         _signInManager = signInManager;
@@ -46,6 +48,7 @@ public sealed class AccountController : Controller
         _audit = audit;
         _antiforgery = antiforgery;
         _antiforgeryOptions = antiforgeryOptions.Value;
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -266,10 +269,22 @@ public sealed class AccountController : Controller
                 input:focus-visible { outline:2px solid var(--ring); outline-offset:1px; border-color:var(--ring); }
                 button { width:100%; min-height:44px; border:0; border-radius:10px; color:#fff;
                          background:linear-gradient(180deg,#6165da 0%,#4f51cc 100%);
-                         font-size:15px; font-weight:600; cursor:pointer; }
+                         font-size:15px; font-weight:600; cursor:pointer; margin-top:4px; }
                 button:hover { background:linear-gradient(180deg,#565ad2 0%,#4547c0 100%); }
+                button:active { background:linear-gradient(180deg,#4f51cc 0%,#4547c0 100%); }
                 .error { margin:0 0 16px; padding:10px 12px; border-radius:10px; font-size:13px;
                          background:rgba(220,38,38,.1); color:#dc2626; }
+
+                /* The two ways off this page. Separated from the form by a rule so the eye reads
+                   them as somewhere else to go rather than as more of the thing being filled in. */
+                /* The rule is carried by its own class rather than by :first-of-type — the lead
+                   under the heading is also a <p>, so it is the first of that type and the border
+                   landed on nothing. */
+                .links { margin:8px 0 0; text-align:center; font-size:13px; }
+                .links.first { margin-top:20px; border-top:1px solid var(--line); padding-top:20px; }
+                .links a { color:var(--ring); font-weight:500; text-decoration:none; }
+                .links a:hover { text-decoration:underline; }
+                .links.quiet a { color:var(--muted); font-weight:400; }
                 @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
               </style>
             </head>
@@ -311,8 +326,24 @@ public sealed class AccountController : Controller
             .Append("\" value=\"")
             .Append(WebUtility.HtmlEncode(antiforgery.RequestToken))
             .Append("\">")
+            .Append("<button type=\"submit\">Sign in</button>");
+
+        // The way on and the way back.
+        //
+        // Both were only on the application's own landing page, which is the one screen a person
+        // has already left by the time they need either: you discover you have forgotten the
+        // password here, in front of the box asking for it, and if you arrived by accident this was
+        // a dead end with no marked exit. They live on the other origin, so they are absolute — and
+        // they are ordinary links rather than a script, which is what keeps this page free of one.
+        var webOrigin = (_configuration["Auth:WebOrigin"] ?? "http://localhost:3000").TrimEnd('/');
+
+        page.Append("<p class=\"links first\"><a href=\"")
+            .Append(WebUtility.HtmlEncode(webOrigin))
+            .Append("/forgot-password\">Forgotten your password?</a></p>")
+            .Append("<p class=\"links quiet\"><a href=\"")
+            .Append(WebUtility.HtmlEncode(webOrigin))
+            .Append("/\">Back to SMA Retail</a></p>")
             .Append("""
-                <button type="submit">Sign in</button>
               </form>
             </body>
             </html>
