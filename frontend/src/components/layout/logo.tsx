@@ -1,48 +1,31 @@
+/* eslint-disable @next/next/no-img-element */
+
 /**
- * The SMA Retail mark.
+ * The SMA mark.
  *
- * It inherits the two things that make the parent brand recognisable — the orange and the
- * magnifying glass — and drops the rest. The original is a rendered 3D figure holding a glass,
- * which cannot survive being drawn at sixteen pixels in a browser tab, so this is the same idea
- * built as flat geometry: a lens, and inside it the thing this product looks at, which is stock.
+ * The supplied artwork, cropped to the figure and its glass and squared, with the JPEG's white
+ * ground turned transparent so it sits on a panel, a dark theme or the orange tile alike. The
+ * "SMA Technology" wordmark beside it in the original is deliberately not here: this appears at
+ * 36 pixels in a rail and 44 in a card, where the words would be an unreadable smudge, and the
+ * product's own name is already set in type next to it.
  *
- * Deliberately wordless. A mark that carries the parent company's name cannot be used as the
- * customer's own logo, and this system is white-labelled — the shop's name and logo come from the
- * branding rows, and this stands in only where the product itself is speaking.
- */
-/**
- * `gradientId` exists because an SVG gradient is referenced by a document-wide id, not a local one.
- * Two marks on the same page therefore both resolve to whichever def comes first — and when that
- * first one sits inside a `display:none` subtree, as it does on the account screens where the hero
- * is hidden below `lg`, the visible mark loses its fill and renders grey. Callers that can put two
- * marks in one document pass a distinct id; a single mark never has to think about it.
+ * `gradientId` is accepted and ignored. It was needed while this was an inline SVG — two copies on
+ * one page both resolved to whichever gradient definition came first, and below `lg` that was the
+ * one inside the hidden hero, so the visible mark rendered grey. An image has no such problem, but
+ * the callers that pass it are correct to and there is no reason to make them change.
  */
 export function SmaMark({
   className,
-  gradientId = 'sma-mark-tile',
 }: {
   className?: string;
   gradientId?: string;
 }) {
   return (
-    <svg viewBox="0 0 64 64" className={className} role="img" aria-label="SMA Retail">
-      <defs>
-        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#FB9A2E" />
-          <stop offset="1" stopColor="#E8620E" />
-        </linearGradient>
-      </defs>
-
-      <rect width="64" height="64" rx="15" fill={`url(#${gradientId})`} />
-
-      {/* The glass. Its handle is heavier than its rim so the silhouette still reads once the
-          detail inside the lens is too small to see. */}
-      <circle cx="27" cy="27" r="14" fill="none" stroke="#fff" strokeWidth="4.5" />
-      <path d="M37.5 37.5 L50 50" fill="none" stroke="#fff" strokeWidth="6" strokeLinecap="round" />
-
-      {/* What is under the glass: a shopping bag. */}
-      <path d="M24.2 23.5 v-2.2 a2.8 2.8 0 0 1 5.6 0 v2.2" fill="none" stroke="#fff" strokeWidth="2" />
-      <rect x="21" y="23.5" width="12" height="10.5" rx="2.2" fill="#fff" />
-    </svg>
+    <img
+      src="/sma-logo.png"
+      alt="SMA Retail"
+      /* Square source, so `object-contain` only ever letterboxes the rounding, never the figure. */
+      className={className ? `${className} object-contain` : 'h-9 w-9 object-contain'}
+    />
   );
 }
