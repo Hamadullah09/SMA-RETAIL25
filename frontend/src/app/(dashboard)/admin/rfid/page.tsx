@@ -6,6 +6,7 @@ import {
   LINK_PROFILE_LABELS,
   REGION_LABELS,
   rfidApi,
+  type AgentStatus,
   type BeeperMode,
   type RadioRegion,
   type ReaderDiagnostics,
@@ -69,6 +70,36 @@ export default function RfidSettingsPage() {
   const patch = (changes: Partial<ReaderProfile>) =>
     setDraft((current) => (current ? { ...current, ...changes } : current));
 
+  /**
+   * Adds a reader with the defaults the domain already carries, then selects it.
+   *
+   * Deliberately not a blank form: a reader profile has twenty fields and nineteen of them have a
+   * sensible default, so asking for all twenty before anything exists is how a shop ends up with no
+   * second reader. Give it a host and a port and it is a reader.
+   */
+  const addReader = async () => {
+    if (!locationId) return;
+
+    setBusy(true);
+
+    try {
+      const created = await rfidApi.create(locationId, {
+        name: `Reader ${readers.length + 1}`,
+        host: '192.168.0.1',
+        port: 4001,
+        protocol: 'UhfSerial',
+      });
+
+      toast({ title: `${created.name} added`, description: 'Set its address and antennas, then save.' });
+      await load();
+      setSelected(created.id);
+    } catch (error) {
+      toast({ title: 'Could not add the reader', description: describe(error), variant: 'destructive' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const save = async () => {
     if (!draft) return;
 
@@ -105,21 +136,31 @@ export default function RfidSettingsPage() {
           </p>
         </div>
 
-        {readers.length > 1 ? (
-          <select
-            className="pos-input"
-            value={selected ?? ''}
-            onChange={(event) => setSelected(Number(event.target.value))}
-            aria-label="Reader"
-          >
-            {readers.map((reader) => (
-              <option key={String(reader.id)} value={reader.id}>
-                {reader.name}
-              </option>
-            ))}
-          </select>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-2">
+          {readers.length > 1 ? (
+            <select
+              className="pos-input"
+              value={selected ?? ''}
+              onChange={(event) => setSelected(Number(event.target.value))}
+              aria-label="Reader"
+            >
+              {readers.map((reader) => (
+                <option key={String(reader.id)} value={reader.id}>
+                  {reader.name}
+                </option>
+              ))}
+            </select>
+          ) : null}
+
+          {canWrite ? (
+            <button type="button" className="pos-button" disabled={busy} onClick={() => void addReader()}>
+              Add reader
+            </button>
+          ) : null}
+        </div>
       </header>
+
+      <AgentConnection />
 
       {loading ? (
         <p className="text-body text-ink-muted">Loading…</p>
@@ -163,6 +204,98 @@ function SaveAction({ canWrite, busy, onSave }: { canWrite: boolean; busy: boole
       Save
     </button>
   ) : null;
+}
+
+/**
+ * Whether this till is holding its reader, and a button to take it.
+ *
+ * Sits above the settings because it answers the question that brings people here. The settings say
+ * what was asked for; this says whether any of it is happening — and, when it is not, which of the
+ * two unrelated reasons it is, because they have nothing to do with each other:
+ *
+ *   the agent is not running on this machine — nothing can read, whatever the reader is doing; or
+ *   the agent is running and the reader will not answer — almost always because something else has
+ *   it, since the bridge in front of these units accepts exactly one connection at a time.
+ *
+ * Distinguishing those two is the entire value here. Before this, both looked like a dot that was
+ * not green.
+ */
+function AgentConnection() {
+  const [status, setStatus] = useState<AgentStatus | null>(null);
+  const [checked, setChecked] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setStatus(await rfidApi.status());
+    setChecked(true);
+  }, []);
+
+  useEffect(() => {
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 5000);
+
+    return () => window.clearInterval(timer);
+  }, [refresh]);
+
+  const connect = async () => {
+    setBusy(true);
+
+    try {
+      const next = await rfidApi.connect('OnDemand');
+      setStatus(next);
+      setChecked(true);
+
+      toast(
+        next?.reader.online
+          ? { title: 'Reader connected', description: next.reader.device }
+          : {
+              title: next ? 'The reader did not answer' : 'The terminal agent is not running',
+              description: next
+                ? 'Check it is powered on and on the network, and that no other program is holding it.'
+                : 'Start the agent on this till, then try again.',
+              variant: 'destructive',
+            },
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const online = status?.reader.online === true;
+
+  return (
+    <section className="pos-panel mb-4 p-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-2 text-body font-semibold text-ink">
+            {/* Stated in words as well as by tone. A coloured dot alone tells a colour-blind
+                manager nothing, and this is the line that decides whether they call support. */}
+            <span
+              aria-hidden
+              className={`h-2 w-2 shrink-0 rounded-full ${
+                !checked ? 'bg-ink-faint' : online ? 'bg-positive' : 'bg-negative'
+              }`}
+            />
+            {!checked ? 'Checking…' : online ? 'Reader connected' : status ? 'Reader not answering' : 'Agent not running'}
+          </p>
+
+          <p className="mt-1 text-caption leading-relaxed text-ink-muted">
+            {!checked
+              ? 'Asking the till agent.'
+              : online
+                ? `${status?.reader.device} · mode ${status?.readerMode}`
+                : status
+                  ? 'The agent is running but the reader will not answer. Only one program can hold it at a time — close any vendor tool still connected to it.'
+                  : 'No agent is running on this machine, so nothing can read a tag here whatever the reader is doing.'}
+          </p>
+        </div>
+
+        <button type="button" className="pos-button-primary shrink-0" disabled={busy} onClick={() => void connect()}>
+          {busy ? 'Connecting…' : online ? 'Reconnect' : 'Connect'}
+        </button>
+      </div>
+    </section>
+  );
 }
 
 function ConnectionSection({ draft, patch, canWrite, busy, onSave }: SectionProps) {

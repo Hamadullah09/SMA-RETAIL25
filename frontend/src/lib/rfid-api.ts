@@ -53,6 +53,23 @@ export interface ReaderProfile {
 }
 
 /** What the device says about itself. Every field optional: readers differ in what they answer. */
+/**
+ * What the agent reports about itself. Shaped by its loopback `/status`.
+ *
+ * `reader.online` is the answer to the question people actually ask — is it going to read a tag —
+ * and it is deliberately separate from whether the agent is running at all. A missing agent and a
+ * reader that will not answer look identical from the till and need completely different fixes.
+ */
+export interface AgentStatus {
+  agentVersion: string;
+  station: string;
+  serverConnected: boolean;
+  readerMode: 'Off' | 'OnDemand' | 'Continuous';
+  reader: { online: boolean; device: string; buffered: number };
+  printer?: { online: boolean };
+  scale?: { online: boolean };
+}
+
 export interface ReaderDiagnostics {
   firmwareVersion?: string | null;
   temperatureCelsius?: number | null;
@@ -92,6 +109,64 @@ export const rfidApi = {
     try {
       const response = await fetch(`${AGENT}/reader/diagnostics`, { cache: 'no-store' });
       return response.ok ? ((await response.json()) as ReaderDiagnostics) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Creates a reader. The settings endpoint treats id 0 as "new", which is the only way to add one
+   * — the terminals endpoint updates an existing profile and cannot mint one.
+   */
+  create: async (locationId: number, profile: Partial<ReaderProfile> & { name: string }): Promise<ReaderProfile> => {
+    const response = await apiClient.post('/settings/readers', {
+      locationId,
+      profile: { id: 0, ...profile },
+    });
+
+    return response.data as ReaderProfile;
+  },
+
+  /**
+   * What the agent on this machine currently sees.
+   *
+   * Distinct from diagnostics: that asks the reader questions and needs it answering. This says
+   * whether the agent is running at all and whether it is holding the reader — which are the two
+   * different reasons tags stop arriving, and telling them apart is the whole point.
+   */
+  status: async (): Promise<AgentStatus | null> => {
+    try {
+      const response = await fetch(`${AGENT}/status`, { cache: 'no-store' });
+      return response.ok ? ((await response.json()) as AgentStatus) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Asks the agent to take the reader again.
+   *
+   * There is no connect command on the wire: the agent retries on its own every few seconds. What
+   * this does is set the mode, which makes it re-evaluate the session immediately rather than on
+   * the next tick — and, more usefully, it returns a status the caller can report.
+   */
+  connect: async (mode: 'OnDemand' | 'Continuous' = 'OnDemand'): Promise<AgentStatus | null> => {
+    try {
+      await fetch(`${AGENT}/reader/mode`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode }),
+        cache: 'no-store',
+      });
+    } catch {
+      return null;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 1200));
+
+    try {
+      const response = await fetch(`${AGENT}/status`, { cache: 'no-store' });
+      return response.ok ? ((await response.json()) as AgentStatus) : null;
     } catch {
       return null;
     }
