@@ -96,7 +96,17 @@ export default function DashboardPage() {
   const outstanding = (aging.data ?? []).reduce((sum, row) => sum + row.total, 0);
   const overdue = (aging.data ?? []).reduce((sum, row) => sum + row.days30 + row.days60 + row.days90Plus, 0);
   const outstandingPos = onOrder.data ?? [];
-  const understocked = stock.data ?? [];
+
+  // Only lines that have a reorder point to be below.
+  //
+  // The report returns everything it considers understocked, and with no reorder point set that
+  // test reduces to "on hand is nought or less" — so every item the shop has never stocked was
+  // being counted. The panel read `0 / 0` fifty-two times over, which is not a shortage, and the
+  // tile above it invited a purchase order for nothing. An item nobody has given a reorder point
+  // is an item nobody has asked to be told about; it is still on the stock position report.
+  const managed = (stock.data ?? []).filter((row) => row.reorderPoint > 0);
+  const unmanaged = (stock.data ?? []).length - managed.length;
+  const understocked = managed;
 
   return (
     <div className="space-y-3 p-4">
@@ -197,7 +207,7 @@ export default function DashboardPage() {
             {trend.isPending ? (
               <div className="h-48 animate-pulse rounded-sm bg-panel-sunken" />
             ) : (
-              <SalesTrend rows={rows} />
+              <SalesTrend rows={rows} todayKey={today} />
             )}
           </Panel>
         ) : null}
@@ -234,22 +244,42 @@ export default function DashboardPage() {
             {stock.isPending ? (
               <div className="h-32 animate-pulse rounded-sm bg-panel-sunken" />
             ) : understocked.length === 0 ? (
-              <EmptyState>Every line is above its reorder point.</EmptyState>
+              <EmptyState>
+                {unmanaged > 0
+                  ? `Every line with a reorder point is above it. ${unmanaged} item${
+                      unmanaged === 1 ? ' has' : 's have'
+                    } no reorder point set.`
+                  : 'Every line is above its reorder point.'}
+              </EmptyState>
             ) : (
-              <ul className="space-y-0.5">
-                {understocked.slice(0, 6).map((row) => (
-                  <li
-                    key={row.productId}
-                    className="flex items-baseline justify-between gap-3 rounded-sm px-2 py-1.5 text-body odd:bg-panel-sunken"
-                  >
-                    <span className="truncate">
-                      <span className="text-ink-faint">{row.stockCode}</span> {row.name}
-                    </span>
-                    <span className="pos-amount shrink-0 tabular-nums text-warning">
-                      {row.onHand} / {row.reorderPoint}
-                    </span>
-                  </li>
-                ))}
+              <ul className="space-y-1">
+                {understocked.slice(0, 6).map((row) => {
+                  const short = Math.max(0, row.reorderPoint - row.onHand);
+
+                  return (
+                    <li
+                      key={row.productId}
+                      className="flex items-start justify-between gap-3 rounded-md px-2.5 py-2 odd:bg-panel-sunken"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-body font-medium text-ink">{row.name}</span>
+                        {/*
+                          Spelled out rather than left as "0 / 5". The slash was read as a fraction,
+                          a score and a date by three different people, and the one thing it never
+                          said was which number was the shortage.
+                        */}
+                        <span className="mt-0.5 block truncate text-caption text-ink-muted">
+                          {row.stockCode} · {row.onHand} on hand, reorder at {row.reorderPoint}
+                          {row.onOrder > 0 ? ` · ${row.onOrder} on order` : ''}
+                        </span>
+                      </span>
+
+                      <span className="pos-badge shrink-0 whitespace-nowrap text-warning">
+                        short {short}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </Panel>
@@ -267,25 +297,47 @@ export default function DashboardPage() {
             {onOrder.isPending ? (
               <div className="h-32 animate-pulse rounded-sm bg-panel-sunken" />
             ) : outstandingPos.length === 0 ? (
-              <EmptyState>Nothing outstanding.</EmptyState>
+              <EmptyState>
+                Nothing on order. Anything short above has to be ordered before it arrives.
+              </EmptyState>
             ) : (
               <>
-                <p className="mb-2 text-body text-ink-muted">
-                  <span className="pos-amount font-medium text-ink">
+                {/* The total first, because the question is usually what is committed rather than
+                    which line is biggest. */}
+                <p className="mb-2.5 flex items-baseline gap-2 border-b border-subtle pb-2.5">
+                  <span className="pos-kpi-value text-h2">
                     {formatCurrency(outstandingPos.reduce((sum, r) => sum + r.expectedValue, 0))}
-                  </span>{' '}
-                  across {outstandingPos.length} line{outstandingPos.length === 1 ? '' : 's'}
+                  </span>
+                  <span className="text-caption text-ink-muted">
+                    across {outstandingPos.length} line{outstandingPos.length === 1 ? '' : 's'}
+                  </span>
                 </p>
 
-                <RankedBars
-                  empty="Nothing outstanding."
-                  rows={outstandingPos.slice(0, 5).map((row) => ({
-                    key: `${row.poNumber}-${row.productId}`,
-                    label: `${row.name} · ${row.supplierName}`,
-                    value: row.expectedValue,
-                    sub: `${row.qtyOutstanding} due`,
-                  }))}
-                />
+                <ul className="space-y-1">
+                  {outstandingPos.slice(0, 5).map((row) => (
+                    <li
+                      key={`${row.poNumber}-${row.productId}`}
+                      className="flex items-start justify-between gap-3 rounded-md px-2.5 py-2 odd:bg-panel-sunken"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-body font-medium text-ink">{row.name}</span>
+                        <span className="mt-0.5 block truncate text-caption text-ink-muted">
+                          PO {row.poNumber} · {row.supplierName}
+                          {row.dueOn ? ` · due ${formatDueDate(row.dueOn)}` : ' · no date given'}
+                        </span>
+                      </span>
+
+                      <span className="shrink-0 text-right">
+                        <span className="pos-amount block text-body font-medium text-ink">
+                          {formatCurrency(row.expectedValue)}
+                        </span>
+                        <span className="mt-0.5 block text-caption text-ink-muted">
+                          {row.qtyOutstanding} due
+                        </span>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </>
             )}
           </Panel>
@@ -307,6 +359,15 @@ export default function DashboardPage() {
       ) : null}
     </div>
   );
+}
+
+/** Day and month only. The year on a purchase order due this week is noise. */
+function formatDueDate(iso: string): string {
+  const date = new Date(iso);
+
+  return Number.isNaN(date.getTime())
+    ? iso
+    : date.toLocaleDateString([], { day: 'numeric', month: 'short' });
 }
 
 /** A date `offset` days from today, as `YYYY-MM-DD` in local time — the shop's day, not UTC's. */

@@ -419,7 +419,9 @@ export function Header() {
           <span className="truncate text-ink-muted">{user?.name || user?.email || 'Signed in'}</span>
         </span>
 
-        <kbd className="pos-kbd hidden sm:inline">Ctrl+K</kbd>
+        {/* The Ctrl+K hint used to live here. A shortcut badge pinned to the chrome is read once
+            and then occupies the corner of every screen forever; the palette is still on the key,
+            and it is listed with the rest of them in the shortcuts sheet. */}
       </div>
     </header>
   );
