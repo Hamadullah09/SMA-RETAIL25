@@ -40,7 +40,7 @@ public sealed class IdentifierResolver
 
     public async Task<Result<ResolvedItem>> ResolveAsync(
         string identifier,
-        Guid locationId,
+        long locationId,
         bool scanRandomWeightBarcodes,
         CancellationToken ct)
     {
@@ -59,7 +59,7 @@ public sealed class IdentifierResolver
     /// An EPC is one physical unit. An unmapped tag is surfaced as an actionable row rather than
     /// dropped, because silently ignoring a tag is indistinguishable from a broken reader (doc 06 §1).
     /// </summary>
-    public async Task<Result<ResolvedItem>> ResolveEpcAsync(string epc, Guid locationId, CancellationToken ct)
+    public async Task<Result<ResolvedItem>> ResolveEpcAsync(string epc, long locationId, CancellationToken ct)
     {
         var normalised = epc.Trim().ToUpperInvariant();
 
@@ -99,7 +99,7 @@ public sealed class IdentifierResolver
 
     private async Task<Result<ResolvedItem>> ResolveWeighedAsync(
         IdentifierClassification classification,
-        Guid locationId,
+        long locationId,
         CancellationToken ct)
     {
         var stockCode = classification.StockCode!;
@@ -116,7 +116,7 @@ public sealed class IdentifierResolver
             : Result.Success(new ResolvedItem(product, null, null, LineSource.RandomWeight, classification.EmbeddedPrice));
     }
 
-    private async Task<Result<ResolvedItem>> ResolveCodeAsync(string code, Guid locationId, CancellationToken ct)
+    private async Task<Result<ResolvedItem>> ResolveCodeAsync(string code, long locationId, CancellationToken ct)
     {
         var product = await _db.Products
             .FirstOrDefaultAsync(p => p.LocationId == locationId && !p.IsDeleted && (p.StockCode == code || p.Upc == code), ct);
@@ -182,7 +182,7 @@ public sealed class IdentifierResolver
     };
 
     /// <summary>Resolves an explicit variant the cashier picked, bypassing the ambiguity check.</summary>
-    public async Task<Result<ResolvedItem>> ResolveVariantAsync(Guid variantId, Guid locationId, CancellationToken ct)
+    public async Task<Result<ResolvedItem>> ResolveVariantAsync(long variantId, long locationId, CancellationToken ct)
     {
         var variant = await _db.ProductVariants.FirstOrDefaultAsync(v => v.Id == variantId && v.IsActive, ct);
         if (variant is null)
@@ -198,7 +198,7 @@ public sealed class IdentifierResolver
     }
 
     /// <summary>Resolves a specific serialized unit the cashier picked.</summary>
-    public async Task<Result<ResolvedItem>> ResolveUnitAsync(Guid unitId, Guid locationId, CancellationToken ct)
+    public async Task<Result<ResolvedItem>> ResolveUnitAsync(long unitId, long locationId, CancellationToken ct)
     {
         var unit = await _db.SerializedUnits.FirstOrDefaultAsync(u => u.Id == unitId, ct);
         if (unit is null)
@@ -239,7 +239,7 @@ public sealed class IdentifierResolver
     /// The F2 pick list: a prefix search over code, UPC and name, capped so a cashier gets a list
     /// rather than a catalogue (guide p.5).
     /// </summary>
-    public async Task<IReadOnlyList<Product>> SearchAsync(string term, Guid locationId, int limit, CancellationToken ct)
+    public async Task<IReadOnlyList<Product>> SearchAsync(string term, long locationId, int limit, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(term))
         {

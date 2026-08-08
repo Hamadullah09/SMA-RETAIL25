@@ -16,7 +16,7 @@ namespace Retail25.Application.Carts.Commands;
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record CreateCartCommand(Guid StationId, Guid? StaffId = null) : IRequest<Result<CartDto>>;
+public sealed record CreateCartCommand(long StationId, long? StaffId = null) : IRequest<Result<CartDto>>;
 
 public sealed class CreateCartHandler : IRequestHandler<CreateCartCommand, Result<CartDto>>
 {
@@ -49,7 +49,7 @@ public sealed class CreateCartHandler : IRequestHandler<CreateCartCommand, Resul
         }
 
         var context = contextResult.Value;
-        var staffId = request.StaffId ?? _currentUser.StaffId ?? Guid.Empty;
+        var staffId = request.StaffId ?? _currentUser.StaffId ?? 0L;
 
         var existing = await _store.GetByStationAsync(request.StationId, ct);
         if (existing is { Cart.IsActive: true })

@@ -138,8 +138,8 @@ export async function fetchUserinfo(accessToken: string): Promise<SessionUser | 
     sub: string;
     name?: string;
     email?: string;
-    staffId?: string;
-    locationId?: string;
+    staffId?: number;
+    locationId?: number;
     accessLevel?: string;
     roles?: string[];
     permissions?: string[];

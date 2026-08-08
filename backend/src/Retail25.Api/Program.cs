@@ -1,5 +1,7 @@
+using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
+using Hangfire;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,7 +11,9 @@ using OpenTelemetry.Trace;
 using Retail25.Api.Common;
 using Retail25.Application;
 using Retail25.Infrastructure;
+using Retail25.Infrastructure.Caching;
 using Retail25.Infrastructure.Identity;
+using Retail25.Infrastructure.Jobs;
 using Retail25.Infrastructure.Persistence;
 using Retail25.Infrastructure.Realtime;
 using Serilog;
@@ -43,16 +47,30 @@ builder.Services.AddOpenTelemetry()
         .AddRuntimeInstrumentation()
         .AddOtlpExporter());
 
+// Whether this process shares its cart state, tag claims and hub tickets with anything else, or
+// keeps them to itself. Read once here because three separate things below depend on the answer:
+// the health check, the SignalR backplane, and the store registrations in AddInfrastructure.
+var usesRedis = !string.Equals(
+    builder.Configuration["Cache:Provider"],
+    "InMemory",
+    StringComparison.OrdinalIgnoreCase);
+
 // --- Health checks ---
-builder.Services.AddHealthChecks()
-    .AddNpgSql(
+var health = builder.Services.AddHealthChecks()
+    .AddSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection")!,
-        name: "postgresql",
-        tags: ["ready"])
-    .AddRedis(
+        name: "sqlserver",
+        tags: ["ready"]);
+
+// Not probed when nothing uses it. A red "redis" check on a bench that deliberately has no Redis
+// trains people to ignore the health endpoint, which costs more than the check is worth.
+if (usesRedis)
+{
+    health.AddRedis(
         builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379",
         name: "redis",
         tags: ["ready"]);
+}
 
 // --- API ---
 builder.Services
@@ -75,7 +93,7 @@ var signalR = builder.Services
 // The Redis backplane is configured from day one so scaling out is a deployment change rather than
 // a rewrite of how carts are broadcast.
 var redisConnection = builder.Configuration.GetConnectionString("Redis");
-if (!string.IsNullOrWhiteSpace(redisConnection))
+if (usesRedis && !string.IsNullOrWhiteSpace(redisConnection))
 {
     signalR.AddStackExchangeRedis(
         redisConnection,
@@ -104,7 +122,12 @@ builder.Services.ConfigureApplicationCookie(options =>
 {
     options.LoginPath = "/account/login";
     options.LogoutPath = "/account/logout";
-    options.Cookie.Name = "__Host-r25.identity";
+    // __Host- requires Secure unconditionally — a browser silently drops the cookie if the name
+    // carries the prefix but SecurePolicy resolves to non-Secure, which SameAsRequest does over
+    // this project's own documented plain-HTTP dev flow. Without this split, sign-in looked like
+    // it succeeded (PasswordSignInAsync 302) but the cookie never landed, so /connect/authorize
+    // never saw the user as signed in and bounced straight back to the login page.
+    options.Cookie.Name = builder.Environment.IsDevelopment() ? "r25.identity" : "__Host-r25.identity";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
@@ -116,38 +139,50 @@ builder.Services.ConfigureApplicationCookie(options =>
 
 builder.Services.AddAntiforgery(options =>
 {
-    options.Cookie.Name = "__Host-r25.antiforgery";
+    // __Host- requires Secure, and ASP.NET Core's antiforgery middleware throws outright if
+    // SecurePolicy=Always is set on a non-HTTPS request — it has no localhost exception the way
+    // browsers do. So the prefix itself, not just the policy, has to follow environment: this
+    // project's own documented dev flow runs the API on plain http://localhost (OpenIddict:
+    // AllowInsecureHttp above), where __Host- can never be satisfied. Same split the Identity
+    // cookie above uses, applied to the cookie name as well as SecurePolicy.
+    options.Cookie.Name = builder.Environment.IsDevelopment() ? "r25.antiforgery" : "__Host-r25.antiforgery";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Strict;
+    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+        ? CookieSecurePolicy.SameAsRequest
+        : CookieSecurePolicy.Always;
 });
 
 // --- Rate limiting ---
 // The endpoints worth guessing at: token exchange, PIN verification and identifier lookup. Without
 // a limit, a four-digit PIN on a machine sitting in a shop is guessable in an afternoon.
+//
+// Every policy is partitioned per caller — by user id once signed in, by client IP before that. A
+// single shared window would make the limit a ceiling on the whole shop rather than on the one
+// misbehaving caller: at 300 requests a minute shared, thirty tills starve each other long before
+// any of them is abusive.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-    options.AddFixedWindowLimiter("auth", limiter =>
-    {
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.PermitLimit = 20;
-        limiter.QueueLimit = 0;
-    });
+    static string Caller(HttpContext http)
+        => http.User.Identity?.IsAuthenticated == true
+            ? http.User.Identity.Name ?? "authenticated"
+            : http.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-    options.AddFixedWindowLimiter("pin", limiter =>
-    {
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.PermitLimit = 10;
-        limiter.QueueLimit = 0;
-    });
+    static RateLimitPartition<string> PerCaller(HttpContext http, string policy, int permitLimit)
+        => RateLimitPartition.GetFixedWindowLimiter(
+            $"{policy}:{Caller(http)}",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                Window = TimeSpan.FromMinutes(1),
+                PermitLimit = permitLimit,
+                QueueLimit = 0,
+            });
 
-    options.AddFixedWindowLimiter("lookup", limiter =>
-    {
-        limiter.Window = TimeSpan.FromMinutes(1);
-        limiter.PermitLimit = 300;
-        limiter.QueueLimit = 0;
-    });
+    options.AddPolicy("auth", http => PerCaller(http, "auth", 20));
+    options.AddPolicy("pin", http => PerCaller(http, "pin", 10));
+    options.AddPolicy("lookup", http => PerCaller(http, "lookup", 300));
 });
 
 builder.Services.AddResponseCompression();
@@ -171,6 +206,10 @@ builder.Services.Configure<ApiBehaviorOptions>(options =>
 
 var app = builder.Build();
 
+// Resolved for its side effect: if this build is running without Redis, say so once, loudly, at
+// startup. What that costs — no cross-till tag arbitration — is not something to find out later.
+app.Services.GetService<InMemoryStoreWarning>();
+
 // --- Database bootstrap (development and staging only) ---
 if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
 {
@@ -190,6 +229,10 @@ if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
         // Identity seeding follows the store seed: the administrator's staff profile needs a
         // location to belong to.
         await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().SeedAsync();
+
+        // The demonstration catalogue is last and self-gating on Demo:SeedCatalogue. It needs the
+        // location from the store seed, and it must never run against a shop's own inventory.
+        await scope.ServiceProvider.GetRequiredService<DemoDataSeeder>().SeedAsync();
     }
 }
 
@@ -232,6 +275,30 @@ app.MapControllers().RequireRateLimiting("lookup");
 app.MapHub<PosHub>("/hubs/pos");
 app.MapHub<InventoryHub>("/hubs/inventory");
 app.MapHub<TerminalHub>("/hubs/terminal");
+
+// The read feed. Listen-only for clients: tags enter the system through the agent's channel above,
+// never from a browser.
+app.MapHub<RfidHub>("/hubs/rfid");
+
+// Nightly late-charge accrual (LateChargePolicy: "applied by a nightly Hangfire job"). 2am local —
+// after the day's trading has closed everywhere this deployment plausibly serves, before the next.
+// Resolved from DI rather than the static RecurringJob helper: AddHangfire only wires JobStorage
+// into the container, it never sets the static JobStorage.Current the static API depends on.
+using (var scope = app.Services.CreateScope())
+{
+    var recurring = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+
+    recurring.AddOrUpdate<LateChargeAccrualJob>(
+        "late-charge-accrual",
+        job => job.RunAsync(CancellationToken.None),
+        "0 2 * * *");
+
+    // An hour after the late charges, so a day's books are settled before its takings post.
+    recurring.AddOrUpdate<PostPosRevenueToAccountingJob>(
+        "post-pos-revenue",
+        job => job.RunAsync(CancellationToken.None),
+        "0 3 * * *");
+}
 
 await app.RunAsync();
 

@@ -20,7 +20,7 @@ public sealed class CartTaxOverride : Entity
     {
     }
 
-    public Guid CartId { get; set; }
+    public long CartId { get; set; }
 
     /// <summary>Null leaves tax 1 to the product flag and the store policy.</summary>
     public bool? Tax1 { get; set; }
@@ -30,11 +30,11 @@ public sealed class CartTaxOverride : Entity
     /// <summary>The line sequence from which this override takes effect.</summary>
     public int AppliesFromSequence { get; set; }
 
-    public Guid AppliedByStaffId { get; set; }
+    public long AppliedByStaffId { get; set; }
 
     public DateTimeOffset AppliedAt { get; set; }
 
-    public static CartTaxOverride Create(Guid cartId, bool? tax1, bool? tax2, int appliesFromSequence, Guid staffId, DateTimeOffset now)
+    public static CartTaxOverride Create(long cartId, bool? tax1, bool? tax2, int appliesFromSequence, long staffId, DateTimeOffset now)
         => new()
         {
             CartId = cartId,

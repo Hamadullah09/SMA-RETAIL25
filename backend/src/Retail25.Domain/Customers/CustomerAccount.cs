@@ -11,7 +11,7 @@ public sealed class CustomerAccount : Entity, IAuditable
     {
     }
 
-    public Guid CustomerId { get; set; }
+    public long CustomerId { get; set; }
 
     public long AccountNumber { get; set; }
 
@@ -23,13 +23,13 @@ public sealed class CustomerAccount : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static CustomerAccount Create(Guid customerId, long accountNumber, decimal creditLimit = 0m)
+    public static CustomerAccount Create(long customerId, long accountNumber, decimal creditLimit = 0m)
     {
         return new CustomerAccount
         {

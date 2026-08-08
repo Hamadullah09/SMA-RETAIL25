@@ -24,7 +24,7 @@
                         │   /            → web   (Next.js)     │
                         │   /api, /hubs  → api   (.NET 8)      │
                         └──────────────────────────────────────┘
-   containers: web · api · postgres:16 · redis:7 · otel-collector · (optional) seq
+   containers: web · api · mssql/server:2022 · redis:7 · otel-collector · (optional) seq
    volumes:    pgdata · redisdata · files (photos, receipt archives) · backups
    host:       Windows Server or Linux; stations reach it by hostname over TLS
 ```
@@ -34,7 +34,7 @@ Stations run only the browser + `Retail25.TerminalAgent` (Windows service).
 ### Scale-out path (no rewrite required)
 
 - API replicas behind the reverse proxy; SignalR Redis backplane is already configured.
-- Postgres primary + streaming replica; read-only reports routed to the replica.
+- SQL Server primary + Always On readable secondary; read-only reports routed to the secondary.
 - HQ/cloud deployment: same compose file, different network topology; store agents connect over
   VPN/TLS.
 
@@ -61,7 +61,7 @@ over the ledger, not a separate analytics stack.
 
 - Nightly `pg_dump` (custom format) + continuous WAL archiving → off-host storage, encrypted.
 - Redis is a cache and a transient cart store; it is **not** the system of record. Cart loss on a
-  Redis failure costs at most the in-progress carts, which are also written behind to Postgres on
+  Redis failure costs at most the in-progress carts, which are also written behind to SQL Server on
   suspend and on every 30 s tick.
 - Object storage (photos, receipt archives) synced nightly.
 - **Restore rehearsal is a scheduled task**, quarterly, with a written runbook and a recorded RTO.
@@ -77,7 +77,7 @@ over the ledger, not a separate analytics stack.
 | **Property** | Tax sums, discount proration, tender balance, inclusive-tax round trip | CsCheck/FsCheck | CI blocking |
 | **Unit — application** | Handlers with fakes; permission enforcement per command | xUnit | CI blocking |
 | **Architecture** | Dependency rules, no EF types above Infrastructure, every command has a validator | NetArchTest | CI blocking |
-| **Integration** | Real Postgres + Redis via Testcontainers; migrations apply cleanly; concurrency (two stations, one unit); idempotency replay; outbox delivery | xUnit + Testcontainers | CI blocking |
+| **Integration** | Real SQL Server + Redis via Testcontainers; migrations apply cleanly; concurrency (two stations, one unit); idempotency replay; outbox delivery | xUnit + Testcontainers | CI blocking |
 | **Contract** | OpenAPI snapshot + generated TS client compiles; SignalR payload shapes | Verify + tsc | CI blocking |
 | **E2E** | Cash sale, split tender, return, void with supervisor approval, suspend/recall, bulk RFID with a simulated reader, AR invoice + partial payment, PO receive | Playwright | CI blocking on main |
 | **Load** | 50 stations, sustained sales + bulk reads; soak for drawer close accuracy | k6 / NBomber | Pre-release |

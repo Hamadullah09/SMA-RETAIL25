@@ -53,6 +53,21 @@ public sealed class SimulatedRfidReader : IRfidReader
     public IAsyncEnumerable<TagRead> ReadsAsync(CancellationToken ct) => _reads.Reader.ReadAllAsync(ct);
 
     /// <summary>
+    /// There is no device, so there is nothing to report. Said plainly rather than fabricated: a
+    /// diagnostics screen showing a plausible temperature for a reader that does not exist is how a
+    /// shop spends an afternoon debugging the wrong till.
+    /// </summary>
+    public Task<ReaderDiagnostics> ReadDiagnosticsAsync(CancellationToken ct)
+        => Task.FromResult(new ReaderDiagnostics
+        {
+            Unavailable = ["this station is running the simulator, not a reader"],
+        });
+
+    /// <summary>Accepts everything, because nothing is configured. No refusals to report.</summary>
+    public Task<IReadOnlyList<string>> ApplySettingsAsync(ReaderProfileContract profile, CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<string>>([]);
+
+    /// <summary>
     /// Pushes a basket of tags as a reader would actually report it: each EPC seen several times
     /// across the window, on a checkout antenna, at a healthy signal strength.
     /// </summary>

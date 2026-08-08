@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -63,6 +64,7 @@ public sealed class IdentitySeeder
         await SeedScopesAsync(ct);
         await SeedClientsAsync(ct);
         await SeedAdministratorAsync(ct);
+        await SeedCashierAsync(ct);
     }
 
     /// <summary>Writes any permission constant that has no row yet, so the catalogue is administrable.</summary>
@@ -206,7 +208,26 @@ public sealed class IdentitySeeder
             _logger.LogInformation("Registered the web client for {Origin}", webOrigin);
         }
 
-        if (await _applications.FindByClientIdAsync(AuthConstants.AgentClientId, ct) is null)
+        if (await _applications.FindByClientIdAsync(AuthConstants.AgentClientId, ct) is not null)
+        {
+            // Registered already, and deliberately not updated: rotating a shared credential on every
+            // restart would knock every till in the shop offline at once.
+            //
+            // But the case where the configured secret no longer matches the registered one is a
+            // genuine trap — every agent gets `invalid_client`, the agent's answer to a failed
+            // profile fetch is to keep its defaults and carry on, and the visible symptom is a till
+            // that reads no tags for no stated reason. Saying so here is the difference between a
+            // one-line fix and an afternoon.
+            if (!string.IsNullOrWhiteSpace(_configuration["Auth:AgentClientSecret"]))
+            {
+                _logger.LogInformation(
+                    "The terminal agent client is already registered; its secret was left as it is. "
+                    + "If agents are being refused with invalid_client, the registered secret differs "
+                    + "from Auth:AgentClientSecret — delete the {ClientId} row to re-register it.",
+                    AuthConstants.AgentClientId);
+            }
+        }
+        else
         {
             var secret = _configuration["Auth:AgentClientSecret"];
 
@@ -264,36 +285,92 @@ public sealed class IdentitySeeder
             return;
         }
 
+        await SeedOperatorAsync(
+            email,
+            password,
+            _configuration["Auth:AdminDisplayName"] ?? "Administrator",
+            role: "Administrator",
+            staffCode: "ADM",
+            given: "System",
+            family: "Administrator",
+            accessLevel: 4,
+            pin: _configuration["Auth:AdminPin"],
+            ct);
+    }
+
+    /// <summary>
+    /// Creates a till operator for demonstration and testing, from configuration only.
+    /// <para>
+    /// Same rule as the administrator: no default password, so an unconfigured deployment simply
+    /// does not get this account. It exists because most of what there is to try out — ringing a
+    /// sale, a shift, a commission — cannot be exercised from an administrator login, and reviewers
+    /// otherwise end up granting themselves cashier rights just to see the till.
+    /// </para>
+    /// </summary>
+    private async Task SeedCashierAsync(CancellationToken ct)
+    {
+        var email = _configuration["Auth:CashierEmail"];
+        var password = _configuration["Auth:CashierPassword"];
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            return;
+        }
+
+        await SeedOperatorAsync(
+            email,
+            password,
+            _configuration["Auth:CashierDisplayName"] ?? "Cashier",
+            role: "Cashier",
+            staffCode: "CSH",
+            given: "Demo",
+            family: "Cashier",
+            accessLevel: 1,
+            pin: _configuration["Auth:CashierPin"],
+            ct);
+    }
+
+    private async Task SeedOperatorAsync(
+        string email,
+        string password,
+        string displayName,
+        string role,
+        string staffCode,
+        string given,
+        string family,
+        int accessLevel,
+        string? pin,
+        CancellationToken ct)
+    {
         if (await _users.FindByEmailAsync(email) is not null)
         {
             return;
         }
 
-        var location = await _db.Locations.AsNoTracking().Select(l => (Guid?)l.Id).FirstOrDefaultAsync(ct);
+        var location = await _db.Locations.AsNoTracking().Select(l => (long?)l.Id).FirstOrDefaultAsync(ct);
 
         var user = new ApplicationUser
         {
             UserName = email,
             Email = email,
             EmailConfirmed = true,
-            DisplayName = _configuration["Auth:AdminDisplayName"] ?? "Administrator",
+            DisplayName = displayName,
             DefaultLocationId = location,
         };
 
         var created = await _users.CreateAsync(user, password);
         if (!created.Succeeded)
         {
-            _logger.LogError("Could not create the administrator: {Errors}", Join(created));
+            _logger.LogError("Could not create the {Role} account: {Errors}", role, Join(created));
             return;
         }
 
-        await _users.AddToRoleAsync(user, "Administrator");
+        await _users.AddToRoleAsync(user, role);
 
-        // A staff profile as well, so the administrator can actually work a till: sales are
-        // attributed to staff, not to Identity users.
-        var staff = StaffProfile.Create(user.Id, "ADM", "System", "Administrator", accessLevel: 4);
+        // A staff profile as well, so the account can actually work a till: sales are attributed to
+        // staff, not to Identity users.
+        var staff = StaffProfile.Create(user.Id, await FreeStaffCodeAsync(staffCode, ct), given, family, accessLevel);
 
-        var pin = _configuration["Auth:AdminPin"];
         if (!string.IsNullOrWhiteSpace(pin) && pin.Trim().Length >= 4)
         {
             staff.SetPin(_pinHasher.Hash(pin.Trim()));
@@ -302,7 +379,43 @@ public sealed class IdentitySeeder
         _db.StaffProfiles.Add(staff);
         await _db.SaveChangesAsync(ct);
 
-        _logger.LogInformation("Created the administrator account {Email}", email);
+        _logger.LogInformation("Created the {Role} account {Email}", role, email);
+    }
+
+    /// <summary>
+    /// The preferred staff code, or the first free variant of it.
+    /// <para>
+    /// Staff codes are unique, and this seeder wants "ADM" and "CSH" — which works exactly once. A
+    /// deployment that seeds a second administrator under a different email, or a test database that
+    /// survives between runs, hits a constraint violation during startup and the API refuses to boot.
+    /// The account is what matters here; the code is a label, so it yields.
+    /// </para>
+    /// </summary>
+    private async Task<string> FreeStaffCodeAsync(string preferred, CancellationToken ct)
+    {
+        var taken = await _db.StaffProfiles
+            .Where(s => s.StaffCode.StartsWith(preferred))
+            .Select(s => s.StaffCode)
+            .ToListAsync(ct);
+
+        if (!taken.Contains(preferred, StringComparer.OrdinalIgnoreCase))
+        {
+            return preferred;
+        }
+
+        for (var suffix = 2; suffix < 1000; suffix++)
+        {
+            var candidate = string.Create(CultureInfo.InvariantCulture, $"{preferred}{suffix}");
+
+            if (!taken.Contains(candidate, StringComparer.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+        }
+
+        // A thousand administrators is not a real situation; falling back to something certainly
+        // unique beats throwing during startup.
+        return string.Create(CultureInfo.InvariantCulture, $"{preferred}{Guid.NewGuid():N}")[..8].ToUpperInvariant();
     }
 
     /// <summary>The legacy access levels (guide p.82), kept so migrated staff land somewhere sensible.</summary>

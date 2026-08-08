@@ -3,6 +3,8 @@
 import { create } from 'zustand';
 import { posApi, PosApiError } from '@/lib/pos-api';
 import { posHub } from '@/lib/pos-hub';
+import { playScanTone } from '@/lib/scan-feedback';
+import { useUIStore } from '@/stores/ui-store';
 import type {
   Cart,
   DrawerTotals,
@@ -39,7 +41,7 @@ export type PosDialog =
 
 /** A step-up request raised after a command answered 428 (doc 07 §Step-up). */
 export interface PendingApproval {
-  id: string;
+  id: number;
   permission: string;
   action: string;
   context: string | null;
@@ -47,7 +49,7 @@ export interface PendingApproval {
 
 /** Who the next sale is attributed to. Switched by PIN, inside the station's existing session. */
 export interface ActiveStaff {
-  staffId: string;
+  staffId: number;
   staffCode: string;
   fullName: string;
   accessLevel: number;
@@ -59,13 +61,13 @@ export interface ActiveStaff {
  * item. Held so the picker knows what to offer without the cashier scanning again.
  */
 export interface PendingSelection {
-  productId: string;
+  productId: number;
   identifier: string;
 }
 
 interface PosState {
-  stationId: string | null;
-  locationId: string | null;
+  stationId: number | null;
+  locationId: number | null;
   policy: StationPolicy | null;
 
   cart: Cart | null;
@@ -81,39 +83,40 @@ interface PosState {
   posMessage: string | null;
 
   dialog: PosDialog;
-  selectedLineId: string | null;
+  /** Which line the detail dialog is editing, by cart position. Lines have no other identity. */
+  selectedLineSequence: number | null;
   pendingSelection: PendingSelection | null;
   pendingApproval: PendingApproval | null;
   activeStaff: ActiveStaff | null;
   busy: boolean;
   error: { code: string; message: string } | null;
-  lastSale: { transactionId: string; transactionNumber: number; changeGiven: number } | null;
+  lastSale: { transactionId: number; transactionNumber: number; changeGiven: number } | null;
 
-  initialise: (stationId: string, locationId: string) => Promise<void>;
+  initialise: (stationId: number, locationId: number) => Promise<void>;
   teardown: () => Promise<void>;
 
   ensureCart: () => Promise<Cart | null>;
   scan: (identifier: string) => Promise<void>;
-  addVariant: (variantId: string, quantity?: number) => Promise<void>;
-  addUnit: (unitId: string) => Promise<void>;
+  addVariant: (variantId: number, quantity?: number) => Promise<void>;
+  addUnit: (unitId: number) => Promise<void>;
   setReaderMode: (mode: 'Off' | 'OnDemand' | 'Continuous') => Promise<void>;
   switchStaff: (staffCode: string, pin: string) => Promise<void>;
   requestApproval: (permission: string, action: string, context?: string) => Promise<PendingApproval | null>;
   approveWithPin: (staffCode: string, pin: string) => Promise<void>;
-  updateLine: (lineId: string, body: Parameters<typeof posApi.updateLine>[2]) => Promise<void>;
-  removeLine: (lineId: string) => Promise<void>;
+  updateLine: (sequence: number, body: Parameters<typeof posApi.updateLine>[2]) => Promise<void>;
+  removeLine: (sequence: number) => Promise<void>;
   removeLastLine: () => Promise<void>;
   clearLines: () => Promise<void>;
   addAdjustment: (body: Parameters<typeof posApi.addAdjustment>[1]) => Promise<void>;
   addUnknownItem: (description: string, unitPrice: number, quantity: number) => Promise<void>;
   setTaxOverride: (tax1: boolean | null, tax2: boolean | null) => Promise<void>;
-  setCustomer: (customerId: string | null) => Promise<void>;
+  setCustomer: (customerId: number | null) => Promise<void>;
   suspend: (label?: string) => Promise<void>;
-  recall: (cartId: string) => Promise<void>;
+  recall: (cartId: number) => Promise<void>;
   complete: (tenders: TenderRequest[]) => Promise<boolean>;
   refreshDrawer: () => Promise<void>;
 
-  openDialog: (dialog: PosDialog, lineId?: string | null) => void;
+  openDialog: (dialog: PosDialog, sequence?: number | null) => void;
   closeDialog: () => void;
   clearError: () => void;
   dismissTag: (epc: string) => void;
@@ -140,7 +143,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   rejectedTags: [],
   posMessage: null,
   dialog: null,
-  selectedLineId: null,
+  selectedLineSequence: null,
   pendingSelection: null,
   pendingApproval: null,
   activeStaff: null,
@@ -185,23 +188,71 @@ export const usePosStore = create<PosState>((set, get) => ({
         const cart = get().cart;
         if (!cart) return;
 
+        // Already accounted for. A push can arrive after the cart was fetched over HTTP — on
+        // connect, on reconnect, after any mutation — and it then carries lines that fetch already
+        // returned. Appending those again is how one tagged item becomes four on the screen while
+        // the server holds one, and the cashier is looking at a total nobody will be charged.
+        if (revision <= cart.revision) return;
+
         // A gap in the revision sequence means we missed a message; ask rather than guess.
         if (revision > cart.revision + 1) {
           void posHub.requestResync(cart.id, cart.revision);
           return;
         }
 
-        set({ cart: { ...cart, revision, lines: [...cart.lines, ...lines] } });
+        // Belt and braces: a line is its position in the cart, so one that is already there cannot
+        // be added by a message, whatever the revision says.
+        const known = new Set(cart.lines.map((line) => line.sequence));
+        const fresh = lines.filter((line) => !known.has(line.sequence));
+
+        set({ cart: { ...cart, revision, lines: [...cart.lines, ...fresh] } });
+
+        // The beep RFID takes away. One tone per batch rather than one per line: a basket of thirty
+        // is one action from the cashier's point of view, and thirty blips is an alarm.
+        if (fresh.some((line) => line.epc) && useUIStore.getState().scanSound) {
+          playScanTone('accepted');
+        }
       },
-      onCartLineRejected: ({ epc, reason, message }) =>
+      onCartLineRejected: ({ epc, reason, message }) => {
+        if (useUIStore.getState().scanSound) {
+          // An unrecognised tag sounds unlike a refused one. The first is usually a customer's own
+          // coat and needs no action; the second is stock that will not sell until somebody
+          // intervenes, and a cashier has to be able to tell those apart without reading.
+          playScanTone(reason === 'epc.unknown' ? 'unknown' : 'rejected');
+        }
+
         set((state) => ({
           rejectedTags: [{ epc, reason, message, at: Date.now() }, ...state.rejectedTags].slice(0, 20),
-        })),
+        }));
+      },
       onTagStreamStatus: ({ readerOnline, readRate }) => set({ readerOnline, readRate }),
       onPeripheralStatus: (peripherals) => set({ peripherals, readerOnline: peripherals.readerOnline }),
       onDrawerStateChanged: (drawer) => set({ drawer }),
       onPosMessage: ({ message }) => set({ posMessage: message }),
-      onConnectionChanged: (connected) => set({ connected }),
+      onConnectionChanged: (connected) => {
+        set({ connected });
+
+        if (!connected) return;
+
+        // Coming back from a drop — or arriving for the first time. Whatever happened while the
+        // till was away exists only in the server's copy, so take that rather than trusting what
+        // is on screen, and rejoin the cart group so the next tag arrives on its own.
+        const stationId = get().stationId;
+        if (stationId === null) return;
+
+        void posApi
+          .cartForStation(stationId)
+          .then(async (cart) => {
+            // Clearing the error matters as much as taking the cart. "This cart is no longer
+            // active" is true at the moment the server restarts and false a second later, and a
+            // stale refusal left on a till reads as a broken till.
+            set({ cart, error: null });
+            await posHub.joinCart(cart.id);
+          })
+          .catch(() => {
+            // No active cart at this station is an ordinary state, not a failure.
+          });
+      },
       onResyncRequired: async ({ cartId }) => {
         try {
           set({ cart: await posApi.getCart(cartId) });
@@ -249,7 +300,7 @@ export const usePosStore = create<PosState>((set, get) => ({
       // kind of question it is, and the right picker opens rather than the cashier seeing an error
       // and scanning the same barcode again.
       if (error instanceof PosApiError) {
-        const productId = error.problem.arguments?.productId as string | undefined;
+        const productId = error.problem.arguments?.productId as number | undefined;
 
         if (error.code === 'variant.selection_required' && productId) {
           set({ dialog: 'variantPicker', pendingSelection: { productId, identifier: trimmed }, busy: false });
@@ -377,14 +428,14 @@ export const usePosStore = create<PosState>((set, get) => ({
     }
   },
 
-  updateLine: async (lineId, body) => {
+  updateLine: async (sequence, body) => {
     const cart = get().cart;
     if (!cart) return;
 
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.updateLine(cart.id, lineId, body) });
+      set({ cart: await posApi.updateLine(cart.id, sequence, body) });
     } catch (error) {
       set({ error: describe(error) });
     } finally {
@@ -392,14 +443,14 @@ export const usePosStore = create<PosState>((set, get) => ({
     }
   },
 
-  removeLine: async (lineId) => {
+  removeLine: async (sequence) => {
     const cart = get().cart;
     if (!cart) return;
 
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.removeLine(cart.id, lineId) });
+      set({ cart: await posApi.removeLine(cart.id, sequence) });
     } catch (error) {
       set({ error: describe(error) });
     } finally {
@@ -411,7 +462,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   removeLastLine: async () => {
     const cart = get().cart;
     const last = cart?.lines[cart.lines.length - 1];
-    if (last) await get().removeLine(last.id);
+    if (last) await get().removeLine(last.sequence);
   },
 
   clearLines: async () => {
@@ -564,7 +615,8 @@ export const usePosStore = create<PosState>((set, get) => ({
     }
   },
 
-  openDialog: (dialog, lineId = null) => set({ dialog, selectedLineId: lineId ?? get().selectedLineId }),
+  openDialog: (dialog, sequence = null) =>
+    set({ dialog, selectedLineSequence: sequence ?? get().selectedLineSequence }),
   closeDialog: () => set({ dialog: null, pendingSelection: null }),
   clearError: () => set({ error: null }),
   dismissTag: (epc) => set((state) => ({ rejectedTags: state.rejectedTags.filter((t) => t.epc !== epc) })),

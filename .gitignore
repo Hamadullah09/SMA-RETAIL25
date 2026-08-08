@@ -31,3 +31,7 @@ Thumbs.db
 Desktop.ini
 .DS_Store
 *.tsbuildinfo
+
+# BenchmarkDotNet writes its raw logs and per-run reports here. The deliverable is
+# RFID_Throughput_Benchmark.md, which is written by hand from them.
+BenchmarkDotNet.Artifacts/

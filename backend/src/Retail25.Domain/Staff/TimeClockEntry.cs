@@ -11,9 +11,9 @@ public sealed class TimeClockEntry : Entity, IAuditable
     {
     }
 
-    public Guid StaffId { get; set; }
+    public long StaffId { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public DateTimeOffset ClockIn { get; set; }
 
@@ -24,13 +24,13 @@ public sealed class TimeClockEntry : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static TimeClockEntry ClockInAt(Guid staffId, Guid locationId, DateTimeOffset at)
+    public static TimeClockEntry ClockInAt(long staffId, long locationId, DateTimeOffset at)
     {
         return new TimeClockEntry
         {

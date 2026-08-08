@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
 import {
@@ -12,14 +13,16 @@ import {
   SelectField,
   TextField,
 } from '@/components/masters/browse-form';
+import { ProductImageField } from '@/components/masters/product-image-field';
 import { MatrixEditor } from '@/components/masters/matrix-editor';
+import { PrintLabelsDialog } from '@/components/documents/print-labels-dialog';
 import { RecordPicker, type PickerOption } from '@/components/masters/record-picker';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { useLiveGrid } from '@/lib/inventory-hub';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency , recordIdFrom} from '@/lib/utils';
 import {
   productTypes,
   type LinkedProduct,
@@ -28,6 +31,15 @@ import {
   type ProductSort,
   type ProductType,
 } from '@/types/masters';
+
+/**
+ * The id a form holds while it is creating rather than editing.
+ *
+ * Zero, because that is what the domain means by it too: an entity that has not been saved has no
+ * id yet, and no row can ever be 0 — the sequence starts at 1. A string sentinel would have to be
+ * kept out of every type that says this is a record key.
+ */
+const NEW_RECORD = 0;
 
 /**
  * Inventory Browse + Form View (guide p.23–24, p.30–44).
@@ -43,7 +55,7 @@ export default function ProductsPage() {
   const canDelete = auth.can('catalog.delete');
 
   const [search, setSearch] = useState('');
-  const [departmentId, setDepartmentId] = useState('');
+  const [departmentId, setDepartmentId] = useState<number | ''>('');
   const [type, setType] = useState<ProductType | ''>('');
   const [belowReorderPoint, setBelowReorderPoint] = useState(false);
   const [sort, setSort] = useState<ProductSort>('StockCode');
@@ -51,7 +63,8 @@ export default function ProductsPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [printing, setPrinting] = useState(false);
 
   const { data: departments = [] } = useQuery({
     queryKey: ['departments', locationId],
@@ -74,7 +87,7 @@ export default function ProductsPage() {
       try {
         const page = await mastersApi.products.browse(locationId, {
           search,
-          departmentId,
+          departmentId: departmentId || undefined,
           type: type || undefined,
           belowReorderPoint,
           sort,
@@ -142,7 +155,7 @@ export default function ProductsPage() {
         render: (r) => (
           <span
             className={
-              r.reorderPoint > 0 && r.onHand + r.onOrder <= r.reorderPoint ? 'text-[rgb(var(--warning))]' : undefined
+              r.reorderPoint > 0 && r.onHand + r.onOrder <= r.reorderPoint ? 'text-warning' : undefined
             }
           >
             {r.onHand}
@@ -163,13 +176,45 @@ export default function ProductsPage() {
   );
 
   return (
+    <>
     <BrowseFormShell
       title="Inventory"
       toolbar={
         <>
           <LiveBadge connected={connected} />
+
+          {/* Both print the items currently listed, so the filters above are the selection. */}
+          <button
+            type="button"
+            className="pos-button"
+            disabled={rows.length === 0}
+            onClick={() => setPrinting(true)}
+          >
+            Print labels
+          </button>
+
+          {locationId ? (
+            <a
+              className="pos-button"
+              href={mastersApi.documents.catalogueUrl(locationId, {
+                departmentId: departmentId || undefined,
+                search: search || undefined,
+              })}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Price list (PDF)
+            </a>
+          ) : null}
+
+          {auth.can('catalog.bulk_adjust') ? (
+            <Link className="pos-button" href="/catalog/bulk">
+              Batch changes
+            </Link>
+          ) : null}
+
           {canWrite ? (
-            <button type="button" className="pos-button-primary" onClick={() => setSelectedId('new')}>
+            <button type="button" className="pos-button-primary" onClick={() => setSelectedId(NEW_RECORD)}>
               New item
             </button>
           ) : null}
@@ -178,27 +223,27 @@ export default function ProductsPage() {
       filters={
         <>
           <input
-            className="w-64 rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input w-64"
             placeholder="Code, description or barcode"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={departmentId}
-            onChange={(event) => setDepartmentId(event.target.value)}
+            onChange={(event) => setDepartmentId(recordIdFrom(event.target.value))}
           >
             <option value="">All departments</option>
             {departments.map((department) => (
-              <option key={department.id} value={department.id}>
+              <option key={String(department.id)} value={department.id}>
                 {department.name} ({department.usageCount})
               </option>
             ))}
           </select>
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={type}
             onChange={(event) => setType(event.target.value as ProductType | '')}
           >
@@ -211,7 +256,7 @@ export default function ProductsPage() {
           </select>
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={sort}
             onChange={(event) => setSort(event.target.value as ProductSort)}
           >
@@ -244,10 +289,10 @@ export default function ProductsPage() {
         />
       }
       form={
-        selectedId && locationId ? (
+        selectedId !== null && locationId ? (
           <ProductFormPanel
-            key={selectedId}
-            productId={selectedId === 'new' ? null : selectedId}
+            key={String(selectedId)}
+            productId={selectedId === NEW_RECORD ? null : selectedId}
             locationId={locationId}
             departments={departments}
             categories={categories}
@@ -272,6 +317,11 @@ export default function ProductsPage() {
         </span>
       }
     />
+
+      {printing && locationId ? (
+        <PrintLabelsDialog locationId={locationId} items={rows} onClose={() => setPrinting(false)} />
+      ) : null}
+    </>
   );
 }
 
@@ -300,7 +350,7 @@ function fromPick(picked: PickerOption | null): LinkedProduct | null {
  * Searches the catalogue for a link target, excluding the item being edited — an item cannot be its
  * own substitute, and the server refuses it, so offering it is only a way to earn an error.
  */
-function searchItems(locationId: string, term: string, excludeId: string): Promise<PickerOption[]> {
+function searchItems(locationId: number, term: string, excludeId: number): Promise<PickerOption[]> {
   return mastersApi.products
     .browse(locationId, { search: term, pageSize: 15 })
     .then((page) =>
@@ -311,8 +361,8 @@ function searchItems(locationId: string, term: string, excludeId: string): Promi
 }
 
 const emptyForm: ProductForm = {
-  id: '',
-  locationId: '',
+  id: 0,
+  locationId: 0,
   stockCode: '',
   name: '',
   description: null,
@@ -348,6 +398,7 @@ const emptyForm: ProductForm = {
   bonus: null,
   suppliers: [],
   kitComponents: [],
+  hasImage: false,
   isDeleted: false,
   createdAt: '',
   modifiedAt: null,
@@ -363,10 +414,10 @@ function ProductFormPanel({
   onClose,
   onSaved,
 }: {
-  productId: string | null;
-  locationId: string;
-  departments: Array<{ id: string; name: string }>;
-  categories: Array<{ id: string; name: string }>;
+  productId: number | null;
+  locationId: number;
+  departments: Array<{ id: number; name: string }>;
+  categories: Array<{ id: number; name: string }>;
   canWrite: boolean;
   canDelete: boolean;
   onClose: () => void;
@@ -475,9 +526,9 @@ function ProductFormPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-body font-semibold">
           {productId ? `${form.stockCode} — ${form.name}` : 'New item'}
-          {form.isDeleted ? <span className="pos-badge ml-2 text-[rgb(var(--negative))]">Deleted</span> : null}
+          {form.isDeleted ? <span className="pos-badge ml-2 text-negative">Deleted</span> : null}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>
           Close
@@ -511,14 +562,14 @@ function ProductFormPanel({
         <SelectField
           label="Department"
           value={form.departmentId ?? ''}
-          options={[{ value: '', label: '— none —' }, ...departments.map((d) => ({ value: d.id, label: d.name }))]}
+          options={[{ value: '' as const, label: '— none —' }, ...departments.map((d) => ({ value: d.id, label: d.name }))]}
           onChange={(v) => patch({ departmentId: v || null })}
           disabled={disabled}
         />
         <SelectField
           label="Category"
           value={form.categoryId ?? ''}
-          options={[{ value: '', label: '— none —' }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
+          options={[{ value: '' as const, label: '— none —' }, ...categories.map((c) => ({ value: c.id, label: c.name }))]}
           onChange={(v) => patch({ categoryId: v || null })}
           disabled={disabled}
         />
@@ -532,6 +583,18 @@ function ProductFormPanel({
 
       {productId ? (
         <>
+          {/*
+            Below General rather than beside the stock code: the picture is optional and only affects
+            how the till draws the item, so it should not sit in the path of somebody entering a code
+            and a price.
+          */}
+          <ProductImageField
+            productId={productId}
+            hasImage={form.hasImage}
+            disabled={disabled}
+            onChanged={(hasImage) => patch({ hasImage })}
+          />
+
           <FormSection
             title="Taxes"
             hint="A tax is charged only if it is switched on here and on the POS tab of Setup."
@@ -550,7 +613,7 @@ function ProductFormPanel({
               disabled={disabled}
             />
             {form.type === 'GiftCard' ? (
-              <p className="text-xs text-[rgb(var(--warning))]">
+              <p className="text-label text-warning">
                 A gift card is never taxed here — the tax is charged when the card is spent.
               </p>
             ) : null}
@@ -583,7 +646,7 @@ function ProductFormPanel({
               disabled={disabled}
               step="0.001"
             />
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label text-ink-muted">
               Average cost {formatCurrency(form.avgCost)} · margin {form.grossMarginPct.toFixed(1)}% — both maintained by
               the stock ledger and not editable here.
             </p>
@@ -609,10 +672,10 @@ function ProductFormPanel({
               );
             })}
 
-            <hr className="border-[rgb(var(--border))]" />
+            <hr className="border-subtle" />
 
-            <p className="text-xs font-medium">Break points</p>
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label font-medium">Break points</p>
+            <p className="text-label text-ink-muted">
               At or above the quantity, the item sells at that level&apos;s price. Break points outrank the sale window.
             </p>
 
@@ -658,7 +721,7 @@ function ProductFormPanel({
               </button>
             ) : null}
 
-            <hr className="border-[rgb(var(--border))]" />
+            <hr className="border-subtle" />
 
             <CheckField
               label="On sale for a period"
@@ -697,7 +760,7 @@ function ProductFormPanel({
               </>
             ) : null}
 
-            <hr className="border-[rgb(var(--border))]" />
+            <hr className="border-subtle" />
 
             <CheckField
               label="Buy X, get Y free"
@@ -770,21 +833,21 @@ function ProductFormPanel({
               disabled={disabled}
             />
 
-            <hr className="border-[rgb(var(--border))]" />
+            <hr className="border-subtle" />
 
-            <p className="text-xs font-medium">Suppliers</p>
-            <p className="text-xs text-[rgb(var(--text-muted))]">
+            <p className="text-label font-medium">Suppliers</p>
+            <p className="text-label text-ink-muted">
               Rank 1 is the preferred source, and is the one automatic reordering buys from.
             </p>
 
             {form.suppliers.map((supplier, index) => (
-              <div key={supplier.supplierId} className="space-y-1 border-b border-[rgb(var(--border))] pb-2">
-                <div className="flex items-center justify-between text-sm">
+              <div key={supplier.supplierId} className="space-y-1 border-b border-subtle pb-2">
+                <div className="flex items-center justify-between text-body">
                   <span>{supplier.supplierName}</span>
                   {!disabled ? (
                     <button
                       type="button"
-                      className="text-xs underline"
+                      className="text-label underline"
                       onClick={() => patch({ suppliers: form.suppliers.filter((_, i) => i !== index) })}
                     >
                       Unlink
@@ -826,7 +889,7 @@ function ProductFormPanel({
             ))}
 
             {form.suppliers.length === 0 ? (
-              <p className="text-xs text-[rgb(var(--text-muted))]">No supplier linked yet.</p>
+              <p className="text-label text-ink-muted">No supplier linked yet.</p>
             ) : null}
 
             {!disabled ? (
@@ -931,7 +994,72 @@ function ProductFormPanel({
 
           {form.type === 'Matrix' ? <MatrixEditor productId={form.id} canWrite={canWrite} /> : null}
 
+          {form.type === 'Kit' ? (
+            <FormSection
+              title="Kit components"
+              hint="What actually leaves the shelf when this kit is sold (guide p.41)."
+              actions={saveButton(() => ({ kit: { components: form.kitComponents } }))}
+            >
+              {form.kitComponents.map((component, index) => (
+                <div key={component.componentProductId} className="grid grid-cols-[1fr_6rem_auto] items-center gap-2">
+                  <span className="text-body">
+                    <span className="pos-amount">{component.stockCode}</span> — {component.name}
+                  </span>
+                  <NumberField
+                    label="Qty"
+                    value={component.quantity}
+                    step="1"
+                    disabled={disabled}
+                    onChange={(quantity) =>
+                      patch({ kitComponents: replaceAt(form.kitComponents, index, { ...component, quantity }) })
+                    }
+                  />
+                  {canWrite ? (
+                    <button
+                      type="button"
+                      className="pos-button mb-0.5"
+                      onClick={() => patch({ kitComponents: form.kitComponents.filter((_, i) => i !== index) })}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+
+              {canWrite ? (
+                <RecordPicker
+                  label="Add a component"
+                  value={null}
+                  disabled={disabled}
+                  search={(term) => searchItems(locationId, term, form.id)}
+                  onChange={(picked) => {
+                    if (!picked || form.kitComponents.some((c) => c.componentProductId === picked.id)) return;
+                    patch({
+                      kitComponents: [
+                        ...form.kitComponents,
+                        { componentProductId: picked.id, stockCode: picked.code, name: picked.name, quantity: 1 },
+                      ],
+                    });
+                  }}
+                />
+              ) : null}
+            </FormSection>
+          ) : null}
+
           <div className="mb-6 flex flex-wrap gap-2">
+            {/*
+              The one-off reprint: a tag that came out crooked, or a price that just changed. A plain
+              link rather than a fetch, so it opens straight in the browser's PDF viewer.
+            */}
+            <a
+              className="pos-button"
+              href={mastersApi.documents.priceTagUrl(form.id, locationId, 'Avery5160')}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Print one label
+            </a>
+
             {canWrite ? (
               <button type="button" className="pos-button" onClick={() => void clone()} disabled={busy}>
                 Copy to a new code
@@ -941,7 +1069,7 @@ function ProductFormPanel({
             {canDelete && !form.isDeleted ? (
               <button
                 type="button"
-                className="pos-button text-[rgb(var(--negative))]"
+                className="pos-button text-negative"
                 onClick={() => void remove()}
                 disabled={busy}
               >
@@ -957,7 +1085,7 @@ function ProductFormPanel({
           </div>
         </>
       ) : (
-        <p className="px-1 text-xs text-[rgb(var(--text-muted))]">
+        <p className="px-1 text-label text-ink-muted">
           Save the item first — pricing, ordering and messages open once it exists.
         </p>
       )}

@@ -12,7 +12,7 @@
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="NSubstitute" />
-    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.MsSql" />
     <PackageReference Include="Testcontainers.Redis" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <!--
@@ -20,7 +20,7 @@
       migrations model differ directly, which live in the relational and design assemblies.
     -->
     <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -30,6 +30,15 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Retail25.Api\Retail25.Api.csproj" />
     <ProjectReference Include="..\..\src\Retail25.Infrastructure\Retail25.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      The real tag export the EPC importer was built for, kept verbatim. Its value as a fixture is
+      precisely that nobody tidied it: the annotation row, the half-renamed name column, the eleven
+      EPCs transcribed with a leading G. A cleaned-up copy would test a file that does not exist.
+    -->
+    <Content Include="TestData\epc-catalog-export.csv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

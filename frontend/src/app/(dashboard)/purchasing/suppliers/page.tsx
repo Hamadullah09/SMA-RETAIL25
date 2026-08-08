@@ -10,6 +10,15 @@ import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
 import type { Address, ContactDetails, SupplierForm, SupplierRow, SupplierSort } from '@/types/masters';
 
+/**
+ * The id a form holds while it is creating rather than editing.
+ *
+ * Zero, because that is what the domain means by it too: an entity that has not been saved has no
+ * id yet, and no row can ever be 0 — the sequence starts at 1. A string sentinel would have to be
+ * kept out of every type that says this is a record key.
+ */
+const NEW_RECORD = 0;
+
 /** Supplier Browse + Form View (guide p.59–62). */
 export default function SuppliersPage() {
   const auth = useAuth();
@@ -22,7 +31,7 @@ export default function SuppliersPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const load = useCallback(
     async (append: boolean, from: string | null) => {
@@ -84,7 +93,7 @@ export default function SuppliersPage() {
         <>
           <LiveBadge connected={connected} />
           {canWrite ? (
-            <button type="button" className="pos-button-primary" onClick={() => setSelectedId('new')}>
+            <button type="button" className="pos-button-primary" onClick={() => setSelectedId(NEW_RECORD)}>
               New supplier
             </button>
           ) : null}
@@ -93,14 +102,14 @@ export default function SuppliersPage() {
       filters={
         <>
           <input
-            className="w-64 rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input w-64"
             placeholder="Company, number, contact or phone"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={sort}
             onChange={(event) => setSort(event.target.value as SupplierSort)}
           >
@@ -121,10 +130,10 @@ export default function SuppliersPage() {
         />
       }
       form={
-        selectedId && locationId ? (
+        selectedId !== null && locationId ? (
           <SupplierFormPanel
-            key={selectedId}
-            supplierId={selectedId === 'new' ? null : selectedId}
+            key={String(selectedId)}
+            supplierId={selectedId === NEW_RECORD ? null : selectedId}
             locationId={locationId}
             canWrite={canWrite}
             onClose={() => setSelectedId(null)}
@@ -153,8 +162,8 @@ function describe(error: unknown): string {
 }
 
 const emptySupplier: SupplierForm = {
-  id: '',
-  locationId: '',
+  id: 0,
+  locationId: 0,
   supplierNumber: '',
   company: '',
   contactFirstName: null,
@@ -175,8 +184,8 @@ function SupplierFormPanel({
   onClose,
   onSaved,
 }: {
-  supplierId: string | null;
-  locationId: string;
+  supplierId: number | null;
+  locationId: number;
   canWrite: boolean;
   onClose: () => void;
   onSaved: () => void;
@@ -251,7 +260,7 @@ function SupplierFormPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">{supplierId ? form.company : 'New supplier'}</h2>
+        <h2 className="text-body font-semibold">{supplierId ? form.company : 'New supplier'}</h2>
         <button type="button" className="pos-button" onClick={onClose}>
           Close
         </button>
@@ -319,13 +328,13 @@ function SupplierFormPanel({
 
       {supplierId ? (
         <div className="mb-6 space-y-2">
-          <p className="text-xs text-[rgb(var(--text-muted))]">
+          <p className="text-label text-ink-muted">
             {form.suppliedItemCount} item{form.suppliedItemCount === 1 ? '' : 's'} sourced from this supplier.
             {form.suppliedItemCount > 0 ? ' Unlink them before deleting.' : ''}
           </p>
 
           {canWrite ? (
-            <button type="button" className="pos-button text-[rgb(var(--negative))]" onClick={() => void remove()} disabled={busy}>
+            <button type="button" className="pos-button text-negative" onClick={() => void remove()} disabled={busy}>
               Delete
             </button>
           ) : null}

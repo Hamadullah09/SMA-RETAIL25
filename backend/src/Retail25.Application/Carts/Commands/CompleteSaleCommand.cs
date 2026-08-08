@@ -14,28 +14,29 @@ using Retail25.Domain.Inventory;
 using Retail25.Domain.Receivables;
 using Retail25.Domain.Sales;
 using Retail25.Domain.Sales.Pricing;
+using Retail25.Domain.Staff;
 using Retail25.Domain.Terminals;
 
 namespace Retail25.Application.Carts.Commands;
 
 /// <summary>One leg of the split payment as the till sends it (guide p.8).</summary>
 public sealed record TenderRequest(
-    Guid TenderTypeId,
+    long TenderTypeId,
     decimal Amount,
     decimal AmountTendered = 0m,
     string? Reference = null,
     string? CardToken = null,
-    Guid? CurrencyId = null,
+    long? CurrencyId = null,
     decimal ExchangeRate = 1m);
 
 public sealed record CompleteSaleResult(
-    Guid TransactionId,
+    long TransactionId,
     long TransactionNumber,
     decimal GrandTotal,
     decimal ChangeGiven,
     decimal RoundingAdjustment,
     int LoyaltyPointsEarned,
-    Guid? InvoiceId,
+    long? InvoiceId,
     ReceiptDocument? Receipt);
 
 /// <summary>
@@ -49,7 +50,7 @@ public sealed record CompleteSaleResult(
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
 public sealed record CompleteSaleCommand(
-    Guid CartId,
+    long CartId,
     IReadOnlyList<TenderRequest> Tenders,
     string IdempotencyKey,
     bool PrintReceipt = true,
@@ -63,6 +64,14 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     public static readonly Error AccountRequired = new("credit.account_required", "An on-account tender needs a customer with an account.");
     public static readonly Error DrawerRequired = new("drawer.not_open", "Open a drawer before taking cash.");
     public static readonly Error PaymentDeclined = new("payment.declined", "The card was declined.");
+    public static readonly Error TrainingCashOnly = new(
+        "training.cash_only",
+        "A training sale can only be settled in cash or by a tender that records a reference.");
+
+    /// <summary>
+    /// The legacy trainee level (guide p.82). Everything rung by someone at this level is practice.
+    /// </summary>
+    private const int TrainingAccessLevel = 0;
 
     private readonly ICartStore _store;
     private readonly IApplicationDbContext _db;
@@ -130,6 +139,24 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
 
         var tenderTypes = await _db.TenderTypes.AsNoTracking().ToDictionaryAsync(t => t.Id, ct);
 
+        var now = _clock.Now;
+        var staffId = _currentUser.StaffId ?? snapshot.Cart.StaffId;
+
+        // Derived here and nowhere else. A client-supplied flag would let anyone mark a real sale as
+        // practice and make it vanish from every report. Worked out before settlement because a
+        // trainee must not be able to reach the payment gateway at all.
+        var isTraining = await IsTrainingSaleAsync(staffId, ct);
+
+        if (isTraining)
+        {
+            var tenderCheck = CheckTrainingTenders(request, tenderTypes);
+
+            if (tenderCheck.IsFailure)
+            {
+                return Result.Failure<CompleteSaleResult>(tenderCheck.Error);
+            }
+        }
+
         var settlement = await SettleAsync(request, pricing, tenderTypes, context, snapshot, ct);
         if (settlement.IsFailure)
         {
@@ -141,14 +168,13 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         var drawerSession = await _db.DrawerSessions
             .FirstOrDefaultAsync(d => d.StationId == snapshot.Cart.StationId && d.Status == DrawerSessionStatus.Open, ct);
 
-        var needsDrawer = settled.Tenders.Any(t => tenderTypes[t.TenderTypeId].CountsTowardsDrawerCash);
+        // A trainee practising on a till whose drawer nobody has opened is the normal case, and a
+        // training sale never moves the balance anyway — so the requirement does not apply.
+        var needsDrawer = !isTraining && settled.Tenders.Any(t => tenderTypes[t.TenderTypeId].CountsTowardsDrawerCash);
         if (needsDrawer && drawerSession is null)
         {
             return Result.Failure<CompleteSaleResult>(DrawerRequired);
         }
-
-        var now = _clock.Now;
-        var staffId = _currentUser.StaffId ?? snapshot.Cart.StaffId;
 
         var transaction = new SalesTransaction
         {
@@ -157,7 +183,10 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
             StationId = snapshot.Cart.StationId,
             StaffId = staffId,
             CustomerId = snapshot.Cart.CustomerId,
-            DrawerSessionId = drawerSession?.Id,
+
+            // Not attached to the drawer when it is practice: a session that lists a training sale
+            // would not reconcile against the cash actually in the till.
+            DrawerSessionId = isTraining ? null : drawerSession?.Id,
             BusinessDate = context.BusinessDate,
             Subtotal = pricing.Subtotal,
             DiscountTotal = pricing.AdjustmentTotal,
@@ -171,32 +200,55 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
             LoyaltyPointsEarned = pricing.LoyaltyPointsEarned,
             LoyaltyPointsRedeemed = pricing.LoyaltyPointsRedeemed,
             Status = TransactionStatus.Completed,
+            IsTraining = isTraining,
             CompletedAt = now,
             CreatedAt = now,
             CreatedBy = _currentUser.UserId,
         };
 
         _db.SalesTransactions.Add(transaction);
+
+        // Saved here, before anything reads its id.
+        //
+        // The transaction's id is assigned by the database, so it is 0 until this line. Eight things
+        // below take it — the tax snapshot, every sale line, every tender, the loyalty entry, the
+        // cart's completion marker, the receipt — and under the previous GUID keys they could all be
+        // built first because the id existed the moment the object did.
+        //
+        // This is still one database transaction: the pipeline's TransactionBehavior wraps the whole
+        // handler, so a failure after this point rolls the sale back exactly as before.
+        await _db.SaveChangesAsync(ct);
+
         _db.SaleTaxSnapshots.Add(SaleTaxSnapshot.From(transaction.Id, context.Tax));
 
-        WriteLines(transaction, snapshot, pricing);
+        var saleLines = WriteLines(transaction, snapshot, pricing);
         WriteAdjustments(transaction, snapshot, pricing);
         WriteTenders(transaction, settled, tenderTypes);
 
-        await ApplyStockEffectsAsync(transaction, snapshot, pricing, context, ct);
-        await ApplySerializedUnitsAsync(snapshot, ct);
-        await ApplyLoyaltyAsync(transaction, snapshot, pricing, context, now, ct);
-        await ApplyGiftCertificatesAsync(snapshot, settled, tenderTypes, ct);
-
-        var invoiceResult = await ApplyOnAccountAsync(transaction, settled, tenderTypes, context, now, ct);
-        if (invoiceResult.IsFailure)
+        // Everything below this line is what makes a sale real: stock leaves the shelf, points are
+        // earned, a card is spent, a drawer balance moves, commission is owed. A training sale runs
+        // the whole flow and writes the transaction, its lines and its tenders — so the trainee sees
+        // a normal till and the shape of what they did is on record — and then touches none of it.
+        if (!isTraining)
         {
-            return Result.Failure<CompleteSaleResult>(invoiceResult.Error);
-        }
+            await ApplyStockEffectsAsync(transaction, snapshot, pricing, context, ct);
+            await ApplySerializedUnitsAsync(snapshot, ct);
+            await ApplyLoyaltyAsync(transaction, snapshot, pricing, context, now, ct);
+            await ApplyGiftCertificatesAsync(snapshot, settled, tenderTypes, ct);
+            await ApplyGiftCardsAsync(settled, tenderTypes, ct);
 
-        if (drawerSession is not null)
-        {
-            ApplyDrawerEffects(drawerSession, transaction, settled, tenderTypes, pricing, staffId, now);
+            var invoiceResult = await ApplyOnAccountAsync(transaction, settled, tenderTypes, context, now, ct);
+            if (invoiceResult.IsFailure)
+            {
+                return Result.Failure<CompleteSaleResult>(invoiceResult.Error);
+            }
+
+            if (drawerSession is not null)
+            {
+                ApplyDrawerEffects(drawerSession, transaction, settled, tenderTypes, pricing, staffId, now);
+            }
+
+            await ApplyCommissionsAsync(transaction, pricing, saleLines, staffId, ct);
         }
 
         snapshot.Cart.Complete(transaction.Id, now);
@@ -248,7 +300,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     private async Task<Result<TenderSettlement>> SettleAsync(
         CompleteSaleCommand request,
         SalePricingResult pricing,
-        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        IReadOnlyDictionary<long, TenderType> tenderTypes,
         PosContext context,
         CartSnapshot snapshot,
         CancellationToken ct)
@@ -315,15 +367,21 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         return settlement;
     }
 
-    private void WriteLines(SalesTransaction transaction, CartSnapshot snapshot, SalePricingResult pricing)
+    /// <summary>
+    /// Writes the sale's lines and hands them back, because commission is recorded per line and
+    /// needs the identity of the row it was earned on.
+    /// </summary>
+    private List<SaleLine> WriteLines(SalesTransaction transaction, CartSnapshot snapshot, SalePricingResult pricing)
     {
-        var cartLines = snapshot.Lines.ToDictionary(l => l.Id);
+        // By Sequence: a cached cart's lines have no database id to key on.
+        var cartLines = snapshot.Lines.ToDictionary(l => l.Sequence);
+        var written = new List<SaleLine>(pricing.Lines.Count);
 
         foreach (var resolved in pricing.Lines)
         {
-            cartLines.TryGetValue(resolved.LineId, out var cartLine);
+            cartLines.TryGetValue(resolved.Sequence, out var cartLine);
 
-            _db.SaleLines.Add(new SaleLine
+            var line = new SaleLine
             {
                 TransactionId = transaction.Id,
                 Sequence = resolved.Sequence,
@@ -350,8 +408,13 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
                 LineType = resolved.LineType,
                 ReturnedToStock = cartLine?.ReturnToStock ?? true,
                 Note = cartLine?.Note,
-            });
+            };
+
+            _db.SaleLines.Add(line);
+            written.Add(line);
         }
+
+        return written;
     }
 
     private void WriteAdjustments(SalesTransaction transaction, CartSnapshot snapshot, SalePricingResult pricing)
@@ -374,7 +437,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     private void WriteTenders(
         SalesTransaction transaction,
         TenderSettlement settlement,
-        IReadOnlyDictionary<Guid, TenderType> tenderTypes)
+        IReadOnlyDictionary<long, TenderType> tenderTypes)
     {
         foreach (var tender in settlement.Tenders)
         {
@@ -419,7 +482,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
                 continue;
             }
 
-            var cartLine = snapshot.Lines.FirstOrDefault(l => l.Id == line.LineId);
+            var cartLine = snapshot.Lines.FirstOrDefault(l => l.Sequence == line.Sequence);
 
             // A return only puts stock back if the cashier said the goods came back (guide p.7).
             var signedQuantity = line.LineType switch
@@ -474,9 +537,9 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
 
     private async Task MoveStockAsync(
         SalesTransaction transaction,
-        Guid productId,
-        Guid? variantId,
-        Guid locationId,
+        long productId,
+        long? variantId,
+        long locationId,
         decimal signedQuantity,
         decimal unitCost,
         MovementType movementType,
@@ -588,10 +651,151 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         }
     }
 
+    /// <summary>
+    /// Whether this sale is practice (guide p.82). True when the person ringing it is at legacy
+    /// access level 0.
+    /// <para>
+    /// Level 0 is the trainee preset, and the legacy system used exactly this to decide. Reading it
+    /// from the staff profile rather than taking it from the request is the whole safeguard: a flag
+    /// on the wire would let a real sale be marked as practice and disappear from every report.
+    /// </para>
+    /// </summary>
+    private async Task<bool> IsTrainingSaleAsync(long? staffId, CancellationToken ct)
+    {
+        if (staffId is not { } id)
+        {
+            return false;
+        }
+
+        // Projecting straight to the level and comparing would read a missing profile as level 0 and
+        // silently turn a real sale into practice — which is the exact failure this flag exists to
+        // prevent. No profile means no evidence of a trainee, so the sale is real.
+        var level = await _db.StaffProfiles.AsNoTracking()
+            .Where(s => s.Id == id)
+            .Select(s => (int?)s.AccessLevel)
+            .FirstOrDefaultAsync(ct);
+
+        return level == TrainingAccessLevel;
+    }
+
+    /// <summary>
+    /// A training sale settles in cash and nothing else.
+    /// <para>
+    /// The other behaviours all reach something real — a card is authorised with the gateway, a gift
+    /// card's balance is spent, an on-account tender raises an invoice against a live customer
+    /// account. None of those are things to hand a trainee to practise on, and refusing here is
+    /// clearer than letting the tender through and quietly not applying it.
+    /// </para>
+    /// </summary>
+    private static Result CheckTrainingTenders(
+        CompleteSaleCommand request, IReadOnlyDictionary<long, TenderType> tenderTypes)
+    {
+        foreach (var tender in request.Tenders)
+        {
+            if (!tenderTypes.TryGetValue(tender.TenderTypeId, out var type))
+            {
+                return Result.Failure(TenderTypeUnknown.With("tenderTypeId", tender.TenderTypeId));
+            }
+
+            // Manual is the cheque-and-reference shape: it records a number and reaches nothing.
+            if (type.Behaviour is not (TenderBehaviour.Cash or TenderBehaviour.Manual))
+            {
+                return Result.Failure(TrainingCashOnly.With("tender", type.DisplayName));
+            }
+        }
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Records what the sale earned the person who rang it (guide p.33, p.76).
+    /// <para>
+    /// Written to a ledger rather than computed on demand, so a report of what someone was paid does
+    /// not restate itself the moment a commission rate changes.
+    /// </para>
+    /// <para>
+    /// <b>Known limitation.</b> Voiding a sale does not claw its commission back — the reversal is a
+    /// separate transaction that this handler never sees. A return processed through the till does
+    /// produce a negative award, but it lands on whoever handled the return rather than on whoever
+    /// made the sale. Both are payroll-visible rather than silent, and both are deliberate for now.
+    /// </para>
+    /// </summary>
+    private async Task ApplyCommissionsAsync(
+        SalesTransaction transaction,
+        SalePricingResult pricing,
+        IReadOnlyList<SaleLine> saleLines,
+        long? staffId,
+        CancellationToken ct)
+    {
+        if (staffId is not { } id)
+        {
+            return;
+        }
+
+        var rules = await _db.CommissionRules.AsNoTracking()
+            .Where(r => r.StaffId == id && r.IsActive)
+            .ToListAsync(ct);
+
+        if (rules.Count == 0)
+        {
+            return;
+        }
+
+        var productIds = pricing.Lines.Select(l => l.ProductId).Distinct().ToList();
+
+        var departments = await _db.Products.AsNoTracking()
+            .Where(p => productIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.DepartmentId })
+            .ToDictionaryAsync(p => p.Id, p => p.DepartmentId, ct);
+
+        var linesById = saleLines.ToDictionary(l => (l.Sequence, l.ProductId));
+
+        foreach (var resolved in pricing.Lines)
+        {
+            if (!linesById.TryGetValue((resolved.Sequence, resolved.ProductId), out var saleLine))
+            {
+                continue;
+            }
+
+            var award = CommissionCalculator.Award(rules, new CommissionableLine(
+                resolved.ProductId,
+                departments.GetValueOrDefault(resolved.ProductId),
+                resolved.Quantity,
+                resolved.LineNet,
+                resolved.UnitCost * resolved.Quantity));
+
+            if (award is null)
+            {
+                continue;
+            }
+
+            _db.CommissionLedgerEntries.Add(new CommissionLedgerEntry
+            {
+                StaffId = id,
+                LocationId = transaction.LocationId,
+                TransactionId = transaction.Id,
+                SaleLineId = saleLine.Id,
+                ProductId = resolved.ProductId,
+                StockCodeSnapshot = resolved.StockCode,
+                DepartmentId = departments.GetValueOrDefault(resolved.ProductId),
+                CommissionRuleId = award.Rule.Id,
+                CommissionType = award.Rule.CommissionType,
+                RateApplied = award.Rule.Value,
+                LineNet = resolved.LineNet,
+                LineCost = resolved.UnitCost * resolved.Quantity,
+                Quantity = resolved.Quantity,
+                Amount = award.Amount,
+                WasCapped = award.WasCapped,
+                BusinessDate = transaction.BusinessDate,
+                OccurredAt = transaction.CompletedAt,
+            });
+        }
+    }
+
     private async Task ApplyGiftCertificatesAsync(
         CartSnapshot snapshot,
         TenderSettlement settlement,
-        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        IReadOnlyDictionary<long, TenderType> tenderTypes,
         CancellationToken ct)
     {
         foreach (var tender in settlement.Tenders)
@@ -617,6 +821,26 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         await Task.CompletedTask;
     }
 
+    /// <summary>Spends a gift card's stored value by the tendered amount, mirroring the gift-certificate tender above.</summary>
+    private async Task ApplyGiftCardsAsync(
+        TenderSettlement settlement,
+        IReadOnlyDictionary<long, TenderType> tenderTypes,
+        CancellationToken ct)
+    {
+        foreach (var tender in settlement.Tenders)
+        {
+            if (tenderTypes[tender.TenderTypeId].Behaviour != TenderBehaviour.GiftCard
+                || string.IsNullOrWhiteSpace(tender.Reference))
+            {
+                continue;
+            }
+
+            var serial = tender.Reference.Trim().ToUpperInvariant();
+            var card = await _db.GiftCards.FirstOrDefaultAsync(g => g.SerialNumber == serial, ct);
+            card?.Redeem(tender.Amount);
+        }
+    }
+
     /// <summary>
     /// An on-account tender raises an AR invoice (guide p.51). A credit limit of zero means unlimited,
     /// which is the legacy convention and trips up anyone who assumes zero means "no credit".
@@ -624,7 +848,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     private async Task<Result> ApplyOnAccountAsync(
         SalesTransaction transaction,
         TenderSettlement settlement,
-        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        IReadOnlyDictionary<long, TenderType> tenderTypes,
         PosContext context,
         DateTimeOffset now,
         CancellationToken ct)
@@ -691,9 +915,9 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         DrawerSession session,
         SalesTransaction transaction,
         TenderSettlement settlement,
-        IReadOnlyDictionary<Guid, TenderType> tenderTypes,
+        IReadOnlyDictionary<long, TenderType> tenderTypes,
         SalePricingResult pricing,
-        Guid staffId,
+        long staffId,
         DateTimeOffset now)
     {
         var cashMovement = settlement.Tenders

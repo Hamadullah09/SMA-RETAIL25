@@ -259,7 +259,7 @@ public sealed class TagFlushBehaviourTests
         public Task<bool> ReportWeightAsync(decimal value, string unit, bool stable, CancellationToken ct)
             => Task.FromResult(Connected);
 
-        public Task<bool> ReportPrintResultAsync(Guid transactionId, bool succeeded, string? error, CancellationToken ct)
+        public Task<bool> ReportPrintResultAsync(long transactionId, bool succeeded, string? error, CancellationToken ct)
             => Task.FromResult(Connected);
 
         public Task StopAsync(CancellationToken ct) => Task.CompletedTask;

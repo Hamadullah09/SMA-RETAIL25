@@ -25,9 +25,9 @@ public sealed class PrinterProfile : Entity, IAuditable, IStationScopedProfile
     {
     }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
-    public Guid? StationId { get; set; }
+    public long? StationId { get; set; }
 
     public string Name { get; set; } = "Default";
 
@@ -69,12 +69,12 @@ public sealed class PrinterProfile : Entity, IAuditable, IStationScopedProfile
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static PrinterProfile CreateDefault(Guid locationId, string name = "Default")
+    public static PrinterProfile CreateDefault(long locationId, string name = "Default")
         => new() { LocationId = locationId, Name = name };
 }

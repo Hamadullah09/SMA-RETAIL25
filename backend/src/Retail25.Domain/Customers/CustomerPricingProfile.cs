@@ -12,7 +12,7 @@ public sealed class CustomerPricingProfile : Entity, IAuditable
     {
     }
 
-    public Guid CustomerId { get; set; }
+    public long CustomerId { get; set; }
 
     /// <summary>Default discount % applied to every sale for this customer (guide p.51).</summary>
     public decimal UsualDiscountPct { get; set; }
@@ -29,13 +29,13 @@ public sealed class CustomerPricingProfile : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static CustomerPricingProfile Create(Guid customerId)
+    public static CustomerPricingProfile Create(long customerId)
     {
         return new CustomerPricingProfile
         {

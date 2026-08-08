@@ -21,6 +21,6 @@ public abstract class AggregateRoot : Entity
 /// </summary>
 public interface IDomainEvent
 {
-    Guid EventId => Guid.NewGuid();
+    long EventId => 0L;
     DateTimeOffset OccurredAt { get; }
 }

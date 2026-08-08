@@ -18,7 +18,7 @@ namespace Retail25.Application.Settings;
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Settings.Read)]
-public sealed record GetSettingsQuery(Guid LocationId) : IRequest<Result<SettingsSnapshotDto>>;
+public sealed record GetSettingsQuery(long LocationId) : IRequest<Result<SettingsSnapshotDto>>;
 
 public sealed class SettingsQueryHandler : IRequestHandler<GetSettingsQuery, Result<SettingsSnapshotDto>>
 {

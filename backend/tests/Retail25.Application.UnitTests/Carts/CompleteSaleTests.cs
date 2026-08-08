@@ -9,6 +9,7 @@ using Retail25.Application.Receipts;
 using Retail25.Application.Sales.Commands;
 using Retail25.Domain.Configuration;
 using Retail25.Domain.Sales;
+using Retail25.Domain.Staff;
 using Retail25.Domain.Terminals;
 using Xunit;
 
@@ -83,6 +84,54 @@ public sealed class CompleteSaleTests
         tenders.Should().HaveCount(2);
         tenders.Sum(t => t.Amount).Should().Be(112.00m);
         tenders.Should().Contain(t => t.Behaviour == TenderBehaviour.Card && t.AuthCode != null);
+    }
+
+    /// <summary>Stage 4: a gift-card tender spends the card's stored value, mirroring how a gift certificate already does.</summary>
+    [Fact]
+    public async Task A_gift_card_tender_redeems_the_cards_stored_value()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        await harness.AddProductAsync("POLO01", "Columbia polo", 49.99m);
+        var cart = await fixture.RingAsync("POLO01");
+
+        var card = Domain.Receivables.GiftCard.Issue(
+            "TESTCARD1", 100m, DateOnly.FromDateTime(harness.Clock.Now.DateTime), null, null).Value;
+        card.CreatedAt = harness.Clock.Now;
+        harness.Db.GiftCards.Add(card);
+        await harness.Db.SaveChangesAsync();
+
+        var result = await fixture.CompleteAsync(cart.Id, [fixture.GiftCard(55.99m, "TESTCARD1")]);
+
+        result.IsSuccess.Should().BeTrue();
+
+        var refreshed = await harness.Db.GiftCards.SingleAsync();
+        refreshed.RemainingValue.Should().Be(44.01m);
+        refreshed.IsActive.Should().BeTrue();
+    }
+
+    /// <summary>A gift card spent down to zero deactivates — the same rule <c>GiftCard.Redeem</c> enforces standalone.</summary>
+    [Fact]
+    public async Task A_gift_card_spent_to_zero_becomes_inactive()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        await harness.AddProductAsync("POLO01", "Columbia polo", 49.99m);
+        var cart = await fixture.RingAsync("POLO01");
+
+        var card = Domain.Receivables.GiftCard.Issue(
+            "TESTCARD2", 55.99m, DateOnly.FromDateTime(harness.Clock.Now.DateTime), null, null).Value;
+        card.CreatedAt = harness.Clock.Now;
+        harness.Db.GiftCards.Add(card);
+        await harness.Db.SaveChangesAsync();
+
+        await fixture.CompleteAsync(cart.Id, [fixture.GiftCard(55.99m, "TESTCARD2")]);
+
+        var refreshed = await harness.Db.GiftCards.SingleAsync();
+        refreshed.RemainingValue.Should().Be(0m);
+        refreshed.IsActive.Should().BeFalse();
     }
 
     [Fact]
@@ -259,6 +308,276 @@ public sealed class CompleteSaleTests
         document.Lines.Single().Quantity.Should().Be(1m);
     }
 
+    /* ---------------------------------------------------------------------------------------------
+     * Commission (guide p.33, p.76)
+     * ------------------------------------------------------------------------------------------- */
+
+    [Fact]
+    public async Task A_sale_writes_what_it_earned_to_the_commission_ledger()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        var staff = await harness.SignInAsAsync("SK", accessLevel: 2);
+        var product = await harness.AddProductAsync("POLO01", "Columbia polo", 100.00m);
+        await harness.AddCommissionRuleAsync(staff.Id, CommissionType.Percentage, 5m);
+
+        var cart = await fixture.RingAsync("POLO01");
+        var sale = await fixture.CompleteAsync(cart.Id, [fixture.Cash(112.00m, 120.00m)]);
+
+        sale.IsSuccess.Should().BeTrue();
+
+        var entry = await harness.Db.CommissionLedgerEntries.SingleAsync();
+        entry.StaffId.Should().Be(staff.Id);
+        entry.TransactionId.Should().Be(sale.Value.TransactionId);
+        entry.ProductId.Should().Be(product.Id);
+        entry.StockCodeSnapshot.Should().Be("POLO01");
+        entry.LineNet.Should().Be(100.00m);
+        entry.Amount.Should().Be(5.00m);
+        entry.RateApplied.Should().Be(5m);
+        entry.WasCapped.Should().BeFalse();
+    }
+
+    /// <summary>
+    /// The rate is frozen onto the entry, so editing the rule afterwards cannot restate what someone
+    /// was already paid.
+    /// </summary>
+    [Fact]
+    public async Task The_rate_on_the_ledger_does_not_move_when_the_rule_is_edited()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        var staff = await harness.SignInAsAsync("SK", accessLevel: 2);
+        await harness.AddProductAsync("POLO01", "Columbia polo", 100.00m);
+        var rule = await harness.AddCommissionRuleAsync(staff.Id, CommissionType.Percentage, 5m);
+
+        var cart = await fixture.RingAsync("POLO01");
+        await fixture.CompleteAsync(cart.Id, [fixture.Cash(112.00m, 120.00m)]);
+
+        rule.Update(CommissionType.Percentage, 20m, null, isActive: true);
+        await harness.Db.SaveChangesAsync();
+
+        var entry = await harness.Db.CommissionLedgerEntries.SingleAsync();
+        entry.RateApplied.Should().Be(5m);
+        entry.Amount.Should().Be(5.00m);
+    }
+
+    [Fact]
+    public async Task A_person_with_no_rules_earns_nothing_and_the_sale_still_completes()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        await harness.SignInAsAsync("SK", accessLevel: 2);
+        await harness.AddProductAsync("POLO01", "Columbia polo", 100.00m);
+
+        var cart = await fixture.RingAsync("POLO01");
+        var sale = await fixture.CompleteAsync(cart.Id, [fixture.Cash(112.00m, 120.00m)]);
+
+        sale.IsSuccess.Should().BeTrue();
+        harness.Db.CommissionLedgerEntries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A_capped_award_is_recorded_as_capped()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        var staff = await harness.SignInAsAsync("SK", accessLevel: 2);
+        await harness.AddProductAsync("POLO01", "Columbia polo", 100.00m);
+        await harness.AddCommissionRuleAsync(staff.Id, CommissionType.Percentage, 50m, max: 10m);
+
+        var cart = await fixture.RingAsync("POLO01");
+        await fixture.CompleteAsync(cart.Id, [fixture.Cash(112.00m, 120.00m)]);
+
+        var entry = await harness.Db.CommissionLedgerEntries.SingleAsync();
+        entry.Amount.Should().Be(10m);
+        entry.WasCapped.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task A_return_takes_the_commission_back()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        var staff = await harness.SignInAsAsync("SK", accessLevel: 2);
+        await harness.AddProductAsync("POLO01", "Columbia polo", 100.00m);
+        await harness.AddCommissionRuleAsync(staff.Id, CommissionType.Percentage, 5m);
+
+        var cart = await fixture.RingAsync("POLO01", LineType.Return);
+        await fixture.CompleteAsync(cart.Id, [fixture.Cash(-112.00m, 0m)]);
+
+        harness.Db.CommissionLedgerEntries.Single().Amount.Should().Be(-5.00m);
+    }
+
+    /* ---------------------------------------------------------------------------------------------
+     * Training mode (guide p.82)
+     * ------------------------------------------------------------------------------------------- */
+
+    [Fact]
+    public async Task A_trainees_sale_is_marked_as_training_and_moves_no_stock()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        await harness.SignInAsAsync("TR", accessLevel: 0);
+
+        var product = await harness.AddProductAsync("POLO01", "Columbia polo", 49.99m);
+        product.UpdateStockLevels(10m, 0m);
+        await harness.Db.SaveChangesAsync();
+
+        var cart = await fixture.RingAsync("POLO01");
+        var sale = await fixture.CompleteAsync(cart.Id, [fixture.Cash(55.99m, 60.00m)]);
+
+        sale.IsSuccess.Should().BeTrue();
+
+        var transaction = await harness.Db.SalesTransactions.SingleAsync();
+        transaction.IsTraining.Should().BeTrue();
+
+        // The transaction and its lines are written, so the trainee sees a normal till and there is
+        // a record of what they did.
+        harness.Db.SaleLines.Should().ContainSingle();
+        harness.Db.SaleTenders.Should().ContainSingle();
+
+        // Nothing real moved.
+        harness.Db.StockLedgerEntries.Should().BeEmpty();
+        (await harness.Db.Products.SingleAsync(p => p.Id == product.Id)).OnHand.Should().Be(10m);
+    }
+
+    /// <summary>
+    /// A drawer session that lists a training sale would not reconcile against the cash actually in
+    /// the till, so the sale is never attached to one.
+    /// </summary>
+    [Fact]
+    public async Task A_training_sale_touches_no_drawer()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness, openingFloat: 100.00m);
+
+        await harness.SignInAsAsync("TR", accessLevel: 0);
+        await harness.AddProductAsync("POLO01", "Columbia polo", 49.99m);
+
+        var cart = await fixture.RingAsync("POLO01");
+        await fixture.CompleteAsync(cart.Id, [fixture.Cash(55.99m, 60.00m)]);
+
+        var transaction = await harness.Db.SalesTransactions.SingleAsync();
+        transaction.DrawerSessionId.Should().BeNull();
+
+        // The drawer's ledger is what it reconciles against at close, so nothing from a training
+        // sale may appear on it — only the opening float.
+        var entries = await harness.Db.DrawerLedgerEntries.ToListAsync();
+        entries.Should().NotContain(e => e.EntryType == DrawerEntryType.Sale);
+    }
+
+    /// <summary>A trainee practising on a till nobody has opened a drawer on is the normal case.</summary>
+    [Fact]
+    public async Task A_training_sale_does_not_need_an_open_drawer()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness, openDrawer: false);
+
+        await harness.SignInAsAsync("TR", accessLevel: 0);
+        await harness.AddProductAsync("POLO01", "Columbia polo", 49.99m);
+
+        var cart = await fixture.RingAsync("POLO01");
+        var sale = await fixture.CompleteAsync(cart.Id, [fixture.Cash(55.99m, 60.00m)]);
+
+        sale.IsSuccess.Should().BeTrue();
+    }
+
+    /// <summary>The same sale rung by anyone else still needs one.</summary>
+    [Fact]
+    public async Task A_real_sale_still_needs_an_open_drawer()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness, openDrawer: false);
+
+        await harness.SignInAsAsync("SK", accessLevel: 2);
+        await harness.AddProductAsync("POLO01", "Columbia polo", 49.99m);
+
+        var cart = await fixture.RingAsync("POLO01");
+        var sale = await fixture.CompleteAsync(cart.Id, [fixture.Cash(55.99m, 60.00m)]);
+
+        sale.Error.Should().Be(CompleteSaleHandler.DrawerRequired);
+    }
+
+    /// <summary>
+    /// A card leg reaches the payment gateway. Refusing it outright is clearer than letting the
+    /// tender through and quietly not charging it.
+    /// </summary>
+    [Fact]
+    public async Task A_trainee_cannot_settle_with_a_card()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        await harness.SignInAsAsync("TR", accessLevel: 0);
+        await harness.AddProductAsync("POLO01", "Columbia polo", 49.99m);
+
+        var cart = await fixture.RingAsync("POLO01");
+        var sale = await fixture.CompleteAsync(cart.Id, [fixture.Card(55.99m)]);
+
+        sale.Error.Code.Should().Be(CompleteSaleHandler.TrainingCashOnly.Code);
+        harness.Db.SalesTransactions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A_training_sale_earns_no_commission()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        var staff = await harness.SignInAsAsync("TR", accessLevel: 0);
+        await harness.AddProductAsync("POLO01", "Columbia polo", 100.00m);
+        await harness.AddCommissionRuleAsync(staff.Id, CommissionType.Percentage, 5m);
+
+        var cart = await fixture.RingAsync("POLO01");
+        await fixture.CompleteAsync(cart.Id, [fixture.Cash(112.00m, 120.00m)]);
+
+        harness.Db.CommissionLedgerEntries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A_training_receipt_is_watermarked()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        await harness.SignInAsAsync("TR", accessLevel: 0);
+        await harness.AddProductAsync("POLO01", "Columbia polo", 49.99m);
+
+        var cart = await fixture.RingAsync("POLO01");
+        var sale = await fixture.CompleteAsync(cart.Id, [fixture.Cash(55.99m, 60.00m)]);
+
+        var receipts = new ReceiptBuilder(harness.Db);
+        var document = await receipts.BuildAsync(sale.Value.TransactionId, ReceiptFormat.Slip40, false, default);
+
+        document!.IsTraining.Should().BeTrue();
+    }
+
+    /// <summary>The flag is derived from the staff profile, so a sale by anyone else is real.</summary>
+    [Fact]
+    public async Task A_sale_by_anyone_above_level_zero_is_real()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        await harness.SignInAsAsync("SK", accessLevel: 1);
+
+        var product = await harness.AddProductAsync("POLO01", "Columbia polo", 49.99m);
+        product.UpdateStockLevels(10m, 0m);
+        await harness.Db.SaveChangesAsync();
+
+        var cart = await fixture.RingAsync("POLO01");
+        await fixture.CompleteAsync(cart.Id, [fixture.Cash(55.99m, 60.00m)]);
+
+        (await harness.Db.SalesTransactions.SingleAsync()).IsTraining.Should().BeFalse();
+        harness.Db.StockLedgerEntries.Should().ContainSingle();
+    }
+
     /// <summary>
     /// Everything a completion test needs: tenders, an open drawer, a sequence generator that does
     /// not need Postgres, and the two handlers under test.
@@ -272,6 +591,8 @@ public sealed class CompleteSaleTests
         public TenderType CashTender { get; private set; } = null!;
 
         public TenderType CardTender { get; private set; } = null!;
+
+        public TenderType GiftCardTender { get; private set; } = null!;
 
         public ISequenceGenerator Sequences { get; private set; } = null!;
 
@@ -288,6 +609,7 @@ public sealed class CompleteSaleTests
             {
                 CashTender = await harness.AddTenderAsync("CASH", "Cash", TenderBehaviour.Cash),
                 CardTender = await harness.AddTenderAsync("CREDIT", "Credit", TenderBehaviour.Card),
+                GiftCardTender = await harness.AddTenderAsync("GIFTCARD", "Gift Card", TenderBehaviour.GiftCard),
                 Sequences = new CountingSequenceGenerator(),
             };
 
@@ -329,7 +651,7 @@ public sealed class CompleteSaleTests
             return cart;
         }
 
-        public Task<Domain.Common.Result<CompleteSaleResult>> CompleteAsync(Guid cartId, IReadOnlyList<TenderRequest> tenders)
+        public Task<Domain.Common.Result<CompleteSaleResult>> CompleteAsync(long cartId, IReadOnlyList<TenderRequest> tenders)
             => Complete.Handle(
                 new CompleteSaleCommand(cartId, tenders, Guid.NewGuid().ToString(), PrintReceipt: false),
                 default);
@@ -337,6 +659,8 @@ public sealed class CompleteSaleTests
         public TenderRequest Cash(decimal amount, decimal tendered) => new(CashTender.Id, amount, tendered);
 
         public TenderRequest Card(decimal amount) => new(CardTender.Id, amount, amount, CardToken: "4111111111114242");
+
+        public TenderRequest GiftCard(decimal amount, string serial) => new(GiftCardTender.Id, amount, amount, Reference: serial);
     }
 
 }

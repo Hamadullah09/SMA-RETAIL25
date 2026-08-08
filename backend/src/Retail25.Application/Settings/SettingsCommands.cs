@@ -11,7 +11,7 @@ namespace Retail25.Application.Settings;
 /// <summary>Business ID tab (guide p.76).</summary>
 [RequiresPermission(PermissionKeys.Settings.Write)]
 public sealed record SaveBusinessSettingsCommand(
-    Guid LocationId,
+    long LocationId,
     string BusinessName,
     Address Address,
     ContactDetails Contact,
@@ -32,7 +32,7 @@ public sealed record SaveBusinessSettingsCommand(
 /// </summary>
 [RequiresPermission(PermissionKeys.Settings.Taxes)]
 public sealed record SaveTaxSettingsCommand(
-    Guid LocationId,
+    long LocationId,
     DateOnly EffectiveFrom,
     bool Tax1Enabled,
     string Tax1Name,
@@ -50,12 +50,12 @@ public sealed record SaveTaxSettingsCommand(
 
 /// <summary>POS tab (guide p.77–78).</summary>
 [RequiresPermission(PermissionKeys.Settings.Write)]
-public sealed record SavePosSettingsCommand(Guid LocationId, PosSettingsDto Settings) : IRequest<Result<PosSettingsDto>>;
+public sealed record SavePosSettingsCommand(long LocationId, PosSettingsDto Settings) : IRequest<Result<PosSettingsDto>>;
 
 /// <summary>Numbering tab — repoints a counter and the live sequence behind it (guide p.76).</summary>
 [RequiresPermission(PermissionKeys.Settings.Write)]
 public sealed record SaveNumberSequenceCommand(
-    Guid LocationId,
+    long LocationId,
     SequenceKind Kind,
     string Prefix,
     int PadWidth,
@@ -63,7 +63,7 @@ public sealed record SaveNumberSequenceCommand(
 
 /// <summary>Options tab — the pricing precedence ladder (decision P1).</summary>
 [RequiresPermission(PermissionKeys.Settings.Write)]
-public sealed record SavePricingLadderCommand(Guid LocationId, IReadOnlyList<PricingRuleDto> Rules)
+public sealed record SavePricingLadderCommand(long LocationId, IReadOnlyList<PricingRuleDto> Rules)
     : IRequest<Result<IReadOnlyList<PricingRuleDto>>>;
 
 public sealed class SettingsCommandHandlers

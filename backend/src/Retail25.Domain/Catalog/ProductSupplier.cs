@@ -12,9 +12,9 @@ public sealed class ProductSupplier : Entity, IAuditable
     {
     }
 
-    public Guid ProductId { get; private set; }
+    public long ProductId { get; private set; }
 
-    public Guid SupplierId { get; private set; }
+    public long SupplierId { get; private set; }
 
     /// <summary>1 = preferred. Used for automatic PO generation (guide p.64).</summary>
     public int Rank { get; private set; }
@@ -33,13 +33,13 @@ public sealed class ProductSupplier : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static Result<ProductSupplier> Create(Guid productId, Guid supplierId, int rank, decimal cost, string? reorderNumber = null)
+    public static Result<ProductSupplier> Create(long productId, long supplierId, int rank, decimal cost, string? reorderNumber = null)
     {
         if (rank < 1)
             return Result.Failure<ProductSupplier>(new Error("product_supplier.rank_invalid", "Supplier rank must be at least 1."));

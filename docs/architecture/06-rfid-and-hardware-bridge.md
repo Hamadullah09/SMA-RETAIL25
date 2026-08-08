@@ -72,7 +72,7 @@ LLRP RO_ACCESS_REPORT
 | Redis (`SET NX PX`) | 3 s (configurable per reader profile) | **cross-station** arbitration and idempotency across agent reconnects — the reason the brief specifies Redis |
 
 Redis keys: `tag:{epc}` (claim), `station:{id}:cart` (active cart), `cart:{id}` (serialized cart
-state, TTL 12 h, write-behind to Postgres on suspend/complete), `epcmap:{epc}` (resolution cache).
+state, TTL 12 h, write-behind to SQL Server on suspend/complete), `epcmap:{epc}` (resolution cache).
 
 ### Anti-false-positive controls
 
@@ -126,6 +126,17 @@ A separate `TagFlushService` drains `ITagBuffer` on a 200 ms timer and calls
 reconnect and emit `TagStreamStatus{ readerOnline: false }` so the UI shows a red strip rather than
 silently reading nothing.
 
+### `IRfidReader` implementations
+
+| Protocol | Class | Transport | Notes |
+|---|---|---|---|
+| `Llrp` | `LlrpRfidReader` | TCP | EPCglobal LLRP 1.0.1; a continuous ROSpec, reported as tags arrive. |
+| `UhfSerial` | `UhfSerialRfidReader` | TCP | The R2000-family "UHF RFID Reader Serial Interface Protocol" (v3.1) spoken by devices such as the D2184B — either the reader's own network interface, or a serial-to-Ethernet bridge (an IPort module or equivalent) in front of a unit wired via RS-232. Unlike LLRP this protocol has no push-forever mode: `cmd_real_time_inventory` (`0x89`) runs one round and stops, so the agent re-issues it back-to-back for as long as the reader is started, cycling `cmd_set_work_antenna` (`0x74`) across the profile's `Checkout` antennas between rounds. |
+| `Simulator` | `SimulatedRfidReader` | — | No hardware; backs the RFID demo/simulator and exercises the debounce and rejection paths in dev. |
+
+Both hardware readers reuse the same `ReaderProfileContract.Host`/`Port` fields — a store swapping
+from an LLRP-speaking reader to a D2184B is a protocol dropdown change, not a new deployment shape.
+
 ## 4. Other peripherals
 
 | Device | Transport | Contract |
@@ -166,7 +177,7 @@ The agent is resilient; the *business* is not fully offline-capable in v1 (see Q
 | Agent crashed | Windows service auto-restart; browser detects `PeripheralStatus` loss within 15 s. |
 
 If Q4 comes back as "the store must keep selling through an outage", the design change is a
-store-local API + Postgres replica with conflict-free number ranges per station — a Phase 8 item,
+store-local API + a SQL Server replica with conflict-free number ranges per station — a Phase 8 item,
 scoped but not built in v1.
 
 ## 7. Deployment & updates

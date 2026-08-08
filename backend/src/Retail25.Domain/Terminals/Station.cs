@@ -25,7 +25,7 @@ public sealed class Station : AggregateRoot, IAuditable
 
     public string StationCode { get; set; } = string.Empty;
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     public string? Name { get; set; }
 
@@ -41,17 +41,17 @@ public sealed class Station : AggregateRoot, IAuditable
     /// <summary>Type 2 embedded-price barcodes are only recognised where a scale actually feeds this till (guide p.98).</summary>
     public bool? ScanRandomWeightBarcodes { get; set; }
 
-    public Guid? DefaultTenderTypeId { get; set; }
+    public long? DefaultTenderTypeId { get; set; }
 
     // --- Peripherals ---------------------------------------------------------------------------
 
-    public Guid? PrinterProfileId { get; set; }
+    public long? PrinterProfileId { get; set; }
 
-    public Guid? ReaderProfileId { get; set; }
+    public long? ReaderProfileId { get; set; }
 
-    public Guid? ScaleProfileId { get; set; }
+    public long? ScaleProfileId { get; set; }
 
-    public Guid? PoleDisplayProfileId { get; set; }
+    public long? PoleDisplayProfileId { get; set; }
 
     public ReaderMode ReaderMode { get; set; } = ReaderMode.OnDemand;
 
@@ -72,16 +72,16 @@ public sealed class Station : AggregateRoot, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     /// <summary>An agent is considered present if it checked in within the last 15 seconds (doc 06 §6).</summary>
     public bool IsAgentOnline(DateTimeOffset now) => LastHeartbeat is { } beat && now - beat < TimeSpan.FromSeconds(15);
 
-    public static Result<Station> Create(Guid locationId, string stationCode, string? name = null)
+    public static Result<Station> Create(long locationId, string stationCode, string? name = null)
     {
         var trimmed = stationCode?.Trim() ?? string.Empty;
 
@@ -106,7 +106,7 @@ public sealed class Station : AggregateRoot, IAuditable
 
     public void SetReaderMode(ReaderMode mode) => ReaderMode = mode;
 
-    public void AssignPeripherals(Guid? printerProfileId, Guid? readerProfileId, Guid? scaleProfileId, Guid? poleDisplayProfileId)
+    public void AssignPeripherals(long? printerProfileId, long? readerProfileId, long? scaleProfileId, long? poleDisplayProfileId)
     {
         PrinterProfileId = printerProfileId;
         ReaderProfileId = readerProfileId;

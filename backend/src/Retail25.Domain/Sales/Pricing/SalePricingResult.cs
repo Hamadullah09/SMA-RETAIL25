@@ -5,10 +5,9 @@ namespace Retail25.Domain.Sales.Pricing;
 /// makes a reprint reproduce the original document to the cent (guide p.56).
 /// </summary>
 public sealed record ResolvedLine(
-    Guid LineId,
     int Sequence,
-    Guid ProductId,
-    Guid? VariantId,
+    long ProductId,
+    long? VariantId,
     string StockCode,
     string Name,
     decimal Quantity,

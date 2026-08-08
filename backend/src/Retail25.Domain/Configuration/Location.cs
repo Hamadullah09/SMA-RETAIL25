@@ -48,15 +48,15 @@ public sealed class Location : AggregateRoot, IAuditable, ISoftDeletable
 
     public DateTimeOffset? DeletedAt { get; set; }
 
-    public Guid? DeletedBy { get; set; }
+    public long? DeletedBy { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     public static Result<Location> Create(
         string name,

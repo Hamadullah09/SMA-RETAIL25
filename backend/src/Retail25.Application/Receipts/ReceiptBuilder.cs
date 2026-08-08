@@ -21,7 +21,7 @@ public sealed class ReceiptBuilder
     public ReceiptBuilder(IApplicationDbContext db) => _db = db;
 
     public async Task<ReceiptDocument?> BuildAsync(
-        Guid transactionId,
+        long transactionId,
         ReceiptFormat format,
         bool isReprint,
         CancellationToken ct)
@@ -130,7 +130,8 @@ public sealed class ReceiptBuilder
             null,
             isReprint,
             transaction.Status == TransactionStatus.Voided,
-            hasCardTender && (policy?.PrintCreditCardSignatureLine ?? true));
+            hasCardTender && (policy?.PrintCreditCardSignatureLine ?? true),
+            transaction.IsTraining);
     }
 
     /// <summary>

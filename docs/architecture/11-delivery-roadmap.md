@@ -131,6 +131,37 @@ revenue posts to the accounting system and the sync log shows request/response f
 **Exit** — a real legacy dataset imports with a clean validation report and reconciling totals; a
 rehearsed rollback completes inside the RTO.
 
+## Phase 7.5 — SQL Server migration ✅ *done*
+
+Requested after Phase 7, when SQL Server turned out to be a requirement rather than the default
+assumption the original PostgreSQL choice had been made against. Scheduled here rather than folded
+into Phase 8 because it touches the persistence layer and everything after it should be tested on
+the engine that will run in production.
+
+| Step | What |
+|---|---|
+| 1 | Provider swap: `UseSqlServer`, `Hangfire.SqlServer`, `Testcontainers.MsSql`. |
+| 2 | Dialect: `jsonb` → `nvarchar(max)`, filtered-index predicates, sequence syntax. |
+| 3 | **Decimal precision convention.** The one that would have shipped a bug: an unspecified `decimal` was arbitrary-precision `numeric` on PostgreSQL and becomes a truncating `decimal(18,2)` on SQL Server. Sixty-six properties, including tax amounts and every cost. |
+| 4 | Migrations regenerated from the model — the old ones carry Npgsql annotations and will not compile. |
+| 5 | Test fixtures onto SQL Server, including the drop/recreate that SQL Server will not do while sessions are connected. |
+| 6 | Whole suite green on the new engine, and one operation rewritten because of what it exposed. |
+
+**Exit criteria — met.** 800 tests pass against SQL Server 2019. The API boots, migrates, seeds
+(136 products, 1,152 tags) and installs its Hangfire objects. The tag importer runs end to end.
+
+**What it cost beyond the mechanical work:** one real defect. Validating a migration batch wrote a
+verdict to every staging row through the change tracker — twenty thousand UPDATE statements for a
+twenty-thousand-item export. Npgsql's thousand-statement batches hid it; SQL Server's tens did not,
+and it went from seconds to sixteen minutes. Rewritten as a set operation. Detail in
+[12](12-schema-reference.md#the-move-from-postgresql).
+
+**Still open:** `row_version` is a column that no longer claims to be a concurrency token, because
+it never was one — nothing maps or checks it. Tracked separately; it is a pre-existing gap the
+migration surfaced rather than caused.
+
+---
+
 ## Phase 8 — Hardening & optional extensions
 
 Load testing to 2× target · hardware-in-the-loop matrix · security review + pen test ·

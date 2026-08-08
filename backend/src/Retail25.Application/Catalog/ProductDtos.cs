@@ -8,7 +8,7 @@ namespace Retail25.Application.Catalog;
 /// The form view fetches the rest.
 /// </summary>
 public sealed record ProductRowDto(
-    Guid Id,
+    long Id,
     string StockCode,
     string Name,
     ProductType Type,
@@ -34,7 +34,7 @@ public sealed record SalePricingDto(decimal DiscountPct, DateOnly StartsOn, Date
 public sealed record BonusPricingDto(decimal BuyQty, decimal FreeQty);
 
 public sealed record ProductSupplierDto(
-    Guid SupplierId,
+    long SupplierId,
     string SupplierName,
     int Rank,
     decimal Cost,
@@ -43,7 +43,7 @@ public sealed record ProductSupplierDto(
     decimal MinimumOrderQty);
 
 /// <summary>A linked item, resolved to its code and name so the form can show it without a second call.</summary>
-public sealed record LinkedProductDto(Guid Id, string StockCode, string Name);
+public sealed record LinkedProductDto(long Id, string StockCode, string Name);
 
 /// <summary>
 /// Everything the Form View shows for one item (guide p.30–44).
@@ -54,8 +54,8 @@ public sealed record LinkedProductDto(Guid Id, string StockCode, string Name);
 /// </para>
 /// </summary>
 public sealed record ProductFormDto(
-    Guid Id,
-    Guid LocationId,
+    long Id,
+    long LocationId,
     string StockCode,
     string Name,
     string? Description,
@@ -78,9 +78,9 @@ public sealed record ProductFormDto(
     string? PosMessage,
     string? InvoiceMessage,
     string? Notes,
-    Guid? DepartmentId,
+    long? DepartmentId,
     string? DepartmentName,
-    Guid? CategoryId,
+    long? CategoryId,
     string? CategoryName,
     LinkedProductDto? Substitute,
     LinkedProductDto? TagAlong,
@@ -91,11 +91,12 @@ public sealed record ProductFormDto(
     BonusPricingDto? Bonus,
     IReadOnlyList<ProductSupplierDto> Suppliers,
     IReadOnlyList<KitComponentDto> KitComponents,
+    bool HasImage,
     bool IsDeleted,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ModifiedAt);
 
-public sealed record KitComponentDto(Guid ComponentProductId, string StockCode, string Name, decimal Quantity);
+public sealed record KitComponentDto(long ComponentProductId, string StockCode, string Name, decimal Quantity);
 
 /// <summary>Reference rows for the department and category pickers, and for the browse filter bar.</summary>
-public sealed record ReferenceRowDto(Guid Id, string Name, string? Code, int SortOrder, bool IsActive, int UsageCount);
+public sealed record ReferenceRowDto(long Id, string Name, string? Code, int SortOrder, bool IsActive, int UsageCount);

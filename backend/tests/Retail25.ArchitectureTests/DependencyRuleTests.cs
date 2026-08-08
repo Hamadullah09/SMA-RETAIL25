@@ -58,13 +58,23 @@ public sealed class DependencyRuleTests
     /// <summary>
     /// Application talks to the outside world only through ports. A direct SignalR or Redis reference
     /// here would make every handler untestable without a running server.
+    /// <para>
+    /// Both database providers are named, not just the one in use. Naming only the current one makes
+    /// this rule silently stop protecting anything the moment the engine changes — which is exactly
+    /// what happened when <c>Npgsql</c> was the only entry and the system moved to SQL Server.
+    /// </para>
     /// </summary>
     [Fact]
     public void Application_does_not_reference_realtime_or_cache_libraries_directly()
     {
         var result = Types.InAssembly(Application)
             .ShouldNot()
-            .HaveDependencyOnAny("Microsoft.AspNetCore.SignalR", "StackExchange.Redis", "Npgsql")
+            .HaveDependencyOnAny(
+                "Microsoft.AspNetCore.SignalR",
+                "StackExchange.Redis",
+                "Npgsql",
+                "Microsoft.EntityFrameworkCore.SqlServer",
+                "Microsoft.Data.SqlClient")
             .GetResult();
 
         result.IsSuccessful.Should().BeTrue(Describe(result));

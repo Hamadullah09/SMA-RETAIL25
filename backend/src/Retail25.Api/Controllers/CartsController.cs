@@ -30,22 +30,22 @@ public sealed class CartsController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateCartRequest request)
         => (await _sender.Send(new CreateCartCommand(request.StationId, request.StaffId))).ToActionResult(this);
 
-    [HttpGet("{cartId:guid}")]
-    public async Task<IActionResult> Get(Guid cartId)
+    [HttpGet("{cartId:long}")]
+    public async Task<IActionResult> Get(long cartId)
         => (await _sender.Send(new GetCartQuery(cartId))).ToActionResult(this);
 
     /// <summary>Live totals without persisting — what the totals panel calls (doc 05).</summary>
-    [HttpGet("{cartId:guid}/quote")]
-    public async Task<IActionResult> Quote(Guid cartId)
+    [HttpGet("{cartId:long}/quote")]
+    public async Task<IActionResult> Quote(long cartId)
         => (await _sender.Send(new QuoteCartQuery(cartId))).ToActionResult(this);
 
-    [HttpGet("by-station/{stationId:guid}")]
-    public async Task<IActionResult> ByStation(Guid stationId)
+    [HttpGet("by-station/{stationId:long}")]
+    public async Task<IActionResult> ByStation(long stationId)
         => (await _sender.Send(new GetStationCartQuery(stationId))).ToActionResult(this);
 
     /// <summary>The universal add: EPC, stock code, UPC, weighed barcode, variant or serial.</summary>
-    [HttpPost("{cartId:guid}/lines")]
-    public async Task<IActionResult> AddLine(Guid cartId, [FromBody] AddLineRequest request)
+    [HttpPost("{cartId:long}/lines")]
+    public async Task<IActionResult> AddLine(long cartId, [FromBody] AddLineRequest request)
         => (await _sender.Send(new AddCartLineByIdentifierCommand(
             cartId,
             request.Identifier,
@@ -60,30 +60,30 @@ public sealed class CartsController : ControllerBase
             request.Note))).ToActionResult(this);
 
     /// <summary>A bulk RFID read (doc 06 §2). Returns accepted lines and every rejection with a reason.</summary>
-    [HttpPost("{cartId:guid}/lines/rfid-batch")]
-    public async Task<IActionResult> AddRfidBatch(Guid cartId, [FromBody] RfidBatchRequest request)
+    [HttpPost("{cartId:long}/lines/rfid-batch")]
+    public async Task<IActionResult> AddRfidBatch(long cartId, [FromBody] RfidBatchRequest request)
         => (await _sender.Send(new AddRfidBatchCommand(cartId, request.Tags))).ToActionResult(this);
 
     /// <summary>
     /// Adds the matrix variant the cashier picked. Ringing the parent code answers
     /// <c>variant.selection_required</c>; this is where that answer comes back.
     /// </summary>
-    [HttpPost("{cartId:guid}/lines/variant")]
-    public async Task<IActionResult> AddVariantLine(Guid cartId, [FromBody] AddVariantLineRequest request)
+    [HttpPost("{cartId:long}/lines/variant")]
+    public async Task<IActionResult> AddVariantLine(long cartId, [FromBody] AddVariantLineRequest request)
         => (await _sender.Send(new AddCartLineByVariantCommand(
             cartId, request.VariantId, request.Quantity, request.LineType))).ToActionResult(this);
 
     /// <summary>Adds the specific serialized unit the cashier picked (guide p.42).</summary>
-    [HttpPost("{cartId:guid}/lines/unit")]
-    public async Task<IActionResult> AddUnitLine(Guid cartId, [FromBody] AddUnitLineRequest request)
+    [HttpPost("{cartId:long}/lines/unit")]
+    public async Task<IActionResult> AddUnitLine(long cartId, [FromBody] AddUnitLineRequest request)
         => (await _sender.Send(new AddCartLineByUnitCommand(cartId, request.UnitId, request.LineType))).ToActionResult(this);
 
     /// <summary>The item-detail window (guide p.6).</summary>
-    [HttpPatch("{cartId:guid}/lines/{lineId:guid}")]
-    public async Task<IActionResult> UpdateLine(Guid cartId, Guid lineId, [FromBody] UpdateLineRequest request)
+    [HttpPatch("{cartId:long}/lines/{sequence:int}")]
+    public async Task<IActionResult> UpdateLine(long cartId, int sequence, [FromBody] UpdateLineRequest request)
         => (await _sender.Send(new UpdateCartLineCommand(
             cartId,
-            lineId,
+            sequence,
             request.Quantity,
             request.ManualPrice,
             request.ManualDiscountPct,
@@ -95,27 +95,27 @@ public sealed class CartsController : ControllerBase
             request.Note,
             request.Clear))).ToActionResult(this);
 
-    [HttpDelete("{cartId:guid}/lines/{lineId:guid}")]
-    public async Task<IActionResult> RemoveLine(Guid cartId, Guid lineId)
-        => (await _sender.Send(new RemoveCartLineCommand(cartId, lineId))).ToActionResult(this);
+    [HttpDelete("{cartId:long}/lines/{sequence:int}")]
+    public async Task<IActionResult> RemoveLine(long cartId, int sequence)
+        => (await _sender.Send(new RemoveCartLineCommand(cartId, sequence))).ToActionResult(this);
 
-    [HttpDelete("{cartId:guid}/lines")]
-    public async Task<IActionResult> Clear(Guid cartId)
+    [HttpDelete("{cartId:long}/lines")]
+    public async Task<IActionResult> Clear(long cartId)
         => (await _sender.Send(new ClearCartCommand(cartId))).ToActionResult(this);
 
     /// <summary>The Credits menu (guide p.7).</summary>
-    [HttpPost("{cartId:guid}/adjustments")]
-    public async Task<IActionResult> AddAdjustment(Guid cartId, [FromBody] AdjustmentRequest request)
+    [HttpPost("{cartId:long}/adjustments")]
+    public async Task<IActionResult> AddAdjustment(long cartId, [FromBody] AdjustmentRequest request)
         => (await _sender.Send(new ApplyCartAdjustmentCommand(
             cartId, request.Type, request.Label, request.Amount, request.Percent, request.Serial))).ToActionResult(this);
 
-    [HttpDelete("{cartId:guid}/adjustments/{adjustmentId:guid}")]
-    public async Task<IActionResult> RemoveAdjustment(Guid cartId, Guid adjustmentId)
+    [HttpDelete("{cartId:long}/adjustments/{adjustmentId:long}")]
+    public async Task<IActionResult> RemoveAdjustment(long cartId, long adjustmentId)
         => (await _sender.Send(new RemoveCartAdjustmentCommand(cartId, adjustmentId))).ToActionResult(this);
 
     /// <summary>Legacy F11-F2 unknown item (guide p.11).</summary>
-    [HttpPost("{cartId:guid}/unknown-item")]
-    public async Task<IActionResult> AddUnknownItem(Guid cartId, [FromBody] UnknownItemRequest request)
+    [HttpPost("{cartId:long}/unknown-item")]
+    public async Task<IActionResult> AddUnknownItem(long cartId, [FromBody] UnknownItemRequest request)
         => (await _sender.Send(new AddUnknownItemCommand(
             cartId,
             request.Description,
@@ -128,33 +128,33 @@ public sealed class CartsController : ControllerBase
             request.DepartmentId))).ToActionResult(this);
 
     /// <summary>Per-sale tax suspension, non-retroactive by design (guide p.11).</summary>
-    [HttpPut("{cartId:guid}/tax-override")]
-    public async Task<IActionResult> SetTaxOverride(Guid cartId, [FromBody] TaxOverrideRequest request)
+    [HttpPut("{cartId:long}/tax-override")]
+    public async Task<IActionResult> SetTaxOverride(long cartId, [FromBody] TaxOverrideRequest request)
         => (await _sender.Send(new SetCartTaxOverrideCommand(cartId, request.Tax1, request.Tax2))).ToActionResult(this);
 
-    [HttpPut("{cartId:guid}/customer")]
-    public async Task<IActionResult> SetCustomer(Guid cartId, [FromBody] SetCustomerRequest request)
+    [HttpPut("{cartId:long}/customer")]
+    public async Task<IActionResult> SetCustomer(long cartId, [FromBody] SetCustomerRequest request)
         => (await _sender.Send(new AssignCartCustomerCommand(cartId, request.CustomerId))).ToActionResult(this);
 
-    [HttpPost("{cartId:guid}/suspend")]
-    public async Task<IActionResult> Suspend(Guid cartId, [FromBody] SuspendRequest? request)
+    [HttpPost("{cartId:long}/suspend")]
+    public async Task<IActionResult> Suspend(long cartId, [FromBody] SuspendRequest? request)
         => (await _sender.Send(new SuspendCartCommand(cartId, request?.Label))).ToActionResult(this);
 
-    [HttpPost("{cartId:guid}/recall")]
-    public async Task<IActionResult> Recall(Guid cartId, [FromBody] RecallRequest request)
+    [HttpPost("{cartId:long}/recall")]
+    public async Task<IActionResult> Recall(long cartId, [FromBody] RecallRequest request)
         => (await _sender.Send(new RecallCartCommand(cartId, request.StationId))).ToActionResult(this);
 
     [HttpGet("suspended")]
-    public async Task<IActionResult> ListSuspended([FromQuery] Guid locationId)
+    public async Task<IActionResult> ListSuspended([FromQuery] long locationId)
         => Ok(await _sender.Send(new ListSuspendedCartsQuery(locationId)));
 
     /// <summary>
     /// Completes the sale. The <c>Idempotency-Key</c> header is required: a cashier who presses Pay
     /// again after a timeout must not be able to take the money twice.
     /// </summary>
-    [HttpPost("{cartId:guid}/complete")]
+    [HttpPost("{cartId:long}/complete")]
     public async Task<IActionResult> Complete(
-        Guid cartId,
+        long cartId,
         [FromBody] CompleteSaleRequest request,
         [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey)
     {
@@ -177,7 +177,7 @@ public sealed class CartsController : ControllerBase
     }
 }
 
-public sealed record CreateCartRequest(Guid StationId, Guid? StaffId = null);
+public sealed record CreateCartRequest(long StationId, long? StaffId = null);
 
 public sealed record AddLineRequest(
     string Identifier,
@@ -193,9 +193,9 @@ public sealed record AddLineRequest(
 
 public sealed record RfidBatchRequest(IReadOnlyList<TagRead> Tags);
 
-public sealed record AddVariantLineRequest(Guid VariantId, decimal Quantity = 1m, LineType LineType = LineType.Sale);
+public sealed record AddVariantLineRequest(long VariantId, decimal Quantity = 1m, LineType LineType = LineType.Sale);
 
-public sealed record AddUnitLineRequest(Guid UnitId, LineType LineType = LineType.Sale);
+public sealed record AddUnitLineRequest(long UnitId, LineType LineType = LineType.Sale);
 
 public sealed record UpdateLineRequest(
     decimal? Quantity = null,
@@ -224,15 +224,15 @@ public sealed record UnknownItemRequest(
     bool Tax2Applies = true,
     bool CreateProduct = false,
     string? StockCode = null,
-    Guid? DepartmentId = null);
+    long? DepartmentId = null);
 
 public sealed record TaxOverrideRequest(bool? Tax1, bool? Tax2);
 
-public sealed record SetCustomerRequest(Guid? CustomerId);
+public sealed record SetCustomerRequest(long? CustomerId);
 
 public sealed record SuspendRequest(string? Label);
 
-public sealed record RecallRequest(Guid StationId);
+public sealed record RecallRequest(long StationId);
 
 public sealed record CompleteSaleRequest(
     IReadOnlyList<TenderRequest> Tenders,

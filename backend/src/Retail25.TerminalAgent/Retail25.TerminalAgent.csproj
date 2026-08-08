@@ -28,5 +28,8 @@
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Retail25.TerminalAgent.UnitTests" />
+
+    <!-- The throughput benchmark drives the codec and the tag buffer directly; both are internal. -->
+    <InternalsVisibleTo Include="Retail25.Benchmarks" />
   </ItemGroup>
 </Project>

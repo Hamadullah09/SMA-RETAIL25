@@ -17,13 +17,13 @@ public sealed class Cart : AggregateRoot, IAuditable
     {
     }
 
-    public Guid StationId { get; set; }
+    public long StationId { get; set; }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
-    public Guid StaffId { get; set; }
+    public long StaffId { get; set; }
 
-    public Guid? CustomerId { get; set; }
+    public long? CustomerId { get; set; }
 
     public CartStatus Status { get; set; } = CartStatus.Active;
 
@@ -32,7 +32,7 @@ public sealed class Cart : AggregateRoot, IAuditable
 
     public DateTimeOffset? SuspendedAt { get; set; }
 
-    public Guid? SuspendedByStaffId { get; set; }
+    public long? SuspendedByStaffId { get; set; }
 
     /// <summary>Next line sequence. Stamped onto a tax override to make it non-retroactive (doc 04 §3).</summary>
     public int NextLineSequence { get; set; } = 1;
@@ -44,22 +44,22 @@ public sealed class Cart : AggregateRoot, IAuditable
     public int Revision { get; set; } = 1;
 
     /// <summary>Set when the sale completes, so the cart can be traced to the transaction it became.</summary>
-    public Guid? CompletedTransactionId { get; set; }
+    public long? CompletedTransactionId { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     /// <summary>Abandoned carts expire; suspended carts never do.</summary>
     public DateTimeOffset? ExpiresAt { get; set; }
 
     public bool IsActive => Status == CartStatus.Active;
 
-    public static Cart Open(Guid stationId, Guid locationId, Guid staffId, DateTimeOffset now, int timeoutMinutes)
+    public static Cart Open(long stationId, long locationId, long staffId, DateTimeOffset now, int timeoutMinutes)
         => new()
         {
             StationId = stationId,
@@ -92,7 +92,7 @@ public sealed class Cart : AggregateRoot, IAuditable
         return Revision;
     }
 
-    public Result Suspend(string? label, Guid staffId, DateTimeOffset now)
+    public Result Suspend(string? label, long staffId, DateTimeOffset now)
     {
         if (!IsActive)
         {
@@ -107,7 +107,7 @@ public sealed class Cart : AggregateRoot, IAuditable
         return Result.Success();
     }
 
-    public Result Recall(Guid stationId, Guid staffId, DateTimeOffset now, int timeoutMinutes)
+    public Result Recall(long stationId, long staffId, DateTimeOffset now, int timeoutMinutes)
     {
         if (Status != CartStatus.Suspended)
         {
@@ -123,7 +123,7 @@ public sealed class Cart : AggregateRoot, IAuditable
         return Result.Success();
     }
 
-    public void Complete(Guid transactionId, DateTimeOffset now)
+    public void Complete(long transactionId, DateTimeOffset now)
     {
         Status = CartStatus.Completed;
         CompletedTransactionId = transactionId;

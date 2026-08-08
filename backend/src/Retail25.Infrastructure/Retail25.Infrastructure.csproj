@@ -17,15 +17,16 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
     <PackageReference Include="EFCore.NamingConventions" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" />
     <PackageReference Include="OpenIddict.EntityFrameworkCore" />
     <PackageReference Include="OpenIddict.AspNetCore" />
     <PackageReference Include="OpenIddict.Validation.AspNetCore" />
     <PackageReference Include="StackExchange.Redis" />
     <PackageReference Include="Hangfire.AspNetCore" />
-    <PackageReference Include="Hangfire.PostgreSql" />
+    <PackageReference Include="Hangfire.SqlServer" />
     <PackageReference Include="QuestPDF" />
     <PackageReference Include="ZXing.Net" />
     <PackageReference Include="ClosedXML" />
@@ -34,5 +35,14 @@
     <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
     <PackageReference Include="Microsoft.Extensions.Http" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      The demo seeder writes PNG bytes by hand. That is the one piece of this assembly whose
+      correctness cannot be observed from outside it: a malformed chunk length or a wrong CRC still
+      stores and still serves, and only shows up as a broken image on a till.
+    -->
+    <InternalsVisibleTo Include="Retail25.IntegrationTests" />
   </ItemGroup>
 </Project>

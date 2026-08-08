@@ -42,7 +42,7 @@ public sealed record ReceiptTender(string Name, decimal Amount, decimal AmountTe
 /// </para>
 /// </summary>
 public sealed record ReceiptDocument(
-    Guid TransactionId,
+    long TransactionId,
     long TransactionNumber,
     ReceiptFormat Format,
     string BusinessName,
@@ -73,4 +73,11 @@ public sealed record ReceiptDocument(
     string? FooterMessage,
     bool IsReprint,
     bool IsVoided,
-    bool PrintSignatureLine);
+    bool PrintSignatureLine,
+
+    /// <summary>
+    /// A practice sale (guide p.82). Printed with a banner across it so a slip from a training till
+    /// can never be mistaken for a real receipt — by a customer, or by whoever finds it in a drawer
+    /// three weeks later.
+    /// </summary>
+    bool IsTraining = false);

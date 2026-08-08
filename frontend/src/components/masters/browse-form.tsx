@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 
 export function BrowseFormShell({
   title,
+  description,
   toolbar,
   filters,
   grid,
@@ -20,6 +21,9 @@ export function BrowseFormShell({
   status,
 }: {
   title: string;
+
+  /** One line saying what the screen is for. Optional — most browses do not need one. */
+  description?: string;
   toolbar?: ReactNode;
   filters?: ReactNode;
   grid: ReactNode;
@@ -27,20 +31,43 @@ export function BrowseFormShell({
   status?: ReactNode;
 }) {
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-0 flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-lg font-semibold">{title}</h1>
+    /*
+     * Height comes from a token rather than a hard-coded `calc(100vh - 8rem)`, which was written out
+     * in three files and silently wrong the moment the header height changed. `h-below-header`
+     * resolves through --header-height, so there is one number and it lives with the header.
+     */
+    <div className="flex h-below-header min-h-0 flex-col">
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-subtle px-4 py-3">
+        <div className="min-w-0">
+          {/* The page's only h1. The shell header no longer carries one. */}
+          <h1>{title}</h1>
+          {description ? <p className="mt-0.5 text-body text-ink-muted">{description}</p> : null}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">{toolbar}</div>
       </div>
 
-      {filters ? <div className="flex flex-wrap items-center gap-2 text-sm">{filters}</div> : null}
+      {filters ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-subtle bg-panel-sunken px-4 py-2 text-body">
+          {filters}
+        </div>
+      ) : null}
 
-      <div className={cn('grid min-h-0 flex-1 gap-2', form ? 'grid-cols-1 xl:grid-cols-[1fr_28rem]' : 'grid-cols-1')}>
+      <div
+        className={cn(
+          'grid min-h-0 flex-1 gap-3 p-4',
+          // The form only takes its own column once there is room for both. Below that it stacks,
+          // rather than squeezing a 28rem panel into whatever is left.
+          form ? 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_28rem]' : 'grid-cols-1',
+        )}
+      >
         <div className="min-h-0">{grid}</div>
         {form ? <div className="min-h-0 overflow-y-auto">{form}</div> : null}
       </div>
 
-      {status ? <div className="text-xs text-[rgb(var(--text-muted))]">{status}</div> : null}
+      {status ? (
+        <div className="border-t border-subtle px-4 py-2 text-label text-ink-muted">{status}</div>
+      ) : null}
     </div>
   );
 }
@@ -64,7 +91,7 @@ export function FormSection({
         {actions ? <span className="normal-case">{actions}</span> : null}
       </header>
       <div className="space-y-2 p-3">
-        {hint ? <p className="text-xs text-[rgb(var(--text-muted))]">{hint}</p> : null}
+        {hint ? <p className="text-label text-ink-muted">{hint}</p> : null}
         {children}
       </div>
     </section>
@@ -81,16 +108,21 @@ export function Field({
   hint?: string;
 }) {
   return (
-    <label className="block text-sm">
-      <span className="mb-0.5 block text-xs text-[rgb(var(--text-muted))]">{label}</span>
+    <label className="block text-body">
+      <span className="mb-0.5 block text-label text-ink-muted">{label}</span>
       {children}
-      {hint ? <span className="mt-0.5 block text-[11px] text-[rgb(var(--text-muted))]">{hint}</span> : null}
+      {hint ? <span className="mt-0.5 block text-caption text-ink-muted">{hint}</span> : null}
     </label>
   );
 }
 
-const inputClass =
-  'w-full rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1 outline-none focus:border-[rgb(var(--accent))]';
+/**
+ * One input definition, shared by every field below.
+ *
+ * The old one called `outline-none` and replaced it with a border colour change, which is invisible
+ * to anyone navigating by keyboard. The focus ring now comes from the global `:focus-visible` rule.
+ */
+const inputClass = 'pos-input w-full';
 
 export function TextField({
   label,
@@ -191,7 +223,7 @@ export function CheckField({
   disabled?: boolean;
 }) {
   return (
-    <label className="flex items-start gap-2 text-sm">
+    <label className="flex items-start gap-2 text-body">
       <input
         type="checkbox"
         className="mt-1"
@@ -201,13 +233,22 @@ export function CheckField({
       />
       <span>
         {label}
-        {hint ? <span className="block text-[11px] text-[rgb(var(--text-muted))]">{hint}</span> : null}
+        {hint ? <span className="block text-caption text-ink-muted">{hint}</span> : null}
       </span>
     </label>
   );
 }
 
-export function SelectField<T extends string>({
+/**
+ * A select whose options are either an enum or a set of record ids.
+ *
+ * `T` widened from `string` to `string | number` when entity keys became integers. A select is the
+ * one control that legitimately carries both — a product type is a string, a department is a row —
+ * and splitting it in two would have meant two components that drift apart. The empty string stays
+ * the "nothing chosen" value in both cases, because that is what an HTML `<option>` with no value
+ * actually reports.
+ */
+export function SelectField<T extends string | number>({
   label,
   value,
   options,
@@ -228,7 +269,13 @@ export function SelectField<T extends string>({
         className={inputClass}
         value={value}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value as T | '')}
+        // A <select> always reports a string, whatever went into the option. Casting that straight
+        // to T would hand a caller "5" while the type says 5 — which type-checks, renders, and then
+        // fails the moment anything compares it to a real id. The option it came from is looked up
+        // instead, so the value handed back is the one that was put in.
+        onChange={(event) =>
+          onChange(options.find((option) => String(option.value) === event.target.value)?.value ?? '')
+        }
       >
         {options.map((option) => (
           <option key={String(option.value)} value={option.value}>
@@ -252,7 +299,7 @@ export function LiveBadge({ connected }: { connected: boolean }) {
     <span
       className={cn(
         'pos-badge',
-        connected ? 'text-[rgb(var(--live))]' : 'text-[rgb(var(--warning))]',
+        connected ? 'text-live' : 'text-warning',
       )}
     >
       {connected ? 'Live' : 'Not updating — reconnecting'}

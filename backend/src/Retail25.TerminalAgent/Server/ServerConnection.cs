@@ -37,7 +37,7 @@ public interface IServerConnection
 
     Task<bool> ReportWeightAsync(decimal value, string unit, bool stable, CancellationToken ct);
 
-    Task<bool> ReportPrintResultAsync(Guid transactionId, bool succeeded, string? error, CancellationToken ct);
+    Task<bool> ReportPrintResultAsync(long transactionId, bool succeeded, string? error, CancellationToken ct);
 
     Task StopAsync(CancellationToken ct);
 }
@@ -53,16 +53,21 @@ public interface IServerConnection
 public sealed class SignalRServerConnection : IServerConnection, IAsyncDisposable
 {
     private readonly AgentOptions _options;
+    private readonly AgentTokenProvider _tokens;
     private readonly ILogger<SignalRServerConnection> _logger;
 
     private HubConnection? _connection;
     private ITerminalCommandHandler? _handler;
 
-    public SignalRServerConnection(IOptions<AgentOptions> options, ILogger<SignalRServerConnection> logger)
+    public SignalRServerConnection(
+        IOptions<AgentOptions> options,
+        AgentTokenProvider tokens,
+        ILogger<SignalRServerConnection> logger)
     {
         ArgumentNullException.ThrowIfNull(options);
 
         _options = options.Value;
+        _tokens = tokens;
         _logger = logger;
     }
 
@@ -75,10 +80,9 @@ public sealed class SignalRServerConnection : IServerConnection, IAsyncDisposabl
         var connection = new HubConnectionBuilder()
             .WithUrl($"{_options.ApiUrl.TrimEnd('/')}/hubs/terminal", options =>
             {
-                if (!string.IsNullOrWhiteSpace(_options.BootstrapSecret))
-                {
-                    options.AccessTokenProvider = () => Task.FromResult<string?>(_options.BootstrapSecret);
-                }
+                // Called again on every reconnect, which is exactly what is wanted: a till that has
+                // been offline overnight gets a fresh token rather than replaying a dead one.
+                options.AccessTokenProvider = () => _tokens.GetAsync();
             })
             .WithAutomaticReconnect(new JitteredRetryPolicy())
             .Build();
@@ -187,7 +191,7 @@ public sealed class SignalRServerConnection : IServerConnection, IAsyncDisposabl
     public Task<bool> ReportWeightAsync(decimal value, string unit, bool stable, CancellationToken ct)
         => TryInvokeAsync(TerminalHubMethods.ToServer.ReportWeight, [_options.StationId, value, unit, stable], ct);
 
-    public Task<bool> ReportPrintResultAsync(Guid transactionId, bool succeeded, string? error, CancellationToken ct)
+    public Task<bool> ReportPrintResultAsync(long transactionId, bool succeeded, string? error, CancellationToken ct)
         => TryInvokeAsync(
             TerminalHubMethods.ToServer.ReportPrintResult,
             [_options.StationId, transactionId, succeeded, error],

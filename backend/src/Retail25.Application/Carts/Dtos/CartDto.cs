@@ -7,11 +7,18 @@ namespace Retail25.Application.Carts.Dtos;
 /// can badge a line that did not ring at the regular price — a cashier should be able to see why
 /// without opening the detail drawer.
 /// </summary>
+/// <summary>
+/// One line on the till.
+/// <para>
+/// There is no id. An active cart lives in the cache, so its lines have no database id until the
+/// sale is committed � <see cref="Sequence"/> is how the till names a line when it asks to change or
+/// remove one.
+/// </para>
+/// </summary>
 public sealed record CartLineDto(
-    Guid Id,
     int Sequence,
-    Guid ProductId,
-    Guid? VariantId,
+    long ProductId,
+    long? VariantId,
     string StockCode,
     string Name,
     string? VariantLabel,
@@ -33,7 +40,7 @@ public sealed record CartLineDto(
     bool HasManualPrice,
     string? Note);
 
-public sealed record CartAdjustmentDto(Guid Id, AdjustmentType Type, string Label, decimal Amount, string? Serial);
+public sealed record CartAdjustmentDto(long Id, AdjustmentType Type, string Label, decimal Amount, string? Serial);
 
 /// <summary>
 /// The totals panel. Tax names come from configuration rather than the UI, so a Canadian store shows
@@ -56,7 +63,7 @@ public sealed record CartTotalsDto(
 
 /// <summary>The customer context panel (region ④ of the POS screen).</summary>
 public sealed record CartCustomerDto(
-    Guid Id,
+    long Id,
     long CustomerNumber,
     string Name,
     int PriceLevel,
@@ -72,7 +79,7 @@ public sealed record CartCustomerDto(
 /// store policy. The client needs this to know whether to open the item-detail drawer at all.
 /// </summary>
 public sealed record StationPolicyDto(
-    Guid StationId,
+    long StationId,
     string StationCode,
     bool FastScanMode,
     bool AutoSaveSales,
@@ -82,16 +89,16 @@ public sealed record StationPolicyDto(
     bool StaffMayDiscount,
     bool AllowItemListEdit,
     bool RequireSupervisorToVoid,
-    Guid? DefaultTenderTypeId,
+    long? DefaultTenderTypeId,
     decimal MinimumTender,
     string CurrencyCode,
     string CurrencySymbol);
 
 public sealed record CartDto(
-    Guid Id,
-    Guid StationId,
-    Guid LocationId,
-    Guid StaffId,
+    long Id,
+    long StationId,
+    long LocationId,
+    long StaffId,
     CartStatus Status,
     int Revision,
     string? HeldName,
@@ -104,9 +111,9 @@ public sealed record CartDto(
 
 /// <summary>A suspended cart as it appears in the recall list (guide p.11).</summary>
 public sealed record SuspendedCartDto(
-    Guid Id,
+    long Id,
     string? Label,
-    Guid StaffId,
+    long StaffId,
     string? CustomerName,
     int LineCount,
     decimal GrandTotal,

@@ -15,15 +15,15 @@ namespace Retail25.IntegrationTests;
 /// per-workstation counter did collide, and this is the test that says ours does not.
 /// </para>
 /// </summary>
-[Collection(PostgresCollection.Name)]
+[Collection(SqlServerCollection.Name)]
 public sealed class SequenceGeneratorTests : IAsyncLifetime
 {
-    private readonly PostgresFixture _postgres;
+    private readonly SqlServerFixture _sqlServer;
     private ApplicationDbContextScope _scope = null!;
 
-    public SequenceGeneratorTests(PostgresFixture postgres) => _postgres = postgres;
+    public SequenceGeneratorTests(SqlServerFixture sqlServer) => _sqlServer = sqlServer;
 
-    public async Task InitializeAsync() => _scope = await ApplicationDbContextScope.CreateAsync(_postgres, "sequences");
+    public async Task InitializeAsync() => _scope = await ApplicationDbContextScope.CreateAsync(_sqlServer, "sequences");
 
     public Task DisposeAsync()
     {
@@ -31,7 +31,7 @@ public sealed class SequenceGeneratorTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task A_sequence_starts_from_the_administered_next_number()
     {
         // What a migration does: write the legacy counter into the row before anything issues a number.
@@ -47,7 +47,7 @@ public sealed class SequenceGeneratorTests : IAsyncLifetime
         (await generator.NextAsync(SequenceKind.Customer, _scope.LocationId)).Should().Be(4183);
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task Numbers_are_never_issued_twice_under_concurrency()
     {
         var generator = new SequenceGenerator(_scope.Db);
@@ -57,7 +57,7 @@ public sealed class SequenceGeneratorTests : IAsyncLifetime
 
         var issued = await Task.WhenAll(Enumerable.Range(0, 25).Select(async _ =>
         {
-            await using var db = _postgres.CreateContext(_scope.Db.Database.GetConnectionString());
+            await using var db = _sqlServer.CreateContext(_scope.Db.Database.GetConnectionString());
             return await new SequenceGenerator(db).NextAsync(SequenceKind.Transaction, _scope.LocationId);
         }));
 
@@ -67,7 +67,7 @@ public sealed class SequenceGeneratorTests : IAsyncLifetime
         issued.Should().HaveCount(25);
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task Repointing_a_counter_restarts_the_live_sequence()
     {
         var generator = new SequenceGenerator(_scope.Db);
@@ -82,7 +82,7 @@ public sealed class SequenceGeneratorTests : IAsyncLifetime
         (await generator.NextAsync(SequenceKind.Invoice, _scope.LocationId)).Should().Be(9000);
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task Each_location_numbers_independently()
     {
         var second = Location.Create("Second Store", "SEC", "CAD", "UTC", TimeOnly.MinValue).Value;

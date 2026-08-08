@@ -16,8 +16,8 @@ namespace Retail25.Domain.UnitTests.Pricing;
 /// </summary>
 public sealed class TenderCalculatorTests
 {
-    private static readonly Guid CashTenderId = Guid.NewGuid();
-    private static readonly Guid CardTenderId = Guid.NewGuid();
+    private static readonly long CashTenderId = TestIds.Next();
+    private static readonly long CardTenderId = TestIds.Next();
 
     private static readonly MoneyRounding Nickel = new(2, MidpointRounding.AwayFromZero, 0.05m);
     private static readonly MoneyRounding Penny = MoneyRounding.Retail;

@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
@@ -17,11 +18,11 @@ public enum DeletedEntityKind
 
 public sealed record DeletedRowDto(
     DeletedEntityKind Kind,
-    Guid Id,
+    long Id,
     string Reference,
     string Name,
     DateTimeOffset? DeletedAt,
-    Guid? DeletedBy,
+    long? DeletedBy,
     string? DeletedByName);
 
 /// <summary>
@@ -34,7 +35,7 @@ public sealed record DeletedRowDto(
 /// </summary>
 [RequiresPermission(PermissionKeys.Catalog.Delete)]
 public sealed record BrowseDeletedQuery(
-    Guid LocationId,
+    long LocationId,
     DeletedEntityKind? Kind = null,
     string? Search = null,
     int Take = 200) : IRequest<IReadOnlyList<DeletedRowDto>>;
@@ -146,7 +147,7 @@ public sealed class RecycleBinHandler : IRequestHandler<BrowseDeletedQuery, IRea
 /// outstanding balance — and folding them together would hide those checks behind one entry point.
 /// </summary>
 [RequiresPermission(PermissionKeys.Catalog.Delete)]
-public sealed record RestoreReferenceRowCommand(DeletedEntityKind Kind, Guid Id) : IRequest<Result>;
+public sealed record RestoreReferenceRowCommand(DeletedEntityKind Kind, long Id) : IRequest<Result>;
 
 public sealed class RestoreReferenceRowHandler : IRequestHandler<RestoreReferenceRowCommand, Result>
 {

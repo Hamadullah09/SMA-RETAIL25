@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
@@ -155,7 +156,7 @@ public sealed class AuthorizationController : ControllerBase
         await _audit.RecordAsync(
             AuditAction.SignedIn,
             nameof(ApplicationUser),
-            user.Id.ToString(),
+            user.Id.ToString(CultureInfo.InvariantCulture),
             request.IsRefreshTokenGrantType() ? "refresh_token" : "authorization_code");
 
         return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
@@ -232,7 +233,7 @@ public sealed class AuthorizationController : ControllerBase
 
         return Ok(new
         {
-            sub = user.Id.ToString(),
+            sub = user.Id.ToString(CultureInfo.InvariantCulture),
             name = user.DisplayName,
             email = user.Email,
             staffId = User.GetClaim(AuthConstants.StaffIdClaim),

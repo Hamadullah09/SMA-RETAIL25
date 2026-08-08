@@ -9,7 +9,28 @@ using Retail25.Domain.Sales.Pricing;
 namespace Retail25.Application.Carts.Services;
 
 /// <summary>A priced cart plus everything the client needs to render it.</summary>
-public sealed record CartQuote(CartSnapshot Snapshot, PosContext Context, SalePricingResult Pricing, CartDto Dto);
+/// <summary>
+/// A priced cart, plus everything needed to render it again.
+/// <para>
+/// <see cref="Reproject"/> exists because pricing has to happen before the snapshot is saved — the
+/// engine writes its answer onto the lines and those values are what get persisted — while the DTO
+/// has to be built after, because line ids are assigned by the database and are 0 until then. A DTO
+/// built at pricing time reaches the till with every line id 0, and the next thing the till does with
+/// a line id is ask to remove it.
+/// </para>
+/// </summary>
+public sealed record CartQuote(
+    CartSnapshot Snapshot,
+    PosContext Context,
+    SalePricingResult Pricing,
+    CartDto Dto,
+    IReadOnlyDictionary<long, ProductVariant> Variants,
+    CartCustomerDto? Customer)
+{
+    /// <summary>Rebuilds the DTO from the same pricing, now that the snapshot has been saved.</summary>
+    public CartQuote Reproject()
+        => this with { Dto = CartPricingService.BuildDto(Snapshot, Pricing, Customer, Variants) };
+}
 
 /// <summary>
 /// The seam between storage and the pure pricing engine: it gathers products, price levels, breaks,
@@ -82,10 +103,9 @@ public sealed class CartPricingService
                 continue;
             }
 
-            variants.TryGetValue(line.VariantId ?? Guid.Empty, out var variant);
+            variants.TryGetValue(line.VariantId ?? 0L, out var variant);
 
             inputs.Add(new LineInput(
-                line.Id,
                 line.Sequence,
                 product,
                 variant,
@@ -113,10 +133,16 @@ public sealed class CartPricingService
         var result = SalePricingEngine.Calculate(inputs, adjustments, pricingContext);
 
         // Write the engine's answer back onto the lines so the UI has something to show between quotes.
-        var byLine = result.Lines.ToDictionary(l => l.LineId);
+        //
+        // Correlated by Sequence, not by database id. A cart is priced before it is saved, so under
+        // database-assigned keys every new line still holds id 0 — and keying by that collapsed a
+        // three-line sale into one entry, or threw outright. Sequence is the line's position in the
+        // cart: it exists the moment the line does, it is what the receipt prints, and it is unique
+        // within the one cart being priced, which is the only scope this correlation spans.
+        var byLine = result.Lines.ToDictionary(l => l.Sequence);
         foreach (var line in snapshot.Lines)
         {
-            if (!byLine.TryGetValue(line.Id, out var resolved))
+            if (!byLine.TryGetValue(line.Sequence, out var resolved))
             {
                 continue;
             }
@@ -148,10 +174,13 @@ public sealed class CartPricingService
         }
 
         var dto = BuildDto(snapshot, result, customerDto, variants);
-        return new CartQuote(snapshot, context, result, dto);
+
+        // The variants are kept on the quote so the caller can rebuild the DTO after saving. See
+        // Reproject.
+        return new CartQuote(snapshot, context, result, dto, variants, customerDto);
     }
 
-    private async Task<(CustomerPricingProfile? Profile, CartCustomerDto? Dto)> LoadCustomerAsync(Guid? customerId, CancellationToken ct)
+    private async Task<(CustomerPricingProfile? Profile, CartCustomerDto? Dto)> LoadCustomerAsync(long? customerId, CancellationToken ct)
     {
         if (customerId is not { } id)
         {
@@ -182,21 +211,21 @@ public sealed class CartPricingService
             account?.CreditLimit ?? 0m));
     }
 
-    private static CartDto BuildDto(
+    internal static CartDto BuildDto(
         CartSnapshot snapshot,
         SalePricingResult pricing,
         CartCustomerDto? customer,
-        IReadOnlyDictionary<Guid, ProductVariant> variants)
+        IReadOnlyDictionary<long, ProductVariant> variants)
     {
-        var resolvedByLine = pricing.Lines.ToDictionary(l => l.LineId);
+        // By Sequence for the same reason as above: an unsaved line has no id yet.
+        var resolvedByLine = pricing.Lines.ToDictionary(l => l.Sequence);
 
         var lineDtos = snapshot.OrderedLines.Select(line =>
         {
-            resolvedByLine.TryGetValue(line.Id, out var resolved);
+            resolvedByLine.TryGetValue(line.Sequence, out var resolved);
             var variant = line.VariantId is { } vid && variants.TryGetValue(vid, out var v) ? v : null;
 
             return new CartLineDto(
-                line.Id,
                 line.Sequence,
                 line.ProductId,
                 line.VariantId,

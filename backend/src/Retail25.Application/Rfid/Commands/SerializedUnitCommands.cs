@@ -8,11 +8,11 @@ using Retail25.Domain.Common;
 namespace Retail25.Application.Rfid.Commands;
 
 public sealed record SerializedUnitDto(
-    Guid Id,
+    long Id,
     string? SerialNumber,
     string? Epc,
     SerializedUnitState State,
-    Guid? VariantId,
+    long? VariantId,
     string? VariantLabel,
     DateTimeOffset ReceivedOn,
     DateTimeOffset? LastSeenAt);
@@ -26,7 +26,7 @@ public sealed record SerializedUnitDto(
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record ListAvailableUnitsQuery(Guid ProductId, Guid LocationId, int Take = 50)
+public sealed record ListAvailableUnitsQuery(long ProductId, long LocationId, int Take = 50)
     : IRequest<IReadOnlyList<SerializedUnitDto>>;
 
 /// <summary>
@@ -40,10 +40,10 @@ public sealed record ListAvailableUnitsQuery(Guid ProductId, Guid LocationId, in
 /// </summary>
 [RequiresPermission(PermissionKeys.Inventory.CommissionTags)]
 public sealed record CommissionTagBatchCommand(
-    Guid ProductId,
-    Guid LocationId,
+    long ProductId,
+    long LocationId,
     IReadOnlyList<string> Epcs,
-    Guid? VariantId = null) : IRequest<Result<CommissionBatchResult>>;
+    long? VariantId = null) : IRequest<Result<CommissionBatchResult>>;
 
 public sealed record CommissionedTag(string Epc, bool Succeeded, string? Reason);
 
@@ -55,11 +55,13 @@ public sealed class SerializedUnitHandlers
 {
     private readonly IApplicationDbContext _db;
     private readonly IDateTime _clock;
+    private readonly TagStreamRegistry _tagStreams;
 
-    public SerializedUnitHandlers(IApplicationDbContext db, IDateTime clock)
+    public SerializedUnitHandlers(IApplicationDbContext db, IDateTime clock, TagStreamRegistry tagStreams)
     {
         _db = db;
         _clock = clock;
+        _tagStreams = tagStreams;
     }
 
     public async Task<IReadOnlyList<SerializedUnitDto>> Handle(ListAvailableUnitsQuery request, CancellationToken ct)
@@ -164,6 +166,17 @@ public sealed class SerializedUnitHandlers
         }
 
         await _db.SaveChangesAsync(ct);
+
+        // The read feed caches what an EPC resolves to, misses included — a shop always has tags that
+        // will never resolve, and those are the ones that would otherwise query the database hardest.
+        // Commissioning is precisely the moment a miss stops being true, so the cache has to be told.
+        //
+        // Without this the tags a supervisor has just mapped keep reading "Not recognised" on every
+        // till, indefinitely, while the database says otherwise.
+        foreach (var tag in results.Where(r => r.Succeeded))
+        {
+            _tagStreams.ForgetCatalogue(tag.Epc);
+        }
 
         return Result.Success(new CommissionBatchResult(commissioned, results));
     }

@@ -26,7 +26,7 @@ public sealed class SettingsController : ControllerBase
     public SettingsController(ISender sender) => _sender = sender;
 
     [HttpGet]
-    public async Task<IActionResult> Get([FromQuery] Guid locationId, CancellationToken ct)
+    public async Task<IActionResult> Get([FromQuery] long locationId, CancellationToken ct)
         => (await _sender.Send(new GetSettingsQuery(locationId), ct)).ToActionResult(this);
 
     [HttpPut("business")]
@@ -53,8 +53,8 @@ public sealed class SettingsController : ControllerBase
     public async Task<IActionResult> SaveStation([FromBody] SaveStationCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
-    [HttpPost("stations/{id:guid}/deactivate")]
-    public async Task<IActionResult> DeactivateStation(Guid id, CancellationToken ct)
+    [HttpPost("stations/{id:long}/deactivate")]
+    public async Task<IActionResult> DeactivateStation(long id, CancellationToken ct)
         => (await _sender.Send(new DeactivateStationCommand(id), ct)).ToActionResult(this);
 
     [HttpPost("printers")]
@@ -77,8 +77,8 @@ public sealed class SettingsController : ControllerBase
     public async Task<IActionResult> Tender([FromBody] SaveTenderTypeCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
-    [HttpDelete("tenders/{id:guid}")]
-    public async Task<IActionResult> DeleteTender(Guid id, [FromQuery] Guid locationId, CancellationToken ct)
+    [HttpDelete("tenders/{id:long}")]
+    public async Task<IActionResult> DeleteTender(long id, [FromQuery] long locationId, CancellationToken ct)
         => (await _sender.Send(new DeleteTenderTypeCommand(locationId, id), ct)).ToActionResult(this);
 
     [HttpPost("currencies")]

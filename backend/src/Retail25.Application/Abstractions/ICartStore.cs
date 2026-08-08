@@ -29,13 +29,13 @@ public sealed class CartSnapshot
 /// </summary>
 public interface ICartStore
 {
-    Task<CartSnapshot?> GetAsync(Guid cartId, CancellationToken ct = default);
+    Task<CartSnapshot?> GetAsync(long cartId, CancellationToken ct = default);
 
     /// <summary>The one active cart at a station, if there is one. Keyed by <c>station:{id}:cart</c>.</summary>
-    Task<CartSnapshot?> GetByStationAsync(Guid stationId, CancellationToken ct = default);
+    Task<CartSnapshot?> GetByStationAsync(long stationId, CancellationToken ct = default);
 
     Task SaveAsync(CartSnapshot snapshot, CancellationToken ct = default);
 
     /// <summary>Drops the cart and releases the station key. Used on complete, void and expiry.</summary>
-    Task RemoveAsync(Guid cartId, Guid stationId, CancellationToken ct = default);
+    Task RemoveAsync(long cartId, long stationId, CancellationToken ct = default);
 }

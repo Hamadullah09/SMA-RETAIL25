@@ -11,10 +11,10 @@ namespace Retail25.Application.Abstractions;
 /// </summary>
 public interface IPermissionResolver
 {
-    Task<IReadOnlySet<string>> ResolveForUserAsync(Guid userId, CancellationToken ct = default);
+    Task<IReadOnlySet<string>> ResolveForUserAsync(long userId, CancellationToken ct = default);
 
     /// <summary>Drops the cached set after a role or grant changes, so it takes effect immediately.</summary>
-    Task InvalidateAsync(Guid userId, CancellationToken ct = default);
+    Task InvalidateAsync(long userId, CancellationToken ct = default);
 
     /// <summary>Drops every cached set. Used when a role's grants change and many users are affected.</summary>
     Task InvalidateAllAsync(CancellationToken ct = default);
@@ -37,7 +37,7 @@ public interface IAuditWriter
         string? operation = null,
         string? beforeJson = null,
         string? afterJson = null,
-        Guid? approverStaffId = null,
+        long? approverStaffId = null,
         string? reason = null,
         CancellationToken ct = default);
 }

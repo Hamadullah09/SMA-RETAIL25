@@ -21,7 +21,9 @@ import type { SaleDetail, SalesLogRow } from '@/types/masters';
 export default function SalesLogPage() {
   const auth = useAuth();
   const locationId = auth.user?.locationId;
-  const stationId = process.env.NEXT_PUBLIC_STATION_ID;
+  // An environment variable is a string; the station it names is a row. undefined when unset, so a
+  // reprint button stays disabled rather than addressing station 0.
+  const stationId = process.env.NEXT_PUBLIC_STATION_ID ? Number(process.env.NEXT_PUBLIC_STATION_ID) : undefined;
 
   const [from, setFrom] = useState(() => isoDate(-7));
   const [to, setTo] = useState(() => isoDate(0));
@@ -105,7 +107,7 @@ export default function SalesLogPage() {
         width: 90,
         // A voided sale is not a footnote — it is the row someone is usually looking for.
         render: (r) => (
-          <span className={r.status !== 'Completed' ? 'text-[rgb(var(--negative))]' : undefined}>{r.status}</span>
+          <span className={r.status !== 'Completed' ? 'text-negative' : undefined}>{r.status}</span>
         ),
       },
     ],
@@ -113,7 +115,7 @@ export default function SalesLogPage() {
   );
 
   if (!locationId) {
-    return <p className="text-sm text-[rgb(var(--text-muted))]">No location is attached to this session.</p>;
+    return <p className="text-body text-ink-muted">No location is attached to this session.</p>;
   }
 
   return (
@@ -130,7 +132,7 @@ export default function SalesLogPage() {
             From
             <input
               type="date"
-              className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+              className="pos-input"
               value={from}
               onChange={(event) => setFrom(event.target.value)}
             />
@@ -140,7 +142,7 @@ export default function SalesLogPage() {
             To
             <input
               type="date"
-              className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+              className="pos-input"
               value={to}
               onChange={(event) => setTo(event.target.value)}
             />
@@ -194,7 +196,7 @@ function SaleDetailPanel({
   onClose,
 }: {
   sale: SaleDetail;
-  stationId: string | undefined;
+  stationId: number | undefined;
   onClose: () => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -226,10 +228,10 @@ function SaleDetailPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-body font-semibold">
           Sale {sale.transactionNumber}
           {sale.status !== 'Completed' ? (
-            <span className="pos-badge ml-2 text-[rgb(var(--negative))]">{sale.status}</span>
+            <span className="pos-badge ml-2 text-negative">{sale.status}</span>
           ) : null}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>
@@ -245,25 +247,25 @@ function SaleDetailPanel({
           </button>
         }
       >
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-          <dt className="text-[rgb(var(--text-muted))]">Completed</dt>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-label">
+          <dt className="text-ink-muted">Completed</dt>
           <dd>{new Date(sale.completedAt).toLocaleString()}</dd>
-          <dt className="text-[rgb(var(--text-muted))]">Till</dt>
+          <dt className="text-ink-muted">Till</dt>
           <dd>{sale.stationCode}</dd>
-          <dt className="text-[rgb(var(--text-muted))]">Staff</dt>
+          <dt className="text-ink-muted">Staff</dt>
           <dd>{sale.staffName}</dd>
-          <dt className="text-[rgb(var(--text-muted))]">Customer</dt>
+          <dt className="text-ink-muted">Customer</dt>
           <dd>{sale.customerName ?? '—'}</dd>
         </dl>
 
         {sale.voidReason ? (
-          <p className="text-xs text-[rgb(var(--negative))]">Voided: {sale.voidReason}</p>
+          <p className="text-label text-negative">Voided: {sale.voidReason}</p>
         ) : null}
       </FormSection>
 
       <FormSection title={`Lines (${sale.lines.length})`}>
-        <table className="w-full text-xs">
-          <thead className="text-[rgb(var(--text-muted))]">
+        <table className="w-full text-label">
+          <thead className="text-ink-muted">
             <tr>
               <th className="text-left">Item</th>
               <th className="text-right">Qty</th>
@@ -273,7 +275,7 @@ function SaleDetailPanel({
           </thead>
           <tbody>
             {sale.lines.map((line) => (
-              <tr key={line.sequence} className={cn(line.extendedNet < 0 && 'text-[rgb(var(--negative))]')}>
+              <tr key={line.sequence} className={cn(line.extendedNet < 0 && 'text-negative')}>
                 <td className="truncate">
                   <span className="pos-amount">{line.stockCode}</span> {line.name}
                 </td>
@@ -287,14 +289,14 @@ function SaleDetailPanel({
       </FormSection>
 
       <FormSection title="Totals" hint="These are the figures stored on the sale, not recomputed — a reprint shows what was charged.">
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
-          <dt className="text-[rgb(var(--text-muted))]">Subtotal</dt>
+        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-label">
+          <dt className="text-ink-muted">Subtotal</dt>
           <dd className="pos-amount text-right">{formatCurrency(sale.subtotal)}</dd>
-          <dt className="text-[rgb(var(--text-muted))]">Discount</dt>
+          <dt className="text-ink-muted">Discount</dt>
           <dd className="pos-amount text-right">{formatCurrency(sale.discountTotal)}</dd>
-          <dt className="text-[rgb(var(--text-muted))]">{sale.tax1Name || 'Tax 1'}</dt>
+          <dt className="text-ink-muted">{sale.tax1Name || 'Tax 1'}</dt>
           <dd className="pos-amount text-right">{formatCurrency(sale.tax1Total)}</dd>
-          <dt className="text-[rgb(var(--text-muted))]">{sale.tax2Name || 'Tax 2'}</dt>
+          <dt className="text-ink-muted">{sale.tax2Name || 'Tax 2'}</dt>
           <dd className="pos-amount text-right">{formatCurrency(sale.tax2Total)}</dd>
           <dt className="font-medium">Total</dt>
           <dd className="pos-amount text-right font-medium">{formatCurrency(sale.grandTotal)}</dd>
@@ -302,7 +304,7 @@ function SaleDetailPanel({
       </FormSection>
 
       <FormSection title="Payment">
-        <ul className="space-y-0.5 text-xs">
+        <ul className="space-y-0.5 text-label">
           {sale.tenders.map((tender, index) => (
             <li key={`${tender.tenderName}-${index}`} className="flex justify-between">
               <span>
@@ -313,7 +315,7 @@ function SaleDetailPanel({
             </li>
           ))}
           {sale.changeGiven > 0 ? (
-            <li className="flex justify-between text-[rgb(var(--text-muted))]">
+            <li className="flex justify-between text-ink-muted">
               <span>Change</span>
               <span className="pos-amount">{formatCurrency(sale.changeGiven)}</span>
             </li>

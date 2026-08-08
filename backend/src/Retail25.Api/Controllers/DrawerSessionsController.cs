@@ -18,11 +18,11 @@ public sealed class DrawerSessionsController : ControllerBase
     public DrawerSessionsController(ISender sender) => _sender = sender;
 
     [HttpGet("current")]
-    public async Task<IActionResult> Current([FromQuery] Guid stationId)
+    public async Task<IActionResult> Current([FromQuery] long stationId)
         => (await _sender.Send(new GetDrawerTotalsQuery(stationId))).ToActionResult(this);
 
-    [HttpGet("{sessionId:guid}")]
-    public async Task<IActionResult> Get(Guid sessionId, [FromQuery] Guid stationId)
+    [HttpGet("{sessionId:long}")]
+    public async Task<IActionResult> Get(long sessionId, [FromQuery] long stationId)
         => (await _sender.Send(new GetDrawerTotalsQuery(stationId, sessionId))).ToActionResult(this);
 
     [HttpPost]
@@ -47,10 +47,10 @@ public sealed class DrawerSessionsController : ControllerBase
         => (await _sender.Send(new CloseDrawerSessionCommand(request.StationId, request.CountedCash))).ToActionResult(this);
 }
 
-public sealed record OpenDrawerRequest(Guid StationId, decimal OpeningFloat);
+public sealed record OpenDrawerRequest(long StationId, decimal OpeningFloat);
 
-public sealed record DrawerMovementRequest(Guid StationId, decimal Amount, string Reason);
+public sealed record DrawerMovementRequest(long StationId, decimal Amount, string Reason);
 
-public sealed record PopDrawerRequest(Guid StationId, string? Reason = null);
+public sealed record PopDrawerRequest(long StationId, string? Reason = null);
 
-public sealed record CloseDrawerRequest(Guid StationId, decimal CountedCash);
+public sealed record CloseDrawerRequest(long StationId, decimal CountedCash);

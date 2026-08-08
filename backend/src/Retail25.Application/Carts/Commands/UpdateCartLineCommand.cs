@@ -18,9 +18,10 @@ namespace Retail25.Application.Carts.Commands;
 /// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
+/// <remarks>Addressed by Sequence rather than a database id; see <see cref="RemoveCartLineCommand"/>.</remarks>
 public sealed record UpdateCartLineCommand(
-    Guid CartId,
-    Guid LineId,
+    long CartId,
+    int Sequence,
     decimal? Quantity = null,
     decimal? ManualPrice = null,
     decimal? ManualDiscountPct = null,
@@ -48,10 +49,10 @@ public sealed class UpdateCartLineHandler : IRequestHandler<UpdateCartLineComman
     public Task<Result<CartDto>> Handle(UpdateCartLineCommand request, CancellationToken ct)
         => _workflow.MutateAsync(request.CartId, (snapshot, context, _) =>
         {
-            var line = snapshot.Lines.FirstOrDefault(l => l.Id == request.LineId);
+            var line = snapshot.Lines.FirstOrDefault(l => l.Sequence == request.Sequence);
             if (line is null)
             {
-                return Task.FromResult(Result.Failure(LineNotFound.With("lineId", request.LineId)));
+                return Task.FromResult(Result.Failure(LineNotFound.With("sequence", request.Sequence)));
             }
 
             var gate = _lineFactory.CheckOverrides(

@@ -64,7 +64,7 @@ public sealed class AuditWriter : IAuditWriter
         string? operation = null,
         string? beforeJson = null,
         string? afterJson = null,
-        Guid? approverStaffId = null,
+        long? approverStaffId = null,
         string? reason = null,
         CancellationToken ct = default)
     {

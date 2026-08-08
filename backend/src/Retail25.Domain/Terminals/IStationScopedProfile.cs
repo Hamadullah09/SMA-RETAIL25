@@ -10,11 +10,11 @@ namespace Retail25.Domain.Terminals;
 /// </summary>
 public interface IStationScopedProfile
 {
-    Guid Id { get; }
+    long Id { get; }
 
-    Guid LocationId { get; }
+    long LocationId { get; }
 
-    Guid? StationId { get; }
+    long? StationId { get; }
 
     bool IsActive { get; }
 }

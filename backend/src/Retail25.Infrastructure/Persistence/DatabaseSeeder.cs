@@ -76,7 +76,7 @@ public sealed class DatabaseSeeder
         return created;
     }
 
-    private async Task SeedTaxAsync(Guid locationId, CancellationToken ct)
+    private async Task SeedTaxAsync(long locationId, CancellationToken ct)
     {
         if (await _db.TaxConfigurations.AnyAsync(t => t.LocationId == locationId, ct))
         {
@@ -105,7 +105,7 @@ public sealed class DatabaseSeeder
         _db.TaxConfigurations.Add(created.Value);
     }
 
-    private async Task SeedPolicyAsync(Guid locationId, CancellationToken ct)
+    private async Task SeedPolicyAsync(long locationId, CancellationToken ct)
     {
         if (await _db.PosPolicies.AnyAsync(p => p.LocationId == locationId, ct))
         {
@@ -115,7 +115,7 @@ public sealed class DatabaseSeeder
         _db.PosPolicies.Add(PosPolicy.CreateDefault(locationId));
     }
 
-    private async Task SeedPricingLadderAsync(Guid locationId, CancellationToken ct)
+    private async Task SeedPricingLadderAsync(long locationId, CancellationToken ct)
     {
         if (await _db.PricingRuleSettings.AnyAsync(r => r.LocationId == locationId, ct))
         {
@@ -135,7 +135,7 @@ public sealed class DatabaseSeeder
     /// paper records refer to those numbers.
     /// </para>
     /// </summary>
-    private async Task SeedNumberingAsync(Guid locationId, CancellationToken ct)
+    private async Task SeedNumberingAsync(long locationId, CancellationToken ct)
     {
         var existing = await _db.NumberSequences
             .Where(s => s.LocationId == locationId)
@@ -150,7 +150,7 @@ public sealed class DatabaseSeeder
         }
     }
 
-    private async Task SeedLoyaltyAsync(Guid locationId, CancellationToken ct)
+    private async Task SeedLoyaltyAsync(long locationId, CancellationToken ct)
     {
         if (await _db.LoyaltyPolicies.AnyAsync(l => l.LocationId == locationId, ct))
         {
@@ -192,7 +192,7 @@ public sealed class DatabaseSeeder
         _db.TenderTypes.AddRange(tenders);
     }
 
-    private async Task SeedStationAsync(Guid locationId, CancellationToken ct)
+    private async Task SeedStationAsync(long locationId, CancellationToken ct)
     {
         if (await _db.Stations.AnyAsync(s => s.LocationId == locationId, ct))
         {
@@ -210,6 +210,15 @@ public sealed class DatabaseSeeder
         _db.ReaderProfiles.Add(reader);
         _db.ScaleProfiles.Add(scale);
         _db.PoleDisplayProfiles.Add(pole);
+
+        // Saved before the station is told about them.
+        //
+        // The profiles' ids are assigned by the database, so reading them here without saving first
+        // wires the station to profile 0 four times over — and nothing objects, because a station's
+        // peripheral columns are nullable references with no constraint behind them. The till would
+        // simply come up with no printer, no reader, no scale and no pole display, and the reason
+        // would be invisible in the data.
+        await _db.SaveChangesAsync(ct);
 
         station.AssignPeripherals(printer.Id, reader.Id, scale.Id, pole.Id);
         _db.Stations.Add(station);

@@ -15,11 +15,11 @@ public interface ITagDebouncer
     /// Attempts to claim an EPC for a station. Returns false when another station already holds it.
     /// Re-claiming for the same station inside the window succeeds and is idempotent.
     /// </summary>
-    Task<bool> TryClaimAsync(string epc, Guid stationId, TimeSpan window, CancellationToken ct = default);
+    Task<bool> TryClaimAsync(string epc, long stationId, TimeSpan window, CancellationToken ct = default);
 
     /// <summary>Releases a claim early — when a line is removed, or a batch is rejected.</summary>
-    Task ReleaseAsync(string epc, Guid stationId, CancellationToken ct = default);
+    Task ReleaseAsync(string epc, long stationId, CancellationToken ct = default);
 
     /// <summary>Which station currently holds the tag, if any. Drives the "claimed elsewhere" message.</summary>
-    Task<Guid?> GetHolderAsync(string epc, CancellationToken ct = default);
+    Task<long?> GetHolderAsync(string epc, CancellationToken ct = default);
 }

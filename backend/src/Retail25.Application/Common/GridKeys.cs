@@ -19,6 +19,8 @@ public static class GridKeys
     public const string Station = "station";
     public const string TenderType = "tender_type";
     public const string Currency = "currency";
+    public const string PurchaseOrder = "purchase_order";
+    public const string StockLevel = "stock_level";
 }
 
 /// <summary>

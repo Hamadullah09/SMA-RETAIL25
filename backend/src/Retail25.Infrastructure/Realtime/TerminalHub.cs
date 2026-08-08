@@ -28,7 +28,7 @@ public sealed class TerminalHub : Hub
     {
         await Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Station(stationId));
 
-        if (Guid.TryParse(stationId, out var id))
+        if (long.TryParse(stationId, out var id))
         {
             await _sender.Send(
                 new ReportAgentStatusCommand(id, agentVersion, false, false, false, false, false, 0),
@@ -39,7 +39,7 @@ public sealed class TerminalHub : Hub
     /// <summary>A batch of tags from the reader, already coalesced and pre-filtered by the agent.</summary>
     public async Task PublishTags(string stationId, IReadOnlyList<TagRead> tags)
     {
-        if (!Guid.TryParse(stationId, out var id) || tags is null || tags.Count == 0)
+        if (!long.TryParse(stationId, out var id) || tags is null || tags.Count == 0)
         {
             return;
         }
@@ -49,7 +49,7 @@ public sealed class TerminalHub : Hub
 
     public async Task ReportWeight(string stationId, decimal value, string unit, bool stable)
     {
-        if (Guid.TryParse(stationId, out var id))
+        if (long.TryParse(stationId, out var id))
         {
             await _sender.Send(new ReportWeightCommand(id, value, unit, stable), Context.ConnectionAborted);
         }
@@ -65,7 +65,7 @@ public sealed class TerminalHub : Hub
         bool poleDisplayOnline,
         int readRate)
     {
-        if (Guid.TryParse(stationId, out var id))
+        if (long.TryParse(stationId, out var id))
         {
             await _sender.Send(
                 new ReportAgentStatusCommand(
@@ -78,7 +78,7 @@ public sealed class TerminalHub : Hub
     /// The agent reports what happened to a print job. A failure is not fatal — the sale is already
     /// saved, and the receipt stays reprintable, which is the legacy "printer jammed" story (guide p.12).
     /// </summary>
-    public Task ReportPrintResult(string stationId, Guid transactionId, bool succeeded, string? error)
+    public Task ReportPrintResult(string stationId, long transactionId, bool succeeded, string? error)
         => Clients.Group(PosGroups.Station(stationId))
             .SendAsync("PrintResult", new { transactionId, succeeded, error }, Context.ConnectionAborted);
 }

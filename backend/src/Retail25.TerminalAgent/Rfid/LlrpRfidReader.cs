@@ -104,6 +104,25 @@ public sealed class LlrpRfidReader : IRfidReader
 
     public IAsyncEnumerable<TagRead> ReadsAsync(CancellationToken ct) => _reads.Reader.ReadAllAsync(ct);
 
+    /// <summary>
+    /// LLRP carries its own configuration model, and this client implements the reading half only.
+    /// Rather than half-answer, it says which fields it cannot supply — the settings screen then
+    /// shows "unknown" instead of an invented figure.
+    /// </summary>
+    public Task<ReaderDiagnostics> ReadDiagnosticsAsync(CancellationToken ct)
+        => Task.FromResult(new ReaderDiagnostics
+        {
+            Unavailable = ["this reader speaks LLRP, whose settings are not managed from here"],
+        });
+
+    /// <summary>
+    /// Nothing is pushed. Returned as a refusal rather than silent success, so nobody is told a
+    /// setting was applied to a reader that never received it.
+    /// </summary>
+    public Task<IReadOnlyList<string>> ApplySettingsAsync(ReaderProfileContract profile, CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<string>>(
+            ["every hardware setting: this reader speaks LLRP, which is configured on the device itself"]);
+
     private async Task PumpAsync(CancellationToken ct)
     {
         var header = new byte[LlrpCodec.HeaderLength];

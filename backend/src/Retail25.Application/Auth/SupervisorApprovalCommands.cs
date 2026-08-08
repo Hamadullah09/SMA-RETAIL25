@@ -1,3 +1,4 @@
+using System.Globalization;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
@@ -9,13 +10,13 @@ using Retail25.Domain.Staff;
 namespace Retail25.Application.Auth;
 
 public sealed record ApprovalRequestDto(
-    Guid Id,
+    long Id,
     string Permission,
     string Action,
     string? Context,
-    Guid RequestedByStaffId,
+    long RequestedByStaffId,
     string RequestedByName,
-    Guid StationId,
+    long StationId,
     ApprovalStatus Status,
     DateTimeOffset RequestedAt,
     DateTimeOffset ExpiresAt);
@@ -33,23 +34,23 @@ public sealed record RequestSupervisorApprovalCommand(
     string Permission,
     string Action,
     string? Context,
-    Guid StationId) : IRequest<Result<ApprovalRequestDto>>;
+    long StationId) : IRequest<Result<ApprovalRequestDto>>;
 
 /// <summary>Approves inline with a supervisor's PIN, without leaving the till.</summary>
-public sealed record ApproveWithPinCommand(Guid ApprovalId, string SupervisorStaffCode, string Pin)
+public sealed record ApproveWithPinCommand(long ApprovalId, string SupervisorStaffCode, string Pin)
     : IRequest<Result<ApprovalRequestDto>>;
 
 /// <summary>Approves from another station, by a supervisor already signed in there.</summary>
 [RequiresPermission(PermissionKeys.Pos.VoidSale)]
-public sealed record ApproveSupervisorRequestCommand(Guid ApprovalId) : IRequest<Result<ApprovalRequestDto>>;
+public sealed record ApproveSupervisorRequestCommand(long ApprovalId) : IRequest<Result<ApprovalRequestDto>>;
 
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record DenySupervisorRequestCommand(Guid ApprovalId, string? Reason = null)
+public sealed record DenySupervisorRequestCommand(long ApprovalId, string? Reason = null)
     : IRequest<Result<ApprovalRequestDto>>;
 
 /// <summary>What is waiting for a supervisor at this location right now.</summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record ListPendingApprovalsQuery(Guid LocationId) : IRequest<IReadOnlyList<ApprovalRequestDto>>;
+public sealed record ListPendingApprovalsQuery(long LocationId) : IRequest<IReadOnlyList<ApprovalRequestDto>>;
 
 public sealed class SupervisorApprovalHandlers
     : IRequestHandler<RequestSupervisorApprovalCommand, Result<ApprovalRequestDto>>,
@@ -116,7 +117,7 @@ public sealed class SupervisorApprovalHandlers
         await _audit.RecordAsync(
             AuditAction.StepUpRequested,
             nameof(SupervisorApproval),
-            approval.Id.ToString(),
+            approval.Id.ToString(CultureInfo.InvariantCulture),
             request.Action,
             reason: request.Context,
             ct: ct);
@@ -157,7 +158,7 @@ public sealed class SupervisorApprovalHandlers
             await _audit.RecordAsync(
                 AuditAction.StepUpDenied,
                 nameof(SupervisorApproval),
-                approval.Id.ToString(),
+                approval.Id.ToString(CultureInfo.InvariantCulture),
                 approval.Action,
                 reason: "Incorrect supervisor PIN",
                 ct: ct);
@@ -175,7 +176,7 @@ public sealed class SupervisorApprovalHandlers
             await _audit.RecordAsync(
                 AuditAction.StepUpDenied,
                 nameof(SupervisorApproval),
-                approval.Id.ToString(),
+                approval.Id.ToString(CultureInfo.InvariantCulture),
                 approval.Action,
                 reason: $"{supervisor.StaffCode} does not hold {approval.Permission}",
                 ct: ct);
@@ -215,7 +216,7 @@ public sealed class SupervisorApprovalHandlers
             return Result.Failure<ApprovalRequestDto>(NotFound.With("approvalId", request.ApprovalId));
         }
 
-        var denied = approval.Deny(_currentUser.StaffId ?? Guid.Empty, request.Reason, _clock.Now);
+        var denied = approval.Deny(_currentUser.StaffId ?? 0L, request.Reason, _clock.Now);
         if (denied.IsFailure)
         {
             return Result.Failure<ApprovalRequestDto>(denied.Error);
@@ -226,7 +227,7 @@ public sealed class SupervisorApprovalHandlers
         await _audit.RecordAsync(
             AuditAction.StepUpDenied,
             nameof(SupervisorApproval),
-            approval.Id.ToString(),
+            approval.Id.ToString(CultureInfo.InvariantCulture),
             approval.Action,
             approverStaffId: _currentUser.StaffId,
             reason: request.Reason,
@@ -255,7 +256,7 @@ public sealed class SupervisorApprovalHandlers
         return dtos;
     }
 
-    private async Task<Result<ApprovalRequestDto>> ApproveAsync(SupervisorApproval approval, Guid approverId, CancellationToken ct)
+    private async Task<Result<ApprovalRequestDto>> ApproveAsync(SupervisorApproval approval, long approverId, CancellationToken ct)
     {
         var approved = approval.Approve(approverId, _clock.Now);
         if (approved.IsFailure)
@@ -270,7 +271,7 @@ public sealed class SupervisorApprovalHandlers
         await _audit.RecordAsync(
             AuditAction.StepUpApproved,
             nameof(SupervisorApproval),
-            approval.Id.ToString(),
+            approval.Id.ToString(CultureInfo.InvariantCulture),
             approval.Action,
             approverStaffId: approverId,
             reason: approval.Context,

@@ -6,6 +6,7 @@ using Retail25.Application.Behaviors;
 using Retail25.Application.Carts.Commands;
 using Retail25.Application.Carts.Services;
 using Retail25.Application.Receipts;
+using Retail25.Application.Receivables;
 
 namespace Retail25.Application;
 
@@ -37,6 +38,12 @@ public static class DependencyInjection
         services.AddScoped<IdentifierResolver>();
         services.AddScoped<CartLineFactory>();
         services.AddScoped<ReceiptBuilder>();
+
+        // Resolvable by its own concrete type, not just through ISender/IRequestHandler<> — the
+        // nightly late-charge job calls it directly, with no HTTP request or authenticated user
+        // behind it for the authorization pipeline behaviour to check (doc: LateChargePolicy,
+        // "applied by a nightly Hangfire job").
+        services.AddScoped<ReceivablesHandlers>();
 
         return services;
     }

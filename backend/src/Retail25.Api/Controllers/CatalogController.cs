@@ -28,10 +28,10 @@ public sealed class CatalogController : ControllerBase
 
     [HttpGet("products")]
     public async Task<IActionResult> Browse(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] string? search,
-        [FromQuery] Guid? departmentId,
-        [FromQuery] Guid? categoryId,
+        [FromQuery] long? departmentId,
+        [FromQuery] long? categoryId,
         [FromQuery] ProductType? type,
         [FromQuery] bool belowReorderPoint = false,
         [FromQuery] bool deletedOnly = false,
@@ -46,66 +46,66 @@ public sealed class CatalogController : ControllerBase
                 belowReorderPoint, deletedOnly, sort, descending, cursor, pageSize),
             ct));
 
-    [HttpGet("products/{id:guid}")]
-    public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+    [HttpGet("products/{id:long}")]
+    public async Task<IActionResult> Get(long id, CancellationToken ct)
         => (await _sender.Send(new GetProductFormQuery(id), ct)).ToActionResult(this);
 
     [HttpPost("products")]
     public async Task<IActionResult> Create([FromBody] CreateProductCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
-    [HttpPut("products/{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProductCommand command, CancellationToken ct)
+    [HttpPut("products/{id:long}")]
+    public async Task<IActionResult> Update(long id, [FromBody] UpdateProductCommand command, CancellationToken ct)
         => (await _sender.Send(command with { ProductId = id }, ct)).ToActionResult(this);
 
-    [HttpPost("products/{id:guid}/clone")]
-    public async Task<IActionResult> Clone(Guid id, [FromBody] CloneProductRequest request, CancellationToken ct)
+    [HttpPost("products/{id:long}/clone")]
+    public async Task<IActionResult> Clone(long id, [FromBody] CloneProductRequest request, CancellationToken ct)
         => (await _sender.Send(new CloneProductCommand(id, request.NewStockCode, request.NewName), ct)).ToActionResult(this);
 
-    [HttpDelete("products/{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    [HttpDelete("products/{id:long}")]
+    public async Task<IActionResult> Delete(long id, CancellationToken ct)
         => (await _sender.Send(new DeleteProductCommand(id), ct)).ToActionResult(this);
 
-    [HttpPost("products/{id:guid}/restore")]
-    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("products/{id:long}/restore")]
+    public async Task<IActionResult> Restore(long id, CancellationToken ct)
         => (await _sender.Send(new RestoreProductCommand(id), ct)).ToActionResult(this);
 
     [HttpGet("departments")]
-    public async Task<IActionResult> Departments([FromQuery] Guid locationId, [FromQuery] bool includeInactive = false, CancellationToken ct = default)
+    public async Task<IActionResult> Departments([FromQuery] long locationId, [FromQuery] bool includeInactive = false, CancellationToken ct = default)
         => Ok(await _sender.Send(new ListDepartmentsQuery(locationId, includeInactive), ct));
 
     [HttpPost("departments")]
     public async Task<IActionResult> SaveDepartment([FromBody] SaveDepartmentCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
-    [HttpDelete("departments/{id:guid}")]
-    public async Task<IActionResult> DeleteDepartment(Guid id, CancellationToken ct)
+    [HttpDelete("departments/{id:long}")]
+    public async Task<IActionResult> DeleteDepartment(long id, CancellationToken ct)
         => (await _sender.Send(new DeleteDepartmentCommand(id), ct)).ToActionResult(this);
 
     [HttpGet("categories")]
-    public async Task<IActionResult> Categories([FromQuery] Guid locationId, [FromQuery] bool includeInactive = false, CancellationToken ct = default)
+    public async Task<IActionResult> Categories([FromQuery] long locationId, [FromQuery] bool includeInactive = false, CancellationToken ct = default)
         => Ok(await _sender.Send(new ListCategoriesQuery(locationId, includeInactive), ct));
 
     [HttpPost("categories")]
     public async Task<IActionResult> SaveCategory([FromBody] SaveCategoryCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
-    [HttpDelete("categories/{id:guid}")]
-    public async Task<IActionResult> DeleteCategory(Guid id, CancellationToken ct)
+    [HttpDelete("categories/{id:long}")]
+    public async Task<IActionResult> DeleteCategory(long id, CancellationToken ct)
         => (await _sender.Send(new DeleteCategoryCommand(id), ct)).ToActionResult(this);
 
     /// <summary>The legacy "Undelete Items" screen (guide p.24), across every soft-deleted record.</summary>
     [HttpGet("deleted")]
     public async Task<IActionResult> Deleted(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] DeletedEntityKind? kind,
         [FromQuery] string? search,
         [FromQuery] int take = 200,
         CancellationToken ct = default)
         => Ok(await _sender.Send(new BrowseDeletedQuery(locationId, kind, search, take), ct));
 
-    [HttpPost("deleted/{kind}/{id:guid}/restore")]
-    public async Task<IActionResult> RestoreDeleted(DeletedEntityKind kind, Guid id, CancellationToken ct)
+    [HttpPost("deleted/{kind}/{id:long}/restore")]
+    public async Task<IActionResult> RestoreDeleted(DeletedEntityKind kind, long id, CancellationToken ct)
     {
         // Each aggregate restores through its own command because each has its own precondition —
         // a stock code reused since the delete, an outstanding balance, a supplier still on an order.

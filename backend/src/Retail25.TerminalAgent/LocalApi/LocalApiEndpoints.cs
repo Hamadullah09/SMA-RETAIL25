@@ -90,6 +90,30 @@ internal static class LocalApiEndpoints
             return Results.NoContent();
         });
 
+        // What the reader says about itself right now: firmware, temperature, the settings it is
+        // actually running, and the return loss on each antenna port.
+        //
+        // Local rather than server-side because it is a live question about the hardware in this
+        // room. A server endpoint would have to reach back down to this agent to answer it, and would
+        // report "unknown" whenever the till was offline — which is exactly when somebody is stood at
+        // it wondering why the reader will not read.
+        group.MapGet("/reader/diagnostics", async (RfidReaderService reader, CancellationToken ct) =>
+            Results.Ok(await reader.ReadDiagnosticsAsync(ct)));
+
+        // Re-pushes the current profile into the device. The agent already does this on every
+        // connect; this is the button for when somebody has just changed a setting, or has been
+        // poking at the reader with the vendor's demo and wants it put back.
+        group.MapPost("/reader/apply-settings", async (RfidReaderService reader, CancellationToken ct) =>
+        {
+            var refused = await reader.ApplySettingsAsync(ct);
+
+            return Results.Ok(new
+            {
+                applied = refused.Count == 0,
+                refused,
+            });
+        });
+
         // The drawer is deliberately NOT exposed here for sales. A pop must be permission-checked and
         // must land in the drawer ledger, so the browser asks the server, which asks the agent.
 

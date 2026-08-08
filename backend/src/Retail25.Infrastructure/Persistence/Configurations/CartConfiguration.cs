@@ -18,7 +18,7 @@ public class CartConfiguration : IEntityTypeConfiguration<Cart>
             .HasMaxLength(20);
 
         builder.HasIndex(c => new { c.StationId, c.Status })
-            .HasFilter("status = 'Active'");
+            .HasFilter("[status] = 'Active'");
 
         builder.Ignore(c => c.DomainEvents);
     }

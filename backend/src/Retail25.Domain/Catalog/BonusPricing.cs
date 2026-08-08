@@ -13,13 +13,13 @@ public sealed class BonusPricing : Entity
     {
     }
 
-    public Guid ProductId { get; private set; }
+    public long ProductId { get; private set; }
 
     public decimal BuyQty { get; private set; }
 
     public decimal FreeQty { get; private set; }
 
-    public static Result<BonusPricing> Create(Guid productId, decimal buyQty, decimal freeQty)
+    public static Result<BonusPricing> Create(long productId, decimal buyQty, decimal freeQty)
     {
         if (buyQty <= 0)
             return Result.Failure<BonusPricing>(new Error("bonus.buy_qty_invalid", "Buy quantity must be greater than zero."));

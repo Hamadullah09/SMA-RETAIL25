@@ -16,7 +16,7 @@
    `Quantity = decimal(18,4)` (random-weight items and split cases need fractions).
    Cost fields allow 3 decimals per guide p.37.
 5. **Soft delete + audit columns everywhere** (`IsDeleted`, `CreatedAt/By`, `ModifiedAt/By`,
-   `RowVersion` via Postgres `xmin`). The legacy "Undelete Items" command becomes real.
+   `RowVersion` — see the note in [12](12-schema-reference.md), it is not yet wired). The legacy "Undelete Items" command becomes real.
 
 ---
 
@@ -562,7 +562,7 @@ IdempotencyRecord     → key, endpoint, requestHash, responseSnapshot, expiresA
 | Same EPC read by two stations | Redis `SET epc:{epc} station NX PX debounce` — first writer wins, second gets a "claimed elsewhere" notice |
 | Concurrent edits to a product | `xmin` optimistic concurrency → 409 with a diff |
 | Duplicate sale from retry | `Idempotency-Key` table, unique index |
-| Number sequences (invoice/PO/customer) | Postgres sequences per location, seeded from legacy "next number" settings |
+| Number sequences (invoice/PO/customer) | SQL Server sequences per location, seeded from legacy "next number" settings |
 | Cross-aggregate consistency | Transactional outbox → Hangfire/BackgroundService dispatch, at-least-once with idempotent handlers |
 
 ## Indexing plan (initial)

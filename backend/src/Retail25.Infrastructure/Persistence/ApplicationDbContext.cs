@@ -1,10 +1,15 @@
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
+using Retail25.Domain.Accounting;
 using Retail25.Domain.Catalog;
+using Retail25.Domain.Common;
 using Retail25.Domain.Configuration;
 using Retail25.Domain.Customers;
 using Retail25.Domain.Inventory;
+using Retail25.Domain.Migration;
+using Retail25.Domain.Orders;
 using Retail25.Domain.Purchasing;
 using Retail25.Domain.Receivables;
 using Retail25.Domain.Sales;
@@ -23,16 +28,36 @@ namespace Retail25.Infrastructure.Persistence;
 /// </para>
 /// </summary>
 public class ApplicationDbContext
-    : IdentityDbContext<Identity.ApplicationUser, Identity.ApplicationRole, Guid>, IApplicationDbContext
+    : IdentityDbContext<Identity.ApplicationUser, Identity.ApplicationRole, long>,
+      IApplicationDbContext,
+      IDataProtectionKeyContext
 {
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options)
     {
     }
 
+    /// <summary>
+    /// The Data Protection keyring.
+    /// <para>
+    /// Every antiforgery token, authentication cookie and OpenIddict token in this system is
+    /// encrypted with a key from here. Left to its default the framework writes that keyring to a
+    /// per-user folder under the profile of whoever started the process — which is not shared between
+    /// two API replicas, and does not exist at all in a container. Either way the keys are effectively
+    /// new on every start, and everything issued before it stops decrypting: sessions end, and a login
+    /// page fetched a moment earlier comes back "that form had expired".
+    /// </para>
+    /// <para>
+    /// In the database instead. It is already the one thing every replica shares and every deployment
+    /// backs up, and it means a restart is invisible to whoever was signed in.
+    /// </para>
+    /// </summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
     // --- Catalog ---
     public DbSet<Product> Products => Set<Product>();
     public DbSet<ProductPrice> ProductPrices => Set<ProductPrice>();
+    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<PriceBreak> PriceBreaks => Set<PriceBreak>();
     public DbSet<SalePricing> SalePricings => Set<SalePricing>();
     public DbSet<BonusPricing> BonusPricings => Set<BonusPricing>();
@@ -72,12 +97,33 @@ public class ApplicationDbContext
     public DbSet<InvoicePayment> InvoicePayments => Set<InvoicePayment>();
     public DbSet<ARLedgerEntry> ARLedgerEntries => Set<ARLedgerEntry>();
     public DbSet<GiftCertificate> GiftCertificates => Set<GiftCertificate>();
+    public DbSet<GiftCard> GiftCards => Set<GiftCard>();
+
+    public DbSet<CustomerOrder> CustomerOrders => Set<CustomerOrder>();
+    public DbSet<CustomerOrderLine> CustomerOrderLines => Set<CustomerOrderLine>();
+    public DbSet<Layaway> Layaways => Set<Layaway>();
+    public DbSet<LayawayLine> LayawayLines => Set<LayawayLine>();
+    public DbSet<LayawayPayment> LayawayPayments => Set<LayawayPayment>();
+    public DbSet<PriceQuote> PriceQuotes => Set<PriceQuote>();
+    public DbSet<PriceQuoteLine> PriceQuoteLines => Set<PriceQuoteLine>();
 
     // --- Inventory ---
     public DbSet<StockLevel> StockLevels => Set<StockLevel>();
     public DbSet<StockLedgerEntry> StockLedgerEntries => Set<StockLedgerEntry>();
     public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
+    public DbSet<StockTransferLine> StockTransferLines => Set<StockTransferLine>();
     public DbSet<StockCount> StockCounts => Set<StockCount>();
+    public DbSet<StockCountLine> StockCountLines => Set<StockCountLine>();
+    public DbSet<FiscalYear> FiscalYears => Set<FiscalYear>();
+    public DbSet<SalesHistoryArchive> SalesHistoryArchives => Set<SalesHistoryArchive>();
+
+    // --- Legacy migration ---
+    public DbSet<MigrationBatch> MigrationBatches => Set<MigrationBatch>();
+    public DbSet<MigrationStagingRow> MigrationStagingRows => Set<MigrationStagingRow>();
+
+    // --- Accounting sync ---
+    public DbSet<SyncLog> SyncLogs => Set<SyncLog>();
+    public DbSet<ExternalEntityMap> ExternalEntityMaps => Set<ExternalEntityMap>();
 
     // --- Terminals ---
     public DbSet<Station> Stations => Set<Station>();
@@ -98,9 +144,11 @@ public class ApplicationDbContext
     public DbSet<StaffProfile> StaffProfiles => Set<StaffProfile>();
     public DbSet<TimeClockEntry> TimeClockEntries => Set<TimeClockEntry>();
     public DbSet<CommissionRule> CommissionRules => Set<CommissionRule>();
+    public DbSet<CommissionLedgerEntry> CommissionLedgerEntries => Set<CommissionLedgerEntry>();
 
     // --- Configuration ---
     public DbSet<Location> Locations => Set<Location>();
+    public DbSet<BrandingAsset> BrandingAssets => Set<BrandingAsset>();
     public DbSet<BusinessProfile> BusinessProfiles => Set<BusinessProfile>();
     public DbSet<TaxConfiguration> TaxConfigurations => Set<TaxConfiguration>();
     public DbSet<PosPolicy> PosPolicies => Set<PosPolicy>();
@@ -120,6 +168,61 @@ public class ApplicationDbContext
         builder.Properties<Domain.ValueObjects.Percentage>()
             .HaveConversion<ValueObjectConverters.PercentageConverter>()
             .HavePrecision(9, 4);
+
+        // The floor for every decimal that no configuration sets explicitly.
+        //
+        // On PostgreSQL an unspecified decimal became `numeric` — arbitrary precision, no
+        // truncation, and therefore nothing to think about. SQL Server has no such type: EF maps an
+        // unconfigured decimal to `decimal(18,2)`, which rounds a tax amount computed at four
+        // decimals on the way into the column and gives no error doing it. Sixty-six properties in
+        // this model were relying on the PostgreSQL behaviour, including tax amounts, change given,
+        // rounding adjustments and every cost.
+        //
+        // 19,4 is the model's own most common explicit choice and the widest scale it uses outside
+        // one exchange-rate column, so this cannot narrow anything: quantities carry four decimals,
+        // costs three, money two, and fifteen integer digits is past any figure a shop will ring.
+        //
+        // Set here rather than in a configuration because ConfigureConventions runs first — every
+        // explicit HasPrecision in an IEntityTypeConfiguration still wins, and this only fills the
+        // gaps. That includes gaps that do not exist yet: a decimal added next year gets 19,4
+        // instead of silently getting 18,2.
+        builder.Properties<decimal>().HavePrecision(19, 4);
+    }
+
+    /// <inheritdoc />
+    public async Task SetStagingVerdictAsync(
+        long batchId,
+        int? rowNumber,
+        bool isValid,
+        string? problems,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = MigrationStagingRows.Where(r => r.BatchId == batchId);
+
+        if (rowNumber is { } number)
+        {
+            rows = rows.Where(r => r.RowNumber == number);
+        }
+
+        // The in-memory provider is not a database and cannot translate ExecuteUpdate. It backs the
+        // handler unit tests, which are about which rows get blocked and what the message says —
+        // not about how the verdict reaches the disk. That part is covered where it is real, by the
+        // twenty-thousand-row integration test against a running SQL Server.
+        if (!Database.IsRelational())
+        {
+            foreach (var row in await rows.ToListAsync(cancellationToken))
+            {
+                row.IsValid = isValid;
+                row.Problems = problems;
+            }
+
+            await SaveChangesAsync(cancellationToken);
+            return;
+        }
+
+        await rows.ExecuteUpdateAsync(
+            set => set.SetProperty(r => r.IsValid, isValid).SetProperty(r => r.Problems, problems),
+            cancellationToken);
     }
 
     protected override void OnModelCreating(ModelBuilder builder)
@@ -130,6 +233,7 @@ public class ApplicationDbContext
 
         // OpenIddict keeps its applications, authorizations, scopes and tokens in this context, so
         // token issuance participates in the same transaction as everything else.
-        builder.UseOpenIddict<Guid>();
+        builder.UseOpenIddict<long>();
     }
+
 }

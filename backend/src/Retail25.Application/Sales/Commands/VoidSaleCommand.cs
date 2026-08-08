@@ -13,7 +13,7 @@ using Retail25.Domain.Terminals;
 
 namespace Retail25.Application.Sales.Commands;
 
-public sealed record VoidSaleResult(Guid ReversalTransactionId, long ReversalNumber, decimal ReversedTotal);
+public sealed record VoidSaleResult(long ReversalTransactionId, long ReversalNumber, decimal ReversedTotal);
 
 /// <summary>
 /// Voids a completed sale by writing a reversing transaction (guide p.14).
@@ -30,11 +30,11 @@ public sealed record VoidSaleResult(Guid ReversalTransactionId, long ReversalNum
 /// action, so it cannot be banked and spent on a second void.
 /// </param>
 public sealed record VoidSaleCommand(
-    Guid TransactionId,
+    long TransactionId,
     string IdempotencyKey,
     string? Reason = null,
-    Guid? ApprovedByStaffId = null,
-    Guid? ApprovalId = null) : IRequest<Result<VoidSaleResult>>, IIdempotentCommand;
+    long? ApprovedByStaffId = null,
+    long? ApprovalId = null) : IRequest<Result<VoidSaleResult>>, IIdempotentCommand;
 
 public sealed class VoidSaleHandler : IRequestHandler<VoidSaleCommand, Result<VoidSaleResult>>
 {
@@ -124,7 +124,12 @@ public sealed class VoidSaleHandler : IRequestHandler<VoidSaleCommand, Result<Vo
 
         _db.SalesTransactions.Add(reversal);
 
-        var voided = original.Void(reversal.Id, approver ?? Guid.Empty, request.Reason, now);
+        // Saved before its id is read. Without this the original sale records "voided by transaction
+        // 0" — which points at nothing, so the reversal can never be found from the sale it reverses.
+        // Still inside the pipeline's transaction, so a later failure rolls both back together.
+        await _db.SaveChangesAsync(ct);
+
+        var voided = original.Void(reversal.Id, approver ?? 0L, request.Reason, now);
         if (voided.IsFailure)
         {
             return Result.Failure<VoidSaleResult>(voided.Error);
@@ -166,33 +171,33 @@ public sealed class VoidSaleHandler : IRequestHandler<VoidSaleCommand, Result<Vo
     /// Spends a supervisor grant, returning who gave it. The grant is checked against this exact
     /// action, so an approval obtained for something else cannot unlock a void.
     /// </summary>
-    private async Task<Result<Guid?>> ConsumeApprovalAsync(Guid? approvalId, CancellationToken ct)
+    private async Task<Result<long?>> ConsumeApprovalAsync(long? approvalId, CancellationToken ct)
     {
         if (approvalId is not { } id)
         {
-            return Result.Failure<Guid?>(RequiresSupervisor);
+            return Result.Failure<long?>(RequiresSupervisor);
         }
 
         var approval = await _db.SupervisorApprovals.FirstOrDefaultAsync(a => a.Id == id, ct);
         if (approval is null)
         {
-            return Result.Failure<Guid?>(RequiresSupervisor.With("approvalId", id));
+            return Result.Failure<long?>(RequiresSupervisor.With("approvalId", id));
         }
 
         var consumed = approval.Consume(nameof(VoidSaleCommand), _clock.Now);
         if (consumed.IsFailure)
         {
-            return Result.Failure<Guid?>(consumed.Error);
+            return Result.Failure<long?>(consumed.Error);
         }
 
         await _db.SaveChangesAsync(ct);
-        return Result.Success<Guid?>(approval.ApprovedByStaffId);
+        return Result.Success<long?>(approval.ApprovedByStaffId);
     }
 
-    private async Task<Guid?> CurrentDrawerSessionIdAsync(Guid stationId, CancellationToken ct)
+    private async Task<long?> CurrentDrawerSessionIdAsync(long stationId, CancellationToken ct)
         => await _db.DrawerSessions.AsNoTracking()
             .Where(d => d.StationId == stationId && d.Status == DrawerSessionStatus.Open)
-            .Select(d => (Guid?)d.Id)
+            .Select(d => (long?)d.Id)
             .FirstOrDefaultAsync(ct);
 
     private async Task ReverseLinesAsync(

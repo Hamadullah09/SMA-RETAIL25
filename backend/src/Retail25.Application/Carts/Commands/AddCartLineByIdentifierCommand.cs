@@ -21,7 +21,7 @@ namespace Retail25.Application.Carts.Commands;
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
 public sealed record AddCartLineByIdentifierCommand(
-    Guid CartId,
+    long CartId,
     string Identifier,
     decimal? Quantity = null,
     decimal? ManualPrice = null,

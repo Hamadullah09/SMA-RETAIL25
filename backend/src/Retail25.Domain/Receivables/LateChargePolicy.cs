@@ -8,11 +8,11 @@ namespace Retail25.Domain.Receivables;
 /// </summary>
 public sealed class LateChargePolicy : AggregateRoot, IAuditable
 {
-    private LateChargePolicy()
+    public LateChargePolicy()
     {
     }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     /// <summary>Monthly interest rate as a percentage (e.g. 1.5 for 1.5%).</summary>
     public decimal MonthlyRate { get; set; }
@@ -24,9 +24,9 @@ public sealed class LateChargePolicy : AggregateRoot, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 }

@@ -17,7 +17,7 @@ public sealed class GiftCertificate : AggregateRoot, IAuditable
 
     public decimal RemainingValue { get; set; }
 
-    public Guid? IssuedToCustomerId { get; set; }
+    public long? IssuedToCustomerId { get; set; }
 
     public DateOnly IssuedOn { get; set; }
 
@@ -27,9 +27,9 @@ public sealed class GiftCertificate : AggregateRoot, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 }

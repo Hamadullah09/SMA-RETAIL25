@@ -9,7 +9,7 @@ using Retail25.Domain.Terminals;
 namespace Retail25.Application.Terminals;
 
 public sealed record PeripheralStatusDto(
-    Guid StationId,
+    long StationId,
     string? AgentVersion,
     bool ReaderOnline,
     bool PrinterOnline,
@@ -21,7 +21,7 @@ public sealed record PeripheralStatusDto(
 
 /// <summary>An agent checking in. Also how the UI learns that a station's hardware is alive.</summary>
 public sealed record ReportAgentStatusCommand(
-    Guid StationId,
+    long StationId,
     string? AgentVersion,
     bool ReaderOnline,
     bool PrinterOnline,
@@ -32,31 +32,31 @@ public sealed record ReportAgentStatusCommand(
 
 /// <summary>The device profile bundle an agent pulls on connect (doc 06 §7).</summary>
 [RequiresPermission(PermissionKeys.Terminals.Read)]
-public sealed record GetTerminalProfileQuery(Guid StationId) : IRequest<Result<TerminalProfileContract>>;
+public sealed record GetTerminalProfileQuery(long StationId) : IRequest<Result<TerminalProfileContract>>;
 
 /// <summary>Changes how hard the reader is working — off, on demand, or continuous (doc 06 §5).</summary>
 [RequiresPermission(PermissionKeys.Terminals.Operate)]
-public sealed record SetReaderModeCommand(Guid StationId, Domain.Terminals.ReaderMode Mode) : IRequest<Result>;
+public sealed record SetReaderModeCommand(long StationId, Domain.Terminals.ReaderMode Mode) : IRequest<Result>;
 
 /// <summary>
 /// Pops the drawer from the back office or the till UI. Routed through the server rather than the
 /// browser's loopback call so the pop is permission-checked and lands in the drawer ledger.
 /// </summary>
 [RequiresPermission(PermissionKeys.Drawer.Pop)]
-public sealed record OpenStationDrawerCommand(Guid StationId) : IRequest<Result>;
+public sealed record OpenStationDrawerCommand(long StationId) : IRequest<Result>;
 
 [RequiresPermission(PermissionKeys.Terminals.Operate)]
-public sealed record RequestWeightCommand(Guid StationId) : IRequest<Result>;
+public sealed record RequestWeightCommand(long StationId) : IRequest<Result>;
 
 [RequiresPermission(PermissionKeys.Terminals.Operate)]
-public sealed record ZeroScaleCommand(Guid StationId) : IRequest<Result>;
+public sealed record ZeroScaleCommand(long StationId) : IRequest<Result>;
 
 /// <summary>Line 1 and line 2 of the customer-facing display (guide p.80–81).</summary>
 [RequiresPermission(PermissionKeys.Terminals.Operate)]
-public sealed record DisplayOnPoleCommand(Guid StationId, string Line1, string Line2) : IRequest<Result>;
+public sealed record DisplayOnPoleCommand(long StationId, string Line1, string Line2) : IRequest<Result>;
 
 /// <summary>A weight the agent read back, forwarded to whichever browser is driving the till.</summary>
-public sealed record ReportWeightCommand(Guid StationId, decimal Value, string Unit, bool Stable) : IRequest<Result>;
+public sealed record ReportWeightCommand(long StationId, decimal Value, string Unit, bool Stable) : IRequest<Result>;
 
 public sealed class TerminalHandlers
     : IRequestHandler<ReportAgentStatusCommand, Result>,
@@ -188,7 +188,7 @@ public sealed class TerminalHandlers
     /// </summary>
     private static async Task<TProfile?> ResolveAsync<TProfile>(
         IQueryable<TProfile> source,
-        Guid? assignedId,
+        long? assignedId,
         Station station,
         CancellationToken ct)
         where TProfile : class, IStationScopedProfile
@@ -223,7 +223,22 @@ public sealed class TerminalHandlers
             profile.FlushIntervalMs,
             profile.MaxBatchSize,
             profile.AutoAcceptBatches,
-            profile.ContinuousMode);
+            profile.ContinuousMode,
+
+            // The reader's own hardware configuration travels with the rest of the profile, so the
+            // agent applies it on connect without a second round trip. Casts rather than mappings:
+            // both enums are the protocol's wire values, deliberately, so there is nothing to
+            // translate and nothing to get out of step.
+            profile.OutputPowerDbm,
+            (Contracts.Terminals.RadioRegion)profile.Region,
+            profile.FrequencyStartIndex,
+            profile.FrequencyEndIndex,
+            (Contracts.Terminals.RfLinkProfile)profile.LinkProfile,
+            (Contracts.Terminals.BeeperMode)profile.Beeper,
+            profile.AntennaReturnLossThresholdDb,
+            profile.ImpinjFastTid,
+            profile.DenseReaderMode,
+            profile.DeviceAddress);
 
     private static PrinterProfileContract? ToContract(PrinterProfile? profile) => profile is null
         ? null

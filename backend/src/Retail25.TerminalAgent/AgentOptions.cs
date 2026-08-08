@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.ComponentModel.DataAnnotations;
 
 namespace Retail25.TerminalAgent;
@@ -54,7 +55,16 @@ public sealed class AgentOptions
     /// </summary>
     public bool DisablePeripherals { get; set; }
 
-    public Guid StationGuid => Guid.TryParse(StationId, out var id) ? id : Guid.Empty;
+    /// <summary>
+    /// The configured station id as a number, or 0 when it is missing or not a number.
+    /// <para>
+    /// Zero rather than throwing: a till whose configuration file has a typo should log that it is
+    /// unregistered and keep running its local endpoints, not fail to start — the person fixing it
+    /// needs the status page the agent serves.
+    /// </para>
+    /// </summary>
+    public long StationKey =>
+        long.TryParse(StationId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : 0L;
 
     public string ResolveSpoolPath()
     {

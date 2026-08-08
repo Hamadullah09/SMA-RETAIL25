@@ -35,9 +35,13 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
 
         // Soft-deleted rows keep their code — an item can be deleted and its code reused by a new
         // one — so the index has to exclude them or a restore, or the second item, could never exist.
+        //
+        // `[is_deleted] = 0` rather than `NOT is_deleted`: SQL Server's filtered indexes take only
+        // simple comparisons, and a negation is rejected at CREATE INDEX rather than at any point
+        // that would name this line.
         builder.HasIndex(p => new { p.LocationId, p.StockCode })
             .IsUnique()
-            .HasFilter("NOT is_deleted");
+            .HasFilter("[is_deleted] = 0");
 
         builder.Ignore(p => p.DomainEvents);
     }

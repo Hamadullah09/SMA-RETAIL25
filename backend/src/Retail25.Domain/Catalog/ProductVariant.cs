@@ -13,7 +13,7 @@ public sealed class ProductVariant : Entity, IAuditable
     {
     }
 
-    public Guid ProductId { get; private set; }
+    public long ProductId { get; private set; }
 
     /// <summary>Value for dimension 1, e.g. "Red".</summary>
     public string Dim1Value { get; private set; } = string.Empty;
@@ -36,13 +36,13 @@ public sealed class ProductVariant : Entity, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static Result<ProductVariant> Create(Guid productId, string dim1Value, string variantCode, string? dim2Value = null, string? dim3Value = null)
+    public static Result<ProductVariant> Create(long productId, string dim1Value, string variantCode, string? dim2Value = null, string? dim3Value = null)
     {
         if (string.IsNullOrWhiteSpace(dim1Value))
             return Result.Failure<ProductVariant>(new Error("variant.dim_required", "At least dimension 1 is required."));

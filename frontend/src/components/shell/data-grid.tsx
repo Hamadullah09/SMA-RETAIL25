@@ -39,10 +39,11 @@ interface DataGridProps<TRow> {
   gridId: string;
   rows: TRow[];
   columns: DataGridColumn<TRow>[];
-  rowKey: (row: TRow) => string;
+  /** A stable identity per row. Either type: a record key is a number, a synthetic key is a string. */
+  rowKey: (row: TRow) => string | number;
   onRowActivate?: (row: TRow) => void;
   /** Rows changed since the last render, briefly highlighted so a live patch is visible once. */
-  recentlyChanged?: ReadonlySet<string>;
+  recentlyChanged?: ReadonlySet<string | number>;
   emptyMessage?: string;
   /** 32px comfortable, 28px compact (doc 08 §Density over air). */
   rowHeight?: number;
@@ -126,6 +127,72 @@ export function DataGrid<TRow>({
 
   const totalWidth = visibleColumns.reduce((sum, column) => sum + column.width, 0);
 
+  /**
+   * Which row holds the keyboard's place in the grid.
+   *
+   * Null until someone tabs in, at which point the first row becomes the entry point — so a grid
+   * that has never been touched is one tab stop, not one per row.
+   */
+  const [focusedKey, setFocusedKey] = useState<string | number | null>(null);
+
+  useEffect(() => {
+    // The focused row can disappear when a filter changes underneath it.
+    if (focusedKey && !sorted.some((row) => rowKey(row) === focusedKey)) {
+      setFocusedKey(null);
+    }
+  }, [sorted, focusedKey, rowKey]);
+
+  const entryKey = focusedKey ?? (sorted.length > 0 ? rowKey(sorted[0]) : null);
+
+  /**
+   * Arrow keys move, Enter and Space open, Home and End jump.
+   *
+   * The row has to be scrolled into view by the virtualiser before it can take focus — it may not be
+   * in the DOM at all — so the focus call waits a frame.
+   */
+  const onRowKeyDown = (event: React.KeyboardEvent, index: number, row: TRow) => {
+    const move = (to: number) => {
+      const clamped = Math.max(0, Math.min(sorted.length - 1, to));
+
+      event.preventDefault();
+      setFocusedKey(rowKey(sorted[clamped]));
+      virtualizer.scrollToIndex(clamped, { align: 'auto' });
+
+      requestAnimationFrame(() => {
+        const next = scrollRef.current?.querySelector<HTMLElement>(`[aria-rowindex="${clamped + 1}"]`);
+        next?.focus();
+      });
+    };
+
+    switch (event.key) {
+      case 'ArrowDown':
+        move(index + 1);
+        break;
+      case 'ArrowUp':
+        move(index - 1);
+        break;
+      case 'PageDown':
+        move(index + 10);
+        break;
+      case 'PageUp':
+        move(index - 10);
+        break;
+      case 'Home':
+        move(0);
+        break;
+      case 'End':
+        move(sorted.length - 1);
+        break;
+      case 'Enter':
+      case ' ':
+        event.preventDefault();
+        onRowActivate?.(row);
+        break;
+      default:
+        break;
+    }
+  };
+
   const toggleSort = (key: string) => {
     if (sortKey === key) {
       setSortDirection((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -159,11 +226,15 @@ export function DataGrid<TRow>({
   };
 
   return (
-    <div className="pos-panel flex h-full min-h-0 flex-col">
-      <div className="pos-panel-header gap-2">
-        <span>{sorted.length} rows</span>
+    <div
+      role="grid"
+      aria-rowcount={sorted.length}
+      className="pos-panel flex h-full min-h-0 flex-col"
+    >
+      <div className="pos-panel-header">
+        <span className="pos-panel-title">{sorted.length} rows</span>
 
-        <span className="flex items-center gap-2 normal-case">
+        <span className="pos-panel-header-action flex items-center gap-3">
           {views.map((view) => (
             <button key={view.name} type="button" className="underline" onClick={() => applyView(view)}>
               {view.name}
@@ -176,27 +247,42 @@ export function DataGrid<TRow>({
       </div>
 
       <div
-        role="grid"
-        aria-rowcount={sorted.length}
-        className="grid border-b border-[rgb(var(--border))] text-[10px] font-medium uppercase tracking-wide text-[rgb(var(--text-muted))]"
+        role="row"
+        className="grid border-b border-subtle bg-panel-sunken text-label font-medium text-ink-muted"
         style={{ gridTemplateColumns: visibleColumns.map((c) => `${c.width}px`).join(' '), minWidth: totalWidth }}
       >
-        {visibleColumns.map((column) => (
-          <button
-            key={column.key}
-            type="button"
-            onClick={() => toggleSort(column.key)}
-            className={cn('px-2 py-1 text-left', column.numeric && 'text-right')}
-          >
-            {column.header}
-            {sortKey === column.key ? (sortDirection === 'asc' ? ' ↑' : ' ↓') : ''}
-          </button>
-        ))}
+        {visibleColumns.map((column) => {
+          const sorted_ = sortKey === column.key;
+
+          return (
+            <div
+              key={column.key}
+              role="columnheader"
+
+              // Announced rather than left to the arrow glyph, which a screen reader reads as
+              // "up arrow" or skips entirely.
+              aria-sort={sorted_ ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+              className="min-w-0"
+            >
+              <button
+                type="button"
+                onClick={() => toggleSort(column.key)}
+                className={cn(
+                  'flex w-full items-center gap-1 px-2 py-1.5 transition-colors hover:text-ink',
+                  column.numeric ? 'justify-end' : 'justify-start',
+                )}
+              >
+                <span className="truncate">{column.header}</span>
+                {sorted_ ? <span aria-hidden>{sortDirection === 'asc' ? '↑' : '↓'}</span> : null}
+              </button>
+            </div>
+          );
+        })}
       </div>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto" role="rowgroup">
         {sorted.length === 0 ? (
-          <p className="px-3 py-8 text-center text-sm text-[rgb(var(--text-muted))]">{emptyMessage}</p>
+          <p className="px-3 py-12 text-center text-body text-ink-muted">{emptyMessage}</p>
         ) : (
           <div style={{ height: virtualizer.getTotalSize(), position: 'relative', minWidth: totalWidth }}>
             {virtualizer.getVirtualItems().map((virtualRow) => {
@@ -207,9 +293,22 @@ export function DataGrid<TRow>({
                 <div
                   key={key}
                   role="row"
+
+                  // Reachable and openable from the keyboard.
+                  //
+                  // Rows were `onDoubleClick` only — no tabIndex, no Enter handler — so the entire
+                  // back office was unusable without a mouse. Roving focus (only the focused row is
+                  // tabbable) keeps a ten-thousand-row grid from being ten thousand tab stops.
+                  tabIndex={entryKey === key ? 0 : -1}
+                  aria-rowindex={virtualRow.index + 1}
+                  onFocus={() => setFocusedKey(key)}
+                  onClick={() => setFocusedKey(key)}
                   onDoubleClick={() => onRowActivate?.(row)}
+                  onKeyDown={(event) => onRowKeyDown(event, virtualRow.index, row)}
                   className={cn(
-                    'grid items-center border-b border-[rgb(var(--border))] text-sm hover:bg-[rgb(var(--surface))]',
+                    'grid cursor-default items-center border-b border-subtle text-body transition-colors hover:bg-panel-hover',
+                    'focus-visible:relative focus-visible:z-10',
+                    focusedKey === key && 'bg-panel-hover',
                     recentlyChanged?.has(key) && 'pos-settling',
                   )}
                   style={{
@@ -226,7 +325,8 @@ export function DataGrid<TRow>({
                     <div
                       key={column.key}
                       role="gridcell"
-                      className={cn('truncate px-2', column.numeric && 'pos-amount text-right')}
+                      data-numeric={column.numeric ? '' : undefined}
+                      className={cn('truncate px-2', column.numeric && 'text-right')}
                     >
                       {column.render(row)}
                     </div>
@@ -238,8 +338,8 @@ export function DataGrid<TRow>({
         )}
       </div>
 
-      <details className="border-t border-[rgb(var(--border))] px-3 py-1.5 text-xs">
-        <summary className="cursor-pointer text-[rgb(var(--text-muted))]">Columns</summary>
+      <details className="border-t border-subtle px-3 py-1.5 text-label">
+        <summary className="cursor-pointer text-ink-muted">Columns</summary>
         <div className="flex flex-wrap gap-3 pt-2">
           {columns.map((column) => (
             <label key={column.key} className="flex items-center gap-1.5">

@@ -1,8 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Retail25.Domain.Accounting;
 using Retail25.Domain.Catalog;
 using Retail25.Domain.Configuration;
 using Retail25.Domain.Customers;
 using Retail25.Domain.Inventory;
+using Retail25.Domain.Migration;
+using Retail25.Domain.Orders;
 using Retail25.Domain.Purchasing;
 using Retail25.Domain.Receivables;
 using Retail25.Domain.Sales;
@@ -21,6 +24,8 @@ public interface IApplicationDbContext
     // --- Catalog ---
     DbSet<Product> Products { get; }
     DbSet<ProductPrice> ProductPrices { get; }
+
+    DbSet<ProductImage> ProductImages { get; }
     DbSet<PriceBreak> PriceBreaks { get; }
     DbSet<SalePricing> SalePricings { get; }
     DbSet<BonusPricing> BonusPricings { get; }
@@ -60,12 +65,34 @@ public interface IApplicationDbContext
     DbSet<InvoicePayment> InvoicePayments { get; }
     DbSet<ARLedgerEntry> ARLedgerEntries { get; }
     DbSet<GiftCertificate> GiftCertificates { get; }
+    DbSet<GiftCard> GiftCards { get; }
+
+    // --- Orders ---
+    DbSet<CustomerOrder> CustomerOrders { get; }
+    DbSet<CustomerOrderLine> CustomerOrderLines { get; }
+    DbSet<Layaway> Layaways { get; }
+    DbSet<LayawayLine> LayawayLines { get; }
+    DbSet<LayawayPayment> LayawayPayments { get; }
+    DbSet<PriceQuote> PriceQuotes { get; }
+    DbSet<PriceQuoteLine> PriceQuoteLines { get; }
 
     // --- Inventory ---
     DbSet<StockLevel> StockLevels { get; }
     DbSet<StockLedgerEntry> StockLedgerEntries { get; }
     DbSet<StockTransfer> StockTransfers { get; }
+    DbSet<StockTransferLine> StockTransferLines { get; }
     DbSet<StockCount> StockCounts { get; }
+    DbSet<StockCountLine> StockCountLines { get; }
+    DbSet<FiscalYear> FiscalYears { get; }
+    DbSet<SalesHistoryArchive> SalesHistoryArchives { get; }
+
+    // --- Legacy migration ---
+    DbSet<MigrationBatch> MigrationBatches { get; }
+    DbSet<MigrationStagingRow> MigrationStagingRows { get; }
+
+    // --- Accounting sync ---
+    DbSet<SyncLog> SyncLogs { get; }
+    DbSet<ExternalEntityMap> ExternalEntityMaps { get; }
 
     // --- Terminals ---
     DbSet<Station> Stations { get; }
@@ -86,9 +113,11 @@ public interface IApplicationDbContext
     DbSet<StaffProfile> StaffProfiles { get; }
     DbSet<TimeClockEntry> TimeClockEntries { get; }
     DbSet<CommissionRule> CommissionRules { get; }
+    DbSet<CommissionLedgerEntry> CommissionLedgerEntries { get; }
 
     // --- Configuration ---
     DbSet<Location> Locations { get; }
+    DbSet<BrandingAsset> BrandingAssets { get; }
     DbSet<BusinessProfile> BusinessProfiles { get; }
     DbSet<TaxConfiguration> TaxConfigurations { get; }
     DbSet<PosPolicy> PosPolicies { get; }
@@ -100,4 +129,25 @@ public interface IApplicationDbContext
     DbSet<LateChargePolicy> LateChargePolicies { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Writes a validation verdict onto staged rows without loading them.
+    /// <para>
+    /// A method of its own because the row-by-row form does not scale and the scale is the point:
+    /// validating a twenty-thousand-item inventory export means a verdict on twenty thousand rows,
+    /// and doing that through the change tracker is twenty thousand UPDATE statements. That was
+    /// survivable on PostgreSQL, whose driver batched a thousand statements per round trip, and
+    /// took sixteen minutes on SQL Server, which batches tens.
+    /// </para>
+    /// <para>
+    /// <paramref name="rowNumber"/> null means every row in the batch — the "all clear" that runs
+    /// first, before the handful with findings are corrected individually.
+    /// </para>
+    /// </summary>
+    Task SetStagingVerdictAsync(
+        long batchId,
+        int? rowNumber,
+        bool isValid,
+        string? problems,
+        CancellationToken cancellationToken = default);
 }

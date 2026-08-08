@@ -11,7 +11,7 @@ namespace Retail25.Application.Carts.Queries;
 
 /// <summary>Full authoritative cart state. Also what a client calls after a revision gap.</summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record GetCartQuery(Guid CartId) : IRequest<Result<CartDto>>;
+public sealed record GetCartQuery(long CartId) : IRequest<Result<CartDto>>;
 
 /// <summary>
 /// Runs the pricing engine and returns totals without writing anything (doc 05). This is what the
@@ -19,19 +19,19 @@ public sealed record GetCartQuery(Guid CartId) : IRequest<Result<CartDto>>;
 /// configuration it could have been handed.
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record QuoteCartQuery(Guid CartId) : IRequest<Result<CartTotalsDto>>;
+public sealed record QuoteCartQuery(long CartId) : IRequest<Result<CartTotalsDto>>;
 
 /// <summary>The active cart at a station, if there is one. Used when a browser reconnects.</summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record GetStationCartQuery(Guid StationId) : IRequest<Result<CartDto>>;
+public sealed record GetStationCartQuery(long StationId) : IRequest<Result<CartDto>>;
 
 /// <summary>The recall list for a location (guide p.11).</summary>
 [RequiresPermission(PermissionKeys.Pos.Recall)]
-public sealed record ListSuspendedCartsQuery(Guid LocationId) : IRequest<IReadOnlyList<SuspendedCartDto>>;
+public sealed record ListSuspendedCartsQuery(long LocationId) : IRequest<IReadOnlyList<SuspendedCartDto>>;
 
 /// <summary>The station's effective settings, so the till knows how to behave before the first scan.</summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record GetStationPolicyQuery(Guid StationId) : IRequest<Result<StationPolicyDto>>;
+public sealed record GetStationPolicyQuery(long StationId) : IRequest<Result<StationPolicyDto>>;
 
 public sealed class CartQueryHandlers
     : IRequestHandler<GetCartQuery, Result<CartDto>>,

@@ -13,7 +13,7 @@ public sealed class PosPolicy : AggregateRoot, IAuditable
     {
     }
 
-    public Guid LocationId { get; private set; }
+    public long LocationId { get; private set; }
 
     // --- Taxes and charges -------------------------------------------------------------------
 
@@ -76,7 +76,7 @@ public sealed class PosPolicy : AggregateRoot, IAuditable
     // --- Defaults ----------------------------------------------------------------------------
 
     /// <summary>Tender selected when the payment screen opens (p.78).</summary>
-    public Guid? DefaultTenderTypeId { get; private set; }
+    public long? DefaultTenderTypeId { get; private set; }
 
     /// <summary>
     /// Minutes an untouched cart is kept before it is abandoned. Suspended carts are never expired
@@ -86,13 +86,13 @@ public sealed class PosPolicy : AggregateRoot, IAuditable
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static PosPolicy CreateDefault(Guid locationId) => new() { LocationId = locationId };
+    public static PosPolicy CreateDefault(long locationId) => new() { LocationId = locationId };
 
     public void UpdateTaxBehaviour(bool applyTax1, bool applyTax2, bool allowTaxOverride, bool applyAddOnCharge)
     {
@@ -135,7 +135,7 @@ public sealed class PosPolicy : AggregateRoot, IAuditable
         CarryOverCityStateZip = carryOverCityStateZip;
     }
 
-    public void SetDefaultTender(Guid? tenderTypeId) => DefaultTenderTypeId = tenderTypeId;
+    public void SetDefaultTender(long? tenderTypeId) => DefaultTenderTypeId = tenderTypeId;
 
     public void SetAbandonedCartTimeout(int minutes)
         => AbandonedCartTimeoutMinutes = minutes > 0 ? minutes : AbandonedCartTimeoutMinutes;

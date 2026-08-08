@@ -21,7 +21,7 @@ namespace Retail25.Application.Carts.Commands;
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.UnknownItem)]
 public sealed record AddUnknownItemCommand(
-    Guid CartId,
+    long CartId,
     string Description,
     decimal UnitPrice,
     decimal Quantity = 1m,
@@ -29,7 +29,7 @@ public sealed record AddUnknownItemCommand(
     bool Tax2Applies = true,
     bool CreateProduct = false,
     string? StockCode = null,
-    Guid? DepartmentId = null) : IRequest<Result<CartDto>>;
+    long? DepartmentId = null) : IRequest<Result<CartDto>>;
 
 public sealed class AddUnknownItemHandler : IRequestHandler<AddUnknownItemCommand, Result<CartDto>>
 {
@@ -100,7 +100,7 @@ public sealed class AddUnknownItemHandler : IRequestHandler<AddUnknownItemComman
             return Result.Success();
         }, ct);
 
-    private async Task<Result<Product>> GetOrCreatePlaceholderAsync(Guid locationId, CancellationToken ct)
+    private async Task<Result<Product>> GetOrCreatePlaceholderAsync(long locationId, CancellationToken ct)
     {
         var existing = await _db.Products
             .FirstOrDefaultAsync(p => p.LocationId == locationId && p.StockCode == PlaceholderStockCode, ct);
@@ -121,7 +121,7 @@ public sealed class AddUnknownItemHandler : IRequestHandler<AddUnknownItemComman
         return created;
     }
 
-    private async Task<Result<Product>> CreateCatalogueEntryAsync(AddUnknownItemCommand request, Guid locationId, CancellationToken ct)
+    private async Task<Result<Product>> CreateCatalogueEntryAsync(AddUnknownItemCommand request, long locationId, CancellationToken ct)
     {
         var stockCode = string.IsNullOrWhiteSpace(request.StockCode)
             ? await NextGeneratedCodeAsync(locationId, ct)
@@ -158,7 +158,7 @@ public sealed class AddUnknownItemHandler : IRequestHandler<AddUnknownItemComman
     }
 
     /// <summary>A predictable, sortable code so promoted items are easy to find and tidy up later.</summary>
-    private async Task<string> NextGeneratedCodeAsync(Guid locationId, CancellationToken ct)
+    private async Task<string> NextGeneratedCodeAsync(long locationId, CancellationToken ct)
     {
         const string prefix = "NEW";
 

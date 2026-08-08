@@ -28,7 +28,7 @@
     <PackageVersion Include="Microsoft.EntityFrameworkCore" Version="8.0.11" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Relational" Version="8.0.11" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11" />
-    <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
+    <PackageVersion Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.11" />
     <PackageVersion Include="EFCore.NamingConventions" Version="8.0.3" />
     <PackageVersion Include="Microsoft.EntityFrameworkCore.InMemory" Version="8.0.11" />
     <PackageVersion Include="Microsoft.Data.Sqlite" Version="8.0.11" />
@@ -37,6 +37,7 @@
 
   <ItemGroup Label="Identity and auth">
     <PackageVersion Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.11" />
+    <PackageVersion Include="Microsoft.AspNetCore.DataProtection.EntityFrameworkCore" Version="8.0.11" />
     <PackageVersion Include="OpenIddict.AspNetCore" Version="5.8.0" />
     <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="5.8.0" />
     <PackageVersion Include="OpenIddict.Validation.AspNetCore" Version="5.8.0" />
@@ -51,7 +52,7 @@
 
   <ItemGroup Label="Jobs, documents, data">
     <PackageVersion Include="Hangfire.AspNetCore" Version="1.8.15" />
-    <PackageVersion Include="Hangfire.PostgreSql" Version="1.20.10" />
+    <PackageVersion Include="Hangfire.SqlServer" Version="1.8.15" />
     <PackageVersion Include="QuestPDF" Version="2024.10.3" />
     <PackageVersion Include="ZXing.Net" Version="0.16.9" />
     <PackageVersion Include="ClosedXML" Version="0.104.2" />
@@ -65,18 +66,18 @@
     <PackageVersion Include="Serilog.Settings.Configuration" Version="8.0.4" />
     <PackageVersion Include="Serilog.Sinks.Console" Version="6.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.12.0" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.12.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.12.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.17.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.17.0" />
   </ItemGroup>
 
   <ItemGroup Label="API">
     <PackageVersion Include="Swashbuckle.AspNetCore" Version="7.2.0" />
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="8.0.11" />
     <PackageVersion Include="Microsoft.AspNetCore.Diagnostics.HealthChecks" Version="2.2.0" />
-    <PackageVersion Include="AspNetCore.HealthChecks.NpgSql" Version="8.0.2" />
+    <PackageVersion Include="AspNetCore.HealthChecks.SqlServer" Version="8.0.2" />
     <PackageVersion Include="AspNetCore.HealthChecks.Redis" Version="8.0.1" />
   </ItemGroup>
 
@@ -88,10 +89,42 @@
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
     <PackageVersion Include="CsCheck" Version="4.2.0" />
     <PackageVersion Include="NetArchTest.Rules" Version="1.3.2" />
-    <PackageVersion Include="Testcontainers.PostgreSql" Version="4.0.0" />
+    <PackageVersion Include="Testcontainers.MsSql" Version="4.0.0" />
     <PackageVersion Include="Testcontainers.Redis" Version="4.0.0" />
     <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
     <PackageVersion Include="coverlet.collector" Version="6.0.2" />
+  </ItemGroup>
+
+  <ItemGroup Label="Benchmarking">
+    <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
+  </ItemGroup>
+
+  <!--
+    Transitive pins that exist only to clear security advisories. Nothing references these directly;
+    they arrive under Hangfire, SignalR, EF Core and OpenTelemetry, and The scan that found them is
+    `dotnet list package` with the vulnerable and include-transitive switches. (Spelled out in
+    words because an XML comment may not contain a double hyphen, which is how this file broke once
+    already.)
+
+    Each is pinned to the lowest patched version inside its existing major, deliberately. Taking the
+    newest available would mean Newtonsoft 13, SQLitePCLRaw 3 and MessagePack 3 — two major bumps
+    across a serial-port spool and a hub protocol, for no security benefit over these.
+
+    Re-run the scan after touching any of the packages above; a pin that is no longer needed is a
+    version this project is silently holding back for nobody.
+  -->
+  <ItemGroup Label="Security pins (transitive)">
+    <!-- GHSA-5crp-9r3c-p9vr — DoS from deeply nested JSON. Pulled in by Hangfire. -->
+    <PackageVersion Include="Newtonsoft.Json" Version="13.0.3" />
+
+    <!-- GHSA-2m69-gcr7-jv3q — under Microsoft.Data.Sqlite, the agent's offline tag spool. -->
+    <PackageVersion Include="SQLitePCLRaw.lib.e_sqlite3" Version="2.1.12" />
+    <PackageVersion Include="SQLitePCLRaw.bundle_e_sqlite3" Version="2.1.12" />
+    <PackageVersion Include="SQLitePCLRaw.core" Version="2.1.12" />
+    <PackageVersion Include="SQLitePCLRaw.provider.e_sqlite3" Version="2.1.12" />
+
+    <!-- GHSA-4qm4-8hg2-g2xm — SignalR's MessagePack hub protocol. -->
+    <PackageVersion Include="MessagePack" Version="2.5.302" />
   </ItemGroup>
 
 </Project>

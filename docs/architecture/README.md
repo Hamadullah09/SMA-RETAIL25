@@ -6,7 +6,7 @@ self-hosted, web-based enterprise POS + Inventory + AR/AP platform.
 | | |
 |---|---|
 | **Backend** | C# / .NET 8 LTS, Clean Architecture, CQRS via MediatR |
-| **Database** | PostgreSQL 16 + EF Core 8 (explicit migrations) |
+| **Database** | SQL Server 2019+ & EF Core 8 (explicit migrations); migrated from PostgreSQL 16, see [12](12-schema-reference.md) |
 | **Identity** | OpenIddict 5.x + ASP.NET Core Identity, Authorization Code + PKCE |
 | **Realtime** | ASP.NET Core SignalR |
 | **Cache/Debounce** | Redis (StackExchange.Redis) |
@@ -25,10 +25,11 @@ self-hosted, web-based enterprise POS + Inventory + AR/AP platform.
 | 05 | [Application Layer, API & Realtime](05-application-api-realtime.md) | CQRS slices, endpoint map, SignalR hub contracts, domain events, outbox. |
 | 06 | [RFID & Hardware Bridge](06-rfid-and-hardware-bridge.md) | EPC lifecycle, LLRP ingest, Redis debouncing, peripherals, offline queue. |
 | 07 | [Security & Identity](07-security-and-identity.md) | OpenIddict/PKCE flow, BFF cookies, legacy access levels 0–4 → permissions, audit. |
-| 08 | [Frontend & UX](08-frontend-ux.md) | Miller's-Law POS layout, keyboard map, screen inventory, design system rules. |
+| 08 | [Frontend & UX](08-frontend-ux.md) | Miller's-Law POS layout, keyboard map, screen inventory, design tokens, branding and scan feedback. |
 | 09 | [Integration & Data Migration](09-integration-migration.md) | Accounting sync (replaces QB-XML), DBF importer, multi-store replication (replaces FTP). |
 | 10 | [NFRs, Deployment, Testing](10-nfr-deployment-testing.md) | Topology, performance budgets, observability, backup/DR, test strategy. |
 | 11 | [Delivery Roadmap](11-delivery-roadmap.md) | Phases 0–8, exit criteria per phase, risk register. |
+| 12 | [Schema Reference](12-schema-reference.md) | The physical DDL by module, conventions, and the EPC lookup path. Generated companion: [`schema.sql`](schema.sql). |
 
 ## Architectural stance in one page
 
@@ -41,7 +42,7 @@ self-hosted, web-based enterprise POS + Inventory + AR/AP platform.
    sale."* Every sale line stores its resolved price, discount, tax basis and tax amounts as
    immutable snapshot columns. See [04](04-pricing-and-tax-engine.md).
 3. **The cart lives on the server.** RFID reads arrive from a daemon, not a browser. A
-   server-authoritative cart in Redis (with a Postgres write-behind for suspend/recall) is the only
+   server-authoritative cart in Redis (with a SQL Server write-behind for suspend/recall) is the only
    design where bulk reads, multi-station visibility and browser refresh all behave.
 4. **Hardware is isolated behind one process per station.** Browsers cannot open LLRP sockets, COM
    ports or cash drawers. `Retail25.TerminalAgent` owns all of it and speaks only SignalR + a

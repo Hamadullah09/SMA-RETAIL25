@@ -204,7 +204,7 @@ public sealed class SettingsTests
 
         harness.Db.SaleTenders.Add(new SaleTender
         {
-            TransactionId = Guid.NewGuid(),
+            TransactionId = TestIds.Next(),
             TenderTypeId = card.Id,
             Behaviour = TenderBehaviour.Card,
             Amount = 10m,
@@ -277,7 +277,7 @@ public sealed class SettingsTests
         var station = await harness.AddStationAsync("001");
 
         harness.Db.DrawerSessions.Add(
-            DrawerSession.Open(station.Id, harness.Location.Id, Guid.NewGuid(), 200m, harness.Today, harness.Clock.Now).Value);
+            DrawerSession.Open(station.Id, harness.Location.Id, TestIds.Next(), 200m, harness.Today, harness.Clock.Now).Value);
         await harness.Db.SaveChangesAsync();
 
         var result = await harness.Hardware.Handle(new DeactivateStationCommand(station.Id), default);
@@ -295,7 +295,7 @@ public sealed class SettingsTests
             new SavePrinterProfileCommand(
                 harness.Location.Id,
                 new PrinterSettingsDto(
-                    Guid.Empty, null, "Star at counter",
+                    0L, null, "Star at counter",
                     SetupCommand: null, CutterCommand: "27,100,48", RedCommand: null, BlackCommand: null,
                     Port: "COM1", DefaultCopies: 2, PageEject: false, ExtraCopyOnCard: true, InitializeSerial: true,
                     Output: PrinterOutput.Slip40, Columns: 40,
@@ -354,7 +354,7 @@ public sealed class SettingsTests
         using var harness = await MastersTestHarness.CreateAsync();
 
         var saved = await harness.Commerce.Handle(
-            new SaveStaffCommand(harness.Location.Id, null, Guid.NewGuid(), "sk", "Sam", "Kelly", 3, true),
+            new SaveStaffCommand(harness.Location.Id, null, TestIds.Next(), "sk", "Sam", "Kelly", 3, true),
             default);
 
         saved.IsSuccess.Should().BeTrue();
@@ -371,10 +371,10 @@ public sealed class SettingsTests
         using var harness = await MastersTestHarness.CreateAsync();
 
         await harness.Commerce.Handle(
-            new SaveStaffCommand(harness.Location.Id, null, Guid.NewGuid(), "SK", "Sam", "Kelly", 3, true), default);
+            new SaveStaffCommand(harness.Location.Id, null, TestIds.Next(), "SK", "Sam", "Kelly", 3, true), default);
 
         var duplicate = await harness.Commerce.Handle(
-            new SaveStaffCommand(harness.Location.Id, null, Guid.NewGuid(), "sk", "Sue", "King", 2, true), default);
+            new SaveStaffCommand(harness.Location.Id, null, TestIds.Next(), "sk", "Sue", "King", 2, true), default);
 
         // The staff code is what a cashier types at a PIN prompt; two people sharing one makes every
         // attribution on a receipt ambiguous.

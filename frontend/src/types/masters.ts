@@ -39,7 +39,7 @@ export interface CursorPage<T> {
 }
 
 export interface ProductRow {
-  id: string;
+  id: number;
   stockCode: string;
   name: string;
   type: ProductType;
@@ -79,7 +79,7 @@ export interface BonusPricing {
 }
 
 export interface ProductSupplierRow {
-  supplierId: string;
+  supplierId: number;
   supplierName: string;
   rank: number;
   cost: number;
@@ -89,21 +89,21 @@ export interface ProductSupplierRow {
 }
 
 export interface LinkedProduct {
-  id: string;
+  id: number;
   stockCode: string;
   name: string;
 }
 
 export interface KitComponentRow {
-  componentProductId: string;
+  componentProductId: number;
   stockCode: string;
   name: string;
   quantity: number;
 }
 
 export interface ProductForm {
-  id: string;
-  locationId: string;
+  id: number;
+  locationId: number;
   stockCode: string;
   name: string;
   description: string | null;
@@ -126,9 +126,9 @@ export interface ProductForm {
   posMessage: string | null;
   invoiceMessage: string | null;
   notes: string | null;
-  departmentId: string | null;
+  departmentId: number | null;
   departmentName: string | null;
-  categoryId: string | null;
+  categoryId: number | null;
   categoryName: string | null;
   substitute: LinkedProduct | null;
   tagAlong: LinkedProduct | null;
@@ -139,13 +139,14 @@ export interface ProductForm {
   bonus: BonusPricing | null;
   suppliers: ProductSupplierRow[];
   kitComponents: KitComponentRow[];
+  hasImage: boolean;
   isDeleted: boolean;
   createdAt: string;
   modifiedAt: string | null;
 }
 
 export interface ReferenceRow {
-  id: string;
+  id: number;
   name: string;
   code: string | null;
   sortOrder: number;
@@ -174,7 +175,7 @@ export interface ContactDetails {
 export type CustomerSort = 'Number' | 'Name' | 'Company' | 'Balance';
 
 export interface CustomerRow {
-  id: string;
+  id: number;
   customerNumber: number;
   firstName: string;
   lastName: string;
@@ -193,8 +194,8 @@ export interface CustomerRow {
 }
 
 export interface CustomerForm {
-  id: string;
-  locationId: string;
+  id: number;
+  locationId: number;
   customerNumber: number;
   firstName: string;
   lastName: string;
@@ -224,7 +225,7 @@ export interface CustomerForm {
 export type SupplierSort = 'Number' | 'Company';
 
 export interface SupplierRow {
-  id: string;
+  id: number;
   supplierNumber: string;
   company: string;
   contactName: string | null;
@@ -237,8 +238,8 @@ export interface SupplierRow {
 }
 
 export interface SupplierForm {
-  id: string;
-  locationId: string;
+  id: number;
+  locationId: number;
   supplierNumber: string;
   company: string;
   contactFirstName: string | null;
@@ -252,11 +253,255 @@ export interface SupplierForm {
   modifiedAt: string | null;
 }
 
+/** The six legacy PO quantity-calculation methods (guide p.64). */
+export type OrderQuantityStrategy =
+  | 'Blank'
+  | 'OneWeek'
+  | 'TwoWeeks'
+  | 'ReorderPointFixed'
+  | 'ReorderPointToBase'
+  | 'MonthlySales';
+
+export const orderQuantityStrategies: { value: OrderQuantityStrategy; label: string }[] = [
+  { value: 'Blank', label: 'Blank (manual entry)' },
+  { value: 'OneWeek', label: 'One week of sales' },
+  { value: 'TwoWeeks', label: 'Two weeks of sales' },
+  { value: 'ReorderPointFixed', label: 'Reorder point → fixed quantity' },
+  { value: 'ReorderPointToBase', label: 'Reorder point → base stock' },
+  { value: 'MonthlySales', label: 'Trailing monthly sales' },
+];
+
+export type PurchaseOrderStatus = 'Draft' | 'Posted' | 'PartiallyReceived' | 'Received' | 'Closed' | 'Cancelled';
+
+export interface PurchaseOrderRow {
+  id: number;
+  poNumber: number;
+  supplierId: number;
+  supplierCompany: string;
+  status: PurchaseOrderStatus;
+  quantityStrategy: OrderQuantityStrategy;
+  postedOn: string | null;
+  dueOn: string | null;
+  total: number;
+  lineCount: number;
+}
+
+export interface PurchaseOrderLineRow {
+  id: number;
+  productId: number;
+  stockCode: string;
+  productName: string;
+  orderQty: number;
+  caseQty: number;
+  costEach: number;
+  orderCost: number;
+  qtyReceived: number;
+  inStockAtGeneration: number;
+  onOrderAtGeneration: number;
+  backOrders: number;
+}
+
+export interface PurchaseOrderReceiptRow {
+  id: number;
+  receivedOn: string;
+  freightTotal: number;
+  staffId: number;
+}
+
+export type InvoiceStatus = 'Open' | 'Paid' | 'Void';
+
+export interface InvoiceRow {
+  id: number;
+  invoiceNumber: number;
+  issuedOn: string;
+  dueOn: string;
+  invoiceTotal: number;
+  penaltyAccrued: number;
+  balanceDue: number;
+  status: InvoiceStatus;
+  lastPaymentOn: string | null;
+}
+
+export interface CustomerAccountRow {
+  customerId: number;
+  accountNumber: number;
+  customerName: string;
+  creditLimit: number;
+  balanceDue: number;
+  openInvoiceCount: number;
+}
+
+export type AREntryType = 'Charge' | 'Payment' | 'LateCharge' | 'Refund' | 'Void' | 'Adjustment';
+
+export interface ArLedgerEntryRow {
+  id: number;
+  invoiceId: number;
+  entryType: AREntryType;
+  amount: number;
+  occurredAt: string;
+}
+
+export interface CustomerStatement {
+  customerId: number;
+  customerName: string;
+  accountNumber: number;
+  creditLimit: number;
+  balanceDue: number;
+  invoices: InvoiceRow[];
+  ledger: ArLedgerEntryRow[];
+}
+
+export interface GiftCard {
+  id: number;
+  serialNumber: string;
+  originalValue: number;
+  remainingValue: number;
+  issuedToCustomerId: number | null;
+  issuedOn: string;
+  expiresOn: string | null;
+  isActive: boolean;
+}
+
+export interface LoyaltyPolicy {
+  locationId: number;
+  isEnabled: boolean;
+  pointsPerDollar: number;
+  minimumRequired: number;
+  percentEnabled: boolean;
+  rewardPercent: number;
+  fixedEnabled: boolean;
+  rewardFixedAmount: number;
+  suppressIfSubtotalDiscountApplied: boolean;
+}
+
+export interface LoyaltyBalance {
+  customerId: number;
+  customerName: string;
+  rewardPoints: number;
+}
+
+export type LoyaltyEntryType = 'Earned' | 'Redeemed' | 'ReturnClawback' | 'Manual';
+
+export interface LoyaltyLedgerEntryRow {
+  id: number;
+  entryType: LoyaltyEntryType;
+  points: number;
+  occurredAt: string;
+}
+
+export interface ReceivablesAgingRow {
+  customerId: number;
+  customerName: string;
+  current: number;
+  days30: number;
+  days60: number;
+  days90Plus: number;
+  total: number;
+}
+
+export type CustomerOrderStatus = 'Open' | 'PartiallyFilled' | 'Filled' | 'Cancelled';
+
+export interface CustomerOrderLine {
+  id: number;
+  productId: number;
+  stockCode: string;
+  productName: string;
+  orderedQty: number;
+  filledQty: number;
+  unitPrice: number;
+}
+
+export interface CustomerOrder {
+  id: number;
+  orderNumber: number;
+  customerId: number;
+  customerName: string;
+  status: CustomerOrderStatus;
+  orderedOn: string;
+  notes: string | null;
+  lines: CustomerOrderLine[];
+}
+
+export type LayawayStatus = 'Open' | 'PaidInFull' | 'Cancelled';
+
+export interface LayawayLine {
+  id: number;
+  productId: number;
+  stockCode: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface Layaway {
+  id: number;
+  layawayNumber: number;
+  customerId: number;
+  customerName: string;
+  status: LayawayStatus;
+  total: number;
+  amountPaid: number;
+  createdOn: string;
+  lines: LayawayLine[];
+}
+
+export type PriceQuoteStatus = 'Open' | 'Converted' | 'Expired' | 'Cancelled';
+
+export interface PriceQuoteLine {
+  id: number;
+  productId: number;
+  stockCode: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface PriceQuote {
+  id: number;
+  quoteNumber: number;
+  customerId: number;
+  customerName: string;
+  status: PriceQuoteStatus;
+  issuedOn: string;
+  expiresOn: string | null;
+  total: number;
+  lines: PriceQuoteLine[];
+}
+
+export interface StockLevelRow {
+  id: number;
+  stockCode: string;
+  productName: string;
+  onHand: number;
+  onOrder: number;
+  committed: number;
+  available: number;
+  reorderPoint: number;
+  reorderQty: number;
+  avgCost: number;
+}
+
+export interface PurchaseOrderDetail {
+  id: number;
+  poNumber: number;
+  locationId: number;
+  supplierId: number;
+  supplierCompany: string;
+  status: PurchaseOrderStatus;
+  quantityStrategy: OrderQuantityStrategy;
+  headerText: string | null;
+  postedOn: string | null;
+  dueOn: string | null;
+  total: number;
+  lines: PurchaseOrderLineRow[];
+  receipts: PurchaseOrderReceiptRow[];
+}
+
 export type DeletedEntityKind = 'Product' | 'Customer' | 'Supplier' | 'Department' | 'Category';
 
 export interface DeletedRow {
   kind: DeletedEntityKind;
-  id: string;
+  id: number;
   reference: string;
   name: string;
   deletedAt: string | null;
@@ -267,7 +512,7 @@ export interface DeletedRow {
 // --- Settings ------------------------------------------------------------------------------------
 
 export interface BusinessSettings {
-  locationId: string;
+  locationId: number;
   businessName: string;
   address: Address;
   contact: ContactDetails;
@@ -281,7 +526,7 @@ export interface BusinessSettings {
 }
 
 export interface TaxSettings {
-  id: string | null;
+  id: number | null;
   effectiveFrom: string;
   effectiveTo: string | null;
   tax1Enabled: boolean;
@@ -317,25 +562,25 @@ export interface PosSettings {
   printCreditCardSignatureLine: boolean;
   printClientNameOnSalesSlip: boolean;
   carryOverCityStateZip: boolean;
-  defaultTenderTypeId: string | null;
+  defaultTenderTypeId: number | null;
   abandonedCartTimeoutMinutes: number;
 }
 
 export type ReaderMode = 'Off' | 'OnDemand' | 'Continuous';
 
 export interface StationSettings {
-  id: string;
+  id: number;
   stationCode: string;
   name: string | null;
   fastScanMode: boolean | null;
   autoSaveSales: boolean | null;
   confirmBeforeSaving: boolean | null;
   scanRandomWeightBarcodes: boolean | null;
-  defaultTenderTypeId: string | null;
-  printerProfileId: string | null;
-  readerProfileId: string | null;
-  scaleProfileId: string | null;
-  poleDisplayProfileId: string | null;
+  defaultTenderTypeId: number | null;
+  printerProfileId: number | null;
+  readerProfileId: number | null;
+  scaleProfileId: number | null;
+  poleDisplayProfileId: number | null;
   readerMode: ReaderMode;
   isActive: boolean;
   agentVersion: string | null;
@@ -344,8 +589,8 @@ export interface StationSettings {
 }
 
 export interface PrinterSettings {
-  id: string;
-  stationId: string | null;
+  id: number;
+  stationId: number | null;
   name: string;
   setupCommand: string | null;
   cutterCommand: string | null;
@@ -365,8 +610,8 @@ export interface PrinterSettings {
 }
 
 export interface ScaleSettings {
-  id: string;
-  stationId: string | null;
+  id: number;
+  stationId: number | null;
   name: string;
   port: string;
   baudRate: number;
@@ -381,8 +626,8 @@ export interface ScaleSettings {
 }
 
 export interface PoleDisplaySettings {
-  id: string;
-  stationId: string | null;
+  id: number;
+  stationId: number | null;
   name: string;
   port: string;
   baudRate: number;
@@ -397,12 +642,12 @@ export interface PoleDisplaySettings {
 }
 
 export interface ReaderSettings {
-  id: string;
-  stationId: string | null;
+  id: number;
+  stationId: number | null;
   name: string;
   host: string;
   port: number;
-  protocol: 'Llrp' | 'Http' | 'Mqtt' | 'Simulator';
+  protocol: 'Llrp' | 'Http' | 'Mqtt' | 'Simulator' | 'UhfSerial';
   antennaZones: string;
   rssiThresholdDbm: number;
   minimumReadCount: number;
@@ -418,7 +663,7 @@ export interface ReaderSettings {
 export type TenderBehaviour = 'Cash' | 'Card' | 'GiftCard' | 'GiftCertificate' | 'OnAccount' | 'Manual';
 
 export interface TenderSettings {
-  id: string;
+  id: number;
   code: string;
   displayName: string;
   behaviour: TenderBehaviour;
@@ -437,7 +682,7 @@ export interface TenderSettings {
 }
 
 export interface CurrencySettings {
-  id: string;
+  id: number;
   code: string;
   name: string;
   symbol: string;
@@ -461,7 +706,7 @@ export type SequenceKind =
   | 'Transfer';
 
 export interface NumberSequenceSettings {
-  id: string;
+  id: number;
   kind: SequenceKind;
   prefix: string;
   padWidth: number;
@@ -471,7 +716,7 @@ export interface NumberSequenceSettings {
 }
 
 export interface PricingRuleSettings {
-  id: string;
+  id: number;
   ruleKey: string;
   order: number;
   enabled: boolean;
@@ -479,8 +724,8 @@ export interface PricingRuleSettings {
 }
 
 export interface StaffSettings {
-  id: string;
-  userId: string;
+  id: number;
+  userId: number;
   staffCode: string;
   firstName: string;
   lastName: string;
@@ -512,7 +757,7 @@ export interface SettingsSnapshot {
 export type TransactionStatus = 'Completed' | 'Voided' | 'Reversal' | 'Suspended';
 
 export interface SalesLogRow {
-  id: string;
+  id: number;
   transactionNumber: number;
   completedAt: string;
   businessDate: string;
@@ -559,7 +804,7 @@ export interface SaleDetailTender {
 }
 
 export interface SaleDetail {
-  id: string;
+  id: number;
   transactionNumber: number;
   completedAt: string;
   status: TransactionStatus;
@@ -577,8 +822,8 @@ export interface SaleDetail {
   addOnCharge: number;
   grandTotal: number;
   changeGiven: number;
-  reversesTransactionId: string | null;
-  voidedByTransactionId: string | null;
+  reversesTransactionId: number | null;
+  voidedByTransactionId: number | null;
   voidReason: string | null;
 }
 
@@ -595,15 +840,15 @@ export type AuditAction =
   | 'StepUpDenied';
 
 export interface AuditLogRow {
-  id: string;
+  id: number;
   occurredAt: string;
   action: AuditAction;
   actorName: string | null;
-  actorStaffId: string | null;
-  stationId: string | null;
+  actorStaffId: number | null;
+  stationId: number | null;
   ipAddress: string | null;
   entityType: string;
-  entityId: string | null;
+  entityId: number | null;
   operation: string | null;
   beforeJson: string | null;
   afterJson: string | null;
@@ -626,7 +871,7 @@ export interface MatrixDimension {
 }
 
 export interface ProductVariant {
-  id: string;
+  id: number;
   variantCode: string;
   dim1Value: string;
   dim2Value: string | null;
@@ -637,9 +882,638 @@ export interface ProductVariant {
 }
 
 export interface Matrix {
-  productId: string;
+  productId: number;
   stockCode: string;
   name: string;
   dimensions: MatrixDimension[];
   variants: ProductVariant[];
+}
+
+// ---------------------------------------------------------------------------------------------
+// Reports (guide p.15–27, p.56, p.83–84)
+// ---------------------------------------------------------------------------------------------
+
+export type SalesAnalysisGroupBy = 'Product' | 'Department' | 'Client' | 'Day' | 'Week' | 'Month';
+
+export interface SalesAnalysisFilters {
+  locationId: number;
+  from: string;
+  to: string;
+  groupBy?: SalesAnalysisGroupBy;
+  departmentId?: number;
+  productId?: number;
+  customerId?: number;
+  includeVoided?: boolean;
+  top?: number;
+  sortBy?: string;
+}
+
+export interface SalesAnalysisRow {
+  groupKey: string;
+  groupLabel: string;
+  quantity: number;
+  netSales: number;
+  discountTotal: number;
+  taxTotal: number;
+  /** Null when the caller lacks cost visibility — the server omits it, the client does not hide it. */
+  cogs: number | null;
+  grossMargin: number | null;
+  grossMarginPct: number | null;
+  transactionCount: number;
+}
+
+export interface SalesAnalysisResult {
+  rows: SalesAnalysisRow[];
+  grandQuantity: number;
+  grandNetSales: number;
+  grandCogs: number | null;
+  grandGrossMargin: number | null;
+}
+
+export interface TaxReportRow {
+  taxName: string;
+  rate: number;
+  taxableBase: number;
+  taxCollected: number;
+  transactionCount: number;
+}
+
+export interface TaxReportResult {
+  rows: TaxReportRow[];
+  totalTaxCollected: number;
+  totalNetSales: number;
+  registrationNumber: string | null;
+}
+
+export interface StockValuationRow {
+  departmentId: number | null;
+  departmentName: string;
+  productCount: number;
+  unitsOnHand: number;
+  costValue: number;
+  retailValue: number;
+  potentialMargin: number;
+}
+
+export interface StockValuationResult {
+  rows: StockValuationRow[];
+  totalUnits: number;
+  totalCostValue: number;
+  totalRetailValue: number;
+}
+
+export interface StockValuationDetailRow {
+  productId: number;
+  stockCode: string;
+  name: string;
+  departmentName: string;
+  onHand: number;
+  avgCost: number;
+  extendedCost: number;
+  regularPrice: number;
+  extendedRetail: number;
+}
+
+export interface StockValuationDetailPage {
+  rows: StockValuationDetailRow[];
+  totalCount: number;
+}
+
+export type StockPositionKind = 'Normal' | 'Understock' | 'Overstock';
+
+export interface StockPositionRow {
+  productId: number;
+  stockCode: string;
+  name: string;
+  departmentName: string;
+  onHand: number;
+  onOrder: number;
+  reorderPoint: number;
+  baseStock: number;
+  avgWeeklySales: number;
+  weeksOfSupply: number;
+  position: StockPositionKind;
+}
+
+export interface OnOrderRow {
+  productId: number;
+  stockCode: string;
+  name: string;
+  supplierName: string;
+  poNumber: number;
+  orderQty: number;
+  qtyReceived: number;
+  qtyOutstanding: number;
+  costEach: number;
+  expectedValue: number;
+  postedOn: string | null;
+  dueOn: string | null;
+}
+
+export interface StockReceivedRow {
+  occurredAt: string;
+  poNumber: number | null;
+  supplierName: string;
+  stockCode: string;
+  productName: string;
+  qtyReceived: number;
+  unitCost: number;
+  extendedCost: number;
+  receiptFreightTotal: number;
+}
+
+export interface StockReceivedPage {
+  rows: StockReceivedRow[];
+  totalCount: number;
+  totalCost: number;
+}
+
+export interface RewardPointsRow {
+  customerId: number;
+  customerName: string;
+  earned: number;
+  redeemed: number;
+  adjusted: number;
+  netChange: number;
+  currentBalance: number;
+}
+
+export interface RewardPointsResult {
+  rows: RewardPointsRow[];
+  totalEarned: number;
+  totalRedeemed: number;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Accounting sync (doc 09 §1)
+// ---------------------------------------------------------------------------------------------
+
+export type SyncEntityName = 'Customers' | 'Items' | 'Vendors' | 'Invoices' | 'PosRevenue' | 'Bill';
+
+export interface SyncRunOptions {
+  businessDate?: string;
+  purchaseOrderId?: number;
+  dueOn?: string;
+}
+
+export interface SyncRunResult {
+  success: boolean;
+  recordCount: number;
+  error: string | null;
+  output: string | null;
+}
+
+export interface PreflightCheck {
+  requirement: string;
+  satisfied: boolean;
+  detail: string;
+}
+
+export interface PreflightReport {
+  checks: PreflightCheck[];
+  ready: boolean;
+}
+
+export interface SyncLogRow {
+  id: number;
+  provider: string;
+  direction: 'Push' | 'Pull';
+  entity: string;
+  status: 'Success' | 'Failed';
+  recordCount: number;
+  errorMessage: string | null;
+  occurredAt: string;
+  durationMs: number;
+}
+
+export interface SyncLogPage {
+  rows: SyncLogRow[];
+  totalCount: number;
+}
+
+/** The full attempt — the modern "Last QB Request / Last QB Response" (guide p.111). */
+export interface SyncLogDetail extends SyncLogRow {
+  requestPayload: string | null;
+  responsePayload: string | null;
+}
+
+export interface ExternalMapRow {
+  id: number;
+  entityType: string;
+  localId: number | null;
+  localKey: string | null;
+  remoteId: string;
+  remoteName: string | null;
+  lastSyncedAt: string | null;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Printable documents (guide App. L)
+ * ------------------------------------------------------------------------------------------- */
+
+/** The label stocks the server knows how to lay out. Names match the backend enum exactly. */
+export type LabelStock = 'Avery5160' | 'Avery8160' | 'Avery8163' | 'S644N';
+
+/** One stock, as the picker shows it — the server owns the description on the box. */
+export interface LabelStockOption {
+  value: LabelStock;
+  label: string;
+}
+
+export interface LabelRequestLine {
+  productId: number;
+  copies: number;
+}
+
+export interface PrintLabelsRequest {
+  locationId: number;
+  lines: LabelRequestLine[];
+  stock: LabelStock;
+  showBarcode: boolean;
+  /** Labels already peeled off a part-used sheet, so printing resumes rather than wasting them. */
+  skipLabels: number;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Bulk operations (guide p.20–22, p.45)
+ * ------------------------------------------------------------------------------------------- */
+
+export type BulkPriceTarget = 'RegularPrice' | 'LastCost';
+export type BulkAdjustMethod = 'Percentage' | 'FixedAmount' | 'SetTo' | 'MarkupOnCost';
+export type PriceRounding = 'None' | 'NearestCent' | 'EndsIn99' | 'EndsIn95' | 'WholeNumber';
+
+/** Which items a batch operation touches. Everything null means every item at the location. */
+export interface BulkFilter {
+  locationId: number;
+  departmentId?: number | null;
+  categoryId?: number | null;
+  supplierId?: number | null;
+  search?: string | null;
+  type?: ProductType | null;
+}
+
+export interface BulkPricePreviewRow {
+  productId: number;
+  stockCode: string;
+  name: string;
+  current: number;
+  proposed: number;
+  avgCost: number;
+  proposedMarginPct: number;
+}
+
+export interface BulkPricePreview {
+  rows: BulkPricePreviewRow[];
+  /** How many items the filter matches — not how many rows came back. */
+  matchedCount: number;
+  shownCount: number;
+  wouldGoNegative: number;
+}
+
+export type TransferStatus = 'Draft' | 'InTransit' | 'Received' | 'Cancelled';
+
+export interface TransferLine {
+  id: number;
+  productId: number;
+  stockCode: string;
+  productName: string;
+  quantity: number;
+  quantityReceived: number;
+  outstanding: number;
+  unitCost: number;
+  sourceOnHand: number;
+}
+
+export interface Transfer {
+  id: number;
+  transferNumber: number;
+  fromLocationId: number;
+  fromLocationName: string;
+  toLocationId: number;
+  toLocationName: string;
+  status: TransferStatus;
+  notes: string | null;
+  shippedAt: string | null;
+  receivedAt: string | null;
+  totalValue: number;
+  lines: TransferLine[];
+}
+
+export interface TransferRow {
+  id: number;
+  transferNumber: number;
+  fromLocationName: string;
+  toLocationName: string;
+  status: TransferStatus;
+  lineCount: number;
+  totalValue: number;
+  shippedAt: string | null;
+  createdAt: string;
+}
+
+export type StockCountStatus = 'InProgress' | 'Posted' | 'Cancelled';
+
+export interface StockCountLine {
+  id: number;
+  productId: number;
+  stockCode: string;
+  productName: string;
+  countedQty: number;
+  systemQtyAtCount: number;
+  variance: number;
+  unitCost: number;
+  varianceValue: number;
+  notes: string | null;
+}
+
+export interface StockCount {
+  id: number;
+  countNumber: number;
+  locationId: number;
+  departmentId: number | null;
+  departmentName: string | null;
+  status: StockCountStatus;
+  notes: string | null;
+  postedAt: string | null;
+  createdAt: string;
+  /** Totals describe the whole count, not the filtered view of it. */
+  lineCount: number;
+  varianceCount: number;
+  netVarianceValue: number;
+  lines: StockCountLine[];
+}
+
+export interface StockCountRow {
+  id: number;
+  countNumber: number;
+  status: StockCountStatus;
+  departmentName: string | null;
+  lineCount: number;
+  varianceCount: number;
+  netVarianceValue: number;
+  postedAt: string | null;
+  createdAt: string;
+}
+
+/** What an import did — the skipped list is what makes a bad file diagnosable. */
+export interface CountImportResult {
+  imported: number;
+  updated: number;
+  skipped: string[];
+}
+
+export interface TransferDestination {
+  id: number;
+  code: string;
+  name: string;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Staff, the time clock and commissions (guide p.33, p.75–76)
+ * ------------------------------------------------------------------------------------------- */
+
+export type CommissionType = 'Percentage' | 'Fixed' | 'PercentOfProfit';
+
+export interface StaffRow {
+  id: number;
+  staffCode: string;
+  fullName: string;
+  /** Legacy 0–4. Level 0 is the trainee preset, whose sales are practice. */
+  accessLevel: number;
+  isActive: boolean;
+  isClockedIn: boolean;
+  clockedInAt: string | null;
+}
+
+export interface TimeClockState {
+  entryId: number | null;
+  staffId: number;
+  staffName: string;
+  isClockedIn: boolean;
+  clockedInAt: string | null;
+  /** Hours on the shift currently running. Zero when clocked out. */
+  hoursSoFar: number;
+  /** Today's total, including the shift still running. */
+  hoursToday: number;
+}
+
+export interface TimeClockEntry {
+  id: number;
+  staffId: number;
+  staffName: string;
+  clockIn: string;
+  clockOut: string | null;
+  hoursWorked: number | null;
+}
+
+export interface CommissionRule {
+  id: number;
+  staffId: number;
+  productId: number | null;
+  productName: string | null;
+  departmentId: number | null;
+  departmentName: string | null;
+  commissionType: CommissionType;
+  value: number;
+  maxCommission: number | null;
+  isActive: boolean;
+}
+
+export interface HoursRow {
+  staffId: number;
+  staffCode: string;
+  staffName: string;
+  shifts: number;
+  hoursWorked: number;
+  /** Shifts with no clock-out. Their hours are deliberately not counted. */
+  openShifts: number;
+  firstIn: string | null;
+  lastOut: string | null;
+}
+
+export interface HoursReportResult {
+  rows: HoursRow[];
+  totalHours: number;
+  totalShifts: number;
+  totalOpenShifts: number;
+}
+
+export interface CommissionRow {
+  staffId: number;
+  staffCode: string;
+  staffName: string;
+  lines: number;
+  salesNet: number;
+  commission: number;
+  cappedLines: number;
+}
+
+export interface CommissionDetailRow {
+  transactionId: number;
+  transactionNumber: number;
+  businessDate: string;
+  stockCode: string;
+  quantity: number;
+  lineNet: number;
+  commissionType: CommissionType;
+  rateApplied: number;
+  amount: number;
+  wasCapped: boolean;
+}
+
+export interface CommissionReportResult {
+  rows: CommissionRow[];
+  detail: CommissionDetailRow[];
+  totalCommission: number;
+  totalSalesNet: number;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Fiscal years and the year-end close (guide p.29)
+ * ------------------------------------------------------------------------------------------- */
+
+export type FiscalYearStatus = 'Open' | 'Closed';
+
+export interface FiscalYear {
+  id: number;
+  locationId: number;
+  year: number;
+  startsOn: string;
+  endsOn: string;
+  status: FiscalYearStatus;
+  closedAt: string | null;
+  archivedRows: number;
+  archivedNetSales: number;
+  notes: string | null;
+}
+
+/** What a close would do, or did — the same shape either way so the two are comparable. */
+export interface FiscalYearCloseResult {
+  year: number;
+  wasDryRun: boolean;
+  archiveRows: number;
+  productsCheckpointed: number;
+  netSales: number;
+  costOfGoodsSold: number;
+  grossMargin: number;
+  transactionsCovered: number;
+  warnings: string[];
+}
+
+export interface ArchiveRow {
+  year: number;
+  month: number;
+  stockCode: string;
+  name: string;
+  quantitySold: number;
+  netSales: number;
+  costOfGoodsSold: number;
+  grossMargin: number;
+  transactionCount: number;
+}
+
+/* ---------------------------------------------------------------------------------------------
+ * Legacy migration (doc 09 §3)
+ * ------------------------------------------------------------------------------------------- */
+
+export type MigrationStage = 'Staged' | 'Validated' | 'DryRun' | 'Imported' | 'Cancelled';
+export type FindingSeverity = 'Warning' | 'Blocking';
+
+/** One legacy file type, with the field order the guide documents for it. */
+export interface LegacySourceKind {
+  entity: string;
+  displayName: string;
+  guideReference: string;
+  columns: string[];
+  requiresBase64: boolean;
+}
+
+export interface MigrationBatch {
+  id: number;
+  sourceFileName: string;
+  entity: string;
+  sourceHash: string;
+  stage: MigrationStage;
+  rowsStaged: number;
+  rowsDeletedInSource: number;
+  blockingErrors: number;
+  warnings: number;
+  rowsImported: number;
+  rowsSkipped: number;
+  /** Only true after a dry run that found nothing blocking. */
+  canImport: boolean;
+  validatedAt: string | null;
+  dryRunAt: string | null;
+  importedAt: string | null;
+  createdAt: string;
+}
+
+export interface ColumnProfile {
+  name: string;
+  populated: number;
+  empty: number;
+  distinctValues: number;
+  shortestValue: string | null;
+  longestValue: string | null;
+  samples: string[];
+}
+
+export interface AnalysisReport {
+  sourceFileName: string;
+  format: string;
+  detectedLayout: string;
+  guideReference: string;
+  rowCount: number;
+  deletedRowCount: number;
+  columnCount: number;
+  columns: ColumnProfile[];
+  notes: string[];
+}
+
+/** Every finding names its row and column, so nobody has to count lines in Notepad. */
+export interface ValidationFinding {
+  rowNumber: number;
+  column: string | null;
+  severity: FindingSeverity;
+  code: string;
+  message: string;
+  value: string | null;
+}
+
+export interface StagingRow {
+  rowNumber: number;
+  legacyKey: string | null;
+  isDeletedInSource: boolean;
+  isValid: boolean | null;
+  problems: string | null;
+  outcome: string | null;
+  values: Record<string, string | null>;
+}
+
+export interface ReconciliationLine {
+  measure: string;
+  imported: number;
+  /** What the old system's own report said. Null when nothing was given to compare against. */
+  legacyReported: number | null;
+  variance: number | null;
+  matches: boolean;
+}
+
+export interface ReconciliationReport {
+  entity: string;
+  rowsConsidered: number;
+  rowsWouldImport: number;
+  rowsWouldSkip: number;
+  lines: ReconciliationLine[];
+  warnings: string[];
+}
+
+/** Typed in off the old system's printout — there is no way to derive these. */
+export interface LegacyControlTotals {
+  itemCount?: number | null;
+  inventoryValue?: number | null;
+  receivablesBalance?: number | null;
+  yearToDateSales?: number | null;
+  customerCount?: number | null;
+  supplierCount?: number | null;
 }

@@ -1,6 +1,8 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Retail25.Application.Abstractions;
+using Retail25.Infrastructure.Identity;
 
 namespace Retail25.Infrastructure.Realtime;
 
@@ -12,26 +14,29 @@ namespace Retail25.Infrastructure.Realtime;
 /// in the shop should see, such as a cart being suspended.
 /// </para>
 /// </summary>
-[Authorize]
+[Authorize(Policy = IdentityRegistration.HubAuthorizationPolicy)]
 public sealed class PosHub : Hub
 {
     private readonly ICartStore _cartStore;
 
     public PosHub(ICartStore cartStore) => _cartStore = cartStore;
 
-    public Task JoinStation(string stationId)
+    // Ids are numbers on the wire since the integer re-key: a string parameter here makes SignalR
+    // refuse the invocation outright ("Error binding arguments"), which the till shows as a server
+    // that never comes online.
+    public Task JoinStation(long stationId)
         => Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Station(stationId));
 
-    public Task LeaveStation(string stationId)
+    public Task LeaveStation(long stationId)
         => Groups.RemoveFromGroupAsync(Context.ConnectionId, PosGroups.Station(stationId));
 
-    public Task JoinLocation(string locationId)
+    public Task JoinLocation(long locationId)
         => Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Location(locationId));
 
-    public Task JoinCart(string cartId)
+    public Task JoinCart(long cartId)
         => Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Cart(cartId));
 
-    public Task LeaveCart(string cartId)
+    public Task LeaveCart(long cartId)
         => Groups.RemoveFromGroupAsync(Context.ConnectionId, PosGroups.Cart(cartId));
 
     /// <summary>
@@ -39,14 +44,9 @@ public sealed class PosHub : Hub
     /// revision rather than the whole cart keeps the round trip cheap; the client then fetches state
     /// over HTTP only if it is genuinely behind.
     /// </summary>
-    public async Task RequestCartResync(string cartId, int knownRevision)
+    public async Task RequestCartResync(long cartId, int knownRevision)
     {
-        if (!Guid.TryParse(cartId, out var id))
-        {
-            return;
-        }
-
-        var snapshot = await _cartStore.GetAsync(id, Context.ConnectionAborted);
+        var snapshot = await _cartStore.GetAsync(cartId, Context.ConnectionAborted);
 
         await Clients.Caller.SendAsync(
             "CartResyncRequired",
@@ -62,15 +62,15 @@ public static class PosGroups
 {
     public static string Station(string stationId) => $"station:{stationId}";
 
-    public static string Station(Guid stationId) => Station(stationId.ToString());
+    public static string Station(long stationId) => Station(stationId.ToString(CultureInfo.InvariantCulture));
 
     public static string Location(string locationId) => $"location:{locationId}";
 
-    public static string Location(Guid locationId) => Location(locationId.ToString());
+    public static string Location(long locationId) => Location(locationId.ToString(CultureInfo.InvariantCulture));
 
     public static string Cart(string cartId) => $"cart:{cartId}";
 
-    public static string Cart(Guid cartId) => Cart(cartId.ToString());
+    public static string Cart(long cartId) => Cart(cartId.ToString(CultureInfo.InvariantCulture));
 
     public static string Grid(string entity, string filterHash) => $"grid:{entity}:{filterHash}";
 }
@@ -80,7 +80,7 @@ public static class PosGroups
 /// browse windows go stale over a network (guide p.100–101): grids subscribe to their filter and
 /// receive row-level patches instead of polling.
 /// </summary>
-[Authorize]
+[Authorize(Policy = IdentityRegistration.HubAuthorizationPolicy)]
 public sealed class InventoryHub : Hub
 {
     public Task SubscribeToGrid(string entity, string filterHash)
@@ -89,6 +89,6 @@ public sealed class InventoryHub : Hub
     public Task UnsubscribeFromGrid(string entity, string filterHash)
         => Groups.RemoveFromGroupAsync(Context.ConnectionId, PosGroups.Grid(entity, filterHash));
 
-    public Task JoinLocation(string locationId)
+    public Task JoinLocation(long locationId)
         => Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Location(locationId));
 }

@@ -20,7 +20,7 @@ internal static class GoldenCaseBuilder
 {
     public static (IReadOnlyList<LineInput> Lines, IReadOnlyList<AdjustmentInput> Adjustments, PricingContext Context) Build(GoldenCase golden)
     {
-        var locationId = Guid.NewGuid();
+        var locationId = TestIds.Next();
         var businessDate = DateOnly.Parse(golden.Context.BusinessDate, CultureInfo.InvariantCulture);
 
         var tax = BuildTax(golden.Context.Tax, locationId, businessDate);
@@ -30,7 +30,7 @@ internal static class GoldenCaseBuilder
         var rounding = BuildRounding(golden.Context.Rounding);
 
         var saleOverride = golden.Context.SaleTaxOverride is { } o
-            ? CartTaxOverride.Create(Guid.NewGuid(), o.Tax1, o.Tax2, o.AppliesFromSequence, Guid.NewGuid(), DateTimeOffset.UnixEpoch)
+            ? CartTaxOverride.Create(TestIds.Next(), o.Tax1, o.Tax2, o.AppliesFromSequence, TestIds.Next(), DateTimeOffset.UnixEpoch)
             : null;
 
         var context = new PricingContext(
@@ -52,7 +52,7 @@ internal static class GoldenCaseBuilder
         return (lines, adjustments, context);
     }
 
-    private static TaxConfiguration BuildTax(GoldenTax golden, Guid locationId, DateOnly businessDate)
+    private static TaxConfiguration BuildTax(GoldenTax golden, long locationId, DateOnly businessDate)
         => TaxConfiguration.Create(
             locationId,
             businessDate.AddYears(-1),
@@ -70,7 +70,7 @@ internal static class GoldenCaseBuilder
             golden.Inclusive ? TaxationType.Inclusive : TaxationType.Exclusive,
             null).Value;
 
-    private static PosPolicy BuildPolicy(GoldenPolicy golden, Guid locationId)
+    private static PosPolicy BuildPolicy(GoldenPolicy golden, long locationId)
     {
         var policy = PosPolicy.CreateDefault(locationId);
         policy.UpdateTaxBehaviour(golden.ApplyTax1, golden.ApplyTax2, golden.AllowTaxOverride, golden.ApplyAddOnCharge);
@@ -85,7 +85,7 @@ internal static class GoldenCaseBuilder
             return null;
         }
 
-        var profile = CustomerPricingProfile.Create(Guid.NewGuid());
+        var profile = CustomerPricingProfile.Create(TestIds.Next());
         profile.PriceLevel = golden.PriceLevel;
         profile.UsualDiscountPct = golden.UsualDiscountPct;
         profile.ExemptTax1 = golden.ExemptTax1;
@@ -94,7 +94,7 @@ internal static class GoldenCaseBuilder
         return profile;
     }
 
-    private static LoyaltyPolicy? BuildLoyalty(GoldenLoyalty? golden, Guid locationId)
+    private static LoyaltyPolicy? BuildLoyalty(GoldenLoyalty? golden, long locationId)
         => golden is null
             ? null
             : new LoyaltyPolicy
@@ -115,7 +115,7 @@ internal static class GoldenCaseBuilder
             ? MoneyRounding.Retail
             : new MoneyRounding(golden.Scale, MidpointRounding.AwayFromZero, golden.MinimumTender);
 
-    private static LineInput BuildLine(GoldenLine golden, int sequence, Guid locationId)
+    private static LineInput BuildLine(GoldenLine golden, int sequence, long locationId)
     {
         var product = Product.Create(
             locationId,
@@ -149,7 +149,6 @@ internal static class GoldenCaseBuilder
             : null;
 
         return new LineInput(
-            Guid.NewGuid(),
             sequence,
             product,
             null,

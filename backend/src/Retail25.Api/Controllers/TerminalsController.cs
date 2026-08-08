@@ -23,40 +23,59 @@ public sealed class TerminalsController : ControllerBase
     public TerminalsController(ISender sender) => _sender = sender;
 
     /// <summary>The station's effective POS settings, after station overrides are folded over policy.</summary>
-    [HttpGet("{stationId:guid}/policy")]
-    public async Task<IActionResult> Policy(Guid stationId)
+    [HttpGet("{stationId:long}/policy")]
+    public async Task<IActionResult> Policy(long stationId)
         => (await _sender.Send(new GetStationPolicyQuery(stationId))).ToActionResult(this);
 
     /// <summary>The device profile bundle the agent pulls on connect (doc 06 §7).</summary>
-    [HttpGet("{stationId:guid}/profile")]
-    public async Task<IActionResult> Profile(Guid stationId)
+    [HttpGet("{stationId:long}/profile")]
+    public async Task<IActionResult> Profile(long stationId)
         => (await _sender.Send(new GetTerminalProfileQuery(stationId))).ToActionResult(this);
 
-    [HttpPut("{stationId:guid}/reader-mode")]
-    public async Task<IActionResult> SetReaderMode(Guid stationId, [FromBody] ReaderModeRequest request)
+    // --- RFID reader configuration -----------------------------------------------------------
+    //
+    // Everything the vendor's Windows demo can set, set from here instead. The point is not to
+    // replace a tool that works: it is that a reader configured by hand is configured on one device,
+    // and a shop that swaps a failed unit for a spare then has a till nobody can explain. These
+    // settings live in the database, and the agent pushes them into whatever hardware it finds.
+
+    [HttpGet("readers")]
+    public async Task<IActionResult> Readers([FromQuery] long locationId)
+        => Ok(await _sender.Send(new ListReaderProfilesQuery(locationId)));
+
+    [HttpGet("readers/{id:long}")]
+    public async Task<IActionResult> Reader(long id)
+        => (await _sender.Send(new GetReaderProfileQuery(id))).ToActionResult(this);
+
+    [HttpPut("readers/{id:long}")]
+    public async Task<IActionResult> UpdateReader(long id, [FromBody] UpdateReaderProfileCommand request)
+        => (await _sender.Send(request with { Id = id })).ToActionResult(this);
+
+    [HttpPut("{stationId:long}/reader-mode")]
+    public async Task<IActionResult> SetReaderMode(long stationId, [FromBody] ReaderModeRequest request)
         => (await _sender.Send(new SetReaderModeCommand(stationId, request.Mode))).ToActionResult(this);
 
-    [HttpPost("{stationId:guid}/drawer/open")]
-    public async Task<IActionResult> OpenDrawer(Guid stationId)
+    [HttpPost("{stationId:long}/drawer/open")]
+    public async Task<IActionResult> OpenDrawer(long stationId)
         => (await _sender.Send(new OpenStationDrawerCommand(stationId))).ToActionResult(this);
 
     /// <summary>Asks the scale for a weight; the answer arrives over SignalR as <c>WeightReported</c>.</summary>
-    [HttpPost("{stationId:guid}/scale/weight")]
-    public async Task<IActionResult> RequestWeight(Guid stationId)
+    [HttpPost("{stationId:long}/scale/weight")]
+    public async Task<IActionResult> RequestWeight(long stationId)
         => (await _sender.Send(new RequestWeightCommand(stationId))).ToActionResult(this);
 
-    [HttpPost("{stationId:guid}/scale/zero")]
-    public async Task<IActionResult> ZeroScale(Guid stationId)
+    [HttpPost("{stationId:long}/scale/zero")]
+    public async Task<IActionResult> ZeroScale(long stationId)
         => (await _sender.Send(new ZeroScaleCommand(stationId))).ToActionResult(this);
 
-    [HttpPost("{stationId:guid}/pole-display")]
-    public async Task<IActionResult> DisplayPole(Guid stationId, [FromBody] PoleDisplayRequest request)
+    [HttpPost("{stationId:long}/pole-display")]
+    public async Task<IActionResult> DisplayPole(long stationId, [FromBody] PoleDisplayRequest request)
         => (await _sender.Send(new DisplayOnPoleCommand(stationId, request.Line1, request.Line2))).ToActionResult(this);
 
     /// <summary>Agent heartbeat over HTTP, for agents that cannot hold a hub connection open.</summary>
     [AllowAnonymous]
-    [HttpPost("{stationId:guid}/status")]
-    public async Task<IActionResult> ReportStatus(Guid stationId, [FromBody] AgentStatusRequest request)
+    [HttpPost("{stationId:long}/status")]
+    public async Task<IActionResult> ReportStatus(long stationId, [FromBody] AgentStatusRequest request)
         => (await _sender.Send(new ReportAgentStatusCommand(
             stationId,
             request.AgentVersion,

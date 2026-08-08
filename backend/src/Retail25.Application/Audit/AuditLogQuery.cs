@@ -7,12 +7,12 @@ using Retail25.Domain.Security;
 namespace Retail25.Application.Audit;
 
 public sealed record AuditLogRow(
-    Guid Id,
+    long Id,
     DateTimeOffset OccurredAt,
     AuditAction Action,
     string? ActorName,
-    Guid? ActorStaffId,
-    Guid? StationId,
+    long? ActorStaffId,
+    long? StationId,
     string? IpAddress,
     string EntityType,
     string? EntityId,
@@ -33,8 +33,8 @@ public sealed record AuditLogPage(IReadOnlyList<AuditLogRow> Rows, int TotalCoun
 public sealed record AuditLogQuery(
     DateTimeOffset? From = null,
     DateTimeOffset? To = null,
-    Guid? ActorStaffId = null,
-    Guid? StationId = null,
+    long? ActorStaffId = null,
+    long? StationId = null,
     string? EntityType = null,
     string? EntityId = null,
     AuditAction? Action = null,

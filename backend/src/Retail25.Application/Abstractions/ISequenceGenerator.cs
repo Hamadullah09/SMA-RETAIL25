@@ -19,17 +19,17 @@ namespace Retail25.Application.Abstractions;
 public interface ISequenceGenerator
 {
     /// <summary>Next sale number for a location. Sequence name: <c>seq_transaction_{locationId}</c>.</summary>
-    Task<long> NextTransactionNumberAsync(Guid locationId, CancellationToken ct = default);
+    Task<long> NextTransactionNumberAsync(long locationId, CancellationToken ct = default);
 
-    Task<long> NextInvoiceNumberAsync(Guid locationId, CancellationToken ct = default);
+    Task<long> NextInvoiceNumberAsync(long locationId, CancellationToken ct = default);
 
     /// <summary>Next number of any administered kind, seeded from that kind's configured start.</summary>
-    Task<long> NextAsync(SequenceKind kind, Guid locationId, CancellationToken ct = default);
+    Task<long> NextAsync(SequenceKind kind, long locationId, CancellationToken ct = default);
 
     /// <summary>
     /// Repoints a live sequence — what an administrator's edit to a "next number" has to do to take
     /// effect. Saving the row alone would not: the sequence was created from that row the first time
     /// it was used and never looks at it again.
     /// </summary>
-    Task RestartAsync(SequenceKind kind, Guid locationId, long nextNumber, CancellationToken ct = default);
+    Task RestartAsync(SequenceKind kind, long locationId, long nextNumber, CancellationToken ct = default);
 }

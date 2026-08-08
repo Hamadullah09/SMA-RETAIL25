@@ -18,7 +18,7 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
     {
     }
 
-    public Guid LocationId { get; private set; }
+    public long LocationId { get; private set; }
 
     /// <summary>Unique per location, legacy 5-digit code (guide p.31).</summary>
     public string StockCode { get; private set; } = string.Empty;
@@ -83,20 +83,34 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
     /// <summary>Notes shown in product info panel (guide p.38).</summary>
     public string? Notes { get; private set; }
 
+    /// <summary>
+    /// Whether a picture exists for this item, without loading it.
+    /// <para>
+    /// Denormalised on purpose. The till's grid needs to know, for every item on screen at once,
+    /// whether to draw a tile or a row — and answering that by joining to the image table would pull
+    /// the bytes along with it, or cost a query per product. One bool on the row the grid is already
+    /// reading is the whole answer.
+    /// </para>
+    /// </summary>
+    public bool HasImage { get; private set; }
+
+    /// <summary>Kept in step by the command that writes the image; never set from a request body.</summary>
+    public void SetHasImage(bool hasImage) => HasImage = hasImage;
+
     // --- Relationships ---
 
-    public Guid? DepartmentId { get; private set; }
+    public long? DepartmentId { get; private set; }
 
-    public Guid? CategoryId { get; private set; }
+    public long? CategoryId { get; private set; }
 
     /// <summary>Substitute item if this one is out of stock (guide p.42).</summary>
-    public Guid? SubstituteProductId { get; private set; }
+    public long? SubstituteProductId { get; private set; }
 
     /// <summary>Tag-along item added automatically when this item is sold (guide p.42).</summary>
-    public Guid? TagAlongProductId { get; private set; }
+    public long? TagAlongProductId { get; private set; }
 
     /// <summary>Parent item for case-break (guide p.43). If set, this is the individual unit.</summary>
-    public Guid? ParentProductId { get; private set; }
+    public long? ParentProductId { get; private set; }
 
     // --- Audit ---
 
@@ -104,18 +118,18 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
 
     public DateTimeOffset? DeletedAt { get; set; }
 
-    public Guid? DeletedBy { get; set; }
+    public long? DeletedBy { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
     public static Result<Product> Create(
-        Guid locationId,
+        long locationId,
         string stockCode,
         string name,
         ProductType type,
@@ -188,16 +202,16 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
         ShipWeight = shipWeight;
     }
 
-    public void SetLinks(Guid? substituteId, Guid? tagAlongId, Guid? parentId)
+    public void SetLinks(long? substituteId, long? tagAlongId, long? parentId)
     {
         SubstituteProductId = substituteId;
         TagAlongProductId = tagAlongId;
         ParentProductId = parentId;
     }
 
-    public void SetDepartment(Guid? departmentId) => DepartmentId = departmentId;
+    public void SetDepartment(long? departmentId) => DepartmentId = departmentId;
 
-    public void SetCategory(Guid? categoryId) => CategoryId = categoryId;
+    public void SetCategory(long? categoryId) => CategoryId = categoryId;
 
     /// <summary>
     /// Renames the stock code. Uniqueness per location is a database constraint and is checked by
@@ -252,6 +266,35 @@ public sealed class Product : AggregateRoot, IAuditable, ISoftDeletable
         var totalQty = OnHand + quantityReceived;
         AvgCost = totalQty > 0 ? decimal.Round(totalCost / totalQty, 3, MidpointRounding.AwayFromZero) : 0m;
         RecalculateMargin();
+    }
+
+    /// <summary>
+    /// Applies a purchase-order receipt (guide p.67–68): moves stock, works off the on-order
+    /// quantity and rolls the moving-average cost. The average has to be recalculated before
+    /// <see cref="OnHand"/> moves — the formula's "onHand" term is the quantity <i>before</i> this
+    /// receipt, not after.
+    /// </summary>
+    public void ReceiveStock(decimal quantityReceived, decimal unitCost, decimal allocatedFreight)
+    {
+        RecalculateAvgCost(quantityReceived, unitCost, allocatedFreight);
+        OnHand += quantityReceived;
+        OnOrder = Math.Max(0m, OnOrder - quantityReceived);
+        LastCost = unitCost;
+    }
+
+    /// <summary>
+    /// Applies stock arriving from another location (guide p.20–21).
+    /// <para>
+    /// Deliberately not <see cref="ReceiveStock"/>: nothing was on order, so working the quantity
+    /// off <see cref="OnOrder"/> would silently cancel a real purchase order this store has open
+    /// with a supplier. <see cref="LastCost"/> is left alone for the same reason — "what we last
+    /// paid for it" means what we paid a supplier, and a transfer is not a purchase.
+    /// </para>
+    /// </summary>
+    public void ReceiveTransfer(decimal quantityReceived, decimal unitCost)
+    {
+        RecalculateAvgCost(quantityReceived, unitCost, allocatedFreight: 0m);
+        OnHand += quantityReceived;
     }
 
     private void RecalculateMargin()

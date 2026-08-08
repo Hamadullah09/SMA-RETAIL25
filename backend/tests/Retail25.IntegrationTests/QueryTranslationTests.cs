@@ -21,17 +21,17 @@ namespace Retail25.IntegrationTests;
 /// fifty thousand rows to show fifty.
 /// </para>
 /// </summary>
-[Collection(PostgresCollection.Name)]
+[Collection(SqlServerCollection.Name)]
 public sealed class QueryTranslationTests : IAsyncLifetime
 {
-    private readonly PostgresFixture _postgres;
+    private readonly SqlServerFixture _sqlServer;
     private ApplicationDbContextScope _scope = null!;
 
-    public QueryTranslationTests(PostgresFixture postgres) => _postgres = postgres;
+    public QueryTranslationTests(SqlServerFixture sqlServer) => _sqlServer = sqlServer;
 
-    private Guid LocationId => _scope.LocationId;
+    private long LocationId => _scope.LocationId;
 
-    public async Task InitializeAsync() => _scope = await ApplicationDbContextScope.CreateAsync(_postgres, "query_translation");
+    public async Task InitializeAsync() => _scope = await ApplicationDbContextScope.CreateAsync(_sqlServer, "query_translation");
 
     public Task DisposeAsync()
     {
@@ -39,7 +39,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task The_catalogue_browse_pages_in_sql_and_returns_every_row_once()
     {
         for (var i = 1; i <= 40; i++)
@@ -70,7 +70,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
         seen.Should().OnlyHaveUniqueItems();
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task The_keyset_predicate_is_translated_rather_than_evaluated_in_memory()
     {
         _scope.Db.Products.Add(Product.Create(LocationId, "AAA", "Apple", ProductType.Standard, 1m).Value);
@@ -97,8 +97,8 @@ public sealed class QueryTranslationTests : IAsyncLifetime
         rows.Should().ContainSingle().Which.StockCode.Should().Be("BBB");
     }
 
-    [RequiresDockerFact]
-    public async Task A_percentage_and_an_owned_address_round_trip_through_postgres()
+    [RequiresIsolatedDatabaseFact]
+    public async Task A_percentage_and_an_owned_address_round_trip_through_sqlServer()
     {
         var tax = TaxConfiguration.Create(
             LocationId,
@@ -130,7 +130,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
         reloadedCustomer.Contact.Email.Should().Be("ada@example.com");
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task A_deleted_product_is_hidden_rather_than_destroyed()
     {
         var product = Product.Create(LocationId, "GONE", "Discontinued", ProductType.Standard, 5m).Value;
@@ -150,7 +150,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
         row.DeletedAt.Should().NotBeNull();
     }
 
-    [RequiresDockerFact]
+    [RequiresIsolatedDatabaseFact]
     public async Task A_duplicate_stock_code_is_refused_by_the_database_not_only_by_the_handler()
     {
         _scope.Db.Products.Add(Product.Create(LocationId, "DUP", "First", ProductType.Standard, 1m).Value);
@@ -169,7 +169,7 @@ public sealed class QueryTranslationTests : IAsyncLifetime
 /// <summary>A migrated database with one seeded location, disposed with the test class.</summary>
 internal sealed class ApplicationDbContextScope : IDisposable
 {
-    private ApplicationDbContextScope(Retail25.Infrastructure.Persistence.ApplicationDbContext db, Guid locationId)
+    private ApplicationDbContextScope(Retail25.Infrastructure.Persistence.ApplicationDbContext db, long locationId)
     {
         Db = db;
         LocationId = locationId;
@@ -177,12 +177,12 @@ internal sealed class ApplicationDbContextScope : IDisposable
 
     public Retail25.Infrastructure.Persistence.ApplicationDbContext Db { get; }
 
-    public Guid LocationId { get; }
+    public long LocationId { get; }
 
-    public static async Task<ApplicationDbContextScope> CreateAsync(PostgresFixture postgres, string databaseName)
+    public static async Task<ApplicationDbContextScope> CreateAsync(SqlServerFixture sqlServer, string databaseName)
     {
-        var connection = await postgres.CreateEmptyDatabaseAsync(databaseName);
-        var db = postgres.CreateContext(connection);
+        var connection = await sqlServer.CreateEmptyDatabaseAsync(databaseName);
+        var db = sqlServer.CreateContext(connection);
 
         await db.Database.MigrateAsync();
 

@@ -36,7 +36,7 @@ public class DrawerSessionConfiguration : IEntityTypeConfiguration<DrawerSession
             .HasMaxLength(20);
 
         builder.HasIndex(d => new { d.StationId, d.Status })
-            .HasFilter("status = 'Open'");
+            .HasFilter("[status] = 'Open'");
 
         builder.Ignore(d => d.DomainEvents);
     }

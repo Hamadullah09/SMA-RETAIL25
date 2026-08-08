@@ -62,4 +62,4 @@ public sealed class HubTicketsController : ControllerBase
     }
 }
 
-public sealed record HubTicketRequest(Guid? StationId);
+public sealed record HubTicketRequest(long? StationId);

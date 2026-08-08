@@ -21,6 +21,22 @@ import { formatCurrency } from '@/lib/utils';
 import type { Address, ContactDetails, CustomerForm, CustomerRow, CustomerSort } from '@/types/masters';
 
 /**
+ * The id a form holds while it is creating rather than editing.
+ *
+ * Zero, because that is what the domain means by it too: an entity that has not been saved has no
+ * id yet, and no row can ever be 0 — the sequence starts at 1. A string sentinel would have to be
+ * kept out of every type that says this is a record key.
+ */
+/**
+ * The id a record has before it has one.
+ *
+ * Zero is falsy, so every guard that decides whether to show the form has to test it against null
+ * rather than for truth. Testing for truth is what made New customer a button that did nothing at
+ * all: it set the selection to 0, and `selectedId && …` read that as no selection.
+ */
+const NEW_RECORD = 0;
+
+/**
  * Customer Browse + Form View (guide p.46–52).
  *
  * The account and pricing fields sit on the same screen as the name and address because they are
@@ -41,7 +57,7 @@ export default function CustomersPage() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
 
   const { data: clientTypes = [] } = useQuery({
     queryKey: ['client-types', locationId],
@@ -108,7 +124,7 @@ export default function CustomersPage() {
         // Money owed is the reason most people open this screen, so it is coloured rather than left
         // to be spotted among identical figures.
         render: (r) => (
-          <span className={r.balanceDue > 0 ? 'text-[rgb(var(--negative))]' : undefined}>
+          <span className={r.balanceDue > 0 ? 'text-negative' : undefined}>
             {formatCurrency(r.balanceDue)}
           </span>
         ),
@@ -133,7 +149,7 @@ export default function CustomersPage() {
         <>
           <LiveBadge connected={connected} />
           {canWrite ? (
-            <button type="button" className="pos-button-primary" onClick={() => setSelectedId('new')}>
+            <button type="button" className="pos-button-primary" onClick={() => setSelectedId(NEW_RECORD)}>
               New customer
             </button>
           ) : null}
@@ -142,14 +158,14 @@ export default function CustomersPage() {
       filters={
         <>
           <input
-            className="w-64 rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input w-64"
             placeholder="Name, company, phone or email"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={clientType}
             onChange={(event) => setClientType(event.target.value)}
           >
@@ -162,7 +178,7 @@ export default function CustomersPage() {
           </select>
 
           <select
-            className="rounded-[var(--radius-dense)] border border-[rgb(var(--border))] bg-[rgb(var(--panel))] px-2 py-1"
+            className="pos-input"
             value={sort}
             onChange={(event) => setSort(event.target.value as CustomerSort)}
           >
@@ -193,10 +209,10 @@ export default function CustomersPage() {
         />
       }
       form={
-        selectedId && locationId ? (
+        selectedId !== null && locationId ? (
           <CustomerFormPanel
-            key={selectedId}
-            customerId={selectedId === 'new' ? null : selectedId}
+            key={String(selectedId)}
+            customerId={selectedId === NEW_RECORD ? null : selectedId}
             locationId={locationId}
             canWrite={canWrite}
             canDelete={canDelete}
@@ -226,8 +242,8 @@ function describe(error: unknown): string {
 }
 
 const emptyCustomer: CustomerForm = {
-  id: '',
-  locationId: '',
+  id: 0,
+  locationId: 0,
   customerNumber: 0,
   firstName: '',
   lastName: '',
@@ -262,8 +278,8 @@ function CustomerFormPanel({
   onClose,
   onSaved,
 }: {
-  customerId: string | null;
-  locationId: string;
+  customerId: number | null;
+  locationId: number;
   canWrite: boolean;
   canDelete: boolean;
   onClose: () => void;
@@ -364,9 +380,9 @@ function CustomerFormPanel({
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-sm font-semibold">
+        <h2 className="text-body font-semibold">
           {customerId ? `#${form.customerNumber} ${form.company || `${form.firstName} ${form.lastName}`}` : 'New customer'}
-          {form.isDeleted ? <span className="pos-badge ml-2 text-[rgb(var(--negative))]">Deleted</span> : null}
+          {form.isDeleted ? <span className="pos-badge ml-2 text-negative">Deleted</span> : null}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>
           Close
@@ -476,7 +492,7 @@ function CustomerFormPanel({
         <CheckField label="Exempt from tax 2" checked={form.exemptTax2} onChange={(v) => patch({ exemptTax2: v })} disabled={disabled} />
 
         {customerId ? (
-          <p className="text-xs text-[rgb(var(--text-muted))]">
+          <p className="text-label text-ink-muted">
             Balance {formatCurrency(form.balanceDue)} · {form.rewardPoints} reward points — both derived from the ledgers
             and not editable here.
           </p>
@@ -485,7 +501,7 @@ function CustomerFormPanel({
 
       {canDelete && customerId ? (
         <div className="mb-6">
-          <button type="button" className="pos-button text-[rgb(var(--negative))]" onClick={() => void remove()} disabled={busy}>
+          <button type="button" className="pos-button text-negative" onClick={() => void remove()} disabled={busy}>
             Delete
           </button>
         </div>

@@ -1,5 +1,3 @@
-using System.Globalization;
-using System.Text;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
@@ -10,7 +8,7 @@ using Retail25.Domain.Sales;
 namespace Retail25.Application.Sales.Queries;
 
 public sealed record SalesLogRow(
-    Guid Id,
+    long Id,
     long TransactionNumber,
     DateTimeOffset CompletedAt,
     DateOnly BusinessDate,
@@ -37,13 +35,20 @@ public sealed record SalesLogPage(IReadOnlyList<SalesLogRow> Rows, int TotalCoun
 /// </summary>
 [RequiresPermission(PermissionKeys.Reports.Sales)]
 public sealed record SalesLogQuery(
-    Guid LocationId,
+    long LocationId,
     DateOnly? From = null,
     DateOnly? To = null,
-    Guid? StationId = null,
-    Guid? StaffId = null,
-    Guid? CustomerId = null,
+    long? StationId = null,
+    long? StaffId = null,
+    long? CustomerId = null,
     bool IncludeVoided = true,
+
+    /// <summary>
+    /// Practice sales rung by a trainee. Off by default, like every report: they never happened as
+    /// far as the takings are concerned, and mixing them into the log a drawer is reconciled against
+    /// would be the same mistake as hiding a voided sale, in the other direction.
+    /// </summary>
+    bool IncludeTraining = false,
     int Skip = 0,
     int Take = 100) : IRequest<SalesLogPage>;
 
@@ -53,7 +58,7 @@ public sealed record ExportSalesLogQuery(SalesLogQuery Filter) : IRequest<string
 
 /// <summary>One sale in full, for the drill-down and the reprint preview.</summary>
 [RequiresPermission(PermissionKeys.Reports.Sales)]
-public sealed record GetSaleQuery(Guid TransactionId) : IRequest<Result<SaleDetailDto>>;
+public sealed record GetSaleQuery(long TransactionId) : IRequest<Result<SaleDetailDto>>;
 
 public sealed record SaleDetailLineDto(
     int Sequence,
@@ -72,7 +77,7 @@ public sealed record SaleDetailLineDto(
 public sealed record SaleDetailTenderDto(string TenderName, decimal Amount, decimal AmountTendered, decimal ChangeGiven, string? Reference);
 
 public sealed record SaleDetailDto(
-    Guid Id,
+    long Id,
     long TransactionNumber,
     DateTimeOffset CompletedAt,
     TransactionStatus Status,
@@ -90,8 +95,8 @@ public sealed record SaleDetailDto(
     decimal AddOnCharge,
     decimal GrandTotal,
     decimal ChangeGiven,
-    Guid? ReversesTransactionId,
-    Guid? VoidedByTransactionId,
+    long? ReversesTransactionId,
+    long? VoidedByTransactionId,
     string? VoidReason);
 
 public sealed class SalesLogHandlers
@@ -129,25 +134,17 @@ public sealed class SalesLogHandlers
 
         var rows = await ProjectAsync(transactions, ct);
 
-        var csv = new StringBuilder();
-        csv.AppendLine("Number,Completed,BusinessDate,Station,Staff,Customer,Lines,Subtotal,Discount,Tax1,Tax2,Total,Status");
+        var csv = new CsvWriter().Header(
+            "Number", "Completed", "BusinessDate", "Station", "Staff", "Customer",
+            "Lines", "Subtotal", "Discount", "Tax1", "Tax2", "Total", "Status");
 
         foreach (var row in rows)
         {
-            csv.Append(row.TransactionNumber).Append(',')
-                .Append(row.CompletedAt.ToString("O", CultureInfo.InvariantCulture)).Append(',')
-                .Append(row.BusinessDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)).Append(',')
-                .Append(Escape(row.StationCode)).Append(',')
-                .Append(Escape(row.StaffName)).Append(',')
-                .Append(Escape(row.CustomerName)).Append(',')
-                .Append(row.LineCount).Append(',')
-                .Append(row.Subtotal.ToString(CultureInfo.InvariantCulture)).Append(',')
-                .Append(row.DiscountTotal.ToString(CultureInfo.InvariantCulture)).Append(',')
-                .Append(row.Tax1Total.ToString(CultureInfo.InvariantCulture)).Append(',')
-                .Append(row.Tax2Total.ToString(CultureInfo.InvariantCulture)).Append(',')
-                .Append(row.GrandTotal.ToString(CultureInfo.InvariantCulture)).Append(',')
-                .Append(row.Status)
-                .AppendLine();
+            csv.Row(
+                row.TransactionNumber, row.CompletedAt, row.BusinessDate,
+                row.StationCode, row.StaffName, row.CustomerName, row.LineCount,
+                row.Subtotal, row.DiscountTotal, row.Tax1Total, row.Tax2Total,
+                row.GrandTotal, row.Status);
         }
 
         return csv.ToString();
@@ -260,6 +257,11 @@ public sealed class SalesLogHandlers
             query = query.Where(t => t.Status == TransactionStatus.Completed);
         }
 
+        if (!request.IncludeTraining)
+        {
+            query = query.Where(t => !t.IsTraining);
+        }
+
         return query;
     }
 
@@ -310,17 +312,5 @@ public sealed class SalesLogHandlers
             t.Tax2Total,
             t.GrandTotal,
             t.Status)).ToList();
-    }
-
-    private static string Escape(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        return value.Contains(',', StringComparison.Ordinal) || value.Contains('"', StringComparison.Ordinal)
-            ? "\"" + value.Replace("\"", "\"\"", StringComparison.Ordinal) + "\""
-            : value;
     }
 }

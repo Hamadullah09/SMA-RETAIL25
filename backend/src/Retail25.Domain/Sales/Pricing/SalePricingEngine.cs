@@ -65,7 +65,6 @@ public static class SalePricingEngine
             tax2Total += amounts.Tax2;
 
             resolved.Add(new ResolvedLine(
-                line.Input.LineId,
                 line.Input.Sequence,
                 line.Input.Product.Id,
                 line.Input.Variant?.Id,

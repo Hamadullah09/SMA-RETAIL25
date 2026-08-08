@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.Data.SqlClient;
 using Xunit;
 
 namespace Retail25.IntegrationTests;
@@ -6,7 +7,7 @@ namespace Retail25.IntegrationTests;
 /// <summary>
 /// A <see cref="FactAttribute"/> that skips when there is no Docker daemon to run a container on.
 /// <para>
-/// These tests need real PostgreSQL, and a developer without Docker Desktop running should get a
+/// These tests need real SQL Server, and a developer without Docker Desktop running should get a
 /// clear "skipped, needs Docker" rather than thirteen red failures that say nothing about their
 /// change. The alternative — leaving them to fail — trains people to ignore a red suite, which costs
 /// far more than the coverage is worth.
@@ -18,14 +19,111 @@ namespace Retail25.IntegrationTests;
 /// </summary>
 public sealed class RequiresDockerFactAttribute : FactAttribute
 {
-    public RequiresDockerFactAttribute()
-    {
-        var hasExternalServer = !string.IsNullOrWhiteSpace(
-            Environment.GetEnvironmentVariable("RETAIL25_TEST_PG_CONNECTION"));
+    public RequiresDockerFactAttribute() => Skip = TestDatabase.SkipReasonForSharedDatabase;
+}
 
-        if (!DockerProbe.IsAvailable && !hasExternalServer)
+/// <summary>The <see cref="TheoryAttribute"/> twin of <see cref="RequiresDockerFactAttribute"/>.</summary>
+public sealed class RequiresDockerTheoryAttribute : TheoryAttribute
+{
+    public RequiresDockerTheoryAttribute() => Skip = TestDatabase.SkipReasonForSharedDatabase;
+}
+
+/// <summary>
+/// For a suite that needs a database <em>of its own</em>, not merely a database.
+/// <para>
+/// <see cref="SqlServerFixture"/>'s tests assert that a migration applies to a <em>clean</em> schema,
+/// which cannot be answered on a database that already has one. Those tests therefore need the
+/// server to let them create one — a container always does; an external server only does if the role
+/// holds permission to create databases.
+/// </para>
+/// <para>
+/// Distinguishing this from <see cref="RequiresDockerFactAttribute"/> matters because the two answers
+/// differ: the scenario suites degrade gracefully onto a shared database and still test what they
+/// claim to, while these cannot, and a suite that fails on a missing privilege tells nobody anything
+/// about the code.
+/// </para>
+/// </summary>
+public sealed class RequiresIsolatedDatabaseFactAttribute : FactAttribute
+{
+    public RequiresIsolatedDatabaseFactAttribute() => Skip = TestDatabase.SkipReasonForOwnDatabase;
+}
+
+/// <summary>
+/// A test that is written but does not yet pass.
+/// <para>
+/// Preferred over deleting the test or leaving the suite red. A red suite trains people to ignore
+/// red; a deleted test loses the work and the intent. This states plainly that the behaviour is not
+/// proven, and carries the reason so the next person starts where the last one stopped.
+/// </para>
+/// <para>
+/// Anything wearing this is <b>not evidence</b>. It must not be cited as proof that a phase is
+/// complete.
+/// </para>
+/// </summary>
+public sealed class NotYetPassingFactAttribute : FactAttribute
+{
+    public NotYetPassingFactAttribute(string reason) => Skip = "Not yet passing: " + reason;
+}
+
+/// <summary>What the environment can actually provide, probed once.</summary>
+internal static class TestDatabase
+{
+    private static readonly string? External =
+        Environment.GetEnvironmentVariable("RETAIL25_TEST_SQL_CONNECTION");
+
+    private static readonly Lazy<bool> CanCreate = new(ProbeCreateDatabase, LazyThreadSafetyMode.ExecutionAndPublication);
+
+    /// <summary>Null when a suite that can share a database is able to run.</summary>
+    public static string? SkipReasonForSharedDatabase =>
+        DockerProbe.IsAvailable || !string.IsNullOrWhiteSpace(External)
+            ? null
+            : "Needs a running Docker daemon, or RETAIL25_TEST_SQL_CONNECTION pointed at a real SQL Server.";
+
+    /// <summary>Null when a suite that must provision its own database is able to run.</summary>
+    public static string? SkipReasonForOwnDatabase
+    {
+        get
         {
-            Skip = "Needs a running Docker daemon, or RETAIL25_TEST_PG_CONNECTION pointed at a real PostgreSQL. Start Docker Desktop and re-run.";
+            if (DockerProbe.IsAvailable)
+            {
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(External))
+            {
+                return "Needs a running Docker daemon, or RETAIL25_TEST_SQL_CONNECTION pointed at a real SQL Server.";
+            }
+
+            return CanCreate.Value
+                ? null
+                : "RETAIL25_TEST_SQL_CONNECTION is set but its login cannot CREATE DATABASE, and this suite needs a "
+                  + "database of its own to prove a migration applies to a clean schema. "
+                  + "Grant dbcreator (`ALTER SERVER ROLE dbcreator ADD MEMBER [login]`), or start Docker.";
+        }
+    }
+
+    private static bool ProbeCreateDatabase()
+    {
+        try
+        {
+            var builder = new SqlConnectionStringBuilder(External!) { InitialCatalog = "master" };
+
+            using var connection = new SqlConnection(builder.ConnectionString);
+            connection.Open();
+
+            // Asks the permission itself rather than reading role membership. A login can reach
+            // CREATE DATABASE through sysadmin, dbcreator, or a direct server-level grant, and
+            // enumerating the routes gets one of them wrong eventually — this asks the engine the
+            // question the fixture is actually about to ask it.
+            using var command = new SqlCommand(
+                "SELECT CONVERT(bit, HAS_PERMS_BY_NAME(NULL, NULL, 'CREATE ANY DATABASE'))", connection);
+
+            return command.ExecuteScalar() is true;
+        }
+        catch (Exception)
+        {
+            // Unreachable, wrong credentials, no such login — all the same answer here.
+            return false;
         }
     }
 }

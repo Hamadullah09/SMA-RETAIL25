@@ -45,6 +45,12 @@ export function CommandPalette() {
       { id: 'pos', label: 'Point of sale', group: 'Go to', href: '/pos', keywords: 'till sell cash register', permission: 'pos.sell' },
       { id: 'inventory', label: 'Inventory', group: 'Go to', href: '/inventory', keywords: 'stock levels', permission: 'catalog.read' },
       { id: 'products', label: 'Products', group: 'Go to', href: '/catalog/products', keywords: 'items catalogue sku', permission: 'catalog.read' },
+      { id: 'transfers', label: 'Stock transfers', group: 'Go to', href: '/inventory/transfers', keywords: 'move between stores locations van', permission: 'inventory.transfer' },
+      { id: 'stock-counts', label: 'Stock counts', group: 'Go to', href: '/inventory/counts', keywords: 'stocktake count variance shrinkage', permission: 'inventory.count' },
+      { id: 'bulk-adjust', label: 'Batch changes', group: 'Go to', href: '/catalog/bulk', keywords: 'bulk reprice price increase tax flags', permission: 'catalog.bulk_adjust' },
+      { id: 'year-end', label: 'Year end', group: 'Go to', href: '/admin/year-end', keywords: 'fiscal close archive history rollup', permission: 'inventory.year_end' },
+      { id: 'migration', label: 'Bring data across', group: 'Go to', href: '/admin/migration', keywords: 'migration import legacy dbf cutover convert', permission: 'migration.run' },
+      { id: 'staff', label: 'Staff', group: 'Go to', href: '/admin/staff', keywords: 'time clock hours commission payroll', permission: 'staff.read' },
       { id: 'customers', label: 'Customers', group: 'Go to', href: '/customers', keywords: 'clients accounts', permission: 'customer.read' },
       { id: 'receivables', label: 'Receivables', group: 'Go to', href: '/receivables', keywords: 'ar invoices statements', permission: 'ar.read' },
       { id: 'purchasing', label: 'Purchasing', group: 'Go to', href: '/purchasing', keywords: 'orders po', permission: 'purchasing.read' },
@@ -54,6 +60,7 @@ export function CommandPalette() {
       { id: 'admin', label: 'Administration', group: 'Go to', href: '/admin', keywords: 'setup configuration', permission: 'settings.read' },
       { id: 'setup', label: 'Setup', group: 'Go to', href: '/admin/settings', keywords: 'taxes pos printers hardware users stations tenders numbering departments categories groupings', permission: 'settings.read' },
       { id: 'undelete', label: 'Undelete items', group: 'Go to', href: '/admin/undelete', keywords: 'restore deleted recover', permission: 'catalog.delete' },
+      { id: 'rfid', label: 'RFID readers', group: 'Go to', href: '/admin/rfid', keywords: 'reader antenna power frequency region tags epc uhf hardware', permission: 'terminals.read' },
       { id: 'audit', label: 'Audit log', group: 'Go to', href: '/admin/audit', keywords: 'history who changed', permission: 'audit.read' },
       { id: 'signout', label: 'Sign out', group: 'Session', action: () => void signOut(), keywords: 'logout leave' },
     ],
@@ -183,12 +190,12 @@ export function CommandPalette() {
             }
           }}
           placeholder="Search screens and actions…"
-          className="w-full border-b border-[rgb(var(--border))] bg-transparent px-3 py-3 text-sm outline-none"
+          className="w-full border-b border-subtle bg-transparent px-3 py-3 text-body outline-none"
         />
 
         <ul className="max-h-80 overflow-y-auto py-1">
           {results.length === 0 ? (
-            <li className="px-3 py-6 text-center text-sm text-[rgb(var(--text-muted))]">Nothing matches.</li>
+            <li className="px-3 py-6 text-center text-body text-ink-muted">Nothing matches.</li>
           ) : (
             results.map((command, index) => (
               <li key={command.id}>
@@ -197,22 +204,22 @@ export function CommandPalette() {
                   onMouseEnter={() => setHighlighted(index)}
                   onClick={() => run(command)}
                   className={cn(
-                    'flex w-full items-center justify-between px-3 py-2 text-left text-sm',
-                    index === highlighted && 'bg-[rgb(var(--surface))]',
+                    'flex w-full items-center justify-between px-3 py-2 text-left text-body',
+                    index === highlighted && 'bg-surface',
                   )}
                 >
                   <span>{command.label}</span>
-                  <span className="text-xs text-[rgb(var(--text-muted))]">{command.group}</span>
+                  <span className="text-label text-ink-muted">{command.group}</span>
                 </button>
               </li>
             ))
           )}
         </ul>
 
-        <p className="border-t border-[rgb(var(--border))] px-3 py-1.5 text-xs text-[rgb(var(--text-muted))]">
-          <kbd className="rounded-sm border border-[rgb(var(--border))] px-1 font-mono">↑↓</kbd> move ·{' '}
-          <kbd className="rounded-sm border border-[rgb(var(--border))] px-1 font-mono">↵</kbd> open ·{' '}
-          <kbd className="rounded-sm border border-[rgb(var(--border))] px-1 font-mono">esc</kbd> close
+        <p className="border-t border-subtle px-3 py-1.5 text-label text-ink-muted">
+          <kbd className="rounded-sm border border-subtle px-1 font-mono">↑↓</kbd> move ·{' '}
+          <kbd className="rounded-sm border border-subtle px-1 font-mono">↵</kbd> open ·{' '}
+          <kbd className="rounded-sm border border-subtle px-1 font-mono">esc</kbd> close
         </p>
       </div>
     </div>

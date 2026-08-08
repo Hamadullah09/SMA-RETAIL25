@@ -29,13 +29,14 @@ public sealed class AuditingInterceptor : SaveChangesInterceptor
     {
         "Product", "ProductPrice", "PriceBreak", "SalePricing", "BonusPricing",
         "SalesTransaction", "SaleLine", "SaleTender",
-        "StockLevel", "StockLedgerEntry", "StockTransfer", "StockCount",
+        "StockLevel", "StockLedgerEntry", "StockTransfer", "StockTransferLine", "StockCount", "StockCountLine", "FiscalYear", "MigrationBatch",
         "TaxConfiguration", "PosPolicy", "PricingRuleSetting", "TenderType", "Currency",
-        "Invoice", "InvoicePayment", "ARLedgerEntry", "GiftCertificate",
+        "Invoice", "InvoicePayment", "ARLedgerEntry", "GiftCertificate", "GiftCard", "LateChargePolicy",
         "CustomerAccount", "LoyaltyLedgerEntry",
         "DrawerSession", "DrawerLedgerEntry",
-        "StaffProfile", "RolePermission", "Permission",
+        "StaffProfile", "RolePermission", "Permission", "TimeClockEntry", "CommissionRule",
         "SerializedUnit", "Station", "ReaderProfile", "PrinterProfile",
+        "PurchaseOrder", "PurchaseOrderLine", "PurchaseOrderReceipt",
     };
 
     /// <summary>Columns never written to an audit diff, whatever entity they appear on.</summary>
@@ -118,7 +119,7 @@ public sealed class AuditingInterceptor : SaveChangesInterceptor
         }
     }
 
-    private static void ApplyAudit(EntityEntry entry, DateTimeOffset now, Guid? actor)
+    private static void ApplyAudit(EntityEntry entry, DateTimeOffset now, long? actor)
     {
         if (entry.Entity is not IAuditable auditable)
         {
@@ -152,7 +153,7 @@ public sealed class AuditingInterceptor : SaveChangesInterceptor
     /// Rewrites a hard delete into a soft one (guide p.24, "Undelete Items"). Retail data is named by
     /// history: destroying a product row would orphan every sale line that mentioned it.
     /// </summary>
-    private static void ApplySoftDelete(EntityEntry entry, DateTimeOffset now, Guid? actor)
+    private static void ApplySoftDelete(EntityEntry entry, DateTimeOffset now, long? actor)
     {
         if (entry.State != EntityState.Deleted || entry.Entity is not ISoftDeletable deletable)
         {

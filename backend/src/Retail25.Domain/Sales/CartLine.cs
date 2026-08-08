@@ -57,13 +57,13 @@ public sealed class CartLine : Entity
     {
     }
 
-    public Guid CartId { get; set; }
+    public long CartId { get; set; }
 
-    public Guid ProductId { get; set; }
+    public long ProductId { get; set; }
 
-    public Guid? VariantId { get; set; }
+    public long? VariantId { get; set; }
 
-    public Guid? SerializedUnitId { get; set; }
+    public long? SerializedUnitId { get; set; }
 
     /// <summary>The EPC that put this line on the cart, kept for the live feed and for the sale commit.</summary>
     public string? Epc { get; set; }

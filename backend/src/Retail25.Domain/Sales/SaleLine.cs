@@ -13,15 +13,15 @@ public sealed class SaleLine : Entity
     {
     }
 
-    public Guid TransactionId { get; set; }
+    public long TransactionId { get; set; }
 
     public int Sequence { get; set; }
 
-    public Guid ProductId { get; set; }
+    public long ProductId { get; set; }
 
-    public Guid? VariantId { get; set; }
+    public long? VariantId { get; set; }
 
-    public Guid? SerializedUnitId { get; set; }
+    public long? SerializedUnitId { get; set; }
 
     public string? Epc { get; set; }
 
@@ -81,7 +81,7 @@ public sealed class SaleAdjustment : Entity
     {
     }
 
-    public Guid TransactionId { get; set; }
+    public long TransactionId { get; set; }
 
     public AdjustmentType Type { get; set; }
 

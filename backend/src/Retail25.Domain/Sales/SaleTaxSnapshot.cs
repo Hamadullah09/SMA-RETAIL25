@@ -17,7 +17,7 @@ public sealed class SaleTaxSnapshot : Entity
     {
     }
 
-    public Guid TransactionId { get; set; }
+    public long TransactionId { get; set; }
 
     public string Tax1Name { get; set; } = string.Empty;
 
@@ -39,7 +39,7 @@ public sealed class SaleTaxSnapshot : Entity
 
     public string? TaxRegistrationNumber { get; set; }
 
-    public static SaleTaxSnapshot From(Guid transactionId, TaxConfiguration tax)
+    public static SaleTaxSnapshot From(long transactionId, TaxConfiguration tax)
     {
         ArgumentNullException.ThrowIfNull(tax);
         return new SaleTaxSnapshot

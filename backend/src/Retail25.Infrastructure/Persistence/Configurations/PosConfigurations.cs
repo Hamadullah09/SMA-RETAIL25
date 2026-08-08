@@ -148,7 +148,7 @@ public sealed class PricingRuleSettingConfiguration : IEntityTypeConfiguration<P
     {
         builder.HasKey(r => r.Id);
         builder.Property(r => r.RuleKey).IsRequired().HasMaxLength(40);
-        builder.Property(r => r.ParametersJson).HasColumnType("jsonb");
+        builder.Property(r => r.ParametersJson).HasColumnType("nvarchar(max)");
 
         // One row per rule per location: the ladder is an ordering of distinct rules, not a bag.
         builder.HasIndex(r => new { r.LocationId, r.RuleKey }).IsUnique();
@@ -243,7 +243,7 @@ public sealed class SerializedUnitConfiguration : IEntityTypeConfiguration<Domai
 
         // One EPC is one physical unit, so the mapping has to be unique — a partial index because
         // stores that track serials without RFID leave the column null.
-        builder.HasIndex(u => u.Epc).IsUnique().HasFilter("epc IS NOT NULL");
+        builder.HasIndex(u => u.Epc).IsUnique().HasFilter("[epc] IS NOT NULL");
         builder.HasIndex(u => new { u.ProductId, u.State });
     }
 }

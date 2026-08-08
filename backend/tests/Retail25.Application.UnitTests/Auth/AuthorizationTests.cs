@@ -140,7 +140,7 @@ public sealed class AuthorizationBehaviorTests
 
         user.Permissions.Returns(set);
         user.IsAuthenticated.Returns(true);
-        user.UserId.Returns(Guid.NewGuid());
+        user.UserId.Returns(TestIds.Next());
 
         // The default interface method delegates to Permissions, but a substitute intercepts it, so
         // the behaviour has to be stated explicitly here.
@@ -165,8 +165,8 @@ public sealed class SupervisorApprovalTests
 {
     private static readonly DateTimeOffset Now = new(2026, 7, 29, 12, 0, 0, TimeSpan.Zero);
 
-    private static readonly Guid Cashier = Guid.NewGuid();
-    private static readonly Guid Supervisor = Guid.NewGuid();
+    private static readonly long Cashier = TestIds.Next();
+    private static readonly long Supervisor = TestIds.Next();
 
     [Fact]
     public void An_approved_grant_can_be_spent_once()
@@ -186,7 +186,7 @@ public sealed class SupervisorApprovalTests
     public void A_supervisor_cannot_approve_their_own_request()
     {
         var approval = SupervisorApproval.Request(
-            PermissionKeys.Pos.VoidSale, nameof(VoidAction), null, Supervisor, Guid.NewGuid(), Guid.NewGuid(), Now);
+            PermissionKeys.Pos.VoidSale, nameof(VoidAction), null, Supervisor, TestIds.Next(), TestIds.Next(), Now);
 
         var result = approval.Approve(Supervisor, Now);
 
@@ -248,8 +248,8 @@ public sealed class SupervisorApprovalTests
         nameof(VoidAction),
         "Void sale #1042",
         Cashier,
-        Guid.NewGuid(),
-        Guid.NewGuid(),
+        TestIds.Next(),
+        TestIds.Next(),
         Now);
 
     private sealed record VoidAction;

@@ -18,16 +18,16 @@ namespace Retail25.Application.Sales.Commands;
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Reprint)]
 public sealed record ReprintTransactionCommand(
-    Guid TransactionId,
+    long TransactionId,
     ReceiptFormat Format = ReceiptFormat.Slip40,
     int Copies = 1,
-    Guid? StationId = null,
+    long? StationId = null,
     bool SendToPrinter = true) : IRequest<Result<ReceiptDocument>>;
 
 /// <summary>The last sale rung at a station — what F7 actually reaches for (guide p.12).</summary>
 [RequiresPermission(PermissionKeys.Pos.Reprint)]
 public sealed record ReprintLastSaleCommand(
-    Guid StationId,
+    long StationId,
     ReceiptFormat Format = ReceiptFormat.Slip40,
     int Copies = 1) : IRequest<Result<ReceiptDocument>>;
 
@@ -88,7 +88,7 @@ public sealed class ReprintTransactionHandler
         var lastId = await _db.SalesTransactions.AsNoTracking()
             .Where(t => t.StationId == request.StationId)
             .OrderByDescending(t => t.CompletedAt)
-            .Select(t => (Guid?)t.Id)
+            .Select(t => (long?)t.Id)
             .FirstOrDefaultAsync(ct);
 
         if (lastId is not { } transactionId)

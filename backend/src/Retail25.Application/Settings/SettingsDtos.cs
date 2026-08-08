@@ -10,7 +10,7 @@ namespace Retail25.Application.Settings;
 
 /// <summary>Business ID tab (guide p.76) — what prints at the top of every receipt and invoice.</summary>
 public sealed record BusinessSettingsDto(
-    Guid LocationId,
+    long LocationId,
     string BusinessName,
     Address Address,
     ContactDetails Contact,
@@ -27,7 +27,7 @@ public sealed record BusinessSettingsDto(
 /// rate change is a new row and an administrator needs to see what was in force when.
 /// </summary>
 public sealed record TaxSettingsDto(
-    Guid? Id,
+    long? Id,
     DateOnly EffectiveFrom,
     DateOnly? EffectiveTo,
     bool Tax1Enabled,
@@ -63,23 +63,23 @@ public sealed record PosSettingsDto(
     bool PrintCreditCardSignatureLine,
     bool PrintClientNameOnSalesSlip,
     bool CarryOverCityStateZip,
-    Guid? DefaultTenderTypeId,
+    long? DefaultTenderTypeId,
     int AbandonedCartTimeoutMinutes);
 
 /// <summary>Stations, with the per-till overrides that make one counter behave unlike another.</summary>
 public sealed record StationSettingsDto(
-    Guid Id,
+    long Id,
     string StationCode,
     string? Name,
     bool? FastScanMode,
     bool? AutoSaveSales,
     bool? ConfirmBeforeSaving,
     bool? ScanRandomWeightBarcodes,
-    Guid? DefaultTenderTypeId,
-    Guid? PrinterProfileId,
-    Guid? ReaderProfileId,
-    Guid? ScaleProfileId,
-    Guid? PoleDisplayProfileId,
+    long? DefaultTenderTypeId,
+    long? PrinterProfileId,
+    long? ReaderProfileId,
+    long? ScaleProfileId,
+    long? PoleDisplayProfileId,
     ReaderMode ReaderMode,
     bool IsActive,
     string? AgentVersion,
@@ -88,8 +88,8 @@ public sealed record StationSettingsDto(
 
 /// <summary>Printers tab (guide p.78–80). Every escape sequence is data, never a driver constant.</summary>
 public sealed record PrinterSettingsDto(
-    Guid Id,
-    Guid? StationId,
+    long Id,
+    long? StationId,
     string Name,
     string? SetupCommand,
     string? CutterCommand,
@@ -109,8 +109,8 @@ public sealed record PrinterSettingsDto(
 
 /// <summary>Hardware tab (guide p.80–81) — scale, pole display and RFID reader.</summary>
 public sealed record ScaleSettingsDto(
-    Guid Id,
-    Guid? StationId,
+    long Id,
+    long? StationId,
     string Name,
     string Port,
     int BaudRate,
@@ -124,8 +124,8 @@ public sealed record ScaleSettingsDto(
     bool IsActive);
 
 public sealed record PoleDisplaySettingsDto(
-    Guid Id,
-    Guid? StationId,
+    long Id,
+    long? StationId,
     string Name,
     string Port,
     int BaudRate,
@@ -139,8 +139,8 @@ public sealed record PoleDisplaySettingsDto(
     bool IsActive);
 
 public sealed record ReaderSettingsDto(
-    Guid Id,
-    Guid? StationId,
+    long Id,
+    long? StationId,
     string Name,
     string Host,
     int Port,
@@ -158,7 +158,7 @@ public sealed record ReaderSettingsDto(
 
 /// <summary>Tender buttons, in the order they appear at the till (guide p.17).</summary>
 public sealed record TenderSettingsDto(
-    Guid Id,
+    long Id,
     string Code,
     string DisplayName,
     TenderBehaviour Behaviour,
@@ -176,7 +176,7 @@ public sealed record TenderSettingsDto(
     bool IsActive);
 
 public sealed record CurrencySettingsDto(
-    Guid Id,
+    long Id,
     string Code,
     string Name,
     string Symbol,
@@ -190,7 +190,7 @@ public sealed record CurrencySettingsDto(
 
 /// <summary>Numbering tab — the legacy "next number" settings (guide p.76).</summary>
 public sealed record NumberSequenceDto(
-    Guid Id,
+    long Id,
     SequenceKind Kind,
     string Prefix,
     int PadWidth,
@@ -199,12 +199,12 @@ public sealed record NumberSequenceDto(
     string Sample);
 
 /// <summary>Options tab — the pricing precedence ladder, reorderable without a release (decision P1).</summary>
-public sealed record PricingRuleDto(Guid Id, string RuleKey, int Order, bool Enabled, string? ParametersJson);
+public sealed record PricingRuleDto(long Id, string RuleKey, int Order, bool Enabled, string? ParametersJson);
 
 /// <summary>Users tab (guide p.82). PIN state is reported, never the PIN or its hash.</summary>
 public sealed record StaffSettingsDto(
-    Guid Id,
-    Guid UserId,
+    long Id,
+    long UserId,
     string StaffCode,
     string FirstName,
     string LastName,

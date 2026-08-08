@@ -17,8 +17,8 @@ public sealed record DrawerTenderTotal(string TenderName, decimal Amount, int Co
 /// sum, never a stored running figure.
 /// </summary>
 public sealed record DrawerTotalsDto(
-    Guid SessionId,
-    Guid StationId,
+    long SessionId,
+    long StationId,
     DrawerSessionStatus Status,
     DateOnly BusinessDate,
     DateTimeOffset OpenedAt,
@@ -40,29 +40,29 @@ public sealed record DrawerTotalsDto(
 
 /// <summary>Opens the drawer for the day with a counted float (guide p.10).</summary>
 [RequiresPermission(PermissionKeys.Drawer.OpenFloat)]
-public sealed record OpenDrawerSessionCommand(Guid StationId, decimal OpeningFloat) : IRequest<Result<DrawerTotalsDto>>;
+public sealed record OpenDrawerSessionCommand(long StationId, decimal OpeningFloat) : IRequest<Result<DrawerTotalsDto>>;
 
 /// <summary>Money into the drawer that is not a sale (guide p.11).</summary>
 [RequiresPermission(PermissionKeys.Drawer.PayIn)]
-public sealed record PayInCommand(Guid StationId, decimal Amount, string Reason) : IRequest<Result<DrawerTotalsDto>>;
+public sealed record PayInCommand(long StationId, decimal Amount, string Reason) : IRequest<Result<DrawerTotalsDto>>;
 
 /// <summary>Money out of the drawer that is not a refund — petty cash, a bank drop (guide p.11).</summary>
 [RequiresPermission(PermissionKeys.Drawer.PayOut)]
-public sealed record PayOutCommand(Guid StationId, decimal Amount, string Reason) : IRequest<Result<DrawerTotalsDto>>;
+public sealed record PayOutCommand(long StationId, decimal Amount, string Reason) : IRequest<Result<DrawerTotalsDto>>;
 
 /// <summary>
 /// No-sale drawer pop (guide p.11). It changes no money but is always recorded, because an
 /// unexplained open drawer is exactly what a loss-prevention review needs to be able to see.
 /// </summary>
 [RequiresPermission(PermissionKeys.Drawer.Pop)]
-public sealed record PopDrawerCommand(Guid StationId, string? Reason = null) : IRequest<Result<DrawerTotalsDto>>;
+public sealed record PopDrawerCommand(long StationId, string? Reason = null) : IRequest<Result<DrawerTotalsDto>>;
 
 /// <summary>Closes against a physical count and produces the variance (guide p.11).</summary>
 [RequiresPermission(PermissionKeys.Drawer.Close)]
-public sealed record CloseDrawerSessionCommand(Guid StationId, decimal CountedCash) : IRequest<Result<DrawerTotalsDto>>;
+public sealed record CloseDrawerSessionCommand(long StationId, decimal CountedCash) : IRequest<Result<DrawerTotalsDto>>;
 
 [RequiresPermission(PermissionKeys.Drawer.Read)]
-public sealed record GetDrawerTotalsQuery(Guid StationId, Guid? SessionId = null) : IRequest<Result<DrawerTotalsDto>>;
+public sealed record GetDrawerTotalsQuery(long StationId, long? SessionId = null) : IRequest<Result<DrawerTotalsDto>>;
 
 public sealed class DrawerHandlers
     : IRequestHandler<OpenDrawerSessionCommand, Result<DrawerTotalsDto>>,
@@ -110,7 +110,7 @@ public sealed class DrawerHandlers
         }
 
         var context = contextResult.Value;
-        var staffId = _currentUser.StaffId ?? Guid.Empty;
+        var staffId = _currentUser.StaffId ?? 0L;
 
         var created = DrawerSession.Open(
             request.StationId,
@@ -127,6 +127,11 @@ public sealed class DrawerHandlers
 
         var session = created.Value;
         _db.DrawerSessions.Add(session);
+
+        // Saved before its id is read: the opening-float entry has to point at a real session, and
+        // the id is the database's to assign. One transaction still, courtesy of the pipeline.
+        await _db.SaveChangesAsync(ct);
+
         _db.DrawerLedgerEntries.Add(DrawerLedgerEntry.Create(
             session.Id,
             DrawerEntryType.OpeningFloat,
@@ -144,14 +149,14 @@ public sealed class DrawerHandlers
     public Task<Result<DrawerTotalsDto>> Handle(PayInCommand request, CancellationToken ct)
         => RecordMovementAsync(
             request.StationId,
-            session => DrawerLedgerEntry.PayIn(session.Id, request.Amount, request.Reason, _currentUser.StaffId ?? Guid.Empty, _clock.Now),
+            session => DrawerLedgerEntry.PayIn(session.Id, request.Amount, request.Reason, _currentUser.StaffId ?? 0L, _clock.Now),
             popDrawer: true,
             ct);
 
     public Task<Result<DrawerTotalsDto>> Handle(PayOutCommand request, CancellationToken ct)
         => RecordMovementAsync(
             request.StationId,
-            session => DrawerLedgerEntry.PayOut(session.Id, request.Amount, request.Reason, _currentUser.StaffId ?? Guid.Empty, _clock.Now),
+            session => DrawerLedgerEntry.PayOut(session.Id, request.Amount, request.Reason, _currentUser.StaffId ?? 0L, _clock.Now),
             popDrawer: true,
             ct);
 
@@ -162,7 +167,7 @@ public sealed class DrawerHandlers
                 session.Id,
                 DrawerEntryType.NoSalePop,
                 0m,
-                _currentUser.StaffId ?? Guid.Empty,
+                _currentUser.StaffId ?? 0L,
                 _clock.Now,
                 request.Reason ?? "No sale")),
             popDrawer: true,
@@ -181,7 +186,7 @@ public sealed class DrawerHandlers
         var closed = session.Close(
             request.CountedCash,
             totals.ExpectedCash,
-            _currentUser.StaffId ?? Guid.Empty,
+            _currentUser.StaffId ?? 0L,
             _clock.Now,
             JsonSerializer.Serialize(totals.TenderTotals),
             await BuildDepartmentSalesJsonAsync(session, ct));
@@ -207,7 +212,7 @@ public sealed class DrawerHandlers
     }
 
     private async Task<Result<DrawerTotalsDto>> RecordMovementAsync(
-        Guid stationId,
+        long stationId,
         Func<DrawerSession, Result<DrawerLedgerEntry>> build,
         bool popDrawer,
         CancellationToken ct)
@@ -235,7 +240,7 @@ public sealed class DrawerHandlers
         return await PublishAsync(session, ct);
     }
 
-    private Task<DrawerSession?> FindOpenSessionAsync(Guid stationId, CancellationToken ct)
+    private Task<DrawerSession?> FindOpenSessionAsync(long stationId, CancellationToken ct)
         => _db.DrawerSessions.FirstOrDefaultAsync(d => d.StationId == stationId && d.Status == DrawerSessionStatus.Open, ct);
 
     private async Task<Result<DrawerTotalsDto>> PublishAsync(DrawerSession session, CancellationToken ct)

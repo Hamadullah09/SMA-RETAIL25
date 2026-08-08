@@ -10,26 +10,26 @@ namespace Retail25.Domain.Sales.Pricing;
 /// <param name="AmountTendered">What the customer physically handed over. Only meaningful for cash.</param>
 /// <param name="ExchangeRate">Units of the tender's currency per unit of the base currency (guide p.9).</param>
 public sealed record TenderInputLine(
-    Guid TenderTypeId,
+    long TenderTypeId,
     TenderBehaviour Behaviour,
     bool RoundsToMinimumTender,
     bool AllowsOverTender,
     decimal Amount,
     decimal AmountTendered = 0m,
     decimal ExchangeRate = 1m,
-    Guid? CurrencyId = null,
+    long? CurrencyId = null,
     string? Reference = null,
     string? AuthCode = null,
     string? CardLast4 = null);
 
 public sealed record SettledTender(
-    Guid TenderTypeId,
+    long TenderTypeId,
     TenderBehaviour Behaviour,
     decimal Amount,
     decimal AmountTendered,
     decimal ChangeGiven,
     decimal ExchangeRate,
-    Guid? CurrencyId,
+    long? CurrencyId,
     string? Reference,
     string? AuthCode,
     string? CardLast4);

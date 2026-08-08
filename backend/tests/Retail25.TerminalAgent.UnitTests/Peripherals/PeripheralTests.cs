@@ -128,7 +128,7 @@ public sealed class EscPosRendererTests
     }
 
     private static PrinterProfileContract Printer() => new(
-        Guid.NewGuid(),
+        TestIds.Next(),
         "Default",
         Port: null,
         SetupCommand: null,
@@ -146,7 +146,7 @@ public sealed class EscPosRendererTests
         OpenDrawerOnPrint: false);
 
     private static ReceiptDocument Document() => new(
-        Guid.NewGuid(),
+        TestIds.Next(),
         1042,
         ReceiptFormat.Slip40,
         "Test Store",

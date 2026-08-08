@@ -17,16 +17,16 @@ namespace Retail25.Application.Carts.Commands;
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
 public sealed record AddCartLineByVariantCommand(
-    Guid CartId,
-    Guid VariantId,
+    long CartId,
+    long VariantId,
     decimal Quantity = 1m,
     LineType LineType = LineType.Sale) : IRequest<Result<CartDto>>;
 
 /// <summary>Adds the specific serialized unit the cashier picked (guide p.42).</summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
 public sealed record AddCartLineByUnitCommand(
-    Guid CartId,
-    Guid UnitId,
+    long CartId,
+    long UnitId,
     LineType LineType = LineType.Sale) : IRequest<Result<CartDto>>;
 
 public sealed class AddCartLineBySelectionHandler

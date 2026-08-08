@@ -12,7 +12,7 @@ public sealed class Supplier : AggregateRoot, IAuditable, ISoftDeletable
     {
     }
 
-    public Guid LocationId { get; set; }
+    public long LocationId { get; set; }
 
     /// <summary>Legacy supplier number (guide p.59).</summary>
     public string SupplierNumber { get; set; } = string.Empty;
@@ -35,17 +35,17 @@ public sealed class Supplier : AggregateRoot, IAuditable, ISoftDeletable
 
     public DateTimeOffset? DeletedAt { get; set; }
 
-    public Guid? DeletedBy { get; set; }
+    public long? DeletedBy { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
 
-    public Guid? CreatedBy { get; set; }
+    public long? CreatedBy { get; set; }
 
     public DateTimeOffset? ModifiedAt { get; set; }
 
-    public Guid? ModifiedBy { get; set; }
+    public long? ModifiedBy { get; set; }
 
-    public static Result<Supplier> Create(Guid locationId, string company, string supplierNumber)
+    public static Result<Supplier> Create(long locationId, string company, string supplierNumber)
     {
         if (string.IsNullOrWhiteSpace(company))
             return Result.Failure<Supplier>(new Error("supplier.company_required", "A supplier company name is required."));

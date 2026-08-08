@@ -7,16 +7,16 @@ namespace Retail25.Application.Abstractions;
 public interface ICurrentUser
 {
     /// <summary>The authenticated user's Id (ASP.NET Core Identity).</summary>
-    Guid? UserId { get; }
+    long? UserId { get; }
 
     /// <summary>The staff profile Id, if the user has one.</summary>
-    Guid? StaffId { get; }
+    long? StaffId { get; }
 
     /// <summary>The station this request originated from (POS machines only).</summary>
-    Guid? StationId { get; }
+    long? StationId { get; }
 
     /// <summary>The location the user is currently working at.</summary>
-    Guid? LocationId { get; }
+    long? LocationId { get; }
 
     bool IsAuthenticated { get; }
 

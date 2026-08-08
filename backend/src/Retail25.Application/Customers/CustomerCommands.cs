@@ -35,23 +35,23 @@ public sealed record CustomerAccountSection(
 /// </summary>
 [RequiresPermission(PermissionKeys.Customer.Write)]
 public sealed record CreateCustomerCommand(
-    Guid LocationId,
+    long LocationId,
     CustomerIdentitySection Identity,
     CustomerAddressSection? Addresses = null,
     CustomerAccountSection? Account = null) : IRequest<Result<CustomerFormDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Write)]
 public sealed record UpdateCustomerCommand(
-    Guid CustomerId,
+    long CustomerId,
     CustomerIdentitySection? Identity = null,
     CustomerAddressSection? Addresses = null,
     CustomerAccountSection? Account = null) : IRequest<Result<CustomerFormDto>>;
 
 [RequiresPermission(PermissionKeys.Customer.Delete)]
-public sealed record DeleteCustomerCommand(Guid CustomerId) : IRequest<Result>;
+public sealed record DeleteCustomerCommand(long CustomerId) : IRequest<Result>;
 
 [RequiresPermission(PermissionKeys.Customer.Delete)]
-public sealed record RestoreCustomerCommand(Guid CustomerId) : IRequest<Result>;
+public sealed record RestoreCustomerCommand(long CustomerId) : IRequest<Result>;
 
 public sealed class CustomerCommandHandlers
     : IRequestHandler<CreateCustomerCommand, Result<CustomerFormDto>>,
@@ -98,6 +98,12 @@ public sealed class CustomerCommandHandlers
         }
 
         _db.Customers.Add(customer);
+
+        // Saved before the account and profile are built, because both take the customer's id and the
+        // database is what assigns it. Without this they are created against customer 0 — and then
+        // the first on-account sale is refused with "this customer has no account", which is true of
+        // the row and false of the customer.
+        await _db.SaveChangesAsync(ct);
 
         // Every customer gets an account and a pricing profile at creation, even at the defaults.
         // Creating them lazily would mean the first on-account sale writes configuration rows inside

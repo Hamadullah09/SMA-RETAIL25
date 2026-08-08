@@ -27,7 +27,7 @@ public sealed class CustomersController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> Browse(
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] string? search,
         [FromQuery] string? clientType,
         [FromQuery] bool withBalanceOnly = false,
@@ -49,7 +49,7 @@ public sealed class CustomersController : ControllerBase
     [HttpGet("search")]
     public async Task<IActionResult> Search(
         [FromQuery] string term,
-        [FromQuery] Guid locationId,
+        [FromQuery] long locationId,
         [FromQuery] int take = 25,
         CancellationToken ct = default)
     {
@@ -67,26 +67,26 @@ public sealed class CustomersController : ControllerBase
     }
 
     [HttpGet("client-types")]
-    public async Task<IActionResult> ClientTypes([FromQuery] Guid locationId, CancellationToken ct)
+    public async Task<IActionResult> ClientTypes([FromQuery] long locationId, CancellationToken ct)
         => Ok(await _sender.Send(new ListClientTypesQuery(locationId), ct));
 
-    [HttpGet("{id:guid}")]
-    public async Task<IActionResult> Get(Guid id, CancellationToken ct)
+    [HttpGet("{id:long}")]
+    public async Task<IActionResult> Get(long id, CancellationToken ct)
         => (await _sender.Send(new GetCustomerFormQuery(id), ct)).ToActionResult(this);
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCustomerCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
-    [HttpPut("{id:guid}")]
-    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateCustomerCommand command, CancellationToken ct)
+    [HttpPut("{id:long}")]
+    public async Task<IActionResult> Update(long id, [FromBody] UpdateCustomerCommand command, CancellationToken ct)
         => (await _sender.Send(command with { CustomerId = id }, ct)).ToActionResult(this);
 
-    [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
+    [HttpDelete("{id:long}")]
+    public async Task<IActionResult> Delete(long id, CancellationToken ct)
         => (await _sender.Send(new DeleteCustomerCommand(id), ct)).ToActionResult(this);
 
-    [HttpPost("{id:guid}/restore")]
-    public async Task<IActionResult> Restore(Guid id, CancellationToken ct)
+    [HttpPost("{id:long}/restore")]
+    public async Task<IActionResult> Restore(long id, CancellationToken ct)
         => (await _sender.Send(new RestoreCustomerCommand(id), ct)).ToActionResult(this);
 }

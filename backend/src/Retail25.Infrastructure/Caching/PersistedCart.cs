@@ -13,18 +13,18 @@ namespace Retail25.Infrastructure.Caching;
 /// </para>
 /// </summary>
 internal sealed record PersistedCart(
-    Guid Id,
-    Guid StationId,
-    Guid LocationId,
-    Guid StaffId,
-    Guid? CustomerId,
+    long Id,
+    long StationId,
+    long LocationId,
+    long StaffId,
+    long? CustomerId,
     CartStatus Status,
     string? HeldName,
     DateTimeOffset? SuspendedAt,
-    Guid? SuspendedByStaffId,
+    long? SuspendedByStaffId,
     int NextLineSequence,
     int Revision,
-    Guid? CompletedTransactionId,
+    long? CompletedTransactionId,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ModifiedAt,
     DateTimeOffset? ExpiresAt,
@@ -90,11 +90,11 @@ internal sealed record PersistedCart(
 }
 
 internal sealed record PersistedCartLine(
-    Guid Id,
-    Guid CartId,
-    Guid ProductId,
-    Guid? VariantId,
-    Guid? SerializedUnitId,
+    long Id,
+    long CartId,
+    long ProductId,
+    long? VariantId,
+    long? SerializedUnitId,
     string? Epc,
     LineSource Source,
     decimal Quantity,
@@ -186,14 +186,14 @@ internal sealed record PersistedCartLine(
 }
 
 internal sealed record PersistedCartAdjustment(
-    Guid Id,
-    Guid CartId,
+    long Id,
+    long CartId,
     AdjustmentType Type,
     string Label,
     decimal Amount,
     decimal Percent,
     string? Serial,
-    Guid AppliedByStaffId,
+    long AppliedByStaffId,
     DateTimeOffset AppliedAt)
 {
     public static PersistedCartAdjustment From(CartAdjustment adjustment) => new(
@@ -222,12 +222,12 @@ internal sealed record PersistedCartAdjustment(
 }
 
 internal sealed record PersistedTaxOverride(
-    Guid Id,
-    Guid CartId,
+    long Id,
+    long CartId,
     bool? Tax1,
     bool? Tax2,
     int AppliesFromSequence,
-    Guid AppliedByStaffId,
+    long AppliedByStaffId,
     DateTimeOffset AppliedAt)
 {
     public static PersistedTaxOverride From(CartTaxOverride taxOverride) => new(
