@@ -1,6 +1,7 @@
 using Hangfire;
 using Hangfire.SqlServer;
 using MediatR;
+using Microsoft.Data.SqlClient;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -38,6 +39,7 @@ public static class DependencyInjection
         services.AddSingleton<IDatabaseBackupService, Retail25.Infrastructure.Maintenance.SqlServerDatabaseBackupService>();
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<AuditingInterceptor>();
+        var defaultConnection = GetSqlServerConnectionString(configuration);
 
         // snake_case is kept on SQL Server, where it is not the house style. The column names are a
         // published interface by now — the schema reference, the reporting views a store's
@@ -46,7 +48,7 @@ public static class DependencyInjection
         // migration with all of the risk and none of the benefit.
         services.AddDbContext<ApplicationDbContext>((provider, options) =>
             options.UseSqlServer(
-                    configuration.GetConnectionString("DefaultConnection"),
+                    defaultConnection,
                     sqlServer =>
                     {
                         sqlServer.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
@@ -148,7 +150,7 @@ public static class DependencyInjection
             .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
             .UseSimpleAssemblyNameTypeSerializer()
             .UseRecommendedSerializerSettings()
-            .UseSqlServerStorage(configuration.GetConnectionString("DefaultConnection")));
+            .UseSqlServerStorage(GetSqlServerConnectionString(configuration)));
 
         services.AddHangfireServer();
     }
@@ -218,5 +220,31 @@ public static class DependencyInjection
 
         // Resolved at startup purely so the warning is logged once, where an operator will see it.
         services.AddSingleton<InMemoryStoreWarning>();
+    }
+
+    private static string GetSqlServerConnectionString(IConfiguration configuration)
+    {
+        var value = configuration.GetConnectionString("DefaultConnection");
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new InvalidOperationException("ConnectionStrings:DefaultConnection is not configured.");
+        }
+
+        var builder = new SqlConnectionStringBuilder(value);
+        if (!string.IsNullOrWhiteSpace(builder.Password))
+        {
+            return builder.ConnectionString;
+        }
+
+        var password = configuration["Database:Password"]
+            ?? configuration["MSSQL_SA_PASSWORD"]
+            ?? configuration["SqlServer:Password"];
+
+        if (!string.IsNullOrWhiteSpace(password))
+        {
+            builder.Password = password;
+        }
+
+        return builder.ConnectionString;
     }
 }
