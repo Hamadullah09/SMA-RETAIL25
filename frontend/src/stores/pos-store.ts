@@ -74,6 +74,17 @@ interface PosState {
   drawer: DrawerTotals | null;
 
   connected: boolean;
+
+  /**
+   * Whether this till has ever reached the server since the page opened.
+   *
+   * Opening a till is not the same as losing one. `connected` starts false because the hub has not
+   * finished its handshake yet, and treating that as a disconnection put a red "totals may be stale"
+   * banner across the top of every page load, for the second or so it takes to connect. A warning
+   * that appears every time is a warning nobody reads the day it matters.
+   */
+  hasConnected: boolean;
+
   readerOnline: boolean;
   readRate: number;
   peripherals: PeripheralStatus | null;
@@ -137,6 +148,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   cart: null,
   drawer: null,
   connected: false,
+  hasConnected: false,
   readerOnline: false,
   readRate: 0,
   peripherals: null,
@@ -230,7 +242,7 @@ export const usePosStore = create<PosState>((set, get) => ({
       onDrawerStateChanged: (drawer) => set({ drawer }),
       onPosMessage: ({ message }) => set({ posMessage: message }),
       onConnectionChanged: (connected) => {
-        set({ connected });
+        set(connected ? { connected, hasConnected: true } : { connected });
 
         if (!connected) return;
 

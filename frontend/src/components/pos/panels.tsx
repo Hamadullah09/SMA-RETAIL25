@@ -158,7 +158,13 @@ function Health({
 /** A persistent amber bar, never a modal, never a silent failure (doc 08 §Realtime UX rules). */
 export function ConnectionBanner() {
   const connected = usePosStore((s) => s.connected);
-  if (connected) return null;
+  const hasConnected = usePosStore((s) => s.hasConnected);
+
+  // Silent until this till has actually been connected once. Before that it is opening, not
+  // failing, and the hub takes a moment to shake hands — so this used to flash across every page
+  // load. A till that genuinely cannot reach the server says so through its own banner; this one is
+  // reserved for losing a connection that was working, which is when "totals may be stale" is true.
+  if (connected || !hasConnected) return null;
 
   return (
     <div

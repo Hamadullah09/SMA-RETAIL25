@@ -60,6 +60,26 @@ export interface ReaderProfile {
  * and it is deliberately separate from whether the agent is running at all. A missing agent and a
  * reader that will not answer look identical from the till and need completely different fixes.
  */
+/** One reader the server is holding, and whether it is answering right now. */
+export interface ServerReaderConnection {
+  profileId: number;
+  name: string;
+  endpoint: string;
+  stationId: number;
+  connected: boolean;
+}
+
+/**
+ * What the server says about the readers it holds.
+ *
+ * `serverHosted` false means this deployment does not hold reader connections at all — the tills
+ * run agents — and the screen should ask the agent instead. It is not a failure state.
+ */
+export interface ReaderConnectionSnapshot {
+  serverHosted: boolean;
+  readers: ServerReaderConnection[];
+}
+
 export interface AgentStatus {
   agentVersion: string;
   station: string;
@@ -94,6 +114,23 @@ export interface ReaderDiagnostics {
 const AGENT = process.env.NEXT_PUBLIC_AGENT_URL ?? 'http://127.0.0.1:8477';
 
 export const rfidApi = {
+  /**
+   * Which readers the *server* is holding, if it holds any.
+   *
+   * There are two places a reader connection can live now, and they are alternatives: a server on
+   * the shop's own network can open the connections itself, or each till runs an agent. Asking the
+   * server first is what lets this screen tell "no reader" from "not this machine's job" — the
+   * distinction that made it report "Agent not running" on a shop whose reader was working fine.
+   */
+  serverConnections: async (): Promise<ReaderConnectionSnapshot | null> => {
+    try {
+      const response = await apiClient.get('/terminals/reader-connections');
+      return response.data as ReaderConnectionSnapshot;
+    } catch {
+      return null;
+    }
+  },
+
   list: async (locationId: number): Promise<ReaderProfile[]> => {
     const response = await apiClient.get(`/terminals/readers?locationId=${locationId}`);
     return response.data as ReaderProfile[];

@@ -23,6 +23,7 @@ import {
   type AgentStatus,
   type BeeperMode,
   type RadioRegion,
+  type ReaderConnectionSnapshot,
   type ReaderDiagnostics,
   type ReaderProfile,
   type RfLinkProfile,
@@ -253,11 +254,18 @@ function SaveAction({ canWrite, busy, onSave }: { canWrite: boolean; busy: boole
  */
 function AgentConnection() {
   const [status, setStatus] = useState<AgentStatus | null>(null);
+  const [server, setServer] = useState<ReaderConnectionSnapshot | null>(null);
   const [checked, setChecked] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // The server is asked first, because it is the one place that knows whether a local agent is even
+  // expected. Where the server holds the readers, no agent runs on this machine by design — and
+  // this panel used to report that as "Agent not running", in red, on a shop whose reader was
+  // reading perfectly well.
   const refresh = useCallback(async () => {
-    setStatus(await rfidApi.status());
+    const snapshot = await rfidApi.serverConnections();
+    setServer(snapshot);
+    setStatus(snapshot?.serverHosted ? null : await rfidApi.status());
     setChecked(true);
   }, []);
 
@@ -292,11 +300,17 @@ function AgentConnection() {
     }
   };
 
-  const online = status?.reader.online === true;
+  // Where the server holds the readers, its answer is the only one that matters — there is no agent
+  // on this machine and none is wanted.
+  const serverHosted = server?.serverHosted === true;
+  const serverReaders = server?.readers ?? [];
+  const serverLive = serverReaders.filter((r) => r.connected);
+
+  const online = serverHosted ? serverLive.length > 0 : status?.reader.online === true;
 
   /*
    * Four cues, not one: a glyph that changes shape, a heading in words, a sentence explaining which
-   * of the two unrelated failures this is, and — last — a hue. "Reader not answering" and "Agent not
+   * of the unrelated failures this is, and — last — a hue. "Reader not answering" and "Agent not
    * running" are different problems with different fixes, and the shape says so before the colour
    * does.
    */
@@ -305,9 +319,30 @@ function AgentConnection() {
         icon: HelpCircle,
         tone: 'text-ink-faint',
         heading: 'Checking…',
-        detail: 'Asking the till agent.',
+        detail: 'Asking the server.',
       }
-    : online
+    : serverHosted
+      ? serverLive.length > 0
+        ? {
+            icon: CheckCircle2,
+            tone: 'text-positive',
+            heading: serverLive.length === 1 ? 'Reader connected' : `${serverLive.length} readers connected`,
+            detail: `Held by the server, so this machine needs nothing installed · ${serverLive
+              .map((r) => `${r.name} (${r.endpoint})`)
+              .join(', ')}`,
+          }
+        : {
+            icon: AlertTriangle,
+            tone: 'text-negative',
+            heading: serverReaders.length === 0 ? 'No reader is being held' : 'Reader not answering',
+            detail:
+              serverReaders.length === 0
+                ? 'The server holds reader connections for this shop, but has no active reader profile bound to a till. Add one below, or bind an existing one to its station.'
+                : `The server is trying but the reader will not answer. Only one program can hold it at a time — close any vendor tool still connected to it. ${serverReaders
+                    .map((r) => r.endpoint)
+                    .join(', ')}`,
+          }
+      : online
       ? {
           icon: CheckCircle2,
           tone: 'text-positive',
