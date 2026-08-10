@@ -31,7 +31,7 @@ builder.Host.UseSerilog();
 
 // --- Services ---
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration, builder.Environment);
 
 // --- OpenTelemetry ---
 builder.Services.AddOpenTelemetry()

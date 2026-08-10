@@ -48,7 +48,11 @@ public sealed class RedisCartStore : ICartStore
     public async Task<CartSnapshot?> GetByStationAsync(long stationId, CancellationToken ct = default)
     {
         var cartId = await _redis.GetDatabase().StringGetAsync(StationKey(stationId));
-        if (cartId.IsNullOrEmpty || !long.TryParse(cartId!, out var id))
+
+        // The cast to string is spelled out, not left implicit. RedisValue converts implicitly to
+        // both string and ReadOnlySpan<byte>, and net10.0 added a TryParse overload for the span —
+        // so the bare value is ambiguous between two overloads that would parse different bytes.
+        if (cartId.IsNullOrEmpty || !long.TryParse((string?)cartId, out var id))
         {
             return null;
         }

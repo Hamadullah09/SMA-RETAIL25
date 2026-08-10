@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Behaviors;
 using Retail25.Application.Accounting;
@@ -27,9 +28,13 @@ namespace Retail25.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddInfrastructure(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(environment);
 
         services.AddHttpContextAccessor();
         services.AddSingleton<IDateTime, SystemClock>();
@@ -90,7 +95,7 @@ public static class DependencyInjection
 
         // Identity, OpenIddict and the permission resolver. Registered here rather than in the API
         // so a background job or an integration test gets the same authorisation model.
-        services.AddIdentityAndOpenIddict(configuration);
+        services.AddIdentityAndOpenIddict(configuration, environment);
         services.AddScoped<IdentitySeeder>();
         services.AddScoped<IAccountNotifier, SmtpAccountNotifier>();
 

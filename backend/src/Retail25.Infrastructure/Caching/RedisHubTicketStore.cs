@@ -49,7 +49,9 @@ public sealed class RedisHubTicketStore : IHubTicketStore
         // call that a crash could skip.
         var value = await _redis.GetDatabase().StringGetDeleteAsync(Key(ticket));
 
-        return value.IsNullOrEmpty ? null : JsonSerializer.Deserialize<HubTicket>(value!);
+        // Explicit string cast: RedisValue converts implicitly to both string and
+        // ReadOnlySpan<byte>, which is ambiguous against net10.0's UTF-8 Deserialize overload.
+        return value.IsNullOrEmpty ? null : JsonSerializer.Deserialize<HubTicket>(((string?)value)!);
     }
 
     private static RedisKey Key(string ticket) => KeyPrefix + ticket;

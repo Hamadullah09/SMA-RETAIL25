@@ -59,7 +59,9 @@ public sealed class RedisTagDebouncer : ITagDebouncer
     public async Task<long?> GetHolderAsync(string epc, CancellationToken ct = default)
     {
         var value = await _redis.GetDatabase().StringGetAsync(Key(epc));
-        return value.IsNullOrEmpty || !long.TryParse(value!, out var stationId) ? null : stationId;
+        // Explicit string cast: RedisValue converts implicitly to both string and
+        // ReadOnlySpan<byte>, which is ambiguous against net10.0's span TryParse overload.
+        return value.IsNullOrEmpty || !long.TryParse((string?)value, out var stationId) ? null : stationId;
     }
 
     private static RedisKey Key(string epc) => KeyPrefix + epc.Trim().ToUpperInvariant();
@@ -83,7 +85,7 @@ public sealed class RedisIdempotencyStore : Retail25.Application.Behaviors.IIdem
     public async Task<T?> GetResponseAsync<T>(string key, CancellationToken ct = default)
     {
         var value = await _redis.GetDatabase().StringGetAsync(KeyPrefix + key);
-        return value.IsNullOrEmpty ? default : System.Text.Json.JsonSerializer.Deserialize<T>(value!);
+        return value.IsNullOrEmpty ? default : System.Text.Json.JsonSerializer.Deserialize<T>(((string?)value)!);
     }
 
     public async Task StoreResponseAsync<T>(string key, T response, CancellationToken ct = default)

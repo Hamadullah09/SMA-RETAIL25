@@ -89,9 +89,9 @@ public sealed class SequenceGenerator : ISequenceGenerator
 
         var startAt = Math.Max(1L, start).ToString(CultureInfo.InvariantCulture);
 
-#pragma warning disable EF1002
+#pragma warning disable EF1002, EF1003
         await _db.Database.ExecuteSqlRawAsync(CreateIfAbsent(name, startAt), ct);
-#pragma warning restore EF1002
+#pragma warning restore EF1002, EF1003
     }
 
     public async Task RestartAsync(SequenceKind kind, long locationId, long nextNumber, CancellationToken ct = default)
@@ -99,13 +99,18 @@ public sealed class SequenceGenerator : ISequenceGenerator
         var name = SequenceName(kind, locationId);
         var startAt = Math.Max(1L, nextNumber).ToString(CultureInfo.InvariantCulture);
 
-#pragma warning disable EF1002
+        // EF1003 (added in EF Core 10) flags the concatenation as an injection risk. It is not one,
+        // and it cannot be parameterised either: a sequence name is an identifier, not a value, and
+        // no provider accepts a parameter in that position of a DDL statement. Both operands are
+        // machine-made — `name` from an enum member and a numeric location id, `startAt` from a long
+        // formatted invariantly — so no caller-supplied text ever reaches this string.
+#pragma warning disable EF1002, EF1003
         await _db.Database.ExecuteSqlRawAsync(CreateIfAbsent(name, startAt), ct);
 
         await _db.Database.ExecuteSqlRawAsync(
             "ALTER SEQUENCE [" + name + "] RESTART WITH " + startAt,
             ct);
-#pragma warning restore EF1002
+#pragma warning restore EF1002, EF1003
     }
 
     /// <summary>

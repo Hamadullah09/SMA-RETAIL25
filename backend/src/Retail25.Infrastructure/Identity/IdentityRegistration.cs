@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using OpenIddict.Abstractions;
 using OpenIddict.Validation.AspNetCore;
 using Retail25.Application.Abstractions;
@@ -51,7 +52,8 @@ public static class IdentityRegistration
     /// </summary>
     public static IServiceCollection AddIdentityAndOpenIddict(
         this IServiceCollection services,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         services
             .AddIdentity<ApplicationUser, ApplicationRole>(options =>
@@ -98,11 +100,14 @@ public static class IdentityRegistration
                 .ReplaceDefaultEntities<long>())
             .AddServer(options =>
             {
+                // "EndSession" rather than "Logout": OpenIddict 6 renamed these to the words the
+                // OpenID Connect spec uses. The route stays `connect/logout` — the clients and the
+                // BFF already point at it, and the path is ours to choose regardless of the API name.
                 options
                     .SetAuthorizationEndpointUris("connect/authorize")
                     .SetTokenEndpointUris("connect/token")
-                    .SetLogoutEndpointUris("connect/logout")
-                    .SetUserinfoEndpointUris("connect/userinfo")
+                    .SetEndSessionEndpointUris("connect/logout")
+                    .SetUserInfoEndpointUris("connect/userinfo")
                     .SetIntrospectionEndpointUris("connect/introspect");
 
                 options
@@ -143,14 +148,14 @@ public static class IdentityRegistration
                 options.UseReferenceAccessTokens();
                 options.UseReferenceRefreshTokens();
 
-                ConfigureCertificates(options, configuration);
+                ConfigureCertificates(options, configuration, environment);
 
                 var aspNetCore = options
                     .UseAspNetCore()
                     .EnableAuthorizationEndpointPassthrough()
                     .EnableTokenEndpointPassthrough()
-                    .EnableLogoutEndpointPassthrough()
-                    .EnableUserinfoEndpointPassthrough()
+                    .EnableEndSessionEndpointPassthrough()
+                    .EnableUserInfoEndpointPassthrough()
                     .EnableStatusCodePagesIntegration();
 
                 // OpenIddict refuses plain HTTP by default, which is right: an authorization code or
@@ -213,15 +218,44 @@ public static class IdentityRegistration
     /// must not: ephemeral keys are regenerated on restart, which silently invalidates every issued
     /// token and every session across the shop.
     /// </summary>
-    private static void ConfigureCertificates(OpenIddictServerBuilder options, IConfiguration configuration)
+    private static void ConfigureCertificates(
+        OpenIddictServerBuilder options,
+        IConfiguration configuration,
+        IHostEnvironment environment)
     {
         var signing = configuration["OpenIddict:SigningCertificatePath"];
         var encryption = configuration["OpenIddict:EncryptionCertificatePath"];
         var password = configuration["OpenIddict:CertificatePassword"];
 
-        if (!string.IsNullOrWhiteSpace(signing) && File.Exists(signing))
+        var hasSigning = !string.IsNullOrWhiteSpace(signing) && File.Exists(signing);
+        var hasEncryption = !string.IsNullOrWhiteSpace(encryption) && File.Exists(encryption);
+
+        // Outside development the fallback is refused rather than taken. The development helpers
+        // keep their key in the launching user's certificate store, and shared IIS hosting runs the
+        // pool under an identity with no loaded user profile — so the key is regenerated on every
+        // recycle, or cannot be written at all.
+        //
+        // The failure that produces is the worst kind: nothing logs an error, the site serves
+        // normally, and users are signed out at intervals nobody can account for. Refusing to start
+        // turns a mystery into a sentence.
+        if (!environment.IsDevelopment() && (!hasSigning || !hasEncryption))
         {
-            using var stream = File.OpenRead(signing);
+            var missing = !hasSigning && !hasEncryption ? "signing and encryption certificates"
+                : !hasSigning ? "a signing certificate"
+                : "an encryption certificate";
+
+            throw new InvalidOperationException(
+                $"OpenIddict has no {missing} configured, and the development fallback is only "
+                + $"permitted in the Development environment (this is '{environment.EnvironmentName}'). "
+                + "Set OpenIddict:SigningCertificatePath and OpenIddict:EncryptionCertificatePath to "
+                + "readable .pfx files, with OpenIddict:CertificatePassword if they are protected. "
+                + "Ephemeral keys would sign every token this deployment issues and be discarded on "
+                + "the next restart, signing out the whole shop without explanation.");
+        }
+
+        if (hasSigning)
+        {
+            using var stream = File.OpenRead(signing!);
             options.AddSigningCertificate(stream, password);
         }
         else
@@ -229,9 +263,9 @@ public static class IdentityRegistration
             options.AddDevelopmentSigningCertificate();
         }
 
-        if (!string.IsNullOrWhiteSpace(encryption) && File.Exists(encryption))
+        if (hasEncryption)
         {
-            using var stream = File.OpenRead(encryption);
+            using var stream = File.OpenRead(encryption!);
             options.AddEncryptionCertificate(stream, password);
         }
         else

@@ -33,8 +33,10 @@
     <PackageReference Include="CsvHelper" />
     <PackageReference Include="YamlDotNet" />
     <PackageReference Include="Konscious.Security.Cryptography.Argon2" />
-    <PackageReference Include="Microsoft.Extensions.Http" />
-    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <!--
+      Microsoft.Extensions.Http and .Hosting.Abstractions come from the FrameworkReference above on
+      net10.0; listing them as packages as well is an NU1510 error.
+    -->
   </ItemGroup>
 
   <ItemGroup>
