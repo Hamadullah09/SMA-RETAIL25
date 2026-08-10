@@ -2,6 +2,7 @@
   <ItemGroup>
     <ProjectReference Include="..\Retail25.Application\Retail25.Application.csproj" />
     <ProjectReference Include="..\Retail25.Contracts\Retail25.Contracts.csproj" />
+    <ProjectReference Include="..\Retail25.Devices\Retail25.Devices.csproj" />
   </ItemGroup>
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />

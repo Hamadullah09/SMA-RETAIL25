@@ -1,6 +1,7 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Retail25.Contracts.Terminals;
 using Retail25.Domain.Terminals;
+using Retail25.Devices.Rfid;
 using Retail25.TerminalAgent.Rfid;
 using Xunit;
 
@@ -83,7 +84,7 @@ public sealed class UhfSerialCodecTests
     }
 
     /// <summary>
-    /// Junk before a frame — a partial trailing byte from a previous read, line noise — must not stop
+    /// Junk before a frame â€” a partial trailing byte from a previous read, line noise â€” must not stop
     /// the reassembler from finding the real frame that follows it.
     /// </summary>
     [Fact]
@@ -125,7 +126,7 @@ public sealed class UhfSerialCodecTests
     private static InventoryFrameKind ClassifyByDataLength(int dataLength)
         => InventoryFrameParser.Classify(new UhfSerialFrame(0xFF, UhfSerialCommand.RealTimeInventory, new byte[dataLength]));
 
-    /// <summary>FreqAnt(1) PC(2) EPC(12, a 96-bit SGTIN) RSSI(1) — a realistic single-tag frame.</summary>
+    /// <summary>FreqAnt(1) PC(2) EPC(12, a 96-bit SGTIN) RSSI(1) â€” a realistic single-tag frame.</summary>
     [Fact]
     public void A_tag_frame_yields_the_epc_antenna_and_signal_strength()
     {
@@ -149,9 +150,9 @@ public sealed class UhfSerialCodecTests
     /// An unpopulated RSSI byte means "not measured", not "impossibly far away".
     /// <para>
     /// Observed on real hardware: an R2000-family reader in real-time inventory mode leaves this
-    /// field empty, and the vendor's own demo shows every tag at −128 dBm while reporting a genuine
-    /// −89/−46 range in its summary panel. Decoding that as a number puts it below every sensible
-    /// proximity threshold, so the gate would discard 100% of reads — and the symptom at the till is
+    /// field empty, and the vendor's own demo shows every tag at âˆ’128 dBm while reporting a genuine
+    /// âˆ’89/âˆ’46 range in its summary panel. Decoding that as a number puts it below every sensible
+    /// proximity threshold, so the gate would discard 100% of reads â€” and the symptom at the till is
     /// a reader that connects, reports healthy, and never sees a single tag.
     /// </para>
     /// </summary>

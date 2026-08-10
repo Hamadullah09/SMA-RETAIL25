@@ -1,5 +1,6 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using FluentAssertions;
+using Retail25.Devices.Rfid;
 using Retail25.TerminalAgent.Rfid;
 using Xunit;
 
@@ -9,7 +10,7 @@ namespace Retail25.TerminalAgent.UnitTests.Rfid;
 /// The LLRP wire format (EPCglobal LLRP 1.0.1).
 /// <para>
 /// These tests matter more than their size suggests. A wrong TV parameter length does not fail
-/// loudly — it shifts every subsequent field and yields plausible-looking garbage EPCs, which would
+/// loudly â€” it shifts every subsequent field and yields plausible-looking garbage EPCs, which would
 /// reach a cart as real items. Asserting against bytes built by hand is the only way to know the
 /// parser agrees with the specification rather than with itself.
 /// </para>
@@ -29,7 +30,7 @@ public sealed class LlrpCodecTests
         length.Should().Be((uint)frame.Length);
         messageId.Should().Be(42u);
 
-        // Bits 10–12 are the protocol version; version 1 is the only one in the wild.
+        // Bits 10â€“12 are the protocol version; version 1 is the only one in the wild.
         var versionAndType = BinaryPrimitives.ReadUInt16BigEndian(frame.AsSpan(0, 2));
         ((versionAndType >> 10) & 0x07).Should().Be(LlrpCodec.ProtocolVersion);
     }

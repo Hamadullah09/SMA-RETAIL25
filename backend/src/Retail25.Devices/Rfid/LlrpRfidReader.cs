@@ -1,13 +1,13 @@
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Retail25.Contracts.Terminals;
 
-namespace Retail25.TerminalAgent.Rfid;
+namespace Retail25.Devices.Rfid;
 
 /// <summary>
-/// An LLRP client, speaking the binary protocol over TCP (doc 06 §3).
+/// An LLRP client, speaking the binary protocol over TCP (doc 06 Â§3).
 /// <para>
 /// The reader pushes RO_ACCESS_REPORT messages continuously once an ROSpec is running, so the socket
 /// is drained on its own task into an unbounded channel and <see cref="ReadsAsync"/> simply consumes
@@ -16,7 +16,7 @@ namespace Retail25.TerminalAgent.Rfid;
 /// </para>
 /// <para>
 /// Keepalives are answered immediately. Three missed ones is what the supervising service treats as
-/// a dead reader — the point being that a silent socket and a reader with nothing in front of it look
+/// a dead reader â€” the point being that a silent socket and a reader with nothing in front of it look
 /// identical, and a till must be able to tell them apart.
 /// </para>
 /// </summary>
@@ -106,7 +106,7 @@ public sealed class LlrpRfidReader : IRfidReader
 
     /// <summary>
     /// LLRP carries its own configuration model, and this client implements the reading half only.
-    /// Rather than half-answer, it says which fields it cannot supply — the settings screen then
+    /// Rather than half-answer, it says which fields it cannot supply â€” the settings screen then
     /// shows "unknown" instead of an invented figure.
     /// </summary>
     public Task<ReaderDiagnostics> ReadDiagnosticsAsync(CancellationToken ct)

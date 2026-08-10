@@ -1,10 +1,10 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using Retail25.Contracts.Terminals;
 
-namespace Retail25.TerminalAgent.Rfid;
+namespace Retail25.Devices.Rfid;
 
 /// <summary>
-/// Command codes for the R2000-family "UHF RFID Reader Serial Interface Protocol" (v3.1) — the wire
+/// Command codes for the R2000-family "UHF RFID Reader Serial Interface Protocol" (v3.1) â€” the wire
 /// protocol a D2184B and its relatives (and its Windows demo, "UHFDemo") speak, over RS-232, RS-485
 /// or TCP alike. Values verified against the vendor's own reference implementation
 /// (<c>Reader/ReaderMethod.cs</c>) rather than transcribed from the PDF alone.
@@ -34,7 +34,7 @@ internal static class UhfSerialCommand
     public const byte SetRfLinkProfile = 0x69;
     public const byte GetRfLinkProfile = 0x6A;
 
-    /// <summary>Streams each tag as it is seen, then a round-summary frame (§2.2.8, <c>0x89</c>).</summary>
+    /// <summary>Streams each tag as it is seen, then a round-summary frame (Â§2.2.8, <c>0x89</c>).</summary>
     public const byte RealTimeInventory = 0x89;
 
     /// <summary>Impinj Monza fast-TID read. Non-standard, and slower on tags that do not support it.</summary>
@@ -43,8 +43,8 @@ internal static class UhfSerialCommand
 
     /// <summary>
     /// Every opcode above was confirmed against a live D2184B (firmware 8.2) rather than transcribed:
-    /// each query was sent and its reply decoded. <c>GetRfLinkProfile</c> answering <c>0xD1</c> — the
-    /// profile the vendor's own demo labels "recommended and default" — is what pins the numbering
+    /// each query was sent and its reply decoded. <c>GetRfLinkProfile</c> answering <c>0xD1</c> â€” the
+    /// profile the vendor's own demo labels "recommended and default" â€” is what pins the numbering
     /// down, because a wrong opcode would have answered with a different shape or not at all.
     /// </summary>
     public const string VerifiedAgainst = "D2184B firmware 8.2, 2026-08-03";
@@ -60,14 +60,14 @@ internal readonly record struct UhfSerialFrame(byte Address, byte Cmd, byte[] Da
 /// Wire format for the UHF serial protocol.
 /// <para>
 /// Frame: <c>Head(1)=0xA0 Len(1) Address(1) Cmd(1) Data(N) Check(1)</c>. <c>Len</c> excludes itself
-/// and <c>Head</c> — it counts everything from <c>Address</c> to <c>Check</c> inclusive, so
+/// and <c>Head</c> â€” it counts everything from <c>Address</c> to <c>Check</c> inclusive, so
 /// <c>Len = N + 3</c> and the full frame is <c>Len + 2</c> bytes. The checksum is the two's-complement
 /// negation of the sum of every byte except itself, exactly as the vendor's own
 /// <c>MessageTran.CheckSum</c> computes it.
 /// </para>
 /// <para>
-/// Address <c>0xFF</c> is the reader's public address — every unit answers to it regardless of what
-/// address it has actually been configured with (§1.2.1) — so a single-reader-per-till deployment
+/// Address <c>0xFF</c> is the reader's public address â€” every unit answers to it regardless of what
+/// address it has actually been configured with (Â§1.2.1) â€” so a single-reader-per-till deployment
 /// never needs to know or set the physical unit's address.
 /// </para>
 /// </summary>
@@ -131,7 +131,7 @@ internal static class UhfSerialCodec
 
                 if (offset + 1 >= combined.Length)
                 {
-                    // Have the head but not yet the length byte — wait for more.
+                    // Have the head but not yet the length byte â€” wait for more.
                     break;
                 }
 
@@ -189,7 +189,7 @@ internal enum InventoryFrameKind
     /// <summary>One tag, seen once, right now.</summary>
     Tag,
 
-    /// <summary>The round finished — antenna id, read rate and total reads (§2.2.8).</summary>
+    /// <summary>The round finished â€” antenna id, read rate and total reads (Â§2.2.8).</summary>
     RoundComplete,
 
     /// <summary>The reader could not complete the round (e.g. antenna disconnected).</summary>
@@ -203,7 +203,7 @@ internal readonly record struct InventoryTagFrame(byte RawAntenna, string Epc, i
 /// Interprets a <see cref="UhfSerialCommand.RealTimeInventory"/> (<c>0x89</c>) response frame.
 /// <para>
 /// The protocol has no explicit frame-type discriminator; a client tells a tag frame apart from a
-/// round-summary or an error frame purely by <c>Data</c> length (§2.2.8): a tag frame is
+/// round-summary or an error frame purely by <c>Data</c> length (Â§2.2.8): a tag frame is
 /// <c>FreqAnt(1) PC(2) EPC(N) RSSI(1)</c>, a round-summary is exactly 7 bytes
 /// (<c>AntId(1) ReadRate(2) TotalRead(4)</c>), and an error is exactly 1 byte. A real EPC is always at
 /// least 12 bytes (96-bit minimum), so a tag frame's data length is never mistakable for either.
@@ -232,9 +232,9 @@ internal static class InventoryFrameParser
     public static byte ReadErrorCode(UhfSerialFrame frame) => frame.Data[0];
 
     /// <summary>
-    /// Parses a tag data frame. Antenna is the low 2 bits of FreqAnt (§2.2.8 note); RSSI converts to
-    /// dBm as <c>raw - 129</c> (derived from the correspondence table — e.g. raw 98 ⇒ -31 dBm, raw 31
-    /// ⇒ -98 dBm).
+    /// Parses a tag data frame. Antenna is the low 2 bits of FreqAnt (Â§2.2.8 note); RSSI converts to
+    /// dBm as <c>raw - 129</c> (derived from the correspondence table â€” e.g. raw 98 â‡’ -31 dBm, raw 31
+    /// â‡’ -98 dBm).
     /// </summary>
     public static InventoryTagFrame ParseTag(UhfSerialFrame frame)
     {
@@ -248,8 +248,8 @@ internal static class InventoryFrameParser
             RawAntenna: (byte)(freqAnt & 0x03),
             Epc: Convert.ToHexString(epc),
 
-            // A raw byte of 0 or 1 decodes to −129/−128 dBm, which is below the noise floor of any
-            // real antenna — it means the reader did not measure, not that the tag is impossibly far
+            // A raw byte of 0 or 1 decodes to âˆ’129/âˆ’128 dBm, which is below the noise floor of any
+            // real antenna â€” it means the reader did not measure, not that the tag is impossibly far
             // away. Real-time inventory mode leaves this field empty on R2000-family readers, so
             // mapping it to a number would put the proximity gate on a hair trigger that rejects
             // everything.

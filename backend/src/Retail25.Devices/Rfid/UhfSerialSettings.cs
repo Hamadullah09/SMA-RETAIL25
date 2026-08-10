@@ -1,6 +1,6 @@
-using Retail25.Contracts.Terminals;
+﻿using Retail25.Contracts.Terminals;
 
-namespace Retail25.TerminalAgent.Rfid;
+namespace Retail25.Devices.Rfid;
 
 /// <summary>
 /// Reads and writes a UHF reader's own configuration over the serial protocol.
@@ -18,7 +18,7 @@ internal static class UhfSerialSettings
     /// <para>
     /// Each field is fetched independently and a failure to answer leaves that one null rather than
     /// abandoning the rest. Readers differ in what they implement, and the screen is most useful
-    /// precisely when something is wrong — which is the worst moment for it to refuse to draw.
+    /// precisely when something is wrong â€” which is the worst moment for it to refuse to draw.
     /// </para>
     /// </summary>
     public static async Task<ReaderDiagnostics> ReadAsync(
@@ -66,7 +66,7 @@ internal static class UhfSerialSettings
     }
 
     /// <summary>
-    /// Measures each antenna port's return loss — how much of the transmitted power comes straight
+    /// Measures each antenna port's return loss â€” how much of the transmitted power comes straight
     /// back rather than leaving the antenna.
     /// <para>
     /// The one diagnostic that finds a physical fault. A port reading a few dB has a cable off, a
@@ -87,7 +87,7 @@ internal static class UhfSerialSettings
             var reply = await reader.ControlQueryAsync(UhfSerialCommand.GetRfPortReturnLoss, [(byte)port], ct);
 
             // Only figures that could be a return loss are reported. A D2184B answers 238 on every
-            // port, which is not a measurement — real return loss on a UHF antenna runs from about 3
+            // port, which is not a measurement â€” real return loss on a UHF antenna runs from about 3
             // dB (nothing connected) to 40 (well matched). Showing "238 dB" would put a number on
             // screen that looks like data and is not, which is worse than the blank it replaces.
             if (reply is { Length: >= 1 } && reply[0] <= 60)
@@ -148,7 +148,7 @@ internal static class UhfSerialSettings
 
         // Only sent when switched on. It is an Impinj extension, and a reader that does not know the
         // command would otherwise report a refusal on every single connect for a feature nobody asked
-        // for — noise that trains people to ignore the list.
+        // for â€” noise that trains people to ignore the list.
         if (profile.ImpinjFastTid
             && !await reader.ControlCommandAsync(UhfSerialCommand.SetImpinjFastTid, [0x8D, 0x01], ct))
         {
@@ -162,7 +162,7 @@ internal static class UhfSerialSettings
     /// Parses "30" or "30,30,25,25" into the bytes <c>SetOutputPower</c> expects.
     /// <para>
     /// The protocol takes either one value for every port or one per port, and which the reader
-    /// accepts depends on the model — so whichever the profile expresses is what gets sent, and a
+    /// accepts depends on the model â€” so whichever the profile expresses is what gets sent, and a
     /// reader that wanted the other shape refuses it and says so.
     /// </para>
     /// </summary>
@@ -192,7 +192,7 @@ internal static class UhfSerialSettings
 
     /// <summary>
     /// Two bytes: a sign flag then the magnitude. Readers live in ceilings and loading bays, and one
-    /// that reports −5 °C should not be shown as 251.
+    /// that reports âˆ’5 Â°C should not be shown as 251.
     /// </summary>
     public static int? ParseTemperature(byte[]? reply)
         => reply is { Length: >= 2 } ? (reply[0] == 0 ? -reply[1] : reply[1]) : null;

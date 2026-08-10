@@ -1,9 +1,10 @@
-using FluentAssertions;
+﻿using FluentAssertions;
+using Retail25.Devices.Rfid;
 using Retail25.TerminalAgent.Rfid;
 using Xunit;
 
 // Two RadioRegion enums exist on purpose: one is the wire contract the agent speaks, the other the
-// domain type the server stores. They carry the same values and are deliberately not merged — the
+// domain type the server stores. They carry the same values and are deliberately not merged â€” the
 // contract is versioned by deployment, the domain by migration. Aliased here so the test can name
 // both without either winning by import order.
 using WireRegion = Retail25.Contracts.Terminals.RadioRegion;
@@ -23,11 +24,11 @@ namespace Retail25.TerminalAgent.UnitTests;
 /// </summary>
 public sealed class UhfSerialSettingsTests
 {
-    // Captured 2026-08-03. Frame bodies only — head, length, address, opcode and checksum removed.
+    // Captured 2026-08-03. Frame bodies only â€” head, length, address, opcode and checksum removed.
     private static readonly byte[] Firmware = [0x08, 0x02];
     private static readonly byte[] Temperature = [0x01, 0x20];
     private static readonly byte[] Power = [0x02];
-    // Region 1 with channels 7 and 57 — which the reader's own utility displays, at the same moment,
+    // Region 1 with channels 7 and 57 â€” which the reader's own utility displays, at the same moment,
     // as "FCC 902.00-927.00 MHz". That pairing is what fixes both the region numbering and the
     // channel-to-megahertz origin, and neither is guessable from the protocol document alone.
     private static readonly byte[] Region = [0x01, 0x07, 0x39];
@@ -35,7 +36,7 @@ public sealed class UhfSerialSettingsTests
 
     /// <summary>
     /// Two bytes, major then minor. The reader answered <c>08 02</c> while its own utility displayed
-    /// "8.2" — which is what confirms the byte order rather than assuming it.
+    /// "8.2" â€” which is what confirms the byte order rather than assuming it.
     /// </summary>
     [Fact]
     public void The_firmware_reply_is_major_then_minor()
@@ -47,13 +48,13 @@ public sealed class UhfSerialSettingsTests
     [Fact]
     public void The_temperature_reply_decodes_to_the_figure_the_vendor_tool_shows()
     {
-        // A0 05 01 7B 01 20 BE, with the demo showing 31–32 °C at the same moment.
+        // A0 05 01 7B 01 20 BE, with the demo showing 31â€“32 Â°C at the same moment.
         UhfSerialSettings.ParseTemperature(Temperature).Should().Be(32);
     }
 
     /// <summary>
-    /// The first byte is a sign flag. A reader in a chilled store reporting −5 °C must not read as
-    /// 251 — the number that would send somebody looking for a cooling fault that does not exist.
+    /// The first byte is a sign flag. A reader in a chilled store reporting âˆ’5 Â°C must not read as
+    /// 251 â€” the number that would send somebody looking for a cooling fault that does not exist.
     /// </summary>
     [Fact]
     public void A_below_zero_temperature_is_negative_rather_than_a_large_positive()
@@ -121,7 +122,7 @@ public sealed class UhfSerialSettingsTests
 
     /// <summary>
     /// 33 dBm is the ceiling for this reader family. Clamping rather than refusing, because the
-    /// server validates the form and this is the last line — sending 200 would have the reader reject
+    /// server validates the form and this is the last line â€” sending 200 would have the reader reject
     /// the whole command and run on whatever it had before, silently.
     /// </summary>
     [Fact]

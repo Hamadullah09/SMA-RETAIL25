@@ -1,16 +1,16 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Retail25.Contracts.Terminals;
 
-namespace Retail25.TerminalAgent.Rfid;
+namespace Retail25.Devices.Rfid;
 
 /// <summary>
 /// A reader with no hardware behind it (decision Q3).
 /// <para>
 /// It does two jobs. It backs the RFID simulator so a developer or a demo can push a basket of tags
-/// through the real ingest path — debounce, EPC state checks, rejection reasons and all — and it
+/// through the real ingest path â€” debounce, EPC state checks, rejection reasons and all â€” and it
 /// reproduces the behaviours that make bulk RFID hard: the same tag reported many times a second,
 /// weak reads from a neighbouring shelf, and reads on antennas that are not pointed at the till.
 /// Without those, the filters downstream would never be exercised until a store found the gaps.
@@ -96,7 +96,7 @@ public sealed class SimulatedRfidReader : IRfidReader
     }
 
     /// <summary>
-    /// A read that the reader profile should reject — too weak, or on an antenna pointed at the
+    /// A read that the reader profile should reject â€” too weak, or on an antenna pointed at the
     /// shelf behind the till. Exercising the rejection path is the point.
     /// </summary>
     public async Task PresentStrayAsync(string epc, CancellationToken ct = default)

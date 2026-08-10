@@ -1,9 +1,10 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using System.Globalization;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Engines;
 using Retail25.Application.Rfid;
 using Retail25.Contracts.Terminals;
+using Retail25.Devices.Rfid;
 using Retail25.TerminalAgent.Rfid;
 
 namespace Retail25.Benchmarks;
@@ -13,8 +14,8 @@ namespace Retail25.Benchmarks;
 /// <para>
 /// The target is 5,000 raw reads a second. That is not an arbitrary number: four antennas in fast
 /// polling, a rail of tagged garments in the field, and each tag re-read tens of times a second per
-/// antenna. The question these benchmarks answer is not "is it fast" — almost anything is fast at
-/// 5,000 operations a second — but <em>where the work is proportional to</em>. Anything on the hot
+/// antenna. The question these benchmarks answer is not "is it fast" â€” almost anything is fast at
+/// 5,000 operations a second â€” but <em>where the work is proportional to</em>. Anything on the hot
 /// path that scales with the raw read count instead of the distinct tag count is what turns a busy
 /// shop floor into a stalled till.
 /// </para>
@@ -22,12 +23,12 @@ namespace Retail25.Benchmarks;
 /// Three stages are measured separately because they fail differently:
 /// </para>
 /// <list type="number">
-///   <item>the wire codec, which turns bytes into frames — allocation-sensitive;</item>
+///   <item>the wire codec, which turns bytes into frames â€” allocation-sensitive;</item>
 ///   <item>the agent's buffer, which coalesces per EPC before anything leaves the machine;</item>
 ///   <item>the server's debouncer, which decides what reaches the SignalR broadcast.</item>
 /// </list>
 /// <para>
-/// <see cref="MemoryDiagnoser"/> is on throughout. A leak here would not announce itself — it would
+/// <see cref="MemoryDiagnoser"/> is on throughout. A leak here would not announce itself â€” it would
 /// look like a shop that gets slower over a trading day, which is the hardest kind of fault to
 /// attribute after the fact.
 /// </para>
@@ -60,7 +61,7 @@ public class RfidThroughputBenchmarks
         _epcs = Enumerable.Range(0, DistinctTags).Select(Sgtin96).ToArray();
 
         // Interleaved rather than grouped. A reader does not deliver all of tag A then all of tag B;
-        // it sweeps the field, so consecutive reads are almost always different tags — which is the
+        // it sweeps the field, so consecutive reads are almost always different tags â€” which is the
         // access pattern that actually exercises the dictionary.
         _reads = Enumerable.Range(0, ReadsPerSecond)
             .Select(i => new TagRead(
@@ -82,7 +83,7 @@ public class RfidThroughputBenchmarks
     /// <summary>
     /// A full second of reader output, from raw bytes to parsed tags.
     /// <para>
-    /// Fed as one large buffer rather than frame by frame, because that is what a socket delivers —
+    /// Fed as one large buffer rather than frame by frame, because that is what a socket delivers â€”
     /// the reassembler's job is precisely to cope with reads that split and coalesce frames wherever
     /// the network felt like it.
     /// </para>
@@ -93,7 +94,7 @@ public class RfidThroughputBenchmarks
         var reassembler = new UhfSerialCodec.FrameReassembler();
         var parsed = 0;
 
-        // Chunked at 1,460 bytes — one Ethernet payload, so frames straddle chunk boundaries exactly
+        // Chunked at 1,460 bytes â€” one Ethernet payload, so frames straddle chunk boundaries exactly
         // as they do in production. Handing it the whole array at once would skip the resync path.
         for (var offset = 0; offset < _wireBytes.Length; offset += 1_460)
         {
@@ -144,7 +145,7 @@ public class RfidThroughputBenchmarks
     /// The gate in front of SignalR, single-threaded.
     /// <para>
     /// The number that matters is the allocation column. Every read after the first for a given tag
-    /// must cost zero bytes — otherwise the broadcast gate is itself the garbage the till spends its
+    /// must cost zero bytes â€” otherwise the broadcast gate is itself the garbage the till spends its
     /// afternoon collecting.
     /// </para>
     /// </summary>
@@ -168,7 +169,7 @@ public class RfidThroughputBenchmarks
     /// <summary>
     /// The same second of traffic, arriving on four threads.
     /// <para>
-    /// This is the realistic shape — four antennas, four readers, one gate — and it is where a
+    /// This is the realistic shape â€” four antennas, four readers, one gate â€” and it is where a
     /// lock-based implementation would show its contention. Comparing it against the single-threaded
     /// case above is the whole reason the compare-and-swap is written the way it is.
     /// </para>
@@ -201,7 +202,7 @@ public class RfidThroughputBenchmarks
     /// A full second end to end: bytes off the socket, through the agent's buffer, through the
     /// server's gate. What is left is what SignalR is asked to send.
     /// </summary>
-    [Benchmark(Description = "End to end: wire → agent buffer → debounce")]
+    [Benchmark(Description = "End to end: wire â†’ agent buffer â†’ debounce")]
     public int EndToEnd()
     {
         var reassembler = new UhfSerialCodec.FrameReassembler();
@@ -269,7 +270,7 @@ public class RfidThroughputBenchmarks
             // Data is FreqAnt(1) + PC(2) + EPC(n) + RSSI(1); Len counts Addr, Cmd, Data and Checksum.
             var data = new byte[1 + 2 + epc.Length + 1];
 
-            // Frequency in the high five bits, antenna in the low three — the reader's own packing.
+            // Frequency in the high five bits, antenna in the low three â€” the reader's own packing.
             data[0] = (byte)(((read.Antenna - 1) & 0x03) | (0x08 << 3));
 
             // PC word for a 96-bit EPC: length 6 words in the top five bits.

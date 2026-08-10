@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The hardware drivers, and nothing else.
+
+    These used to live inside the terminal agent, which was right while the agent was the only thing
+    that talked to a reader. It is not any more: the API can hold the reader connections itself when
+    the server sits on the shop's own network, and a till then needs nothing installed on it.
+
+    Both hosts need the same driver, and neither should have to reference the other — an API that
+    referenced the agent executable would inherit its Windows-service hosting, and an agent that
+    referenced Infrastructure would drag EF Core, Hangfire and a database connection onto a till.
+    So the driver sits underneath both.
+
+    It depends on Contracts alone: a reader profile in, tag reads out. No persistence, no MediatR,
+    no hosting.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\Retail25.Contracts\Retail25.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The codecs are internal: they are frame-level detail, and the tests that pin them byte by
+         byte are the reason they can stay that way. -->
+    <InternalsVisibleTo Include="Retail25.TerminalAgent.UnitTests" />
+    <InternalsVisibleTo Include="Retail25.Benchmarks" />
+  </ItemGroup>
+</Project>

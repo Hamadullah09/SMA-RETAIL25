@@ -1,11 +1,11 @@
-using System.Buffers.Binary;
+﻿using System.Buffers.Binary;
 using System.Globalization;
 using System.Text;
 using Retail25.Contracts.Terminals;
 
-namespace Retail25.TerminalAgent.Rfid;
+namespace Retail25.Devices.Rfid;
 
-/// <summary>LLRP message types (EPCglobal LLRP 1.0.1 §16.1). Only the ones an inventory client needs.</summary>
+/// <summary>LLRP message types (EPCglobal LLRP 1.0.1 Â§16.1). Only the ones an inventory client needs.</summary>
 internal static class LlrpMessageType
 {
     public const ushort GetReaderCapabilities = 1;
@@ -39,7 +39,7 @@ internal sealed record LlrpMessage(ushort Type, uint MessageId, byte[] Payload);
 /// LLRP wire format.
 /// <para>
 /// The header is ten bytes: three reserved bits, a three-bit version, a ten-bit message type, a
-/// four-byte total length and a four-byte message id. Parameters are then either TLV (type ≥ 128,
+/// four-byte total length and a four-byte message id. Parameters are then either TLV (type â‰¥ 128,
 /// with an explicit length) or TV (high bit set, fixed length by type). Getting the TV lengths right
 /// matters more than it looks: a wrong length does not fail loudly, it silently shifts every
 /// subsequent field and produces plausible-looking garbage EPCs.

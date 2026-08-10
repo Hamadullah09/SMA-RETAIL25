@@ -1,12 +1,13 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Retail25.Contracts.Terminals;
+using Retail25.Devices.Rfid;
 using Retail25.TerminalAgent.Rfid;
 using Xunit;
 
 namespace Retail25.TerminalAgent.UnitTests.Rfid;
 
 /// <summary>
-/// The agent-side coalescing window (doc 06 §2). Its whole job is to turn the reader's firehose into
+/// The agent-side coalescing window (doc 06 Â§2). Its whole job is to turn the reader's firehose into
 /// something worth a round trip, so the properties under test are: one entry per tag, counts that
 /// accumulate, and nothing lost when the batch is capped.
 /// </summary>
@@ -33,7 +34,7 @@ public sealed class TagBufferTests
 
     /// <summary>
     /// The strongest read wins, because it is the one most likely to have come from the basket rather
-    /// than from the shelf behind the till — and the antenna follows the signal, so zoning is judged
+    /// than from the shelf behind the till â€” and the antenna follows the signal, so zoning is judged
     /// on the read that actually mattered.
     /// </summary>
     [Fact]

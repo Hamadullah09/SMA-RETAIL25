@@ -2,6 +2,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Retail25.Contracts.Terminals;
+using Retail25.Devices.Rfid;
 using Retail25.TerminalAgent.Server;
 
 namespace Retail25.TerminalAgent.Rfid;

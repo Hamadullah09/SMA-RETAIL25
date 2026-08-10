@@ -1,11 +1,11 @@
-using Retail25.Contracts.Terminals;
+﻿using Retail25.Contracts.Terminals;
 
-namespace Retail25.TerminalAgent.Rfid;
+namespace Retail25.Devices.Rfid;
 
 /// <summary>
 /// A tag source (decision Q3).
 /// <para>
-/// The port exists so the whole flow — ingest, debounce, cart, rejection reasons, UI — is developable
+/// The port exists so the whole flow â€” ingest, debounce, cart, rejection reasons, UI â€” is developable
 /// and testable with no hardware in the room. That is not a convenience: RFID readers are expensive,
 /// slow to configure and impossible to put in CI, and a design that only works with one attached
 /// would leave the most complex path in the system permanently untested.
@@ -20,7 +20,7 @@ public interface IRfidReader : IAsyncDisposable
 
     Task ConnectAsync(ReaderProfileContract profile, CancellationToken ct);
 
-    /// <summary>Begins inventorying. Idempotent — calling it twice must not start two sessions.</summary>
+    /// <summary>Begins inventorying. Idempotent â€” calling it twice must not start two sessions.</summary>
     Task StartAsync(CancellationToken ct);
 
     Task StopAsync(CancellationToken ct);
@@ -29,12 +29,12 @@ public interface IRfidReader : IAsyncDisposable
     IAsyncEnumerable<TagRead> ReadsAsync(CancellationToken ct);
 
     /// <summary>
-    /// What the device says about itself right now — firmware, temperature, the settings it is
+    /// What the device says about itself right now â€” firmware, temperature, the settings it is
     /// actually running, and whether each antenna port has something connected to it.
     /// <para>
     /// Asked of the hardware rather than read back from the profile, and that is the entire point.
     /// The profile says what the reader was told; this says what it did. When a shop reports poor
-    /// range, the useful fact is that the reader is transmitting at 2 dBm — not that somebody typed
+    /// range, the useful fact is that the reader is transmitting at 2 dBm â€” not that somebody typed
     /// 30 into a form once.
     /// </para>
     /// <para>

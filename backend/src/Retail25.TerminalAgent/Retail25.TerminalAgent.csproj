@@ -7,6 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Retail25.Contracts\Retail25.Contracts.csproj" />
+    <ProjectReference Include="..\Retail25.Devices\Retail25.Devices.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- The loopback API on 127.0.0.1:8477 needs the ASP.NET Core hosting stack (doc 06 §5). -->

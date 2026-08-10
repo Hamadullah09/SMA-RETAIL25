@@ -1,33 +1,33 @@
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Retail25.Contracts.Terminals;
 
-namespace Retail25.TerminalAgent.Rfid;
+namespace Retail25.Devices.Rfid;
 
 /// <summary>
-/// A reader speaking the R2000-family "UHF RFID Reader Serial Interface Protocol" (v3.1) — the
-/// protocol a D2184B and its relatives use — over TCP.
+/// A reader speaking the R2000-family "UHF RFID Reader Serial Interface Protocol" (v3.1) â€” the
+/// protocol a D2184B and its relatives use â€” over TCP.
 /// <para>
 /// This protocol has no push-forever inventory mode: <c>cmd_real_time_inventory</c> (<c>0x89</c>)
 /// streams each tag as it is found for one round, then ends with a summary or error frame and goes
-/// quiet (§2.2.8). Continuous reads are therefore this class's own doing — it re-issues the command,
+/// quiet (Â§2.2.8). Continuous reads are therefore this class's own doing â€” it re-issues the command,
 /// round after round, for as long as <see cref="StartAsync"/> is in effect, cycling through the
 /// profile's checkout antennas with <c>cmd_set_work_antenna</c> (<c>0x74</c>) between rounds when more
 /// than one is configured. Repeat is fixed at <c>0xFF</c>, the manual's own documented technique for
-/// making each round as short as possible (§1.6.2 Method 1) — the point of running rounds back to back
+/// making each round as short as possible (Â§1.6.2 Method 1) â€” the point of running rounds back to back
 /// rather than asking for a single long one.
 /// </para>
 /// <para>
 /// TCP only: either the reader's own network interface, or a serial-to-Ethernet bridge (an IPort
-/// module, or equivalent) in front of a unit wired via RS-232 — the same shape as
+/// module, or equivalent) in front of a unit wired via RS-232 â€” the same shape as
 /// <c>LlrpRfidReader</c>, and the reason <see cref="ReaderProfileContract"/> needs no new fields to
 /// carry this protocol.
 /// </para>
 /// </summary>
 public sealed class UhfSerialRfidReader : IRfidReader
 {
-    /// <summary>Shortest-round technique from §1.6.2 Method 1 — this class supplies "continuous" by looping it.</summary>
+    /// <summary>Shortest-round technique from Â§1.6.2 Method 1 â€” this class supplies "continuous" by looping it.</summary>
     private const byte RepeatFastest = 0xFF;
 
     /// <summary>How long to wait for a <c>SetWorkAntenna</c> acknowledgement before proceeding anyway.</summary>
@@ -90,7 +90,7 @@ public sealed class UhfSerialRfidReader : IRfidReader
         _stream = _client.GetStream();
 
         // Antenna ids on the wire are 0-based (per-port); the reader profile's zoning is 1-based, so a
-        // configured "1" is physical port 0. No zoning configured falls back to port 0 — matches the
+        // configured "1" is physical port 0. No zoning configured falls back to port 0 â€” matches the
         // simulator's own fallback for an unzoned profile.
         var checkoutAntennas = AntennaZoneMap.CheckoutAntennas(profile.AntennaZones);
         _antennas = checkoutAntennas.Count == 0
@@ -169,7 +169,7 @@ public sealed class UhfSerialRfidReader : IRfidReader
     /// Sends a control command on the reader's own connection and returns the reply's data.
     /// <para>
     /// On the reader's connection, not a second one, and this was not the first design. A separate
-    /// socket is tidier — it cannot possibly disturb an inventory round — and against a D2184B it
+    /// socket is tidier â€” it cannot possibly disturb an inventory round â€” and against a D2184B it
     /// silently returns nothing for every query. These readers are a single serial line behind a TCP
     /// bridge: a second client is accepted and then starved, because there is only one UART and the
     /// bridge is already servicing the first. The tidier design was answering "unknown" for every

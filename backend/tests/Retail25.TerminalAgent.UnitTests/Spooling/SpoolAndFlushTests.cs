@@ -1,8 +1,9 @@
-using FluentAssertions;
+﻿using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Retail25.Contracts.Terminals;
 using Retail25.TerminalAgent;
+using Retail25.Devices.Rfid;
 using Retail25.TerminalAgent.Rfid;
 using Retail25.TerminalAgent.Server;
 using Retail25.TerminalAgent.Spooling;
@@ -11,7 +12,7 @@ using Xunit;
 namespace Retail25.TerminalAgent.UnitTests.Spooling;
 
 /// <summary>
-/// The offline spool (doc 06 §6). A till loses its network more often than anything else in the
+/// The offline spool (doc 06 Â§6). A till loses its network more often than anything else in the
 /// building, and reads taken during an outage are still the basket in front of the cashier.
 /// </summary>
 public sealed class SqliteTagSpoolTests : IDisposable
@@ -72,7 +73,7 @@ public sealed class SqliteTagSpoolTests : IDisposable
 
     /// <summary>
     /// The spool is bounded. A till offline all weekend must not fill its disk and take itself down
-    /// for a reason unrelated to the outage — and weekend-old reads describe baskets that left long ago.
+    /// for a reason unrelated to the outage â€” and weekend-old reads describe baskets that left long ago.
     /// </summary>
     [Fact]
     public async Task The_spool_is_bounded_by_batch_count()
