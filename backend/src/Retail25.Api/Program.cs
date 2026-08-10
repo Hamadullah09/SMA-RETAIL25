@@ -144,6 +144,22 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.Cookie.Name = builder.Environment.IsDevelopment() ? "r25.identity" : "__Host-r25.identity";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
+
+    // Pinned to the origin root, because `__Host-` demands it.
+    //
+    // The prefix's contract is Secure, no Domain, and Path=/ — a browser that receives a
+    // `__Host-` cookie failing any of those discards it silently. ASP.NET Core defaults a cookie's
+    // path to the application's PathBase, which is `/backend` where this runs as a sub-application,
+    // so the cookie was being thrown away by every browser and nothing said so. It surfaced as
+    // sign-in reporting "That form had expired" on a form that was seconds old, because the
+    // antiforgery cookie beside this one was discarded for the same reason.
+    //
+    // The cost is that the front end's own process now also receives these on requests to the
+    // origin. They are httpOnly, so no script can read them, and the API authenticates its own
+    // endpoints by bearer token — this cookie only ever means "signed in at the interactive page".
+    // Worth it to keep the prefix: this account serves several sibling subdomains, and `__Host-` is
+    // exactly what stops one of them setting a Domain-wide cookie that shadows this name.
+    options.Cookie.Path = "/";
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
         ? CookieSecurePolicy.SameAsRequest
         : CookieSecurePolicy.Always;
@@ -190,6 +206,11 @@ builder.Services.AddAntiforgery(options =>
     options.Cookie.Name = builder.Environment.IsDevelopment() ? "r25.antiforgery" : "__Host-r25.antiforgery";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Strict;
+
+    // Same reason as the identity cookie above: `__Host-` requires Path=/, and the default is the
+    // application's PathBase. This is the cookie whose loss produced the visible symptom — the
+    // token in the form had nothing to be checked against, so every sign-in was rejected as stale.
+    options.Cookie.Path = "/";
     options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
         ? CookieSecurePolicy.SameAsRequest
         : CookieSecurePolicy.Always;
