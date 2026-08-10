@@ -6,6 +6,8 @@ import { useAuth } from '@/lib/auth-config';
 import { Sidebar, Header } from '@/components/layout/sidebar';
 import { BrandingProvider, Watermark } from '@/components/layout/branding';
 import { useUIStore } from '@/stores/ui-store';
+import { mastersApi } from '@/lib/masters-api';
+import { setActiveCurrency, useCurrency } from '@/lib/currency';
 import { cn } from '@/lib/utils';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -13,6 +15,35 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter();
   const pathname = usePathname();
   const { sidebarOpen } = useUIStore();
+
+  // Loaded here, once, because every screen below prints money and none of them should be deciding
+  // what money looks like for themselves. Failure is silent on purpose: amounts render without a
+  // symbol until it arrives, which is incomplete rather than wrong, and no back-office screen should
+  // refuse to open because a currency lookup was slow.
+  const locationId = auth.user?.locationId;
+  const currency = useCurrency();
+
+  useEffect(() => {
+    if (!locationId) return;
+
+    let cancelled = false;
+
+    void mastersApi.settings
+      .get(locationId)
+      .then((snapshot) => {
+        const base = snapshot.currencies.find((c) => c.isBaseCurrency) ?? snapshot.currencies[0];
+        if (base && !cancelled) {
+          setActiveCurrency({ code: base.code, symbol: base.symbol, scale: base.scale });
+        }
+      })
+      .catch(() => {
+        // Nothing to say to the user: the symbol is missing, not the money.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [locationId]);
 
   useEffect(() => {
     if (!auth.isLoading && !auth.isAuthenticated) {
@@ -89,7 +120,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               the chrome and a settings page wants air — and the old uniform p-6 gave the dense
               screens a gutter they then fought with p-2 on the inside.
             */}
-            <main id="main" tabIndex={-1}>
+            {/*
+              Keyed on the currency so the screens below re-render once it is known.
+
+              Most of them format money by calling a function, not by reading a hook, so nothing
+              tells them the symbol has arrived — the dashboard rendered its takings as a bare
+              "54.83" and stayed that way, while a page opened later showed ₨54.83. Changing the key
+              from "" to "PKR" remounts the subtree exactly once, on load, before anyone has typed
+              anything into it.
+            */}
+            <main id="main" tabIndex={-1} key={currency.code}>
               {children}
             </main>
           </div>

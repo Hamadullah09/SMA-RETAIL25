@@ -1,5 +1,5 @@
 'use client';
-import { recordIdFrom } from '@/lib/utils';
+import { formatCurrency, recordIdFrom } from '@/lib/utils';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
@@ -179,9 +179,8 @@ function describe(error: unknown): string {
   return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
-function currency(value: number): string {
-  return value.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
-}
+// Was `currency: 'USD'` — US dollars on a page about what customers owe this shop.
+const currency = formatCurrency;
 
 function AgingReport({ rows, onClose }: { rows: ReceivablesAgingRow[]; onClose: () => void }) {
   return (

@@ -5,12 +5,12 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('en-AU', {
-    style: 'currency',
-    currency: 'AUD',
-  }).format(amount);
-}
+/**
+ * Re-exported so the eighteen screens that already import it from here keep working, while the money
+ * itself is decided in one place. This was `Intl.NumberFormat('en-AU', { currency: 'AUD' })` — every
+ * back-office figure printed in Australian dollars no matter what the shop had configured.
+ */
+export { formatCurrency } from './currency';
 
 export function formatDate(date: string | Date): string {
   return new Intl.DateTimeFormat('en-AU', {

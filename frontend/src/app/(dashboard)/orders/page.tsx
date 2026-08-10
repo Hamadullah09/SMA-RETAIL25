@@ -1,5 +1,5 @@
 'use client';
-import { recordIdFrom } from '@/lib/utils';
+import { formatCurrency, recordIdFrom } from '@/lib/utils';
 
 import { useCallback, useEffect, useState } from 'react';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
@@ -64,9 +64,8 @@ function describe(error: unknown): string {
   return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
-function currency(value: number): string {
-  return value.toLocaleString(undefined, { style: 'currency', currency: 'USD' });
-}
+// Was `currency: 'USD'`, which printed US dollars on a page a shop reads its own takings from.
+const currency = formatCurrency;
 
 /** Shared customer typeahead used by all three creation forms. */
 function CustomerPicker({
