@@ -2,6 +2,7 @@ using System.Globalization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Retail25.Application.Abstractions;
+using Retail25.Application.Rfid;
 using Retail25.Infrastructure.Identity;
 
 namespace Retail25.Infrastructure.Realtime;
@@ -18,14 +19,38 @@ namespace Retail25.Infrastructure.Realtime;
 public sealed class PosHub : Hub
 {
     private readonly ICartStore _cartStore;
+    private readonly IReaderConnectionStatus _readerStatus;
 
-    public PosHub(ICartStore cartStore) => _cartStore = cartStore;
+    public PosHub(ICartStore cartStore, IReaderConnectionStatus readerStatus)
+    {
+        _cartStore = cartStore;
+        _readerStatus = readerStatus;
+    }
 
     // Ids are numbers on the wire since the integer re-key: a string parameter here makes SignalR
     // refuse the invocation outright ("Error binding arguments"), which the till shows as a server
     // that never comes online.
-    public Task JoinStation(long stationId)
-        => Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Station(stationId));
+    public async Task JoinStation(long stationId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Station(stationId));
+
+        // The reader's state, told to whoever just arrived.
+        //
+        // Status is pushed when it changes, and a change that happened before this till opened its
+        // browser is a change it never hears about. That is the whole bug behind a status chip that
+        // reads "offline" while the reader is plainly working: the announcement was made to an empty
+        // room. Sending it on join makes the strip correct from the first paint.
+        //
+        // Only when this server holds the readers. Where tills run agents, the agent is the
+        // authority and a second opinion from here would fight it.
+        var status = _readerStatus.Current;
+
+        if (status.ServerHosted)
+        {
+            var online = status.Readers.Any(r => r.StationId == stationId && r.Connected);
+            await Clients.Caller.SendAsync("TagStreamStatus", new { readerOnline = online, readRate = 0 });
+        }
+    }
 
     public Task LeaveStation(long stationId)
         => Groups.RemoveFromGroupAsync(Context.ConnectionId, PosGroups.Station(stationId));

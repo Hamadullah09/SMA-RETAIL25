@@ -154,6 +154,10 @@ public static class DependencyInjection
     private static void AddServerReaders(IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<ServerReaderOptions>(configuration.GetSection(ServerReaderOptions.Section));
+
+        services.AddSingleton<ServerReaderStatus>();
+        services.AddSingleton<IReaderConnectionStatus>(sp => sp.GetRequiredService<ServerReaderStatus>());
+
         services.AddHostedService<ServerReaderHost>();
     }
 

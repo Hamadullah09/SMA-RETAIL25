@@ -63,12 +63,13 @@ public sealed class ServerReaderOptions
 /// agent are indistinguishable by the time anything decides what to do with them.
 /// </para>
 /// </summary>
-public sealed class ServerReaderHost : BackgroundService
+internal sealed class ServerReaderHost : BackgroundService
 {
     private readonly IServiceScopeFactory _scopes;
     private readonly ILogger<ServerReaderHost> _logger;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ServerReaderOptions _options;
+    private readonly ServerReaderStatus _status;
 
     /// <summary>Running sessions by reader profile id, so a refresh can tell new from known.</summary>
     private readonly Dictionary<long, ReaderSession> _sessions = [];
@@ -80,12 +81,18 @@ public sealed class ServerReaderHost : BackgroundService
         IServiceScopeFactory scopes,
         ILogger<ServerReaderHost> logger,
         ILoggerFactory loggerFactory,
-        IOptions<ServerReaderOptions> options)
+        IOptions<ServerReaderOptions> options,
+        ServerReaderStatus status)
     {
         _scopes = scopes;
         _logger = logger;
         _loggerFactory = loggerFactory;
         _options = options?.Value ?? new ServerReaderOptions();
+        _status = status;
+
+        // Published even when disabled, and that is the point: it tells a till whether to ask this
+        // server about its reader or to ask the agent on its own machine.
+        _status.ServerHosted = _options.Enabled;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -197,6 +204,7 @@ public sealed class ServerReaderHost : BackgroundService
 
                 await session.StopAsync();
                 _sessions.Remove(id);
+                _status.Forget(id);
             }
         }
 
@@ -213,13 +221,17 @@ public sealed class ServerReaderHost : BackgroundService
                 continue;
             }
 
+            _status.Track(profile.Id, profile.Name, $"{profile.Host}:{profile.Port}", stationId, connected: false);
+
+            var id = profile.Id;
             var session = new ReaderSession(
                 contract,
                 stationId,
                 Revision(profile),
                 _scopes,
                 _loggerFactory,
-                TimeSpan.FromSeconds(Math.Max(1, _options.ReconnectSeconds)));
+                TimeSpan.FromSeconds(Math.Max(1, _options.ReconnectSeconds)),
+                connected => _status.SetConnected(id, connected));
 
             _sessions[profile.Id] = session;
             session.Start();

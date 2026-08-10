@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Retail25.Application.Abstractions;
 using Retail25.Application.Rfid.Commands;
 using Retail25.Contracts.Terminals;
 using Retail25.Devices.Rfid;
@@ -26,6 +27,12 @@ internal sealed class ReaderSession : IDisposable
     private readonly TimeSpan _reconnectDelay;
     private readonly CancellationTokenSource _cts = new();
 
+    /// <summary>Told whenever this reader starts or stops answering, for the till's status strip.</summary>
+    private readonly Action<bool> _onConnectionChanged;
+
+    /// <summary>Last state pushed to the till, so a retry loop does not repeat the same news.</summary>
+    private bool? _announced;
+
     private Task? _loop;
 
     public ReaderSession(
@@ -34,8 +41,10 @@ internal sealed class ReaderSession : IDisposable
         long revision,
         IServiceScopeFactory scopes,
         ILoggerFactory loggerFactory,
-        TimeSpan reconnectDelay)
+        TimeSpan reconnectDelay,
+        Action<bool> onConnectionChanged)
     {
+        _onConnectionChanged = onConnectionChanged;
         _profile = profile;
         _stationId = stationId;
         Revision = revision;
@@ -96,6 +105,8 @@ internal sealed class ReaderSession : IDisposable
                 await reader.StartAsync(ct);
 
                 attempt = 0;
+                _onConnectionChanged(true);
+                await AnnounceAsync(online: true, ct);
                 _logger.LogInformation("Reading tags from {Reader} for station {Station}", Description, _stationId);
 
                 await foreach (var read in reader.ReadsAsync(ct))
@@ -123,6 +134,11 @@ internal sealed class ReaderSession : IDisposable
             }
             finally
             {
+                // Reported before the delay, not after: the strip should go red the moment the
+                // reader stops answering, not ten seconds later when the retry gives up too.
+                _onConnectionChanged(false);
+                await AnnounceAsync(online: false, CancellationToken.None);
+
                 if (reader is not null)
                 {
                     await reader.DisposeAsync();
@@ -168,6 +184,43 @@ internal sealed class ReaderSession : IDisposable
             // next tag is a fresh chance, and a reader that stops reading because one EPC upset the
             // handler is a till that stops working for reasons nobody at the counter can see.
             _logger.LogError(ex, "Could not ingest a tag read from {Reader}", Description);
+        }
+    }
+
+    /// <summary>
+    /// Tells the till whether its reader is answering, on the same channel the agent uses.
+    /// <para>
+    /// This is what makes the status chip work with no agent installed. The till already listens for
+    /// <c>TagStreamStatus</c> and has since the agent was the only source; the server simply becomes
+    /// another thing that can send it. No till-side change, and a shop running agents on some lanes
+    /// and server-held readers on others gets one consistent strip.
+    /// </para>
+    /// <para>
+    /// Only on a change. The retry loop runs every ten seconds, and a till told "still offline" six
+    /// times a minute is a till re-rendering for no reason.
+    /// </para>
+    /// </summary>
+    private async Task AnnounceAsync(bool online, CancellationToken ct)
+    {
+        if (_announced == online)
+        {
+            return;
+        }
+
+        _announced = online;
+
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            var notifier = scope.ServiceProvider.GetRequiredService<IPosNotifier>();
+
+            await notifier.TagStreamStatusAsync(_stationId, online, readRate: 0, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A status push that fails must not end the session. The reader is the point; the chip
+            // is a courtesy, and a hub that is briefly unavailable is not a reason to stop reading.
+            _logger.LogDebug(ex, "Could not publish reader status for {Reader}", Description);
         }
     }
 

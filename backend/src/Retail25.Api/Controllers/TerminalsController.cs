@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Retail25.Api.Common;
 using Retail25.Application.Carts.Queries;
+using Retail25.Application.Rfid;
 using Retail25.Application.Terminals;
 using Retail25.Domain.Terminals;
 
@@ -19,8 +20,25 @@ namespace Retail25.Api.Controllers;
 public sealed class TerminalsController : ControllerBase
 {
     private readonly ISender _sender;
+    private readonly IReaderConnectionStatus _readerStatus;
 
-    public TerminalsController(ISender sender) => _sender = sender;
+    public TerminalsController(ISender sender, IReaderConnectionStatus readerStatus)
+    {
+        _sender = sender;
+        _readerStatus = readerStatus;
+    }
+
+    /// <summary>
+    /// Which readers this server holds, and whether each is answering right now.
+    /// <para>
+    /// The till's status strip asks here first. When <c>serverHosted</c> is false this deployment
+    /// does not hold reader connections at all, and the till falls back to asking the agent on its
+    /// own machine — the distinction matters, because "no reader" and "not my job to know" look
+    /// identical to a cashier otherwise, and only one of them is a broken shop.
+    /// </para>
+    /// </summary>
+    [HttpGet("reader-connections")]
+    public IActionResult ReaderConnections() => Ok(_readerStatus.Current);
 
     /// <summary>The station's effective POS settings, after station overrides are folded over policy.</summary>
     [HttpGet("{stationId:long}/policy")]
