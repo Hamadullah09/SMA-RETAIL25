@@ -155,7 +155,22 @@ public static class DependencyInjection
             .UseRecommendedSerializerSettings()
             .UseSqlServerStorage(configuration.GetConnectionString("DefaultConnection")));
 
-        services.AddHangfireServer();
+        // Whether this process also *works* the queue, as opposed to only scheduling onto it.
+        //
+        // Storage is always registered: the schedule lives in SQL Server, so any instance can enqueue
+        // and any instance can read what ran. The worker is separate because where it belongs depends
+        // on where this is deployed, and that is not a code decision.
+        //
+        // On shared IIS hosting the worker is close to useless and quietly so. The pool is recycled on
+        // a schedule and unloaded when idle, and a background loop dies with it — so a nightly 2am
+        // accrual runs only if somebody happens to be using the site at 2am. Turning the worker off
+        // there and driving the job from something that is actually awake (the host's scheduler, or a
+        // pinger against the trigger endpoint) is honest; leaving it on is a job that appears
+        // scheduled, reports no error, and does not run.
+        if (configuration.GetValue("Jobs:RunServer", defaultValue: true))
+        {
+            services.AddHangfireServer();
+        }
     }
 
     private static void AddRedis(IServiceCollection services, IConfiguration configuration)
