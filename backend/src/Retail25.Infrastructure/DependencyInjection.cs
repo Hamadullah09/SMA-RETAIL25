@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Retail25.Infrastructure.Rfid;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Behaviors;
 using Retail25.Application.Accounting;
@@ -138,8 +139,22 @@ public static class DependencyInjection
         services.AddSingleton<IDocumentRenderer, QuestPdfDocumentRenderer>();
 
         AddHangfire(services, configuration);
+        AddServerReaders(services, configuration);
 
         return services;
+    }
+
+    /// <summary>
+    /// Lets this process hold the RFID reader connections instead of a per-till agent.
+    /// <para>
+    /// Registered always, enabled by configuration, and off by default. The host does nothing at all
+    /// when disabled, so a deployment that uses terminal agents pays nothing for this being present.
+    /// </para>
+    /// </summary>
+    private static void AddServerReaders(IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<ServerReaderOptions>(configuration.GetSection(ServerReaderOptions.Section));
+        services.AddHostedService<ServerReaderHost>();
     }
 
     /// <summary>

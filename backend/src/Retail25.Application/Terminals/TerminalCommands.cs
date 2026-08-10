@@ -1,4 +1,4 @@
-using MediatR;
+﻿using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Common;
@@ -30,11 +30,11 @@ public sealed record ReportAgentStatusCommand(
     bool PoleDisplayOnline,
     int ReadRate) : IRequest<Result>;
 
-/// <summary>The device profile bundle an agent pulls on connect (doc 06 §7).</summary>
+/// <summary>The device profile bundle an agent pulls on connect (doc 06 Â§7).</summary>
 [RequiresPermission(PermissionKeys.Terminals.Read)]
 public sealed record GetTerminalProfileQuery(long StationId) : IRequest<Result<TerminalProfileContract>>;
 
-/// <summary>Changes how hard the reader is working — off, on demand, or continuous (doc 06 §5).</summary>
+/// <summary>Changes how hard the reader is working â€” off, on demand, or continuous (doc 06 Â§5).</summary>
 [RequiresPermission(PermissionKeys.Terminals.Operate)]
 public sealed record SetReaderModeCommand(long StationId, Domain.Terminals.ReaderMode Mode) : IRequest<Result>;
 
@@ -51,7 +51,7 @@ public sealed record RequestWeightCommand(long StationId) : IRequest<Result>;
 [RequiresPermission(PermissionKeys.Terminals.Operate)]
 public sealed record ZeroScaleCommand(long StationId) : IRequest<Result>;
 
-/// <summary>Line 1 and line 2 of the customer-facing display (guide p.80–81).</summary>
+/// <summary>Line 1 and line 2 of the customer-facing display (guide p.80â€“81).</summary>
 [RequiresPermission(PermissionKeys.Terminals.Operate)]
 public sealed record DisplayOnPoleCommand(long StationId, string Line1, string Line2) : IRequest<Result>;
 
@@ -207,38 +207,10 @@ public sealed class TerminalHandlers
                    .FirstOrDefaultAsync(p => p.LocationId == station.LocationId && p.StationId == null && p.IsActive, ct);
     }
 
-    private static ReaderProfileContract? ToContract(ReaderProfile? profile) => profile is null
-        ? null
-        : new ReaderProfileContract(
-            profile.Id,
-            profile.Name,
-            profile.Host,
-            profile.Port,
-            (Contracts.Terminals.ReaderProtocol)profile.Protocol,
-            profile.AntennaZones,
-            profile.RssiThresholdDbm,
-            profile.MinimumReadCount,
-            profile.DebounceMs,
-            profile.CoalesceMs,
-            profile.FlushIntervalMs,
-            profile.MaxBatchSize,
-            profile.AutoAcceptBatches,
-            profile.ContinuousMode,
-
-            // The reader's own hardware configuration travels with the rest of the profile, so the
-            // agent applies it on connect without a second round trip. Casts rather than mappings:
-            // both enums are the protocol's wire values, deliberately, so there is nothing to
-            // translate and nothing to get out of step.
-            profile.OutputPowerDbm,
-            (Contracts.Terminals.RadioRegion)profile.Region,
-            profile.FrequencyStartIndex,
-            profile.FrequencyEndIndex,
-            (Contracts.Terminals.RfLinkProfile)profile.LinkProfile,
-            (Contracts.Terminals.BeeperMode)profile.Beeper,
-            profile.AntennaReturnLossThresholdDb,
-            profile.ImpinjFastTid,
-            profile.DenseReaderMode,
-            profile.DeviceAddress);
+    // Delegated to the shared mapper: the API's own reader host builds the same contract from
+    // the same row, and one copy is what keeps the two hosts configuring a device identically.
+    private static ReaderProfileContract? ToContract(ReaderProfile? profile) =>
+        ReaderProfileMapper.ToContract(profile);
 
     private static PrinterProfileContract? ToContract(PrinterProfile? profile) => profile is null
         ? null
