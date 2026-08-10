@@ -98,15 +98,34 @@ What that costs, stated plainly:
   depend on the sweep — every read filters on `expires_at`, so an unswept row is invisible rather
   than wrong.
 
-### 4. Certificates
+### 4. Keys
 
 OpenIddict signs and encrypts every token with these. They must be real files — the development
 fallback keeps its key in the launching user's certificate store, which a shared pool never loads,
 so keys would regenerate on each recycle and sign the whole shop out at unexplainable intervals.
 The application refuses to start rather than let that happen.
 
-Upload both `.pfx` files to `www\POS\backend\certs\`. They are not reachable over HTTP: ASP.NET
-Core serves static files only from `wwwroot`.
+**Use `.pem`, not `.pfx`, on this host.** PKCS#12 import fails here, and the error says nothing
+useful:
+
+```
+CryptographicException: The system cannot find the file specified.
+   at X509CertificateLoader.ImportPfx(...)
+```
+
+It names no file, and the `.pfx` it is complaining about is present and readable. Importing a .pfx
+goes through the Windows certificate stack, which wants somewhere to materialise the private key —
+a key container under a loaded user profile, and a writable temp directory. Neither
+`X509KeyStorageFlags.EphemeralKeySet` nor switching the pool's **Load User Profile** to `True`
+fixed it; both were tried. A PEM is parsed straight into an in-memory RSA key with no store, no
+container and no temp file, so it works. Nothing here needs a certificate: OpenIddict publishes the
+public half in its JWKS document and no client validates a chain.
+
+Generate an encrypted PKCS#8 pair and upload both to `www\POS\backend\certs\`. They are not
+reachable over HTTP — ASP.NET Core serves static files only from `wwwroot`.
+
+Confirm afterwards that `/.well-known/jwks` returns one RSA key. That is the check that the signing
+key actually loaded, as opposed to the process merely starting.
 
 ### 5. Node.js
 
@@ -129,8 +148,8 @@ visible to all of them.
 | Variable | Value |
 |---|---|
 | `ConnectionStrings__DefaultConnection` | from the panel, plus the flags above |
-| `OpenIddict__SigningCertificatePath` | `.\certs\retail25-signing.pfx` |
-| `OpenIddict__EncryptionCertificatePath` | `.\certs\retail25-encryption.pfx` |
+| `OpenIddict__SigningCertificatePath` | `certs/retail25-signing.pem` |
+| `OpenIddict__EncryptionCertificatePath` | `certs/retail25-encryption.pem` |
 | `OpenIddict__CertificatePassword` | generated with the certificates |
 | `OpenIddict__Issuer` | `https://pos.sma-techno.net/backend` |
 | `Auth__WebOrigin` | `https://pos.sma-techno.net` |

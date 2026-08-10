@@ -36,12 +36,14 @@ jobs:
 
       # Framework-dependent, no runtime identifier: myASP.NET installs the .NET 10 runtime, and a
       # self-contained publish would be ~70 MB of files we would then have to upload by hand.
+      # No -p:EnvironmentName here. It only steers the web.config transform, which the next step
+      # overwrites anyway — and in its `/p:` spelling it is eaten by MSYS path conversion on the
+      # Windows job, which is a confusing way to learn it was never needed.
       - name: Publish the API
         run: >
           dotnet publish backend/src/Retail25.Api/Retail25.Api.csproj
           -c Release
           -o artifacts/backend
-          /p:EnvironmentName=Production
 
       # publish overwrites web.config with the ANCM defaults in some SDK versions. Copy ours back
       # over the top so the handler <clear/> and the environment-variable block survive.

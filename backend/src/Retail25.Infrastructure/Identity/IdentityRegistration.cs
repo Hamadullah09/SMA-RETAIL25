@@ -1,5 +1,8 @@
 using System.Globalization;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -248,15 +251,16 @@ public static class IdentityRegistration
                 $"OpenIddict has no {missing} configured, and the development fallback is only "
                 + $"permitted in the Development environment (this is '{environment.EnvironmentName}'). "
                 + "Set OpenIddict:SigningCertificatePath and OpenIddict:EncryptionCertificatePath to "
-                + "readable .pfx files, with OpenIddict:CertificatePassword if they are protected. "
+                + "readable .pem or .pfx files, with OpenIddict:CertificatePassword if they are "
+                + "protected. Prefer .pem on locked-down Windows hosting, where PKCS#12 import can "
+                + "fail for reasons that have nothing to do with the file. "
                 + "Ephemeral keys would sign every token this deployment issues and be discarded on "
                 + "the next restart, signing out the whole shop without explanation.");
         }
 
         if (hasSigning)
         {
-            using var stream = File.OpenRead(signing!);
-            options.AddSigningCertificate(stream, password);
+            options.AddSigningKey(LoadKey(signing!, password));
         }
         else
         {
@@ -265,13 +269,56 @@ public static class IdentityRegistration
 
         if (hasEncryption)
         {
-            using var stream = File.OpenRead(encryption!);
-            options.AddEncryptionCertificate(stream, password);
+            options.AddEncryptionKey(LoadKey(encryption!, password));
         }
         else
         {
             options.AddDevelopmentEncryptionCertificate();
         }
+    }
+
+    /// <summary>
+    /// Reads a signing or encryption key from disk. A <c>.pem</c> is loaded as a bare RSA key; a
+    /// <c>.pfx</c> is loaded as a certificate whose private key never touches disk.
+    /// <para>
+    /// The <c>.pem</c> path exists because PKCS#12 import is not reliably available on locked-down
+    /// Windows hosting. Importing a .pfx goes through the platform certificate stack, which wants
+    /// somewhere to materialise the private key — the calling account's key container, under a user
+    /// profile an IIS application pool need not have loaded, and a writable temp directory. Where
+    /// any of that is missing the import fails with <c>CryptographicException: The system cannot
+    /// find the file specified</c>, which names no file and is not about the .pfx, sitting there
+    /// perfectly readable. <see cref="X509KeyStorageFlags.EphemeralKeySet"/> does not save it, and
+    /// neither does enabling the profile; both were tried on the deployment this comment comes from.
+    /// </para>
+    /// <para>
+    /// A PEM sidesteps the whole apparatus: <see cref="RSA.ImportFromEncryptedPem"/> parses bytes
+    /// into an in-memory key with no store, no container and no temp file, so it works anywhere the
+    /// process can read a file. Nothing here needs a certificate — OpenIddict publishes the public
+    /// half in its JWKS document, and no client validates a chain against these.
+    /// </para>
+    /// </summary>
+    private static SecurityKey LoadKey(string path, string? password)
+    {
+        if (path.EndsWith(".pem", StringComparison.OrdinalIgnoreCase))
+        {
+            var rsa = RSA.Create();
+            var pem = File.ReadAllText(path);
+
+            // An unencrypted key is allowed but discouraged: the file is then the entire secret.
+            if (string.IsNullOrEmpty(password))
+            {
+                rsa.ImportFromPem(pem);
+            }
+            else
+            {
+                rsa.ImportFromEncryptedPem(pem, password);
+            }
+
+            return new RsaSecurityKey(rsa);
+        }
+
+        return new X509SecurityKey(
+            X509CertificateLoader.LoadPkcs12FromFile(path, password, X509KeyStorageFlags.EphemeralKeySet));
     }
 }
 
