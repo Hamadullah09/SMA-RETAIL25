@@ -103,7 +103,7 @@ public static class DependencyInjection
         // Innermost behaviour: the transaction wraps the handler and nothing else.
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
 
-        AddRedis(services, configuration);
+        AddRedis(services, configuration, environment);
 
         services.AddScoped<IPosNotifier, PosNotifier>();
         services.AddScoped<ITerminalNotifier, TerminalNotifier>();
@@ -192,7 +192,7 @@ public static class DependencyInjection
         }
     }
 
-    private static void AddRedis(IServiceCollection services, IConfiguration configuration)
+    private static void AddRedis(IServiceCollection services, IConfiguration configuration, IHostEnvironment host)
     {
         // An explicit opt-out, never an automatic failover.
         //
@@ -202,7 +202,7 @@ public static class DependencyInjection
         // something someone chose, in a config file, on purpose.
         if (string.Equals(configuration["Cache:Provider"], "InMemory", StringComparison.OrdinalIgnoreCase))
         {
-            AddInMemoryStores(services, configuration);
+            AddInMemoryStores(services, configuration, host);
             return;
         }
 
@@ -237,12 +237,20 @@ public static class DependencyInjection
     /// should make from a config line they inherited.
     /// </para>
     /// </summary>
-    private static void AddInMemoryStores(IServiceCollection services, IConfiguration configuration)
+    private static void AddInMemoryStores(
+        IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment host)
     {
-        var environment = configuration["ASPNETCORE_ENVIRONMENT"]
-            ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-
-        if (string.Equals(environment, "Production", StringComparison.OrdinalIgnoreCase))
+        // Asked of the host rather than read from a configuration key.
+        //
+        // The key is only populated when the environment arrives as ASPNETCORE_ENVIRONMENT. Set it
+        // any of the other supported ways — DOTNET_ENVIRONMENT, --environment on the command line,
+        // a launch profile — and this check silently found nothing and allowed the in-memory stores
+        // through. In a single-process shop that is survivable. Behind a load balancer it is not:
+        // each instance holds its own carts and its own tag claims, so two tills can be told the
+        // same garment is theirs and both sell it, with nothing on any screen to say so.
+        if (host.IsProduction())
         {
             throw new InvalidOperationException(
                 "Cache:Provider is InMemory, which is not permitted in Production. "
