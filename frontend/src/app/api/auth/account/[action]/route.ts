@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { AUTHORITY } from '@/lib/server/oidc';
+import { authorityUrl } from '@/lib/server/oidc';
 
 /**
  * The anonymous account flows: sign up, ask for a reset link, redeem one.
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
   let upstream: Response;
 
   try {
-    upstream = await fetch(`${AUTHORITY.replace(/\/$/, '')}/api/v1/account/${action}`, {
+    upstream = await fetch(authorityUrl(`/api/v1/account/${action}`), {
       method: 'POST',
       headers: {
         'content-type': 'application/json',

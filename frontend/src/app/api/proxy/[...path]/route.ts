@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AUTHORITY } from '@/lib/server/oidc';
+import { authorityUrl } from '@/lib/server/oidc';
 import { refreshSession } from '@/lib/server/oidc';
 import { clearSession, readSession, writeSession, type Session } from '@/lib/server/session';
 
@@ -84,7 +84,7 @@ async function tryRefresh(session: Session): Promise<Session | null> {
 }
 
 async function forward(request: NextRequest, path: string[], accessToken: string): Promise<Response> {
-  const target = new URL(`/api/v1/${path.join('/')}`, AUTHORITY);
+  const target = authorityUrl(`/api/v1/${path.join('/')}`);
   target.search = request.nextUrl.search;
 
   const headers = new Headers();

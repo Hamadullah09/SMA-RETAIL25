@@ -17,6 +17,26 @@ export const APP_ORIGIN = process.env.APP_ORIGIN ?? 'http://localhost:3000';
 
 export const REDIRECT_URI = `${APP_ORIGIN.replace(/\/$/, '')}/api/auth/callback`;
 
+/**
+ * Joins a path onto {@link AUTHORITY}, keeping any path the authority already has.
+ * <p>
+ * `new URL('/connect/token', 'https://shop.example/backend')` is
+ * `https://shop.example/connect/token` — a leading slash means "root of the origin", so the
+ * `/backend` is discarded without a word. Everything here used to be written that way, which
+ * worked only because the API had an origin to itself. Mounted as a sub-application it does not,
+ * and every back-channel call lands on the front end instead: sign-in redirects to an authorize
+ * endpoint that isn't there, and the proxy asks Next.js for `/api/v1/...`.
+ * </p>
+ * <p>
+ * Appending to a base that ends in a slash is the form that keeps both cases right — the API at
+ * `https://api.example.com` and the API at `https://shop.example/backend`.
+ * </p>
+ */
+export function authorityUrl(path: string): URL {
+  const base = AUTHORITY.endsWith('/') ? AUTHORITY : `${AUTHORITY}/`;
+  return new URL(path.replace(/^\//, ''), base);
+}
+
 export const SCOPES = ['openid', 'profile', 'roles', 'offline_access', 'retail25.api'].join(' ');
 
 function base64Url(buffer: Buffer): string {
@@ -41,7 +61,7 @@ export function buildAuthorizeUrl(params: {
   state: string;
   nonce: string;
 }): string {
-  const url = new URL('/connect/authorize', AUTHORITY);
+  const url = authorityUrl('/connect/authorize');
 
   url.searchParams.set('client_id', CLIENT_ID);
   url.searchParams.set('response_type', 'code');
@@ -64,7 +84,7 @@ interface TokenResponse {
 }
 
 async function postToken(body: URLSearchParams): Promise<TokenResponse | null> {
-  const response = await fetch(new URL('/connect/token', AUTHORITY), {
+  const response = await fetch(authorityUrl('/connect/token'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
@@ -160,7 +180,7 @@ async function redeem(refreshToken: string): Promise<Session | null> {
  * cannot be forged.
  */
 export async function fetchUserinfo(accessToken: string): Promise<SessionUser | null> {
-  const response = await fetch(new URL('/connect/userinfo', AUTHORITY), {
+  const response = await fetch(authorityUrl('/connect/userinfo'), {
     headers: { Authorization: `Bearer ${accessToken}` },
     cache: 'no-store',
   });
@@ -202,7 +222,7 @@ function toSession(tokens: TokenResponse, user: SessionUser): Session {
 }
 
 export function buildLogoutUrl(idToken?: string): string {
-  const url = new URL('/connect/logout', AUTHORITY);
+  const url = authorityUrl('/connect/logout');
 
   url.searchParams.set('post_logout_redirect_uri', `${APP_ORIGIN.replace(/\/$/, '')}/`);
 

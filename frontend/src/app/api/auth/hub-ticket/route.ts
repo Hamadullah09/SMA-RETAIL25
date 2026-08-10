@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AUTHORITY, refreshSession } from '@/lib/server/oidc';
+import { authorityUrl, refreshSession } from '@/lib/server/oidc';
 import { clearSession, readSession, writeSession } from '@/lib/server/session';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({}));
 
-  const response = await fetch(new URL('/api/v1/hub-tickets', AUTHORITY), {
+  const response = await fetch(authorityUrl('/api/v1/hub-tickets'), {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${session.accessToken}`,
