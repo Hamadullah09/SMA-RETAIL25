@@ -1832,6 +1832,26 @@ function CurrenciesTab({
           footer={canWrite ? <SaveButton busy={busy} onClick={() => void run(() => mastersApi.settings.currency({ locationId, currency }))} /> : null}
         >
           <FieldGroup title="How it is written" columns={3}>
+            {/*
+              The code is editable, and on the base currency that is a bigger deal than it looks —
+              hence a hint that says what changing it does and, just as importantly, what it does
+              not. It renames the money; it does not revalue a single stored amount. A shop moving
+              from one currency to another needs its prices converted, and nothing here does that.
+
+              Uppercased as it is typed rather than on save, so the field shows what will be stored.
+            */}
+            <TextField
+              label="Code"
+              value={currency.code}
+              onChange={(v) => patch(currency.id, { code: v.toUpperCase() })}
+              hint={
+                currency.isBaseCurrency
+                  ? 'Three letters (ISO 4217). Renaming the base currency renames what this shop calls its money — no price or ledger figure changes value.'
+                  : 'Three letters (ISO 4217).'
+              }
+              placeholder="PKR"
+              disabled={!canWrite}
+            />
             <TextField label="Name" value={currency.name} onChange={(v) => patch(currency.id, { name: v })} disabled={!canWrite} />
             <TextField label="Symbol" value={currency.symbol} onChange={(v) => patch(currency.id, { symbol: v })} disabled={!canWrite} />
             <NumberField label="Decimal places" value={currency.scale} onChange={(v) => patch(currency.id, { scale: v })} step="1" disabled={!canWrite} />
