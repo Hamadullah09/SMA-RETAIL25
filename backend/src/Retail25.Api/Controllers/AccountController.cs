@@ -210,9 +210,25 @@ public sealed class AccountController : Controller
         return Redirect("/");
     }
 
-    private static string LoginUrl(string returnUrl, string error, string? username = null)
+    /// <summary>
+    /// The application's own root, which is not necessarily the origin's.
+    /// <para>
+    /// Hosted as an IIS sub-application the API answers under a prefix — <c>/backend</c> on the
+    /// shop deployment — and every path this controller writes into HTML or a Location header has
+    /// to carry it. A bare <c>/account/login</c> resolves against the origin, where the front end
+    /// lives, so the browser is sent to Next.js and shown its 404. That is what the sign-in form
+    /// did: the page rendered, the credentials were typed, and posting them left the API entirely.
+    /// </para>
+    /// <para>
+    /// <see cref="HttpRequest.PathBase"/> is empty when the app owns its origin, so this is correct
+    /// for both shapes rather than a special case for one.
+    /// </para>
+    /// </summary>
+    private string AppPath(string path) => Request.PathBase + path;
+
+    private string LoginUrl(string returnUrl, string error, string? username = null)
     {
-        var url = $"/account/login?returnUrl={WebUtility.UrlEncode(returnUrl)}&error={WebUtility.UrlEncode(error)}";
+        var url = AppPath($"/account/login?returnUrl={WebUtility.UrlEncode(returnUrl)}&error={WebUtility.UrlEncode(error)}");
 
         return string.IsNullOrWhiteSpace(username)
             ? url
@@ -305,7 +321,7 @@ public sealed class AccountController : Controller
                 <span><strong>SMA Retail</strong><span>Retail management</span></span>
               </div>
 
-              <form method="post" action="/account/login">
+              <form method="post" action="{{FORM_ACTION}}">
                 <h1>Sign in</h1>
                 <p class="sub">This is the only page where your password is typed.</p>
             """);
@@ -366,7 +382,11 @@ public sealed class AccountController : Controller
             </html>
             """);
 
-        return page.ToString();
+        // The form posts back to this controller, so its action has to carry the application's own
+        // prefix. Substituted rather than written inline because the surrounding markup is one raw
+        // string literal, and splitting it to interpolate a single attribute would make the page
+        // harder to read than this placeholder does.
+        return page.ToString().Replace("{{FORM_ACTION}}", WebUtility.HtmlEncode(AppPath("/account/login")), StringComparison.Ordinal);
     }
 
     public sealed record LoginForm(string? Username, string? Password, string? ReturnUrl);
