@@ -164,12 +164,24 @@ visible to all of them.
 1. Download the three artefacts from the workflow run.
 2. Zip each tree and upload through File Manager (Websites → pos → folder icon). Zip transfer,
    never file-by-file: the frontend tree is thousands of files and the account has a file quota.
-3. Unzip `retail25-frontend` into `www\POS\`, `retail25-backend` into `www\POS\backend\`.
-4. Apply `migrate.sql` against the database — SSMS or Azure Data Studio pointed at
+3. **Put `app_offline.htm` in `www\POS\backend\` before replacing anything there, and delete it
+   afterwards.** Windows locks the DLLs of a running process, and the File Manager's unzip
+   overwrites what it can and says nothing about what it could not — so an upload reports success
+   while the assembly it was meant to replace is untouched. The way this is noticed is a fix that
+   demonstrably works locally having no effect on the server; the way it is diagnosed is comparing
+   file timestamps in the File Manager, which is how it was found here (`web.config` updated,
+   `Retail25.Api.dll` two hours stale).
+
+   Restarting the pool is **not** a substitute: the process re-acquires the locks as soon as it
+   comes back, and the upload has already silently failed by then. `app_offline.htm` is what the
+   ASP.NET Core module watches for — it shuts the application down and releases the files, and
+   only the API goes offline, so the shop front end keeps serving.
+4. Unzip `retail25-frontend` into `www\POS\`, `retail25-backend` into `www\POS\backend\`.
+5. Apply `migrate.sql` against the database — SSMS or Azure Data Studio pointed at
    `sql5063.site4now.net`. It is idempotent, so re-running it is safe. `Database:AutoMigrate` stays
    false: migrating from inside the web process races the first request after a deploy, and several
    worker processes may start at once.
-5. Restart the pool.
+6. Restart the pool.
 
 ## Verification
 

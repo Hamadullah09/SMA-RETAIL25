@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Hangfire;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -148,6 +149,34 @@ builder.Services.ConfigureApplicationCookie(options =>
         : CookieSecurePolicy.Always;
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
     options.SlidingExpiration = true;
+
+    // Send a browser to the sign-in page, always.
+    //
+    // The stock handler decides between redirecting and answering 401-with-a-Location based on
+    // whether the request looks like a background call. When it picks the second, a browser is
+    // handed a status it will not follow and a Location it therefore ignores: /connect/authorize
+    // renders as a bare "HTTP ERROR 401" and sign-in cannot start. That is what this deployment
+    // did, and the redirect target in the header was correct the whole time.
+    //
+    // There is nothing to preserve the other branch for. This cookie authenticates exactly one
+    // thing — the interactive sign-in page — because every API call arrives as a bearer token on
+    // the OpenIddict validation scheme (see the default authorization policy). No caller of this
+    // scheme is an XHR that would rather read a 401 than follow a redirect.
+    options.Events ??= new CookieAuthenticationEvents();
+
+    options.Events.OnRedirectToLogin = context =>
+    {
+        context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
+
+    // Same reasoning: a signed-in user who lacks the rights for a page should see the page that
+    // says so, not a status code with no body.
+    options.Events.OnRedirectToAccessDenied = context =>
+    {
+        context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
+    };
 });
 
 builder.Services.AddAntiforgery(options =>
