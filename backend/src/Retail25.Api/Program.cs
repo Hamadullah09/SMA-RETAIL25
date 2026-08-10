@@ -47,13 +47,20 @@ builder.Services.AddOpenTelemetry()
         .AddRuntimeInstrumentation()
         .AddOtlpExporter());
 
-// Whether this process shares its cart state, tag claims and hub tickets with anything else, or
-// keeps them to itself. Read once here because three separate things below depend on the answer:
-// the health check, the SignalR backplane, and the store registrations in AddInfrastructure.
-var usesRedis = !string.Equals(
-    builder.Configuration["Cache:Provider"],
-    "InMemory",
-    StringComparison.OrdinalIgnoreCase);
+// Where cart state, tag claims and hub tickets live. Read once here because three separate things
+// below depend on the answer: the health check, the SignalR backplane, and the store registrations
+// in AddInfrastructure.
+//
+// Redis is the default when nothing is configured, which is why this asks whether the provider is
+// *not* one of the others rather than whether it is Redis. Naming SqlServer here matters: it is a
+// provider that shares state across instances like Redis does, but has no Redis to probe or to
+// carry a backplane, and treating it as "InMemory-like" would skip the backplane it does not need
+// while treating it as "Redis-like" would health-check a server that is not there.
+var cacheProvider = builder.Configuration["Cache:Provider"];
+
+var usesRedis =
+    !string.Equals(cacheProvider, "InMemory", StringComparison.OrdinalIgnoreCase) &&
+    !string.Equals(cacheProvider, "SqlServer", StringComparison.OrdinalIgnoreCase);
 
 // --- Health checks ---
 var health = builder.Services.AddHealthChecks()
@@ -92,6 +99,12 @@ var signalR = builder.Services
 
 // The Redis backplane is configured from day one so scaling out is a deployment change rather than
 // a rewrite of how carts are broadcast.
+//
+// There is no equivalent under Cache:Provider=SqlServer, and that is the one guarantee that
+// provider does not carry over. The stores work across instances — the tag claim is a primary key,
+// the ticket redemption is one statement — but a hub message published on instance A does not reach
+// a till connected to instance B, so a second cashier's screen would not update. SqlServer is
+// therefore a single-instance deployment. Running more than one means Redis.
 var redisConnection = builder.Configuration.GetConnectionString("Redis");
 if (usesRedis && !string.IsNullOrWhiteSpace(redisConnection))
 {

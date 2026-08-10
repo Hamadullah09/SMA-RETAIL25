@@ -103,7 +103,7 @@ public static class DependencyInjection
         // Innermost behaviour: the transaction wraps the handler and nothing else.
         services.AddScoped(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
 
-        AddRedis(services, configuration, environment);
+        AddCacheStores(services, configuration, environment);
 
         services.AddScoped<IPosNotifier, PosNotifier>();
         services.AddScoped<ITerminalNotifier, TerminalNotifier>();
@@ -192,17 +192,36 @@ public static class DependencyInjection
         }
     }
 
-    private static void AddRedis(IServiceCollection services, IConfiguration configuration, IHostEnvironment host)
+    /// <summary>
+    /// Where cart state, tag claims, idempotency records and hub tickets live.
+    /// <para>
+    /// Three providers, and the choice is really about what infrastructure the deployment has.
+    /// <c>Redis</c> is the default and the right answer when there is a Redis to point at.
+    /// <c>SqlServer</c> is for hosting that offers a database and nothing else — shared IIS, in
+    /// particular — and keeps every guarantee the Redis version makes, at the cost of a round trip
+    /// to the database on paths that used to hit memory. <c>InMemory</c> is for development and is
+    /// refused in Production.
+    /// </para>
+    /// </summary>
+    private static void AddCacheStores(IServiceCollection services, IConfiguration configuration, IHostEnvironment host)
     {
+        var provider = configuration["Cache:Provider"];
+
         // An explicit opt-out, never an automatic failover.
         //
         // Falling back on a failed connection would be the dangerous design: a shop whose Redis
         // blipped for ten seconds would silently lose cross-till tag arbitration and could sell the
         // same garment twice, with nothing on any screen to say so. Losing that protection has to be
         // something someone chose, in a config file, on purpose.
-        if (string.Equals(configuration["Cache:Provider"], "InMemory", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(provider, "InMemory", StringComparison.OrdinalIgnoreCase))
         {
             AddInMemoryStores(services, configuration, host);
+            return;
+        }
+
+        if (string.Equals(provider, "SqlServer", StringComparison.OrdinalIgnoreCase))
+        {
+            AddSqlServerStores(services);
             return;
         }
 
@@ -222,6 +241,36 @@ public static class DependencyInjection
         services.AddScoped<ITagDebouncer, RedisTagDebouncer>();
         services.AddScoped<IIdempotencyStore, RedisIdempotencyStore>();
         services.AddScoped<IHubTicketStore, RedisHubTicketStore>();
+    }
+
+    /// <summary>
+    /// Holds cart state, tag claims, idempotency and hub tickets in the application's own database.
+    /// <para>
+    /// Scoped, like the Redis stores and unlike the in-memory ones: these borrow
+    /// <see cref="ApplicationDbContext"/>'s connection so that clearing a cart and writing the sale
+    /// that emptied it land in the same transaction. State outlives the request because it is in a
+    /// table, so nothing here needs to be a singleton.
+    /// </para>
+    /// <para>
+    /// The sweeper is the exception. It holds the timestamp of the last expiry pass, which is
+    /// per-process bookkeeping rather than per-request, and a scoped one would sweep on every
+    /// single write.
+    /// </para>
+    /// <para>
+    /// Permitted in Production, unlike the in-memory stores, and for the reason that matters: two
+    /// instances reading the same tables arbitrate against each other correctly. The tag claim is a
+    /// primary key and the hub ticket redemption is a single statement, so scaling out changes
+    /// throughput and not behaviour.
+    /// </para>
+    /// </summary>
+    private static void AddSqlServerStores(IServiceCollection services)
+    {
+        services.AddSingleton<CacheSweeper>();
+
+        services.AddScoped<ICartStore, SqlCartStore>();
+        services.AddScoped<ITagDebouncer, SqlTagDebouncer>();
+        services.AddScoped<IIdempotencyStore, SqlIdempotencyStore>();
+        services.AddScoped<IHubTicketStore, SqlHubTicketStore>();
     }
 
     /// <summary>
@@ -255,7 +304,9 @@ public static class DependencyInjection
             throw new InvalidOperationException(
                 "Cache:Provider is InMemory, which is not permitted in Production. "
                 + InMemoryStoreNotes.Caveat
-                + " Configure ConnectionStrings:Redis instead.");
+                + " Set Cache:Provider to Redis with ConnectionStrings:Redis, or to SqlServer to "
+                + "use the application's own database — which is the answer on hosting that offers "
+                + "no Redis.");
         }
 
         services.AddSingleton<ICartStore, InMemoryCartStore>();

@@ -1,0 +1,163 @@
+# Produces everything pos.sma-techno.net needs, as three downloadable artefacts:
+#
+#   retail25-backend    the API, published framework-dependent, plus its IIS web.config
+#   retail25-frontend   the Next.js standalone server, its static assets and its web.config
+#   retail25-database   one idempotent SQL script that brings any schema version up to current
+#
+# Nothing here touches the host. myASP.NET's shared plan has no deploy endpoint we can reach
+# without handing a password to a CI runner, so the last step is a human uploading a zip. That
+# also means a failed deploy is a file copy to redo, not a pipeline to debug.
+#
+# Deliberately separate from ci.yml: CI proves the code is good, this one produces the bytes that
+# ship. They target different framework versions today (ci.yml still asks for 8.0.x against a
+# net10.0 solution) and fixing that belongs in its own change.
+
+name: Deploy build (myASP.NET)
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Framework-dependent, no runtime identifier: myASP.NET installs the .NET 10 runtime, and a
+      # self-contained publish would be ~70 MB of files we would then have to upload by hand.
+      - name: Publish the API
+        run: >
+          dotnet publish backend/src/Retail25.Api/Retail25.Api.csproj
+          -c Release
+          -o artifacts/backend
+          /p:EnvironmentName=Production
+
+      # publish overwrites web.config with the ANCM defaults in some SDK versions. Copy ours back
+      # over the top so the handler <clear/> and the environment-variable block survive.
+      - name: Restore our web.config
+        run: cp backend/src/Retail25.Api/web.config artifacts/backend/web.config
+
+      - name: Prove the sub-application config is intact
+        run: |
+          set -euo pipefail
+          grep -q 'inheritInChildApplications="false"' artifacts/backend/web.config
+          grep -q '<clear />' artifacts/backend/web.config
+          echo "web.config is safe to drop under a Node parent site."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: retail25-backend
+          path: artifacts/backend
+
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install the EF tooling
+        run: dotnet tool install --global dotnet-ef
+
+      # Idempotent, so it is safe to run against a fresh database or one already partly migrated.
+      # No connection string is needed or wanted: DesignTimeDbContextFactory builds the model
+      # against a provider, not a server, so this never opens a socket.
+      - name: Script the migrations
+        run: |
+          mkdir -p artifacts/database
+          dotnet ef migrations script \
+            --idempotent \
+            --project backend/src/Retail25.Infrastructure \
+            --startup-project backend/src/Retail25.Api \
+            --output artifacts/database/migrate.sql
+
+      - name: Prove the script is not empty
+        run: |
+          set -euo pipefail
+          lines=$(wc -l < artifacts/database/migrate.sql)
+          if [ "$lines" -lt 50 ]; then
+            echo "::error::migrate.sql is $lines lines — the migrations did not script"
+            exit 1
+          fi
+          echo "Scripted $lines lines of schema."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: retail25-database
+          path: artifacts/database
+
+  frontend:
+    # Windows, not Ubuntu. npm resolves optional native dependencies for the platform it installs
+    # on, and Next's standalone trace copies whatever it finds — so a Linux build ships Linux .node
+    # binaries into a tree that IIS runs under Windows. myASP.NET's own Next.js article documents
+    # the failure ("Failed to load SWC binary for win32/x64") and its fix is exactly this.
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      # NEXT_PUBLIC_* is inlined at build time, not read at runtime — so the hub origin has to be
+      # correct here. Everything server-side (API_URL, SESSION_SECRET) is read from the environment
+      # at runtime and lives in web.config on the host instead.
+      - name: Build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_URL: https://pos.sma-techno.net/backend
+        run: npm run build
+
+      # The standalone output is a server, but it ships without the static assets — Next expects
+      # whoever deploys it to place .next/static and public alongside. Miss this and the app boots
+      # and serves HTML with every stylesheet and chunk 404ing.
+      - name: Assemble the deployable tree
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/frontend
+          cp -r frontend/.next/standalone/. artifacts/frontend/
+          mkdir -p artifacts/frontend/.next
+          cp -r frontend/.next/static artifacts/frontend/.next/static
+          if [ -d frontend/public ]; then cp -r frontend/public artifacts/frontend/public; fi
+          cp deploy/iis/frontend.web.config artifacts/frontend/web.config
+          mkdir -p artifacts/frontend/logs
+
+      - name: Prove the tree is complete
+        run: |
+          set -euo pipefail
+          for required in server.js web.config .next/static node_modules; do
+            if [ ! -e "artifacts/frontend/$required" ]; then
+              echo "::error::the deployable tree is missing $required"
+              exit 1
+            fi
+          done
+          grep -q 'pos.sma-techno.net/backend' artifacts/frontend/web.config
+          echo "Frontend tree complete: $(du -sh artifacts/frontend | cut -f1)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: retail25-frontend
+          path: artifacts/frontend
+          include-hidden-files: true

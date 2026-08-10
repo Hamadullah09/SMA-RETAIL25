@@ -7,6 +7,21 @@
         dotnet user-secrets set "Auth:AgentClientSecret" "VALUE" (project src/Retail25.Api)
     -->
     <UserSecretsId>retail25-api</UserSecretsId>
+
+    <!--
+      Workstation garbage collection, which is not the ASP.NET Core default.
+
+      Server GC allocates a heap and a collection thread per logical core. On a shared host that
+      means sizing against the machine's core count rather than this application's share of it, and
+      the pool it runs in is capped at 1 GB — the process is killed for exceeding a quota it never
+      needed the memory for. myASP.NET's own guidance says the same thing, as a runtimeconfig.json
+      edit after the fact; setting it here means the published runtimeconfig.json is already right
+      and a redeploy cannot silently undo it.
+
+      Revisit if this ever runs somewhere with memory to spare: server GC has materially better
+      throughput under load, which a busy shop would want.
+    -->
+    <ServerGarbageCollection>false</ServerGarbageCollection>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\Retail25.Infrastructure\Retail25.Infrastructure.csproj" />
