@@ -99,10 +99,43 @@ export async function exchangeCode(code: string, codeVerifier: string): Promise<
 }
 
 /**
+ * Refreshes in flight, keyed by the token being spent.
+ *
+ * A refresh token is single use. Two BFF routes redeem them — the API proxy and the hub-ticket
+ * minter — and a page that has been open a while opens several at once: the till alone asks for
+ * three hub tickets and a cart in the same tick. Each handler reads the same cookie, finds the same
+ * expired session, and posts the same refresh token.
+ *
+ * The server does exactly what it should with that: the first request rotates the token, and the
+ * rest are replaying one that has been spent. Reuse detection is deliberately unforgiving here
+ * (`SetRefreshTokenReuseLeeway(TimeSpan.Zero)`), so the losers race the winner's write and surface
+ * as a 500 the caller then has to retry.
+ *
+ * Collapsing them costs one map entry and removes the race entirely: the first caller does the
+ * round trip, every other caller awaits the same promise and gets the same rotated session. This
+ * is per server instance, which is the whole scope that matters — the cookie is read and written
+ * by whichever instance served the request, so concurrent redemptions can only arise within one.
+ */
+const refreshesInFlight = new Map<string, Promise<Session | null>>();
+
+/**
  * Rotates the refresh token. The server issues a new one each time and revokes the family if a spent
  * one is replayed, so a stolen refresh token is worth one use and then burns the session it came from.
  */
-export async function refreshSession(refreshToken: string): Promise<Session | null> {
+export function refreshSession(refreshToken: string): Promise<Session | null> {
+  const existing = refreshesInFlight.get(refreshToken);
+  if (existing) return existing;
+
+  const attempt = redeem(refreshToken).finally(() => {
+    refreshesInFlight.delete(refreshToken);
+  });
+
+  refreshesInFlight.set(refreshToken, attempt);
+
+  return attempt;
+}
+
+async function redeem(refreshToken: string): Promise<Session | null> {
   const tokens = await postToken(
     new URLSearchParams({
       grant_type: 'refresh_token',

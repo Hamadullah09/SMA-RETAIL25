@@ -279,6 +279,7 @@ export function CartList() {
       <div className="pos-cart-grid shrink-0 border-b border-subtle bg-panel-sunken py-1 pl-2 pr-3 text-caption font-semibold uppercase tracking-wide text-ink-muted">
         <span className="pl-[3px] text-center">Qty</span>
         <span>Item</span>
+        <span className="text-right">Weight</span>
         <span className="text-right">Price</span>
         <span className="text-right">Ext</span>
       </div>
@@ -323,6 +324,23 @@ export function CartList() {
                         {line.lineType === 'Return' ? 'RETURN' : 'TRADE'}
                       </span>
                     ) : null}
+
+                  </span>
+
+                  {/*
+                    What this line weighs, in its own column beside the money.
+
+                    No unit is printed, because the catalogue does not store one — the product form
+                    asks for a number and lets the shop decide what it means, so printing "kg" here
+                    would invent a fact.
+
+                    Blank at zero rather than "0": no weight on file and weighing nothing are
+                    different claims, and a till should not make the second one on the catalogue's
+                    behalf. A column of blanks is also the honest signal that the catalogue has not
+                    been weighed yet.
+                  */}
+                  <span className="pos-amount text-right text-label text-ink-muted">
+                    {line.lineWeight > 0 ? quantity(line.lineWeight) : null}
                   </span>
 
                   <span className="pos-amount pos-line-unit text-right text-label text-ink-muted">

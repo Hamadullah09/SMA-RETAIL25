@@ -70,6 +70,10 @@ export interface CartLine {
   requestedPriceLevel: number | null;
   hasManualPrice: boolean;
   note: string | null;
+
+  /** Catalogue weight per unit, and for the whole line. Zero means none is recorded. */
+  unitWeight: number;
+  lineWeight: number;
 }
 
 export interface CartAdjustment {

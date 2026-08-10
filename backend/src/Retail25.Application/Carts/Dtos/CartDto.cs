@@ -11,7 +11,7 @@ namespace Retail25.Application.Carts.Dtos;
 /// One line on the till.
 /// <para>
 /// There is no id. An active cart lives in the cache, so its lines have no database id until the
-/// sale is committed — <see cref="Sequence"/> is how the till names a line when it asks to change or
+/// sale is committed ï¿½ <see cref="Sequence"/> is how the till names a line when it asks to change or
 /// remove one.
 /// </para>
 /// </summary>
@@ -38,7 +38,11 @@ public sealed record CartLineDto(
     decimal Tax2Amount,
     int? RequestedPriceLevel,
     bool HasManualPrice,
-    string? Note);
+    string? Note,
+
+    /// <summary>Per-unit weight from the catalogue, and the whole line's. Zero means none on file.</summary>
+    decimal UnitWeight,
+    decimal LineWeight);
 
 public sealed record CartAdjustmentDto(long Id, AdjustmentType Type, string Label, decimal Amount, string? Serial);
 

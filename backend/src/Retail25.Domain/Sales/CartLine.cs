@@ -126,6 +126,17 @@ public sealed class CartLine : Entity
 
     public decimal UnitCostSnapshot { get; set; }
 
+    /// <summary>
+    /// The catalogue's per-unit weight, carried so the till can show what a line weighs.
+    /// <para>
+    /// Snapshotted for the same reason as the name and the cost: the cart is quoted repeatedly while
+    /// it is open, and a line should keep describing the item as it was when it was rung up. Zero
+    /// means the product has no weight on file, which is different from weighing nothing — the till
+    /// shows nothing rather than "0 kg".
+    /// </para>
+    /// </summary>
+    public decimal UnitWeightSnapshot { get; set; }
+
     /// <summary>Copies the engine's answer onto the line so the UI has something to render between quotes.</summary>
     public void ApplyQuote(
         decimal unitPrice,

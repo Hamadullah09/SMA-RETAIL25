@@ -164,6 +164,7 @@ public sealed class CartPricingService
 
             line.StockCodeSnapshot = product.StockCode;
             line.UnitCostSnapshot = product.AvgCost;
+            line.UnitWeightSnapshot = product.ShipWeight;
 
             // An unknown item carries the description the cashier typed; the placeholder product is
             // only there to satisfy the foreign key, and its name must not overwrite theirs.
@@ -248,7 +249,13 @@ public sealed class CartPricingService
                 line.Tax2Amount,
                 line.RequestedPriceLevel,
                 line.ManualUnitPrice.HasValue,
-                line.Note);
+                line.Note,
+                line.UnitWeightSnapshot,
+
+                // Quantity, not chargeable quantity: what the customer carries out is what was rung
+                // up, whatever the pricing engine decided to charge for. A three-for-two still puts
+                // three tins in the bag.
+                line.UnitWeightSnapshot * line.Quantity);
         }).ToList();
 
         var totals = new CartTotalsDto(
