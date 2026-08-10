@@ -1,6 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  HelpCircle,
+  Plus,
+  PlugZap,
+  Radio,
+  RadioTower,
+  RefreshCw,
+  Send,
+  WifiOff,
+  type LucideIcon,
+} from 'lucide-react';
 import {
   BEEPER_LABELS,
   LINK_PROFILE_LABELS,
@@ -122,53 +136,70 @@ export default function RfidSettingsPage() {
   };
 
   if (!locationId) {
-    return <p className="p-6 text-body text-ink-muted">No location is selected for this account.</p>;
+    return (
+      <div className="p-4 lg:p-6">
+        <PageHeader title="RFID readers" lede="Reader settings live here rather than in the device." />
+        <section className="pos-panel mt-4">
+          <EmptyState
+            icon={RadioTower}
+            title="No location is selected for this account"
+            hint="A reader profile belongs to a location. Sign in against one, or ask an administrator to attach a location to your account."
+          />
+        </section>
+      </div>
+    );
   }
 
   return (
-    <div className="p-4">
-      <header className="mb-4 flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-h3 font-medium">RFID readers</h1>
-          <p className="mt-1 max-w-prose text-label text-ink-muted">
-            These settings live here rather than in the device, so a reader can be replaced without anyone having to
-            remember how the old one was set up.
-          </p>
-        </div>
+    <div className="space-y-4 p-4 lg:p-6">
+      <PageHeader
+        title="RFID readers"
+        lede="These settings live here rather than in the device, so a reader can be replaced without anyone having to remember how the old one was set up."
+      >
+        {readers.length > 1 ? (
+          <select
+            className="pos-input"
+            value={selected ?? ''}
+            onChange={(event) => setSelected(Number(event.target.value))}
+            aria-label="Reader"
+          >
+            {readers.map((reader) => (
+              <option key={String(reader.id)} value={reader.id}>
+                {reader.name}
+              </option>
+            ))}
+          </select>
+        ) : null}
 
-        <div className="flex shrink-0 items-center gap-2">
-          {readers.length > 1 ? (
-            <select
-              className="pos-input"
-              value={selected ?? ''}
-              onChange={(event) => setSelected(Number(event.target.value))}
-              aria-label="Reader"
-            >
-              {readers.map((reader) => (
-                <option key={String(reader.id)} value={reader.id}>
-                  {reader.name}
-                </option>
-              ))}
-            </select>
-          ) : null}
-
-          {canWrite ? (
-            <button type="button" className="pos-button" disabled={busy} onClick={() => void addReader()}>
-              Add reader
-            </button>
-          ) : null}
-        </div>
-      </header>
+        {canWrite ? (
+          <button type="button" className="pos-button-primary" disabled={busy} onClick={() => void addReader()}>
+            <Plus className="h-3.5 w-3.5" aria-hidden />
+            Add reader
+          </button>
+        ) : null}
+      </PageHeader>
 
       <AgentConnection />
 
       {loading ? (
-        <p className="text-body text-ink-muted">Loading…</p>
+        <section className="pos-panel">
+          <p className="px-4 py-12 text-center text-body text-ink-muted">Loading…</p>
+        </section>
       ) : !draft ? (
-        <p className="text-body text-ink-muted">No reader is configured for this location.</p>
+        <section className="pos-panel">
+          <EmptyState
+            icon={RadioTower}
+            title="No reader is configured for this location"
+            hint={
+              canWrite
+                ? 'Press “Add reader” at the top of the page. It starts with the defaults that suit most units — give it an address and a port and it is a reader.'
+                : 'Ask someone with the terminals.register permission to add one. Until then this till cannot read a tag.'
+            }
+          />
+        </section>
       ) : (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-          <div>
+          <div className="min-w-0">
             <ConnectionSection draft={draft} patch={patch} canWrite={canWrite} busy={busy} onSave={save} />
             <RadioSection draft={draft} patch={patch} canWrite={canWrite} busy={busy} onSave={save} />
             <ReadZoneSection draft={draft} patch={patch} canWrite={canWrite} busy={busy} onSave={save} />
@@ -200,7 +231,7 @@ interface SectionProps {
 
 function SaveAction({ canWrite, busy, onSave }: { canWrite: boolean; busy: boolean; onSave: () => void | Promise<void> }) {
   return canWrite ? (
-    <button type="button" className="underline" disabled={busy} onClick={() => void onSave()}>
+    <button type="button" className="pos-button" disabled={busy} onClick={() => void onSave()}>
       Save
     </button>
   ) : null;
@@ -263,37 +294,66 @@ function AgentConnection() {
 
   const online = status?.reader.online === true;
 
+  /*
+   * Four cues, not one: a glyph that changes shape, a heading in words, a sentence explaining which
+   * of the two unrelated failures this is, and — last — a hue. "Reader not answering" and "Agent not
+   * running" are different problems with different fixes, and the shape says so before the colour
+   * does.
+   */
+  const state = !checked
+    ? {
+        icon: HelpCircle,
+        tone: 'text-ink-faint',
+        heading: 'Checking…',
+        detail: 'Asking the till agent.',
+      }
+    : online
+      ? {
+          icon: CheckCircle2,
+          tone: 'text-positive',
+          heading: 'Reader connected',
+          detail: `${status?.reader.device} · mode ${status?.readerMode}`,
+        }
+      : status
+        ? {
+            icon: AlertTriangle,
+            tone: 'text-negative',
+            heading: 'Reader not answering',
+            detail:
+              'The agent is running but the reader will not answer. Only one program can hold it at a time — close any vendor tool still connected to it.',
+          }
+        : {
+            icon: WifiOff,
+            tone: 'text-negative',
+            heading: 'Agent not running',
+            detail:
+              'No agent is running on this machine, so nothing can read a tag here whatever the reader is doing.',
+          };
+
+  const StateIcon = state.icon;
+
   return (
-    <section className="pos-panel mb-4 p-3.5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+    <section
+      className={cn(
+        'pos-panel flex flex-wrap items-center justify-between gap-3 p-4',
+        checked && !online && 'border-negative/35',
+      )}
+    >
+      <div className="flex min-w-0 items-start gap-2.5">
+        <StateIcon className={cn('mt-0.5 h-4 w-4 shrink-0', state.tone)} aria-hidden />
+
         <div className="min-w-0">
-          <p className="flex items-center gap-2 text-body font-semibold text-ink">
-            {/* Stated in words as well as by tone. A coloured dot alone tells a colour-blind
-                manager nothing, and this is the line that decides whether they call support. */}
-            <span
-              aria-hidden
-              className={`h-2 w-2 shrink-0 rounded-full ${
-                !checked ? 'bg-ink-faint' : online ? 'bg-positive' : 'bg-negative'
-              }`}
-            />
-            {!checked ? 'Checking…' : online ? 'Reader connected' : status ? 'Reader not answering' : 'Agent not running'}
+          <p className={cn('text-body-lg font-semibold', checked && !online ? state.tone : 'text-ink')}>
+            {state.heading}
           </p>
-
-          <p className="mt-1 text-caption leading-relaxed text-ink-muted">
-            {!checked
-              ? 'Asking the till agent.'
-              : online
-                ? `${status?.reader.device} · mode ${status?.readerMode}`
-                : status
-                  ? 'The agent is running but the reader will not answer. Only one program can hold it at a time — close any vendor tool still connected to it.'
-                  : 'No agent is running on this machine, so nothing can read a tag here whatever the reader is doing.'}
-          </p>
+          <p className="mt-0.5 max-w-[76ch] text-body leading-relaxed text-ink-muted">{state.detail}</p>
         </div>
-
-        <button type="button" className="pos-button-primary shrink-0" disabled={busy} onClick={() => void connect()}>
-          {busy ? 'Connecting…' : online ? 'Reconnect' : 'Connect'}
-        </button>
       </div>
+
+      <button type="button" className="pos-button-primary shrink-0" disabled={busy} onClick={() => void connect()}>
+        <PlugZap className="h-3.5 w-3.5" aria-hidden />
+        {busy ? 'Connecting…' : online ? 'Reconnect' : 'Connect'}
+      </button>
     </section>
   );
 }
@@ -551,20 +611,32 @@ function DiagnosticsPanel({ profile, canWrite }: { profile: ReaderProfile; canWr
     actual !== null && claimed.length > 0 && actual.some((value, index) => value !== (claimed[index] ?? claimed[0]));
 
   return (
-    <aside className="pos-panel h-fit">
-      <div className="pos-panel-header flex items-center justify-between">
-        <h2 className="text-label font-medium uppercase tracking-wide text-ink-muted">This till&rsquo;s reader</h2>
-        <button type="button" className="text-label underline" onClick={() => void read()} disabled={state === 'reading'}>
+    <aside className="pos-panel h-fit overflow-hidden">
+      <header className="pos-panel-header">
+        <span className="pos-panel-title">
+          <Activity />
+          <span className="truncate">This till&rsquo;s reader</span>
+        </span>
+        <button
+          type="button"
+          className="pos-button"
+          onClick={() => void read()}
+          disabled={state === 'reading'}
+        >
+          <RefreshCw className="h-3.5 w-3.5" aria-hidden />
           {state === 'reading' ? 'Reading…' : 'Refresh'}
         </button>
-      </div>
+      </header>
 
-      <div className="space-y-2 p-3">
+      <div className="space-y-2 p-4">
         {state === 'offline' ? (
-          <p className="text-label text-ink-muted">
-            The till agent is not answering on this machine. Diagnostics come from the agent, not the server, so this
-            panel only works at a till.
-          </p>
+          <div className="flex items-start gap-2 text-body text-ink-muted">
+            <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden />
+            <p>
+              The till agent is not answering on this machine. Diagnostics come from the agent, not the server, so this
+              panel only works at a till.
+            </p>
+          </div>
         ) : diagnostics ? (
           <>
             <Reading label="Firmware" value={diagnostics.firmwareVersion} />
@@ -594,8 +666,11 @@ function DiagnosticsPanel({ profile, canWrite }: { profile: ReaderProfile; canWr
             />
 
             {diagnostics.returnLossDb ? (
-              <div className="pt-1">
-                <p className="text-caption uppercase tracking-wide text-ink-faint">Antenna return loss</p>
+              <div className="space-y-2 border-t border-subtle pt-2.5">
+                <p className="flex items-center gap-1.5 text-label font-medium text-ink-muted">
+                  <Radio className="h-3.5 w-3.5" aria-hidden />
+                  Antenna return loss
+                </p>
                 {Object.entries(diagnostics.returnLossDb).map(([port, db]) => (
                   <Reading
                     key={port}
@@ -609,17 +684,18 @@ function DiagnosticsPanel({ profile, canWrite }: { profile: ReaderProfile; canWr
             ) : null}
 
             {diagnostics.unavailable.length > 0 ? (
-              <p className="pt-1 text-caption text-ink-faint">
+              <p className="border-t border-subtle pt-2.5 text-caption text-ink-faint">
                 Not reported by this reader: {diagnostics.unavailable.join(', ')}.
               </p>
             ) : null}
           </>
         ) : (
-          <p className="text-label text-ink-muted">Reading…</p>
+          <p className="text-body text-ink-muted">Reading…</p>
         )}
 
         {canWrite ? (
-          <button type="button" className="pos-button mt-2 w-full" onClick={() => void send()}>
+          <button type="button" className="pos-button mt-3 w-full" onClick={() => void send()}>
+            <Send className="h-3.5 w-3.5" aria-hidden />
             Send settings to reader now
           </button>
         ) : null}
@@ -630,11 +706,16 @@ function DiagnosticsPanel({ profile, canWrite }: { profile: ReaderProfile; canWr
 
 function Reading({ label, value, warn }: { label: string; value?: string | null; warn?: string }) {
   return (
-    <div className="flex items-baseline justify-between gap-2 text-label">
-      <span className="text-ink-muted">{label}</span>
-      <span className={cn('text-right tabular-nums', warn ? 'text-warning' : 'text-ink')}>
+    <div className="flex items-baseline justify-between gap-3 text-body">
+      <span className="shrink-0 text-ink-muted">{label}</span>
+      <span className={cn('min-w-0 text-right tabular-nums', warn ? 'font-medium text-warning' : 'text-ink')}>
         {value ?? <span className="text-ink-faint">unknown</span>}
-        {warn ? <span className="block text-caption font-normal">{warn}</span> : null}
+        {warn ? (
+          <span className="mt-0.5 flex items-start justify-end gap-1 text-caption font-normal">
+            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+            <span>{warn}</span>
+          </span>
+        ) : null}
       </span>
     </div>
   );
@@ -642,4 +723,28 @@ function Reading({ label, value, warn }: { label: string; value?: string | null;
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : 'The request was refused.';
+}
+
+/* ------------------------------------------------------------------ page furniture */
+
+function PageHeader({ title, lede, children }: { title: string; lede: string; children?: ReactNode }) {
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-4">
+      <div className="min-w-0">
+        <h1>{title}</h1>
+        <p className="mt-1 max-w-[68ch] text-body text-ink-muted">{lede}</p>
+      </div>
+      {children ? <div className="flex shrink-0 flex-wrap items-center gap-2">{children}</div> : null}
+    </header>
+  );
+}
+
+function EmptyState({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint: string }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
+      <Icon className="mb-1 h-6 w-6 text-ink-faint" aria-hidden />
+      <p className="text-body-lg font-medium text-ink">{title}</p>
+      <p className="max-w-[52ch] text-body text-ink-muted">{hint}</p>
+    </div>
+  );
 }

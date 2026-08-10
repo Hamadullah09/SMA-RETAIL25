@@ -1,15 +1,33 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import {
+  AlertTriangle,
+  CalendarDays,
+  CalendarPlus,
+  Download,
+  FlaskConical,
+  Lock,
+  LockOpen,
+  ShieldAlert,
+  Table2,
+  Undo2,
+  type LucideIcon,
+} from 'lucide-react';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
-import { formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import type { ArchiveRow, FiscalYear, FiscalYearCloseResult } from '@/types/masters';
 
 const inputClass =
   'pos-input';
+
+const thText = 'px-3 py-2 text-left text-label font-medium text-ink-muted';
+const thNum = 'px-3 py-2 text-right text-label font-medium text-ink-muted';
+const td = 'px-3 py-2 align-middle';
+const tdNum = 'px-3 py-2 text-right align-middle tabular-nums';
 
 const monthNames = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -66,11 +84,18 @@ export default function YearEndPage() {
 
   if (!canClose) {
     return (
-      <div className="p-6">
-        <h1 className="text-h3 font-semibold">Year end</h1>
-        <p className="mt-2 text-body text-ink-muted">
-          You do not have permission to close a fiscal year.
-        </p>
+      <div className="p-4 lg:p-6">
+        <PageHeader
+          title="Year end"
+          lede="Rolls a trading year up into the sales history and writes a stock checkpoint."
+        />
+        <section className="pos-panel mt-4">
+          <EmptyState
+            icon={Lock}
+            title="You do not have permission to close a fiscal year"
+            hint="Closing and reopening a year needs the inventory.year_end permission. Ask an administrator to grant it on your role."
+          />
+        </section>
       </div>
     );
   }
@@ -150,120 +175,161 @@ export default function YearEndPage() {
   };
 
   return (
-    <div className="space-y-4 p-6">
-      <header>
-        <h1 className="text-h3 font-semibold">Year end</h1>
-        <p className="text-body text-ink-muted">
-          Closing a year rolls its trading up into the sales history and writes a stock checkpoint. Nothing is
-          deleted, every previous year keeps its own figures, and a close can be undone.
-        </p>
-      </header>
+    <div className="space-y-4 p-4 lg:p-6">
+      <PageHeader
+        title="Year end"
+        lede="Closing a year rolls its trading up into the sales history and writes a stock checkpoint. Nothing is deleted, every previous year keeps its own figures, and a close can be undone."
+      >
+        <label className="flex items-center gap-1.5 text-label text-ink-muted">
+          <span className="sr-only sm:not-sr-only">Year</span>
+          <input
+            type="number"
+            aria-label="Year to open"
+            className={`${inputClass} w-24`}
+            value={newYear}
+            onChange={(event) => setNewYear(Number(event.target.value) || new Date().getFullYear())}
+          />
+        </label>
+        <button type="button" className="pos-button-primary" disabled={busy} onClick={() => void open()}>
+          <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
+          Open year
+        </button>
+      </PageHeader>
 
-      <section className="pos-panel">
-        <div className="pos-panel-header">
-          <span>Years</span>
-        </div>
-        <div className="space-y-3 p-3">
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex flex-col gap-1 text-label">
-              Open a year
-              <input
-                type="number"
-                className={`${inputClass} w-28`}
-                value={newYear}
-                onChange={(event) => setNewYear(Number(event.target.value) || new Date().getFullYear())}
-              />
-            </label>
-            <button type="button" className="pos-button" disabled={busy} onClick={() => void open()}>
-              Open
-            </button>
-          </div>
+      <Panel
+        title="Fiscal years"
+        icon={CalendarDays}
+        action={`${years.filter((y) => y.status === 'Open').length} open`}
+      >
+        {years.length === 0 ? (
+          <EmptyState
+            icon={CalendarDays}
+            title="No fiscal years yet"
+            hint="Type the year you want to close in the box at the top of the page and press “Open year”. A year has to exist before it can be closed."
+          />
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-body">
+                <thead className="border-b border-subtle bg-panel-sunken">
+                  <tr>
+                    <th scope="col" className={thText}>Year</th>
+                    <th scope="col" className={thText}>Period</th>
+                    <th scope="col" className={thText}>Status</th>
+                    <th scope="col" className={thNum}>Archived</th>
+                    <th scope="col" className={thNum}>Net sales</th>
+                    <th scope="col" className={thNum}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {years.map((year) => {
+                    const closed = year.status === 'Closed';
 
-          <table className="w-full text-body">
-            <thead className="text-label">
-              <tr>
-                <th className="py-1 text-left">Year</th>
-                <th className="py-1 text-left">Period</th>
-                <th className="py-1 text-left">Status</th>
-                <th className="py-1 text-right">Archived</th>
-                <th className="py-1 text-right">Net sales</th>
-                <th className="py-1 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {years.map((year) => (
-                <tr key={String(year.id)} className="border-t border-subtle">
-                  <td className="py-1 font-medium">{year.year}</td>
-                  <td className="py-1">
-                    {year.startsOn} to {year.endsOn}
-                  </td>
-                  {/* Words rather than a colour: "closed" is the fact, and it needs to read as one. */}
-                  <td className="py-1">
-                    {year.status === 'Closed'
-                      ? `Closed${year.closedAt ? ` ${new Date(year.closedAt).toLocaleDateString()}` : ''}`
-                      : 'Open'}
-                  </td>
-                  <td className="py-1 text-right">{year.status === 'Closed' ? year.archivedRows : '—'}</td>
-                  <td className="py-1 text-right">
-                    {year.status === 'Closed' ? formatCurrency(year.archivedNetSales) : '—'}
-                  </td>
-                  <td className="py-1 text-right">
-                    {year.status === 'Open' ? (
-                      <>
-                        <button
-                          type="button"
-                          className="text-label underline"
-                          disabled={busy}
-                          onClick={() => void dryRun(year)}
-                        >
-                          Dry run
-                        </button>
-                        <button
-                          type="button"
-                          className="ml-2 text-label underline"
-                          disabled={busy || previewFor !== year.id}
-                          onClick={() => void close(year)}
-                        >
-                          Close
-                        </button>
-                      </>
-                    ) : (
-                      <button
-                        type="button"
-                        className="text-label underline"
-                        disabled={busy}
-                        onClick={() => void reopen(year)}
+                    return (
+                      <tr
+                        key={String(year.id)}
+                        className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                       >
-                        Reopen
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                        <td className={cn(td, 'font-medium tabular-nums text-ink')}>{year.year}</td>
+                        <td className={cn(td, 'tabular-nums text-ink-muted')}>
+                          {year.startsOn} to {year.endsOn}
+                        </td>
+                        {/* Words and a glyph rather than a colour: "closed" is the fact, and it needs
+                            to read as one for anyone who cannot separate the two hues. */}
+                        <td className={td}>
+                          <span className={cn('pos-badge', closed ? 'text-ink-muted' : 'text-positive')}>
+                            {closed ? <Lock className="h-3 w-3" aria-hidden /> : <LockOpen className="h-3 w-3" aria-hidden />}
+                            {closed
+                              ? `Closed${year.closedAt ? ` ${new Date(year.closedAt).toLocaleDateString()}` : ''}`
+                              : 'Open'}
+                          </span>
+                        </td>
+                        <td className={tdNum} data-numeric="">{closed ? year.archivedRows : '—'}</td>
+                        <td className={tdNum} data-numeric="">
+                          {closed ? formatCurrency(year.archivedNetSales) : '—'}
+                        </td>
+                        <td className={cn(td, 'text-right')}>
+                          {year.status === 'Open' ? (
+                            <span className="inline-flex items-center gap-2">
+                              <button
+                                type="button"
+                                className="pos-button"
+                                disabled={busy}
+                                onClick={() => void dryRun(year)}
+                                title="Work out what a close would write, without writing anything"
+                              >
+                                <FlaskConical className="h-3.5 w-3.5" aria-hidden />
+                                Dry run
+                              </button>
+                              <button
+                                type="button"
+                                className="pos-button-danger"
+                                disabled={busy || previewFor !== year.id}
+                                onClick={() => void close(year)}
+                                title={
+                                  previewFor === year.id
+                                    ? `Close ${year.year} for good — it stops accepting trading and is rolled up`
+                                    : 'Read a dry run first'
+                                }
+                              >
+                                <Lock className="h-3.5 w-3.5" aria-hidden />
+                                Close year
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="pos-button-danger"
+                              disabled={busy}
+                              onClick={() => void reopen(year)}
+                              title={`Reopen ${year.year} and discard its archive rows and checkpoints`}
+                            >
+                              <Undo2 className="h-3.5 w-3.5" aria-hidden />
+                              Reopen
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-          {years.length === 0 ? (
-            <p className="text-label text-ink-muted">
-              No fiscal years yet. Open the year you want to close.
-            </p>
-          ) : (
-            <p className="text-label text-ink-muted">
-              Close stays disabled until a dry run has been read. Years close in order, and a year that has not
-              finished cannot be closed at all.
-            </p>
-          )}
-        </div>
-      </section>
+            <div className="flex items-start gap-2.5 border-t border-subtle bg-negative/5 px-4 py-3">
+              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-negative" aria-hidden />
+              <div className="min-w-0">
+                <p className="text-body font-semibold text-negative">What these two buttons do</p>
+                <p className="mt-0.5 max-w-[76ch] text-body text-ink-muted">
+                  <span className="font-medium text-ink">Close year</span> stops the year accepting any
+                  more trading, rolls it up into the sales history and writes a stock checkpoint. It stays
+                  disabled until a dry run has been read.{' '}
+                  <span className="font-medium text-ink">Reopen</span> throws away that year&apos;s archive
+                  rows and checkpoints — the sales they were derived from are untouched, but every report
+                  reading the archive changes until it is closed again.
+                </p>
+                <p className="mt-1 text-body text-ink-muted">
+                  Years close in order, and a year that has not finished cannot be closed at all.
+                </p>
+              </div>
+            </div>
+          </>
+        )}
+      </Panel>
 
       {preview ? (
-        <section className="pos-panel">
-          <div className="pos-panel-header">
-            <span>Dry run — {preview.year}</span>
-            <span className="normal-case">nothing has been written</span>
-          </div>
-          <div className="space-y-2 p-3 text-body">
-            <div className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-4">
+        <Panel
+          title={`Dry run — ${preview.year}`}
+          icon={FlaskConical}
+          action={
+            <span className="pos-badge text-accent-text">
+              <FlaskConical className="h-3 w-3" aria-hidden />
+              Nothing has been written
+            </span>
+          }
+        >
+          <div className="space-y-3 p-4">
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-6">
               <Figure label="Archive rows" value={String(preview.archiveRows)} />
               <Figure label="Items checkpointed" value={String(preview.productsCheckpointed)} />
               <Figure label="Transactions" value={String(preview.transactionsCovered)} />
@@ -273,103 +339,156 @@ export default function YearEndPage() {
             </div>
 
             {preview.warnings.length > 0 ? (
-              <ul className="text-label text-warning">
+              <ul className="space-y-1 rounded border border-subtle bg-panel-sunken p-3">
                 {preview.warnings.map((warning) => (
-                  <li key={warning}>⚠ {warning}</li>
+                  <li key={warning} className="flex items-start gap-2 text-body text-ink">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+                    <span>{warning}</span>
+                  </li>
                 ))}
               </ul>
             ) : null}
 
-            <p className="text-label text-ink-muted">
+            <p className="text-body text-ink-muted">
               These are the figures the real close will write. Voided and practice sales are already excluded.
             </p>
           </div>
-        </section>
+        </Panel>
       ) : null}
 
-      <section className="pos-panel">
-        <div className="pos-panel-header">
-          <span>Sales history</span>
+      <Panel title="Sales history" icon={Table2} action={`${history.length} row${history.length === 1 ? '' : 's'}`}>
+        <div className="flex flex-wrap items-end gap-3 border-b border-subtle px-4 py-3">
+          <label className="flex flex-col gap-1 text-label text-ink-muted">
+            Year
+            <select
+              className={inputClass}
+              value={historyYear}
+              onChange={(event) => setHistoryYear(event.target.value === '' ? '' : Number(event.target.value))}
+            >
+              <option value="">Every closed year</option>
+              {years.filter((y) => y.status === 'Closed').map((y) => (
+                <option key={String(y.id)} value={y.year}>
+                  {y.year}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {locationId ? (
+            <a
+              className="pos-button"
+              href={mastersApi.fiscalYears.historyExportUrl(locationId, historyYear === '' ? undefined : historyYear)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Download className="h-3.5 w-3.5" aria-hidden />
+              Download CSV
+            </a>
+          ) : null}
         </div>
-        <div className="space-y-2 p-3">
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="flex flex-col gap-1 text-label">
-              Year
-              <select
-                className={inputClass}
-                value={historyYear}
-                onChange={(event) => setHistoryYear(event.target.value === '' ? '' : Number(event.target.value))}
-              >
-                <option value="">Every closed year</option>
-                {years.filter((y) => y.status === 'Closed').map((y) => (
-                  <option key={String(y.id)} value={y.year}>
-                    {y.year}
-                  </option>
-                ))}
-              </select>
-            </label>
 
-            {locationId ? (
-              <a
-                className="pos-button"
-                href={mastersApi.fiscalYears.historyExportUrl(locationId, historyYear === '' ? undefined : historyYear)}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Download
-              </a>
-            ) : null}
-          </div>
-
-          <div className="max-h-96 overflow-y-auto border border-subtle">
-            <table className="w-full text-body">
-              <thead className="sticky top-0 bg-panel text-label">
+        {history.length === 0 ? (
+          <EmptyState
+            icon={Table2}
+            title="Nothing archived yet"
+            hint="The history fills up as years are closed. Run a dry run on an open year above to see what its first rows would look like."
+          />
+        ) : (
+          <div className="max-h-96 overflow-auto">
+            <table className="w-full border-collapse text-body">
+              <thead className="sticky top-0 z-10 border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th className="px-2 py-1 text-left">Year</th>
-                  <th className="px-2 py-1 text-left">Month</th>
-                  <th className="px-2 py-1 text-left">Code</th>
-                  <th className="px-2 py-1 text-left">Description</th>
-                  <th className="px-2 py-1 text-right">Sold</th>
-                  <th className="px-2 py-1 text-right">Net</th>
-                  <th className="px-2 py-1 text-right">Margin</th>
+                  <th scope="col" className={thText}>Year</th>
+                  <th scope="col" className={thText}>Month</th>
+                  <th scope="col" className={thText}>Code</th>
+                  <th scope="col" className={thText}>Description</th>
+                  <th scope="col" className={thNum}>Sold</th>
+                  <th scope="col" className={thNum}>Net</th>
+                  <th scope="col" className={thNum}>Margin</th>
                 </tr>
               </thead>
               <tbody>
                 {history.map((row) => (
-                  <tr key={`${row.year}-${row.month}-${row.stockCode}`} className="border-t border-subtle">
-                    <td className="px-2 py-1">{row.year}</td>
-                    <td className="px-2 py-1">{monthNames[row.month] ?? row.month}</td>
-                    <td className="px-2 py-1">{row.stockCode}</td>
-                    <td className="px-2 py-1">{row.name}</td>
-                    <td className="px-2 py-1 text-right">{row.quantitySold}</td>
-                    <td className="px-2 py-1 text-right">{formatCurrency(row.netSales)}</td>
-                    <td className="px-2 py-1 text-right">{formatCurrency(row.grossMargin)}</td>
+                  <tr
+                    key={`${row.year}-${row.month}-${row.stockCode}`}
+                    className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
+                  >
+                    <td className={cn(td, 'tabular-nums')}>{row.year}</td>
+                    <td className={cn(td, 'text-ink-muted')}>{monthNames[row.month] ?? row.month}</td>
+                    <td className={cn(td, 'pos-amount')}>{row.stockCode}</td>
+                    <td className={td}>{row.name}</td>
+                    <td className={tdNum} data-numeric="">{row.quantitySold}</td>
+                    <td className={tdNum} data-numeric="">{formatCurrency(row.netSales)}</td>
+                    <td className={tdNum} data-numeric="">{formatCurrency(row.grossMargin)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          {history.length === 0 ? (
-            <p className="text-label text-ink-muted">
-              Nothing archived yet — the history fills up as years are closed.
-            </p>
-          ) : null}
-        </div>
-      </section>
+        )}
+      </Panel>
     </div>
   );
 }
 
 function Figure({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="text-label text-ink-muted">{label}</p>
-      <p className="pos-amount font-semibold">{value}</p>
+      <p className="pos-amount mt-0.5 text-body-lg font-semibold text-ink">{value}</p>
     </div>
   );
 }
 
 function describe(error: unknown): string {
   return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
+}
+
+/* ------------------------------------------------------------------ page furniture */
+
+function PageHeader({ title, lede, children }: { title: string; lede: string; children?: ReactNode }) {
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-4">
+      <div className="min-w-0">
+        <h1>{title}</h1>
+        <p className="mt-1 max-w-[68ch] text-body text-ink-muted">{lede}</p>
+      </div>
+      {children ? <div className="flex shrink-0 flex-wrap items-end gap-2">{children}</div> : null}
+    </header>
+  );
+}
+
+function Panel({
+  title,
+  icon: Icon,
+  action,
+  children,
+}: {
+  title: string;
+  icon?: LucideIcon;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="pos-panel overflow-hidden">
+      <header className="pos-panel-header">
+        <span className="pos-panel-title">
+          {Icon ? <Icon /> : null}
+          <span className="truncate">{title}</span>
+        </span>
+        {action ? <span className="pos-panel-header-action">{action}</span> : null}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function EmptyState({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint: string }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
+      <Icon className="mb-1 h-6 w-6 text-ink-faint" aria-hidden />
+      <p className="text-body-lg font-medium text-ink">{title}</p>
+      <p className="max-w-[52ch] text-body text-ink-muted">{hint}</p>
+    </div>
+  );
 }

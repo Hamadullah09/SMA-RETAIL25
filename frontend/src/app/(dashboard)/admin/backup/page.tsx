@@ -1,15 +1,30 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import {
+  AlertTriangle,
+  Database,
+  DatabaseBackup,
+  HardDriveDownload,
+  Lock,
+  RotateCcw,
+  ShieldAlert,
+  type LucideIcon,
+} from 'lucide-react';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { apiClient } from '@/lib/api-client';
+import { cn } from '@/lib/utils';
 
 type BackupFile = {
   fileName: string;
   sizeBytes: number;
   createdAt: string;
 };
+
+const thText = 'px-3 py-2 text-left text-label font-medium text-ink-muted';
+const thNum = 'px-3 py-2 text-right text-label font-medium text-ink-muted';
+const td = 'px-3 py-2 align-middle';
 
 function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
@@ -97,70 +112,164 @@ export default function BackupPage() {
   };
 
   if (!allowed) {
-    return <p className="text-body text-ink-muted">You do not have permission to manage backups.</p>;
+    return (
+      <div className="p-4 lg:p-6">
+        <PageHeader title="Backup and restore" lede="A backup is the whole database in one file." />
+        <section className="pos-panel mt-4">
+          <EmptyState
+            icon={Lock}
+            title="You do not have permission to manage backups"
+            hint="Backing up and restoring the database needs the system.backup permission. Ask an administrator to grant it on your role."
+          />
+        </section>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-3">
-      <h1 className="text-h3 font-semibold">Backup and restore</h1>
-
-      <p className="max-w-2xl text-body text-ink-muted">
-        A backup is the whole database in one file — every item, sale, customer and setting. Take one
-        before anything risky, and on a schedule that matches how much work you can bear to lose.
-      </p>
-
-      <div className="flex items-center gap-2">
-        <button type="button" className="pos-button-primary" onClick={() => void backupNow()} disabled={working}>
-          {working ? 'Working…' : 'Back up now'}
-        </button>
+    <div className="space-y-4 p-4 lg:p-6">
+      <PageHeader
+        title="Backup and restore"
+        lede="A backup is the whole database in one file — every item, sale, customer and setting. Take one before anything risky, and on a schedule that matches how much work you can bear to lose."
+      >
         <button type="button" className="pos-button" onClick={() => void load()} disabled={loading || working}>
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
           Refresh
         </button>
-      </div>
+        <button type="button" className="pos-button-primary" onClick={() => void backupNow()} disabled={working}>
+          <DatabaseBackup className="h-3.5 w-3.5" aria-hidden />
+          {working ? 'Working…' : 'Back up now'}
+        </button>
+      </PageHeader>
 
-      <div className="pos-panel overflow-x-auto">
-        <table className="w-full text-body">
-          <thead>
-            <tr className="text-left text-ink-muted">
-              <th className="p-2 font-medium">File</th>
-              <th className="p-2 font-medium">Taken</th>
-              <th className="p-2 font-medium">Size</th>
-              <th className="p-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {files.length === 0 && (
-              <tr>
-                <td className="p-2 text-ink-muted" colSpan={4}>
-                  {loading ? 'Loading…' : 'No backups yet. The first one starts with the button above.'}
-                </td>
-              </tr>
-            )}
-            {files.map((file) => (
-              <tr key={file.fileName} className="border-t border-subtle">
-                <td className="p-2 font-mono">{file.fileName}</td>
-                <td className="p-2">{new Date(file.createdAt).toLocaleString()}</td>
-                <td className="p-2">{formatSize(file.sizeBytes)}</td>
-                <td className="p-2 text-right">
-                  <button
-                    type="button"
-                    className="pos-button-danger"
-                    onClick={() => void restore(file)}
-                    disabled={working}
+      <Panel
+        title="Backups on this server"
+        icon={Database}
+        action={loading ? 'Loading…' : `${files.length} file${files.length === 1 ? '' : 's'}`}
+      >
+        {/* The consequence is stated once, in words, above the buttons that carry it — not only in
+            the confirm() that appears after the click. */}
+        <div className="flex items-start gap-2.5 border-b border-subtle bg-negative/5 px-4 py-3">
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-negative" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-body font-semibold text-negative">Restoring replaces the entire database</p>
+            <p className="mt-0.5 max-w-[72ch] text-body text-ink-muted">
+              Every sale, item and change made since the backup was taken is gone, and every signed-in
+              user — including you — is thrown out while it runs. There is no undo. Take a fresh backup
+              first if there is anything since the one you are about to restore.
+            </p>
+          </div>
+        </div>
+
+        {files.length === 0 ? (
+          <EmptyState
+            icon={HardDriveDownload}
+            title={loading ? 'Loading…' : 'No backups yet'}
+            hint={
+              loading
+                ? 'Reading the server’s backup folder.'
+                : 'Press “Back up now” to write the first one. It takes a copy of the whole database into the server’s backup folder.'
+            }
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-body">
+              <thead className="border-b border-subtle bg-panel-sunken">
+                <tr>
+                  <th scope="col" className={thText}>File</th>
+                  <th scope="col" className={thText}>Taken</th>
+                  <th scope="col" className={thNum}>Size</th>
+                  <th scope="col" className={thNum}>
+                    <span className="sr-only">Action</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {files.map((file) => (
+                  <tr
+                    key={file.fileName}
+                    className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                   >
-                    Restore
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    <td className={cn(td, 'font-mono text-ink')}>{file.fileName}</td>
+                    <td className={cn(td, 'tabular-nums text-ink-muted')}>
+                      {new Date(file.createdAt).toLocaleString()}
+                    </td>
+                    <td className={cn(td, 'text-right tabular-nums')} data-numeric="">
+                      {formatSize(file.sizeBytes)}
+                    </td>
+                    <td className={cn(td, 'text-right')}>
+                      <button
+                        type="button"
+                        className="pos-button-danger"
+                        onClick={() => void restore(file)}
+                        disabled={working}
+                        title={`Replace the whole database with ${file.fileName}`}
+                      >
+                        <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+                        Restore over everything
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
-      <p className="max-w-2xl text-caption text-ink-faint">
-        Files live in the server&apos;s backup folder. Copy them somewhere that is not this machine —
-        a backup on the disk that fails with the database is not a backup.
-      </p>
+        <p className="border-t border-subtle px-4 py-3 text-body text-ink-muted">
+          Files live in the server&apos;s backup folder. Copy them somewhere that is not this machine —
+          a backup on the disk that fails with the database is not a backup.
+        </p>
+      </Panel>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ page furniture */
+
+function PageHeader({ title, lede, children }: { title: string; lede: string; children?: ReactNode }) {
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-4">
+      <div className="min-w-0">
+        <h1>{title}</h1>
+        <p className="mt-1 max-w-[68ch] text-body text-ink-muted">{lede}</p>
+      </div>
+      {children ? <div className="flex shrink-0 flex-wrap items-center gap-2">{children}</div> : null}
+    </header>
+  );
+}
+
+function Panel({
+  title,
+  icon: Icon,
+  action,
+  children,
+}: {
+  title: string;
+  icon?: LucideIcon;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="pos-panel overflow-hidden">
+      <header className="pos-panel-header">
+        <span className="pos-panel-title">
+          {Icon ? <Icon /> : null}
+          <span className="truncate">{title}</span>
+        </span>
+        {action ? <span className="pos-panel-header-action">{action}</span> : null}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function EmptyState({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint: string }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
+      <Icon className="mb-1 h-6 w-6 text-ink-faint" aria-hidden />
+      <p className="text-body-lg font-medium text-ink">{title}</p>
+      <p className="max-w-[52ch] text-body text-ink-muted">{hint}</p>
     </div>
   );
 }

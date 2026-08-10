@@ -1,6 +1,18 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  FilePenLine,
+  FilePlus2,
+  KeyRound,
+  LogIn,
+  RotateCcw,
+  ShieldAlert,
+  ShieldCheck,
+  Trash2,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
 import { BrowseFormShell, FormSection } from '@/components/masters/browse-form';
 import { toast } from '@/components/ui/toaster';
@@ -21,6 +33,23 @@ const ACTIONS: Array<{ value: AuditAction | ''; label: string }> = [
   { value: 'StepUpGranted', label: 'Step-up granted' },
   { value: 'StepUpDenied', label: 'Step-up denied' },
 ];
+
+/**
+ * Each action as a glyph, a word and — last — a tone.
+ *
+ * A refusal and an ordinary edit used to differ only by hue in this column, which is exactly the
+ * distinction an investigator is scanning for and exactly the one a colour-blind reader loses.
+ */
+const ACTION_STYLE: Record<AuditAction, { icon: LucideIcon; tone: string; label: string }> = {
+  Created: { icon: FilePlus2, tone: 'text-ink-muted', label: 'Created' },
+  Updated: { icon: FilePenLine, tone: 'text-ink-muted', label: 'Updated' },
+  Deleted: { icon: Trash2, tone: 'text-negative', label: 'Deleted' },
+  SignedIn: { icon: LogIn, tone: 'text-ink-muted', label: 'Signed in' },
+  SignInFailed: { icon: ShieldAlert, tone: 'text-warning', label: 'Sign-in failed' },
+  PermissionDenied: { icon: ShieldAlert, tone: 'text-warning', label: 'Permission denied' },
+  StepUpGranted: { icon: ShieldCheck, tone: 'text-positive', label: 'Step-up granted' },
+  StepUpDenied: { icon: KeyRound, tone: 'text-warning', label: 'Step-up denied' },
+};
 
 /**
  * The audit log (doc 07 §Audit).
@@ -97,38 +126,63 @@ export default function AuditPage() {
         key: 'occurred',
         header: 'When',
         width: 160,
-        render: (r) => new Date(r.occurredAt).toLocaleString(),
+        render: (r) => <span className="tabular-nums">{new Date(r.occurredAt).toLocaleString()}</span>,
         sortValue: (r) => r.occurredAt,
       },
       {
         key: 'action',
         header: 'Action',
-        width: 130,
-        render: (r) => (
-          <span className={cn(isRefusal(r.action) && 'text-warning', r.action === 'Deleted' && 'text-negative')}>
-            {r.action}
-          </span>
-        ),
+        width: 160,
+        render: (r) => <ActionBadge action={r.action} />,
+        sortValue: (r) => r.action,
       },
       { key: 'entity', header: 'Record', width: 170, render: (r) => r.entityType, sortValue: (r) => r.entityType },
       { key: 'actor', header: 'Who', width: 150, render: (r) => r.actorName ?? '—' },
       { key: 'operation', header: 'Operation', width: 180, render: (r) => r.operation ?? '—' },
       { key: 'approver', header: 'Approved by', width: 140, render: (r) => r.approverName ?? '—' },
-      { key: 'ip', header: 'From', width: 120, render: (r) => r.ipAddress ?? '—' },
+      {
+        key: 'ip',
+        header: 'From',
+        width: 120,
+        render: (r) => <span className="text-ink-muted">{r.ipAddress ?? '—'}</span>,
+      },
     ],
     [],
   );
 
   if (!canRead) {
-    return <p className="text-body text-ink-muted">Your account cannot read the audit log.</p>;
+    return (
+      <div className="p-4 lg:p-6">
+        <h1>Audit log</h1>
+        <p className="mt-1 max-w-[68ch] text-body text-ink-muted">
+          Every change, sign-in and refusal, kept where nobody can edit it.
+        </p>
+        <section className="pos-panel mt-4">
+          <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
+            <ShieldAlert className="mb-1 h-6 w-6 text-ink-faint" aria-hidden />
+            <p className="text-body-lg font-medium text-ink">Your account cannot read the audit log</p>
+            <p className="max-w-[52ch] text-body text-ink-muted">
+              Reading it needs the audit.read permission. Ask an administrator to grant it on your role.
+            </p>
+          </div>
+        </section>
+      </div>
+    );
   }
 
   return (
     <BrowseFormShell
       title="Audit log"
+      description="Every change, sign-in and refusal, kept where nobody can edit it. Double-click an entry to see what it changed and what else the same request did."
+      toolbar={
+        <button type="button" className="pos-button" disabled={loading} onClick={() => void load()}>
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+          {loading ? 'Loading…' : 'Refresh'}
+        </button>
+      }
       filters={
         <>
-          <label className="flex items-center gap-1.5">
+          <label className="flex items-center gap-1.5 text-ink-muted">
             From
             <input
               type="date"
@@ -138,7 +192,7 @@ export default function AuditPage() {
             />
           </label>
 
-          <label className="flex items-center gap-1.5">
+          <label className="flex items-center gap-1.5 text-ink-muted">
             To
             <input
               type="date"
@@ -149,7 +203,8 @@ export default function AuditPage() {
           </label>
 
           <input
-            className="w-48 pos-input"
+            className="w-56 pos-input"
+            aria-label="Record type"
             placeholder="Record type, e.g. Product"
             value={entityType}
             onChange={(event) => setEntityType(event.target.value)}
@@ -157,6 +212,7 @@ export default function AuditPage() {
 
           <select
             className="pos-input"
+            aria-label="Action"
             value={action}
             onChange={(event) => setAction(event.target.value as AuditAction | '')}
           >
@@ -175,16 +231,36 @@ export default function AuditPage() {
           columns={columns}
           rowKey={(row) => row.id}
           onRowActivate={(row) => void open(row)}
-          emptyMessage={loading ? 'Loading…' : 'Nothing recorded in this window.'}
+          emptyMessage={
+            loading
+              ? 'Loading…'
+              : 'Nothing recorded in this window. Widen the dates above, or clear the record type and action filters.'
+          }
         />
       }
       form={selected ? <AuditDetailPanel row={selected} trail={trail} onClose={() => setSelected(null)} /> : null}
       status={
-        <span>
-          {rows.length} of {totalCount} entries · double-click one to see what changed
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="tabular-nums">
+            {rows.length} of {totalCount} entries
+          </span>
+          <span aria-hidden>·</span>
+          <span>Double-click one to see what changed</span>
         </span>
       }
     />
+  );
+}
+
+function ActionBadge({ action }: { action: AuditAction }) {
+  const style = ACTION_STYLE[action] ?? { icon: FilePenLine, tone: 'text-ink-muted', label: action };
+  const Icon = style.icon;
+
+  return (
+    <span className={cn('pos-badge', style.tone)}>
+      <Icon className="h-3 w-3 shrink-0" aria-hidden />
+      <span className="truncate">{style.label}</span>
+    </span>
   );
 }
 
@@ -198,26 +274,26 @@ function describe(error: unknown): string {
   return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
-function isRefusal(action: AuditAction): boolean {
-  return action === 'PermissionDenied' || action === 'SignInFailed' || action === 'StepUpDenied';
-}
-
 function AuditDetailPanel({ row, trail, onClose }: { row: AuditLogRow; trail: AuditLogRow[]; onClose: () => void }) {
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between">
-        <h2 className="text-body font-semibold">
-          {row.action} — {row.entityType}
-        </h2>
-        <button type="button" className="pos-button" onClick={onClose}>
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-body-lg font-semibold text-ink">{row.entityType}</h2>
+          <div className="mt-1">
+            <ActionBadge action={row.action} />
+          </div>
+        </div>
+        <button type="button" className="pos-button shrink-0" onClick={onClose}>
+          <X className="h-3.5 w-3.5" aria-hidden />
           Close
         </button>
       </div>
 
       <FormSection title="Entry">
-        <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-label">
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-body">
           <dt className="text-ink-muted">When</dt>
-          <dd>{new Date(row.occurredAt).toLocaleString()}</dd>
+          <dd className="tabular-nums">{new Date(row.occurredAt).toLocaleString()}</dd>
           <dt className="text-ink-muted">Who</dt>
           <dd>{row.actorName ?? 'Unknown'}</dd>
           <dt className="text-ink-muted">Record</dt>
@@ -226,6 +302,8 @@ function AuditDetailPanel({ row, trail, onClose }: { row: AuditLogRow; trail: Au
           </dd>
           <dt className="text-ink-muted">Operation</dt>
           <dd>{row.operation ?? '—'}</dd>
+          <dt className="text-ink-muted">From</dt>
+          <dd className="tabular-nums">{row.ipAddress ?? '—'}</dd>
           {row.approverName ? (
             <>
               <dt className="text-ink-muted">Approved by</dt>
@@ -253,11 +331,23 @@ function AuditDetailPanel({ row, trail, onClose }: { row: AuditLogRow; trail: Au
           title={`The whole request (${trail.length} entries)`}
           hint="Everything the same request did — a void and the approval that authorised it are one story."
         >
-          <ol className="space-y-0.5 text-label">
+          <ol className="divide-y divide-subtle rounded border border-subtle">
             {trail.map((entry) => (
-              <li key={String(entry.id)} className={cn(entry.id === row.id && 'font-medium')}>
-                {entry.action} {entry.entityType}
-                {entry.operation ? ` — ${entry.operation}` : ''}
+              <li
+                key={String(entry.id)}
+                className={cn(
+                  'flex flex-wrap items-center gap-2 px-2.5 py-1.5 text-body',
+                  entry.id === row.id && 'bg-accent-soft font-medium',
+                )}
+              >
+                <ActionBadge action={entry.action} />
+                <span className="min-w-0 truncate">
+                  {entry.entityType}
+                  {entry.operation ? ` — ${entry.operation}` : ''}
+                </span>
+                {entry.id === row.id ? (
+                  <span className="ml-auto text-caption text-ink-muted">this entry</span>
+                ) : null}
               </li>
             ))}
           </ol>
@@ -280,8 +370,8 @@ function JsonDiff({ label, json }: { label: string; json: string | null }) {
 
   return (
     <div>
-      <p className="mb-0.5 text-label text-ink-muted">{label}</p>
-      <pre className="max-h-48 overflow-auto rounded-sm border border-subtle bg-surface p-2 text-caption leading-snug">
+      <p className="mb-1 text-label font-medium text-ink-muted">{label}</p>
+      <pre className="max-h-48 overflow-auto rounded-sm border border-subtle bg-panel-sunken p-2.5 text-caption leading-snug">
         {pretty}
       </pre>
     </div>

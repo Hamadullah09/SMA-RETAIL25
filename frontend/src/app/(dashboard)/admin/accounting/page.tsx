@@ -1,14 +1,26 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Download } from 'lucide-react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardList,
+  Download,
+  History,
+  Link2,
+  MapPin,
+  RotateCcw,
+  Send,
+  X,
+  type LucideIcon,
+} from 'lucide-react';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
-import { FormSection } from '@/components/masters/browse-form';
 import { filterInputClass, isoDate } from '@/components/reports/report-shell';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
+import { cn } from '@/lib/utils';
 import type { ExternalMapRow, PreflightReport, SyncEntityName, SyncLogDetail, SyncLogRow } from '@/types/masters';
 
 const PUSHABLE: { entity: SyncEntityName; label: string; needsDate?: boolean }[] = [
@@ -18,6 +30,9 @@ const PUSHABLE: { entity: SyncEntityName; label: string; needsDate?: boolean }[]
   { entity: 'Invoices', label: 'Open invoices' },
   { entity: 'PosRevenue', label: "A day's takings", needsDate: true },
 ];
+
+const thText = 'px-3 py-2 text-left text-label font-medium text-ink-muted';
+const td = 'px-3 py-2 align-middle';
 
 /**
  * The accounting link (doc 09 §1).
@@ -113,141 +128,235 @@ export default function AccountingSyncPage() {
   ];
 
   if (!locationId) {
-    return <p className="text-body text-ink-muted">No location is attached to this session.</p>;
+    return (
+      <div className="p-4 lg:p-6">
+        <PageHeader title="Accounting" lede="The link that hands the shop's figures to the bookkeeper." />
+        <section className="pos-panel mt-4">
+          <EmptyState
+            icon={Link2}
+            title="No location is attached to this session"
+            hint="The accounting link posts one location's figures at a time. Sign in against a location, or ask an administrator to attach one to your account."
+          />
+        </section>
+      </div>
+    );
   }
 
-  return (
-    <div className="space-y-4">
-      <h1 className="text-h3 font-semibold">Accounting</h1>
+  const outstanding = preflight ? preflight.checks.filter((check) => !check.satisfied).length : null;
 
-      <FormSection
-        title="Before the first sync"
-        hint="These are the four things the legacy link failed on silently. Nothing here blocks selling — an unmapped account only means the file needs a hand before it is imported."
+  return (
+    <div className="space-y-4 p-4 lg:p-6">
+      <PageHeader
+        title="Accounting"
+        lede="Hands the shop's figures to the bookkeeper's system. Everything it sends is kept here with what came back, because the link it replaces failed silently."
       >
+        <button type="button" className="pos-button" disabled={busy} onClick={() => void load()}>
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+          Refresh
+        </button>
+      </PageHeader>
+
+      <Panel
+        title="Before the first sync"
+        icon={ClipboardList}
+        action={
+          preflight ? (
+            outstanding === 0 ? (
+              <span className="pos-badge text-positive">
+                <CheckCircle2 className="h-3 w-3" aria-hidden />
+                All ready
+              </span>
+            ) : (
+              <span className="pos-badge text-warning">
+                <AlertTriangle className="h-3 w-3" aria-hidden />
+                {outstanding} need attention
+              </span>
+            )
+          ) : (
+            'Checking…'
+          )
+        }
+      >
+        <p className="border-b border-subtle px-4 py-2.5 text-body text-ink-muted">
+          These are the four things the legacy link failed on silently. Nothing here blocks selling — an
+          unmapped account only means the file needs a hand before it is imported.
+        </p>
+
         {preflight ? (
-          <ul className="space-y-1.5">
+          <ul>
             {preflight.checks.map((check) => (
-              <li key={check.requirement} className="flex items-start gap-2 text-label">
+              <li
+                key={check.requirement}
+                className="flex items-start gap-2.5 border-b border-subtle px-4 py-3 last:border-0"
+              >
                 {check.satisfied ? (
-                  <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-positive" />
+                  <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-positive" aria-hidden />
                 ) : (
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" aria-hidden />
                 )}
-                <span>
-                  <span className="font-medium">{check.requirement}</span>
-                  <span className="block text-ink-muted">{check.detail}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-body font-medium text-ink">{check.requirement}</p>
+                  <p className="mt-0.5 text-body text-ink-muted">{check.detail}</p>
+                </div>
+                <span
+                  className={cn('pos-badge shrink-0', check.satisfied ? 'text-positive' : 'text-warning')}
+                >
+                  {check.satisfied ? 'Ready' : 'Not yet'}
                 </span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-label text-ink-muted">Checking…</p>
+          <p className="px-4 py-8 text-center text-body text-ink-muted">Checking…</p>
         )}
-      </FormSection>
+      </Panel>
 
-      <FormSection
-        title="Post now"
-        hint="Writes a file the bookkeeper can import. The day's takings also post on their own each night."
-      >
-        <label className="mb-2 flex items-center gap-1.5 text-body">
-          Business date
-          <input
-            type="date"
-            className={filterInputClass}
-            value={businessDate}
-            onChange={(e) => setBusinessDate(e.target.value)}
-          />
-        </label>
+      <Panel title="Post now" icon={Send}>
+        <p className="border-b border-subtle px-4 py-2.5 text-body text-ink-muted">
+          Writes a file the bookkeeper can import. The day&apos;s takings also post on their own each night.
+        </p>
 
-        <div className="flex flex-wrap gap-2">
-          {PUSHABLE.map((item) => (
-            <span key={item.entity} className="flex items-center gap-1">
-              <button
-                type="button"
-                className="pos-button"
-                disabled={busy}
-                onClick={() => void run(item.entity, item.needsDate)}
-              >
-                {item.label}
-              </button>
-              <a
-                className="pos-button"
-                title={`Download ${item.label} as CSV`}
-                href={mastersApi.accounting.exportUrl(
-                  item.entity,
-                  locationId,
-                  item.needsDate ? { businessDate } : {},
-                )}
-                download
-              >
-                <Download className="h-3.5 w-3.5" />
-              </a>
-            </span>
-          ))}
+        <div className="space-y-3 p-4">
+          <label className="flex w-fit flex-col gap-1 text-label text-ink-muted">
+            Business date
+            <input
+              type="date"
+              className={filterInputClass}
+              value={businessDate}
+              onChange={(e) => setBusinessDate(e.target.value)}
+            />
+          </label>
+
+          <ul className="divide-y divide-subtle rounded border border-subtle">
+            {PUSHABLE.map((item) => (
+              <li key={item.entity} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                <span className="min-w-0 text-body text-ink">
+                  {item.label}
+                  {item.needsDate ? (
+                    <span className="ml-1.5 text-label text-ink-muted">for {businessDate}</span>
+                  ) : null}
+                </span>
+
+                <span className="flex shrink-0 items-center gap-2">
+                  <a
+                    className="pos-button"
+                    title={`Download ${item.label} as CSV`}
+                    href={mastersApi.accounting.exportUrl(
+                      item.entity,
+                      locationId,
+                      item.needsDate ? { businessDate } : {},
+                    )}
+                    download
+                  >
+                    <Download className="h-3.5 w-3.5" aria-hidden />
+                    CSV
+                  </a>
+
+                  <button
+                    type="button"
+                    className="pos-button"
+                    disabled={busy}
+                    onClick={() => void run(item.entity, item.needsDate)}
+                  >
+                    <Send className="h-3.5 w-3.5" aria-hidden />
+                    Post
+                  </button>
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
-      </FormSection>
+      </Panel>
 
-      <FormSection
-        title="Mappings"
-        hint="What each local record is called on the other side. Mapping by identity rather than by name is why a rename stays a rename here."
-      >
+      <Panel title="Mappings" icon={MapPin} action={`${maps.length} mapped`}>
+        <p className="border-b border-subtle px-4 py-2.5 text-body text-ink-muted">
+          What each local record is called on the other side. Mapping by identity rather than by name is
+          why a rename stays a rename here.
+        </p>
+
         {maps.length === 0 ? (
-          <p className="text-label text-ink-muted">Nothing mapped yet.</p>
+          <EmptyState
+            icon={MapPin}
+            title="Nothing mapped yet"
+            hint="A mapping is written the first time a record is posted successfully. Post customers or items above and they will appear here."
+          />
         ) : (
-          <table className="w-full text-label">
-            <thead>
-              <tr className="text-left text-ink-muted">
-                <th className="pb-1">Type</th>
-                <th className="pb-1">Local</th>
-                <th className="pb-1">Remote</th>
-              </tr>
-            </thead>
-            <tbody>
-              {maps.map((map) => (
-                <tr key={String(map.id)}>
-                  <td className="py-0.5">{map.entityType}</td>
-                  <td className="py-0.5">{map.localKey ?? map.localId ?? '—'}</td>
-                  <td className="py-0.5">{map.remoteName ?? map.remoteId}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-body">
+              <thead className="border-b border-subtle bg-panel-sunken">
+                <tr>
+                  <th scope="col" className={thText}>Type</th>
+                  <th scope="col" className={thText}>Local</th>
+                  <th scope="col" className={thText}>Remote</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {maps.map((map) => (
+                  <tr
+                    key={String(map.id)}
+                    className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
+                  >
+                    <td className={td}>{map.entityType}</td>
+                    <td className={cn(td, 'pos-amount')}>{map.localKey ?? map.localId ?? '—'}</td>
+                    <td className={cn(td, 'text-ink-muted')}>{map.remoteName ?? map.remoteId}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </FormSection>
+      </Panel>
 
-      <FormSection
-        title="Attempts"
-        hint="Every push, with what was sent and what came back — the modern version of the legacy Last Request / Last Response."
-      >
-        <div className="h-72">
+      <Panel title="Attempts" icon={History} action="Double-click an attempt to see what was sent">
+        <p className="border-b border-subtle px-4 py-2.5 text-body text-ink-muted">
+          Every push, with what was sent and what came back — the modern version of the legacy Last
+          Request / Last Response.
+        </p>
+
+        <div className="h-80 p-4">
           <DataGrid
             gridId="sync-log"
             rows={logRows}
             columns={logColumns}
             rowKey={(row) => row.id}
             onRowActivate={(row) => void openLog(row)}
-            emptyMessage="Nothing has been posted yet."
+            emptyMessage="Nothing has been posted yet. Use “Post now” above and the attempt lands here, whether it worked or not."
           />
         </div>
-        <p className="mt-1 text-label text-ink-muted">Double-click an attempt to see what was sent.</p>
-      </FormSection>
+      </Panel>
 
       {selected ? (
-        <FormSection title={`${selected.entity} — ${new Date(selected.occurredAt).toLocaleString()}`}>
-          <button type="button" className="pos-button mb-2" onClick={() => setSelected(null)}>
-            Close
-          </button>
+        <Panel
+          title={`${selected.entity} — ${new Date(selected.occurredAt).toLocaleString()}`}
+          icon={History}
+          action={
+            <button type="button" className="pos-button" onClick={() => setSelected(null)}>
+              <X className="h-3.5 w-3.5" aria-hidden />
+              Close
+            </button>
+          }
+        >
+          <div className="space-y-3 p-4">
+            <div>
+              <p className="mb-1 text-label font-medium text-ink-muted">Sent</p>
+              <pre className="max-h-40 overflow-auto rounded-sm border border-subtle bg-panel-sunken p-2.5 text-caption leading-snug">
+                {selected.requestPayload ?? '—'}
+              </pre>
+            </div>
 
-          <p className="mb-1 text-label font-medium">Sent</p>
-          <pre className="mb-3 max-h-32 overflow-auto rounded-sm border border-subtle p-2 text-caption">
-            {selected.requestPayload ?? '—'}
-          </pre>
-
-          <p className="mb-1 text-label font-medium">Returned</p>
-          <pre className="max-h-64 overflow-auto rounded-sm border border-subtle p-2 text-caption">
-            {selected.errorMessage ?? selected.responsePayload ?? '—'}
-          </pre>
-        </FormSection>
+            <div>
+              <p className="mb-1 text-label font-medium text-ink-muted">Returned</p>
+              <pre
+                className={cn(
+                  'max-h-64 overflow-auto rounded-sm border border-subtle bg-panel-sunken p-2.5 text-caption leading-snug',
+                  selected.errorMessage && 'border-negative/40 text-negative',
+                )}
+              >
+                {selected.errorMessage ?? selected.responsePayload ?? '—'}
+              </pre>
+            </div>
+          </div>
+        </Panel>
       ) : null}
     </div>
   );
@@ -255,4 +364,53 @@ export default function AccountingSyncPage() {
 
 function describe(error: unknown): string {
   return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
+}
+
+/* ------------------------------------------------------------------ page furniture */
+
+function PageHeader({ title, lede, children }: { title: string; lede: string; children?: ReactNode }) {
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-4">
+      <div className="min-w-0">
+        <h1>{title}</h1>
+        <p className="mt-1 max-w-[68ch] text-body text-ink-muted">{lede}</p>
+      </div>
+      {children ? <div className="flex shrink-0 flex-wrap items-center gap-2">{children}</div> : null}
+    </header>
+  );
+}
+
+function Panel({
+  title,
+  icon: Icon,
+  action,
+  children,
+}: {
+  title: string;
+  icon?: LucideIcon;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="pos-panel overflow-hidden">
+      <header className="pos-panel-header">
+        <span className="pos-panel-title">
+          {Icon ? <Icon /> : null}
+          <span className="truncate">{title}</span>
+        </span>
+        {action ? <span className="pos-panel-header-action">{action}</span> : null}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function EmptyState({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint: string }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
+      <Icon className="mb-1 h-6 w-6 text-ink-faint" aria-hidden />
+      <p className="text-body-lg font-medium text-ink">{title}</p>
+      <p className="max-w-[52ch] text-body text-ink-muted">{hint}</p>
+    </div>
+  );
 }

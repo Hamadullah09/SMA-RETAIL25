@@ -1,11 +1,28 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ClipboardCheck,
+  DatabaseZap,
+  FileSearch,
+  FileUp,
+  FlaskConical,
+  Inbox,
+  ListChecks,
+  Lock,
+  Scale,
+  Trash2,
+  Upload,
+  XCircle,
+  type LucideIcon,
+} from 'lucide-react';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
-import { formatCurrency } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
 import type {
   AnalysisReport,
   LegacyControlTotals,
@@ -20,6 +37,11 @@ import type {
 const inputClass =
   'pos-input';
 
+const thText = 'px-3 py-2 text-left text-label font-medium text-ink-muted';
+const thNum = 'px-3 py-2 text-right text-label font-medium text-ink-muted';
+const td = 'px-3 py-2 align-top';
+const tdNum = 'px-3 py-2 text-right align-top tabular-nums';
+
 /** What each stage means in the operator's words, not the enum's. */
 const stageLabel: Record<MigrationStage, string> = {
   Staged: 'Read in',
@@ -28,6 +50,26 @@ const stageLabel: Record<MigrationStage, string> = {
   Imported: 'Imported',
   Cancelled: 'Cancelled',
 };
+
+/** Each stage as a glyph and a tone, so the column is readable without colour vision. */
+const stageStyle: Record<MigrationStage, { icon: LucideIcon; tone: string }> = {
+  Staged: { icon: Inbox, tone: 'text-ink-muted' },
+  Validated: { icon: ClipboardCheck, tone: 'text-accent-text' },
+  DryRun: { icon: FlaskConical, tone: 'text-accent-text' },
+  Imported: { icon: CheckCircle2, tone: 'text-positive' },
+  Cancelled: { icon: XCircle, tone: 'text-ink-muted' },
+};
+
+function StageBadge({ stage }: { stage: MigrationStage }) {
+  const { icon: Icon, tone } = stageStyle[stage];
+
+  return (
+    <span className={cn('pos-badge', tone)}>
+      <Icon className="h-3 w-3" aria-hidden />
+      {stageLabel[stage]}
+    </span>
+  );
+}
 
 /**
  * The legacy migration screen (doc 09 §3).
@@ -69,11 +111,18 @@ export default function MigrationPage() {
 
   if (!canRun) {
     return (
-      <div className="p-6">
-        <h1 className="text-h3 font-semibold">Bring data across</h1>
-        <p className="mt-2 text-body text-ink-muted">
-          You do not have permission to run a migration.
-        </p>
+      <div className="p-4 lg:p-6">
+        <PageHeader
+          title="Bring data across"
+          lede="Reads a file from the old system, checks it, rehearses the import, then writes it."
+        />
+        <section className="pos-panel mt-4">
+          <EmptyState
+            icon={Lock}
+            title="You do not have permission to run a migration"
+            hint="Bringing legacy data across needs the migration.run permission. Ask an administrator to grant it on your role."
+          />
+        </section>
       </div>
     );
   }
@@ -104,22 +153,26 @@ export default function MigrationPage() {
   const selectedKind = kinds.find((k) => k.entity === entity);
 
   return (
-    <div className="space-y-4 p-6">
-      <header>
-        <h1 className="text-h3 font-semibold">Bring data across</h1>
-        <p className="text-body text-ink-muted">
-          Read a file from the old system, check it, run it as a rehearsal, then import. Nothing is written
-          until the import step, and the import will not start without a dry run that passed.
-        </p>
-      </header>
+    <div className="space-y-4 p-4 lg:p-6">
+      <PageHeader
+        title="Bring data across"
+        lede="Read a file from the old system, check it, run it as a rehearsal, then import. Nothing is written until the import step, and the import will not start without a dry run that passed."
+      >
+        <button
+          type="button"
+          className="pos-button-primary"
+          disabled={busy}
+          onClick={() => fileRef.current?.click()}
+        >
+          <Upload className="h-3.5 w-3.5" aria-hidden />
+          {busy ? 'Reading…' : 'Read a file'}
+        </button>
+      </PageHeader>
 
-      <section className="pos-panel">
-        <div className="pos-panel-header">
-          <span>Read a file</span>
-        </div>
-        <div className="space-y-2 p-3">
+      <Panel title="Read a file" icon={FileUp} action="Step 1 of 4">
+        <div className="space-y-3 p-4">
           <div className="flex flex-wrap items-end gap-3">
-            <label className="flex flex-col gap-1 text-label">
+            <label className="flex flex-col gap-1 text-label text-ink-muted">
               What kind of file
               <select className={inputClass} value={entity} onChange={(event) => setEntity(event.target.value)}>
                 {kinds.map((kind) => (
@@ -130,12 +183,12 @@ export default function MigrationPage() {
               </select>
             </label>
 
-            <label className="flex flex-col gap-1 text-label">
+            <label className="flex flex-col gap-1 text-label text-ink-muted">
               File
               <input
                 ref={fileRef}
                 type="file"
-                className={inputClass}
+                className={`${inputClass} py-1`}
                 disabled={busy}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
@@ -146,59 +199,93 @@ export default function MigrationPage() {
           </div>
 
           {selectedKind ? (
-            <p className="text-label text-ink-muted">
-              Expected column order ({selectedKind.guideReference}): {selectedKind.columns.join(', ')}. These files
-              have no header row, so the order is what identifies the columns.
+            <p className="rounded border border-subtle bg-panel-sunken p-3 text-body text-ink-muted">
+              <span className="font-medium text-ink">Expected column order</span>{' '}
+              ({selectedKind.guideReference}):{' '}
+              <span className="pos-amount">{selectedKind.columns.join(', ')}</span>. These files have no
+              header row, so the order is what identifies the columns.
             </p>
           ) : null}
         </div>
-      </section>
+      </Panel>
 
-      <section className="pos-panel">
-        <div className="pos-panel-header">
-          <span>Files read in</span>
-        </div>
-        <div className="p-3">
-          <table className="w-full text-body">
-            <thead className="text-label">
-              <tr>
-                <th className="py-1 text-left">File</th>
-                <th className="py-1 text-left">Kind</th>
-                <th className="py-1 text-left">Where it is up to</th>
-                <th className="py-1 text-right">Rows</th>
-                <th className="py-1 text-right">Problems</th>
-                <th className="py-1 text-right">Imported</th>
-              </tr>
-            </thead>
-            <tbody>
-              {batches.map((batch) => (
-                <tr
-                  key={batch.id}
-                  className={`cursor-pointer border-t border-subtle ${
-                    selected?.id === batch.id ? 'font-medium' : ''
-                  }`}
-                  onClick={() => setSelected(batch)}
-                >
-                  <td className="py-1">{batch.sourceFileName}</td>
-                  <td className="py-1">{batch.entity}</td>
-                  <td className="py-1">{stageLabel[batch.stage]}</td>
-                  <td className="py-1 text-right">{batch.rowsStaged}</td>
-                  <td className="py-1 text-right">
-                    {batch.blockingErrors > 0 ? `${batch.blockingErrors} to fix` : batch.warnings > 0 ? `${batch.warnings} noted` : '—'}
-                  </td>
-                  <td className="py-1 text-right">{batch.stage === 'Imported' ? batch.rowsImported : '—'}</td>
+      <Panel
+        title="Files read in"
+        icon={Inbox}
+        action={batches.length > 0 ? 'Click a file to work on it' : undefined}
+      >
+        {batches.length === 0 ? (
+          <EmptyState
+            icon={Inbox}
+            title="Nothing read in yet"
+            hint="Choose the kind of file and pick it above. Reading a file in writes nothing to the live system — it only stages the rows so they can be checked."
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-body">
+              <thead className="border-b border-subtle bg-panel-sunken">
+                <tr>
+                  <th scope="col" className={thText}>File</th>
+                  <th scope="col" className={thText}>Kind</th>
+                  <th scope="col" className={thText}>Where it is up to</th>
+                  <th scope="col" className={thNum}>Rows</th>
+                  <th scope="col" className={thNum}>Problems</th>
+                  <th scope="col" className={thNum}>Imported</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {batches.map((batch) => {
+                  const isSelected = selected?.id === batch.id;
 
-          {batches.length === 0 ? (
-            <p className="text-label text-ink-muted">Nothing read in yet.</p>
-          ) : (
-            <p className="mt-2 text-label text-ink-muted">Click a file to work on it.</p>
-          )}
-        </div>
-      </section>
+                  return (
+                    <tr
+                      key={batch.id}
+                      tabIndex={0}
+                      aria-selected={isSelected}
+                      onClick={() => setSelected(batch)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          setSelected(batch);
+                        }
+                      }}
+                      className={cn(
+                        'cursor-pointer border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover',
+                        isSelected && 'bg-accent-soft font-medium',
+                      )}
+                    >
+                      <td className={cn(td, 'text-ink')}>{batch.sourceFileName}</td>
+                      <td className={cn(td, 'text-ink-muted')}>{batch.entity}</td>
+                      <td className={td}>
+                        <StageBadge stage={batch.stage} />
+                      </td>
+                      <td className={tdNum} data-numeric="">{batch.rowsStaged}</td>
+                      <td className={tdNum} data-numeric="">
+                        {batch.blockingErrors > 0 ? (
+                          <span className="inline-flex items-center gap-1 font-medium text-negative">
+                            <XCircle className="h-3.5 w-3.5" aria-hidden />
+                            {batch.blockingErrors} to fix
+                          </span>
+                        ) : batch.warnings > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-warning">
+                            <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+                            {batch.warnings} noted
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      <td className={tdNum} data-numeric="">
+                        {batch.stage === 'Imported' ? batch.rowsImported : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Panel>
 
       {selected ? (
         <BatchPanel
@@ -291,19 +378,15 @@ function BatchPanel({
 
   return (
     <>
-      <section className="pos-panel">
-        <div className="pos-panel-header">
-          <span>{batch.sourceFileName}</span>
-          <span className="normal-case">{stageLabel[batch.stage]}</span>
-        </div>
-        <div className="space-y-3 p-3">
+      <Panel title={batch.sourceFileName} icon={FileSearch} action={<StageBadge stage={batch.stage} />}>
+        <div className="space-y-4 p-4">
           {analysis ? (
-            <div className="space-y-1 text-body">
-              <p>
+            <div className="space-y-1.5">
+              <p className="text-body text-ink">
                 Read as <span className="font-medium">{analysis.format}</span>, treated as{' '}
                 <span className="font-medium">{analysis.detectedLayout}</span> ({analysis.guideReference}).
               </p>
-              <p className="text-label text-ink-muted">
+              <p className="text-body text-ink-muted">
                 {analysis.rowCount} row(s), {analysis.columnCount} column(s)
                 {analysis.deletedRowCount > 0
                   ? `, ${analysis.deletedRowCount} of which the old system had already deleted and which will not be imported`
@@ -312,23 +395,27 @@ function BatchPanel({
               </p>
 
               {analysis.notes.length > 0 ? (
-                <ul className="text-label text-warning">
+                <ul className="space-y-1 rounded border border-subtle bg-panel-sunken p-3">
                   {analysis.notes.map((note) => (
-                    <li key={note}>⚠ {note}</li>
+                    <li key={note} className="flex items-start gap-2 text-body text-ink">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+                      <span>{note}</span>
+                    </li>
                   ))}
                 </ul>
               ) : null}
             </div>
           ) : null}
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               className="pos-button"
               disabled={busy || batch.stage === 'Imported' || batch.stage === 'Cancelled'}
               onClick={() => void run(() => mastersApi.migration.validate(batch.id), 'Checked')}
             >
-              Check it
+              <ClipboardCheck className="h-3.5 w-3.5" aria-hidden />
+              2 · Check it
             </button>
 
             <button
@@ -337,7 +424,8 @@ function BatchPanel({
               disabled={busy || batch.stage === 'Staged' || batch.stage === 'Imported' || batch.stage === 'Cancelled'}
               onClick={() => void run(() => mastersApi.migration.dryRun(batch.id, totals), 'Dry run done')}
             >
-              Dry run
+              <FlaskConical className="h-3.5 w-3.5" aria-hidden />
+              3 · Dry run
             </button>
 
             <button
@@ -345,200 +433,302 @@ function BatchPanel({
               className="pos-button-primary"
               disabled={busy || !batch.canImport}
               onClick={() => void doImport()}
+              title="Writes these rows into the live catalogue and stock ledger"
             >
-              Import
+              <DatabaseZap className="h-3.5 w-3.5" aria-hidden />
+              4 · Import for real
             </button>
 
-            <button
-              type="button"
-              className="pos-button text-negative"
-              disabled={busy || batch.stage === 'Imported' || batch.stage === 'Cancelled'}
-              onClick={() => void run(() => mastersApi.migration.cancel(batch.id), 'Cancelled')}
-            >
-              Discard
-            </button>
+            <span className="ml-auto">
+              <button
+                type="button"
+                className="pos-button-danger"
+                disabled={busy || batch.stage === 'Imported' || batch.stage === 'Cancelled'}
+                onClick={() => void run(() => mastersApi.migration.cancel(batch.id), 'Cancelled')}
+                title="Throws away the staged rows for this file. Nothing that was already imported is affected."
+              >
+                <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                Discard
+              </button>
+            </span>
+          </div>
+
+          <div className="flex items-start gap-2.5 rounded border border-negative/30 bg-negative/5 p-3">
+            <DatabaseZap className="mt-0.5 h-4 w-4 shrink-0 text-negative" aria-hidden />
+            <div className="min-w-0">
+              <p className="text-body font-semibold text-negative">Import writes to the live system</p>
+              <p className="mt-0.5 max-w-[76ch] text-body text-ink-muted">
+                It creates and updates records in the catalogue and appends to the stock ledger. Steps 1 to 3
+                write nothing, so read the check and the dry run below before pressing it — and take a
+                database backup first if this is a cutover.
+              </p>
+            </div>
           </div>
 
           {!batch.canImport && batch.stage !== 'Imported' ? (
-            <p className="text-label text-ink-muted">
+            <p className="flex items-start gap-2 text-body text-ink-muted">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
               {batch.blockingErrors > 0
                 ? `${batch.blockingErrors} problem(s) have to be fixed in the source file first.`
                 : 'Import stays disabled until a dry run has been done for this file.'}
             </p>
           ) : null}
         </div>
-      </section>
+      </Panel>
 
       {batch.stage !== 'Staged' && findings.length > 0 ? (
-        <section className="pos-panel">
-          <div className="pos-panel-header">
-            <span>What the check found</span>
-            <span className="normal-case">
-              {batch.blockingErrors} to fix · {batch.warnings} noted
+        <Panel
+          title="What the check found"
+          icon={ListChecks}
+          action={
+            <span className="flex items-center gap-2">
+              <span className={cn('pos-badge', batch.blockingErrors > 0 ? 'text-negative' : 'text-ink-muted')}>
+                <XCircle className="h-3 w-3" aria-hidden />
+                {batch.blockingErrors} to fix
+              </span>
+              <span className={cn('pos-badge', batch.warnings > 0 ? 'text-warning' : 'text-ink-muted')}>
+                <AlertTriangle className="h-3 w-3" aria-hidden />
+                {batch.warnings} noted
+              </span>
             </span>
-          </div>
-          <div className="max-h-72 overflow-y-auto p-3">
-            <table className="w-full text-body">
-              <thead className="sticky top-0 bg-panel text-label">
+          }
+        >
+          <div className="max-h-72 overflow-auto">
+            <table className="w-full border-collapse text-body">
+              <thead className="sticky top-0 z-10 border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th className="py-1 text-left">Row</th>
-                  <th className="py-1 text-left">Column</th>
-                  <th className="py-1 text-left">Severity</th>
-                  <th className="py-1 text-left">What is wrong</th>
+                  <th scope="col" className={thNum}>Row</th>
+                  <th scope="col" className={thText}>Column</th>
+                  <th scope="col" className={thText}>Severity</th>
+                  <th scope="col" className={thText}>What is wrong</th>
                 </tr>
               </thead>
               <tbody>
                 {findings.slice(0, 300).map((finding, index) => (
-                  <tr key={`${finding.rowNumber}-${finding.code}-${index}`} className="border-t border-subtle">
-                    <td className="py-1">{finding.rowNumber}</td>
-                    <td className="py-1">{finding.column ?? '—'}</td>
-                    {/* The word, not a colour — a blocking error has to read as one. */}
-                    <td className="py-1 font-medium">
-                      {finding.severity === 'Blocking' ? 'Must fix' : 'Noted'}
+                  <tr
+                    key={`${finding.rowNumber}-${finding.code}-${index}`}
+                    className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
+                  >
+                    <td className={tdNum} data-numeric="">{finding.rowNumber}</td>
+                    <td className={cn(td, 'text-ink-muted')}>{finding.column ?? '—'}</td>
+                    {/* The word and a glyph, not a colour — a blocking error has to read as one. */}
+                    <td className={td}>
+                      {finding.severity === 'Blocking' ? (
+                        <span className="pos-badge text-negative">
+                          <XCircle className="h-3 w-3" aria-hidden />
+                          Must fix
+                        </span>
+                      ) : (
+                        <span className="pos-badge text-warning">
+                          <AlertTriangle className="h-3 w-3" aria-hidden />
+                          Noted
+                        </span>
+                      )}
                     </td>
-                    <td className="py-1">{finding.message}</td>
+                    <td className={td}>{finding.message}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-
-            {findings.length > 300 ? (
-              <p className="mt-2 text-label text-ink-muted">
-                Showing the first 300 of {findings.length}.
-              </p>
-            ) : null}
           </div>
-        </section>
+
+          {findings.length > 300 ? (
+            <p className="border-t border-subtle px-4 py-2.5 text-body text-ink-muted">
+              Showing the first 300 of {findings.length}.
+            </p>
+          ) : null}
+        </Panel>
       ) : null}
 
       {rows.length > 0 ? (
-        <section className="pos-panel">
-          <div className="pos-panel-header">
-            <span>Rows that need looking at</span>
-          </div>
-          <div className="max-h-72 overflow-y-auto p-3">
-            <table className="w-full text-body">
-              <thead className="sticky top-0 bg-panel text-label">
+        <Panel title="Rows that need looking at" icon={FileSearch} action={`${rows.length} row(s)`}>
+          <div className="max-h-72 overflow-auto">
+            <table className="w-full border-collapse text-body">
+              <thead className="sticky top-0 z-10 border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th className="py-1 text-left">Row</th>
-                  <th className="py-1 text-left">Key</th>
-                  <th className="py-1 text-left">Problems</th>
+                  <th scope="col" className={thNum}>Row</th>
+                  <th scope="col" className={thText}>Key</th>
+                  <th scope="col" className={thText}>Problems</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.rowNumber} className="border-t border-subtle">
-                    <td className="py-1">{row.rowNumber}</td>
-                    <td className="py-1">{row.legacyKey ?? '—'}</td>
-                    <td className="py-1 whitespace-pre-line">{row.problems}</td>
+                  <tr
+                    key={row.rowNumber}
+                    className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
+                  >
+                    <td className={tdNum} data-numeric="">{row.rowNumber}</td>
+                    <td className={cn(td, 'pos-amount')}>{row.legacyKey ?? '—'}</td>
+                    <td className={cn(td, 'whitespace-pre-line')}>{row.problems}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </section>
+        </Panel>
       ) : null}
 
-      <section className="pos-panel">
-        <div className="pos-panel-header">
-          <span>What the old system said</span>
+      <Panel title="What the old system said" icon={Scale}>
+        <p className="border-b border-subtle px-4 py-2.5 text-body text-ink-muted">
+          Type these off the old system&apos;s own reports before the dry run. Anything left blank is
+          reported as imported-only rather than counted as agreeing.
+        </p>
+
+        <div className="flex flex-wrap gap-4 p-4">
+          <label className="flex flex-col gap-1 text-label text-ink-muted">
+            Item count
+            <input
+              type="number"
+              className={`${inputClass} w-32 text-right`}
+              value={number(totals.itemCount)}
+              onChange={(e) => setTotals({ ...totals, itemCount: e.target.value === '' ? null : Number(e.target.value) })}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-label text-ink-muted">
+            Inventory value at cost
+            <input
+              type="number"
+              step="0.01"
+              className={`${inputClass} w-40 text-right`}
+              value={number(totals.inventoryValue)}
+              onChange={(e) => setTotals({ ...totals, inventoryValue: e.target.value === '' ? null : Number(e.target.value) })}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-label text-ink-muted">
+            Clients
+            <input
+              type="number"
+              className={`${inputClass} w-28 text-right`}
+              value={number(totals.customerCount)}
+              onChange={(e) => setTotals({ ...totals, customerCount: e.target.value === '' ? null : Number(e.target.value) })}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-label text-ink-muted">
+            Suppliers
+            <input
+              type="number"
+              className={`${inputClass} w-28 text-right`}
+              value={number(totals.supplierCount)}
+              onChange={(e) => setTotals({ ...totals, supplierCount: e.target.value === '' ? null : Number(e.target.value) })}
+            />
+          </label>
         </div>
-        <div className="space-y-2 p-3">
-          <p className="text-label text-ink-muted">
-            Type these off the old system&apos;s own reports before the dry run. Anything left blank is reported
-            as imported-only rather than counted as agreeing.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <label className="flex flex-col gap-1 text-label">
-              Item count
-              <input
-                type="number"
-                className={`${inputClass} w-32`}
-                value={number(totals.itemCount)}
-                onChange={(e) => setTotals({ ...totals, itemCount: e.target.value === '' ? null : Number(e.target.value) })}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-label">
-              Inventory value at cost
-              <input
-                type="number"
-                step="0.01"
-                className={`${inputClass} w-40`}
-                value={number(totals.inventoryValue)}
-                onChange={(e) => setTotals({ ...totals, inventoryValue: e.target.value === '' ? null : Number(e.target.value) })}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-label">
-              Clients
-              <input
-                type="number"
-                className={`${inputClass} w-28`}
-                value={number(totals.customerCount)}
-                onChange={(e) => setTotals({ ...totals, customerCount: e.target.value === '' ? null : Number(e.target.value) })}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-label">
-              Suppliers
-              <input
-                type="number"
-                className={`${inputClass} w-28`}
-                value={number(totals.supplierCount)}
-                onChange={(e) => setTotals({ ...totals, supplierCount: e.target.value === '' ? null : Number(e.target.value) })}
-              />
-            </label>
-          </div>
-        </div>
-      </section>
+      </Panel>
 
       {reconciliation ? (
-        <section className="pos-panel">
-          <div className="pos-panel-header">
-            <span>{batch.stage === 'Imported' ? 'What was imported' : 'What the import would do'}</span>
-            <span className="normal-case">
-              {reconciliation.rowsWouldImport} of {reconciliation.rowsConsidered} row(s)
-            </span>
-          </div>
-          <div className="space-y-2 p-3">
-            <table className="w-full text-body">
-              <thead className="text-label">
+        <Panel
+          title={batch.stage === 'Imported' ? 'What was imported' : 'What the import would do'}
+          icon={Scale}
+          action={`${reconciliation.rowsWouldImport} of ${reconciliation.rowsConsidered} row(s)`}
+        >
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-body">
+              <thead className="border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th className="py-1 text-left">Measure</th>
-                  <th className="py-1 text-right">Here</th>
-                  <th className="py-1 text-right">Old system</th>
-                  <th className="py-1 text-right">Difference</th>
-                  <th className="py-1 text-left">Agrees</th>
+                  <th scope="col" className={thText}>Measure</th>
+                  <th scope="col" className={thNum}>Here</th>
+                  <th scope="col" className={thNum}>Old system</th>
+                  <th scope="col" className={thNum}>Difference</th>
+                  <th scope="col" className={thText}>Agrees</th>
                 </tr>
               </thead>
               <tbody>
                 {reconciliation.lines.map((line) => (
-                  <tr key={line.measure} className="border-t border-subtle">
-                    <td className="py-1">{line.measure}</td>
-                    <td className="py-1 text-right">
+                  <tr
+                    key={line.measure}
+                    className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
+                  >
+                    <td className={td}>{line.measure}</td>
+                    <td className={tdNum} data-numeric="">
                       {line.measure.includes('value') || line.measure.includes('balance')
                         ? formatCurrency(line.imported)
                         : line.imported}
                     </td>
-                    <td className="py-1 text-right">{line.legacyReported ?? '—'}</td>
-                    <td className="py-1 text-right">{line.variance ?? '—'}</td>
-                    {/* Words, because "agrees" and "does not" is the whole answer someone needs. */}
-                    <td className="py-1">
-                      {line.legacyReported === null ? 'nothing to compare' : line.matches ? 'yes' : 'NO'}
+                    <td className={tdNum} data-numeric="">{line.legacyReported ?? '—'}</td>
+                    <td className={tdNum} data-numeric="">{line.variance ?? '—'}</td>
+                    {/* Words and a glyph, because "agrees" and "does not" is the whole answer. */}
+                    <td className={td}>
+                      {line.legacyReported === null ? (
+                        <span className="text-ink-faint">Nothing to compare</span>
+                      ) : line.matches ? (
+                        <span className="pos-badge text-positive">
+                          <CheckCircle2 className="h-3 w-3" aria-hidden />
+                          Agrees
+                        </span>
+                      ) : (
+                        <span className="pos-badge text-negative">
+                          <XCircle className="h-3 w-3" aria-hidden />
+                          Does not agree
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-
-            {reconciliation.warnings.length > 0 ? (
-              <ul className="text-label text-warning">
-                {reconciliation.warnings.map((warning) => (
-                  <li key={warning}>⚠ {warning}</li>
-                ))}
-              </ul>
-            ) : null}
           </div>
-        </section>
+
+          {reconciliation.warnings.length > 0 ? (
+            <ul className="space-y-1 border-t border-subtle p-4">
+              {reconciliation.warnings.map((warning) => (
+                <li key={warning} className="flex items-start gap-2 text-body text-ink">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+                  <span>{warning}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Panel>
       ) : null}
     </>
+  );
+}
+
+/* ------------------------------------------------------------------ page furniture */
+
+function PageHeader({ title, lede, children }: { title: string; lede: string; children?: ReactNode }) {
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-4">
+      <div className="min-w-0">
+        <h1>{title}</h1>
+        <p className="mt-1 max-w-[68ch] text-body text-ink-muted">{lede}</p>
+      </div>
+      {children ? <div className="flex shrink-0 flex-wrap items-center gap-2">{children}</div> : null}
+    </header>
+  );
+}
+
+function Panel({
+  title,
+  icon: Icon,
+  action,
+  children,
+}: {
+  title: string;
+  icon?: LucideIcon;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="pos-panel overflow-hidden">
+      <header className="pos-panel-header">
+        <span className="pos-panel-title">
+          {Icon ? <Icon /> : null}
+          <span className="truncate">{title}</span>
+        </span>
+        {action ? <span className="pos-panel-header-action">{action}</span> : null}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function EmptyState({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint: string }) {
+  return (
+    <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
+      <Icon className="mb-1 h-6 w-6 text-ink-faint" aria-hidden />
+      <p className="text-body-lg font-medium text-ink">{title}</p>
+      <p className="max-w-[52ch] text-body text-ink-muted">{hint}</p>
+    </div>
   );
 }

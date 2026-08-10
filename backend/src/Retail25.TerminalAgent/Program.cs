@@ -86,10 +86,15 @@ builder.Services.AddWindowsService(options => options.ServiceName = "Retail25 Te
 // Named origins rather than AllowAnyOrigin. Any page the user has open — including one on the public
 // internet — can attempt a request to 127.0.0.1; the loopback filter cannot tell those apart, because
 // they genuinely do come from this machine. The origin check is what does.
+// The 127.0.0.1 variant is derived, not listed: whichever port the web app is served on, the same
+// page reached via 127.0.0.1 instead of localhost is a different origin to the browser and must be
+// allowed alongside it.
+var agentWebOrigin = builder.Configuration["Agent:WebOrigin"] ?? "http://localhost:3000";
+
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(
-        builder.Configuration["Agent:WebOrigin"] ?? "http://localhost:3000",
-        "http://127.0.0.1:3000")
+        agentWebOrigin,
+        agentWebOrigin.Replace("//localhost", "//127.0.0.1", StringComparison.OrdinalIgnoreCase))
     .AllowAnyHeader()
     .AllowAnyMethod()));
 
