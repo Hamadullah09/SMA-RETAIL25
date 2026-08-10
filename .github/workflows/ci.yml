@@ -88,16 +88,16 @@ jobs:
     needs: [backend, frontend]
     if: github.event_name == 'push'
     services:
-      postgres:
-        image: postgres:16-alpine
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
         env:
-          POSTGRES_DB: retail25
-          POSTGRES_USER: retail25
-          POSTGRES_PASSWORD: ci-password
-        ports: ['5432:5432']
+          ACCEPT_EULA: Y
+          MSSQL_PID: Developer
+          MSSQL_SA_PASSWORD: Ci-Sql-Password-1234!
+        ports: ['1433:1433']
         options: >-
-          --health-cmd "pg_isready -U retail25"
-          --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"Ci-Sql-Password-1234!\" -C -Q 'SELECT 1' || exit 1"
+          --health-interval 10s --health-timeout 5s --health-retries 30
       redis:
         image: redis:7-alpine
         ports: ['6379:6379']
@@ -105,7 +105,7 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      ConnectionStrings__DefaultConnection: Host=localhost;Database=retail25;Username=retail25;Password=ci-password
+      ConnectionStrings__DefaultConnection: Server=localhost,1433;Database=retail25;User Id=sa;******;TrustServerCertificate=True;MultipleActiveResultSets=True
       ConnectionStrings__Redis: localhost:6379
       Database__AutoMigrate: 'true'
       Database__Seed: 'true'
@@ -135,10 +135,18 @@ jobs:
         run: |
           dotnet run --project backend/src/Retail25.Api -c Release --no-launch-profile \
             --urls http://localhost:5000 &
+          healthy=false
           for i in $(seq 1 60); do
-            curl -sf http://localhost:5000/health/live && break
+            if curl -sf http://localhost:5000/health/live; then
+              healthy=true
+              break
+            fi
             sleep 2
           done
+          if [ "$healthy" != "true" ]; then
+            echo "::error::API failed to become healthy"
+            exit 1
+          fi
 
       - name: Install the frontend
         working-directory: frontend
