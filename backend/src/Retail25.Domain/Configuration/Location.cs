@@ -99,6 +99,16 @@ public sealed class Location : AggregateRoot, IAuditable, ISoftDeletable
     public void SetActive(bool isActive) => IsActive = isActive;
 
     /// <summary>
+    /// Follows a rename of the currency this location is denominated in.
+    /// <para>
+    /// A rename, never a conversion. This changes what the location's money is *called*, not what any
+    /// stored amount is worth — every ledger figure stays exactly as it was. Repointing a location at
+    /// a genuinely different currency would require revaluing all of them, which is not this.
+    /// </para>
+    /// </summary>
+    public void SetBaseCurrencyCode(string code) => BaseCurrencyCode = code.Trim().ToUpperInvariant();
+
+    /// <summary>
     /// Converts an instant to the business date for this location, honouring both its time zone
     /// and its configured day-start.
     /// </summary>

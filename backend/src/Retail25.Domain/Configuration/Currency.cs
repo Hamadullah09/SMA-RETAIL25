@@ -118,6 +118,47 @@ public sealed class Currency : AggregateRoot, IAuditable
         });
     }
 
+    /// <summary>
+    /// Edits an existing currency: what it is called, how it is written, and how it rounds.
+    /// <para>
+    /// The same validation as <see cref="Create"/>, and deliberately so — a rule that only applies to
+    /// new rows is a rule an edit can walk straight through. This existed only as construction
+    /// before, which meant the settings screen could save a new symbol and change nothing.
+    /// </para>
+    /// <para>
+    /// <see cref="IsBaseCurrency"/> is not here. Every ledger in the system is denominated in the
+    /// base currency, so moving that flag between rows would silently reinterpret every stored
+    /// amount. Changing <see cref="Code"/> on the base currency is a rename, not a reinterpretation,
+    /// and the caller is responsible for carrying it to whatever refers to the currency by code.
+    /// </para>
+    /// </summary>
+    public Result Update(string code, string name, string symbol, int scale, RoundingMode rounding, decimal minimumTender)
+    {
+        if (string.IsNullOrWhiteSpace(code) || code.Trim().Length != 3 || !code.Trim().All(char.IsLetter))
+        {
+            return Result.Failure(CodeInvalid.With("value", code));
+        }
+
+        if (scale is < 0 or > Money.StorageScale)
+        {
+            return Result.Failure(ScaleInvalid.With("value", scale));
+        }
+
+        if (minimumTender <= 0m)
+        {
+            return Result.Failure(MinimumTenderInvalid.With("value", minimumTender));
+        }
+
+        Code = code.Trim().ToUpperInvariant();
+        Name = name.Trim();
+        Symbol = symbol;
+        Scale = scale;
+        Rounding = rounding;
+        MinimumTender = minimumTender;
+
+        return Result.Success();
+    }
+
     public Result SetExchangeRate(decimal rate, DateTimeOffset asAt)
     {
         if (IsBaseCurrency)

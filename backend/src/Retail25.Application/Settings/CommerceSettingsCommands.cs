@@ -150,6 +150,9 @@ public sealed class CommerceSettingsHandlers
         var input = request.Currency;
         Currency? currency = null;
 
+        // The code before this save, so a rename can be carried to whatever refers to it.
+        string? previousCode = null;
+
         if (input.Id != 0L)
         {
             currency = await _db.Currencies.FirstOrDefaultAsync(c => c.Id == input.Id, ct);
@@ -163,6 +166,25 @@ public sealed class CommerceSettingsHandlers
                 // Every ledger in the system is denominated in the base currency. Switching it after
                 // a single sale exists would silently reinterpret every stored amount.
                 return Result.Failure<CurrencySettingsDto>(BaseCurrencyFixed);
+            }
+
+            // The edit itself, which used to be missing entirely: the fields below were read only on
+            // the create path, so changing a symbol or a name on an existing row saved cleanly and
+            // changed nothing. A settings screen that reports success and does nothing is worse than
+            // one that refuses.
+            previousCode = currency.Code;
+
+            var edited = currency.Update(
+                input.Code,
+                input.Name,
+                input.Symbol,
+                input.Scale,
+                input.Rounding,
+                input.MinimumTender);
+
+            if (edited.IsFailure)
+            {
+                return Result.Failure<CurrencySettingsDto>(edited.Error);
             }
         }
 
@@ -193,6 +215,24 @@ public sealed class CommerceSettingsHandlers
         }
 
         currency.SetActive(input.IsActive);
+
+        // A currency is referred to by code, not by id, so renaming one leaves every reference
+        // pointing at a code that no longer exists. For the base currency that is not a cosmetic
+        // problem: a location resolves its currency by code, finds nothing, and the till stops with
+        // "the location has no base currency configured" — a working shop broken by a settings save.
+        //
+        // Carried in the same SaveChanges as the rename, so the two rows can never disagree.
+        if (previousCode is { } was && currency.IsBaseCurrency && !string.Equals(was, currency.Code, StringComparison.Ordinal))
+        {
+            var locations = await _db.Locations
+                .Where(l => l.BaseCurrencyCode == was)
+                .ToListAsync(ct);
+
+            foreach (var location in locations)
+            {
+                location.SetBaseCurrencyCode(currency.Code);
+            }
+        }
 
         await _db.SaveChangesAsync(ct);
 
