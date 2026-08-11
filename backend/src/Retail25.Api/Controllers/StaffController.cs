@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Reports;
 using Retail25.Application.Staff;
@@ -22,8 +23,28 @@ public sealed class StaffController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> Browse(
-        [FromQuery] long locationId, [FromQuery] bool includeInactive = false, CancellationToken ct = default)
+        [FromQuery][BindRequired] long locationId, [FromQuery] bool includeInactive = false, CancellationToken ct = default)
         => Ok(await _sender.Send(new BrowseStaffQuery(locationId, includeInactive), ct));
+
+    /* -----------------------------------------------------------------------------------------
+     * Onboarding. Creating a colleague is the one write here that produces both an Identity user
+     * and a staff profile, so it goes through a single command and a single transaction.
+     * --------------------------------------------------------------------------------------- */
+
+    /// <summary>The roles this deployment can assign, for the Users screen's picker.</summary>
+    [HttpGet("roles")]
+    public async Task<IActionResult> Roles(CancellationToken ct)
+        => Ok(await _sender.Send(new ListAssignableRolesQuery(), ct));
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreateStaffCommand command, CancellationToken ct)
+        => (await _sender.Send(command, ct)).ToActionResult(this);
+
+    [HttpPost("{staffId:long}/password")]
+    public async Task<IActionResult> ResetPassword(
+        long staffId, [FromBody] ResetStaffPasswordRequest request, CancellationToken ct)
+        => (await _sender.Send(new ResetStaffPasswordCommand(staffId, request.NewPassword), ct))
+            .ToActionResult(this);
 
     /* -----------------------------------------------------------------------------------------
      * The time clock. The three "me" routes are the punch-clock widget and need only the
@@ -31,7 +52,7 @@ public sealed class StaffController : ControllerBase
      * --------------------------------------------------------------------------------------- */
 
     [HttpGet("time-clock/me")]
-    public async Task<IActionResult> MyTimeClock([FromQuery] long locationId, CancellationToken ct)
+    public async Task<IActionResult> MyTimeClock([FromQuery][BindRequired] long locationId, CancellationToken ct)
         => (await _sender.Send(new GetMyTimeClockQuery(locationId), ct)).ToActionResult(this);
 
     [HttpPost("time-clock/in")]
@@ -44,7 +65,7 @@ public sealed class StaffController : ControllerBase
 
     [HttpGet("time-clock")]
     public async Task<IActionResult> BrowseTimeClock(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
         [FromQuery] long? staffId = null,
@@ -83,7 +104,7 @@ public sealed class StaffController : ControllerBase
 
     [HttpGet("reports/hours")]
     public async Task<IActionResult> Hours(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
         [FromQuery] long? staffId = null,
@@ -93,7 +114,7 @@ public sealed class StaffController : ControllerBase
     [HttpGet("reports/hours/export")]
     [Produces("text/csv")]
     public async Task<IActionResult> HoursExport(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
         [FromQuery] long? staffId = null,
@@ -106,7 +127,7 @@ public sealed class StaffController : ControllerBase
 
     [HttpGet("reports/commissions")]
     public async Task<IActionResult> Commissions(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
         [FromQuery] long? staffId = null,
@@ -117,7 +138,7 @@ public sealed class StaffController : ControllerBase
     [HttpGet("reports/commissions/export")]
     [Produces("text/csv")]
     public async Task<IActionResult> CommissionsExport(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
         [FromQuery] long? staffId = null,
@@ -131,3 +152,9 @@ public sealed class StaffController : ControllerBase
 }
 
 public sealed record AmendTimeClockRequest(DateTimeOffset ClockIn, DateTimeOffset? ClockOut);
+
+/// <summary>
+/// The staff id travels in the route, so the body carries only the new password — keeping it out
+/// of the URL, where it would otherwise reach the IIS request log in clear text.
+/// </summary>
+public sealed record ResetStaffPasswordRequest(string NewPassword);

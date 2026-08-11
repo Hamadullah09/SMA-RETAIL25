@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Migration;
 
@@ -29,7 +30,7 @@ public sealed class MigrationController : ControllerBase
     public IActionResult Kinds() => Ok(_reader.Kinds);
 
     [HttpGet("batches")]
-    public async Task<IActionResult> Batches([FromQuery] long locationId, CancellationToken ct)
+    public async Task<IActionResult> Batches([FromQuery][BindRequired] long locationId, CancellationToken ct)
         => Ok(await _sender.Send(new ListMigrationBatchesQuery(locationId), ct));
 
     [HttpGet("batches/{id:long}")]

@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Carts.Queries;
 using Retail25.Application.Rfid;
@@ -58,7 +59,7 @@ public sealed class TerminalsController : ControllerBase
     // settings live in the database, and the agent pushes them into whatever hardware it finds.
 
     [HttpGet("readers")]
-    public async Task<IActionResult> Readers([FromQuery] long locationId)
+    public async Task<IActionResult> Readers([FromQuery][BindRequired] long locationId)
         => Ok(await _sender.Send(new ListReaderProfilesQuery(locationId)));
 
     [HttpGet("readers/{id:long}")]

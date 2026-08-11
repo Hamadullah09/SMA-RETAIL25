@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Inventory;
 using Retail25.Domain.Inventory;
@@ -20,7 +21,7 @@ public sealed class StockCountsController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> Browse(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] StockCountStatus? status = null,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 50,

@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Catalog;
 using Retail25.Application.Common;
@@ -28,7 +29,7 @@ public sealed class CatalogController : ControllerBase
 
     [HttpGet("products")]
     public async Task<IActionResult> Browse(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] string? search,
         [FromQuery] long? departmentId,
         [FromQuery] long? categoryId,
@@ -71,7 +72,7 @@ public sealed class CatalogController : ControllerBase
         => (await _sender.Send(new RestoreProductCommand(id), ct)).ToActionResult(this);
 
     [HttpGet("departments")]
-    public async Task<IActionResult> Departments([FromQuery] long locationId, [FromQuery] bool includeInactive = false, CancellationToken ct = default)
+    public async Task<IActionResult> Departments([FromQuery][BindRequired] long locationId, [FromQuery] bool includeInactive = false, CancellationToken ct = default)
         => Ok(await _sender.Send(new ListDepartmentsQuery(locationId, includeInactive), ct));
 
     [HttpPost("departments")]
@@ -83,7 +84,7 @@ public sealed class CatalogController : ControllerBase
         => (await _sender.Send(new DeleteDepartmentCommand(id), ct)).ToActionResult(this);
 
     [HttpGet("categories")]
-    public async Task<IActionResult> Categories([FromQuery] long locationId, [FromQuery] bool includeInactive = false, CancellationToken ct = default)
+    public async Task<IActionResult> Categories([FromQuery][BindRequired] long locationId, [FromQuery] bool includeInactive = false, CancellationToken ct = default)
         => Ok(await _sender.Send(new ListCategoriesQuery(locationId, includeInactive), ct));
 
     [HttpPost("categories")]
@@ -97,7 +98,7 @@ public sealed class CatalogController : ControllerBase
     /// <summary>The legacy "Undelete Items" screen (guide p.24), across every soft-deleted record.</summary>
     [HttpGet("deleted")]
     public async Task<IActionResult> Deleted(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] DeletedEntityKind? kind,
         [FromQuery] string? search,
         [FromQuery] int take = 200,

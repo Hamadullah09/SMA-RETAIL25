@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Loyalty;
 
@@ -17,7 +18,7 @@ public sealed class LoyaltyController : ControllerBase
     public LoyaltyController(ISender sender) => _sender = sender;
 
     [HttpGet("policy")]
-    public async Task<IActionResult> GetPolicy([FromQuery] long locationId, CancellationToken ct)
+    public async Task<IActionResult> GetPolicy([FromQuery][BindRequired] long locationId, CancellationToken ct)
         => Ok(await _sender.Send(new GetLoyaltyPolicyQuery(locationId), ct));
 
     [HttpPut("policy")]

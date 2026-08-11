@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Settings;
 using Retail25.Domain.Configuration;
@@ -26,7 +27,7 @@ public sealed class SettingsController : ControllerBase
     public SettingsController(ISender sender) => _sender = sender;
 
     [HttpGet]
-    public async Task<IActionResult> Get([FromQuery] long locationId, CancellationToken ct)
+    public async Task<IActionResult> Get([FromQuery][BindRequired] long locationId, CancellationToken ct)
         => (await _sender.Send(new GetSettingsQuery(locationId), ct)).ToActionResult(this);
 
     [HttpPut("business")]
@@ -78,7 +79,7 @@ public sealed class SettingsController : ControllerBase
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
     [HttpDelete("tenders/{id:long}")]
-    public async Task<IActionResult> DeleteTender(long id, [FromQuery] long locationId, CancellationToken ct)
+    public async Task<IActionResult> DeleteTender(long id, [FromQuery][BindRequired] long locationId, CancellationToken ct)
         => (await _sender.Send(new DeleteTenderTypeCommand(locationId, id), ct)).ToActionResult(this);
 
     [HttpPost("currencies")]

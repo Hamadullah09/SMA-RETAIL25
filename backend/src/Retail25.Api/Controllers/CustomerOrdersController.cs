@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Orders;
 using Retail25.Domain.Orders;
@@ -19,7 +20,7 @@ public sealed class CustomerOrdersController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> Browse(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] long? customerId,
         [FromQuery] CustomerOrderStatus? status,
         [FromQuery] string? cursor = null,

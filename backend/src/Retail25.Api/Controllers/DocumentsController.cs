@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Documents;
 
@@ -60,7 +61,7 @@ public sealed class DocumentsController : ControllerBase
     [Produces("application/pdf")]
     public async Task<IActionResult> SinglePriceTag(
         long productId,
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] LabelStock stock = LabelStock.Avery5160,
         [FromQuery] int copies = 1)
     {
@@ -86,7 +87,7 @@ public sealed class DocumentsController : ControllerBase
     [HttpGet("catalogue")]
     [Produces("application/pdf")]
     public async Task<IActionResult> Catalogue(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] long? departmentId = null,
         [FromQuery] long? categoryId = null,
         [FromQuery] string? search = null)

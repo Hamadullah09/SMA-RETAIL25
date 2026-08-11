@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Receivables;
 
@@ -18,7 +19,7 @@ public sealed class ReceivablesController : ControllerBase
 
     [HttpGet("accounts")]
     public async Task<IActionResult> BrowseAccounts(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] string? search,
         [FromQuery] bool withBalanceOnly = false,
         [FromQuery] string? cursor = null,
@@ -31,7 +32,7 @@ public sealed class ReceivablesController : ControllerBase
         => (await _sender.Send(new GetCustomerStatementQuery(customerId), ct)).ToActionResult(this);
 
     [HttpGet("aging")]
-    public async Task<IActionResult> Aging([FromQuery] long locationId, CancellationToken ct)
+    public async Task<IActionResult> Aging([FromQuery][BindRequired] long locationId, CancellationToken ct)
         => Ok(await _sender.Send(new GetReceivablesAgingQuery(locationId), ct));
 
     [HttpPost("payments")]

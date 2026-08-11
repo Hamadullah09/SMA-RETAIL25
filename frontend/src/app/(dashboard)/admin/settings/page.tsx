@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { CheckField, Field, NumberField, SelectField, TextField } from '@/components/masters/browse-form';
+import { CheckField, Field, NumberField, PasswordField, SelectField, TextField } from '@/components/masters/browse-form';
 import { BrandingTab } from '@/components/layout/branding-settings';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
@@ -2079,6 +2079,191 @@ function PricingTab({
 
 const LEVEL_LABELS = ['0 — Trainee', '1 — Cashier', '2 — Senior cashier', '3 — Supervisor', '4 — Administrator'];
 
+const BLANK_COLLEAGUE = {
+  email: '',
+  firstName: '',
+  lastName: '',
+  staffCode: '',
+  password: '',
+  role: '',
+  accessLevel: 1,
+  pin: '',
+};
+
+/**
+ * Onboarding a colleague.
+ *
+ * Creates the sign-in and the staff record in one go, because one without the other is useless: a
+ * sign-in with no staff profile cannot be attributed a sale, and a staff profile with no sign-in
+ * cannot get to a till.
+ */
+function NewColleague({ locationId, onCreated }: { locationId: number; onCreated: () => void | Promise<void> }) {
+  const { busy, run } = useSaver(onCreated);
+  const [form, setForm] = useState(BLANK_COLLEAGUE);
+  const [roles, setRoles] = useState<import('@/types/masters').AssignableRole[]>([]);
+  const [open, setOpen] = useState(false);
+
+  const patch = (changes: Partial<typeof BLANK_COLLEAGUE>) => setForm((current) => ({ ...current, ...changes }));
+
+  // The roles come from the server rather than a constant here, so a deployment that adds one does
+  // not need a rebuilt front end to be able to assign it.
+  useEffect(() => {
+    if (!open || roles.length > 0) return;
+
+    let cancelled = false;
+
+    void mastersApi.staff
+      .roles()
+      .then((found) => {
+        if (cancelled) return;
+        setRoles(found);
+        setForm((current) => (current.role ? current : { ...current, role: found[0]?.name ?? '' }));
+      })
+      .catch(() => {
+        /* The picker falls back to a free-text role name; the server is the one that validates it. */
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, roles.length]);
+
+  if (!open) {
+    return (
+      <SettingsSection
+        title="Add a colleague"
+        icon={Users}
+        description="Creates a sign-in and a staff record together, so the new person can both log in and be attributed a sale."
+        action={
+          <button type="button" className="pos-button-primary" onClick={() => setOpen(true)}>
+            Add a colleague
+          </button>
+        }
+      >
+        {null}
+      </SettingsSection>
+    );
+  }
+
+  const submit = () =>
+    void run(async () => {
+      await mastersApi.staff.create({
+        email: form.email,
+        firstName: form.firstName,
+        lastName: form.lastName,
+        staffCode: form.staffCode,
+        password: form.password,
+        role: form.role,
+        accessLevel: form.accessLevel,
+        locationId,
+        pin: form.pin.trim() === '' ? null : form.pin.trim(),
+      });
+
+      // Cleared on success only. A failed attempt keeps what was typed, so a rejected password does
+      // not cost the person the other seven fields.
+      setForm(BLANK_COLLEAGUE);
+      setOpen(false);
+    }, 'Colleague added');
+
+  return (
+    <SettingsSection
+      title="Add a colleague"
+      icon={Users}
+      description="They can sign in as soon as this is saved. Give them the password in person and ask them to change it."
+      action={
+        <button type="button" className="pos-button" onClick={() => setOpen(false)} disabled={busy}>
+          Cancel
+        </button>
+      }
+      footer={<SaveButton busy={busy} onClick={submit} label="Create" />}
+    >
+      <FieldGroup title="Identity" columns={3}>
+        <TextField label="First name" value={form.firstName} onChange={(v) => patch({ firstName: v })} autoFocus />
+        <TextField label="Last name" value={form.lastName} onChange={(v) => patch({ lastName: v })} />
+        <TextField
+          label="Staff code"
+          value={form.staffCode}
+          onChange={(v) => patch({ staffCode: v })}
+          hint="Short, and printed on receipts — e.g. SK."
+        />
+      </FieldGroup>
+
+      <FieldGroup title="Sign-in" columns={2}>
+        <TextField
+          label="Email"
+          value={form.email}
+          onChange={(v) => patch({ email: v })}
+          placeholder="sam@yourshop.com"
+          hint="This is what they sign in with."
+        />
+        <PasswordField
+          label="Temporary password"
+          value={form.password}
+          onChange={(v) => patch({ password: v })}
+          hint="They should change it once they are in."
+        />
+      </FieldGroup>
+
+      <FieldGroup title="Access" columns={3}>
+        <SelectField
+          label="Role"
+          value={form.role}
+          options={
+            roles.length > 0
+              ? roles.map((role) => ({ value: role.name, label: role.description ? `${role.name} — ${role.description}` : role.name }))
+              : [{ value: form.role, label: form.role || 'Loading…' }]
+          }
+          onChange={(v) => {
+            const chosen = roles.find((role) => role.name === v);
+            patch({ role: v, accessLevel: chosen?.legacyLevel ?? form.accessLevel });
+          }}
+          hint="What they are allowed to do. Changing it preselects the matching level."
+        />
+        <SelectField
+          label="Access level"
+          value={String(form.accessLevel)}
+          options={LEVEL_LABELS.map((label, level) => ({ value: String(level), label }))}
+          onChange={(v) => patch({ accessLevel: Number(v) || 0 })}
+        />
+        <TextField
+          label="Till PIN (optional)"
+          value={form.pin}
+          onChange={(v) => patch({ pin: v.replace(/\D/g, '') })}
+          hint="Four digits or more, for fast-switching at a till."
+        />
+      </FieldGroup>
+    </SettingsSection>
+  );
+}
+
+/** An administrator setting someone's password for them — the answer to a locked-out cashier. */
+function ResetPassword({ staffId, onDone }: { staffId: number; onDone: () => void | Promise<void> }) {
+  const { busy, run } = useSaver(onDone);
+  const [password, setPassword] = useState('');
+
+  return (
+    <FieldGroup title="Password">
+      <PasswordField
+        label="Set a new password"
+        value={password}
+        onChange={setPassword}
+        hint="Ends any session they currently have. Leave blank to make no change."
+      />
+      <SaveButton
+        busy={busy}
+        variant="secondary"
+        label="Set password"
+        onClick={() =>
+          void run(async () => {
+            await mastersApi.staff.resetPassword(staffId, password);
+            setPassword('');
+          }, 'Password set')
+        }
+      />
+    </FieldGroup>
+  );
+}
+
 function UsersTab({
   locationId,
   rows,
@@ -2104,6 +2289,8 @@ function UsersTab({
         title="Users and access"
         description="Staff codes, access levels and PIN state. Authorisation is always by permission; the level is only a preset."
       />
+
+      {canWrite ? <NewColleague locationId={locationId} onCreated={onSaved} /> : null}
 
       {drafts.length === 0 ? (
         <EmptyState icon={Users} title="No staff profiles yet" hint="Everyone who rings a sale needs one, so the sale can be attributed." />
@@ -2173,6 +2360,8 @@ function UsersTab({
             />
             <CheckField label="Active" checked={staff.isActive} onChange={(v) => patch(staff.id, { isActive: v })} disabled={!canWrite} />
           </FieldGroup>
+
+          {canWrite ? <ResetPassword staffId={staff.id} onDone={onSaved} /> : null}
         </SettingsSection>
       ))}
     </>
