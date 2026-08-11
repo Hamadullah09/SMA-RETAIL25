@@ -12,26 +12,31 @@
 
 | Metric | Count |
 |---|---|
-| Test cases executed | **41** |
-| Passed | **22** |
-| Failed | **9** |
-| Blocked | **10** |
-| Modules reached | 7 of 15 |
+| Test cases executed | **79** (41 UI + 38 API/database) |
+| Passed | **58** |
+| Failed | **10** |
+| Blocked | **11** |
+| Modules reached | **15 of 15** (7 through the UI, 8 at the API layer) |
 | Critical bugs | **4** |
-| High bugs | **3** |
+| High bugs | **4** |
 | Medium bugs | **2** |
 | Low bugs | **2** |
+| **Bugs fixed this session** | **1** (BUG-11) + user creation built |
 | Confirmed hardcoded values | 10 |
 | Duplicate / repetitive features | 3 |
-| Missing enterprise features | 18 |
+| Missing enterprise features | 18 → **16** |
 | Scalability risks | 7 |
-| Security risks | 4 |
-| **Production blockers** | **6** |
+| Security risks | 4 → **3** |
+| **Production blockers** | **6 → 5** |
 
 **Overall Beta Score: 34 / 100 · Production Readiness: NOT READY**
 
 **Recommended next step:** fix BUG-01 (till cannot add an item) and BUG-04 (WebSockets fail).
 Nothing else can be meaningfully validated until a sale can be completed.
+
+**Delivered this session:** user creation built end to end (26 new tests), admin password reset,
+and BUG-11 fixed across 25 controllers. See §20. One blocker (PB-4, partially) and one High
+security gap (SEC-2) are closed — pending deployment.
 
 ### The three sentences that matter
 
