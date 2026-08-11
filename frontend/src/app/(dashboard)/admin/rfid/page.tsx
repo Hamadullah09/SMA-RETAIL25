@@ -475,7 +475,7 @@ function RadioSection({ draft, patch, canWrite, busy, onSave }: SectionProps) {
         onChange={(v) => patch({ frequencyStartIndex: v })}
         step="1"
         disabled={!canWrite}
-        hint={`${draft.frequencyStartMhz} MHz. Channels 0–${draft.regionMaxChannel} in this region.`}
+        hint={`${draft.frequencyStartMhz} MHz. Channels ${draft.regionMinChannel}–${draft.regionMaxChannel} in this region.`}
       />
 
       <NumberField

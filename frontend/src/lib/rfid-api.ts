@@ -42,6 +42,7 @@ export interface ReaderProfile {
   /** Computed server-side so the screen and the validator cannot disagree about what a channel means. */
   frequencyStartMhz: number;
   frequencyEndMhz: number;
+  regionMinChannel: number;
   regionMaxChannel: number;
   linkProfile: RfLinkProfile;
   beeper: BeeperMode;

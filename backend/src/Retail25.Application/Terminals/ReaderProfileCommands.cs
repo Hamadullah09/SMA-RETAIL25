@@ -38,6 +38,12 @@ public sealed record ReaderProfileDto(
     int FrequencyEndIndex,
     double FrequencyStartMhz,
     double FrequencyEndMhz,
+
+    // Both ends, because only the top was sent and the screen had to assume the bottom was zero.
+    // FCC's window starts at 7 — channel numbering is shared across regions — so the form advertised
+    // "Channels 0–57", the operator typed 0 as invited, and the save was refused for being below the
+    // band. The client cannot infer this; it has to be told.
+    int RegionMinChannel,
     int RegionMaxChannel,
     RfLinkProfile LinkProfile,
     BeeperMode Beeper,
@@ -252,6 +258,7 @@ public sealed class ReaderProfileHandlers :
         p.FrequencyEndIndex,
         RadioFrequencyPlan.ToMegahertz(p.Region, p.FrequencyStartIndex),
         RadioFrequencyPlan.ToMegahertz(p.Region, p.FrequencyEndIndex),
+        RadioFrequencyPlan.MinChannel(p.Region),
         RadioFrequencyPlan.MaxChannel(p.Region),
         p.LinkProfile,
         p.Beeper,
