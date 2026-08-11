@@ -133,10 +133,25 @@ jobs:
       # NEXT_PUBLIC_* is inlined at build time, not read at runtime — so the hub origin has to be
       # correct here. Everything server-side (API_URL, SESSION_SECRET) is read from the environment
       # at runtime and lives in web.config on the host instead.
+      # The till's identity has to be here for the same reason, and the consequence is worth being
+      # explicit about. The point-of-sale screen reads these in a client component, so they are
+      # inlined into the bundle and every browser that opens the site is that station. The design
+      # calls them per-machine facts — "not a picker a cashier could get wrong" — which holds where
+      # each till serves its own front end. On shared hosting there is one front end for everyone,
+      # so per-machine becomes per-deployment: this is a single-till configuration.
+      #
+      # A second physical till cannot be added by editing this. It needs the station resolved at
+      # runtime — bound per browser and settable only by an administrator — which is a change to the
+      # POS screen, not to a build variable.
+      #
+      # 1/1 is the seeded "Front counter" at the only location. `GET /backend/api/v1/settings?
+      # locationId=1` lists the stations if these ever need to change.
       - name: Build
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_URL: https://pos.sma-techno.net/backend
+          NEXT_PUBLIC_STATION_ID: '1'
+          NEXT_PUBLIC_LOCATION_ID: '1'
         run: npm run build
 
       # The standalone output is a server, but it ships without the static assets — Next expects

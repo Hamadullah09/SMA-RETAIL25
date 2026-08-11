@@ -120,9 +120,27 @@ export async function writeSession(session: Session): Promise<void> {
   });
 }
 
+/**
+ * Expires a cookie on the same terms it was issued on.
+ *
+ * `cookies().delete(name)` is not enough here, and the way it fails is silent. A deletion is a
+ * Set-Cookie like any other, so it has to satisfy every rule the browser applied when it stored the
+ * original — and in production these names carry the `__Host-` prefix, whose contract is Secure, no
+ * Domain, and Path=/. The bare delete emits `Path=/` and no `Secure`, so the browser discarded it
+ * and kept the cookie.
+ *
+ * That is what made signing out do nothing. The BFF believed it had cleared the session, the
+ * identity provider genuinely cleared its own cookie, and the redirect home then found this cookie
+ * still sitting there and treated the user as signed in — so logging out silently signed you back
+ * in. Spelling the options out means the delete and the set cannot drift apart.
+ */
+function clearCookie(name: string): void {
+  cookies().set(name, '', { ...COOKIE_BASE, secure: secure(), maxAge: 0 });
+}
+
 export function clearSession(): void {
-  cookies().delete(SESSION_COOKIE);
-  cookies().delete(FLOW_COOKIE);
+  clearCookie(SESSION_COOKIE);
+  clearCookie(FLOW_COOKIE);
 }
 
 export async function writeFlowState(flow: AuthFlowState): Promise<void> {
@@ -143,7 +161,7 @@ export async function readFlowState(): Promise<AuthFlowState | null> {
 }
 
 export function clearFlowState(): void {
-  cookies().delete(FLOW_COOKIE);
+  clearCookie(FLOW_COOKIE);
 }
 
 /**
