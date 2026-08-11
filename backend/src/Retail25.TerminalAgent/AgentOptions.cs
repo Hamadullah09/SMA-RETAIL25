@@ -73,7 +73,9 @@ public sealed class AgentOptions
             return SpoolPath;
         }
 
-        var root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(root, "Retail25", "TerminalAgent", SpoolPath);
+        // Beside the logs, and for the same reason: under a service account's profile this is a path
+        // that needs elevation to inspect, and the spool is the thing holding tag reads that have not
+        // reached the server yet.
+        return Path.Combine(AgentPaths.DataDirectory, SpoolPath);
     }
 }

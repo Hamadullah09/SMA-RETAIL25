@@ -10,8 +10,24 @@ namespace Retail25.TerminalAgent;
 /// <summary>Where the agent keeps its spool and its logs.</summary>
 public static class AgentPaths
 {
+    /// <summary>
+    /// ProgramData, not the launching account's profile.
+    ///
+    /// <para>
+    /// This runs as a Windows service under LocalSystem, whose LocalApplicationData is
+    /// <c>C:\Windows\System32\config\systemprofile\AppData\Local</c> — a path that needs elevation to
+    /// even test for, and that nobody guesses. The agent's log is the only thing that says why a till
+    /// is not reading, and a log nobody can find is a log nobody reads: diagnosing one refused
+    /// credential meant an elevated shell and a path lookup, every time.
+    /// </para>
+    /// <para>
+    /// CommonApplicationData is the location Windows intends for machine-wide service state, and it
+    /// is the same path whether the agent runs as a service or from a console on a bench — so the
+    /// logs are in one place rather than two depending on how it was started.
+    /// </para>
+    /// </summary>
     public static string DataDirectory { get; } = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
         "Retail25",
         "TerminalAgent");
 }
