@@ -202,4 +202,74 @@ public sealed class EpcCatalogCsvTests
         parsed.Problems.Should().ContainSingle()
             .Which.Reason.Should().Be("row.no_stock_code");
     }
+
+    // ---------------------------------------------------------------------------------------------
+    // The other file this importer has to read: the one the import screen describes, and the one
+    // anybody produces by hand — a tag and the stock code it belongs to, nothing else.
+
+    /// <summary>
+    /// Two columns, headed as a person writes them, is a file this importer must read.
+    /// <para>
+    /// It could not. Three separate things stopped it, each sufficient alone: rows were kept only if
+    /// column one parsed as an integer, so every row of a file with no id column was dropped; the
+    /// product columns were searched only after the join's seam, which in a file with no seam is an
+    /// empty range, so the stock code was never found; and headers normalised spaces to spaces while
+    /// the lookup used snake_case, so "Stock Code" matched nothing. The visible result was
+    /// "the file held no rows this importer could use" on a file that was entirely correct.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_plain_two_column_file_of_tags_and_stock_codes_is_read()
+    {
+        var parsed = EpcCatalogCsv.Parse(
+            "EPC,Stock Code\r\n"
+            + "E2 80 11 70 00 00 02 0A 7A 6B 6A E1,FR0207001\r\n"
+            + "E2 80 11 70 00 00 02 0A 7A 6A 9A 21,FR0207002\r\n");
+
+        parsed.Problems.Should().BeEmpty();
+        parsed.Rows.Should().HaveCount(2);
+
+        parsed.Rows[0].Epc.Should().Be("E28011700000020A7A6B6AE1", "the spaced transcription is the same tag");
+        parsed.Rows[0].StockCode.Should().Be("FR0207001");
+        parsed.Rows.Select(r => r.StockCode).Should().Equal("FR0207001", "FR0207002");
+    }
+
+    /// <summary>
+    /// With no name column, the stock code names the item. A tag has to hang on something, and the
+    /// code is the only thing this file says about it.
+    /// </summary>
+    [Fact]
+    public void An_item_named_by_nothing_but_its_stock_code_takes_that_as_its_name()
+    {
+        var parsed = EpcCatalogCsv.Parse("EPC,Stock Code\nE28069150000600B40A75995,FR0207001");
+
+        parsed.Rows.Should().ContainSingle()
+            .Which.ProductName.Should().Be("FR0207001");
+    }
+
+    /// <summary>A blank trailing line is how a file ends, not something to report.</summary>
+    [Fact]
+    public void A_trailing_blank_line_is_not_a_problem_worth_reporting()
+    {
+        var parsed = EpcCatalogCsv.Parse("EPC,Stock Code\nE28069150000600B40A75995,FR0207001\n\n");
+
+        parsed.Rows.Should().ContainSingle();
+        parsed.Problems.Should().BeEmpty();
+    }
+
+    /// <summary>
+    /// snake_case and the spaced spelling are the same column. A spreadsheet writes one or the other
+    /// depending on who made the file.
+    /// </summary>
+    [Theory]
+    [InlineData("epc,stock_code")]
+    [InlineData("EPC,Stock Code")]
+    [InlineData("Epc , STOCK CODE")]
+    public void The_stock_code_column_is_found_however_its_header_is_spelled(string header)
+    {
+        var parsed = EpcCatalogCsv.Parse(header + "\nE28069150000600B40A75995,FR0207001");
+
+        parsed.Rows.Should().ContainSingle()
+            .Which.StockCode.Should().Be("FR0207001");
+    }
 }

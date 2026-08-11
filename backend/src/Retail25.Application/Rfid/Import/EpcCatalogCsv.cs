@@ -95,9 +95,24 @@ public static class EpcCatalogCsv
         {
             var fields = record.Fields;
 
+            if (fields.Count == 0)
+            {
+                continue;
+            }
+
             // The annotation row, and any trailing blank line. Neither carries an id, and neither is
             // an error worth reporting — the file is simply built that way.
-            if (fields.Count == 0 || !int.TryParse(Field(fields, 0), NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+            //
+            // Only where there is an id column to test, though. Requiring an integer in column one
+            // unconditionally meant a file that simply lists a tag and a stock code — the shape the
+            // import screen describes, and the shape anybody hand-builds — had every row silently
+            // dropped and came back "the file held no rows this importer could use". Where no id
+            // column exists, a row is data if it says which tag it is about.
+            var skip = header.HasLeadingId
+                ? !int.TryParse(Field(fields, 0), NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
+                : Field(fields, header.Epc).Trim().Length == 0;
+
+            if (skip)
             {
                 continue;
             }
@@ -283,27 +298,34 @@ public static class EpcCatalogCsv
         int StockCode,
         int Name,
         int Type,
-        int RegularPrice)
+        int RegularPrice,
+        bool HasLeadingId)
     {
         public static Columns From(IReadOnlyList<string> header)
         {
             var names = header.Select(Normalise).ToList();
 
-            // The seam. Without a second `id` the file is not the joined export — treat the whole
-            // row as the tag half and let the product columns come back missing, which surfaces as
-            // "no stock code" per row rather than as a silently wrong column mapping.
+            // The seam. Without a second `id` the file is not the joined export.
             var seam = SecondIndexOf(names, "id");
             var tagHalf = seam < 0 ? names.Count : seam;
+
+            // Where there is no seam there are no repeated names either, so there is no half a
+            // column could be misread as belonging to — the whole row is searched for the product's
+            // columns instead of a range that is empty by construction. Restricting them to the
+            // product half regardless meant a two-column file could never find its stock code, and
+            // every row was rejected as having none.
+            var productFrom = seam < 0 ? 0 : tagHalf;
 
             return new Columns(
                 ProductNameOverride: Find(names, 0, tagHalf, "product_id"),
                 Epc: Find(names, 0, tagHalf, "epc"),
                 State: Find(names, 0, tagHalf, "state"),
                 ReceivedOn: Find(names, 0, tagHalf, "received_on"),
-                StockCode: Find(names, tagHalf, names.Count, "stock_code"),
-                Name: Find(names, tagHalf, names.Count, "name"),
-                Type: Find(names, tagHalf, names.Count, "type"),
-                RegularPrice: Find(names, tagHalf, names.Count, "regular_price"));
+                StockCode: Find(names, productFrom, names.Count, "stock_code"),
+                Name: Find(names, productFrom, names.Count, "name"),
+                Type: Find(names, productFrom, names.Count, "type"),
+                RegularPrice: Find(names, productFrom, names.Count, "regular_price"),
+                HasLeadingId: names.Count > 0 && names[0] == "id");
         }
 
         /// <summary>
@@ -344,11 +366,15 @@ public static class EpcCatalogCsv
 
             foreach (var c in header.Trim().ToLowerInvariant())
             {
+                // To an underscore, not a space. The columns are looked up by their snake_case names,
+                // so a header written the way a person writes one — "Stock Code" — matched nothing
+                // and the column came back missing. A spreadsheet exports the same column under both
+                // spellings depending on who made the file, and they mean the same thing.
                 if (char.IsWhiteSpace(c))
                 {
                     if (!lastWasSpace && collapsed.Length > 0)
                     {
-                        collapsed.Append(' ');
+                        collapsed.Append('_');
                     }
 
                     lastWasSpace = true;
