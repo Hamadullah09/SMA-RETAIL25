@@ -160,6 +160,67 @@ public sealed class LoginFormTests
     }
 
     /// <summary>
+    /// The antiforgery cookie thrown away after a rejected form must be thrown away on the same terms
+    /// it was issued on.
+    /// <para>
+    /// A deletion is only a <c>Set-Cookie</c> with an expiry in the past, so every rule the browser
+    /// applied when it stored the cookie applies again when it is asked to drop it. In production the
+    /// name carries the <c>__Host-</c> prefix, whose contract is Secure and <c>Path=/</c>; a deletion
+    /// missing either is discarded as silently as a bad set, the stale cookie survives, and the next
+    /// POST presents it again. That is the difference between "one retry fixes it" and a loop whose
+    /// only exit is clearing cookies by hand — which is what was reported from the live deployment.
+    /// </para>
+    /// <para>
+    /// Asserting against the attributes of the cookie the GET issued, rather than against literals,
+    /// is what keeps this honest: it holds in development and production alike, and it fails if the
+    /// deletion ever drifts back to the no-argument overload, whose defaults quietly drop both
+    /// <c>SameSite</c> and <c>Secure</c>.
+    /// </para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_rejected_form_deletes_the_antiforgery_cookie_on_the_terms_it_was_issued_on()
+    {
+        var browser = Browser();
+
+        var issued = await browser.GetAsync("/account/login");
+        var issuedCookie = SetCookieFor(issued, "antiforgery");
+
+        issuedCookie.Should().NotBeNull("the form's token is only checkable against a cookie");
+
+        // No token at all is the cheapest way to reach the rejection branch.
+        var rejected = await browser.PostAsync("/account/login", new FormUrlEncodedContent(
+        [
+            new KeyValuePair<string, string>("Username", "someone@retail25.test"),
+            new KeyValuePair<string, string>("Password", "whatever"),
+            new KeyValuePair<string, string>("ReturnUrl", "/"),
+        ]));
+
+        var deletion = SetCookieFor(rejected, "antiforgery");
+
+        deletion.Should().NotBeNull("the rejected form has to clear the cookie it could not validate");
+
+        var issuedAttributes = issuedCookie!;
+        var deletedAttributes = deletion!;
+
+        deletedAttributes.Should().Contain("expires=", "a deletion is an expiry in the past");
+
+        foreach (var attribute in new[] { "path=", "samesite=", "secure" })
+        {
+            Has(deletedAttributes, attribute).Should().Be(
+                Has(issuedAttributes, attribute),
+                $"the deletion must carry '{attribute}' exactly as the cookie that was issued did");
+        }
+    }
+
+    private static string? SetCookieFor(HttpResponseMessage response, string nameFragment) =>
+        response.Headers.TryGetValues("Set-Cookie", out var values)
+            ? values.FirstOrDefault(v => v.Contains(nameFragment, StringComparison.OrdinalIgnoreCase))
+            : null;
+
+    private static bool Has(string setCookie, string attribute) =>
+        setCookie.Contains(attribute, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// The login page must never be cached or restored from the back-forward cache: a page redrawn
     /// from history carries a token the server has moved past, and the only symptom is "that form had
     /// expired" on a form filled in seconds earlier.

@@ -96,7 +96,19 @@ public sealed class AccountController : Controller
             //
             // Deleting it explicitly means the next GET starts from nothing, so the pair it issues is
             // guaranteed self-consistent. One retry, deterministically, instead of a loop.
-            Response.Cookies.Delete(_antiforgeryOptions.Cookie.Name ?? ".AspNetCore.Antiforgery");
+            //
+            // The options are not optional. A deletion is just a Set-Cookie with an expiry in the
+            // past, so it has to satisfy the same rules the browser applied when it stored the thing
+            // — and this cookie is `__Host-` prefixed, which requires Secure and Path=/. The
+            // no-argument Delete sends neither (CookieOptions defaults to Secure=false), so the
+            // browser rejected the deletion exactly as silently as it would reject a bad set, the
+            // stale cookie survived, and the next POST presented it again. That turns "one retry
+            // fixes it" into a loop with no way out but clearing cookies by hand, which is the state
+            // this block exists to prevent. Building from the same CookieBuilder that issued it is
+            // what keeps the two in step if either is ever reconfigured.
+            Response.Cookies.Delete(
+                _antiforgeryOptions.Cookie.Name ?? ".AspNetCore.Antiforgery",
+                _antiforgeryOptions.Cookie.Build(HttpContext));
 
             // The reason is logged, not shown. "Could not be decrypted" and "did not match" have very
             // different causes — a rotated keyring against a genuine forgery — and telling them apart
