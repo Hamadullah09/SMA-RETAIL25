@@ -299,6 +299,22 @@ if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
     }
 }
 
+// The agent's client, outside that block on purpose.
+//
+// Everything above is development bootstrap and is rightly off in production, where migrations are
+// applied out of band. The terminal agent's credential is not bootstrap: it is the one thing that
+// has to exist before a till can read a tag, and it is configured per deployment. Leaving it inside
+// meant `Auth:AgentClientSecret` was a setting the runbook tells an operator to set and no
+// production code path ever read — so every agent was refused with `invalid_client`, indefinitely,
+// however many times the secret was corrected or the pool restarted.
+//
+// Self-gating on the secret being configured, and idempotent: it registers the client when absent,
+// leaves it alone when the secret already matches, and corrects it when it does not.
+{
+    using var scope = app.Services.CreateScope();
+    await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().EnsureAgentClientAsync();
+}
+
 // --- Middleware pipeline ---
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();

@@ -208,56 +208,83 @@ public sealed class IdentitySeeder
             _logger.LogInformation("Registered the web client for {Origin}", webOrigin);
         }
 
-        if (await _applications.FindByClientIdAsync(AuthConstants.AgentClientId, ct) is not null)
-        {
-            // Registered already, and deliberately not updated: rotating a shared credential on every
-            // restart would knock every till in the shop offline at once.
-            //
-            // But the case where the configured secret no longer matches the registered one is a
-            // genuine trap — every agent gets `invalid_client`, the agent's answer to a failed
-            // profile fetch is to keep its defaults and carry on, and the visible symptom is a till
-            // that reads no tags for no stated reason. Saying so here is the difference between a
-            // one-line fix and an afternoon.
-            if (!string.IsNullOrWhiteSpace(_configuration["Auth:AgentClientSecret"]))
-            {
-                _logger.LogInformation(
-                    "The terminal agent client is already registered; its secret was left as it is. "
-                    + "If agents are being refused with invalid_client, the registered secret differs "
-                    + "from Auth:AgentClientSecret — delete the {ClientId} row to re-register it.",
-                    AuthConstants.AgentClientId);
-            }
-        }
-        else
-        {
-            var secret = _configuration["Auth:AgentClientSecret"];
+        await EnsureAgentClientAsync(ct);
+    }
 
-            if (string.IsNullOrWhiteSpace(secret))
+    /// <summary>
+    /// Registers the terminal agent's client, or corrects its secret if it no longer matches.
+    ///
+    /// <para>
+    /// Public and separately callable because it must run on deployments where the rest of this
+    /// seeder does not. Everything else here is development bootstrap, gated behind
+    /// <c>Database:AutoMigrate</c>; a production host applies its migrations out of band and leaves
+    /// that false, so nothing in this class ever ran there. That left <c>Auth:AgentClientSecret</c>
+    /// as a setting the host is told to configure and no code path ever reads — every till gets
+    /// <c>invalid_client</c> for ever, and the agent's answer to a failed profile fetch is to keep
+    /// its defaults and carry on, so the visible symptom is a till quietly reading no tags.
+    /// </para>
+    /// <para>
+    /// The secret is checked rather than assumed. Blindly rewriting it on every start would rotate a
+    /// shared credential and knock every till in the shop offline at once; leaving it alone when it
+    /// is wrong is the trap above, with no way out but deleting the row by hand. Asking whether the
+    /// configured secret actually validates distinguishes the two, so the credential is touched only
+    /// when it is genuinely wrong — and configuration is what decides, because on a hosted
+    /// deployment it is the only thing an operator can change.
+    /// </para>
+    /// </summary>
+    public async Task EnsureAgentClientAsync(CancellationToken ct = default)
+    {
+        var secret = _configuration["Auth:AgentClientSecret"];
+        var existing = await _applications.FindByClientIdAsync(AuthConstants.AgentClientId, ct);
+
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            // Never invented and never defaulted: a generated secret would be logged or silently
+            // shared across every till, and a default one is a published credential.
+            if (existing is null)
             {
-                // Never invented and never defaulted: a generated secret would be logged or silently
-                // shared across every till, and a default one is a published credential.
                 _logger.LogWarning(
                     "Auth:AgentClientSecret is not configured, so the terminal agent client was not registered");
-                return;
             }
 
-            await _applications.CreateAsync(
-                new OpenIddictApplicationDescriptor
-                {
-                    ClientId = AuthConstants.AgentClientId,
-                    ClientSecret = secret,
-                    DisplayName = "Retail25 terminal agent",
-                    ClientType = OpenIddictConstants.ClientTypes.Confidential,
-                    Permissions =
-                    {
-                        OpenIddictConstants.Permissions.Endpoints.Token,
-                        OpenIddictConstants.Permissions.GrantTypes.ClientCredentials,
-                        OpenIddictConstants.Permissions.Prefixes.Scope + AuthConstants.TerminalScope,
-                    },
-                },
-                ct);
-
-            _logger.LogInformation("Registered the terminal agent client");
+            return;
         }
+
+        var descriptor = new OpenIddictApplicationDescriptor
+        {
+            ClientId = AuthConstants.AgentClientId,
+            ClientSecret = secret,
+            DisplayName = "Retail25 terminal agent",
+            ClientType = OpenIddictConstants.ClientTypes.Confidential,
+            Permissions =
+            {
+                OpenIddictConstants.Permissions.Endpoints.Token,
+                OpenIddictConstants.Permissions.GrantTypes.ClientCredentials,
+                OpenIddictConstants.Permissions.Prefixes.Scope + AuthConstants.TerminalScope,
+            },
+        };
+
+        if (existing is null)
+        {
+            await _applications.CreateAsync(descriptor, ct);
+            _logger.LogInformation("Registered the terminal agent client");
+
+            return;
+        }
+
+        if (await _applications.ValidateClientSecretAsync(existing, secret, ct))
+        {
+            return;
+        }
+
+        await _applications.UpdateAsync(existing, descriptor, ct);
+
+        // Said out loud because it is a credential change, and because on the deployment this exists
+        // for it is also the moment a shop's tills start working again.
+        _logger.LogWarning(
+            "The terminal agent client's secret did not match Auth:AgentClientSecret and has been "
+            + "updated to it. Any agent still holding the previous secret will be refused until it "
+            + "is reconfigured.");
     }
 
     /// <summary>
