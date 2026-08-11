@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { exchangeCode } from '@/lib/server/oidc';
+import { appUrl, exchangeCode } from '@/lib/server/oidc';
 import { clearFlowState, readFlowState, writeSession } from '@/lib/server/session';
 
 export const dynamic = 'force-dynamic';
@@ -21,32 +21,32 @@ export async function GET(request: NextRequest) {
   clearFlowState();
 
   if (error) {
-    return fail(request, error === 'access_denied' ? 'access_denied' : 'authorization_failed');
+    return fail(error === 'access_denied' ? 'access_denied' : 'authorization_failed');
   }
 
   if (!code || !state || !flow) {
-    return fail(request, 'invalid_callback');
+    return fail('invalid_callback');
   }
 
   // The state check is what makes the callback belong to the sign-in this browser started. Without
   // it, an attacker can hand someone a callback URL and log them into an account they control.
   if (state !== flow.state) {
-    return fail(request, 'state_mismatch');
+    return fail('state_mismatch');
   }
 
   const session = await exchangeCode(code, flow.codeVerifier);
 
   if (!session) {
-    return fail(request, 'token_exchange_failed');
+    return fail('token_exchange_failed');
   }
 
   await writeSession(session);
 
-  return NextResponse.redirect(new URL(flow.returnTo, request.nextUrl.origin));
+  return NextResponse.redirect(appUrl(flow.returnTo));
 }
 
-function fail(request: NextRequest, reason: string): NextResponse {
-  const url = new URL('/', request.nextUrl.origin);
+function fail(reason: string): NextResponse {
+  const url = appUrl('/');
   url.searchParams.set('authError', reason);
   return NextResponse.redirect(url);
 }

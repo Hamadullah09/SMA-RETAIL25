@@ -4,6 +4,7 @@ import {
   createCodeChallenge,
   createCodeVerifier,
   createRandomToken,
+  localPath,
 } from '@/lib/server/oidc';
 import { writeFlowState } from '@/lib/server/session';
 
@@ -17,11 +18,9 @@ export const dynamic = 'force-dynamic';
  * exchanged — which is the whole point of PKCE for a client that cannot keep a secret.
  */
 export async function GET(request: NextRequest) {
-  const requested = request.nextUrl.searchParams.get('returnTo') ?? '/';
-
   // Only ever a path on this app. An open redirect here would let an attacker bounce a freshly
   // authenticated user anywhere they liked, with the sign-in looking entirely legitimate.
-  const returnTo = requested.startsWith('/') && !requested.startsWith('//') ? requested : '/';
+  const returnTo = localPath(request.nextUrl.searchParams.get('returnTo'));
 
   const codeVerifier = createCodeVerifier();
   const state = createRandomToken();

@@ -18,6 +18,38 @@ export const APP_ORIGIN = process.env.APP_ORIGIN ?? 'http://localhost:3000';
 export const REDIRECT_URI = `${APP_ORIGIN.replace(/\/$/, '')}/api/auth/callback`;
 
 /**
+ * Narrows a candidate to a path on this app, falling back to the root.
+ *
+ * An absolute URL that reached a redirect would be an open redirect, and a sign-in is exactly where
+ * one is worth the most: the bounce happens after the credentials are accepted, so it looks entirely
+ * legitimate to whoever is being sent.
+ */
+export function localPath(candidate: string | null | undefined): string {
+  return candidate && candidate.startsWith('/') && !candidate.startsWith('//') ? candidate : '/';
+}
+
+/**
+ * Resolves an in-app path against the configured public origin.
+ *
+ * Deliberately not against the incoming request's origin. Behind IIS the front end runs under
+ * HttpPlatformHandler, which proxies to Node on a private port it picks at start-up, so the request
+ * Next.js sees is addressed to `localhost:<HTTP_PLATFORM_PORT>` and `request.nextUrl.origin` is that
+ * port. A redirect built from it sends the browser somewhere only the server can reach.
+ *
+ * The failure is nastier than it sounds, because everything before the redirect works: the password
+ * is accepted, the code is exchanged, the session cookie is written — and then the browser lands on
+ * ERR_CONNECTION_REFUSED. Going back and resubmitting the sign-in form is the obvious thing to try,
+ * and the API answers that stale form "That form had expired", which is where the hunt starts and
+ * why it starts in the wrong place.
+ *
+ * APP_ORIGIN is the value {@link REDIRECT_URI} is already pinned to, so the address the browser is
+ * sent to and the address the authorization request registered cannot drift apart.
+ */
+export function appUrl(path: string): URL {
+  return new URL(localPath(path), APP_ORIGIN);
+}
+
+/**
  * Joins a path onto {@link AUTHORITY}, keeping any path the authority already has.
  * <p>
  * `new URL('/connect/token', 'https://shop.example/backend')` is

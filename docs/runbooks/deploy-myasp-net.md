@@ -210,6 +210,7 @@ In this order, because each step's failure mode is distinct:
 | HTTP 502.5 | The process could not launch. Usually the .NET 10 runtime is not installed on this server; ask the helpdesk. |
 | Site loads unstyled | `.next/static` missing beside `server.js`. |
 | Redirect loop | HTTPS not detected. Out-of-process hosting depends on the module's `X-Forwarded-Proto`; if it is absent, `UseHttpsRedirection` redirects forever. |
+| Sign-in ends on `localhost:<port>`, then "That form had expired" on the retry | A front-end redirect built from the *request's* origin rather than `APP_ORIGIN`. HttpPlatformHandler proxies to Node on a private port, so `request.nextUrl.origin` is `localhost:<HTTP_PLATFORM_PORT>` and a redirect derived from it goes somewhere only the server can reach. Note the sign-in has already **succeeded** by then — the session cookie is written and only the final hop is wrong — so what the user reports is whatever they try next, which is going back and resubmitting a form the API then correctly rejects as stale. Check `/api/auth/session` before believing sign-in is broken. |
 | Signed out at intervals | Ephemeral OpenIddict keys — the certificate paths are not resolving. |
 
 ## Known gaps
