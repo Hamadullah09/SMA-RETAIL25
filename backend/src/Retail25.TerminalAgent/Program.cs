@@ -1,6 +1,7 @@
 // Sdk.Worker does not bring the ASP.NET Core implicit usings, and the loopback API needs them.
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -99,6 +100,33 @@ builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .AllowAnyMethod()));
 
 var app = builder.Build();
+
+// Private Network Access, without which the whole arrangement fails on the deployment that needs it
+// most.
+//
+// A page served from the public internet calling 127.0.0.1 is a public-to-private request, and
+// Chrome will not make one unless the target says it is expected: the preflight carries
+// `Access-Control-Request-Private-Network: true` and is refused outright unless the response answers
+// `Access-Control-Allow-Private-Network: true`. CORS origins alone are not enough — the request is
+// blocked before the origin is ever considered.
+//
+// It does not arise while the app is served from localhost, because that is private-to-private. It
+// arises the moment the same app is served from https://pos.sma-techno.net, which is exactly the
+// arrangement where a till has no local web server and the agent is the only thing on the machine.
+//
+// This grants nothing the CORS policy above has not already granted. The origin allow-list is still
+// what decides who may call; this only tells the browser that a loopback destination is deliberate,
+// and it is answered solely for origins that passed that check.
+app.Use(async (context, next) =>
+{
+    if (HttpMethods.IsOptions(context.Request.Method)
+        && context.Request.Headers.ContainsKey("Access-Control-Request-Private-Network"))
+    {
+        context.Response.Headers["Access-Control-Allow-Private-Network"] = "true";
+    }
+
+    await next();
+});
 
 app.UseCors();
 app.MapLocalApi();
