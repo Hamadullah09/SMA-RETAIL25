@@ -756,7 +756,23 @@ function Reading({ label, value, warn }: { label: string; value?: string | null;
   );
 }
 
+/**
+ * The server's own explanation, in preference to the transport's.
+ *
+ * These calls go through apiClient directly rather than through pos-api's wrapper, so what arrives
+ * here is a raw axios error whose message is "Request failed with status code 400" — true, useless,
+ * and identical for every possible cause. The API answers with a problem document naming the actual
+ * refusal, and it was being thrown away: a save rejected because the frequency range sat outside the
+ * selected region's band reported only the status code, so the one field at fault was the one thing
+ * the operator could not learn.
+ */
 function describe(error: unknown): string {
+  const problem = (error as { response?: { data?: { detail?: string; title?: string } } })?.response?.data;
+
+  if (problem?.detail || problem?.title) {
+    return problem.detail ?? problem.title!;
+  }
+
   return error instanceof Error ? error.message : 'The request was refused.';
 }
 

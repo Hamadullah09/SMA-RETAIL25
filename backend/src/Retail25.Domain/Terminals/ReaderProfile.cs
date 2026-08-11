@@ -187,10 +187,18 @@ public sealed class ReaderProfile : Entity, IAuditable, IStationScopedProfile
     /// Kept as indices rather than megahertz because that is what the reader accepts, and converting
     /// in only one direction is how a value drifts every time it is read and written back.
     /// </para>
+    /// <para>
+    /// Defaulted from <see cref="RadioFrequencyPlan"/> for the default region rather than left at
+    /// zero. Channel numbering is shared across regions and FCC's window starts at 7, so a profile
+    /// created with the language default of 0 was outside its own region's band from the moment it
+    /// existed — and the update command rejects exactly that. The effect was a reader nobody could
+    /// configure: every save of the settings screen came back 400, including a save that changed
+    /// only the address, because the invalid pair was posted back untouched with everything else.
+    /// </para>
     /// </summary>
-    public int FrequencyStartIndex { get; set; }
+    public int FrequencyStartIndex { get; set; } = RadioFrequencyPlan.MinChannel(RadioRegion.Fcc);
 
-    public int FrequencyEndIndex { get; set; }
+    public int FrequencyEndIndex { get; set; } = RadioFrequencyPlan.MaxChannel(RadioRegion.Fcc);
 
     /// <summary>Data rate and encoding. See <see cref="RfLinkProfile"/>.</summary>
     public RfLinkProfile LinkProfile { get; set; } = RfLinkProfile.Miller4_250kHz;
