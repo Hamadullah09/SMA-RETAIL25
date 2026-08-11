@@ -89,6 +89,14 @@ interface PosState {
   readRate: number;
   peripherals: PeripheralStatus | null;
 
+  /**
+   * The mode this till last asked the reader for.
+   *
+   * Held so that finishing a sale knows whether another one is expected. A reader left running is a
+   * shop still selling, and the customer behind is already putting a basket on the counter.
+   */
+  readerMode: 'Off' | 'OnDemand' | 'Continuous';
+
   /** Rejected tags stay visible for ten seconds with a plain-language reason (doc 08). */
   rejectedTags: RejectedTag[];
   posMessage: string | null;
@@ -152,6 +160,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   readerOnline: false,
   readRate: 0,
   peripherals: null,
+  readerMode: 'Off',
   rejectedTags: [],
   posMessage: null,
   dialog: null,
@@ -368,6 +377,25 @@ export const usePosStore = create<PosState>((set, get) => ({
   setReaderMode: async (mode) => {
     const stationId = get().stationId;
     if (!stationId) return;
+
+    // Starting the reader opens the sale, if one is not open already.
+    //
+    // The server refuses tags with no active cart, deliberately: a goods-in bench and a stock count
+    // have readers and no sale, and reads there are not a basket. But the cart is created by the
+    // client, from actions the cashier takes on this screen — scanning a barcode, picking an item —
+    // and a tag read arrives at the server from the agent, touching none of them. So the till
+    // offered three ways to start a sale and only two of them worked: the empty screen says "hold a
+    // tagged item near the antenna", and every tag held there came back "no sale is open at this
+    // till".
+    //
+    // Switching the reader on is the cashier saying they are about to ring something up, which is
+    // exactly the intent the cart was missing. The bench case is untouched — nothing there turns a
+    // till's reader on.
+    if (mode !== 'Off') {
+      await get().ensureCart();
+    }
+
+    set({ readerMode: mode });
 
     try {
       await posApi.setReaderMode(stationId, mode);
@@ -607,6 +635,18 @@ export const usePosStore = create<PosState>((set, get) => ({
       });
 
       await get().refreshDrawer();
+
+      // With the reader still running, open the next sale straight away.
+      //
+      // Completing sets the cart to null, and the server drops tags when no sale is open. On a till
+      // that sells by tag rather than by barcode that left the reader live and the till deaf: every
+      // customer after the first got "no sale is open at this till" until somebody scanned something
+      // to wake it up. Nothing here starts a reader that was off, so a till put away for the night
+      // stays put away.
+      if (get().readerMode !== 'Off') {
+        await get().ensureCart();
+      }
+
       return true;
     } catch (error) {
       set({ error: describe(error) });
