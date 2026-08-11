@@ -65,6 +65,10 @@ builder.Services.AddSingleton<IDeviceFactory>(provider => new DeviceFactory(
 
 builder.Services.AddSingleton<PeripheralCoordinator>();
 
+// Finds the reader when it is not where the profile says. A shop's reader address is a DHCP lease,
+// not a property of the software.
+builder.Services.AddSingleton<ReaderDiscovery>();
+
 // The reader service is reached by two other services, so it is registered as a singleton and then
 // handed to the host — otherwise the host would own a second instance nobody can talk to.
 builder.Services.AddSingleton<RfidReaderService>();

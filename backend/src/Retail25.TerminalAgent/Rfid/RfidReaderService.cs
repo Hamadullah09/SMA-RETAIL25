@@ -88,15 +88,23 @@ public sealed class RfidReaderService : BackgroundService
     private readonly ProfileStore _profiles;
     private readonly TagBuffer _buffer;
     private readonly AgentOptions _options;
+    private readonly ReaderDiscovery _discovery;
     private readonly ILogger<RfidReaderService> _logger;
 
     private IRfidReader? _reader;
+
+    /// <summary>
+    /// The address last found by searching, kept so a reader that moved is not hunted for again on
+    /// every reconnect. Cleared implicitly by being overwritten when the search runs afresh.
+    /// </summary>
+    private string? _discovered;
 
     public RfidReaderService(
         IServiceProvider services,
         ProfileStore profiles,
         TagBuffer buffer,
         IOptions<AgentOptions> options,
+        ReaderDiscovery discovery,
         ILogger<RfidReaderService> logger)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -105,6 +113,7 @@ public sealed class RfidReaderService : BackgroundService
         _profiles = profiles;
         _buffer = buffer;
         _options = options.Value;
+        _discovery = discovery;
         _logger = logger;
     }
 
@@ -145,7 +154,7 @@ public sealed class RfidReaderService : BackgroundService
 
             try
             {
-                var profile = _profiles.Reader;
+                var profile = await LocateAsync(_profiles.Reader, session.Token);
                 _reader = CreateReader(profile);
 
                 await _reader.ConnectAsync(profile, session.Token);
@@ -251,17 +260,70 @@ public sealed class RfidReaderService : BackgroundService
         await _reader.StartAsync(ct);
     }
 
-    private IRfidReader CreateReader(ReaderProfileContract profile)
+    /// <summary>
+    /// Returns the profile with its host replaced by wherever the reader actually is.
+    ///
+    /// <para>
+    /// Only network protocols are searched for. A simulator has nothing to find, and moving its
+    /// loopback address to some other machine on the shop's network would be actively wrong.
+    /// </para>
+    /// <para>
+    /// The address the search last settled on is preferred over the configured one, because after a
+    /// DHCP change the configured one is the stale value and re-probing it first costs a timeout on
+    /// every reconnect. The configured value is still tried if the remembered address stops
+    /// answering — a reader put back on its old lease is found without a restart.
+    /// </para>
+    /// </summary>
+    private async Task<ReaderProfileContract> LocateAsync(ReaderProfileContract profile, CancellationToken ct)
     {
-        var protocol = profile.Protocol;
-
-        // A bench or a demo forces the simulator regardless of what the store's profile says.
-        if (Enum.TryParse<ReaderProtocol>(_options.ForceReaderProtocol, ignoreCase: true, out var forced))
+        if (EffectiveProtocol(profile) is not (ReaderProtocol.UhfSerial or ReaderProtocol.Llrp))
         {
-            protocol = forced;
+            return profile;
         }
 
-        return protocol switch
+        var preferred = _discovered ?? profile.Host;
+        var host = await _discovery.FindAsync(preferred, profile.Port, ct);
+
+        // Nothing answered anywhere. Hand back what was configured so the connection attempt — and
+        // the error it raises — names the address the operator set, which is the one they can act on.
+        if (host is null)
+        {
+            return profile;
+        }
+
+        _discovered = host;
+
+        if (!string.Equals(host, profile.Host, StringComparison.OrdinalIgnoreCase))
+        {
+            _logger.LogInformation(
+                "Reader {Name} answered on {Found} rather than the configured {Configured}; using {Found}",
+                profile.Name,
+                host,
+                profile.Host,
+                host);
+        }
+
+        return profile with { Host = host };
+    }
+
+    /// <summary>
+    /// The protocol actually used, which is the profile's unless this machine overrides it.
+    /// <para>
+    /// Shared with <see cref="LocateAsync"/> so the override cannot mean one thing when deciding
+    /// whether to search for the reader and another when deciding how to talk to it — forcing
+    /// UhfSerial on a bench would otherwise skip the search, because the profile still said
+    /// Simulator.
+    /// </para>
+    /// </summary>
+    private ReaderProtocol EffectiveProtocol(ReaderProfileContract profile) =>
+        // A bench or a demo forces the simulator regardless of what the store's profile says.
+        Enum.TryParse<ReaderProtocol>(_options.ForceReaderProtocol, ignoreCase: true, out var forced)
+            ? forced
+            : profile.Protocol;
+
+    private IRfidReader CreateReader(ReaderProfileContract profile)
+    {
+        return EffectiveProtocol(profile) switch
         {
             ReaderProtocol.Llrp => ActivatorUtilities.CreateInstance<LlrpRfidReader>(_services),
             ReaderProtocol.UhfSerial => ActivatorUtilities.CreateInstance<UhfSerialRfidReader>(_services),
