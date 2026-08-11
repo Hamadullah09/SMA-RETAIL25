@@ -74,6 +74,13 @@ jobs:
       - name: Install the EF tooling
         run: dotnet tool install --global dotnet-ef
 
+      # `dotnet ef` reads the project's assets file, and only a restore writes one. The other two
+      # jobs get theirs for free because publishing implies a restore; this job never builds
+      # anything, so without an explicit restore `migrations script` stops at NETSDK1004 and the
+      # database artefact is silently absent from an otherwise green-looking run.
+      - name: Restore
+        run: dotnet restore backend/src/Retail25.Api/Retail25.Api.csproj
+
       # Idempotent, so it is safe to run against a fresh database or one already partly migrated.
       # No connection string is needed or wanted: DesignTimeDbContextFactory builds the model
       # against a provider, not a server, so this never opens a socket.
