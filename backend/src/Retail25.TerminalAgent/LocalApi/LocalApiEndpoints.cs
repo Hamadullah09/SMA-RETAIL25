@@ -34,10 +34,21 @@ internal static class LocalApiEndpoints
             PeripheralCoordinator peripherals,
             IServerConnection server,
             ProfileStore profiles,
-            TagBuffer buffer) => Results.Ok(new
+            TagBuffer buffer,
+            IOptions<AgentOptions> options) => Results.Ok(new
             {
                 agentVersion = AgentVersion.Current,
                 station = profiles.Current?.StationCode,
+
+                // Which till this machine is, as an id the web app can use directly.
+                //
+                // The station was previously a build-time constant in the front end, which made every
+                // browser the same till however many machines were in the shop — and moving a reader
+                // to another PC did not move the station with it. The agent is the thing that is
+                // actually installed per machine, so it is the thing that knows. Falls back to the
+                // configured value before the server has answered, so a till that has just started
+                // still says who it is.
+                stationId = profiles.Current?.StationId ?? options.Value.StationKey,
                 serverConnected = server.IsConnected,
                 readerMode = profiles.Mode.ToString(),
                 reader = new { online = reader.ReaderOnline, device = reader.ReaderDescription, buffered = buffer.Count },

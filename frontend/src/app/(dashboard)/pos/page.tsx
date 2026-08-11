@@ -40,9 +40,9 @@ import {
  * under queue pressure holds about five things, and a screen offering fifteen is a screen they will
  * learn three of.
  *
- * The station and location come from this machine's environment. They are per-till facts, not user
- * choices, so a till set up once keeps working after a browser restart with nobody selecting anything
- * — and nobody can ring a sale against the wrong station by picking the wrong item in a dropdown.
+ * The station is a per-till fact, not a user choice, so nobody can ring a sale against the wrong
+ * station by picking the wrong item in a dropdown. Which machine this is comes from the agent
+ * installed on it — see {@link resolveStation}.
  */
 // Environment variables are strings; a station and a location are rows. Number() rather than a
 // cast, and NaN rather than 0 when unset — 0 is a real value elsewhere, and a till that silently
@@ -50,8 +50,47 @@ import {
 const STATION_ID = Number(process.env.NEXT_PUBLIC_STATION_ID);
 const LOCATION_ID = Number(process.env.NEXT_PUBLIC_LOCATION_ID);
 
-/** Both must be real numbers before this till may do anything. */
-const CONFIGURED = Number.isFinite(STATION_ID) && Number.isFinite(LOCATION_ID) && STATION_ID > 0 && LOCATION_ID > 0;
+const AGENT = process.env.NEXT_PUBLIC_AGENT_URL ?? 'http://127.0.0.1:8477';
+
+/**
+ * Which till this machine is, asked of the machine itself.
+ *
+ * These used to be only the build-time environment values, which is wrong the moment a shop has more
+ * than one till: the front end is built once and served to every browser, so every machine claimed
+ * the same station, and moving a reader to another PC did not move the station with it. Baking it in
+ * also meant adding a till required a rebuild.
+ *
+ * The agent is the thing actually installed per machine, and it already knows its own station —
+ * it is configured with one at install time and the server confirms it on every profile refresh. So
+ * the till asks the agent, and falls back to the build-time value for a machine with no agent
+ * (a back-office browser, or a shop that sells only by barcode).
+ *
+ * Deliberately not remembered between loads: a stale station id in localStorage would outlive the
+ * agent being reconfigured, and a till quietly ringing sales against the till next door is worse
+ * than one that asks again on each start.
+ */
+async function resolveStation(): Promise<number> {
+  try {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 1500);
+
+    const response = await fetch(`${AGENT}/status`, { signal: controller.signal, cache: 'no-store' });
+    window.clearTimeout(timer);
+
+    if (!response.ok) return STATION_ID;
+
+    const status = (await response.json()) as { stationId?: number };
+
+    return Number.isFinite(status.stationId) && (status.stationId ?? 0) > 0 ? status.stationId! : STATION_ID;
+  } catch {
+    // No agent on this machine, or it is not answering yet. The environment value is the answer for
+    // a single-till shop and the only one available for a browser with no agent behind it.
+    return STATION_ID;
+  }
+}
+
+/** The location still comes from the build: one deployment serves one shop. */
+const CONFIGURED = Number.isFinite(LOCATION_ID) && LOCATION_ID > 0;
 
 export default function PosPage() {
   return (
@@ -91,8 +130,20 @@ function PosScreen() {
   useEffect(() => {
     if (!CONFIGURED) return undefined;
 
-    void initialise(STATION_ID, LOCATION_ID);
-    return () => void teardown();
+    let cancelled = false;
+
+    void (async () => {
+      const station = await resolveStation();
+
+      // The screen may have been left while the agent was being asked. Starting a till that is no
+      // longer on screen would join a cart nothing is watching and never leave it.
+      if (!cancelled) await initialise(station, LOCATION_ID);
+    })();
+
+    return () => {
+      cancelled = true;
+      void teardown();
+    };
   }, [initialise, teardown]);
 
   // Focus returns to the scan box whenever a dialog closes, so the next barcode just works.
@@ -138,9 +189,8 @@ function PosScreen() {
       <div className="p-8">
         <h1 className="text-h3 font-medium">This till is not configured</h1>
         <p className="mt-2 max-w-prose text-body text-ink-muted">
-          Set <code>NEXT_PUBLIC_STATION_ID</code> and <code>NEXT_PUBLIC_LOCATION_ID</code> for this machine. They
-          identify the physical till, so they belong in its environment rather than in a picker a cashier could get
-          wrong.
+          Set <code>NEXT_PUBLIC_LOCATION_ID</code> for this deployment — one shop per deployment, so it belongs in the
+          build. Which till a machine is comes from the agent installed on it, not from here.
         </p>
       </div>
     );
