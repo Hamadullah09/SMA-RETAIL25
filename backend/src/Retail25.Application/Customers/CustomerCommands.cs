@@ -63,6 +63,16 @@ public sealed class CustomerCommandHandlers
     public static readonly Error HasBalance = new("customer.has_balance", "This customer still owes money. Settle the account before deleting.");
     public static readonly Error PriceLevelInvalid = new("customer.price_level_invalid", "A price level must be between 1 and 4.");
 
+    /// <summary>
+    /// Somebody with this contact detail is already on file. Names are not enough to refuse on —
+    /// two customers really can be called the same thing — but an email address or a telephone
+    /// number is a claim to be the same person, and acting on it twice is how one customer ends up
+    /// with two balances, two credit limits and half their loyalty points.
+    /// </summary>
+    public static readonly Error DuplicateContact = new(
+        "customer.duplicate_contact",
+        "A customer with that contact detail is already on file.");
+
     private readonly IApplicationDbContext _db;
     private readonly IPosNotifier _notifier;
     private readonly ISequenceGenerator _sequences;
@@ -79,6 +89,18 @@ public sealed class CustomerCommandHandlers
         if (request.Account is { } requested && requested.PriceLevel is < 1 or > 4)
         {
             return Result.Failure<CustomerFormDto>(PriceLevelInvalid.With("value", requested.PriceLevel));
+        }
+
+        // Checked before the number is drawn, so a refused customer does not burn one out of the
+        // location's sequence and leave a gap somebody later tries to explain.
+        var duplicate = await FindDuplicateAsync(request.LocationId, request.Addresses?.Contact, null, ct);
+        if (duplicate is not null)
+        {
+            return Result.Failure<CustomerFormDto>(DuplicateContact
+                .With("existingCustomerId", duplicate.Id)
+                .With("existingCustomerNumber", duplicate.CustomerNumber)
+                .With("existingCustomerName", duplicate.DisplayName)
+                .With("matchedOn", duplicate.MatchedOn));
         }
 
         var number = await _sequences.NextAsync(SequenceKind.Customer, request.LocationId, ct);
@@ -132,6 +154,22 @@ public sealed class CustomerCommandHandlers
         if (request.Account is { } requested && requested.PriceLevel is < 1 or > 4)
         {
             return Result.Failure<CustomerFormDto>(PriceLevelInvalid.With("value", requested.PriceLevel));
+        }
+
+        // Checked on the way in as well as on create. Guarding only creation leaves the same
+        // collision one edit away — type the address onto the wrong record and there are two
+        // customers claiming one inbox again, by a route nothing was watching.
+        if (request.Addresses?.Contact is { } editedContact)
+        {
+            var duplicate = await FindDuplicateAsync(customer.LocationId, editedContact, customer.Id, ct);
+            if (duplicate is not null)
+            {
+                return Result.Failure<CustomerFormDto>(DuplicateContact
+                    .With("existingCustomerId", duplicate.Id)
+                    .With("existingCustomerNumber", duplicate.CustomerNumber)
+                    .With("existingCustomerName", duplicate.DisplayName)
+                    .With("matchedOn", duplicate.MatchedOn));
+            }
         }
 
         if (request.Identity is { } identity)
@@ -219,6 +257,103 @@ public sealed class CustomerCommandHandlers
         }
 
         return Result.Success();
+    }
+
+    /// <summary>What an existing customer looked like, when one turned out to already be on file.</summary>
+    private sealed record DuplicateMatch(long Id, long CustomerNumber, string DisplayName, string MatchedOn);
+
+    /// <summary>
+    /// Looks for a customer who is already on file with the same email address or telephone number.
+    /// <para>
+    /// Names are deliberately not enough. Two customers can genuinely be called the same thing, and
+    /// refusing on a name would stop a shop serving a family. An email address or a phone number is
+    /// a claim to be a particular person, and that is worth acting on — the live database holds two
+    /// "Hamadullah Arain" rows created minutes apart, each now able to accrue its own balance,
+    /// credit limit and loyalty points.
+    /// </para>
+    /// <para>
+    /// Compared case-insensitively and with punctuation stripped from the number, because
+    /// <c>+92 21 3257 4100</c> and <c>+922132574100</c> are one telephone and a plain equality test
+    /// says they are two. Soft-deleted rows are excluded: a customer who was deleted and is being
+    /// re-added is not a duplicate.
+    /// </para>
+    /// </summary>
+    private async Task<DuplicateMatch?> FindDuplicateAsync(
+        long locationId,
+        ContactDetails? contact,
+        long? excludingCustomerId,
+        CancellationToken ct)
+    {
+        var email = contact?.Email?.Trim();
+        var phone = Digits(contact?.Phone);
+        var mobile = Digits(contact?.Mobile);
+
+        if (string.IsNullOrWhiteSpace(email) && phone is null && mobile is null)
+        {
+            return null;
+        }
+
+        // Narrowed in the database to the location's live rows, then compared in memory: the phone
+        // comparison strips punctuation, which no provider can translate, and a shop's customer
+        // list is the wrong size to worry about either way.
+        var candidates = await _db.Customers.AsNoTracking()
+            .Where(c => c.LocationId == locationId && !c.IsDeleted)
+            .Where(c => excludingCustomerId == null || c.Id != excludingCustomerId)
+            .Select(c => new
+            {
+                c.Id,
+                c.CustomerNumber,
+                c.FirstName,
+                c.LastName,
+                c.Contact.Email,
+                c.Contact.Phone,
+                c.Contact.Mobile,
+            })
+            .ToListAsync(ct);
+
+        foreach (var candidate in candidates)
+        {
+            var matchedOn =
+                Same(email, candidate.Email) ? "email"
+                : SameNumber(phone, candidate.Phone) || SameNumber(phone, candidate.Mobile) ? "phone"
+                : SameNumber(mobile, candidate.Phone) || SameNumber(mobile, candidate.Mobile) ? "mobile"
+                : null;
+
+            if (matchedOn is not null)
+            {
+                return new DuplicateMatch(
+                    candidate.Id,
+                    candidate.CustomerNumber,
+                    $"{candidate.FirstName} {candidate.LastName}".Trim(),
+                    matchedOn);
+            }
+        }
+
+        return null;
+
+        static bool Same(string? left, string? right)
+            => !string.IsNullOrWhiteSpace(left)
+               && !string.IsNullOrWhiteSpace(right)
+               && string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
+
+        static bool SameNumber(string? left, string? right)
+            => left is not null && Digits(right) is { } other && left == other;
+    }
+
+    /// <summary>
+    /// The digits of a telephone number and nothing else. Returns null for anything too short to
+    /// identify somebody — an extension or a stray character should not match half the shop.
+    /// </summary>
+    private static string? Digits(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var digits = new string(value.Where(char.IsAsciiDigit).ToArray());
+
+        return digits.Length >= 7 ? digits : null;
     }
 
     private static void ApplyIdentity(Customer customer, CustomerIdentitySection identity)
