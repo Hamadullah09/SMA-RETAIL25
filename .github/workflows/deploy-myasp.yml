@@ -38,6 +38,10 @@ on:
         description: 'Deploy without waiting for the test suite (use only to roll back)'
         type: boolean
         default: false
+      dry_run:
+        description: 'Preview only — report what would change on the host, write nothing'
+        type: boolean
+        default: false
 
 # One deploy at a time, and never cancel one that is already running: a cancelled sync leaves the
 # site half-written, which is worse than a queue.
@@ -290,6 +294,7 @@ jobs:
           SITE: ${{ secrets.MYASP_SITE_NAME }}
           DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
           DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           $ErrorActionPreference = 'Stop'
           $msdeploy = 'C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe'
@@ -308,6 +313,14 @@ jobs:
             '-skip:objectName=dirPath,absolutePath=.*\\logs.*'
           )
 
+          # -whatif reports every add, update and delete without performing any of them. Worth one
+          # run before the first real deploy: the -skip rules below are what stop a root sync from
+          # deleting the API, and a preview is the cheapest way to prove they hold.
+          if ($env:DRY_RUN -eq 'true') {
+            Write-Output '::notice::DRY RUN — reporting changes to /backend, writing nothing'
+            $deployArgs += '-whatif'
+          }
+
           & $msdeploy @deployArgs
           if ($LASTEXITCODE -ne 0) { throw "msdeploy failed for /backend with exit code $LASTEXITCODE" }
 
@@ -324,6 +337,7 @@ jobs:
           SITE: ${{ secrets.MYASP_SITE_NAME }}
           DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
           DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           $ErrorActionPreference = 'Stop'
           $msdeploy = 'C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe'
@@ -346,6 +360,12 @@ jobs:
             '-skip:objectName=filePath,absolutePath=.*app_offline\.htm$'
           )
 
+          if ($env:DRY_RUN -eq 'true') {
+            Write-Output '::notice::DRY RUN — reporting changes to the site root, writing nothing'
+            Write-Output 'Read the output below for any line mentioning backend. There should be none.'
+            $deployArgs += '-whatif'
+          }
+
           & $msdeploy @deployArgs
           if ($LASTEXITCODE -ne 0) { throw "msdeploy failed for the site root with exit code $LASTEXITCODE" }
 
@@ -357,7 +377,9 @@ jobs:
       # this host has been measured at ~17 seconds — hence the generous retry window rather than a
       # single check.
       # -----------------------------------------------------------------------------------------
+      # Nothing was written on a dry run, so there is nothing to prove came back.
       - name: Smoke test
+        if: ${{ !inputs.dry_run }}
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'

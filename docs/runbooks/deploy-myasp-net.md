@@ -259,11 +259,24 @@ Publish Profile** (or *Web Deploy*), which downloads a `.PublishSettings` file. 
 editor; it is XML, and the three values are attributes on the `publishProfile` element with
 `publishMethod="MSDeploy"`.
 
-| Secret | Where it comes from | Expected value |
+Web Deploy is **off by default** on this plan. Turn it on first: **Websites → pos → VS Webdeploy →
+TURN ON**. The server-wide management service answers on 8172 either way, so a port probe is not
+evidence the feature is enabled for the site.
+
+Read from the live profile, August 2026:
+
+| Secret | Where it comes from | Value |
 |---|---|---|
-| `MYASP_SITE_NAME` | `msdeploySite` | almost certainly `SMATECHNOLOGIES-001` |
-| `MYASP_DEPLOY_USER` | `userName` | |
-| `MYASP_DEPLOY_PASSWORD` | `userPWD` | |
+| `MYASP_SITE_NAME` | `msdeploySite` | `smatechnologies-001-site5` |
+| `MYASP_DEPLOY_USER` | `userName` | `smatechnologies-001` |
+| `MYASP_DEPLOY_PASSWORD` | `userPWD` | ships **blank** — use the control-panel password |
+
+The site name is neither the account name nor the website's display name ("pos"); it is the
+`-siteN` form. Guessing it wastes a run, so take it from `msdeploySite`.
+
+`publishUrl` confirms the endpoint host is `win8238.site4now.net`, which is what `WEBDEPLOY_HOST`
+in the workflow is pinned to. The profile's FTP entry (`ftp://win8238.site4now.net:21/pos`) is not
+usable: port 21 is firewalled from outside the datacentre.
 
 Add them under **Settings → Secrets and variables → Actions → New repository secret**. The deploy
 job binds to a `production` environment, so they can equally be set as environment secrets if you
@@ -308,6 +321,12 @@ keep them:
 
 `logs` is skipped for the mirror-image reason: it exists only on the host, and a sync would remove
 it.
+
+**Prove it before trusting it.** `workflow_dispatch` has a `dry_run` input that adds `-whatif` to
+both syncs: Web Deploy reports every add, update and delete it *would* make and writes nothing.
+Run it once before the first real deploy and read the root-sync output for any line mentioning
+`backend`. There should be none. This is the cheapest possible check on the one mistake in this
+pipeline that would take the API down.
 
 ## Migrations
 
