@@ -26,7 +26,14 @@ name: Deploy (myASP.NET)
 
 on:
   push:
-    branches: [deploy/myasp-net-pos]
+    # main is where the work lands, so main is what deploys.
+    #
+    # An earlier revision watched a side branch while development continued on main. A deploy from
+    # it put a build on the live site that was missing twenty commits of remediation — the sale
+    # fix, station identity, the refresh-token fix — and nothing failed, because the deploy itself
+    # succeeded perfectly. It shipped the wrong code correctly. The branch that receives the work
+    # is the branch that must be deployed.
+    branches: [main]
     # Documentation and audit notes should not restart a till.
     paths-ignore:
       - 'docs/**'
