@@ -13,9 +13,11 @@
 #      -skip rules below are the only thing standing between a routine deploy and a deleted API.
 #
 #   2. Windows locks a DLL while it is loaded, which is what makes a manual upload silently fail
-#      to overwrite the API. -enableRule:AppOffline is the fix: Web Deploy drops app_offline.htm,
-#      ANCM shuts the app down and releases the files, the sync runs, then the file is removed.
-#      This is the automated form of the manual dance in docs/runbooks.
+#      to overwrite the API. The API is therefore taken offline, synced, and brought back as three
+#      separate steps rather than through -enableRule:AppOffline, which does all three in one
+#      command and cannot wait between them. Out-of-process hosting holds the DLLs in a Kestrel
+#      child process that takes seconds to exit, and the bring-back step runs even when the sync
+#      fails — a failed deploy must leave the previous build running, not leave nothing running.
 #
 # Database migrations are NOT run here. Program.cs calls MigrateAsync() at startup, so the schema
 # comes up to date on the first request after a deploy — which means CI never needs, and never
@@ -310,6 +312,52 @@ jobs:
       # AppOffline is what makes this possible unattended: Web Deploy writes app_offline.htm,
       # ANCM releases the loaded DLLs, the sync overwrites them, the file is removed.
       # -----------------------------------------------------------------------------------------
+      # -----------------------------------------------------------------------------------------
+      # Take the API offline, by hand, and wait.
+      #
+      # -enableRule:AppOffline does this in one command and cannot wait, which is why it is not
+      # used. Under out-of-process hosting the DLLs are held by a Kestrel child process: ANCM sees
+      # app_offline.htm and signals the child, the child takes a few seconds to exit, and msdeploy
+      # starts copying immediately. A deploy hit ERROR_FILE_IN_USE on
+      # EFCore.NamingConventions.dll, aborted *after* writing the offline file and *before*
+      # removing it, and left the API serving 503 until somebody deleted the file by hand.
+      #
+      # Split into three steps, the offline file is written first, the child is given time to let
+      # go, and — the part that matters — the step that brings the app back always runs, even when
+      # the sync between them fails.
+      # -----------------------------------------------------------------------------------------
+      - name: Take the API offline
+        if: ${{ !inputs.dry_run }}
+        shell: pwsh
+        env:
+          SITE: ${{ secrets.MYASP_SITE_NAME }}
+          DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
+          DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $msdeploy = 'C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe'
+          $endpoint = "https://$env:WEBDEPLOY_HOST`:8172/msdeploy.axd?site=$env:SITE"
+
+          New-Item -ItemType Directory -Force -Path offline | Out-Null
+          @'
+          <html><head><title>Updating</title></head>
+          <body><p>The till is being updated and will be back in a moment.</p></body></html>
+          '@ | Set-Content -Path offline/app_offline.htm -Encoding UTF8
+
+          & $msdeploy `
+            -verb:sync `
+            "-source:contentPath=$((Resolve-Path offline/app_offline.htm).Path)" `
+            "-dest:contentPath=$env:SITE/backend/app_offline.htm,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic" `
+            -allowUntrusted
+
+          if ($LASTEXITCODE -ne 0) { throw "could not take the API offline (exit $LASTEXITCODE)" }
+
+          # Long enough for ANCM to signal the child and the child to exit and release its DLLs.
+          # Measured against the failure this replaces, where six retries over thirty seconds were
+          # not enough because they began before the shutdown had started.
+          Write-Output 'Waiting 25s for the app to release its files…'
+          Start-Sleep -Seconds 25
+
       - name: Deploy the API to /backend
         shell: pwsh
         env:
@@ -327,12 +375,16 @@ jobs:
             "-source:contentPath=$(Resolve-Path artifacts/backend)"
             "-dest:contentPath=$env:SITE/backend,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic"
             '-allowUntrusted'
-            '-enableRule:AppOffline'
-            '-retryAttempts:6'
-            '-retryInterval:5000'
+
+            # AppOffline is deliberately NOT used here; the step below takes the app offline by
+            # hand. See the comment on that step — the built-in rule cannot wait, and this deploy
+            # needs it to.
+            '-retryAttempts:10'
+            '-retryInterval:6000'
             # Logs live on the host and must survive a deploy. The regex is passed as a single
             # argv element, so it carries no shell quotes of its own.
             '-skip:objectName=dirPath,absolutePath=.*\\logs.*'
+            '-skip:objectName=filePath,absolutePath=.*app_offline\.htm$'
 
             # The OpenIddict signing and encryption keys. These exist only on the host — they are
             # not in source control and not in the build — so a sync would delete them, and
@@ -354,6 +406,49 @@ jobs:
 
           & $msdeploy @deployArgs
           if ($LASTEXITCODE -ne 0) { throw "msdeploy failed for /backend with exit code $LASTEXITCODE" }
+
+      # -----------------------------------------------------------------------------------------
+      # Always. This is the step whose absence caused an outage: the sync above failed on a locked
+      # file, the job stopped, and app_offline.htm stayed where it was — so the API served 503 to
+      # the shop until the file was deleted by hand. A deploy that fails must leave the previous
+      # build running, not leave nothing running.
+      # -----------------------------------------------------------------------------------------
+      - name: Bring the API back
+        if: ${{ always() && !inputs.dry_run }}
+        shell: pwsh
+        env:
+          SITE: ${{ secrets.MYASP_SITE_NAME }}
+          DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
+          DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+        run: |
+          $msdeploy = 'C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe'
+          $endpoint = "https://$env:WEBDEPLOY_HOST`:8172/msdeploy.axd?site=$env:SITE"
+
+          # `delete` on a path that is already gone is not an error worth failing the job over —
+          # the desired state is "no offline file", and that is satisfied either way.
+          & $msdeploy `
+            -verb:delete `
+            "-dest:contentPath=$env:SITE/backend/app_offline.htm,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic" `
+            -allowUntrusted 2>&1 | Write-Output
+
+          Write-Output "delete exit code: $LASTEXITCODE (a missing file is fine)"
+
+          # Prove it rather than assume it. If the API is still offline after this, the job must
+          # say so loudly — an outage that reports success is the thing being fixed here.
+          $restored = $false
+          foreach ($attempt in 1..12) {
+            try {
+              $response = Invoke-WebRequest -Uri "$env:SITE_ORIGIN/backend/health/ready" -TimeoutSec 30 -SkipHttpErrorCheck
+              if ($response.StatusCode -eq 200) { $restored = $true; Write-Output "API healthy (attempt $attempt)"; break }
+              Write-Output "API returned $($response.StatusCode), retrying ($attempt/12)"
+            } catch { Write-Output "API not answering yet ($attempt/12)" }
+            Start-Sleep -Seconds 15
+          }
+
+          if (-not $restored) {
+            Write-Output '::error::The API did not come back. Check for app_offline.htm under /backend on the host.'
+            exit 1
+          }
 
       # -----------------------------------------------------------------------------------------
       # Then the front end, into the site root.
