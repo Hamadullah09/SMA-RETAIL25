@@ -171,6 +171,37 @@ export async function exchangeCode(code: string, codeVerifier: string): Promise<
 const refreshesInFlight = new Map<string, Promise<Session | null>>();
 
 /**
+ * How long a completed rotation is remembered against the token it replaced.
+ *
+ * Collapsing only the *overlapping* calls was not enough, and the token table showed it: 22 revoked
+ * families against 14 successful rotations. The map is keyed on the spent token and deleted the
+ * moment the redemption resolves, so it covers callers that overlap and nothing else. The race that
+ * actually bites is sequential — a request reads the cookie, a faster sibling rotates it, and then
+ * the first request asks to redeem a token that was spent a hundred milliseconds ago. Reuse
+ * detection is unforgiving by design, so the family dies and the cashier is signed out mid-sale.
+ *
+ * Remembering the outcome briefly turns that into a cache hit. Thirty seconds comfortably covers a
+ * till opening a dozen calls at once and is a poor window to attack: the refresh token never reaches
+ * the browser at all — it lives inside the encrypted BFF cookie — so presenting a spent one already
+ * requires either this process's memory or its encryption key.
+ */
+const RECENT_REFRESH_MS = 30_000;
+
+const recentlyRefreshed = new Map<string, { session: Session | null; at: number }>();
+
+function rememberRefresh(spent: string, session: Session | null): void {
+  const now = Date.now();
+
+  // Pruned on write rather than on a timer: a timer keeps the process awake and this map only grows
+  // when somebody is actually using the till.
+  for (const [token, entry] of recentlyRefreshed) {
+    if (now - entry.at > RECENT_REFRESH_MS) recentlyRefreshed.delete(token);
+  }
+
+  recentlyRefreshed.set(spent, { session, at: now });
+}
+
+/**
  * Rotates the refresh token. The server issues a new one each time and revokes the family if a spent
  * one is replayed, so a stolen refresh token is worth one use and then burns the session it came from.
  */
@@ -178,9 +209,21 @@ export function refreshSession(refreshToken: string): Promise<Session | null> {
   const existing = refreshesInFlight.get(refreshToken);
   if (existing) return existing;
 
-  const attempt = redeem(refreshToken).finally(() => {
-    refreshesInFlight.delete(refreshToken);
-  });
+  // Already rotated, moments ago, by a sibling request carrying the same cookie. Redeeming it a
+  // second time is what reuse detection exists to punish, and the punishment lands on the cashier.
+  const recent = recentlyRefreshed.get(refreshToken);
+  if (recent && Date.now() - recent.at <= RECENT_REFRESH_MS) {
+    return Promise.resolve(recent.session);
+  }
+
+  const attempt = redeem(refreshToken)
+    .then((session) => {
+      rememberRefresh(refreshToken, session);
+      return session;
+    })
+    .finally(() => {
+      refreshesInFlight.delete(refreshToken);
+    });
 
   refreshesInFlight.set(refreshToken, attempt);
 
