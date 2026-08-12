@@ -78,13 +78,28 @@ public sealed class ReorderPolicyTests
     [Theory]
     [InlineData(0)]
     [InlineData(-1)]
-    public void A_product_with_no_reorder_point_never_alerts(int reorderPoint)
+    public void A_product_with_no_reorder_point_and_stock_in_hand_never_alerts(int reorderPoint)
     {
         ReorderPolicy.Assess(onHand: 0, onOrder: 0, committed: 0, reorderPoint)
             .Should().Be(ReorderStanding.NotTracked);
 
         ReorderPolicy.NeedsReordering(onHand: 0, onOrder: 0, committed: 0, reorderPoint)
             .Should().BeFalse();
+    }
+
+    /// <summary>
+    /// Owing stock is a shortage whether or not anybody set a threshold. An item sold from a
+    /// standing start of zero sits at −3 with no reorder point, and reporting that as "not tracked"
+    /// hides a real stock problem — which the first version of this policy did.
+    /// </summary>
+    [Fact]
+    public void Negative_stock_is_a_shortage_even_with_no_reorder_point()
+    {
+        ReorderPolicy.Assess(onHand: -3, onOrder: 0, committed: 0, reorderPoint: 0)
+            .Should().Be(ReorderStanding.Below);
+
+        ReorderPolicy.NeedsReordering(onHand: -3, onOrder: 0, committed: 0, reorderPoint: 0)
+            .Should().BeTrue();
     }
 
     [Fact]
@@ -120,6 +135,7 @@ public sealed class ReorderPolicyTests
     [InlineData(2, 0, 5, true)]
     [InlineData(2, 10, 5, false)]
     [InlineData(0, 0, 0, false)]
+    [InlineData(-3, 0, 0, true)]
     [InlineData(0, 0, 3, true)]
     [InlineData(40, 0, 5, false)]
     public void The_query_expression_agrees_with_the_method(decimal onHand, decimal onOrder, int point, bool expected)

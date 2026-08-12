@@ -58,12 +58,22 @@ public static class ReorderPolicy
 
     public static ReorderStanding Assess(decimal onHand, decimal onOrder, decimal committed, int reorderPoint)
     {
+        var cover = Cover(onHand, onOrder, committed);
+
+        // Owing stock is a shortage whether or not anybody configured a threshold, and this is
+        // checked before the untracked guard for exactly that reason. An item sold from a standing
+        // start of zero sits at −3 with no reorder point, and treating it as "not tracked" reports
+        // a real stock problem as nothing at all — which is what the first version of this did, and
+        // what an integration test caught by asserting the report moves after a day's trading.
+        if (cover < 0m)
+        {
+            return ReorderStanding.Below;
+        }
+
         if (reorderPoint <= 0)
         {
             return ReorderStanding.NotTracked;
         }
-
-        var cover = Cover(onHand, onOrder, committed);
 
         if (cover < reorderPoint)
         {
@@ -102,9 +112,12 @@ public static class ReorderPolicy
             Expression.Subtract(Bind(onHand), Bind(committed)),
             Bind(onOrder));
 
-        var body = Expression.AndAlso(
-            Expression.GreaterThan(point, Expression.Constant(0)),
-            Expression.LessThanOrEqual(cover, Expression.Convert(point, typeof(decimal))));
+        // Negative cover OR (a real point AND cover at/below it) — the same two limbs as Assess.
+        var body = Expression.OrElse(
+            Expression.LessThan(cover, Expression.Constant(0m)),
+            Expression.AndAlso(
+                Expression.GreaterThan(point, Expression.Constant(0)),
+                Expression.LessThanOrEqual(cover, Expression.Convert(point, typeof(decimal)))));
 
         return Expression.Lambda<Func<TProduct, bool>>(body, parameter);
     }

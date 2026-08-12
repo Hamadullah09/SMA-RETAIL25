@@ -161,7 +161,6 @@ public sealed class WeakPasswordValidator : IPasswordValidator<ApplicationUser>
         {
             user.Email?.Split('@')[0],
             user.UserName?.Split('@')[0],
-            user.DisplayName,
         };
 
         foreach (var candidate in candidates)
@@ -171,15 +170,28 @@ public sealed class WeakPasswordValidator : IPasswordValidator<ApplicationUser>
                 continue;
             }
 
-            // Split on the separators a name or an address uses, so "ayesha.khan" contributes
-            // "ayesha" and "khan" rather than only the pair.
-            foreach (var part in candidate.Split(['.', '_', '-', ' '], StringSplitOptions.RemoveEmptyEntries))
+            // The whole local part, which is what "do not use your username" means.
+            var whole = Normalise(candidate);
+            if (whole.Length >= 4)
             {
-                var normalised = Normalise(part);
-                if (normalised.Length >= 4)
-                {
-                    yield return normalised;
-                }
+                yield return whole;
+            }
+        }
+
+        // And the words of the person's name, which is the other half of the rule. Deliberately
+        // only the display name: splitting an *address* into fragments treats every hyphenated
+        // word in it as forbidden, and addresses are full of ordinary words. That version rejected
+        // "Integration!…" for an account at integration-admin@… because the address contributed
+        // "integration" — and since the seeded administrator is created through this validator, it
+        // meant a fresh deployment could not create an administrator at all. CI caught it; the
+        // local suite could not, because those tests need a database.
+        foreach (var word in (user.DisplayName ?? string.Empty)
+                     .Split([' ', '.', '_', '-'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            var normalised = Normalise(word);
+            if (normalised.Length >= 4)
+            {
+                yield return normalised;
             }
         }
     }
