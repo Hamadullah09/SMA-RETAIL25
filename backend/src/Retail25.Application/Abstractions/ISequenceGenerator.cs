@@ -26,23 +26,6 @@ public interface ISequenceGenerator
     /// <summary>Next number of any administered kind, seeded from that kind's configured start.</summary>
     Task<long> NextAsync(SequenceKind kind, long locationId, CancellationToken ct = default);
 
-    /// <summary>
-    /// An identity for a new cart.
-    ///
-    /// <para>
-    /// Deliberately not a <see cref="SequenceKind"/>. Those are the numbers a shop administers and
-    /// sees — invoices, transactions, purchase orders — and each one appears in the Numbering screen
-    /// with a start value somebody can set. A cart id is a handle the till uses for a few minutes
-    /// and never prints; putting it on that screen would invite an operator to change something with
-    /// no business meaning and break every open basket.
-    /// </para>
-    /// <para>
-    /// Drawn from the database rather than invented in the process because two app instances must
-    /// never hand out the same one: carts are keyed by it in a shared store, and a collision would
-    /// put one till's items into another till's sale.
-    /// </para>
-    /// </summary>
-    Task<long> NextCartIdAsync(CancellationToken ct = default);
 
     /// <summary>
     /// Repoints a live sequence — what an administrator's edit to a "next number" has to do to take

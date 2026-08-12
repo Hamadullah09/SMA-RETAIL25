@@ -54,8 +54,8 @@ public sealed class CartCommandTests
     {
         using var harness = await PosTestHarness.CreateAsync();
 
-        // The shape the old code left behind: active, at this station, with no identity.
-        var orphan = Cart.Open(0, harness.Station.Id, harness.Location.Id, 1, harness.Clock.Now, 720);
+        // The shape the old code left behind: active, at this station, never inserted, so id 0.
+        var orphan = Cart.Open(harness.Station.Id, harness.Location.Id, 1, harness.Clock.Now, 720);
         await harness.CartStore.SaveAsync(new CartSnapshot(orphan));
 
         var handler = new CreateCartHandler(
@@ -64,7 +64,7 @@ public sealed class CartCommandTests
             harness.Pricing,
             harness.CurrentUser,
             harness.Clock,
-            harness.Sequences);
+            harness.Db);
 
         var result = await handler.Handle(new CreateCartCommand(harness.Station.Id), default);
 

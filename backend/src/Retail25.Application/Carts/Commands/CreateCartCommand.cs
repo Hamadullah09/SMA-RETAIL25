@@ -25,7 +25,7 @@ public sealed class CreateCartHandler : IRequestHandler<CreateCartCommand, Resul
     private readonly CartPricingService _pricing;
     private readonly ICurrentUser _currentUser;
     private readonly IDateTime _clock;
-    private readonly ISequenceGenerator _sequences;
+    private readonly IApplicationDbContext _db;
 
     public CreateCartHandler(
         ICartStore store,
@@ -33,14 +33,14 @@ public sealed class CreateCartHandler : IRequestHandler<CreateCartCommand, Resul
         CartPricingService pricing,
         ICurrentUser currentUser,
         IDateTime clock,
-        ISequenceGenerator sequences)
+        IApplicationDbContext db)
     {
         _store = store;
         _contextLoader = contextLoader;
         _pricing = pricing;
         _currentUser = currentUser;
         _clock = clock;
-        _sequences = sequences;
+        _db = db;
     }
 
     public async Task<Result<CartDto>> Handle(CreateCartCommand request, CancellationToken ct)
@@ -75,13 +75,29 @@ public sealed class CreateCartHandler : IRequestHandler<CreateCartCommand, Resul
             await _store.RemoveAsync(0, request.StationId, ct);
         }
 
-        var snapshot = new CartSnapshot(Cart.Open(
-            await _sequences.NextCartIdAsync(ct),
+        var cart = Cart.Open(
             request.StationId,
             context.Location.Id,
             staffId,
             _clock.Now,
-            context.Policy.AbandonedCartTimeoutMinutes));
+            context.Policy.AbandonedCartTimeoutMinutes);
+
+        // Written to the carts table now, purely to be given an identity.
+        //
+        // The column is an IDENTITY and the row was only ever inserted at completion — so the id
+        // arrived at the end of the sale, long after the till needed it to address the basket. That
+        // is the whole of BUG-01: the cart the cashier was filling had no id, and every route is
+        // /carts/{cartId}/…, so nothing could be added to it.
+        //
+        // Opening the row here rather than inventing a number elsewhere keeps one source of cart
+        // ids, which is the database, and means completion finds the row already present and
+        // updates it. The cost is one insert per sale opened. The alternative was a second id
+        // authority that the table would reject on the way out — which it did, with
+        // "cannot insert explicit value for identity column".
+        _db.Carts.Add(cart);
+        await _db.SaveChangesAsync(ct);
+
+        var snapshot = new CartSnapshot(cart);
 
         var quote = await _pricing.QuoteAsync(snapshot, context, ct);
         await _store.SaveAsync(snapshot, ct);

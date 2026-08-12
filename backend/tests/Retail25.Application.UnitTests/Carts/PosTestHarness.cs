@@ -233,13 +233,13 @@ internal sealed class PosTestHarness : IDisposable
 
     public async Task<Cart> OpenCartAsync()
     {
-        var cart = Cart.Open(
-            await Sequences.NextCartIdAsync(),
-            Station.Id,
-            Location.Id,
-            CurrentUser.StaffId ?? TestIds.Next(),
-            Clock.Now,
-            720);
+        var cart = Cart.Open(Station.Id, Location.Id, CurrentUser.StaffId ?? TestIds.Next(), Clock.Now, 720);
+
+        // Inserted first, exactly as CreateCartHandler does, because that insert is what gives the
+        // cart its id. A harness that skipped it would hand every test a cart keyed 0 and hide the
+        // very bug these tests exist to catch.
+        Db.Carts.Add(cart);
+        await Db.SaveChangesAsync();
         await CartStore.SaveAsync(new CartSnapshot(cart));
         return cart;
     }
