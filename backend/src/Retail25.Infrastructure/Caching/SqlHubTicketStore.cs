@@ -22,13 +22,35 @@ public sealed class SqlHubTicketStore : IHubTicketStore
         VALUES (@ticket, @payload, DATEADD(millisecond, @lifetimeMs, SYSDATETIMEOFFSET()));
         """;
 
+    // Decrement-and-return, in one statement, for the same reason the delete was one statement:
+    // two connections racing the same ticket must not both be served. UPDATE takes an exclusive
+    // lock on the row, so the decrements serialise and the WHERE clause below is evaluated against
+    // the value the previous one left behind.
+    //
+    // It counts down rather than deleting because one connection costs two exchanges — the
+    // negotiate POST and the transport connection after it — and the SignalR client presents the
+    // same token to both. Deleting on the first meant the WebSocket upgrade always arrived holding
+    // a ticket that no longer existed, which is what forced every hub onto long polling.
+    //
     // The expiry is in the WHERE clause, not merely checked afterwards: an expired ticket must not
     // be redeemable even in the moment between the sweep that should have removed it and the next.
     private const string RedeemSql =
         """
+        UPDATE cached_hub_ticket
+        SET redemptions_remaining = redemptions_remaining - 1
+        OUTPUT inserted.payload
+        WHERE ticket = @ticket
+          AND expires_at > SYSDATETIMEOFFSET()
+          AND redemptions_remaining > 0;
+        """;
+
+    // Rows that have nothing left are removed on the next redeem attempt and by the sweeper. Not
+    // in the same statement as the decrement: an UPDATE that deletes its own row cannot also
+    // OUTPUT it, and correctness here belongs to the decrement.
+    private const string PurgeSpentSql =
+        """
         DELETE FROM cached_hub_ticket
-        OUTPUT deleted.payload
-        WHERE ticket = @ticket AND expires_at > SYSDATETIMEOFFSET();
+        WHERE ticket = @ticket AND redemptions_remaining <= 0;
         """;
 
     private readonly ApplicationDbContext _context;
@@ -75,12 +97,28 @@ public sealed class SqlHubTicketStore : IHubTicketStore
 
         var (connection, transaction) = await SqlCacheSession.OpenAsync(_context, ct);
 
-        using var command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = RedeemSql;
-        command.AddParameter("@ticket", ticket);
+        string? payload;
 
-        var payload = await command.ExecuteScalarAsync(ct) as string;
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = RedeemSql;
+            command.AddParameter("@ticket", ticket);
+
+            payload = await command.ExecuteScalarAsync(ct) as string;
+        }
+
+        // Tidy the row away once it has nothing left. The redeem above has already decided the
+        // answer, so this failing would cost a dead row until the sweeper runs, not a wrong result.
+        using (var purge = connection.CreateCommand())
+        {
+            purge.Transaction = transaction;
+            purge.CommandText = PurgeSpentSql;
+            purge.AddParameter("@ticket", ticket);
+
+            await purge.ExecuteNonQueryAsync(ct);
+        }
+
         return payload is null ? null : JsonSerializer.Deserialize<HubTicket>(payload);
     }
 }

@@ -70,7 +70,23 @@ internal sealed class CachedIdempotencyEntry
     public DateTimeOffset ExpiresAt { get; set; }
 }
 
-/// <summary>A single-use ticket for opening one SignalR connection.</summary>
+/// <summary>
+/// A ticket for opening one SignalR connection.
+/// <para>
+/// It was single-redemption, and that broke WebSockets outright. Opening one connection costs two
+/// HTTP exchanges — the negotiate POST and then the transport connection — and the SignalR client
+/// calls its <c>accessTokenFactory</c> once per attempt and presents the same token to both. So
+/// negotiate consumed the ticket, the upgrade arrived holding one that no longer existed, and the
+/// client reported "WebSocket failed to connect" and fell back to long polling. Every real-time
+/// surface in the product had been running degraded for the whole beta, and the audit put it down
+/// to a shared-hosting limitation — the host forwards the upgrade perfectly, as a 101 against the
+/// live site confirms.
+/// </para>
+/// <para>
+/// The counter keeps the property that mattered: a ticket opens one connection, and a leaked one
+/// cannot be replayed into a second. It just counts exchanges rather than assuming there is one.
+/// </para>
+/// </summary>
 internal sealed class CachedHubTicket
 {
     public string Ticket { get; set; } = string.Empty;
@@ -78,6 +94,19 @@ internal sealed class CachedHubTicket
     public string Payload { get; set; } = string.Empty;
 
     public DateTimeOffset ExpiresAt { get; set; }
+
+    /// <summary>Exchanges left on this ticket. Two: negotiate, then the transport connection.</summary>
+    public int RedemptionsRemaining { get; set; } = HubTicketRedemptions.PerConnection;
+}
+
+/// <summary>How many HTTP exchanges one SignalR connection legitimately costs.</summary>
+internal static class HubTicketRedemptions
+{
+    /// <summary>
+    /// The negotiate POST and the transport connection that follows it. Raising this past two
+    /// widens the replay window for a leaked ticket, and nothing in the protocol needs a third.
+    /// </summary>
+    public const int PerConnection = 2;
 }
 
 internal sealed class CachedCartConfiguration : IEntityTypeConfiguration<CachedCart>
@@ -149,6 +178,12 @@ internal sealed class CachedHubTicketConfiguration : IEntityTypeConfiguration<Ca
         builder.Property(t => t.Ticket).HasColumnName("ticket").HasMaxLength(128).ValueGeneratedNever();
         builder.Property(t => t.Payload).HasColumnName("payload").IsRequired();
         builder.Property(t => t.ExpiresAt).HasColumnName("expires_at");
+
+        // Defaulted in the database as well as on the entity: tickets are written by raw SQL in
+        // SqlHubTicketStore, which never sees this configuration.
+        builder.Property(t => t.RedemptionsRemaining)
+            .HasColumnName("redemptions_remaining")
+            .HasDefaultValue(HubTicketRedemptions.PerConnection);
 
         builder.HasIndex(t => t.ExpiresAt).HasDatabaseName("ix_cached_hub_ticket_expires_at");
     }

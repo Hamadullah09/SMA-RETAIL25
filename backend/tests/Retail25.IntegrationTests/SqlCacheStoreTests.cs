@@ -136,17 +136,36 @@ public sealed class SqlCacheStoreTests : IAsyncLifetime
 
     // --- Hub tickets -----------------------------------------------------------------------
 
+    /// <summary>
+    /// A ticket opens one connection, and one connection costs two exchanges: the negotiate POST,
+    /// then the transport connection after it. The SignalR client calls its accessTokenFactory once
+    /// per attempt and presents the same token to both.
+    /// <para>
+    /// This asserted a single redemption, which was the wrong count rather than the wrong idea, and
+    /// it was load-bearing: negotiate spent the ticket, the WebSocket upgrade arrived with one that
+    /// no longer existed, and every hub in the product silently fell back to long polling. The beta
+    /// audit recorded that as a shared-hosting limitation. The host forwards the upgrade perfectly —
+    /// a 101 against the live site settles it.
+    /// </para>
+    /// </summary>
     [RequiresIsolatedDatabaseFact]
-    public async Task A_hub_ticket_redeems_once_and_only_once()
+    public async Task A_hub_ticket_opens_one_connection_and_no_more()
     {
         var tickets = Tickets();
         var issued = await tickets.IssueAsync(SampleTicket(), TimeSpan.FromMinutes(1));
 
+        // Negotiate.
         var first = await tickets.RedeemAsync(issued);
         first.Should().NotBeNull();
         first!.UserId.Should().Be(42);
 
-        // Single use is the property that makes handing a ticket to the browser safe at all.
+        // The transport connection that negotiate authorised.
+        var second = await tickets.RedeemAsync(issued);
+        second.Should().NotBeNull("the WebSocket upgrade presents the same ticket negotiate used");
+        second!.UserId.Should().Be(42);
+
+        // And nothing beyond it. This is what makes handing a ticket to the browser safe: a leaked
+        // one cannot be replayed into a connection of somebody else's.
         (await tickets.RedeemAsync(issued)).Should().BeNull();
     }
 
@@ -175,7 +194,11 @@ public sealed class SqlCacheStoreTests : IAsyncLifetime
             return await new SqlHubTicketStore(db, new CacheSweeper()).RedeemAsync(issued);
         }));
 
-        results.Count(t => t is not null).Should().Be(1, "DELETE … OUTPUT is the GETDEL equivalent");
+        // Two, because a connection is two exchanges — and exactly two out of ten, which is the
+        // point. The decrement takes an exclusive row lock, so ten racing callers serialise and the
+        // counter is what decides, not who arrived first.
+        results.Count(t => t is not null).Should().Be(
+            2, "the counter is decremented under an exclusive row lock, so the race cannot overdraw it");
     }
 
     [RequiresIsolatedDatabaseFact]
