@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, ShieldCheck } from 'lucide-react';
 import { AuthLink, AuthNotice, AuthShell } from '@/components/auth/auth-shell';
@@ -39,11 +39,32 @@ function LoginContent() {
 
   const error = params.get('authError');
 
+  /** Null until the server has answered, so neither message flashes before it is known to be true. */
+  const [selfRegistration, setSelfRegistration] = useState<boolean | null>(null);
+
   useEffect(() => {
     if (isAuthenticated) {
       router.replace('/dashboard');
     }
   }, [isAuthenticated, router]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    // Straight to the API rather than through the proxy: the proxy needs a session, and nobody
+    // reading this page has one. Failing quietly leaves the footer empty, which is the right
+    // outcome — better to say nothing than to offer a link that may not work.
+    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/api/v1/account/registration`, { cache: 'no-store' })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((body: { enabled?: boolean } | null) => {
+        if (!cancelled && typeof body?.enabled === 'boolean') setSelfRegistration(body.enabled);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <AuthShell
@@ -54,9 +75,19 @@ function LoginContent() {
           <p>
             Forgotten your password? <AuthLink href="/forgot-password">Reset it</AuthLink>
           </p>
-          <p>
-            No account yet? <AuthLink href="/sign-up">Create one</AuthLink>
-          </p>
+          {/*
+            Only where the server will actually accept one. This offered "Create one" on a
+            deployment with self sign-up switched off, and the link answered 403 — the dead end the
+            client hit first. Asked of the server rather than baked into the build, so turning
+            registration on does not need the front end rebuilt.
+          */}
+          {selfRegistration === true ? (
+            <p>
+              No account yet? <AuthLink href="/sign-up">Create one</AuthLink>
+            </p>
+          ) : selfRegistration === false ? (
+            <p>Accounts are issued by your administrator.</p>
+          ) : null}
         </div>
       }
     >

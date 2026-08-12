@@ -248,6 +248,16 @@ builder.Services.AddRateLimiter(options =>
     options.AddPolicy("lookup", http => PerCaller(http, "lookup", 300));
 });
 
+// A year, and every subdomain, which is what preload lists and every hardening baseline ask for.
+// The framework's default is 30 days — short enough that a till left off over a long holiday can
+// forget, and the first request after that is the one a downgrade attack wants. Nothing here is
+// costly to promise: this deployment has been HTTPS-only since it existed.
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = true;
+});
+
 builder.Services.AddResponseCompression();
 
 // Model-binding failures answer with the same problem shape as domain errors, so a client has one

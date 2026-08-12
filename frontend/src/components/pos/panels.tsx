@@ -17,10 +17,28 @@ import { usePosStore } from '@/stores/pos-store';
 import type { CartLine, PriceOrigin } from '@/types/pos';
 import { cn } from '@/lib/utils';
 
-/** Money is formatted once, here, and always with tabular figures. */
-export function money(amount: number, symbol = '$'): string {
+/**
+ * Money is formatted once, here, and always with tabular figures.
+ *
+ * The symbol defaults to nothing rather than to a dollar. A shop trading in rupees was shown
+ * `$2,000.00` in the find-item dialog beside `Rs 0.00` in the sale panel — the same amount in two
+ * currencies on one screen, and no way for a cashier to know which to believe. An amount with no
+ * symbol is incomplete and reads as such; an amount with the wrong symbol is a wrong price.
+ */
+export function money(amount: number, symbol = ''): string {
   const sign = amount < 0 ? '-' : '';
   return `${sign}${symbol}${Math.abs(amount).toFixed(2)}`;
+}
+
+/**
+ * The shop's currency symbol, from the station's policy.
+ *
+ * One place, so a component cannot invent its own. It is empty until the policy arrives, which is a
+ * few hundred milliseconds at till start — briefly showing an unadorned number is honest, and it
+ * settles as soon as the till knows what the shop trades in.
+ */
+export function useCurrencySymbol(): string {
+  return usePosStore((state) => state.policy?.currencySymbol) ?? '';
 }
 
 function quantity(value: number): string {
@@ -251,7 +269,7 @@ export function LiveFeed() {
  */
 export function CartList() {
   const { cart, selectedLineSequence, openDialog, policy } = usePosStore();
-  const symbol = policy?.currencySymbol ?? '$';
+  const symbol = useCurrencySymbol();
   const lines = cart?.lines ?? [];
   const itemCount = cart?.totals?.itemCount ?? 0;
 
@@ -413,7 +431,7 @@ function EmptySale() {
  */
 export function TotalsPanel() {
   const { cart, policy } = usePosStore();
-  const symbol = policy?.currencySymbol ?? '$';
+  const symbol = useCurrencySymbol();
   const totals = cart?.totals;
 
   return (
@@ -519,7 +537,7 @@ export function PaymentMatrix({ onPay }: { onPay: () => void }) {
 
 export function CustomerPanel() {
   const { cart, policy, openDialog, setCustomer } = usePosStore();
-  const symbol = policy?.currencySymbol ?? '$';
+  const symbol = useCurrencySymbol();
   const customer = cart?.customer;
 
   return (

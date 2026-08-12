@@ -61,6 +61,26 @@ public sealed class RegistrationController : ControllerBase
     }
 
     /// <summary>
+    /// Whether this deployment accepts self sign-up.
+    ///
+    /// <para>
+    /// Exists so the sign-in page can stop offering something the server will refuse. It advertised
+    /// "No account yet? Create one" on a deployment with registration off, and the link led to a 403
+    /// — a dead end a new employee has no way to interpret, and the first thing the client reported.
+    /// </para>
+    /// <para>
+    /// The flag is asked for rather than compiled in, because it is a per-deployment setting: a shop
+    /// that turns registration on must not need a rebuilt front end to show the link again.
+    /// Anonymous by necessity — the people who need the answer are the ones who cannot sign in — and
+    /// it discloses nothing a single POST would not.
+    /// </para>
+    /// </summary>
+    [HttpGet("registration")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult RegistrationAvailability()
+        => Ok(new { enabled = _configuration.GetValue("Auth:SelfRegistration:Enabled", false) });
+
+    /// <summary>
     /// Creates an account.
     /// <para>
     /// Off unless <c>Auth:SelfRegistration:Enabled</c> says otherwise, because an unattended sign-up

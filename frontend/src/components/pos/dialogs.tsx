@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePosStore } from '@/stores/pos-store';
 import { posApi } from '@/lib/pos-api';
 import { useHotkey, useHotkeyBindings, useHotkeyScope } from '@/lib/hotkeys';
-import { money } from '@/components/pos/panels';
+import { money, useCurrencySymbol } from '@/components/pos/panels';
 import type { ProductVariant, SerializedUnit, SuspendedCart, TenderType } from '@/types/pos';
 import { cn } from '@/lib/utils';
 
@@ -78,6 +78,7 @@ function MenuButton({
 export function LineDetailDialog() {
   const { cart, selectedLineSequence, closeDialog, updateLine, removeLine, policy } = usePosStore();
   const line = cart?.lines.find((l) => l.sequence === selectedLineSequence);
+  const symbol = useCurrencySymbol();
 
   const [quantity, setQuantity] = useState('1');
   const [price, setPrice] = useState('');
@@ -138,7 +139,7 @@ export function LineDetailDialog() {
           />
         </Field>
 
-        <Field label={`Price (${policy?.currencySymbol ?? '$'})`} hint={line.hasManualPrice ? 'overridden' : 'automatic'}>
+        <Field label={`Price (${symbol})`} hint={line.hasManualPrice ? 'overridden' : 'automatic'}>
           <input
             value={price}
             onChange={(event) => setPrice(event.target.value)}
@@ -255,7 +256,7 @@ export function PaymentDialog() {
   const [copies, setCopies] = useState(1);
 
   const due = cart?.totals.grandTotal ?? 0;
-  const symbol = policy?.currencySymbol ?? '$';
+  const symbol = useCurrencySymbol();
 
   useEffect(() => {
     posApi
@@ -471,7 +472,7 @@ export function DrawerDialog() {
   const [mode, setMode] = useState<null | 'float' | 'payIn' | 'payOut' | 'close'>(null);
   const [value, setValue] = useState('');
   const [reason, setReason] = useState('');
-  const symbol = policy?.currencySymbol ?? '$';
+  const symbol = useCurrencySymbol();
 
   const run = async () => {
     if (!stationId) return;
