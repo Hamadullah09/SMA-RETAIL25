@@ -13,6 +13,46 @@ public sealed class CartCommandTests
 {
     private const string Epc = "3034257BF400B7800004CB2F";
 
+    /// <summary>
+    /// A cart has to be addressable, and nothing had been giving it an identity.
+    /// <para>
+    /// <c>Cart.Open</c> left <c>Id</c> at the language default, and no cart store assigned one
+    /// either, so every cart ever created was id 0. The store keyed them all on that one value, and
+    /// the till then posted its lines to <c>/carts/0/lines</c> — which is why selecting an item at
+    /// the counter appeared to do nothing at all, and why the sales table was still empty after a
+    /// full day of testing. Two carts are opened here rather than one because a single cart would
+    /// pass this test with a hard-coded constant.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Every_cart_is_opened_with_an_identity_of_its_own()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+
+        var first = await harness.OpenCartAsync();
+        var second = await harness.OpenCartAsync();
+
+        first.Id.Should().NotBe(0, "a cart addressed as 0 is a cart the till cannot post lines to");
+        second.Id.Should().NotBe(0);
+        second.Id.Should().NotBe(first.Id, "two baskets keyed the same would overwrite each other in the store");
+    }
+
+    /// <summary>
+    /// The identity has to survive the round trip, because the till reads it back out of the store
+    /// on every line it adds.
+    /// </summary>
+    [Fact]
+    public async Task A_cart_is_found_again_by_the_id_it_was_opened_with()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var cart = await harness.OpenCartAsync();
+
+        var found = await harness.CartStore.GetAsync(cart.Id);
+
+        found.Should().NotBeNull();
+        found!.Cart.Id.Should().Be(cart.Id);
+    }
+
     [Fact]
     public async Task Adding_by_stock_code_prices_the_line_and_returns_the_whole_cart()
     {

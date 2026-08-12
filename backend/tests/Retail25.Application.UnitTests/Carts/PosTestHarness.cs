@@ -86,6 +86,13 @@ internal sealed class PosTestHarness : IDisposable
     public TagObservationPublisher TagFeed { get; }
 
     /// <summary>
+    /// Cart ids, ascending. Carts are keyed by id in the store, so a harness that opened two of them
+    /// with the same one would have the second quietly replace the first — which is the production
+    /// bug this stands in for.
+    /// </summary>
+    public CountingSequenceGenerator Sequences { get; } = new();
+
+    /// <summary>
     /// Routes the one command that dispatches to another. Substituting MediatR wholesale would hide
     /// which command actually ran, so only the forwarding path is stubbed.
     /// </summary>
@@ -226,7 +233,13 @@ internal sealed class PosTestHarness : IDisposable
 
     public async Task<Cart> OpenCartAsync()
     {
-        var cart = Cart.Open(Station.Id, Location.Id, CurrentUser.StaffId ?? TestIds.Next(), Clock.Now, 720);
+        var cart = Cart.Open(
+            await Sequences.NextCartIdAsync(),
+            Station.Id,
+            Location.Id,
+            CurrentUser.StaffId ?? TestIds.Next(),
+            Clock.Now,
+            720);
         await CartStore.SaveAsync(new CartSnapshot(cart));
         return cart;
     }
@@ -273,12 +286,16 @@ internal sealed class CountingSequenceGenerator : ISequenceGenerator
     private readonly Dictionary<SequenceKind, long> _counters = [];
     private long _transaction;
     private long _invoice;
+    private long _cart;
 
     public Task<long> NextTransactionNumberAsync(long locationId, CancellationToken ct = default)
         => Task.FromResult(Interlocked.Increment(ref _transaction));
 
     public Task<long> NextInvoiceNumberAsync(long locationId, CancellationToken ct = default)
         => Task.FromResult(Interlocked.Increment(ref _invoice));
+
+    public Task<long> NextCartIdAsync(CancellationToken ct = default)
+        => Task.FromResult(Interlocked.Increment(ref _cart));
 
     public Task<long> NextAsync(SequenceKind kind, long locationId, CancellationToken ct = default)
     {

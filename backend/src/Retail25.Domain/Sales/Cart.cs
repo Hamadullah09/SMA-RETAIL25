@@ -59,9 +59,21 @@ public sealed class Cart : AggregateRoot, IAuditable
 
     public bool IsActive => Status == CartStatus.Active;
 
-    public static Cart Open(long stationId, long locationId, long staffId, DateTimeOffset now, int timeoutMinutes)
+    /// <summary>
+    /// Opens a cart with the identity it will be addressed by.
+    ///
+    /// <para>
+    /// The id is passed in rather than left to the database, because a cart is never a row in one —
+    /// it lives in the cart store until it becomes a sale. Nothing else was assigning it either, so
+    /// every cart was id 0: the store keyed them all on the same value, and the till then posted its
+    /// lines to <c>/carts/0/lines</c> and got a 400 for a cart that did not exist. That is why no
+    /// sale had ever been recorded.
+    /// </para>
+    /// </summary>
+    public static Cart Open(long id, long stationId, long locationId, long staffId, DateTimeOffset now, int timeoutMinutes)
         => new()
         {
+            Id = id,
             StationId = stationId,
             LocationId = locationId,
             StaffId = staffId,

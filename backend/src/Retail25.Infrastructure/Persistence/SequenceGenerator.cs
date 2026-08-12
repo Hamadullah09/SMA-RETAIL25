@@ -61,6 +61,27 @@ public sealed class SequenceGenerator : ISequenceGenerator
         return await NextValueAsync(name, ct);
     }
 
+    /// <summary>
+    /// Cart identities, from a sequence of their own.
+    /// <para>
+    /// Not location-scoped, unlike every administered kind: a cart id is only ever a key into the
+    /// cart store, which is shared across the deployment, so two locations drawing from separate
+    /// sequences would hand out the same number and one till would find the other's basket.
+    /// </para>
+    /// </summary>
+    public async Task<long> NextCartIdAsync(CancellationToken ct = default)
+    {
+        const string name = "seq_cart";
+
+        // Same reasoning as NextAsync: created idempotently on every draw rather than once at a
+        // moment nobody re-runs. There is no administered start to honour here, so it begins at 1.
+#pragma warning disable EF1002, EF1003
+        await _db.Database.ExecuteSqlRawAsync(CreateIfAbsent(name, "1"), ct);
+#pragma warning restore EF1002, EF1003
+
+        return await NextValueAsync(name, ct);
+    }
+
     private async Task<long> NextValueAsync(string name, CancellationToken ct)
     {
         if (_db.Database.GetDbConnection().State != System.Data.ConnectionState.Open)

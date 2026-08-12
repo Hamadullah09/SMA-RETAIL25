@@ -25,19 +25,22 @@ public sealed class CreateCartHandler : IRequestHandler<CreateCartCommand, Resul
     private readonly CartPricingService _pricing;
     private readonly ICurrentUser _currentUser;
     private readonly IDateTime _clock;
+    private readonly ISequenceGenerator _sequences;
 
     public CreateCartHandler(
         ICartStore store,
         PosContextLoader contextLoader,
         CartPricingService pricing,
         ICurrentUser currentUser,
-        IDateTime clock)
+        IDateTime clock,
+        ISequenceGenerator sequences)
     {
         _store = store;
         _contextLoader = contextLoader;
         _pricing = pricing;
         _currentUser = currentUser;
         _clock = clock;
+        _sequences = sequences;
     }
 
     public async Task<Result<CartDto>> Handle(CreateCartCommand request, CancellationToken ct)
@@ -59,6 +62,7 @@ public sealed class CreateCartHandler : IRequestHandler<CreateCartCommand, Resul
         }
 
         var snapshot = new CartSnapshot(Cart.Open(
+            await _sequences.NextCartIdAsync(ct),
             request.StationId,
             context.Location.Id,
             staffId,
