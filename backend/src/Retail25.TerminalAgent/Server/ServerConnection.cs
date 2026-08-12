@@ -59,6 +59,9 @@ public sealed class SignalRServerConnection : IServerConnection, IAsyncDisposabl
     private HubConnection? _connection;
     private ITerminalCommandHandler? _handler;
 
+    /// <summary>Set once the agent is shutting down, so the reconnect loop stops rather than fighting it.</summary>
+    private volatile bool _stopping;
+
     public SignalRServerConnection(
         IOptions<AgentOptions> options,
         AgentTokenProvider tokens,
@@ -99,25 +102,98 @@ public sealed class SignalRServerConnection : IServerConnection, IAsyncDisposabl
         {
             _logger.LogWarning("Server connection closed{Reason}", error is null ? string.Empty : $": {error.Message}");
             _logger.LogDebug(error, "Hub connection closed");
+
+            // Closed fires when automatic reconnect has exhausted its policy, and from there nothing
+            // in SignalR tries again — the same dead end as a failed first connection. Re-arming the
+            // loop is what makes "the till comes back on its own" true after a long outage rather
+            // than only after a short one.
+            if (!_stopping && !ct.IsCancellationRequested)
+            {
+                _ = Task.Run(() => KeepConnectedAsync(connection, ct), CancellationToken.None);
+            }
+
             return Task.CompletedTask;
         };
 
         _connection = connection;
 
         // A till must start even when the server is down: it keeps its local API alive, keeps the
-        // reader running and spools. The reconnect loop takes over from here.
-        try
+        // reader running and spools. Connecting happens in the background so none of that waits.
+        _ = Task.Run(() => KeepConnectedAsync(connection, ct), CancellationToken.None);
+    }
+
+    /// <summary>
+    /// Connects, and keeps trying until it does.
+    ///
+    /// <para>
+    /// <c>WithAutomaticReconnect</c> does not cover this. It re-establishes a connection that was
+    /// once live and dropped; it does nothing at all for a first attempt that failed, and the
+    /// connection is simply left closed. So a single try at startup meant "will keep retrying" was
+    /// a promise nothing kept.
+    /// </para>
+    /// <para>
+    /// That is not a rare case, it is the normal one on a shop PC. The service starts at boot and
+    /// races the network: DNS answers "No such host is known" for a few seconds, this failed, and
+    /// the till stayed silently offline until somebody noticed and restarted the service. It went on
+    /// spooling tag reads and reporting a healthy reader the whole time, which is the worst shape a
+    /// fault can take — everything looks right and nothing reaches the server.
+    /// </para>
+    /// </summary>
+    private async Task KeepConnectedAsync(HubConnection connection, CancellationToken ct)
+    {
+        var delay = TimeSpan.FromSeconds(2);
+        var complained = false;
+
+        while (!ct.IsCancellationRequested && !_stopping)
         {
-            await connection.StartAsync(ct);
-            await RegisterAsync(connection, ct);
-            _logger.LogInformation("Connected to {ApiUrl} as station {StationId}", _options.ApiUrl, _options.StationId);
-        }
-        catch (Exception ex)
-        {
-            // One line, not a stack trace: a till starting before the server is up is routine, and
-            // the reconnect loop is about to make this a non-event.
-            _logger.LogWarning("Could not reach {ApiUrl} at startup ({Reason}); will keep retrying", _options.ApiUrl, ex.Message);
-            _logger.LogDebug(ex, "Initial hub connection failed");
+            try
+            {
+                await connection.StartAsync(ct);
+                await RegisterAsync(connection, ct);
+
+                _logger.LogInformation(
+                    "Connected to {ApiUrl} as station {StationId}", _options.ApiUrl, _options.StationId);
+
+                return;
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested || _stopping)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                // Said once at warning, then kept to debug. A shop that opens before its broadband
+                // does would otherwise write the same line every few seconds until somebody looked.
+                if (!complained)
+                {
+                    _logger.LogWarning(
+                        "Could not reach {ApiUrl} ({Reason}); retrying until it answers",
+                        _options.ApiUrl,
+                        ex.Message);
+
+                    complained = true;
+                }
+                else
+                {
+                    _logger.LogDebug(ex, "Hub connection attempt failed");
+                }
+            }
+
+            try
+            {
+                await Task.Delay(delay, ct);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            // Backs off to half a minute and stays there. Long enough not to hammer a server that is
+            // genuinely down, short enough that a till is working again within a shift change of the
+            // network coming back.
+            delay = delay < TimeSpan.FromSeconds(30)
+                ? TimeSpan.FromSeconds(Math.Min(30, delay.TotalSeconds * 2))
+                : delay;
         }
     }
 
@@ -235,6 +311,10 @@ public sealed class SignalRServerConnection : IServerConnection, IAsyncDisposabl
 
     public async Task StopAsync(CancellationToken ct)
     {
+        // Before stopping, so the Closed handler does not read a deliberate shutdown as an outage
+        // and start dialling again while the service is trying to exit.
+        _stopping = true;
+
         if (_connection is not null)
         {
             await _connection.StopAsync(ct);
@@ -243,6 +323,8 @@ public sealed class SignalRServerConnection : IServerConnection, IAsyncDisposabl
 
     public async ValueTask DisposeAsync()
     {
+        _stopping = true;
+
         if (_connection is not null)
         {
             await _connection.DisposeAsync();
