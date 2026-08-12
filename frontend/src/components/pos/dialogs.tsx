@@ -5,6 +5,7 @@ import { usePosStore } from '@/stores/pos-store';
 import { posApi } from '@/lib/pos-api';
 import { useHotkey, useHotkeyBindings, useHotkeyScope } from '@/lib/hotkeys';
 import { money, useCurrencySymbol } from '@/components/pos/panels';
+import { parseTenderInput } from '@/lib/tender-input';
 import type { ProductVariant, SerializedUnit, SuspendedCart, TenderType } from '@/types/pos';
 import { cn } from '@/lib/utils';
 
@@ -272,11 +273,20 @@ export function PaymentDialog() {
   // Inside this window F4 means Copies, not Pay — the legacy contract at guide p.8.
   useHotkey('F4', () => setCopies((c) => (c >= 3 ? 1 : c + 1)), { scope: 'dialog', label: 'F4 Copies' });
 
-  const amount = Number(tendered) || due;
-  const change = selected?.allowsOverTender ? Math.max(0, amount - due) : 0;
+  // Parsed, not coerced. `Number(tendered) || due` used to turn anything falsy — `abc`, an empty
+  // field, a stray scanner character — into the exact amount owed, settling the sale with an empty
+  // drawer and no way to tell afterwards.
+  const parsed = parseTenderInput(tendered, due);
+  const amount = parsed.ok ? (parsed.exact ? due : parsed.amount) : null;
+  const change = selected?.allowsOverTender && amount !== null ? Math.max(0, amount - due) : 0;
+  const tenderError = parsed.ok ? null : parsed.message;
+
+  // A cash tender needs a valid figure before Pay does anything. Non-cash legs settle to the exact
+  // amount and have no tendered field to get wrong.
+  const canPay = Boolean(selected) && (!selected?.allowsOverTender || parsed.ok);
 
   const submit = async () => {
-    if (!selected) return;
+    if (!selected || !canPay || amount === null) return;
 
     const ok = await complete([
       {
@@ -320,9 +330,20 @@ export function PaymentDialog() {
             inputMode="decimal"
             placeholder={due.toFixed(2)}
             autoFocus
-            className="pos-amount w-32 bg-transparent text-right text-h3 outline-none"
+            aria-invalid={tenderError !== null}
+            aria-describedby={tenderError ? 'tender-error' : undefined}
+            className={cn(
+              'pos-amount w-32 bg-transparent text-right text-h3 outline-none',
+              tenderError && 'text-negative',
+            )}
           />
         </label>
+      ) : null}
+
+      {tenderError ? (
+        <p id="tender-error" role="alert" className="mt-2 text-body text-negative">
+          {tenderError}
+        </p>
       ) : null}
 
       {change > 0 ? (
@@ -337,7 +358,7 @@ export function PaymentDialog() {
       <button
         type="button"
         className="pos-button-primary mt-4 w-full text-base"
-        disabled={busy || !selected}
+        disabled={busy || !canPay}
         onClick={() => void submit()}
       >
         {busy ? 'Saving…' : `Take ${money(due, symbol)}`}
