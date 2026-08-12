@@ -453,7 +453,14 @@ public sealed class MigrationHandlers :
             return Result.Failure<(MigrationBatch, List<StagedRow>)>(MigrationBatch.NotValidated);
         }
 
-        var rows = await _db.MigrationStagingRows
+        // AsNoTracking because ToStaged reads four fields off each row and nothing here ever writes
+        // one back. Tracked, a twenty-thousand-row export makes EF build a change-tracking snapshot
+        // of every entity — each carrying the row's whole payload as a string — for a list that is
+        // projected and thrown away. On SQL Express that alone took this past the thirty-second
+        // command timeout more often than not, and a shop importing its legacy inventory on shared
+        // hosting is the case this exists for. The validate path a few methods up already reads it
+        // this way.
+        var rows = await _db.MigrationStagingRows.AsNoTracking()
             .Where(r => r.BatchId == batch.Id)
             .OrderBy(r => r.RowNumber)
             .ToListAsync(ct);

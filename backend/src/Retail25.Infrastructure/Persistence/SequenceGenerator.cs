@@ -121,10 +121,32 @@ public sealed class SequenceGenerator : ISequenceGenerator
     /// does, and the latter would match a sequence of the same name in a schema this code will never
     /// use — reporting "already there" about an object it cannot draw from.
     /// </para>
+    /// <para>
+    /// The check and the create are two statements, so they are a race, and 2714 is the outcome the
+    /// loser of that race sees. Two tills ringing the <em>first</em> sale of a fresh location at the
+    /// same moment both find no sequence and both try to create it; one succeeds and the other is
+    /// told the object already exists. Untreated that is an exception inside the sale's transaction,
+    /// so one of the two cashiers is refused — on the store's opening day, which is the worst
+    /// possible morning for it.
+    /// </para>
+    /// <para>
+    /// Swallowed <b>in the database</b> rather than in the client, and this is the point: an
+    /// exception surfacing to .NET here is caught by the pipeline's transaction behaviour and rolls
+    /// the whole sale back. Handling it server-side means the loser simply carries on and draws from
+    /// the sequence the winner created, which is exactly what it wanted. Only 2714 is swallowed —
+    /// permission errors and anything else still fail loudly.
+    /// </para>
     /// </summary>
     private static string CreateIfAbsent(string name, string startAt)
         => "IF OBJECT_ID(N'[" + name + "]', 'SO') IS NULL "
-           + "CREATE SEQUENCE [" + name + "] AS bigint START WITH " + startAt + " INCREMENT BY 1";
+           + "BEGIN "
+           + "BEGIN TRY "
+           + "CREATE SEQUENCE [" + name + "] AS bigint START WITH " + startAt + " INCREMENT BY 1; "
+           + "END TRY "
+           + "BEGIN CATCH "
+           + "IF ERROR_NUMBER() <> 2714 THROW; "
+           + "END CATCH "
+           + "END";
 
     private static string SequenceName(SequenceKind kind, long locationId)
         => string.Create(CultureInfo.InvariantCulture, $"seq_{kind.ToString().ToLowerInvariant()}_{locationId}");
