@@ -118,6 +118,39 @@ if (usesRedis && !string.IsNullOrWhiteSpace(redisConnection))
         options => options.Configuration.ChannelPrefix = StackExchange.Redis.RedisChannel.Literal("retail25"));
 }
 
+// --- Configuration validation ---
+//
+// appsettings.Production.json ships `https://your-site.example` for the public origin, because the
+// real one differs per deployment and a committed file is the wrong place for it. Nothing checked
+// that anybody replaced it, so it went live: the content-security-policy this API served named
+// `your-site.example` in form-action for the whole beta.
+//
+// It failed quietly, which is why it lasted. Every browser call is same-origin so CORS never had to
+// answer, and 'self' already covered the real origin — but the same value builds password-reset
+// links and seeds the OAuth client's redirect URI, where being wrong is not cosmetic.
+//
+// `.example` is reserved by RFC 2606 and can never be a real deployment, so this cannot refuse a
+// legitimate configuration. Refusing to start is the point: an unconfigured origin that boots is a
+// fault that surfaces weeks later in somebody's inbox.
+if (!builder.Environment.IsDevelopment())
+{
+    var configuredOrigins = new List<string?> { builder.Configuration["Auth:WebOrigin"] };
+    configuredOrigins.AddRange(builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? []);
+
+    var placeholders = configuredOrigins
+        .Where(origin => origin is not null && origin.Contains(".example", StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    if (placeholders.Count > 0)
+    {
+        throw new InvalidOperationException(
+            $"The public origin is still the shipped placeholder ({string.Join(", ", placeholders)}). "
+            + "Set Auth__WebOrigin and AllowedOrigins__0 to the origin the browser actually uses — "
+            + "on IIS that is the environment-variable block in web.config. Leaving it produces a "
+            + "content-security-policy and password-reset links pointing at a domain nobody owns.");
+    }
+}
+
 // --- CORS ---
 // Exactly one origin: the BFF. Every browser call goes through it, so nothing else has any reason
 // to reach the API cross-origin (doc 07 §Hardening).
