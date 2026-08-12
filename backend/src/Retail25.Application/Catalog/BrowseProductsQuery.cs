@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Common;
+using Retail25.Domain.Inventory;
 using Retail25.Domain.Catalog;
 using Retail25.Domain.Common;
 
@@ -92,8 +93,12 @@ public sealed class BrowseProductsHandlers
 
         if (request.BelowReorderPoint)
         {
-            // The legacy reorder report, as a browse filter: what needs buying, right now.
-            query = query.Where(p => p.ReorderPoint > 0 && p.OnHand + p.OnOrder <= p.ReorderPoint);
+            // The legacy reorder report, as a browse filter: what needs buying, right now. The rule
+            // itself is ReorderPolicy's, shared with the inventory browse and the stock-position
+            // report — this was the only one of the three that remembered to skip products with no
+            // reorder point set.
+            query = query.Where(ReorderPolicy.NeedsReorderingWhere<Domain.Catalog.Product>(
+                p => p.OnHand, p => p.OnOrder, _ => 0m, p => p.ReorderPoint));
         }
 
         // One extra row answers "is there another page" without a second count query.

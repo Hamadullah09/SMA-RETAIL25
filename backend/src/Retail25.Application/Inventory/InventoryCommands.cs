@@ -98,7 +98,11 @@ public sealed class InventoryHandlers :
 
         if (request.BelowReorderOnly)
         {
-            query = query.Where(p => p.OnHand + p.OnOrder <= p.ReorderPoint);
+            // One rule, shared with the stock-position report and the catalogue browse, which each
+            // used to ask this question differently. Committed is zero here because it lives on
+            // stock_levels rather than on the product row.
+            query = query.Where(ReorderPolicy.NeedsReorderingWhere<Domain.Catalog.Product>(
+                p => p.OnHand, p => p.OnOrder, _ => 0m, p => p.ReorderPoint));
         }
 
         var after = Cursor.Decode(request.Cursor);
