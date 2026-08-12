@@ -69,8 +69,23 @@ public sealed record ExportStockValuationQuery(long LocationId, long? Department
 public enum StockPosition
 {
     Normal = 0,
+
+    /// <summary>Already short: cover has fallen past the reorder point, or below zero.</summary>
     Understock = 1,
+
     Overstock = 2,
+
+    /// <summary>
+    /// Exactly on the reorder point — order now, but nothing has run out yet.
+    /// <para>
+    /// Split out from <see cref="Understock"/> because collapsing the two is what made the alert
+    /// unreadable. Every product in the seeded catalogue holds one and reorders at one, so the
+    /// dashboard reported 180 of 195 as understocked and there was no way to see which of them had
+    /// actually run short. Both still need buying, and the purchase-order generator still orders on
+    /// the same boundary — this only says which kind.
+    /// </para>
+    /// </summary>
+    AtReorderPoint = 3,
 }
 
 public sealed record StockPositionRow(
@@ -306,12 +321,17 @@ public sealed class InventoryReportHandlers
 
             var position = StockPosition.Normal;
 
-            // Was `OnHand <= ReorderPoint`, which ignored stock already on order and counted being
-            // exactly on the point as a shortage. Every product in the seeded catalogue holds one
-            // and reorders at one, so the report called all 201 of them understocked.
-            if (ReorderPolicy.NeedsReordering(product.OnHand, product.OnOrder, 0m, product.ReorderPoint))
+            // Was `OnHand <= ReorderPoint`, which ignored stock already on order and collapsed
+            // "order now" into "already short". Both still need buying — the standing says which.
+            var standing = ReorderPolicy.Assess(product.OnHand, product.OnOrder, 0m, product.ReorderPoint);
+
+            if (standing == ReorderStanding.Below)
             {
                 position = StockPosition.Understock;
+            }
+            else if (standing == ReorderStanding.AtPoint)
+            {
+                position = StockPosition.AtReorderPoint;
             }
             else if (product.OnHand + product.OnOrder > product.BaseStock + (weekly * OverstockWeeks))
             {

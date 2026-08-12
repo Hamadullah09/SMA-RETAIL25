@@ -45,12 +45,39 @@ public sealed class InventoryReportTests
     /// At the reorder point, not merely below it — the purchase-order generator uses the same
     /// boundary, and a report that disagreed would have a buyer ordering things the system says
     /// are fine.
+    /// <para>
+    /// It reports as <see cref="StockPosition.AtReorderPoint"/> rather than
+    /// <see cref="StockPosition.Understock"/>. The boundary is unchanged and this item still needs
+    /// buying — what changed is that the report now says which kind, because collapsing "order now"
+    /// into "already short" is what left the dashboard flagging 180 of 195 items with no way to
+    /// tell them apart.
+    /// </para>
     /// </summary>
     [Fact]
-    public async Task An_item_sitting_exactly_on_its_reorder_point_counts_as_understocked()
+    public async Task An_item_sitting_exactly_on_its_reorder_point_is_reported_as_at_the_point()
     {
         using var harness = await MastersTestHarness.CreateAsync();
         var product = await harness.AddProductAsync("W-1", "Widget", onHand: 5m);
+        product.UpdateOrdering(baseStock: 20, reorderPoint: 5, reorderQty: 10, caseQty: 0m, shipWeight: 0m);
+        await harness.Db.SaveChangesAsync();
+
+        var handlers = new InventoryReportHandlers(harness.Db, harness.Clock);
+        var rows = await handlers.Handle(new GetStockPositionQuery(harness.Location.Id), CancellationToken.None);
+
+        rows.Should().ContainSingle();
+        rows[0].Position.Should().Be(StockPosition.AtReorderPoint);
+
+        // Still on the buying list, which is the property the purchase-order generator relies on.
+        ReorderPolicy.NeedsReordering(onHand: 5m, onOrder: 0m, committed: 0m, reorderPoint: 5)
+            .Should().BeTrue();
+    }
+
+    /// <summary>An item that has run past the point is the urgent one, and is reported separately.</summary>
+    [Fact]
+    public async Task An_item_that_has_run_past_its_reorder_point_is_reported_as_understocked()
+    {
+        using var harness = await MastersTestHarness.CreateAsync();
+        var product = await harness.AddProductAsync("W-2", "Widget", onHand: 2m);
         product.UpdateOrdering(baseStock: 20, reorderPoint: 5, reorderQty: 10, caseQty: 0m, shipWeight: 0m);
         await harness.Db.SaveChangesAsync();
 
