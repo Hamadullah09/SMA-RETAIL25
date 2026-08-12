@@ -55,10 +55,24 @@ public sealed class CreateCartHandler : IRequestHandler<CreateCartCommand, Resul
         var staffId = request.StaffId ?? _currentUser.StaffId ?? 0L;
 
         var existing = await _store.GetByStationAsync(request.StationId, ct);
-        if (existing is { Cart.IsActive: true })
+
+        // Resumed only if it can actually be addressed.
+        //
+        // A cart whose id is 0 is one nothing can act on: every route is /carts/{cartId}/…, so the
+        // till can read that basket and never add to it, empty it or tender it. Carts opened before
+        // ids were assigned are exactly that, and because this method hands back any active cart for
+        // the station, one of them would be returned for ever — a station permanently unable to sell
+        // even though new carts are fine. Discarding it is the only exit, and it costs nothing that
+        // was reachable anyway.
+        if (existing is { Cart.IsActive: true } && existing.Cart.Id != 0)
         {
             var current = await _pricing.QuoteAsync(existing, context, ct);
             return Result.Success(current.Dto);
+        }
+
+        if (existing is { Cart.Id: 0 })
+        {
+            await _store.RemoveAsync(0, request.StationId, ct);
         }
 
         var snapshot = new CartSnapshot(Cart.Open(

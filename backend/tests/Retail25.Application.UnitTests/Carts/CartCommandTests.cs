@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Retail25.Application.Abstractions;
 using Retail25.Application.Carts.Commands;
 using Retail25.Application.Common;
 using Retail25.Domain.Sales;
@@ -35,6 +36,40 @@ public sealed class CartCommandTests
         first.Id.Should().NotBe(0, "a cart addressed as 0 is a cart the till cannot post lines to");
         second.Id.Should().NotBe(0);
         second.Id.Should().NotBe(first.Id, "two baskets keyed the same would overwrite each other in the store");
+    }
+
+    /// <summary>
+    /// A station holding an unaddressable cart must not be stuck with it.
+    /// <para>
+    /// Opening a cart resumes whatever active one the station already has, which is right — a
+    /// browser refresh must not abandon a basket the customer is standing next to. But a cart whose
+    /// id is 0 cannot be acted on at all: every route is <c>/carts/{cartId}/…</c>, so the till can
+    /// read it and never add to it, empty it or tender it. Carts opened before ids were assigned are
+    /// exactly that, and resuming one would leave that station permanently unable to sell even
+    /// though new carts are fine. Found on the live system immediately after deploying the id fix.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task An_unaddressable_cart_left_at_a_station_is_replaced_rather_than_resumed()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+
+        // The shape the old code left behind: active, at this station, with no identity.
+        var orphan = Cart.Open(0, harness.Station.Id, harness.Location.Id, 1, harness.Clock.Now, 720);
+        await harness.CartStore.SaveAsync(new CartSnapshot(orphan));
+
+        var handler = new CreateCartHandler(
+            harness.CartStore,
+            harness.ContextLoader,
+            harness.Pricing,
+            harness.CurrentUser,
+            harness.Clock,
+            harness.Sequences);
+
+        var result = await handler.Handle(new CreateCartCommand(harness.Station.Id), default);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Id.Should().NotBe(0, "resuming the orphan would leave this till unable to sell");
     }
 
     /// <summary>
