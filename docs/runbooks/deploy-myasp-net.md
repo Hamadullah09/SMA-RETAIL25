@@ -322,6 +322,24 @@ keep them:
 `logs` is skipped for the mirror-image reason: it exists only on the host, and a sync would remove
 it.
 
+## Three directories that exist only on the host
+
+Web Deploy makes the destination match the source. Anything living on the host but not in the build
+is therefore a deletion candidate, and three of those matter. All three are `-skip`ped, and the
+first dry run proved each one was genuinely at risk:
+
+| Path | What losing it costs | When you would notice |
+|---|---|---|
+| `backend/certs/` | The OpenIddict signing and encryption keys. `IdentityRegistration` **throws on startup** outside Development when either is missing, so this is HTTP 500.30 and a dead API — not merely broken tokens. | Immediately |
+| `.well-known/acme-challenge/` | Let's Encrypt's HTTP-01 challenge. The certificate silently fails to renew. | **~90 days later**, when HTTPS goes invalid |
+| `logs/` | Host-side stdout logs. | When you next need them |
+
+The middle one is the reason to keep running dry runs after any change to the sync steps: it breaks
+nothing on the day, and by the time it surfaces nobody would connect it to a deploy.
+
+`backend/Retail25.Api.exe` is also proposed for deletion and that one is safe to allow. `web.config`
+runs `dotnet Retail25.Api.dll`, not the apphost, and a Linux publish produces no Windows `.exe`.
+
 **Prove it before trusting it.** `workflow_dispatch` has a `dry_run` input that adds `-whatif` to
 both syncs: Web Deploy reports every add, update and delete it *would* make and writes nothing.
 Run it once before the first real deploy and read the root-sync output for any line mentioning
