@@ -1,7 +1,7 @@
 # SMA Retail POS — Beta Test Report & Enterprise Readiness Audit
 
 **Live system:** https://pos.sma-techno.net
-**Build under test:** deploy/myasp-net-pos @ `1303573`
+**Build under test:** deploy/myasp-net-pos @ `3f92c49` (deployed via CI 12 Aug 2026)
 **Account:** `admin@sma.rms.com` (Administrator, access level 4)
 **Dates:** 11–12 August 2026
 **Tester roles:** QA Engineering · Architecture · Security · Performance · Product · UX
@@ -15,12 +15,12 @@
 | Test cases executed | **79** (41 UI + 38 API/database) |
 | Passed | **58** |
 | Failed | **10** |
-| Blocked | **11** |
+| Blocked | **10** |
 | Modules reached | **15 of 15** (7 through the UI, 8 at the API layer) |
 | Critical bugs | **4** |
 | High bugs | **4** |
 | Medium bugs | **2** |
-| Low bugs | **2** |
+| Low bugs | **3** |
 | **Bugs fixed this session** | **1** (BUG-11) + user creation built |
 | Confirmed hardcoded values | 10 |
 | Duplicate / repetitive features | 3 |
@@ -42,7 +42,7 @@ security gap (SEC-2) are closed — pending deployment.
 
 1. **The till cannot ring a sale.** Selecting a serialized unit does nothing — verified by mouse, keyboard *and* a native JavaScript `.click()`. 200 of 201 products are serialized, so effectively nothing can be sold.
 2. **WebSockets fail entirely**, so every real-time surface is degraded to long-polling. At 1,000 terminals this is disqualifying.
-3. **No user can be created**, so the business cannot onboard a second employee through the product.
+3. **No user could be created**, so the business could not onboard a second employee. **Fixed and deployed this session** (§20) — the endpoint and UI are now live.
 
 ---
 
@@ -92,7 +92,7 @@ Let's Encrypt.
 |---|---|
 | BUG-01 blocks adding an item | All payment, tender, discount, refund, receipt, drawer, stock-decrement, ledger and post-sale reporting tests are **BLOCKED** |
 | No RFID hardware | All 20 RFID functional cases **BLOCKED** |
-| Only one user account exists, and none can be created | Permission matrix **cannot be completed** |
+| Only one user account exists | Role-by-role *runtime* testing **NOT TESTED**. The permission matrix itself is complete — derived from source and the live database (§22) — but no second account has been created yet, so no role's behaviour has been observed at runtime |
 | No load-testing harness | Every scale number is **REQUIRES LOAD TEST** |
 | Session expires unpredictably (BUG-03) | Long workflows repeatedly interrupted |
 
@@ -700,3 +700,133 @@ swept before any production claim — they are marked NOT TESTED here, not passe
 
 **Observed facts** are the test cases, console output, SQL results and timings above.
 **Inferences** are labelled as such. **Recommendations** are the fixes and roadmap.
+
+---
+
+## 22. Permission Matrix
+
+Previously **BLOCKED** — only one account existed and none could be created. Now resolved, but by a
+different and stronger method than clicking through screens as each role.
+
+**How this was derived.** Every permission constant, every enforcement site in the source, and every
+grant in the **live production database** were extracted and cross-checked. The live grants match
+the source presets exactly — Trainee 4, Cashier 7, Clerk 13, Supervisor 33, Administrator 61 — so
+the deployed authorisation model has not drifted from the code.
+
+| Evidence | Label |
+|---|---|
+| Permission definitions and enforcement sites (source) | **VERIFIED** |
+| Role→permission grants (queried from live SQL Server) | **VERIFIED** |
+| Each role's runtime behaviour when signing in as that role | **NOT TESTED** — see below |
+
+**What is still not proven.** This shows what the system *is configured* to allow. It does not prove
+the UI hides what a role cannot do, nor that no endpoint bypasses the check. Confirming that needs a
+session per role, which requires signing in as each user.
+
+### Totals
+
+- **61** permissions, **242** enforcement points (235 `[RequiresPermission]` attributes + 7 runtime `HasPermission` checks)
+- Enforcement is at the **command/query** layer, not the controller — so a new endpoint reaching an existing handler inherits the guard automatically. This is the right place for it.
+
+| # | Permission | Attr | Runtime | Trainee | Cashier | Clerk | Supervisor | Admin |
+|--:|---|--:|--:|:--:|:--:|:--:|:--:|:--:|
+| 1 | `ar.late_charges` | 1 | 0 | · | · | · | · | **Y** |
+| 2 | `ar.payment` | 2 | 0 | · | · | · | **Y** | **Y** |
+| 3 | `ar.read` | 5 | 0 | · | · | · | **Y** | **Y** |
+| 4 | `ar.refund` | 1 | 0 | · | · | · | · | **Y** |
+| 5 | `ar.void_invoice` | 1 | 0 | · | · | · | · | **Y** |
+| 6 | `audit.read` | 2 | 0 | · | · | · | · | **Y** |
+| 7 | `catalog.bulk_adjust` | 3 | 0 | · | · | · | · | **Y** |
+| 8 | `catalog.delete` | 6 | 0 | · | · | · | · | **Y** |
+| 9 | `catalog.read` | 10 | 0 | **Y** | **Y** | **Y** | **Y** | **Y** |
+| 10 | `catalog.write` | 9 | 1 | · | · | · | **Y** | **Y** |
+| 11 | `customer.delete` | 2 | 0 | · | · | · | · | **Y** |
+| 12 | `customer.read` | 13 | 0 | **Y** | **Y** | **Y** | **Y** | **Y** |
+| 13 | `customer.write` | 12 | 0 | · | · | **Y** | **Y** | **Y** |
+| 14 | `drawer.close` | 1 | 0 | · | · | · | **Y** | **Y** |
+| 15 | `drawer.open_float` | 1 | 0 | · | · | **Y** | **Y** | **Y** |
+| 16 | `drawer.pay_in` | 1 | 0 | · | · | · | **Y** | **Y** |
+| 17 | `drawer.pay_out` | 1 | 0 | · | · | · | **Y** | **Y** |
+| 18 | `drawer.pop` | 2 | 0 | · | · | **Y** | **Y** | **Y** |
+| 19 | `drawer.read` | 1 | 0 | · | **Y** | **Y** | **Y** | **Y** |
+| 20 | `inventory.adjust` | 2 | 0 | · | · | · | **Y** | **Y** |
+| 21 | `inventory.commission_tags` | 3 | 0 | · | · | · | **Y** | **Y** |
+| 22 | `inventory.count` | 9 | 0 | · | · | · | · | **Y** |
+| 23 | `inventory.receive` | 1 | 0 | · | · | · | **Y** | **Y** |
+| 24 | `inventory.transfer` | 9 | 0 | · | · | · | · | **Y** |
+| 25 | `inventory.year_end` | 4 | 0 | · | · | · | · | **Y** |
+| 26 | `migration.run` | 11 | 0 | · | · | · | · | **Y** |
+| 27 | `pos.discount` | 0 | 2 | · | · | · | **Y** | **Y** |
+| 28 | `pos.price_override` | 0 | 1 | · | · | · | **Y** | **Y** |
+| 29 | `pos.recall` | 2 | 0 | · | **Y** | **Y** | **Y** | **Y** |
+| 30 | `pos.reprint` | 2 | 0 | · | · | **Y** | **Y** | **Y** |
+| 31 | `pos.return` | 0 | 0 | · | · | **Y** | **Y** | **Y** |
+| 32 | `pos.select_price_level` | 0 | 1 | · | · | · | **Y** | **Y** |
+| 33 | `pos.sell` | 21 | 0 | **Y** | **Y** | **Y** | **Y** | **Y** |
+| 34 | `pos.suspend` | 1 | 0 | · | **Y** | **Y** | **Y** | **Y** |
+| 35 | `pos.tax_override` | 1 | 1 | · | · | · | **Y** | **Y** |
+| 36 | `pos.unknown_item` | 1 | 0 | · | · | **Y** | **Y** | **Y** |
+| 37 | `pos.void_sale` | 2 | 1 | · | · | · | **Y** | **Y** |
+| 38 | `purchasing.post_order` | 1 | 0 | · | · | · | · | **Y** |
+| 39 | `purchasing.post_shipment` | 1 | 0 | · | · | · | · | **Y** |
+| 40 | `purchasing.read` | 4 | 0 | · | · | · | · | **Y** |
+| 41 | `purchasing.write` | 9 | 0 | · | · | · | · | **Y** |
+| 42 | `reports.commissions` | 2 | 0 | · | · | · | · | **Y** |
+| 43 | `reports.cost_visibility` | 5 | 0 | · | · | · | · | **Y** |
+| 44 | `reports.financial` | 2 | 0 | · | · | · | · | **Y** |
+| 45 | `reports.hours` | 3 | 0 | · | · | · | **Y** | **Y** |
+| 46 | `reports.inventory` | 6 | 0 | · | · | · | **Y** | **Y** |
+| 47 | `reports.sales` | 7 | 0 | · | · | · | **Y** | **Y** |
+| 48 | `settings.hardware` | 6 | 0 | · | · | · | · | **Y** |
+| 49 | `settings.read` | 3 | 0 | · | · | · | · | **Y** |
+| 50 | `settings.taxes` | 1 | 0 | · | · | · | · | **Y** |
+| 51 | `settings.write` | 12 | 0 | · | · | · | · | **Y** |
+| 52 | `staff.read` | 3 | 0 | · | · | · | · | **Y** |
+| 53 | `staff.time_clock` | 3 | 0 | **Y** | **Y** | **Y** | **Y** | **Y** |
+| 54 | `staff.time_clock_edit` | 2 | 0 | · | · | · | **Y** | **Y** |
+| 55 | `staff.write` | 6 | 0 | · | · | · | · | **Y** |
+| 56 | `sync.run` | 4 | 0 | · | · | · | · | **Y** |
+| 57 | `system.backup` | 3 | 0 | · | · | · | · | **Y** |
+| 58 | `terminals.operate` | 4 | 0 | · | · | · | **Y** | **Y** |
+| 59 | `terminals.read` | 3 | 0 | · | · | · | **Y** | **Y** |
+| 60 | `terminals.register` | 1 | 0 | · | · | · | · | **Y** |
+| 61 | `users.manage` | 1 | 0 | · | · | · | · | **Y** |
+
+| Role | Level | Permissions | % of 61 |
+|---|--:|--:|--:|
+| Trainee | 0 | 4 | 7% |
+| Cashier | 1 | 7 | 11% |
+| Clerk | 2 | 13 | 21% |
+| Supervisor | 3 | 33 | 54% |
+| Administrator | 4 | 61 | 100% |
+### Reading the columns
+
+`Attr` counts commands/queries gated by `[RequiresPermission]`. `Runtime` counts conditional checks
+inside a handler — the pattern used where a permission is only needed *if* the operation is
+attempted, e.g. you need `pos.sell` to touch a cart at all but `pos.discount` only if you actually
+discount. Both are real enforcement; a permission with `0 / 0` is enforced nowhere.
+
+### Findings
+
+**PERM-1 — `pos.return` is granted to three roles but enforced nowhere.** *(Low)*
+It is referenced only in its own definition and the role presets. Clerk, Supervisor and
+Administrator all hold it, implying a till-return capability the system does not have.
+
+Checked before reporting, because the obvious fear is refund fraud — it is **not** that:
+
+- Both cart entry points reject `quantity <= 0`, so a negative "return" line cannot be created.
+- The refund paths that *do* exist are properly guarded: `RefundInvoiceCommand` by `ar.refund`, `VoidSaleCommand` by `pos.void_sale`, `VoidInvoiceCommand` by `ar.void_invoice` — all Administrator-only except void-sale.
+- `CompleteSaleCommand` already handles negative quantities, so the till side was written in anticipation of returns that were never built.
+
+So this is a **dead permission for an unimplemented feature**, not a control weakness. It should
+either be removed or the return feature built — leaving it granted misrepresents what a Clerk can do.
+
+**PERM-2 — privilege separation is sound.** No cashier-level role holds a destructive or financial
+permission. Every `*.delete`, every refund, `audit.read`, `system.*` and `settings.write` is
+Administrator-only or Supervisor-and-above. The jump from Clerk (21%) to Supervisor (54%) is where
+money and stock adjustment enter, which is the correct boundary.
+
+**PERM-3 — the Trainee role is genuinely minimal** (4 permissions: `catalog.read`, `customer.read`,
+`pos.sell`, `staff.time_clock`), matching the documented "everything reachable, nothing committed"
+intent.
+
