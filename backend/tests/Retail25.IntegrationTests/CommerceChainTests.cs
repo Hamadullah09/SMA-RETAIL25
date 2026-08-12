@@ -291,6 +291,12 @@ public sealed class CommerceChainTests
 
         attempt.IsFailure.Should().BeTrue("£500 against a £100 limit");
         attempt.Error.Code.Should().Be(CompleteSaleHandler.CreditLimitExceeded.Code);
+
+        // The refusal was already right; what it left behind was not. The transaction row is written
+        // partway through — everything downstream needs its id — and the credit limit is only
+        // discovered after that, so the shop was left holding a sale that never happened.
+        (await db.SalesTransactions.CountAsync(t => t.CustomerId == customer.Id)).Should()
+            .Be(0, "a refused sale must leave no trace of itself");
     }
 
     /// <summary>
@@ -332,7 +338,9 @@ public sealed class CommerceChainTests
             Tax1Applies: false,
             Tax2Applies: false)));
 
-        var cash = await db.TenderTypes.AsNoTracking().FirstAsync(t => t.Behaviour == TenderBehaviour.Cash);
+        // Settled by cheque rather than cash: cash needs an open drawer, and leaving one open in a
+        // fixture the whole collection shares would change what the drawer tests are looking at.
+        var cheque = await db.TenderTypes.AsNoTracking().FirstAsync(t => t.Behaviour == TenderBehaviour.Manual);
 
         var cart = await Ok(sender.Send(new CreateCartCommand(station.Id)));
         await Ok(sender.Send(new AddCartLineByIdentifierCommand(cart.Id, stockCode, Quantity: 1m)));
@@ -345,7 +353,7 @@ public sealed class CommerceChainTests
 
         var attempt = await sender.Send(new CompleteSaleCommand(
             cart.Id,
-            [new TenderRequest(cash.Id, Amount: 20.00m, AmountTendered: 20.00m)],
+            [new TenderRequest(cheque.Id, Amount: 20.00m, AmountTendered: 20.00m, Reference: "000123")],
             Guid.NewGuid().ToString("N"),
             PrintReceipt: false));
 

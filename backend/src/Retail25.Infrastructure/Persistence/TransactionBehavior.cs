@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
 using Retail25.Application.Behaviors;
+using Retail25.Domain.Common;
 
 namespace Retail25.Infrastructure.Persistence;
 
@@ -52,6 +53,26 @@ public sealed class TransactionBehavior<TRequest, TResponse> : IPipelineBehavior
             try
             {
                 var response = await next();
+
+                // A handler that hands back a failed Result has decided the command did not happen,
+                // and this must treat that exactly as it treats an exception.
+                //
+                // It did not, and the difference is not academic. Expected failures in this codebase
+                // are Results, not exceptions — that is the convention — so every refusal reached
+                // here as an ordinary return and was committed. A sale refused for exceeding a
+                // customer's credit limit had already written its transaction row: the id has to
+                // exist before the lines, the tenders and the stock movements can reference it, so
+                // the handler saves midway and only then discovers the account cannot take it. The
+                // shop was left with a sale that never happened, against stock that never moved.
+                //
+                // Found by asserting that a refused sale leaves nothing behind, which nothing had
+                // ever asserted.
+                if (response is Result { IsFailure: true })
+                {
+                    await transaction.RollbackAsync(cancellationToken);
+
+                    return response;
+                }
 
                 await _db.SaveChangesAsync(cancellationToken);
                 await transaction.CommitAsync(cancellationToken);
