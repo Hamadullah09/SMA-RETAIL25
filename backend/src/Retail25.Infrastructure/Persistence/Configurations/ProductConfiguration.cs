@@ -43,6 +43,28 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
             .IsUnique()
             .HasFilter("[is_deleted] = 0");
 
+        // The barcode, which had no index at all.
+        //
+        // `IdentifierResolver` resolves a scan with `StockCode == code || Upc == code`, so every
+        // barcode scanned at a till was a full scan of the products table. It is invisible against
+        // the 201 rows this deployment holds and it is the hottest path in the shop: a cashier
+        // scanning, once per item, on every terminal at once. A real catalogue turns that into a
+        // table scan per beep.
+        //
+        // Unique for the same reason the stock code is: a barcode identifies one product, and
+        // "barcode already assigned to X" is a message the application can only give reliably if
+        // the database is the one enforcing it. Verified against live data before adding — zero
+        // duplicate (location, upc) groups — because migrations run at startup here, so an index
+        // that cannot be built is an application that cannot boot.
+        //
+        // Filtered on NULL and empty as well as deleted: most products carry no barcode, and
+        // without the filter every one of them would collide with every other. `<>` is a simple
+        // comparison and is accepted in a filtered predicate, unlike NOT or OR.
+        builder.HasIndex(p => new { p.LocationId, p.Upc })
+            .IsUnique()
+            .HasDatabaseName("ix_products_location_id_upc")
+            .HasFilter("[upc] IS NOT NULL AND [upc] <> '' AND [is_deleted] = 0");
+
         builder.Ignore(p => p.DomainEvents);
     }
 }
