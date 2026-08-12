@@ -72,27 +72,15 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # Named projects rather than the whole solution, and deliberately so.
+      # The whole solution, integration suite included.
       #
-      # The integration suite is excluded from this gate because 4 of its tests are currently
-      # failing. On a runner with a Docker daemon nothing skips (see RequiresDockerAttribute), so
-      # gating on the solution would mean no deploy ever succeeds until those 4 are fixed. They
-      # still run — in the `integration-tests` job below, and in ci.yml — they just do not hold
-      # the door shut.
-      #
-      # This is a known compromise, not a preference. Once those 4 pass, delete this list and gate
-      # on `backend/Retail25.sln` instead.
-      - name: Backend tests (gating suites)
-        run: |
-          set -euo pipefail
-          for project in \
-            backend/tests/Retail25.Domain.UnitTests \
-            backend/tests/Retail25.Application.UnitTests \
-            backend/tests/Retail25.ArchitectureTests \
-            backend/tests/Retail25.TerminalAgent.UnitTests
-          do
-            dotnet test "$project" -c Release --logger "console;verbosity=minimal"
-          done
+      # An earlier revision excluded the integration tests, on the belief that 4 of them were
+      # failing and would block every deploy. They passed on the first CI run, so the exclusion was
+      # removed: the failures were local to a developer machine, not a property of the code. If
+      # they turn out to be flaky rather than fixed, the escape hatch is `workflow_dispatch` with
+      # skip_tests — not a permanently narrowed gate.
+      - name: Backend tests
+        run: dotnet test backend/Retail25.sln -c Release --logger "console;verbosity=minimal"
 
       - name: Frontend typecheck and lint
         working-directory: frontend
@@ -100,22 +88,6 @@ jobs:
           npm ci
           npm run typecheck
           npm run lint
-
-  # Runs the integration suite for visibility without blocking a deploy. Remove this job and fold
-  # it back into the gate above as soon as the 4 failures are dealt with.
-  integration-tests:
-    if: ${{ !inputs.skip_tests }}
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Integration tests (not gating)
-        run: dotnet test backend/tests/Retail25.IntegrationTests -c Release --logger "console;verbosity=minimal"
 
   backend:
     needs: [test]

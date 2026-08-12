@@ -318,15 +318,16 @@ credential** — the smaller attack surface is worth more than the control.
 `migrate.sql` is still published as a build artefact for when a migration needs inspecting, or
 applying by hand against a database the app has not yet reached.
 
-## Known compromise: the integration suite does not gate
+## A note on the integration suite
 
-Four integration tests are currently failing. On a runner with a Docker daemon nothing is skipped
-(see `RequiresDockerAttribute`), so gating on the whole solution would mean **no deploy ever
-succeeds** until those four are fixed.
+The first version of this pipeline excluded the integration tests from the gate, on the assumption
+that four known failures would otherwise block every deploy. They passed on the first CI run, so
+the exclusion was removed and the gate gates on the whole solution.
 
-They therefore run in a separate `integration-tests` job marked `continue-on-error`, where they are
-visible but not blocking. This is a compromise, not a preference. **Once those four pass, delete
-that job and change the gate to `dotnet test backend/Retail25.sln`.**
+The lesson is worth keeping: those four failures were a property of one developer's machine, not of
+the code. If the suite proves genuinely flaky in CI later, the answer is `workflow_dispatch` with
+`skip_tests` for the one deploy that cannot wait — not a permanently narrowed gate, which quietly
+stops being a gate at all.
 
 ## Rolling back
 
