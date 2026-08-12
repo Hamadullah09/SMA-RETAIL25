@@ -73,6 +73,45 @@ public sealed class CartCommandTests
     }
 
     /// <summary>
+    /// A parked basket claiming an id no row has must not be resumed either.
+    /// <para>
+    /// The previous version of this guard asked only whether the snapshot carried a non-zero id,
+    /// which is asking the cache to vouch for itself. A build that numbered carts from a sequence
+    /// wrote snapshots with ids nothing ever inserted, and those outlived it: the live till resumed
+    /// one, priced it correctly, took the tag reads, and then failed at the moment of payment with
+    /// <c>cannot insert explicit value for identity column in table 'carts'</c> — because the
+    /// write-behind was being asked to create the cart under an id the table would not accept. It
+    /// repeated for ever, since every request for a cart handed back the same doomed one.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_parked_cart_whose_row_was_never_written_is_replaced_rather_than_resumed()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+
+        // Exactly what the sequence-numbered build left in the store: a snapshot carrying a
+        // plausible id, and no row under it.
+        var phantom = await harness.OpenCartAsync();
+        harness.Db.Carts.Remove(harness.Db.Carts.First(c => c.Id == phantom.Id));
+        await harness.Db.SaveChangesAsync(default);
+
+        var handler = new CreateCartHandler(
+            harness.CartStore,
+            harness.ContextLoader,
+            harness.Pricing,
+            harness.CurrentUser,
+            harness.Clock,
+            harness.Db);
+
+        var result = await handler.Handle(new CreateCartCommand(harness.Station.Id), default);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Id.Should().NotBe(phantom.Id, "no row was ever written under that id");
+        harness.Db.Carts.Any(c => c.Id == result.Value.Id).Should()
+            .BeTrue("the cart handed back has to be one the database agrees exists");
+    }
+
+    /// <summary>
     /// The identity has to survive the round trip, because the till reads it back out of the store
     /// on every line it adds.
     /// </summary>

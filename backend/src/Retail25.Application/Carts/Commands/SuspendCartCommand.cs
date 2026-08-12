@@ -80,7 +80,12 @@ public sealed class SuspendCartHandler
             return Result.Failure<SuspendedCartDto>(suspend.Error);
         }
 
-        await PersistAsync(snapshot, ct);
+        var persisted = await PersistAsync(snapshot, ct);
+        if (persisted.IsFailure)
+        {
+            return Result.Failure<SuspendedCartDto>(persisted.Error);
+        }
+
         await _store.RemoveAsync(snapshot.Cart.Id, snapshot.Cart.StationId, ct);
 
         var customerName = snapshot.Cart.CustomerId is { } customerId
@@ -156,25 +161,31 @@ public sealed class SuspendCartHandler
         return Result.Success(quote.Dto);
     }
 
-    /// <summary>Write-behind: the suspended cart, its lines, adjustments and override land in Postgres.</summary>
-    private async Task PersistAsync(CartSnapshot snapshot, CancellationToken ct)
+    /// <summary>
+    /// Write-behind: the suspended cart, its lines, adjustments and override land in the database.
+    /// <para>
+    /// The row is opened with the cart, so this updates rather than inserts. Inserting it here
+    /// carrying the snapshot's own id is the second id authority the IDENTITY column exists to
+    /// prevent — and a basket the table never recorded is not something to conjure a row for while
+    /// the cashier waits.
+    /// </para>
+    /// </summary>
+    private async Task<Result> PersistAsync(CartSnapshot snapshot, CancellationToken ct)
     {
         var existing = await _db.Carts.FirstOrDefaultAsync(c => c.Id == snapshot.Cart.Id, ct);
         if (existing is null)
         {
-            _db.Carts.Add(snapshot.Cart);
+            return Result.Failure(Cart.NotAddressable.With("cartId", snapshot.Cart.Id));
         }
-        else
-        {
-            existing.Status = snapshot.Cart.Status;
-            existing.HeldName = snapshot.Cart.HeldName;
-            existing.SuspendedAt = snapshot.Cart.SuspendedAt;
-            existing.SuspendedByStaffId = snapshot.Cart.SuspendedByStaffId;
-            existing.CustomerId = snapshot.Cart.CustomerId;
-            existing.NextLineSequence = snapshot.Cart.NextLineSequence;
-            existing.Revision = snapshot.Cart.Revision;
-            existing.ExpiresAt = null;
-        }
+
+        existing.Status = snapshot.Cart.Status;
+        existing.HeldName = snapshot.Cart.HeldName;
+        existing.SuspendedAt = snapshot.Cart.SuspendedAt;
+        existing.SuspendedByStaffId = snapshot.Cart.SuspendedByStaffId;
+        existing.CustomerId = snapshot.Cart.CustomerId;
+        existing.NextLineSequence = snapshot.Cart.NextLineSequence;
+        existing.Revision = snapshot.Cart.Revision;
+        existing.ExpiresAt = null;
 
         var staleLines = await _db.CartLines.Where(l => l.CartId == snapshot.Cart.Id).ToListAsync(ct);
         _db.CartLines.RemoveRange(staleLines);
@@ -192,5 +203,6 @@ public sealed class SuspendCartHandler
         }
 
         await _db.SaveChangesAsync(ct);
+        return Result.Success();
     }
 }

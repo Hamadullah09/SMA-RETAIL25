@@ -579,6 +579,43 @@ public sealed class CompleteSaleTests
     }
 
     /// <summary>
+    /// A basket whose cart row is not there is reported, not half-written.
+    /// <para>
+    /// The write-behind used to insert the cart when it found no row, carrying the id the snapshot
+    /// claimed — a second id authority, which the IDENTITY column rejects outright. On the live
+    /// system that surfaced as a 500 at the moment of payment, every time, for a station holding a
+    /// snapshot left by an older build. Failing before the transaction is the point: the sale rolls
+    /// back whole, and the cashier is told which sale it was.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_sale_whose_cart_was_never_recorded_is_refused_rather_than_half_written()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        var product = await harness.AddProductAsync("POLO01", "Columbia polo", 49.99m);
+        product.UpdateStockLevels(10m, 0m);
+        await harness.Db.SaveChangesAsync();
+
+        var cart = await fixture.RingAsync("POLO01");
+
+        // The row goes; the basket in the store stays. That is exactly the state a stale snapshot
+        // leaves a till in.
+        harness.Db.Carts.Remove(harness.Db.Carts.First(c => c.Id == cart.Id));
+        await harness.Db.SaveChangesAsync();
+
+        var result = await fixture.CompleteAsync(cart.Id, [fixture.Cash(55.99m, 60.00m)]);
+
+        result.IsFailure.Should().BeTrue("a cart the table never recorded cannot become a sale");
+        result.Error.Code.Should().Be("cart.not_addressable");
+
+        // That the half-written transaction then disappears is the ambient transaction's doing, not
+        // this handler's, and the in-memory provider has none — so it is pinned where it is real, in
+        // Retail25.IntegrationTests against SQL Server.
+    }
+
+    /// <summary>
     /// Everything a completion test needs: tenders, an open drawer, a sequence generator that does
     /// not need Postgres, and the two handlers under test.
     /// </summary>

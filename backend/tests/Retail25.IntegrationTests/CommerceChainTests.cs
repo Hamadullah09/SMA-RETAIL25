@@ -10,6 +10,7 @@ using Retail25.Application.Receivables;
 using Retail25.Domain.Catalog;
 using Retail25.Domain.Configuration;
 using Retail25.Domain.Purchasing;
+using Retail25.Domain.Sales;
 using Retail25.Domain.ValueObjects;
 using Retail25.Infrastructure.Persistence;
 using Xunit;
@@ -290,6 +291,69 @@ public sealed class CommerceChainTests
 
         attempt.IsFailure.Should().BeTrue("£500 against a £100 limit");
         attempt.Error.Code.Should().Be(CompleteSaleHandler.CreditLimitExceeded.Code);
+    }
+
+    /// <summary>
+    /// A basket whose cart row is gone is refused, and leaves nothing behind.
+    /// <para>
+    /// This is the failure that stopped the hosted deployment from taking a single payment. A cart
+    /// parked by a build that numbered carts itself had an id nothing had inserted; the till resumed
+    /// it, priced it correctly, and the write-behind was then asked to create the cart under that id
+    /// — which SQL Server refuses outright, with
+    /// <c>cannot insert explicit value for identity column in table 'carts'</c>. The cashier saw a
+    /// 500 at the moment of payment, every time.
+    /// </para>
+    /// <para>
+    /// Belongs here rather than in the unit suite for the second assertion: the transaction row is
+    /// written before the failure — it has to be, everything downstream takes its id — and what
+    /// removes it again is the ambient database transaction. An in-memory provider has none, so a
+    /// unit test would pass while a shop was left with orphan sales.
+    /// </para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_sale_whose_cart_row_is_missing_is_refused_and_leaves_no_transaction_behind()
+    {
+        using var scope = _api.Scope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var location = await db.Locations.AsNoTracking().FirstAsync();
+        var station = await db.Stations.AsNoTracking().FirstAsync();
+
+        _api.ActingUser.LocationId = location.Id;
+        _api.ActingUser.StationId = station.Id;
+
+        var stockCode = Unique("ORPHAN");
+
+        await Ok(sender.Send(new CreateProductCommand(
+            location.Id,
+            new ProductGeneralSection(stockCode, "Cart-less thing", null, ProductType.Standard, null, null, null, null),
+            RegularPrice: 20.00m,
+            Tax1Applies: false,
+            Tax2Applies: false)));
+
+        var cash = await db.TenderTypes.AsNoTracking().FirstAsync(t => t.Behaviour == TenderBehaviour.Cash);
+
+        var cart = await Ok(sender.Send(new CreateCartCommand(station.Id)));
+        await Ok(sender.Send(new AddCartLineByIdentifierCommand(cart.Id, stockCode, Quantity: 1m)));
+
+        // The row goes; the basket in the store stays. Exactly the state a snapshot written by an
+        // older build leaves a till in.
+        await db.Carts.Where(c => c.Id == cart.Id).ExecuteDeleteAsync();
+
+        var before = await db.SalesTransactions.CountAsync();
+
+        var attempt = await sender.Send(new CompleteSaleCommand(
+            cart.Id,
+            [new TenderRequest(cash.Id, Amount: 20.00m, AmountTendered: 20.00m)],
+            Guid.NewGuid().ToString("N"),
+            PrintReceipt: false));
+
+        attempt.IsFailure.Should().BeTrue("a cart the table never recorded cannot become a sale");
+        attempt.Error.Code.Should().Be(Cart.NotAddressable.Code);
+
+        (await db.SalesTransactions.CountAsync()).Should()
+            .Be(before, "the half-written sale has to roll back with the rest of it");
     }
 
     /// <summary>Unwraps a <c>Result&lt;T&gt;</c>, failing with the error code rather than a null reference.</summary>

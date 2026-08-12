@@ -10,6 +10,20 @@ namespace Retail25.Domain.Sales;
 public sealed class Cart : AggregateRoot, IAuditable
 {
     public static readonly Error NotActive = new("cart.not_active", "This cart is no longer active.");
+
+    /// <summary>
+    /// The cached basket names a cart the <c>carts</c> table has never heard of.
+    /// <para>
+    /// Only reachable when a snapshot outlives its row — a cart parked by an older build that
+    /// numbered carts itself, or a row removed underneath a live till. It is worth its own code
+    /// because the alternative is what actually happened: the write-behind tried to insert the cart
+    /// under the id the snapshot claimed, the IDENTITY column refused it, and the cashier was told
+    /// only that something went wrong.
+    /// </para>
+    /// </summary>
+    public static readonly Error NotAddressable = new(
+        "cart.not_addressable",
+        "This basket refers to a sale that was never recorded. Start a new sale.");
     public static readonly Error Empty = new("cart.empty", "The cart has no lines.");
     public static readonly Error RevisionConflict = new("cart.revision_conflict", "The cart changed since you last read it. Resync and retry.");
 

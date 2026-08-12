@@ -252,7 +252,12 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         }
 
         snapshot.Cart.Complete(transaction.Id, now);
-        await PersistCompletedCartAsync(snapshot, ct);
+
+        var persisted = await PersistCompletedCartAsync(snapshot, ct);
+        if (persisted.IsFailure)
+        {
+            return Result.Failure<CompleteSaleResult>(persisted.Error);
+        }
 
         await _db.SaveChangesAsync(ct);
         await _store.RemoveAsync(snapshot.Cart.Id, snapshot.Cart.StationId, ct);
@@ -939,26 +944,36 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     }
 
     /// <summary>Keeps the completed cart in Postgres as the audit trail behind the transaction.</summary>
-    private async Task PersistCompletedCartAsync(CartSnapshot snapshot, CancellationToken ct)
+    /// <summary>
+    /// Marks the cart row as the sale it became. The row is opened with the cart, so this only ever
+    /// updates.
+    /// <para>
+    /// It used to insert when the row was absent, carrying the id from the snapshot — which is the
+    /// second id authority this handler was built to avoid, and the database says so:
+    /// <c>cannot insert explicit value for identity column in table 'carts'</c>. A missing row here
+    /// means the basket was never recorded, which is a fact about the cart and not something to
+    /// invent a row for mid-payment. It is reported, and the ambient transaction rolls the sale back
+    /// whole rather than half.
+    /// </para>
+    /// <para>
+    /// The lines are deliberately not written. What was sold is frozen onto <c>sale_lines</c> a few
+    /// lines above and that is what every receipt and reprint reads; copying them to
+    /// <c>cart_lines</c> as well only duplicated the basket under a status nobody queries.
+    /// </para>
+    /// </summary>
+    private async Task<Result> PersistCompletedCartAsync(CartSnapshot snapshot, CancellationToken ct)
     {
         var existing = await _db.Carts.FirstOrDefaultAsync(c => c.Id == snapshot.Cart.Id, ct);
         if (existing is null)
         {
-            _db.Carts.Add(snapshot.Cart);
-            _db.CartLines.AddRange(snapshot.Lines);
-            _db.CartAdjustments.AddRange(snapshot.Adjustments);
-            if (snapshot.TaxOverride is not null)
-            {
-                _db.CartTaxOverrides.Add(snapshot.TaxOverride);
-            }
-
-            return;
+            return Result.Failure(Cart.NotAddressable.With("cartId", snapshot.Cart.Id));
         }
 
         existing.Status = snapshot.Cart.Status;
         existing.CompletedTransactionId = snapshot.Cart.CompletedTransactionId;
         existing.ModifiedAt = snapshot.Cart.ModifiedAt;
         existing.ExpiresAt = null;
+        return Result.Success();
     }
 
     private async Task BroadcastAsync(

@@ -1,4 +1,5 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Carts.Dtos;
 using Retail25.Application.Carts.Services;
@@ -56,23 +57,27 @@ public sealed class CreateCartHandler : IRequestHandler<CreateCartCommand, Resul
 
         var existing = await _store.GetByStationAsync(request.StationId, ct);
 
-        // Resumed only if it can actually be addressed.
+        // Resumed only if the id it claims names a real row.
         //
-        // A cart whose id is 0 is one nothing can act on: every route is /carts/{cartId}/…, so the
-        // till can read that basket and never add to it, empty it or tender it. Carts opened before
-        // ids were assigned are exactly that, and because this method hands back any active cart for
-        // the station, one of them would be returned for ever — a station permanently unable to sell
-        // even though new carts are fine. Discarding it is the only exit, and it costs nothing that
-        // was reachable anyway.
-        if (existing is { Cart.IsActive: true } && existing.Cart.Id != 0)
+        // The store is a cache; the carts table is what decides whether a cart exists. Asking only
+        // whether the snapshot carries a non-zero id is asking the cache to vouch for itself, and it
+        // will: a cart parked by a build that numbered carts from a sequence has an id nobody ever
+        // inserted, so the till resumes it, fills it, and the write-behind is then asked to create a
+        // cart under an id the IDENTITY column will not accept. That is a sale lost at the moment of
+        // payment, and it repeats for ever, because this method hands back the same doomed cart every
+        // time the station asks for one.
+        //
+        // One extra existence check per cart opened buys the guarantee that everything downstream
+        // depends on: an addressable cart is one the database agrees exists.
+        if (existing is { Cart.IsActive: true } && await IsRecordedAsync(existing.Cart.Id, ct))
         {
             var current = await _pricing.QuoteAsync(existing, context, ct);
             return Result.Success(current.Dto);
         }
 
-        if (existing is { Cart.Id: 0 })
+        if (existing is not null)
         {
-            await _store.RemoveAsync(0, request.StationId, ct);
+            await _store.RemoveAsync(existing.Cart.Id, request.StationId, ct);
         }
 
         var cart = Cart.Open(
@@ -104,4 +109,8 @@ public sealed class CreateCartHandler : IRequestHandler<CreateCartCommand, Resul
 
         return Result.Success(quote.Dto);
     }
+
+    /// <summary>Whether the <c>carts</c> table has a row under this id. Id 0 never does.</summary>
+    private async Task<bool> IsRecordedAsync(long cartId, CancellationToken ct)
+        => cartId != 0 && await _db.Carts.AnyAsync(c => c.Id == cartId, ct);
 }
