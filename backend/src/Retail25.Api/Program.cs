@@ -63,6 +63,10 @@ var usesRedis =
     !string.Equals(cacheProvider, "InMemory", StringComparison.OrdinalIgnoreCase) &&
     !string.Equals(cacheProvider, "SqlServer", StringComparison.OrdinalIgnoreCase);
 
+// Singleton because it outlives a request by definition — the whole point is to still be holding
+// the failure when somebody asks about it afterwards.
+builder.Services.AddSingleton<RecentErrors>();
+
 // --- Health checks ---
 var health = builder.Services.AddHealthChecks()
     .AddSqlServer(

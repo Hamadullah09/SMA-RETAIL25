@@ -18,11 +18,16 @@ public sealed class ExceptionHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionHandlingMiddleware> _logger;
+    private readonly RecentErrors _recent;
 
-    public ExceptionHandlingMiddleware(RequestDelegate next, ILogger<ExceptionHandlingMiddleware> logger)
+    public ExceptionHandlingMiddleware(
+        RequestDelegate next,
+        ILogger<ExceptionHandlingMiddleware> logger,
+        RecentErrors recent)
     {
         _next = next;
         _logger = logger;
+        _recent = recent;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -55,10 +60,30 @@ public sealed class ExceptionHandlingMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception for {Path}", context.Request.Path);
+            var traceId = TraceIdOf(context);
+
+            _logger.LogError(ex, "Unhandled exception {TraceId} for {Path}", traceId, context.Request.Path);
+
+            // Recorded as well as logged, because the log goes to a console this deployment has no
+            // way to read back. The response still says nothing beyond the trace id — the detail is
+            // behind audit.read, on /api/v1/diagnostics/errors.
+            _recent.Record(
+                DateTimeOffset.UtcNow,
+                traceId,
+                context.Request.Method,
+                context.Request.Path.Value ?? string.Empty,
+                ex);
+
             await WriteAsync(context, StatusCodes.Status500InternalServerError, "server.error", "An unexpected error occurred.", null);
         }
     }
+
+    /// <summary>
+    /// The id printed on the response and stamped on the recorded failure, so a shopkeeper reading
+    /// an error off a till can be told exactly which one it was.
+    /// </summary>
+    private static string TraceIdOf(HttpContext context)
+        => System.Diagnostics.Activity.Current?.Id ?? context.TraceIdentifier;
 
     private static async Task WriteAsync(HttpContext context, int status, string code, string detail, object? extensions)
     {
@@ -76,6 +101,7 @@ public sealed class ExceptionHandlingMiddleware
         };
 
         problem.Extensions["code"] = code;
+        problem.Extensions["traceId"] = TraceIdOf(context);
 
         if (extensions is not null)
         {

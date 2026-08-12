@@ -134,9 +134,12 @@ public sealed class CommerceApiFixture : WebApplicationFactory<Program>, IAsyncL
                 ["ConnectionStrings:DefaultConnection"] = _sqlConnection,
                 ["ConnectionStrings:Redis"] = _redis?.GetConnectionString() ?? ExternalRedis ?? string.Empty,
 
-                // In-process when there is no Redis. Safe here for the reason it is not safe in a shop:
-                // cross-till tag arbitration is off, and this is one process running one till.
-                ["Cache:Provider"] = _redis is null && ExternalRedis is null ? "InMemory" : "Redis",
+                // SQL Server when there is no Redis, because that is what a shop without Redis
+                // actually runs — and because the in-process store is a dictionary that cannot fail
+                // the way a database can. Running these scenarios against it meant SqlCartStore,
+                // SqlIdempotencyStore and SqlTagDebouncer had no test at all, and a sale that could
+                // not be completed on the hosted deployment passed here every time.
+                ["Cache:Provider"] = _redis is null && ExternalRedis is null ? "SqlServer" : "Redis",
 
                 ["Database:Seed"] = "true",
 
