@@ -3,7 +3,7 @@ import { formatCurrency, recordIdFrom } from '@/lib/utils';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
-import { BrowseFormShell, Field, FormSection, NumberField } from '@/components/masters/browse-form';
+import { BrowseFormShell, Field, FormSection, NumberField, LiveBadge } from '@/components/masters/browse-form';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { useLiveGrid } from '@/lib/inventory-hub';
@@ -75,7 +75,7 @@ export default function PurchasingPage() {
     void load(false, null);
   }, [load]);
 
-  const { connected, changed } = useLiveGrid('purchase_order', locationId, setRows);
+  const { connected, hasEverConnected, changed } = useLiveGrid('purchase_order', locationId, setRows);
 
   const columns = useMemo<DataGridColumn<PurchaseOrderRow>[]>(
     () => [
@@ -95,7 +95,9 @@ export default function PurchasingPage() {
       title="Purchase Orders"
       toolbar={
         <>
-          {connected ? null : <span className="text-label text-negative">live updates offline</span>}
+          {/* One badge, one vocabulary — this screen used to invent its own wording, and said it in
+              red from the moment the page opened. */}
+          <LiveBadge connected={connected} hasEverConnected={hasEverConnected} />
           {canWrite ? (
             <button type="button" className="pos-button-primary" onClick={() => setShowGenerate(true)}>
               New Purchase Order

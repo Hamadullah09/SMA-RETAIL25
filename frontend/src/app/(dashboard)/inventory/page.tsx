@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
-import { BrowseFormShell, Field, FormSection, NumberField, TextField } from '@/components/masters/browse-form';
+import { BrowseFormShell, Field, FormSection, NumberField, TextField, LiveBadge } from '@/components/masters/browse-form';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { useLiveGrid } from '@/lib/inventory-hub';
@@ -56,7 +56,7 @@ export default function InventoryPage() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const { connected, changed } = useLiveGrid('stock_level', locationId, setRows);
+  const { connected, hasEverConnected, changed } = useLiveGrid('stock_level', locationId, setRows);
 
   const columns = useMemo<DataGridColumn<StockLevelRow>[]>(
     () => [
@@ -76,7 +76,9 @@ export default function InventoryPage() {
       title="Inventory"
       toolbar={
         <>
-          {connected ? null : <span className="text-label text-negative">live updates offline</span>}
+          {/* One badge, one vocabulary — this screen used to invent its own wording, and said it in
+              red from the moment the page opened. */}
+          <LiveBadge connected={connected} hasEverConnected={hasEverConnected} />
 
           {auth.can('inventory.transfer') ? (
             <Link className="pos-button" href="/inventory/transfers">

@@ -131,8 +131,13 @@ export function useLiveGrid<TRow extends { id: number }>(
   locationId: number | undefined,
   setRows: (updater: (current: TRow[]) => TRow[]) => void,
   options: { onSettingsChanged?: (section: string) => void } = {},
-): { connected: boolean; changed: ReadonlySet<number> } {
+): { connected: boolean; hasEverConnected: boolean; changed: ReadonlySet<number> } {
   const [connected, setConnected] = useState(false);
+
+  // Whether this grid has ever been live. Without it, "still opening" and "dropped out" are the
+  // same `connected === false`, and every screen reported the first as a fault — a red badge on a
+  // cold start, before anything has had a chance to go wrong.
+  const [hasEverConnected, setHasEverConnected] = useState(false);
   const [changed, setChanged] = useState<Set<number>>(new Set());
 
   // Held in a ref so the effect below depends on the location alone. Re-subscribing on every render
@@ -163,7 +168,10 @@ export function useLiveGrid<TRow extends { id: number }>(
     void hub
       .acquire(locationId, {
         onConnectionChanged: (isConnected) => {
-          if (!cancelled) setConnected(isConnected);
+          if (!cancelled) {
+            setConnected(isConnected);
+            if (isConnected) setHasEverConnected(true);
+          }
         },
         onRowChanged: (event) => {
           if (cancelled || event.entity !== entity) return;
@@ -203,5 +211,5 @@ export function useLiveGrid<TRow extends { id: number }>(
     };
   }, [entity, locationId, flash]);
 
-  return { connected, changed };
+  return { connected, hasEverConnected, changed };
 }

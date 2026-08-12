@@ -16,6 +16,7 @@ import {
 import { usePosStore } from '@/stores/pos-store';
 import type { CartLine, PriceOrigin } from '@/types/pos';
 import { cn } from '@/lib/utils';
+import { connectionCopy } from '@/lib/connection-state';
 
 /**
  * Money is formatted once, here, and always with tabular figures.
@@ -191,7 +192,12 @@ export function ConnectionBanner() {
       style={{ backgroundColor: 'oklch(var(--warning) / 0.12)', color: 'oklch(var(--warning))' }}
     >
       <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden />
-      Disconnected from the server — reconnecting. Totals on screen may be stale.
+      {/*
+        The same sentence the badges use, from the same place. This screen was the only one that
+        already waited for a first connection before complaining — the wording is now shared so the
+        rest inherit that judgement rather than each re-deciding it.
+      */}
+      {connectionCopy('reconnecting').detail} Totals on screen may be stale.
     </div>
   );
 }

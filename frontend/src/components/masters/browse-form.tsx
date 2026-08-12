@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { connectionCopy, connectionStateFrom } from '@/lib/connection-state';
 
 /**
  * The Browse + Form View pairing the legacy system used everywhere (guide p.23–24, p.30, p.46).
@@ -344,15 +345,34 @@ export function SelectField<T extends string | number>({
  * exactly like a grid where nothing has changed, and the user has no way to tell which they are
  * looking at.
  */
-export function LiveBadge({ connected }: { connected: boolean }) {
+export function LiveBadge({
+  connected,
+  hasEverConnected = true,
+}: {
+  connected: boolean;
+
+  /**
+   * Whether this screen has ever been connected. Defaults to true so an existing caller keeps its
+   * current behaviour, but passing it is what separates "still opening" from "dropped out" — the
+   * two used to look identical and read as a fault either way.
+   */
+  hasEverConnected?: boolean;
+}) {
+  const state = connectionStateFrom(connected, hasEverConnected);
+  const { label, detail, tone } = connectionCopy(state);
+
   return (
     <span
       className={cn(
         'pos-badge',
-        connected ? 'text-live' : 'text-warning',
+        tone === 'live' && 'text-live',
+        tone === 'warning' && 'text-warning',
+        tone === 'muted' && 'text-ink-muted',
       )}
+      role="status"
+      title={detail}
     >
-      {connected ? 'Live' : 'Not updating — reconnecting'}
+      {label}
     </span>
   );
 }
