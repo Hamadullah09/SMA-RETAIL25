@@ -830,3 +830,87 @@ money and stock adjustment enter, which is the correct boundary.
 `pos.sell`, `staff.time_clock`), matching the documented "everything reachable, nothing committed"
 intent.
 
+
+---
+
+## 23. Remediation Cycle — 12 August 2026
+
+Engineering cycle run against the live system. Every entry below was verified on
+`pos.sma-techno.net` or in its database, not inferred from a passing test.
+
+### 23.1 The regression I caused, and how it was found
+
+The CI pipeline watched `deploy/myasp-net-pos` while development continued on `main`. Deploying
+from it put a build on the live site **missing twenty commits** of remediation — the cart-identity
+fix that lets a sale be rung at all, per-machine station identity, the refresh-token fix, the
+currency fix, the year-long HSTS.
+
+Nothing failed. The deploy succeeded exactly as designed and **shipped the wrong code correctly**,
+which is the failure mode a green pipeline is worst at surfacing. It was caught by comparing the
+live `Strict-Transport-Security` header against what `main` sets, not by any test.
+
+Fixed by merging into `main` and pointing the trigger there: the branch that receives the work is
+the branch that deploys.
+
+### 23.2 Bugs fixed, deployed and verified live
+
+| ID | Severity | Root cause | Live verification |
+|---|---|---|---|
+| **CRITICAL-TENDER** | Critical | `Number(tendered) \|\| due` — `NaN` is falsy, so `abc` became the exact amount owed. The server had the same shape: `AmountTendered > 0 ? AmountTendered : Amount` | `abc`/`null` → **400** at the type boundary; negative → `tender.wrong_direction`; absurd → `tender.amount_too_large`; underpay → `tender.mismatch`. Valid payment: txn 22, Rs 2,240, tendered Rs 5,000 → **change Rs 2,760.00** |
+| **CRITICAL-UNIT** | Critical | `Sell()` required `InCart`; nothing calls `ClaimForCart()`; the refusal was discarded by `unit.Sell();`. Sold tags stayed `InStock` and could be rung again | Re-scan of a sold tag → **409 `epc.already_sold`**. Fresh sale txn 23 → `unit4.state = Sold`, `sold_but_instock = 0` |
+| **BUG-11** | High | `[FromQuery] long locationId` without `[BindRequired]` binds to `0`, matching nothing → silent empty list | All 5 endpoints → **400** with named field error; with `locationId` → real data |
+| **PB-4** | Critical | `StaffController` had no `[HttpPost]` — no create-staff endpoint existed anywhere | Created `ayesha.khan@sma.rms.com` → Cashier. 7 negative cases rejected. **0 orphans** both directions |
+| **BUG-09** | Low | `UseHsts()` with no MaxAge (30-day default) | `max-age=31536000; includeSubDomains` |
+| **CONFIG-1** | Medium | `appsettings.Production.json` shipped `https://your-site.example` and nothing replaced it | CSP now `form-action 'self' https://pos.sma-techno.net`; app refuses to boot on a placeholder |
+| **PERF-1** | Medium | `products.upc` had no index; every barcode scan was a full table scan | `ix_products_location_id_upc` unique, migration `20260812173159` recorded live |
+
+### 23.3 Data corruption found and repaired
+
+The unit-state defect had already corrupted production:
+
+- **9 sale lines** referenced units still marked `InStock`
+- **Units 1 and 7 were each sold twice**
+- **Products 2 and 8 reached an on-hand of −1**
+
+**Repaired:** 8 unit rows corrected to `Sold`; `sold_but_instock` is now 0.
+
+**Deliberately not repaired:** the two `on_hand = −1` rows. They record a real over-sale where money
+was taken twice for one physical item. Resetting the number would erase the evidence of a
+discrepancy that needs a refund or a stock adjustment — a business decision, not a database edit.
+
+### 23.4 Two corrections to my own work
+
+**Negative tenders are legitimate.** The first version of the tender guard rejected every negative
+amount and broke every refund — a return is a sale run backwards, its total and tenders negative
+because money leaves the drawer. The rule is direction, not sign. The existing test suite caught it.
+
+**Shortfall must stay a Result, not an error.** An early draft made an under-tender a hard failure,
+which broke a test asserting the existing contract: settlement returns success carrying
+`IsSettled = false`, so a caller can offer to part-pay. `CompleteSaleHandler` refuses on that flag.
+
+Both corrections also revise §22: **returns are implemented**, via `LineType.Return`.
+
+### 23.5 The skipped integration tests
+
+The earlier audit recorded 90 skipped. From the CI log:
+
+```
+Retail25.IntegrationTests.dll — Failed: 0, Passed: 104, Skipped: 0, Total: 104  (3m 8s)
+```
+
+**Zero skipped.** They run against real SQL Server containers on every push. The local skips are a
+missing Docker daemon on the development machine; Docker Desktop would not start headlessly.
+
+**Tests: 745 → 782 locally, 874 in CI with the integration suite.**
+
+### 23.6 Still open
+
+| Item | State |
+|---|---|
+| Two `on_hand = −1` rows | **Awaiting a business decision** — refund or stock adjustment |
+| Test transactions 22 and 23 on production | Real rows created during verification; void if unwanted |
+| PB-2 / BUG-04 WebSockets | Not yet investigated this cycle |
+| PB-6 backup / DR | Not started |
+| BUG-06 connection vocabulary, BUG-07 duplicate customers, BUG-08 reorder alerts | Not started |
+| SEC-1 password policy | Identity's validator enforces length; policy not yet strengthened |
+| Role behaviour at runtime | Account exists; requires signing in as that user |
