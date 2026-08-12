@@ -156,6 +156,56 @@ export function TextField({
 }
 
 /**
+ * A masked field, with a reveal.
+ *
+ * The reveal matters as much as the masking here: these are typed at a counter, in front of whoever
+ * is next in the queue, and an administrator setting someone's first password needs to be able to
+ * check they typed what they are about to read out.
+ */
+export function PasswordField({
+  label,
+  value,
+  onChange,
+  hint,
+  placeholder,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  hint?: string;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const [revealed, setRevealed] = useState(false);
+
+  return (
+    <Field label={label} hint={hint}>
+      <div className="relative">
+        <input
+          className={cn(inputClass, 'pr-16')}
+          type={revealed ? 'text' : 'password'}
+          value={value}
+          placeholder={placeholder}
+          disabled={disabled}
+          autoComplete="new-password"
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <button
+          type="button"
+          className="absolute inset-y-0 right-2 my-auto h-6 px-2 text-xs text-ink-muted hover:text-ink"
+          onClick={() => setRevealed((current) => !current)}
+          disabled={disabled}
+          aria-label={revealed ? 'Hide the password' : 'Show the password'}
+        >
+          {revealed ? 'Hide' : 'Show'}
+        </button>
+      </div>
+    </Field>
+  );
+}
+
+/**
  * A numeric field that keeps what the user typed while they are typing.
  *
  * Parsing on every keystroke and writing the number back is what makes "1.0" collapse to "1" mid-edit

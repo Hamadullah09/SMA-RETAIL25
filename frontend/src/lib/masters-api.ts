@@ -89,6 +89,8 @@ import type {
   ValidationFinding,
   HoursReportResult,
   StaffRow,
+  AssignableRole,
+  CreateStaffBody,
   TimeClockEntry,
   TimeClockState,
 } from '@/types/masters';
@@ -704,6 +706,19 @@ export const mastersApi = {
   staff: {
     browse: (locationId: number, includeInactive = false) =>
       call<StaffRow[]>(() => apiClient.get(`/staff?${query({ locationId, includeInactive })}`)),
+
+    /** The roles this deployment can assign — read from the server, never hardcoded in the picker. */
+    roles: () => call<AssignableRole[]>(() => apiClient.get('/staff/roles')),
+
+    /** Onboards a colleague: one sign-in and one staff record, created together. */
+    create: (body: CreateStaffBody) => call<StaffRow>(() => apiClient.post('/staff', body)),
+
+    /**
+     * An administrator setting someone's password for them. The id travels in the path so the
+     * password stays out of the query string, and out of the web server's request log.
+     */
+    resetPassword: (staffId: number, newPassword: string) =>
+      call<void>(() => apiClient.post(`/staff/${staffId}/password`, { newPassword })),
 
     myTimeClock: (locationId: number) =>
       call<TimeClockState>(() => apiClient.get(`/staff/time-clock/me?${query({ locationId })}`)),

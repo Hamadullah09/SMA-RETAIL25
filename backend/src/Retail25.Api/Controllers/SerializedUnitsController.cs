@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Catalog;
 using Retail25.Application.Rfid.Commands;
@@ -25,7 +26,7 @@ public sealed class SerializedUnitsController : ControllerBase
     [HttpGet("available")]
     public async Task<IActionResult> Available(
         [FromQuery] long productId,
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] int take = 50)
         => Ok(await _sender.Send(new ListAvailableUnitsQuery(productId, locationId, take)));
 
@@ -130,7 +131,7 @@ public sealed class MatrixController : ControllerBase
     [HttpGet("variants")]
     public async Task<IActionResult> Variants(
         long productId,
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] bool inStockOnly = false)
         => Ok(await _sender.Send(new ListVariantsQuery(productId, locationId, inStockOnly)));
 }

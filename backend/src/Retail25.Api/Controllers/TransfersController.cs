@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Inventory;
 using Retail25.Domain.Inventory;
@@ -20,7 +21,7 @@ public sealed class TransfersController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> Browse(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] TransferStatus? status = null,
         [FromQuery] bool includeInbound = true,
         [FromQuery] int skip = 0,
@@ -30,7 +31,7 @@ public sealed class TransfersController : ControllerBase
 
     /// <summary>Where stock can be sent, for the picker.</summary>
     [HttpGet("destinations")]
-    public async Task<IActionResult> Destinations([FromQuery] long locationId, CancellationToken ct)
+    public async Task<IActionResult> Destinations([FromQuery][BindRequired] long locationId, CancellationToken ct)
         => Ok(await _sender.Send(new ListTransferDestinationsQuery(locationId), ct));
 
     [HttpGet("{id:long}")]

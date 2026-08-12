@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Customers;
 
@@ -27,7 +28,7 @@ public sealed class CustomersController : ControllerBase
 
     [HttpGet]
     public async Task<IActionResult> Browse(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] string? search,
         [FromQuery] string? clientType,
         [FromQuery] bool withBalanceOnly = false,
@@ -49,7 +50,7 @@ public sealed class CustomersController : ControllerBase
     [HttpGet("search")]
     public async Task<IActionResult> Search(
         [FromQuery] string term,
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] int take = 25,
         CancellationToken ct = default)
     {
@@ -67,7 +68,7 @@ public sealed class CustomersController : ControllerBase
     }
 
     [HttpGet("client-types")]
-    public async Task<IActionResult> ClientTypes([FromQuery] long locationId, CancellationToken ct)
+    public async Task<IActionResult> ClientTypes([FromQuery][BindRequired] long locationId, CancellationToken ct)
         => Ok(await _sender.Send(new ListClientTypesQuery(locationId), ct));
 
     [HttpGet("{id:long}")]

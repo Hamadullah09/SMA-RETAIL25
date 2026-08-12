@@ -2,6 +2,7 @@ using System.Text;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Contracts.Terminals;
 using Retail25.Application.Sales.Commands;
@@ -23,7 +24,7 @@ public sealed class SalesController : ControllerBase
     /// <summary>The itemized sales log with filters (guide p.14–15).</summary>
     [HttpGet]
     public async Task<IActionResult> List(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
         [FromQuery] long? stationId = null,
@@ -39,7 +40,7 @@ public sealed class SalesController : ControllerBase
     /// <summary>The same rows as CSV — the modern "Open In MS-Excel" (guide p.101).</summary>
     [HttpGet("export")]
     public async Task<IActionResult> Export(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
         [FromQuery] long? stationId = null,

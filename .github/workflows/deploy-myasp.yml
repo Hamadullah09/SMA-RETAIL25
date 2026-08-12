@@ -1,31 +1,101 @@
-# Produces everything pos.sma-techno.net needs, as three downloadable artefacts:
+# Builds and deploys pos.sma-techno.net on every push to the deployment branch.
 #
-#   retail25-backend    the API, published framework-dependent, plus its IIS web.config
-#   retail25-frontend   the Next.js standalone server, its static assets and its web.config
-#   retail25-database   one idempotent SQL script that brings any schema version up to current
+# The channel is Web Deploy (MSDeploy) against the host's management service on port 8172, which
+# is the only remote deploy endpoint this plan exposes — FTP (21), FTPS (990) and SSH (22) are all
+# filtered. The endpoint answers `WWW-Authenticate: Basic realm="WebManagementService"`, so a
+# username and password from the control panel's publish profile is all it wants.
 #
-# Nothing here touches the host. myASP.NET's shared plan has no deploy endpoint we can reach
-# without handing a password to a CI runner, so the last step is a human uploading a zip. That
-# also means a failed deploy is a file copy to redo, not a pipeline to debug.
+# Two things about this host shape the whole file:
 #
-# Deliberately separate from ci.yml: CI proves the code is good, this one produces the bytes that
-# ship. They target different framework versions today (ci.yml still asks for 8.0.x against a
-# net10.0 solution) and fixing that belongs in its own change.
+#   1. The site root is the Next.js app and `/backend` is an ASP.NET Core sub-application *inside*
+#      it. A plain root sync would therefore delete the API, because the frontend artefact has no
+#      `backend` folder and Web Deploy's default is to make the destination match the source. The
+#      -skip rules below are the only thing standing between a routine deploy and a deleted API.
+#
+#   2. Windows locks a DLL while it is loaded, which is what makes a manual upload silently fail
+#      to overwrite the API. -enableRule:AppOffline is the fix: Web Deploy drops app_offline.htm,
+#      ANCM shuts the app down and releases the files, the sync runs, then the file is removed.
+#      This is the automated form of the manual dance in docs/runbooks.
+#
+# Database migrations are NOT run here. Program.cs calls MigrateAsync() at startup, so the schema
+# comes up to date on the first request after a deploy — which means CI never needs, and never
+# holds, a database credential. migrate.sql is still published as an artefact for the case where
+# a migration has to be inspected or applied by hand.
 
-name: Deploy build (myASP.NET)
+name: Deploy (myASP.NET)
 
 on:
-  workflow_dispatch:
   push:
-    tags: ['v*']
+    branches: [deploy/myasp-net-pos]
+    # Documentation and audit notes should not restart a till.
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+      - '.gitignore'
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Deploy without waiting for the test suite (use only to roll back)'
+        type: boolean
+        default: false
+      dry_run:
+        description: 'Preview only — report what would change on the host, write nothing'
+        type: boolean
+        default: false
+
+# One deploy at a time, and never cancel one that is already running: a cancelled sync leaves the
+# site half-written, which is worse than a queue.
+concurrency:
+  group: deploy-pos-sma-techno-net
+  cancel-in-progress: false
 
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
   NEXT_TELEMETRY_DISABLED: 1
+  SITE_ORIGIN: https://pos.sma-techno.net
+  WEBDEPLOY_HOST: win8238.site4now.net
 
 jobs:
+  # ---------------------------------------------------------------------------------------------
+  # Gate. This is a till that holds takings; a red test suite must not reach it.
+  # ---------------------------------------------------------------------------------------------
+  test:
+    if: ${{ !inputs.skip_tests }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # The whole solution, integration suite included.
+      #
+      # An earlier revision excluded the integration tests, on the belief that 4 of them were
+      # failing and would block every deploy. They passed on the first CI run, so the exclusion was
+      # removed: the failures were local to a developer machine, not a property of the code. If
+      # they turn out to be flaky rather than fixed, the escape hatch is `workflow_dispatch` with
+      # skip_tests — not a permanently narrowed gate.
+      - name: Backend tests
+        run: dotnet test backend/Retail25.sln -c Release --logger "console;verbosity=minimal"
+
+      - name: Frontend typecheck and lint
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run typecheck
+          npm run lint
+
   backend:
+    needs: [test]
+    if: ${{ always() && (needs.test.result == 'success' || inputs.skip_tests) }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,10 +105,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       # Framework-dependent, no runtime identifier: myASP.NET installs the .NET 10 runtime, and a
-      # self-contained publish would be ~70 MB of files we would then have to upload by hand.
-      # No -p:EnvironmentName here. It only steers the web.config transform, which the next step
-      # overwrites anyway — and in its `/p:` spelling it is eaten by MSYS path conversion on the
-      # Windows job, which is a confusing way to learn it was never needed.
+      # self-contained publish would be ~70 MB of files to push over Web Deploy on every change.
       - name: Publish the API
         run: >
           dotnet publish backend/src/Retail25.Api/Retail25.Api.csproj
@@ -62,57 +129,12 @@ jobs:
           name: retail25-backend
           path: artifacts/backend
 
-  database:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Install the EF tooling
-        run: dotnet tool install --global dotnet-ef
-
-      # `dotnet ef` reads the project's assets file, and only a restore writes one. The other two
-      # jobs get theirs for free because publishing implies a restore; this job never builds
-      # anything, so without an explicit restore `migrations script` stops at NETSDK1004 and the
-      # database artefact is silently absent from an otherwise green-looking run.
-      - name: Restore
-        run: dotnet restore backend/src/Retail25.Api/Retail25.Api.csproj
-
-      # Idempotent, so it is safe to run against a fresh database or one already partly migrated.
-      # No connection string is needed or wanted: DesignTimeDbContextFactory builds the model
-      # against a provider, not a server, so this never opens a socket.
-      - name: Script the migrations
-        run: |
-          mkdir -p artifacts/database
-          dotnet ef migrations script \
-            --idempotent \
-            --project backend/src/Retail25.Infrastructure \
-            --startup-project backend/src/Retail25.Api \
-            --output artifacts/database/migrate.sql
-
-      - name: Prove the script is not empty
-        run: |
-          set -euo pipefail
-          lines=$(wc -l < artifacts/database/migrate.sql)
-          if [ "$lines" -lt 50 ]; then
-            echo "::error::migrate.sql is $lines lines — the migrations did not script"
-            exit 1
-          fi
-          echo "Scripted $lines lines of schema."
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: retail25-database
-          path: artifacts/database
-
   frontend:
+    needs: [test]
+    if: ${{ always() && (needs.test.result == 'success' || inputs.skip_tests) }}
     # Windows, not Ubuntu. npm resolves optional native dependencies for the platform it installs
     # on, and Next's standalone trace copies whatever it finds — so a Linux build ships Linux .node
-    # binaries into a tree that IIS runs under Windows. myASP.NET's own Next.js article documents
-    # the failure ("Failed to load SWC binary for win32/x64") and its fix is exactly this.
+    # binaries into a tree that IIS runs under Windows ("Failed to load SWC binary for win32/x64").
     runs-on: windows-latest
     defaults:
       run:
@@ -185,3 +207,252 @@ jobs:
           name: retail25-frontend
           path: artifacts/frontend
           include-hidden-files: true
+
+  database:
+    needs: [test]
+    if: ${{ always() && (needs.test.result == 'success' || inputs.skip_tests) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install the EF tooling
+        run: dotnet tool install --global dotnet-ef
+
+      # `dotnet ef` reads the project's assets file, and only a restore writes one. This job never
+      # builds anything, so without an explicit restore `migrations script` stops at NETSDK1004 and
+      # the database artefact is silently absent from an otherwise green-looking run.
+      - name: Restore
+        run: dotnet restore backend/src/Retail25.Api/Retail25.Api.csproj
+
+      # Idempotent, and for reference only — the app migrates itself at startup. No connection
+      # string is needed or wanted: DesignTimeDbContextFactory builds the model against a provider,
+      # not a server, so this never opens a socket.
+      - name: Script the migrations
+        run: |
+          mkdir -p artifacts/database
+          dotnet ef migrations script \
+            --idempotent \
+            --project backend/src/Retail25.Infrastructure \
+            --startup-project backend/src/Retail25.Api \
+            --output artifacts/database/migrate.sql
+
+      - name: Prove the script is not empty
+        run: |
+          set -euo pipefail
+          lines=$(wc -l < artifacts/database/migrate.sql)
+          if [ "$lines" -lt 50 ]; then
+            echo "::error::migrate.sql is $lines lines — the migrations did not script"
+            exit 1
+          fi
+          echo "Scripted $lines lines of schema."
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: retail25-database
+          path: artifacts/database
+
+  # ---------------------------------------------------------------------------------------------
+  # The deploy itself.
+  # ---------------------------------------------------------------------------------------------
+  deploy:
+    needs: [backend, frontend]
+    runs-on: windows-latest
+
+    # Bind to a GitHub Environment so the credentials live in one place and a required reviewer
+    # can be added later without touching this file.
+    environment:
+      name: production
+      url: https://pos.sma-techno.net
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: retail25-frontend
+          path: artifacts/frontend
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: retail25-backend
+          path: artifacts/backend
+
+      - name: Check the deployment credentials are present
+        shell: pwsh
+        env:
+          SITE: ${{ secrets.MYASP_SITE_NAME }}
+          USER: ${{ secrets.MYASP_DEPLOY_USER }}
+          PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+        run: |
+          $missing = @()
+          if (-not $env:SITE) { $missing += 'MYASP_SITE_NAME' }
+          if (-not $env:USER) { $missing += 'MYASP_DEPLOY_USER' }
+          if (-not $env:PASS) { $missing += 'MYASP_DEPLOY_PASSWORD' }
+          if ($missing.Count -gt 0) {
+            Write-Output "::error::Missing repository secrets: $($missing -join ', '). Take them from the Web Deploy publish profile in the myASP.NET control panel."
+            exit 1
+          }
+          Write-Output "Credentials present."
+
+      # -----------------------------------------------------------------------------------------
+      # The API first. It is the dependency, so if this fails the front end is never touched and
+      # the site keeps serving the previous, working pair.
+      #
+      # AppOffline is what makes this possible unattended: Web Deploy writes app_offline.htm,
+      # ANCM releases the loaded DLLs, the sync overwrites them, the file is removed.
+      # -----------------------------------------------------------------------------------------
+      - name: Deploy the API to /backend
+        shell: pwsh
+        env:
+          SITE: ${{ secrets.MYASP_SITE_NAME }}
+          DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
+          DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $msdeploy = 'C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe'
+          $endpoint = "https://$env:WEBDEPLOY_HOST`:8172/msdeploy.axd?site=$env:SITE"
+
+          $deployArgs = @(
+            '-verb:sync'
+            "-source:contentPath=$(Resolve-Path artifacts/backend)"
+            "-dest:contentPath=$env:SITE/backend,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic"
+            '-allowUntrusted'
+            '-enableRule:AppOffline'
+            '-retryAttempts:6'
+            '-retryInterval:5000'
+            # Logs live on the host and must survive a deploy. The regex is passed as a single
+            # argv element, so it carries no shell quotes of its own.
+            '-skip:objectName=dirPath,absolutePath=.*\\logs.*'
+
+            # The OpenIddict signing and encryption keys. These exist only on the host — they are
+            # not in source control and not in the build — so a sync would delete them, and
+            # IdentityRegistration *throws on startup* outside Development when they are missing.
+            # The result is not degraded tokens, it is HTTP 500.30 and a dead API.
+            #
+            # A dry run caught this before the first deploy. Do not remove these two lines.
+            '-skip:objectName=dirPath,absolutePath=.*\\certs.*'
+            '-skip:objectName=filePath,absolutePath=.*\\certs\\.*'
+          )
+
+          # -whatif reports every add, update and delete without performing any of them. Worth one
+          # run before the first real deploy: the -skip rules below are what stop a root sync from
+          # deleting the API, and a preview is the cheapest way to prove they hold.
+          if ($env:DRY_RUN -eq 'true') {
+            Write-Output '::notice::DRY RUN — reporting changes to /backend, writing nothing'
+            $deployArgs += '-whatif'
+          }
+
+          & $msdeploy @deployArgs
+          if ($LASTEXITCODE -ne 0) { throw "msdeploy failed for /backend with exit code $LASTEXITCODE" }
+
+      # -----------------------------------------------------------------------------------------
+      # Then the front end, into the site root.
+      #
+      # The -skip rules are load-bearing. Web Deploy makes the destination match the source, and
+      # the source has no `backend` folder — without these, deploying the front end would delete
+      # the API. `logs` is skipped for the same reason in reverse: it exists only on the host.
+      # -----------------------------------------------------------------------------------------
+      - name: Deploy the front end to the site root
+        shell: pwsh
+        env:
+          SITE: ${{ secrets.MYASP_SITE_NAME }}
+          DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
+          DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $msdeploy = 'C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe'
+          $endpoint = "https://$env:WEBDEPLOY_HOST`:8172/msdeploy.axd?site=$env:SITE"
+
+          $deployArgs = @(
+            '-verb:sync'
+            "-source:contentPath=$(Resolve-Path artifacts/frontend)"
+            "-dest:contentPath=$env:SITE,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic"
+            '-allowUntrusted'
+            '-retryAttempts:6'
+            '-retryInterval:5000'
+            # Never let a root sync touch the API sub-application or the host-side logs. Without
+            # these three, deploying the front end deletes the API — the source tree has no
+            # `backend` folder, and sync makes the destination match the source.
+            '-skip:objectName=dirPath,absolutePath=.*\\backend$'
+            '-skip:objectName=dirPath,absolutePath=.*\\backend\\.*'
+            '-skip:objectName=filePath,absolutePath=.*\\backend\\.*'
+            '-skip:objectName=dirPath,absolutePath=.*\\logs.*'
+            '-skip:objectName=filePath,absolutePath=.*app_offline\.htm$'
+
+            # Let's Encrypt's HTTP-01 challenge directory. It is written by the host's renewal
+            # process, so it is never in the build and a sync would delete it. Nothing breaks the
+            # day that happens — the certificate simply fails to renew, and the site goes
+            # HTTPS-invalid around ninety days later, long after anyone would connect it to a
+            # deploy. Another find from the dry run.
+            '-skip:objectName=dirPath,absolutePath=.*\\\.well-known.*'
+            '-skip:objectName=filePath,absolutePath=.*\\\.well-known\\.*'
+          )
+
+          if ($env:DRY_RUN -eq 'true') {
+            Write-Output '::notice::DRY RUN — reporting changes to the site root, writing nothing'
+            Write-Output 'Read the output below for any line mentioning backend. There should be none.'
+            $deployArgs += '-whatif'
+          }
+
+          & $msdeploy @deployArgs
+          if ($LASTEXITCODE -ne 0) { throw "msdeploy failed for the site root with exit code $LASTEXITCODE" }
+
+      # -----------------------------------------------------------------------------------------
+      # Prove it actually came back. A deploy that reports success while the site returns 500 is
+      # the failure mode worth spending a minute of CI on.
+      #
+      # The first request after a deploy pays for a cold start and the startup migration, which on
+      # this host has been measured at ~17 seconds — hence the generous retry window rather than a
+      # single check.
+      # -----------------------------------------------------------------------------------------
+      # Nothing was written on a dry run, so there is nothing to prove came back.
+      - name: Smoke test
+        if: ${{ !inputs.dry_run }}
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Wait-For($url, $name) {
+            for ($i = 1; $i -le 20; $i++) {
+              try {
+                $response = Invoke-WebRequest -Uri $url -TimeoutSec 30 -SkipHttpErrorCheck
+                if ($response.StatusCode -eq 200) {
+                  Write-Output "$name OK (attempt $i)"
+                  return
+                }
+                Write-Output "$name returned $($response.StatusCode), retrying ($i/20)"
+              } catch {
+                Write-Output "$name not answering yet, retrying ($i/20)"
+              }
+              Start-Sleep -Seconds 15
+            }
+            throw "$name never came back after the deploy"
+          }
+
+          Wait-For "$env:SITE_ORIGIN/backend/health/ready" 'API readiness'
+          Wait-For "$env:SITE_ORIGIN/" 'Front end'
+
+      # A deploy that broke the site should be obvious in the run list, not discovered by a cashier.
+      # Values arrive as environment variables rather than being interpolated into the script body.
+      # job.status and github.sha are trustworthy, but making that judgement per-expression is how
+      # a script-injection eventually gets in; passing everything through env removes the question.
+      - name: Report
+        if: always()
+        shell: pwsh
+        env:
+          JOB_STATUS: ${{ job.status }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          if ($env:JOB_STATUS -eq 'success') {
+            Add-Content $env:GITHUB_STEP_SUMMARY "### Deployed to <$env:SITE_ORIGIN>"
+            Add-Content $env:GITHUB_STEP_SUMMARY ""
+            Add-Content $env:GITHUB_STEP_SUMMARY "Commit ``$env:COMMIT_SHA`` is live and answering health checks."
+          } else {
+            Add-Content $env:GITHUB_STEP_SUMMARY "### Deploy failed"
+            Add-Content $env:GITHUB_STEP_SUMMARY ""
+            Add-Content $env:GITHUB_STEP_SUMMARY "The site may be serving a half-updated build. Check the failing step before pushing again."
+          }

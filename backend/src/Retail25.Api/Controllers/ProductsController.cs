@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Net.Http.Headers;
 using Retail25.Api.Common;
@@ -64,7 +65,7 @@ public sealed class ProductsController : ControllerBase
     [HttpGet("search")]
     public async Task<IActionResult> Search(
         [FromQuery] string term,
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] int take = 25,
         CancellationToken ct = default)
         => Ok(await _resolver.SearchAsync(term, locationId, Math.Clamp(take, 1, 100), ct));
@@ -76,7 +77,7 @@ public sealed class ProductsController : ControllerBase
     [HttpGet("lookup")]
     public async Task<IActionResult> Lookup(
         [FromQuery] string identifier,
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] bool scanRandomWeightBarcodes = false,
         CancellationToken ct = default)
     {
@@ -153,7 +154,7 @@ public sealed class ProductsController : ControllerBase
     /// </summary>
     [HttpGet("grid")]
     public async Task<IActionResult> Grid(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] long? departmentId,
         [FromQuery] long? categoryId,
         [FromQuery] string? search,

@@ -2,6 +2,7 @@ using System.Globalization;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Inventory;
 
@@ -19,7 +20,7 @@ public sealed class FiscalYearsController : ControllerBase
     public FiscalYearsController(ISender sender) => _sender = sender;
 
     [HttpGet]
-    public async Task<IActionResult> List([FromQuery] long locationId, CancellationToken ct)
+    public async Task<IActionResult> List([FromQuery][BindRequired] long locationId, CancellationToken ct)
         => Ok(await _sender.Send(new ListFiscalYearsQuery(locationId), ct));
 
     [HttpPost]
@@ -40,7 +41,7 @@ public sealed class FiscalYearsController : ControllerBase
 
     [HttpGet("history")]
     public async Task<IActionResult> History(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] int? year = null,
         [FromQuery] long? productId = null,
         [FromQuery] int take = 500,
@@ -50,7 +51,7 @@ public sealed class FiscalYearsController : ControllerBase
     [HttpGet("history/export")]
     [Produces("text/csv")]
     public async Task<IActionResult> HistoryExport(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] int? year = null,
         [FromQuery] long? productId = null,
         CancellationToken ct = default)

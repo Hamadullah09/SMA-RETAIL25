@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.RateLimiting;
 using Retail25.Api.Common;
 using Retail25.Application.Audit;
@@ -79,7 +80,7 @@ public sealed class ApprovalsController : ControllerBase
         => (await _sender.Send(new DenySupervisorRequestCommand(approvalId, request?.Reason))).ToActionResult(this);
 
     [HttpGet("pending")]
-    public async Task<IActionResult> Pending([FromQuery] long locationId)
+    public async Task<IActionResult> Pending([FromQuery][BindRequired] long locationId)
         => Ok(await _sender.Send(new ListPendingApprovalsQuery(locationId)));
 }
 

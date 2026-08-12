@@ -222,6 +222,160 @@ In this order, because each step's failure mode is distinct:
 - **The RFID terminal agent is not deployed here.** It talks to reader hardware over the local
   network and belongs on a machine in the shop, not on shared hosting. `Rfid:ServerReaders:Enabled`
   stays false.
-- **`ci.yml` still asks for .NET 8** against a `net10.0` solution, and `deploy/Dockerfile.web`
-  references a `frontend/retail25-web/` path that does not exist. Neither affects this deployment;
-  both are wrong.
+- **`deploy/Dockerfile.web` references a `frontend/retail25-web/` path that does not exist.** It
+  does not affect this deployment, but the container build is broken. (The companion claim that
+  `ci.yml` targets .NET 8 was stale and has been removed — it asks for `10.0.x` on both jobs.)
+
+---
+
+# Continuous deployment
+
+Everything above describes the manual route, which remains the fallback. The normal path is now
+automatic: **push to `deploy/myasp-net-pos` and the site updates itself.**
+
+`.github/workflows/deploy-myasp.yml` runs tests, builds both applications, pushes them over Web
+Deploy, and then proves the site answers before it calls the deploy a success.
+
+## Why Web Deploy and not FTP
+
+Probed from outside the host, August 2026:
+
+| Port | Service | State |
+|---|---|---|
+| 21 | FTP | filtered |
+| 990 | FTPS | filtered |
+| 22 | SFTP/SSH | filtered |
+| **8172** | **Web Deploy management service** | **open** |
+
+The endpoint answers `WWW-Authenticate: Basic realm="WebManagementService"`, so Web Deploy is not
+merely reachable, it is enabled. It is also the better tool for the job: it syncs only the files
+that changed, and `-enableRule:AppOffline` performs the app_offline dance automatically — which is
+the whole reason a manual upload used to silently fail to replace a loaded DLL.
+
+## One-time setup
+
+Three repository secrets are required. Get them from the control panel: **Websites → pos →
+Publish Profile** (or *Web Deploy*), which downloads a `.PublishSettings` file. Open it in any text
+editor; it is XML, and the three values are attributes on the `publishProfile` element with
+`publishMethod="MSDeploy"`.
+
+Web Deploy is **off by default** on this plan. Turn it on first: **Websites → pos → VS Webdeploy →
+TURN ON**. The server-wide management service answers on 8172 either way, so a port probe is not
+evidence the feature is enabled for the site.
+
+Read from the live profile, August 2026:
+
+| Secret | Where it comes from | Value |
+|---|---|---|
+| `MYASP_SITE_NAME` | `msdeploySite` | `smatechnologies-001-site5` |
+| `MYASP_DEPLOY_USER` | `userName` | `smatechnologies-001` |
+| `MYASP_DEPLOY_PASSWORD` | `userPWD` | ships **blank** — use the control-panel password |
+
+The site name is neither the account name nor the website's display name ("pos"); it is the
+`-siteN` form. Guessing it wastes a run, so take it from `msdeploySite`.
+
+`publishUrl` confirms the endpoint host is `win8238.site4now.net`, which is what `WEBDEPLOY_HOST`
+in the workflow is pinned to. The profile's FTP entry (`ftp://win8238.site4now.net:21/pos`) is not
+usable: port 21 is firewalled from outside the datacentre.
+
+Add them under **Settings → Secrets and variables → Actions → New repository secret**. The deploy
+job binds to a `production` environment, so they can equally be set as environment secrets if you
+later want a required reviewer before anything reaches the till.
+
+The workflow checks all three are present and fails with a named list before it touches the host,
+so a missing secret costs a fast red run rather than a half-deployed site.
+
+**Do not commit the `.PublishSettings` file.** It contains the password in clear text.
+
+## What happens on a push
+
+1. **Gate** — domain, application, architecture and terminal-agent suites, plus the frontend
+   typecheck and lint. A red gate stops everything; nothing is uploaded.
+2. **Build** — the API published framework-dependent, and the Next.js standalone tree assembled on
+   a *Windows* runner (a Linux build ships Linux `.node` binaries that IIS cannot load).
+3. **Deploy the API first**, into `/backend`, with `AppOffline` so the loaded DLLs are released.
+   The API is the dependency: if this fails, the front end is never touched and the site carries on
+   serving the previous working pair.
+4. **Deploy the front end** into the site root.
+5. **Smoke test** — polls `/backend/health/ready` and `/` for up to five minutes. The first request
+   after a deploy pays for a cold start *and* the startup migration, which has been measured at
+   ~17 seconds on this host, so a single immediate check would report a false failure.
+
+Documentation-only pushes are ignored (`paths-ignore`), because an edit to an audit note should not
+restart a till.
+
+## The two rules that protect the API
+
+`/backend` is an IIS application **inside** the site root. Web Deploy's job is to make the
+destination match the source, and the front-end artefact contains no `backend` folder — so a plain
+root sync would delete the entire API.
+
+The `-skip` rules in the root sync step are the only thing preventing that. If you edit that step,
+keep them:
+
+```
+-skip:objectName=dirPath,absolutePath=.*\backend$
+-skip:objectName=dirPath,absolutePath=.*\backend\.*
+-skip:objectName=filePath,absolutePath=.*\backend\.*
+```
+
+`logs` is skipped for the mirror-image reason: it exists only on the host, and a sync would remove
+it.
+
+## Three directories that exist only on the host
+
+Web Deploy makes the destination match the source. Anything living on the host but not in the build
+is therefore a deletion candidate, and three of those matter. All three are `-skip`ped, and the
+first dry run proved each one was genuinely at risk:
+
+| Path | What losing it costs | When you would notice |
+|---|---|---|
+| `backend/certs/` | The OpenIddict signing and encryption keys. `IdentityRegistration` **throws on startup** outside Development when either is missing, so this is HTTP 500.30 and a dead API — not merely broken tokens. | Immediately |
+| `.well-known/acme-challenge/` | Let's Encrypt's HTTP-01 challenge. The certificate silently fails to renew. | **~90 days later**, when HTTPS goes invalid |
+| `logs/` | Host-side stdout logs. | When you next need them |
+
+The middle one is the reason to keep running dry runs after any change to the sync steps: it breaks
+nothing on the day, and by the time it surfaces nobody would connect it to a deploy.
+
+`backend/Retail25.Api.exe` is also proposed for deletion and that one is safe to allow. `web.config`
+runs `dotnet Retail25.Api.dll`, not the apphost, and a Linux publish produces no Windows `.exe`.
+
+**Prove it before trusting it.** `workflow_dispatch` has a `dry_run` input that adds `-whatif` to
+both syncs: Web Deploy reports every add, update and delete it *would* make and writes nothing.
+Run it once before the first real deploy and read the root-sync output for any line mentioning
+`backend`. There should be none. This is the cheapest possible check on the one mistake in this
+pipeline that would take the API down.
+
+## Migrations
+
+Not run by the pipeline, and deliberately. `Program.cs` calls `MigrateAsync()` at startup, so the
+schema comes up to date on the first request after a deploy. That means **CI never holds a database
+credential** — the smaller attack surface is worth more than the control.
+
+`migrate.sql` is still published as a build artefact for when a migration needs inspecting, or
+applying by hand against a database the app has not yet reached.
+
+## A note on the integration suite
+
+The first version of this pipeline excluded the integration tests from the gate, on the assumption
+that four known failures would otherwise block every deploy. They passed on the first CI run, so
+the exclusion was removed and the gate gates on the whole solution.
+
+The lesson is worth keeping: those four failures were a property of one developer's machine, not of
+the code. If the suite proves genuinely flaky in CI later, the answer is `workflow_dispatch` with
+`skip_tests` for the one deploy that cannot wait — not a permanently narrowed gate, which quietly
+stops being a gate at all.
+
+## Rolling back
+
+Deploys are builds of a commit, so a rollback is a deploy of the previous commit:
+
+```bash
+git revert <bad-commit> && git push
+```
+
+If the pipeline itself is the problem, **Actions → Deploy (myASP.NET) → Run workflow** takes a
+branch or tag and has a `skip_tests` input for when you need the previous build back immediately
+and already know it was green.
+
+The manual route above still works and needs nothing from GitHub.

@@ -1285,6 +1285,27 @@ export interface StaffRow {
   clockedInAt: string | null;
 }
 
+/** A role the server says this deployment can assign. Never hardcoded in the picker. */
+export interface AssignableRole {
+  name: string;
+  /** Legacy 0–4, used to preselect the matching access-level preset. Null for a custom role. */
+  legacyLevel: number | null;
+  description: string | null;
+}
+
+export interface CreateStaffBody {
+  email: string;
+  firstName: string;
+  lastName: string;
+  staffCode: string;
+  password: string;
+  role: string;
+  accessLevel: number;
+  locationId: number | null;
+  /** Optional. Four digits or more, for fast-switching at a till. */
+  pin: string | null;
+}
+
 export interface TimeClockState {
   entryId: number | null;
   staffId: number;

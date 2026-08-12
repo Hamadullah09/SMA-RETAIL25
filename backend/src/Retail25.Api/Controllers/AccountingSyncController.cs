@@ -2,6 +2,7 @@ using System.Text;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Accounting;
 using Retail25.Domain.Accounting;
@@ -31,7 +32,7 @@ public sealed class AccountingSyncController : ControllerBase
     public async Task<IActionResult> Trigger(
         string direction,
         SyncEntity entity,
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] DateOnly? businessDate = null,
         [FromQuery] long? purchaseOrderId = null,
         [FromQuery] DateOnly? dueOn = null)
@@ -48,7 +49,7 @@ public sealed class AccountingSyncController : ControllerBase
     [HttpGet("{entity}/export")]
     public async Task<IActionResult> Export(
         SyncEntity entity,
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] DateOnly? businessDate = null,
         [FromQuery] long? purchaseOrderId = null,
         [FromQuery] DateOnly? dueOn = null)
@@ -78,7 +79,7 @@ public sealed class AccountingSyncController : ControllerBase
     /// legacy integration failed silently (guide p.109–111).
     /// </summary>
     [HttpGet("preflight")]
-    public async Task<IActionResult> Preflight([FromQuery] long locationId)
+    public async Task<IActionResult> Preflight([FromQuery][BindRequired] long locationId)
         => Ok(await _sender.Send(new PreflightAccountingSyncQuery(locationId)));
 
     [HttpGet("log")]

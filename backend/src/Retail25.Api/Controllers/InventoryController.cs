@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Inventory;
 
@@ -18,7 +19,7 @@ public sealed class InventoryController : ControllerBase
 
     [HttpGet("stock-levels")]
     public async Task<IActionResult> StockLevels(
-        [FromQuery] long locationId,
+        [FromQuery][BindRequired] long locationId,
         [FromQuery] string? search,
         [FromQuery] bool belowReorderOnly = false,
         [FromQuery] string? cursor = null,
