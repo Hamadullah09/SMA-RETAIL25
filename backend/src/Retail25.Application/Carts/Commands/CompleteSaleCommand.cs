@@ -232,7 +232,12 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         if (!isTraining)
         {
             await ApplyStockEffectsAsync(transaction, snapshot, pricing, context, ct);
-            await ApplySerializedUnitsAsync(snapshot, ct);
+            var unitsMoved = await ApplySerializedUnitsAsync(snapshot, ct);
+            if (unitsMoved.IsFailure)
+            {
+                return Result.Failure<CompleteSaleResult>(unitsMoved.Error);
+            }
+
             await ApplyLoyaltyAsync(transaction, snapshot, pricing, context, now, ct);
             await ApplyGiftCertificatesAsync(snapshot, settled, tenderTypes, ct);
             await ApplyGiftCardsAsync(settled, tenderTypes, ct);
@@ -590,12 +595,12 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     /// Moves every tagged unit on the cart from InCart to Sold. The transition is guarded in the
     /// domain, so a unit a second station already sold cannot be sold twice (doc 06 §1).
     /// </summary>
-    private async Task ApplySerializedUnitsAsync(CartSnapshot snapshot, CancellationToken ct)
+    private async Task<Result> ApplySerializedUnitsAsync(CartSnapshot snapshot, CancellationToken ct)
     {
         var unitIds = snapshot.Lines.Where(l => l.SerializedUnitId.HasValue).Select(l => l.SerializedUnitId!.Value).ToList();
         if (unitIds.Count == 0)
         {
-            return;
+            return Result.Success();
         }
 
         var units = await _db.SerializedUnits.Where(u => unitIds.Contains(u.Id)).ToListAsync(ct);
@@ -604,19 +609,31 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         {
             var line = snapshot.Lines.First(l => l.SerializedUnitId == unit.Id);
 
-            if (line.LineType == LineType.Return)
+            // Both transitions are checked. Discarding these results is what let a sale complete
+            // over a unit that never moved off the shelf: Sell() refused, nobody read the refusal,
+            // the stock level went down anyway and the tag stayed sellable. A refused state change
+            // now stops the sale, inside the same transaction, so nothing is written at all.
+            var moved = line.LineType == LineType.Return ? unit.Return() : unit.Sell();
+
+            if (moved.IsFailure)
             {
-                unit.Return();
-                continue;
+                return Result.Failure(moved.Error
+                    .With("unitId", unit.Id)
+                    .With("epc", unit.Epc ?? string.Empty));
             }
 
-            unit.Sell();
+            if (line.LineType == LineType.Return)
+            {
+                continue;
+            }
 
             if (!string.IsNullOrWhiteSpace(unit.Epc))
             {
                 await _debouncer.ReleaseAsync(unit.Epc, snapshot.Cart.StationId, ct);
             }
         }
+
+        return Result.Success();
     }
 
     /// <summary>

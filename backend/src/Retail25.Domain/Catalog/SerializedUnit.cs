@@ -115,9 +115,29 @@ public sealed class SerializedUnit : Entity, IAuditable
         return Result.Success();
     }
 
+    /// <summary>
+    /// Sold, from either the shelf or a cart.
+    /// <para>
+    /// <see cref="ClaimForCart"/> is the documented step between the two, and nothing calls it: a
+    /// unit scanned at the till gets a <c>CartLine</c> and a debouncer claim on its EPC, and its own
+    /// state is left alone. So this insisted on <c>InCart</c>, was handed <c>InStock</c> every time,
+    /// returned a failure that the caller discarded, and the unit stayed on the shelf while the sale
+    /// completed and the stock level went down. Nine units on completed sale lines were still
+    /// <c>InStock</c>, two products had reached an on-hand of −1, and the same tag could be rung
+    /// again and again.
+    /// </para>
+    /// <para>
+    /// Accepting <c>InStock</c> is the honest fix rather than claiming on add, which would leave a
+    /// unit stranded in <c>InCart</c> every time a cart was abandoned — and carts here expire on a
+    /// twelve-hour TTL that nothing reconciles against. What must never happen is selling a unit
+    /// twice, and that is still refused: <c>Sold</c>, <c>Returned</c> and <c>Void</c> all fall
+    /// through to the failure below. Two tills racing the same row are separated by the row version,
+    /// which is a concurrency token on every entity here.
+    /// </para>
+    /// </summary>
     public Result Sell()
     {
-        if (State != SerializedUnitState.InCart)
+        if (State is not (SerializedUnitState.InCart or SerializedUnitState.InStock))
             return Result.Failure(InvalidStateTransition.With("from", State).With("to", SerializedUnitState.Sold));
 
         State = SerializedUnitState.Sold;
