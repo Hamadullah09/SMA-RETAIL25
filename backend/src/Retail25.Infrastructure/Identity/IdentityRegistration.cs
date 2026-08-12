@@ -63,21 +63,39 @@ public static class IdentityRegistration
             {
                 // Lockout is on by default: an unlimited password prompt on a machine sitting in a
                 // shop is a machine anyone can work on all afternoon.
-                options.Lockout.MaxFailedAccessAttempts = 5;
-                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
                 options.Lockout.AllowedForNewUsers = true;
 
-                options.Password.RequiredLength = 8;
-                options.Password.RequireDigit = true;
-                options.Password.RequireLowercase = false;
-                options.Password.RequireUppercase = false;
-                options.Password.RequireNonAlphanumeric = false;
+                // Length over composition, which is NIST SP 800-63B's position and the opposite of
+                // what this used to do. Eight characters plus a digit is satisfied by "password1",
+                // and the rules that would reject it — a capital, a symbol — are satisfied by
+                // "Password1!", which is no better. Twelve characters with a banned-password check
+                // (see WeakPasswordValidator) refuses both and stops pushing people towards the
+                // predictable substitutions that composition rules reward.
+                //
+                // Configurable because a password policy is an operational decision, not a
+                // deployment constant, and the audit listed this among the values that were neither.
+                options.Password.RequiredLength = configuration.GetValue("Auth:Password:MinimumLength", 12);
+                options.Password.RequireDigit = configuration.GetValue("Auth:Password:RequireDigit", false);
+                options.Password.RequireLowercase = configuration.GetValue("Auth:Password:RequireLowercase", false);
+                options.Password.RequireUppercase = configuration.GetValue("Auth:Password:RequireUppercase", false);
+                options.Password.RequireNonAlphanumeric = configuration.GetValue("Auth:Password:RequireSymbol", false);
+                options.Password.RequiredUniqueChars = configuration.GetValue("Auth:Password:RequiredUniqueChars", 4);
+
+                options.Lockout.MaxFailedAccessAttempts =
+                    configuration.GetValue("Auth:Lockout:MaxFailedAttempts", 5);
+                options.Lockout.DefaultLockoutTimeSpan =
+                    TimeSpan.FromMinutes(configuration.GetValue("Auth:Lockout:Minutes", 15));
 
                 options.User.RequireUniqueEmail = true;
                 options.SignIn.RequireConfirmedAccount = false;
             })
             .AddEntityFrameworkStores<ApplicationDbContext>()
-            .AddDefaultTokenProviders();
+            .AddDefaultTokenProviders()
+
+            // Runs alongside the built-in rules rather than replacing them: Identity collects every
+            // validator's verdict, so a password can fail on length and on being guessable at once
+            // and the person setting it is told both.
+            .AddPasswordValidator<WeakPasswordValidator>();
 
         // Without this, AddIdentity's own default UserClaimsPrincipalFactory is what actually runs —
         // ApplicationClaimsPrincipalFactory below is fully implemented but inert unless it explicitly
