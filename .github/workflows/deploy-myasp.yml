@@ -311,6 +311,15 @@ jobs:
             # Logs live on the host and must survive a deploy. The regex is passed as a single
             # argv element, so it carries no shell quotes of its own.
             '-skip:objectName=dirPath,absolutePath=.*\\logs.*'
+
+            # The OpenIddict signing and encryption keys. These exist only on the host — they are
+            # not in source control and not in the build — so a sync would delete them, and
+            # IdentityRegistration *throws on startup* outside Development when they are missing.
+            # The result is not degraded tokens, it is HTTP 500.30 and a dead API.
+            #
+            # A dry run caught this before the first deploy. Do not remove these two lines.
+            '-skip:objectName=dirPath,absolutePath=.*\\certs.*'
+            '-skip:objectName=filePath,absolutePath=.*\\certs\\.*'
           )
 
           # -whatif reports every add, update and delete without performing any of them. Worth one
@@ -358,6 +367,14 @@ jobs:
             '-skip:objectName=filePath,absolutePath=.*\\backend\\.*'
             '-skip:objectName=dirPath,absolutePath=.*\\logs.*'
             '-skip:objectName=filePath,absolutePath=.*app_offline\.htm$'
+
+            # Let's Encrypt's HTTP-01 challenge directory. It is written by the host's renewal
+            # process, so it is never in the build and a sync would delete it. Nothing breaks the
+            # day that happens — the certificate simply fails to renew, and the site goes
+            # HTTPS-invalid around ninety days later, long after anyone would connect it to a
+            # deploy. Another find from the dry run.
+            '-skip:objectName=dirPath,absolutePath=.*\\\.well-known.*'
+            '-skip:objectName=filePath,absolutePath=.*\\\.well-known\\.*'
           )
 
           if ($env:DRY_RUN -eq 'true') {
