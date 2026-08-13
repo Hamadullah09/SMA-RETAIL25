@@ -68,6 +68,17 @@ public sealed class SaleLine : Entity
 
     public bool ReturnedToStock { get; set; }
 
+    /// <summary>
+    /// The line on the original sale that this line gives back, when this is a refund.
+    /// <para>
+    /// Refunds are counted against it, which is what makes "how much of this line is still
+    /// refundable" answerable: sold quantity less everything already given back. Matching a refund
+    /// to its original by sequence number would look equivalent and quietly stop working the first
+    /// time a customer refunds one shirt today and the other next week.
+    /// </para>
+    /// </summary>
+    public long? RefundsSaleLineId { get; set; }
+
     public string? Note { get; set; }
 }
 

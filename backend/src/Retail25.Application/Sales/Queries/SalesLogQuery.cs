@@ -72,7 +72,13 @@ public sealed record SaleDetailLineDto(
     decimal Tax2Amount,
     PriceOrigin PriceOrigin,
     LineType LineType,
-    string? Epc);
+    string? Epc,
+    /// <summary>The line's own id, which a refund is raised against.</summary>
+    long SaleLineId = 0,
+    /// <summary>How much of this line has already been given back.</summary>
+    decimal RefundedQuantity = 0m,
+    /// <summary>What is left to give back — what the refund screen may offer.</summary>
+    decimal RefundableQuantity = 0m);
 
 public sealed record SaleDetailTenderDto(string TenderName, decimal Amount, decimal AmountTendered, decimal ChangeGiven, string? Reference);
 
@@ -169,6 +175,17 @@ public sealed class SalesLogHandlers
             .Where(t => t.TransactionId == transaction.Id)
             .ToListAsync(ct);
 
+        // What has already gone back, so the screen offers only what is left. Read from the refund
+        // lines themselves rather than a running total, so a refund that rolled back leaves nothing
+        // behind to over-count.
+        var lineIds = lines.Select(l => l.Id).ToList();
+
+        var refunded = await _db.SaleLines.AsNoTracking()
+            .Where(l => l.RefundsSaleLineId != null && lineIds.Contains(l.RefundsSaleLineId!.Value))
+            .GroupBy(l => l.RefundsSaleLineId!.Value)
+            .Select(g => new { SaleLineId = g.Key, Quantity = g.Sum(l => -l.Quantity) })
+            .ToDictionaryAsync(x => x.SaleLineId, x => x.Quantity, ct);
+
         var tenderNames = await _db.TenderTypes.AsNoTracking().ToDictionaryAsync(t => t.Id, t => t.DisplayName, ct);
         var taxSnapshot = await _db.SaleTaxSnapshots.AsNoTracking().FirstOrDefaultAsync(s => s.TransactionId == transaction.Id, ct);
 
@@ -202,7 +219,10 @@ public sealed class SalesLogHandlers
                 l.Tax2Amount,
                 l.PriceOrigin,
                 l.LineType,
-                l.Epc)).ToList(),
+                l.Epc,
+                l.Id,
+                refunded.GetValueOrDefault(l.Id),
+                l.LineType == LineType.Sale ? l.Quantity - refunded.GetValueOrDefault(l.Id) : 0m)).ToList(),
             tenders.Select(t => new SaleDetailTenderDto(
                 tenderNames.TryGetValue(t.TenderTypeId, out var name) ? name : "Tender",
                 t.Amount,

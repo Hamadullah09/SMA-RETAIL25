@@ -59,6 +59,34 @@ public sealed class SalesController : ControllerBase
         => (await _sender.Send(new GetSaleQuery(transactionId))).ToActionResult(this);
 
     /// <summary>
+    /// Gives part of a sale back, as its own transaction.
+    /// <para>
+    /// The <c>Idempotency-Key</c> header is required for the reason it is required on completion: a
+    /// retried refund must hand back the first one, not pay the customer twice.
+    /// </para>
+    /// </summary>
+    [HttpPost("{transactionId:long}/refund")]
+    public async Task<IActionResult> Refund(
+        long transactionId,
+        [FromBody] RefundRequest request,
+        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey)
+    {
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return ResultExtensions.Problem(
+                new Domain.Common.Error("idempotency.key_required", "An Idempotency-Key header is required to refund a sale."),
+                this);
+        }
+
+        return (await _sender.Send(new RefundSaleCommand(
+            transactionId,
+            request.Lines,
+            request.Tenders,
+            idempotencyKey,
+            request.Reason))).ToActionResult(this);
+    }
+
+    /// <summary>
     /// Voids a sale by writing a reversal (guide p.14). Requires an idempotency key for the same
     /// reason completion does: a retried void must not reverse the sale twice.
     /// </summary>
@@ -109,6 +137,11 @@ public sealed class SalesController : ControllerBase
 }
 
 public sealed record VoidSaleRequest(string? Reason = null, long? ApprovedByStaffId = null);
+
+public sealed record RefundRequest(
+    IReadOnlyList<RefundLineRequest> Lines,
+    IReadOnlyList<RefundTenderRequest> Tenders,
+    string? Reason = null);
 
 public sealed record ReprintRequest(
     ReceiptFormat Format = ReceiptFormat.Slip40,

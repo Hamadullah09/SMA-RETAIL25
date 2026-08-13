@@ -77,6 +77,15 @@ public sealed class SaleLineConfiguration : IEntityTypeConfiguration<SaleLine>
 
         builder.HasIndex(l => l.TransactionId);
         builder.HasIndex(l => l.ProductId);
+
+        // Every sale detail asks how much of each line has already come back, and every refund asks
+        // again before allowing another. Without this the answer is a scan of every line ever sold —
+        // fine on the shop's first day, not on its thousandth.
+        //
+        // Filtered, because only refund lines carry the column and they are a small minority of a
+        // table that grows with every item sold.
+        builder.HasIndex(l => l.RefundsSaleLineId)
+            .HasFilter("[refunds_sale_line_id] IS NOT NULL");
     }
 }
 
