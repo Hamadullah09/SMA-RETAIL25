@@ -34,6 +34,9 @@ import type {
   StockValuationDetailPage,
   StockValuationResult,
   TaxReportResult,
+  RefundLineRequest,
+  RefundResult,
+  RefundTenderRequest,
   SaleDetail,
   SalesLogPage,
   SettingsSnapshot,
@@ -461,8 +464,27 @@ export const mastersApi = {
 
     get: (transactionId: number) => call<SaleDetail>(() => apiClient.get(`/sales/${transactionId}`)),
 
-    reprint: (transactionId: number, stationId: number, copies = 1) =>
+    /** Station omitted means "wherever this sale was rung", which the server already knows. */
+    reprint: (transactionId: number, stationId?: number, copies = 1) =>
       call<unknown>(() => apiClient.post(`/sales/${transactionId}/reprint`, { stationId, copies })),
+
+    /**
+     * Gives part of a sale back. Carries an idempotency key for the reason paying does: a retried
+     * refund must hand back the first one rather than pay the customer twice.
+     */
+    refund: (
+      transactionId: number,
+      lines: RefundLineRequest[],
+      tenders: RefundTenderRequest[],
+      reason?: string,
+    ) =>
+      call<RefundResult>(() =>
+        apiClient.post(
+          `/sales/${transactionId}/refund`,
+          { lines, tenders, reason },
+          { headers: { 'Idempotency-Key': crypto.randomUUID() } },
+        ),
+      ),
 
     /** The URL the browser downloads from — the modern "Open In MS-Excel" (guide p.101). */
     exportUrl: (locationId: number, filters: SalesLogFilters = {}) =>

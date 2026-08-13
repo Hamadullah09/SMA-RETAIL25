@@ -16,6 +16,7 @@ import {
   Package,
   PanelLeftClose,
   PanelLeftOpen,
+  Receipt,
   Settings,
   ShoppingCart,
   Truck,
@@ -74,6 +75,7 @@ const navSections: Array<{ heading: string; items: NavItem[] }> = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/pos', label: 'Point of Sale', icon: ShoppingCart },
+      { href: '/sales', label: 'Previous sales', icon: Receipt },
       {
         href: '/catalog/products',
         label: 'Inventory',

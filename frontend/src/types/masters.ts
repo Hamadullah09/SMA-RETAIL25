@@ -793,6 +793,31 @@ export interface SaleDetailLine {
   priceOrigin: string;
   lineType: string;
   epc: string | null;
+  /** The line a refund is raised against. */
+  saleLineId: number;
+  /** How much of this line has already gone back. */
+  refundedQuantity: number;
+  /** What is left to give back — what the refund panel may offer. */
+  refundableQuantity: number;
+}
+
+/** One line the customer is handing back, and how much of it. */
+export interface RefundLineRequest {
+  saleLineId: number;
+  quantity: number;
+}
+
+/** How the money goes back. Stated as a positive: this much leaves the till. */
+export interface RefundTenderRequest {
+  tenderTypeId: number;
+  amount: number;
+  reference?: string | null;
+}
+
+export interface RefundResult {
+  refundTransactionId: number;
+  refundTransactionNumber: number;
+  refundedTotal: number;
 }
 
 export interface SaleDetailTender {
