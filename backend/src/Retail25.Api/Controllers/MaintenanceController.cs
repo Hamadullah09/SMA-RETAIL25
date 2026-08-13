@@ -32,4 +32,32 @@ public sealed class MaintenanceController : ControllerBase
     [HttpPost("backups/restore")]
     public async Task<IActionResult> Restore([FromBody] RestoreDatabaseBackupCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
+
+    /// <summary>
+    /// Streams a backup off the server.
+    /// <para>
+    /// This is what makes the rest of it a backup. An archive sitting on the same machine as the
+    /// database it protects is one power supply away from being no backup at all, so the operator
+    /// has to be able to take a copy away — and a shopkeeper's way of doing that is a download.
+    /// </para>
+    /// <para>
+    /// Behind <c>system.backup</c> like everything else here: the file is the whole shop's data.
+    /// </para>
+    /// </summary>
+    [HttpGet("backups/{fileName}")]
+    public async Task<IActionResult> Download(string fileName, CancellationToken ct)
+    {
+        var allowed = await _sender.Send(new AuthorizeBackupDownloadQuery(fileName), ct);
+        if (allowed.IsFailure)
+        {
+            return ResultExtensions.Problem(allowed.Error, this);
+        }
+
+        // FileStream rather than a byte array: a year of sales should not have to fit in memory to
+        // be downloaded, and the framework disposes the stream once the response is written.
+        return File(
+            new FileStream(allowed.Value, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, useAsync: true),
+            "application/zip",
+            fileName);
+    }
 }

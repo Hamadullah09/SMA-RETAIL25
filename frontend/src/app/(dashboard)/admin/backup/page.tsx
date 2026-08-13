@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Database,
   DatabaseBackup,
+  Download,
   HardDriveDownload,
   Lock,
   RotateCcw,
@@ -198,16 +199,34 @@ export default function BackupPage() {
                       {formatSize(file.sizeBytes)}
                     </td>
                     <td className={cn(td, 'text-right')}>
-                      <button
-                        type="button"
-                        className="pos-button-danger"
-                        onClick={() => void restore(file)}
-                        disabled={working}
-                        title={`Replace the whole database with ${file.fileName}`}
-                      >
-                        <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
-                        Restore over everything
-                      </button>
+                      <div className="flex items-center justify-end gap-2">
+                        {/*
+                          A plain link, not a fetch. The browser streams it straight to disk, so a
+                          year of sales never has to be held in the page — and this is the step that
+                          makes the rest of it a backup: a copy sitting on the same machine as the
+                          database it protects is one power supply away from being nothing.
+                        */}
+                        <a
+                          className="pos-button"
+                          href={`/api/proxy/maintenance/backups/${encodeURIComponent(file.fileName)}`}
+                          download={file.fileName}
+                          title={`Save ${file.fileName} to this computer`}
+                        >
+                          <Download className="h-3.5 w-3.5" aria-hidden />
+                          Download
+                        </a>
+
+                        <button
+                          type="button"
+                          className="pos-button-danger"
+                          onClick={() => void restore(file)}
+                          disabled={working}
+                          title={`Replace the whole database with ${file.fileName}`}
+                        >
+                          <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+                          Restore over everything
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

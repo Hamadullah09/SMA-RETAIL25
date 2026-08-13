@@ -45,6 +45,33 @@ public sealed class SqlServerDatabaseBackupService : IDatabaseBackupService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Only when the database is on this machine.
+    /// <para>
+    /// <c>BACKUP DATABASE … TO DISK</c> writes on the SQL Server's own filesystem. When that is a
+    /// different host — every shared plan, including the one this is deployed on — the path here
+    /// names a file that does not exist locally, and saying so beats streaming a 404 the operator
+    /// has to interpret.
+    /// </para>
+    /// </summary>
+    public Result<string> ResolvePath(string fileName)
+    {
+        if (string.IsNullOrWhiteSpace(fileName)
+            || fileName.Contains("..", StringComparison.Ordinal)
+            || Path.GetFileName(fileName) != fileName)
+        {
+            return Result.Failure<string>(InvalidName.With("fileName", fileName));
+        }
+
+        var path = Path.Combine(_directory, fileName);
+
+        return File.Exists(path)
+            ? Result.Success(path)
+            : Result.Failure<string>(NotFound
+                .With("fileName", fileName)
+                .With("detail", "A native backup is written on the database server. If that is not this machine, the file cannot be downloaded from here — set Backup:Mode to Portable."));
+    }
+
     public async Task<Result<BackupFileDto>> BackupAsync(CancellationToken ct)
     {
         Directory.CreateDirectory(_directory);

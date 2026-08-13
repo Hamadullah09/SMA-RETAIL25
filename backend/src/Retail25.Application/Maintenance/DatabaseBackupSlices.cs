@@ -18,6 +18,13 @@ public sealed record BackupFileDto(string FileName, long SizeBytes, DateTimeOffs
 /// </summary>
 public interface IDatabaseBackupService
 {
+    /// <summary>
+    /// Resolves a named backup to something the API can stream, refusing anything that is not one
+    /// of ours. Implementations that keep their archives on another machine cannot answer this,
+    /// which is itself the reason the portable format exists.
+    /// </summary>
+    Result<string> ResolvePath(string fileName);
+
     Task<Result<BackupFileDto>> BackupAsync(CancellationToken ct);
 
     Task<Result<IReadOnlyList<BackupFileDto>>> ListAsync(CancellationToken ct);
@@ -38,6 +45,28 @@ public sealed record ListDatabaseBackupsQuery : IRequest<Result<IReadOnlyList<Ba
 
 [RequiresPermission(PermissionKeys.System.Backup)]
 public sealed record RestoreDatabaseBackupCommand(string FileName) : IRequest<Result>;
+
+/// <summary>
+/// Checks the caller may download this archive, and where it is. A query rather than a controller
+/// check so the permission is enforced in the same place as every other one — a hidden button is
+/// not security, and neither is a route nobody has linked to.
+/// </summary>
+[RequiresPermission(PermissionKeys.System.Backup)]
+public sealed record AuthorizeBackupDownloadQuery(string FileName) : IRequest<Result<string>>;
+
+public sealed class AuthorizeBackupDownloadHandler : IRequestHandler<AuthorizeBackupDownloadQuery, Result<string>>
+{
+    private readonly IDatabaseBackupService _backups;
+
+    public AuthorizeBackupDownloadHandler(IDatabaseBackupService backups) => _backups = backups;
+
+    public Task<Result<string>> Handle(AuthorizeBackupDownloadQuery request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        return Task.FromResult(_backups.ResolvePath(request.FileName));
+    }
+}
 
 public sealed class CreateDatabaseBackupHandler : IRequestHandler<CreateDatabaseBackupCommand, Result<BackupFileDto>>
 {

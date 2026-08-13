@@ -41,7 +41,26 @@ public static class DependencyInjection
         services.AddSingleton<IDateTime, SystemClock>();
         services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddScoped<IRequestContext, HttpRequestContext>();
-        services.AddSingleton<IDatabaseBackupService, Retail25.Infrastructure.Maintenance.SqlServerDatabaseBackupService>();
+        // Which kind of backup this deployment can actually take.
+        //
+        // `Native` is BACKUP DATABASE, which is the better tool when the database is on a machine
+        // you control: it captures the whole database, indexes and all. It cannot work when the
+        // database is somewhere else — the file lands on the SQL Server's disk, where the
+        // application cannot see it, list it or offer it for download — which is the shape of every
+        // shared-hosting plan, including this one.
+        //
+        // `Portable` therefore is the default: it reads the data through the connection the
+        // application already has, so it works anywhere the app runs at all. Configuration decides,
+        // because which one is right is a fact about the deployment and not about the code.
+        if (string.Equals(configuration["Backup:Mode"], "Native", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddSingleton<IDatabaseBackupService, Retail25.Infrastructure.Maintenance.SqlServerDatabaseBackupService>();
+        }
+        else
+        {
+            services.AddScoped<IDatabaseBackupService, Retail25.Infrastructure.Maintenance.PortableDatabaseBackupService>();
+            services.AddScoped<Retail25.Infrastructure.Maintenance.PortableDatabaseBackupService>();
+        }
         services.AddScoped<IAuditWriter, AuditWriter>();
         services.AddScoped<AuditingInterceptor>();
 
