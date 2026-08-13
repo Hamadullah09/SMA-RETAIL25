@@ -363,16 +363,32 @@ jobs:
           # Not fatal if the host refuses: shared plans do not always delegate recycleApp, and a
           # deploy that could have worked should not be abandoned because a best-effort stop was
           # declined. The sync's own retries are the fallback.
+          # ErrorActionPreference is dropped to Continue around this call, and that is the whole
+          # difference between "best effort" and "best effort that still fails the job". msdeploy
+          # writes to stderr when the host declines, and under 'Stop' PowerShell promotes any
+          # stderr from a native command to a terminating error — so the optional step aborted the
+          # deploy exactly as if it had been mandatory.
+          $previous = $ErrorActionPreference
+          $ErrorActionPreference = 'Continue'
+
           & $msdeploy `
             -verb:sync `
             -source:recycleApp `
             "-dest:recycleApp=$env:SITE,recycleMode=StopAppPool,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic" `
-            -allowUntrusted 2>&1 | Write-Output
+            -allowUntrusted 2>&1 | ForEach-Object { Write-Output $_ }
 
-          if ($LASTEXITCODE -ne 0) {
-            Write-Output "::warning::Could not stop the application pool (exit $LASTEXITCODE). Continuing; the sync will retry against whatever still holds the files."
-          } else {
+          $stopped = $LASTEXITCODE -eq 0
+          $ErrorActionPreference = $previous
+
+          if ($stopped) {
             Write-Output 'Application pool stopped.'
+          } else {
+            # Observed on this plan: "The server experienced an issue processing the request",
+            # which is the host declining to delegate recycleApp rather than anything being wrong
+            # with the request. The lock is intermittent — the host unloads an idle app, and a
+            # deploy that lands in that window sees no lock at all — so the sync's own retries are
+            # a real fallback rather than a hopeful one.
+            Write-Output '::warning::The host would not stop the application pool. Continuing; the sync will retry against whatever still holds the files.'
           }
 
           # Give the worker process time to exit and let go of its DLLs.
@@ -442,18 +458,24 @@ jobs:
           DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
           DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
         run: |
+          # Deliberately not 'Stop'. Every command here is recovery, and a recovery step that
+          # aborts on the first stderr line is how the API stayed offline in the first place.
+          $ErrorActionPreference = 'Continue'
           $msdeploy = 'C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe'
           $endpoint = "https://$env:WEBDEPLOY_HOST`:8172/msdeploy.axd?site=$env:SITE"
 
           # Start the pool before removing the offline file, so the first request after the file
           # disappears meets a running worker rather than a cold start on top of one.
+          # Same treatment as the stop: this step must never be the reason the API stays offline.
+          $ErrorActionPreference = 'Continue'
+
           & $msdeploy `
             -verb:sync `
             -source:recycleApp `
             "-dest:recycleApp=$env:SITE,recycleMode=StartAppPool,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic" `
-            -allowUntrusted 2>&1 | Write-Output
+            -allowUntrusted 2>&1 | ForEach-Object { Write-Output $_ }
 
-          Write-Output "start pool exit code: $LASTEXITCODE (a pool already running is fine)"
+          Write-Output "start pool exit code: $LASTEXITCODE (declined or already running is fine)"
 
           # `delete` on a path that is already gone is not an error worth failing the job over —
           # the desired state is "no offline file", and that is satisfied either way.
