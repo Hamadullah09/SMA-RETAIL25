@@ -37,6 +37,57 @@ public sealed class EpcCatalogImportTests
     private static string Export() => File.ReadAllText(
         Path.Combine(AppContext.BaseDirectory, "TestData", "epc-catalog-export.csv"));
 
+    /// <summary>
+    /// Importing tags brings the stock with them.
+    /// <para>
+    /// It did not. The import commissioned every unit into stock through the state machine and
+    /// wrote no stock at all — so a shop that loaded two hundred tagged garments had two hundred
+    /// units the till would happily sell and an inventory screen that said it owned none of them.
+    /// The first sale of each took its on-hand figure to <b>−1</b>, which is where this was found:
+    /// a product sitting at minus one on the live system.
+    /// </para>
+    /// <para>
+    /// <c>Product.OnHand</c> is a derived snapshot of the ledger, so a unit in stock with no
+    /// movement behind it is not a small inconsistency — it is a number that cannot be rebuilt from
+    /// the history it claims to summarise.
+    /// </para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task Importing_a_tag_puts_its_stock_on_the_shelf()
+    {
+        using var scope = _api.Scope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var location = await Location(db);
+        var stockCode = $"ONHAND{Random.Shared.Next(100000, 999999)}";
+        var epc = $"E28011700000{Random.Shared.NextInt64(0, 999999999999):D12}";
+
+        var csv = $"epc,stock_code,name,type,regular_price\n{epc},{stockCode},Tagged coat,Serialized,120.00\n";
+
+        var imported = await Ok(sender.Send(new ImportEpcCatalogCommand(location, csv)));
+        imported.TagsCreated.Should().Be(1);
+
+        var product = await db.Products.AsNoTracking().FirstAsync(p => p.StockCode == stockCode);
+
+        product.OnHand.Should().Be(1m, "one tagged garment arrived, so the shop owns one");
+
+        (await db.StockLevels.AsNoTracking()
+            .Where(s => s.ProductId == product.Id && s.LocationId == location)
+            .Select(s => s.OnHand)
+            .FirstAsync())
+            .Should().Be(1m);
+
+        // And the movement behind it, so the snapshot can be rebuilt from the ledger.
+        var ledger = await db.StockLedgerEntries.AsNoTracking()
+            .Where(e => e.ProductId == product.Id)
+            .ToListAsync();
+
+        ledger.Should().ContainSingle();
+        ledger[0].Quantity.Should().Be(1m);
+        ledger[0].Reason.Should().Be("EPC catalogue import");
+    }
+
     [RequiresDockerFact]
     public async Task The_export_lands_as_items_and_tags_and_a_second_run_adds_nothing()
     {

@@ -2,9 +2,11 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Common;
+using Retail25.Application.Inventory;
 using Retail25.Application.Rfid.Import;
 using Retail25.Domain.Catalog;
 using Retail25.Domain.Common;
+using Retail25.Domain.Inventory;
 
 namespace Retail25.Application.Rfid.Commands;
 
@@ -217,6 +219,36 @@ public sealed class ImportEpcCatalogHandler
 
             _db.SerializedUnits.Add(unit.Value);
             imported.Add(row.Epc);
+
+            // Stock arrives with the tag.
+            //
+            // Commissioning a unit moves it to InStock through the state machine, and that used to
+            // be all that happened — so a shop that imported two hundred tagged garments had two
+            // hundred units the till would sell and an inventory screen that said it owned none of
+            // them. The first sale of each took its on-hand to −1, and the stock valuation was
+            // understated by the whole tagged catalogue.
+            //
+            // Only for units that end up on hand. A row imported as already Sold, Lost or
+            // Transferred came and went before this import ran; writing +1 and −1 for it would
+            // invent a movement on a day it did not happen, and this ledger is meant to be
+            // replayable.
+            if (EndsUpOnHand(unit.Value.State))
+            {
+                await StockMovements.ApplyAsync(
+                    _db,
+                    unit.Value.ProductId,
+                    unit.Value.VariantId,
+                    unit.Value.LocationId,
+                    quantity: 1m,
+                    unitCost: 0m,
+                    MovementType.Adjustment,
+                    reason: "EPC catalogue import",
+                    occurredAt: _clock.Now,
+                    // No staff id: this is the file speaking, not a person at a till. The reason
+                    // and the timestamp are what an auditor needs to trace it back to the import.
+                    staffId: null,
+                    ct: ct);
+            }
         }
 
         await _db.SaveChangesAsync(ct);
@@ -256,6 +288,16 @@ public sealed class ImportEpcCatalogHandler
     /// in stock is a stock figure nobody can reconcile.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Whether the shop is holding this unit once the import has finished.
+    /// <para>
+    /// <c>Returned</c> counts: it came back and is on the shelf again. <c>InCart</c> counts too —
+    /// it is on somebody's basket, still owned and not yet paid for.
+    /// </para>
+    /// </summary>
+    private static bool EndsUpOnHand(SerializedUnitState state)
+        => state is SerializedUnitState.InStock or SerializedUnitState.InCart or SerializedUnitState.Returned;
+
     private static Result MoveTo(SerializedUnit unit, SerializedUnitState target)
     {
         if (target == SerializedUnitState.Provisioned)
