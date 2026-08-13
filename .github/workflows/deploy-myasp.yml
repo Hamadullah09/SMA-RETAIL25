@@ -352,48 +352,24 @@ jobs:
 
           if ($LASTEXITCODE -ne 0) { throw "could not take the API offline (exit $LASTEXITCODE)" }
 
-          # Then actually stop the pool.
+          # The application pool is NOT stopped here, and the attempt has been removed rather
+          # than left in hopefully. This plan does not delegate recycleApp — msdeploy comes back
+          # with "The server experienced an issue processing the request", which is the host
+          # declining, not a malformed call. It can never succeed here, so every line spent on it
+          # was cost without benefit, and its non-zero exit code failed the step even after the
+          # warning that was supposed to make it optional: a pwsh step inherits $LASTEXITCODE.
           #
-          # app_offline.htm alone did not work here. It was written successfully and the sync still
-          # failed on a locked EFCore.NamingConventions.dll twenty-five seconds later, which means
-          # nothing shut down — waiting longer would have waited longer for the same thing. The
-          # offline file is kept because it is what serves a courteous page to anyone who loads the
-          # site mid-deploy, but the lock is released by stopping the worker process that holds it.
-          #
-          # Not fatal if the host refuses: shared plans do not always delegate recycleApp, and a
-          # deploy that could have worked should not be abandoned because a best-effort stop was
-          # declined. The sync's own retries are the fallback.
-          # ErrorActionPreference is dropped to Continue around this call, and that is the whole
-          # difference between "best effort" and "best effort that still fails the job". msdeploy
-          # writes to stderr when the host declines, and under 'Stop' PowerShell promotes any
-          # stderr from a native command to a terminating error — so the optional step aborted the
-          # deploy exactly as if it had been mandatory.
-          $previous = $ErrorActionPreference
-          $ErrorActionPreference = 'Continue'
-
-          & $msdeploy `
-            -verb:sync `
-            -source:recycleApp `
-            "-dest:recycleApp=$env:SITE,recycleMode=StopAppPool,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic" `
-            -allowUntrusted 2>&1 | ForEach-Object { Write-Output $_ }
-
-          $stopped = $LASTEXITCODE -eq 0
-          $ErrorActionPreference = $previous
-
-          if ($stopped) {
-            Write-Output 'Application pool stopped.'
-          } else {
-            # Observed on this plan: "The server experienced an issue processing the request",
-            # which is the host declining to delegate recycleApp rather than anything being wrong
-            # with the request. The lock is intermittent — the host unloads an idle app, and a
-            # deploy that lands in that window sees no lock at all — so the sync's own retries are
-            # a real fallback rather than a hopeful one.
-            Write-Output '::warning::The host would not stop the application pool. Continuing; the sync will retry against whatever still holds the files.'
-          }
-
-          # Give the worker process time to exit and let go of its DLLs.
-          Write-Output 'Waiting 20s for the worker to release its files…'
+          # What is left is the offline file and patience. The lock is intermittent rather than
+          # permanent — this host unloads an idle application, and a deploy that lands in that
+          # window finds nothing holding the files, which is how a22b384 deployed cleanly. The
+          # sync's ten retries over a minute are the real mechanism, and the bring-back step is
+          # what makes a failure survivable rather than an outage.
+          Write-Output 'Waiting 20s in case the host is still finishing with the files…'
           Start-Sleep -Seconds 20
+
+          # A pwsh step exits with $LASTEXITCODE, so a non-zero code left behind by any earlier
+          # native call fails the step no matter what was logged about it. Nothing above is fatal.
+          exit 0
 
       - name: Deploy the API to /backend
         shell: pwsh
@@ -466,16 +442,9 @@ jobs:
 
           # Start the pool before removing the offline file, so the first request after the file
           # disappears meets a running worker rather than a cold start on top of one.
-          # Same treatment as the stop: this step must never be the reason the API stays offline.
-          $ErrorActionPreference = 'Continue'
-
-          & $msdeploy `
-            -verb:sync `
-            -source:recycleApp `
-            "-dest:recycleApp=$env:SITE,recycleMode=StartAppPool,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic" `
-            -allowUntrusted 2>&1 | ForEach-Object { Write-Output $_ }
-
-          Write-Output "start pool exit code: $LASTEXITCODE (declined or already running is fine)"
+          # No StartAppPool either: the host declines recycleApp in both directions, and a call
+          # that always fails is noise in a log somebody will read during an incident. IIS starts
+          # the pool on the first request once the offline file is gone.
 
           # `delete` on a path that is already gone is not an error worth failing the job over —
           # the desired state is "no offline file", and that is satisfied either way.
@@ -502,6 +471,8 @@ jobs:
             Write-Output '::error::The API did not come back. Check for app_offline.htm under /backend on the host.'
             exit 1
           }
+
+          exit 0
 
       # -----------------------------------------------------------------------------------------
       # Then the front end, into the site root.
