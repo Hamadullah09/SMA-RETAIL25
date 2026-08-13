@@ -407,6 +407,17 @@ jobs:
             # A dry run caught this before the first deploy. Do not remove these two lines.
             '-skip:objectName=dirPath,absolutePath=.*\\certs.*'
             '-skip:objectName=filePath,absolutePath=.*\\certs\\.*'
+
+            # The database backups. They are written inside the application's folder because that
+            # is the only place this pool identity can reliably write — and a sync makes the
+            # destination match the source, so without this every deploy silently deleted every
+            # backup the shop had taken.
+            #
+            # Found by taking one, deploying, and looking: the list went from four files to the one
+            # taken after the deploy. A backup that does not survive a routine deploy is not a
+            # backup, and it fails in the quietest way possible.
+            '-skip:objectName=dirPath,absolutePath=.*\\App_Data.*'
+            '-skip:objectName=filePath,absolutePath=.*\\App_Data\\.*'
           )
 
           # -whatif reports every add, update and delete without performing any of them. Worth one
