@@ -26,6 +26,7 @@ public sealed record Error(string Code, string Message, IReadOnlyDictionary<stri
 /// Explicit success/failure without exceptions for expected outcomes. Exceptions remain for
 /// genuinely exceptional conditions (I/O faults, programming errors).
 /// </summary>
+[System.Text.Json.Serialization.JsonConverter(typeof(ResultJsonConverterFactory))]
 public class Result
 {
     protected Result(bool isSuccess, Error error)
@@ -73,6 +74,9 @@ public class Result
     }
 }
 
+// Declared again rather than inherited: System.Text.Json reads this attribute off the exact type it
+// is converting, and does not walk up to the base class to find one.
+[System.Text.Json.Serialization.JsonConverter(typeof(ResultJsonConverterFactory))]
 public sealed class Result<TValue> : Result
 {
     private readonly TValue? _value;
