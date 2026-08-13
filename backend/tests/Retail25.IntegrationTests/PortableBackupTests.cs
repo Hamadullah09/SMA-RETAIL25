@@ -63,6 +63,24 @@ public sealed class PortableBackupTests
         var path = backups.ResolvePath(taken.Value.FileName);
         path.IsSuccess.Should().BeTrue("the file has to be reachable, or it cannot be taken off the server");
 
+        // The first two bytes, checked explicitly.
+        //
+        // ZipArchive finds the central directory from the end of the file, so it opens an archive
+        // with junk in front of it perfectly happily — that tolerance is what lets a self-extracting
+        // exe carry a zip. It also meant this test passed while the downloaded file began
+        // `00 00 00 FF FF` and no other tool would touch it. Asserting the signature is the only way
+        // to notice.
+        var head = new byte[16];
+        using (var probe = File.OpenRead(path.Value))
+        {
+            probe.ReadExactly(head);
+        }
+
+        var hex = Convert.ToHexString(head);
+
+        System.Text.Encoding.ASCII.GetString(head, 0, 2).Should()
+            .Be("PK", $"a zip starts with PK — anything before it is not part of the archive (file begins {hex})");
+
         using var archive = ZipFile.OpenRead(path.Value);
 
         var manifest = archive.GetEntry("manifest.json");

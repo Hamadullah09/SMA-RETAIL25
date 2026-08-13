@@ -134,25 +134,15 @@ async function toNextResponse(response: Response): Promise<NextResponse> {
     upstream?.toLowerCase().startsWith('private') ? upstream : 'no-store',
   );
 
-  // A body the API marked `identity` is handed on whole, not streamed.
+  // `identity` is the one Content-Encoding worth carrying across.
   //
-  // `identity` is the API saying "these exact bytes, unaltered" — it is set on the database backup
-  // download and nothing else. Streamed, that response arrived at the browser with `00 00 00 FF FF`
-  // in front of it: a zero-length deflate block, from a layer past this one that wrapped the stream
-  // and declared nothing, so the browser never knew to unwrap it. The archive would not open, which
-  // is the worst way for a backup to fail — it looks fine until the morning it is needed.
-  //
-  // Reading it into one buffer with a definite length takes that layer's streaming path out of the
-  // picture. The cost is holding the file in memory for the length of an administrator's download;
-  // it is bounded by the size of the archive and it applies to nothing else, because every other
-  // response still streams.
+  // The rule above drops the header because fetch() has already decompressed the body, so repeating
+  // the upstream's `br` or `gzip` would tell the browser to decode plain bytes. `identity` is not
+  // that: it is the API saying the body is already in its final form and nothing may add an
+  // encoding to it, which stays true after decompression. It is set on the database backup
+  // download, where re-compressing a zip would achieve nothing and risk everything.
   if (response.headers.get('content-encoding')?.toLowerCase() === 'identity') {
-    const body = new Uint8Array(await response.arrayBuffer());
-
     headers.set('Content-Encoding', 'identity');
-    headers.set('Content-Length', String(body.byteLength));
-
-    return new NextResponse(body, { status: response.status, headers });
   }
 
   return new NextResponse(response.body, { status: response.status, headers });

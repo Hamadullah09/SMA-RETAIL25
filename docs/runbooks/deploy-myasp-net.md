@@ -37,8 +37,11 @@ Consequences worth holding onto:
   `%HTTP_PLATFORM_PORT%`. This is why the front end is deployed as a Next.js *standalone* build:
   iisnode would hand `server.js` a named pipe, `parseInt` would yield `NaN`, and Next would quietly
   listen on 3000 while IIS waited on a pipe.
-- **SQL Server 2019** on `sql5063.site4now.net`, reached over the public internet. Remote access is
-  how migrations get applied — there is no shell on the host.
+- **SQL Server 2022** on `sql5113.site4now.net`, database `db_acd077_pos`, login
+  `db_acd077_pos_admin`, on a 1000 MB quota. Reached over the public internet on 1433 — remote
+  access is how migrations get applied, because there is no shell on the host. An earlier revision
+  of this document named `sql5063.site4now.net`, which is a different SQL host on the same estate;
+  corrected 2026-08-13 against the control panel.
 - **No Redis, and none needed.** The host offers none, and Production refuses to start on in-memory
   stores. `Cache:Provider` is therefore `SqlServer`: the four things Redis held are tables in the
   application's own database. See "Cache stores" below for what that costs.
@@ -178,7 +181,7 @@ visible to all of them.
    only the API goes offline, so the shop front end keeps serving.
 4. Unzip `retail25-frontend` into `www\POS\`, `retail25-backend` into `www\POS\backend\`.
 5. Apply `migrate.sql` against the database — SSMS or Azure Data Studio pointed at
-   `sql5063.site4now.net`. It is idempotent, so re-running it is safe. `Database:AutoMigrate` stays
+   `sql5113.site4now.net`. It is idempotent, so re-running it is safe. `Database:AutoMigrate` stays
    false: migrating from inside the web process races the first request after a deploy, and several
    worker processes may start at once.
 6. Restart the pool.

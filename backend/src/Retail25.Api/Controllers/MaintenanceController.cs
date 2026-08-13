@@ -57,15 +57,10 @@ public sealed class MaintenanceController : ControllerBase
 
         // Nothing between here and the browser may re-encode this.
         //
-        // Downloaded through the proxy, the archive arrived with `00 00 00 FF FF` in front of the
-        // zip header — a zero-length stored deflate block — and exactly that many bytes missing from
-        // the end, because the length still described the original file. The result opened as a
-        // corrupt archive, which is worse than no backup at all: it looks like one until the day it
-        // is needed.
-        //
-        // `identity` is the standards-defined way to say "already encoded, leave it alone", and both
-        // IIS's dynamic compression and Node's respect an encoding that is already declared. The
-        // content is a zip; compressing it again was never going to save anything anyway.
+        // `identity` is the standards-defined way to say "already in its final form, pass it
+        // through". A zip does not compress twice, so every layer that tries is spending time to
+        // make the file bigger — and any of them getting it subtly wrong produces an archive that
+        // looks like a backup right up until the morning somebody needs it.
         Response.Headers.ContentEncoding = "identity";
         Response.ContentLength = stream.Length;
 

@@ -184,11 +184,6 @@ public sealed class PortableDatabaseBackupService : IDatabaseBackupService
     /// </summary>
     private async Task<long> WriteTableAsync(ZipArchive archive, string table, CancellationToken ct)
     {
-        var entry = archive.CreateEntry($"tables/{table}.jsonl", CompressionLevel.Optimal);
-
-        await using var target = entry.Open();
-        await using var writer = new StreamWriter(target);
-
         var connection = _db.Database.GetDbConnection();
         if (connection.State != System.Data.ConnectionState.Open)
         {
@@ -204,22 +199,48 @@ public sealed class PortableDatabaseBackupService : IDatabaseBackupService
 
         await using var reader = await command.ExecuteReaderAsync(ct);
 
+        // The entry is created on the first row, not before it — an empty table gets no entry.
+        //
+        // Opening a compressed entry and closing it without writing anything makes its deflate
+        // stream emit a sync marker, `00 00 00 FF FF`, and on the first table that marker landed
+        // ahead of the archive's own first header. Every backup began with five bytes that are not
+        // part of a zip.
+        //
+        // It still opened, which is what made it dangerous rather than merely wrong: ZipArchive
+        // locates the central directory from the end of the file and tolerates a prefix — the same
+        // tolerance that lets a self-extracting exe carry an archive — so .NET read it back happily
+        // while every other tool would have refused it. The row counts in the manifest still name
+        // every table, empty ones included, so nothing is lost by leaving the entry out.
+        StreamWriter? writer = null;
         var rows = 0L;
 
-        while (await reader.ReadAsync(ct))
+        try
         {
-            var row = new Dictionary<string, object?>(reader.FieldCount, StringComparer.Ordinal);
-
-            for (var i = 0; i < reader.FieldCount; i++)
+            while (await reader.ReadAsync(ct))
             {
-                row[reader.GetName(i)] = await reader.IsDBNullAsync(i, ct) ? null : reader.GetValue(i);
-            }
+                var row = new Dictionary<string, object?>(reader.FieldCount, StringComparer.Ordinal);
 
-            await writer.WriteLineAsync(JsonSerializer.Serialize(row).AsMemory(), ct);
-            rows++;
+                for (var i = 0; i < reader.FieldCount; i++)
+                {
+                    row[reader.GetName(i)] = await reader.IsDBNullAsync(i, ct) ? null : reader.GetValue(i);
+                }
+
+                writer ??= new StreamWriter(archive.CreateEntry($"tables/{table}.jsonl", CompressionLevel.Optimal).Open());
+
+                await writer.WriteLineAsync(JsonSerializer.Serialize(row).AsMemory(), ct);
+                rows++;
+            }
+        }
+        finally
+        {
+            // Disposal writes the deflate terminator in the right place, which is all the explicit
+            // flush that used to be here was ever trying to do.
+            if (writer is not null)
+            {
+                await writer.DisposeAsync();
+            }
         }
 
-        await writer.FlushAsync(ct);
         return rows;
     }
 
@@ -262,6 +283,12 @@ public sealed class PortableDatabaseBackupService : IDatabaseBackupService
 
             foreach (var (table, expected) in counts)
             {
+                // A table with no rows has no entry, by design — see WriteTableAsync.
+                if (expected == 0)
+                {
+                    continue;
+                }
+
                 var entry = archive.GetEntry($"tables/{table}.jsonl");
                 if (entry is null)
                 {
