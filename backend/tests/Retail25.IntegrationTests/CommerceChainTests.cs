@@ -300,6 +300,68 @@ public sealed class CommerceChainTests
     }
 
     /// <summary>
+    /// Pressing Pay twice returns the first receipt, and takes the money once.
+    /// <para>
+    /// This is the promise the <c>Idempotency-Key</c> header exists to make, and it is the one a
+    /// till depends on most: a cashier whose screen froze presses Pay again, and a flaky counter
+    /// network retries on its own. Live, the second press answered <b>500</b> — the sale was
+    /// committed, the money was taken once, and the cashier was shown an error that gave them every
+    /// reason to ring it again.
+    /// </para>
+    /// <para>
+    /// It has to be an integration test. The unit suite calls the handler directly, so the pipeline
+    /// behaviour that does the replaying is never in the picture, and the replay only fails once a
+    /// stored response has to survive a round trip through JSON.
+    /// </para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task Pressing_pay_twice_replays_the_first_receipt_rather_than_failing()
+    {
+        using var scope = _api.Scope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var location = await db.Locations.AsNoTracking().FirstAsync();
+        var station = await db.Stations.AsNoTracking().FirstAsync();
+
+        _api.ActingUser.LocationId = location.Id;
+        _api.ActingUser.StationId = station.Id;
+
+        var stockCode = Unique("TWICE");
+
+        await Ok(sender.Send(new CreateProductCommand(
+            location.Id,
+            new ProductGeneralSection(stockCode, "Pressed twice", null, ProductType.Standard, null, null, null, null),
+            RegularPrice: 30.00m,
+            Tax1Applies: false,
+            Tax2Applies: false)));
+
+        var cheque = await db.TenderTypes.AsNoTracking().FirstAsync(t => t.Behaviour == TenderBehaviour.Manual);
+
+        var cart = await Ok(sender.Send(new CreateCartCommand(station.Id)));
+        await Ok(sender.Send(new AddCartLineByIdentifierCommand(cart.Id, stockCode, Quantity: 1m)));
+
+        var key = Guid.NewGuid().ToString("N");
+        var tenders = new[] { new TenderRequest(cheque.Id, Amount: 30.00m, AmountTendered: 30.00m, Reference: "CHQ-1") };
+
+        var first = await Ok(sender.Send(new CompleteSaleCommand(cart.Id, tenders, key, PrintReceipt: false)));
+
+        var before = await db.SalesTransactions.CountAsync();
+
+        // The same key again — a second press, or a retried request.
+        var second = await sender.Send(new CompleteSaleCommand(cart.Id, tenders, key, PrintReceipt: false));
+
+        second.IsSuccess.Should().BeTrue(
+            second.IsFailure ? $"the replay should hand back the first receipt, but failed with '{second.Error.Code}'" : string.Empty);
+        second.Value.TransactionId.Should().Be(first.TransactionId, "it is the same sale, not a second one");
+        second.Value.TransactionNumber.Should().Be(first.TransactionNumber);
+        second.Value.GrandTotal.Should().Be(first.GrandTotal);
+
+        (await db.SalesTransactions.CountAsync()).Should()
+            .Be(before, "the customer paid once and must be charged once");
+    }
+
+    /// <summary>
     /// A basket whose cart row is gone is refused, and leaves nothing behind.
     /// <para>
     /// This is the failure that stopped the hosted deployment from taking a single payment. A cart

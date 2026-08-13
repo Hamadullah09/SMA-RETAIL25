@@ -53,12 +53,12 @@ public sealed class SqlIdempotencyStore : IIdempotencyStore
         command.AddParameter("@key", key);
 
         var payload = await command.ExecuteScalarAsync(ct) as string;
-        return payload is null ? default : JsonSerializer.Deserialize<T>(payload);
+        return payload is null ? default : JsonSerializer.Deserialize<T>(payload, CacheSerialization.Options);
     }
 
     public async Task StoreResponseAsync<T>(string key, T response, CancellationToken ct = default)
     {
-        var payload = JsonSerializer.Serialize(response);
+        var payload = JsonSerializer.Serialize(response, CacheSerialization.Options);
         var (connection, transaction) = await SqlCacheSession.OpenAsync(_context, ct);
 
         using (var command = connection.CreateCommand())

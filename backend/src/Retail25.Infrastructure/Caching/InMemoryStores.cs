@@ -192,15 +192,17 @@ public sealed class InMemoryIdempotencyStore : IIdempotencyStore
         }
 
         // Round-tripped through JSON exactly as the Redis store does, so a handler cannot be handed
-        // back the very object it returned and mutate a "stored" response by accident.
-        return Task.FromResult(JsonSerializer.Deserialize<T>(entry.Json));
+        // back the very object it returned and mutate a "stored" response by accident — and so this
+        // store fails the same way the deployed ones do rather than quietly being the only one that
+        // works.
+        return Task.FromResult(JsonSerializer.Deserialize<T>(entry.Json, CacheSerialization.Options));
     }
 
     public Task StoreResponseAsync<T>(string key, T response, CancellationToken ct = default)
     {
         var now = DateTimeOffset.UtcNow;
 
-        _entries[key] = new Entry(JsonSerializer.Serialize(response), now.Add(Lifetime));
+        _entries[key] = new Entry(JsonSerializer.Serialize(response, CacheSerialization.Options), now.Add(Lifetime));
 
         if (_entries.Count > 512)
         {
