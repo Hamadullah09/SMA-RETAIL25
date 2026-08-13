@@ -352,11 +352,32 @@ jobs:
 
           if ($LASTEXITCODE -ne 0) { throw "could not take the API offline (exit $LASTEXITCODE)" }
 
-          # Long enough for ANCM to signal the child and the child to exit and release its DLLs.
-          # Measured against the failure this replaces, where six retries over thirty seconds were
-          # not enough because they began before the shutdown had started.
-          Write-Output 'Waiting 25s for the app to release its files…'
-          Start-Sleep -Seconds 25
+          # Then actually stop the pool.
+          #
+          # app_offline.htm alone did not work here. It was written successfully and the sync still
+          # failed on a locked EFCore.NamingConventions.dll twenty-five seconds later, which means
+          # nothing shut down — waiting longer would have waited longer for the same thing. The
+          # offline file is kept because it is what serves a courteous page to anyone who loads the
+          # site mid-deploy, but the lock is released by stopping the worker process that holds it.
+          #
+          # Not fatal if the host refuses: shared plans do not always delegate recycleApp, and a
+          # deploy that could have worked should not be abandoned because a best-effort stop was
+          # declined. The sync's own retries are the fallback.
+          & $msdeploy `
+            -verb:sync `
+            -source:recycleApp `
+            "-dest:recycleApp=$env:SITE,recycleMode=StopAppPool,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic" `
+            -allowUntrusted 2>&1 | Write-Output
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Output "::warning::Could not stop the application pool (exit $LASTEXITCODE). Continuing; the sync will retry against whatever still holds the files."
+          } else {
+            Write-Output 'Application pool stopped.'
+          }
+
+          # Give the worker process time to exit and let go of its DLLs.
+          Write-Output 'Waiting 20s for the worker to release its files…'
+          Start-Sleep -Seconds 20
 
       - name: Deploy the API to /backend
         shell: pwsh
@@ -423,6 +444,16 @@ jobs:
         run: |
           $msdeploy = 'C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe'
           $endpoint = "https://$env:WEBDEPLOY_HOST`:8172/msdeploy.axd?site=$env:SITE"
+
+          # Start the pool before removing the offline file, so the first request after the file
+          # disappears meets a running worker rather than a cold start on top of one.
+          & $msdeploy `
+            -verb:sync `
+            -source:recycleApp `
+            "-dest:recycleApp=$env:SITE,recycleMode=StartAppPool,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic" `
+            -allowUntrusted 2>&1 | Write-Output
+
+          Write-Output "start pool exit code: $LASTEXITCODE (a pool already running is fine)"
 
           # `delete` on a path that is already gone is not an error worth failing the job over —
           # the desired state is "no offline file", and that is satisfied either way.
