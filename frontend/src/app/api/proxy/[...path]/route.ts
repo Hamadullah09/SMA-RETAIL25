@@ -134,16 +134,25 @@ async function toNextResponse(response: Response): Promise<NextResponse> {
     upstream?.toLowerCase().startsWith('private') ? upstream : 'no-store',
   );
 
-  // `identity` is the one Content-Encoding worth carrying across.
+  // A body the API marked `identity` is handed on whole, not streamed.
   //
-  // The rule above drops the header because fetch() has already decompressed the body, so repeating
-  // the upstream's `br` or `gzip` would tell the browser to decode plain bytes. `identity` is not
-  // that: it is the API saying nothing downstream may *add* an encoding, and after decompression it
-  // is still true. Dropping it let a layer past this one wrap the database backup in a deflate
-  // stream while the length still described the original file — the archive arrived with five bytes
-  // of deflate header in front and five bytes missing off the end, and would not open.
+  // `identity` is the API saying "these exact bytes, unaltered" — it is set on the database backup
+  // download and nothing else. Streamed, that response arrived at the browser with `00 00 00 FF FF`
+  // in front of it: a zero-length deflate block, from a layer past this one that wrapped the stream
+  // and declared nothing, so the browser never knew to unwrap it. The archive would not open, which
+  // is the worst way for a backup to fail — it looks fine until the morning it is needed.
+  //
+  // Reading it into one buffer with a definite length takes that layer's streaming path out of the
+  // picture. The cost is holding the file in memory for the length of an administrator's download;
+  // it is bounded by the size of the archive and it applies to nothing else, because every other
+  // response still streams.
   if (response.headers.get('content-encoding')?.toLowerCase() === 'identity') {
+    const body = new Uint8Array(await response.arrayBuffer());
+
     headers.set('Content-Encoding', 'identity');
+    headers.set('Content-Length', String(body.byteLength));
+
+    return new NextResponse(body, { status: response.status, headers });
   }
 
   return new NextResponse(response.body, { status: response.status, headers });
