@@ -113,6 +113,45 @@ public sealed class BarcodeAtTheTillTests
         lines[0].Quantity.Should().Be(1m, "there is one jacket, and scanning its tag twice does not make two");
     }
 
+    /// <summary>
+    /// A product can be given its barcode when it is created.
+    /// <para>
+    /// The API's create request had no field for one, so a counted item arrived with no barcode and
+    /// could not be scanned until somebody went back and edited it. Nothing said so — the product
+    /// was created, reported success, and simply would not ring up.
+    /// </para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task A_barcode_can_be_set_when_the_product_is_created()
+    {
+        using var scope = _api.Scope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var location = await db.Locations.AsNoTracking().FirstAsync();
+        var station = await db.Stations.AsNoTracking().FirstAsync();
+
+        _api.ActingUser.LocationId = location.Id;
+        _api.ActingUser.StationId = station.Id;
+
+        var barcode = UniqueBarcode();
+
+        var product = await Ok(sender.Send(new CreateProductCommand(
+            location.Id,
+            new ProductGeneralSection(Unique("SCAN"), "Scannable thing", null, ProductType.Standard, barcode, null, null, null),
+            RegularPrice: 7.00m, Tax1Applies: false, Tax2Applies: false)));
+
+        (await db.Products.AsNoTracking().Where(p => p.Id == product.Id).Select(p => p.Upc).FirstAsync())
+            .Should().Be(barcode, "a product created with a barcode has to keep it");
+
+        // And the till can find it by that barcode, which is the only reason it matters.
+        var cart = await EmptyCartAsync(sender, station.Id);
+        var basket = await Ok(sender.Send(new AddCartLineByIdentifierCommand(cart.Id, barcode)));
+
+        basket.Lines.Should().ContainSingle();
+        basket.Lines[0].StockCode.Should().Be(product.StockCode);
+    }
+
     /// <summary>One basket, both kinds of stock, one sale.</summary>
     [RequiresDockerFact]
     public async Task A_basket_holds_a_tagged_item_and_counted_ones_together()

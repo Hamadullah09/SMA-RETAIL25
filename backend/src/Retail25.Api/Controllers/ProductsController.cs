@@ -122,6 +122,19 @@ public sealed class ProductsController : ControllerBase
             return ResultExtensions.Problem(result.Error, this);
         }
 
+        // Applied here rather than through a second call, because a counted item without its
+        // barcode cannot be rung up: the till would find nothing to scan until somebody went back
+        // and edited it.
+        if (request.Upc is not null || request.Description is not null || request.BinLocation is not null)
+        {
+            result.Value.UpdateDetails(
+                result.Value.Name,
+                request.Description,
+                request.Upc,
+                request.BinLocation,
+                result.Value.Notes);
+        }
+
         _db.Products.Add(result.Value);
         await _db.SaveChangesAsync(ct);
 
@@ -242,7 +255,16 @@ public sealed record CreateProductRequest(
     ProductType Type,
     decimal RegularPrice,
     bool Tax1Applies = true,
-    bool Tax2Applies = true);
+    bool Tax2Applies = true,
+    /// <summary>
+    /// The barcode. Optional because a tagged item is identified by its EPC and a service has
+    /// nothing to scan — but a counted item that cannot be given one at creation has to be created
+    /// and then edited before the till can ring it, which is not a workflow anybody should have to
+    /// discover.
+    /// </summary>
+    string? Upc = null,
+    string? Description = null,
+    string? BinLocation = null);
 
 public sealed record UpdateProductRequest(
     string? Name,
