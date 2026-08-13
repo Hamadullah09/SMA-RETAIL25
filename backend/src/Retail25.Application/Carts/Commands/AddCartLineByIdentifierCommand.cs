@@ -144,6 +144,25 @@ public sealed class CartLineFactory
             return Result.Failure(new Error("cart.quantity_invalid", "Quantity must be greater than zero."));
         }
 
+        // A second scan of the same counted item is a quantity, not a second line.
+        //
+        // This is how a barcode differs from a tag. A tag names one physical thing, so two reads of
+        // it are the same item; a barcode names a *product*, so a customer buying three pairs of
+        // socks means the cashier passes one over the reader three times. Three lines of one is
+        // arithmetically the same total and wrong on the receipt, wrong on the screen the cashier is
+        // reading back to the customer, and wrong the moment they need to change the quantity.
+        //
+        // Only lines that are genuinely the same thing merge — see MergeableWith. Anything the
+        // cashier has touched, and anything carrying a price of its own, stays on its own line.
+        if (item.Unit is null && Mergeable(snapshot, item, request) is { } existing)
+        {
+            existing.Quantity += quantity;
+
+            // A tag-along is attached to the product, not to the line, so it is already on the cart
+            // from the first scan — adding it again would put two deposits on one bottle.
+            return Result.Success();
+        }
+
         var line = new CartLine
         {
             CartId = snapshot.Cart.Id,
@@ -185,6 +204,57 @@ public sealed class CartLineFactory
         await AddTagAlongAsync(snapshot, item.Product, ct);
 
         return Result.Success();
+    }
+
+    /// <summary>
+    /// The line this scan should join, if there is one.
+    /// <para>
+    /// Everything that could make two lines different has to match, because merging is destructive:
+    /// once two scans are one line the cashier cannot tell them apart again. So a line is only
+    /// joinable if nobody has priced it by hand, asked for a particular price level, overridden its
+    /// tax, written a note on it, or given it a price of its own — a weighed label carries the price
+    /// from the scale, and two different weights are two different lines however alike the products
+    /// look.
+    /// </para>
+    /// <para>
+    /// The last scan is checked first, since a cashier passing four of something over the reader is
+    /// the case worth being quick about.
+    /// </para>
+    /// </summary>
+    private static CartLine? Mergeable(CartSnapshot snapshot, ResolvedItem item, CartLineRequest request)
+    {
+        if (request.ManualPrice is not null
+            || request.ManualDiscountPct is not null
+            || request.PriceLevel is not null
+            || request.Tax1Override is not null
+            || request.Tax2Override is not null
+            || item.EmbeddedPrice is not null
+            || !string.IsNullOrWhiteSpace(request.Note))
+        {
+            return null;
+        }
+
+        for (var i = snapshot.Lines.Count - 1; i >= 0; i--)
+        {
+            var line = snapshot.Lines[i];
+
+            if (line.SerializedUnitId is null
+                && line.ProductId == item.Product.Id
+                && line.VariantId == item.Variant?.Id
+                && line.LineType == request.LineType
+                && line.ManualUnitPrice is null
+                && line.ManualDiscountPct is null
+                && line.RequestedPriceLevel is null
+                && line.Tax1Override is null
+                && line.Tax2Override is null
+                && line.EmbeddedPrice is null
+                && string.IsNullOrWhiteSpace(line.Note))
+            {
+                return line;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
