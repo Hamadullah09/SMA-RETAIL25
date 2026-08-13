@@ -53,11 +53,24 @@ public sealed class MaintenanceController : ControllerBase
             return ResultExtensions.Problem(allowed.Error, this);
         }
 
+        var stream = new FileStream(allowed.Value, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, useAsync: true);
+
+        // Nothing between here and the browser may re-encode this.
+        //
+        // Downloaded through the proxy, the archive arrived with `00 00 00 FF FF` in front of the
+        // zip header — a zero-length stored deflate block — and exactly that many bytes missing from
+        // the end, because the length still described the original file. The result opened as a
+        // corrupt archive, which is worse than no backup at all: it looks like one until the day it
+        // is needed.
+        //
+        // `identity` is the standards-defined way to say "already encoded, leave it alone", and both
+        // IIS's dynamic compression and Node's respect an encoding that is already declared. The
+        // content is a zip; compressing it again was never going to save anything anyway.
+        Response.Headers.ContentEncoding = "identity";
+        Response.ContentLength = stream.Length;
+
         // FileStream rather than a byte array: a year of sales should not have to fit in memory to
         // be downloaded, and the framework disposes the stream once the response is written.
-        return File(
-            new FileStream(allowed.Value, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, useAsync: true),
-            "application/zip",
-            fileName);
+        return File(stream, "application/zip", fileName);
     }
 }

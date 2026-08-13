@@ -134,6 +134,18 @@ async function toNextResponse(response: Response): Promise<NextResponse> {
     upstream?.toLowerCase().startsWith('private') ? upstream : 'no-store',
   );
 
+  // `identity` is the one Content-Encoding worth carrying across.
+  //
+  // The rule above drops the header because fetch() has already decompressed the body, so repeating
+  // the upstream's `br` or `gzip` would tell the browser to decode plain bytes. `identity` is not
+  // that: it is the API saying nothing downstream may *add* an encoding, and after decompression it
+  // is still true. Dropping it let a layer past this one wrap the database backup in a deflate
+  // stream while the length still described the original file — the archive arrived with five bytes
+  // of deflate header in front and five bytes missing off the end, and would not open.
+  if (response.headers.get('content-encoding')?.toLowerCase() === 'identity') {
+    headers.set('Content-Encoding', 'identity');
+  }
+
   return new NextResponse(response.body, { status: response.status, headers });
 }
 
