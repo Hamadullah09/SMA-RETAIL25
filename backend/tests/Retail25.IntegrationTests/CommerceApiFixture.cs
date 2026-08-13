@@ -205,7 +205,15 @@ public sealed class CommerceApiFixture : WebApplicationFactory<Program>, IAsyncL
     }
 }
 
-/// <summary>An acting user holding every permission the catalogue defines.</summary>
+/// <summary>
+/// An acting user holding every permission the catalogue defines — except when a test says
+/// otherwise.
+/// <para>
+/// The permission set is settable so a test can act as a cashier or a trainee and find out what the
+/// server actually refuses. Held every permission and no way to hold fewer, the suite could only
+/// ever prove that an administrator can do things, which is the half nobody worries about.
+/// </para>
+/// </summary>
 public sealed class TestCurrentUser : ICurrentUser
 {
     public long? UserId { get; set; } = TestIds.Next();
@@ -218,8 +226,17 @@ public sealed class TestCurrentUser : ICurrentUser
 
     public bool IsAuthenticated => true;
 
-    public IReadOnlySet<string> Permissions { get; } =
+    public IReadOnlySet<string> Permissions { get; set; } =
         new HashSet<string>(PermissionKeys.All, StringComparer.Ordinal);
+
+    /// <summary>Acts as somebody holding exactly these permissions, and hands back what to restore.</summary>
+    public IReadOnlySet<string> ActAs(IEnumerable<string> permissions)
+    {
+        var previous = Permissions;
+        Permissions = new HashSet<string>(permissions, StringComparer.Ordinal);
+
+        return previous;
+    }
 }
 
 [CollectionDefinition(Name)]
