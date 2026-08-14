@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { usePosStore } from '@/stores/pos-store';
 import { posApi } from '@/lib/pos-api';
-import { useHotkey, useHotkeyBindings, useHotkeyScope } from '@/lib/hotkeys';
+import { useAllHotkeyBindings, useHotkey, useHotkeyBindings, useHotkeyScope } from '@/lib/hotkeys';
 import { money, useCurrencySymbol } from '@/components/pos/panels';
 import { parseTenderInput } from '@/lib/tender-input';
 import type { ProductVariant, SerializedUnit, SuspendedCart, TenderType } from '@/types/pos';
@@ -1108,7 +1108,11 @@ export function UnknownItemDialog() {
  */
 export function CheatSheetDialog() {
   const closeDialog = usePosStore((s) => s.closeDialog);
-  const bindings = useHotkeyBindings();
+
+  // Every registered shortcut, not only the ones live in the current scope. This is a reference
+  // somebody is reading to learn what exists — filtering it to what happens to be active meant it
+  // could not tell a cashier that a shortcut existed at all.
+  const bindings = useAllHotkeyBindings();
 
   const grouped = useMemo(() => {
     const map = new Map<string, typeof bindings>();
@@ -1127,9 +1131,17 @@ export function CheatSheetDialog() {
             <h3 className="mb-1 text-label font-medium uppercase tracking-wide text-ink-muted">{group}</h3>
             <ul className="space-y-0.5 text-body">
               {entries.map((entry) => (
-                <li key={`${group}-${entry.combo}`} className="flex justify-between gap-3">
-                  <span className="text-ink-muted">{entry.label}</span>
-                  <kbd className="rounded-sm border border-subtle px-1 font-mono text-label">{entry.combo}</kbd>
+                <li key={`${group}-${entry.combo}`} className="flex items-baseline justify-between gap-3">
+                  <span className={cn('font-normal', entry.disabled ? 'text-ink-faint' : 'text-ink-muted')}>
+                    {entry.label}
+                    {/*
+                      Said rather than merely greyed. A shortcut that does nothing right now is not
+                      the same as one that does not exist, and a cashier who presses it and gets
+                      nothing needs to know which.
+                    */}
+                    {entry.disabled ? <span className="ml-1 text-caption">(not available here)</span> : null}
+                  </span>
+                  <kbd className="pos-kbd shrink-0 font-semibold">{entry.combo}</kbd>
                 </li>
               ))}
             </ul>

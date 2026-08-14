@@ -174,12 +174,40 @@ export function useHotkeyScope(scope: HotkeyScope, active = true) {
   }, [pushScope, scope, active]);
 }
 
-/** Everything currently bound, for the cheat sheet and the command palette. */
+/**
+ * What is bound *right now* — the keys that would fire if pressed this instant. Scope-filtered,
+ * because that is what the command palette and the key bar need: offering a cashier a key that a
+ * dialog has taken over is worse than not offering it.
+ */
 export function useHotkeyBindings(): HotkeyBinding[] {
   const { bindings, activeScope } = useRegistry();
 
   return useMemo(
     () => bindings.filter((b) => !b.hidden && (b.scope === activeScope || b.scope === 'global')),
+    [bindings, activeScope],
+  );
+}
+
+/**
+ * Everything registered, whatever scope owns it — for a reference somebody is reading rather than
+ * a menu they are choosing from.
+ *
+ * The cheat sheet used the scope-filtered list, which quietly made it a list of what happens to be
+ * live at that moment rather than a list of the shortcuts this application has. Opening it from
+ * the sale screen showed the sale screen's keys and nothing else, so the one place a cashier would
+ * look to learn a shortcut could not tell them a shortcut existed.
+ *
+ * Hidden bindings stay hidden: Escape-to-close is registered so the key works, not so it can be
+ * advertised.
+ */
+export function useAllHotkeyBindings(): HotkeyBinding[] {
+  const { bindings, activeScope } = useRegistry();
+
+  return useMemo(
+    () =>
+      bindings
+        .filter((b) => !b.hidden)
+        .map((b) => ({ ...b, disabled: b.disabled || !(b.scope === activeScope || b.scope === 'global') })),
     [bindings, activeScope],
   );
 }

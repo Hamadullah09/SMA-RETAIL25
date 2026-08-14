@@ -397,9 +397,22 @@
     grid-auto-columns: minmax(0, 1fr);
   }
 
+  /**
+   * The key is the thing a cashier is looking for; the word beside it is the reminder.
+   *
+   * This was font-medium on the button, which weighted both the same and left the row reading as
+   * one undifferentiated string — "F4 Pay F5 Client F6 Delete" — at exactly the moment somebody is
+   * scanning it under pressure. The label drops to normal and the key below is emphasised, so the
+   * eye lands on the key first.
+   */
   .pos-keybar > button {
-    @apply flex min-w-0 items-center justify-center gap-1.5 rounded-sm px-1 py-1.5 text-label font-medium text-ink-muted transition-colors duration-150;
+    @apply flex min-w-0 items-center justify-center gap-1.5 rounded-sm px-1 py-1.5 text-label font-normal text-ink-muted transition-colors duration-150;
     min-height: 2.25rem;
+  }
+
+  /* Emphasised only inside the key bar; a <kbd> in running prose should not shout. */
+  .pos-keybar > button .pos-kbd {
+    @apply font-semibold text-ink;
   }
 
   .pos-keybar > button:hover:not(:disabled) {
