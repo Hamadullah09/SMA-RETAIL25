@@ -34,13 +34,6 @@ public static class LoginPageScript
     /// Only the <c>type</c> attribute changes. Re-setting the value would lose the caret position
     /// and any in-progress selection, and would defeat a password manager that had just filled it.
     /// </para>
-    /// </summary>
-    /// <summary>
-    /// Toggles the password field between hidden and visible.
-    /// <para>
-    /// Only the <c>type</c> attribute changes. Re-setting the value would lose the caret position
-    /// and any in-progress selection, and would defeat a password manager that had just filled it.
-    /// </para>
     /// <para>
     /// The two icons are both in the markup and one is hidden, so the script swaps a class rather
     /// than writing HTML. Building an element from a string here would be the one place in the

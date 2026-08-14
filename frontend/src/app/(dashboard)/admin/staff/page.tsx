@@ -18,6 +18,7 @@ import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
 import { BrowseFormShell, FormSection } from '@/components/masters/browse-form';
 import { RecordPicker } from '@/components/masters/record-picker';
 import { toast } from '@/components/ui/toaster';
+import Link from 'next/link';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
@@ -186,6 +187,7 @@ export default function StaffPage() {
             canWrite={canWrite}
             canSeeHours={canSeeHours}
             canSeeCommissions={canSeeCommissions}
+            canManageUsers={auth.can('users.manage')}
             onClose={() => setSelectedId(null)}
           />
         ) : locationId ? (
@@ -217,6 +219,7 @@ function StaffPanel({
   canWrite,
   canSeeHours,
   canSeeCommissions,
+  canManageUsers,
   onClose,
 }: {
   staff: StaffRow;
@@ -224,6 +227,9 @@ function StaffPanel({
   canWrite: boolean;
   canSeeHours: boolean;
   canSeeCommissions: boolean;
+
+  /** Whether to offer the way to the Users screen, or only say that one exists. */
+  canManageUsers: boolean;
   onClose: () => void;
 }) {
   const [rules, setRules] = useState<CommissionRule[]>([]);
@@ -309,6 +315,25 @@ function StaffPanel({
 
       <FormSection title="Role">
         <p className="text-body text-ink">{accessLevelLabel[staff.accessLevel] ?? `Level ${staff.accessLevel}`}</p>
+
+        {/*
+          Read-only here, and now it says so and says where.
+          
+          This screen is about what somebody did and is owed — hours, commission, the clock. Who
+          they are and what they may do is the Users screen. Both showed "Role", one of them
+          editable, and a supervisor looking at the wrong one saw a field that simply refused to be
+          a field, with nothing to explain why or where to go instead.
+        */}
+        <p className="text-caption text-ink-muted">
+          Set on the Users screen, with the rest of this person&apos;s access.{' '}
+          {canManageUsers ? (
+            <Link href="/admin/settings?tab=Users" className="underline hover:text-ink">
+              Open Users
+            </Link>
+          ) : (
+            <span>Ask an administrator to change it.</span>
+          )}
+        </p>
 
         {staff.accessLevel === 0 ? (
           <div className="flex items-start gap-2.5 rounded border border-warning/35 bg-warning/10 p-3">
