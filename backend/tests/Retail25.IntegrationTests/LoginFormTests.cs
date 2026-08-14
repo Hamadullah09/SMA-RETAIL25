@@ -78,10 +78,20 @@ public sealed class LoginFormTests
 
         var policy = string.Join(' ', response.Headers.GetValues("Content-Security-Policy"));
 
-        policy.Should().Contain("script-src");
-        policy.Should().NotContain("unsafe-inline'; script", "styles may be inline; scripts may not");
-        Regex.IsMatch(policy, @"script-src\s+'sha256-[A-Za-z0-9+/=]+'")
-            .Should().BeTrue("the only permitted script is the one named by hash");
+        // Read the script-src directive on its own rather than searching the whole header. The
+        // first version of this asserted the header did not contain "unsafe-inline'; script" —
+        // which is exactly what a correct policy looks like here, because style-src legitimately
+        // is 'unsafe-inline' and script-src follows it. The test failed on the very arrangement it
+        // was meant to approve.
+        var scriptSrc = Regex.Match(policy, @"script-src(?<sources>[^;]*)");
+
+        scriptSrc.Success.Should().BeTrue("the page carries an inline script and must say so");
+
+        var sources = scriptSrc.Groups["sources"].Value;
+
+        sources.Should().NotContain("unsafe-inline", "an injected script would be permitted too");
+        sources.Should().NotContain("unsafe-eval");
+        sources.Should().MatchRegex(@"'sha256-[A-Za-z0-9+/=]+'", "the only permitted script is named by hash");
     }
 
     private const string GoodPassword = "Correct-Horse-Battery-9!";
