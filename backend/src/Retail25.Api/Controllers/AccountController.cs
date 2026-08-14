@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
+using Retail25.Api.Common;
 using Retail25.Application.Abstractions;
 using Retail25.Domain.Security;
 using Retail25.Infrastructure.Identity;
@@ -265,6 +266,15 @@ public sealed class AccountController : Controller
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <title>Sign in — SMA Retail</title>
               <style>
+                /* The password field and its reveal, which sits inside the field's own box. */
+                .pw { position: relative; }
+                .pw input { padding-right: 4.25rem; }
+                .pw button {
+                  position: absolute; top: 0; right: 0; height: 100%;
+                  width: 4rem; border: 0; background: none; cursor: pointer;
+                  font: inherit; font-size: 0.85rem; color: #64748b;
+                }
+                .pw button:hover, .pw button:focus-visible { color: #0f172a; }
                 /* The one screen every user of this system sees, and the only one the identity
                    server draws itself. It sat on the app's defaults from before there was a design:
                    a black button, square corners, no mark. Arriving here from the app read as being
@@ -357,9 +367,17 @@ public sealed class AccountController : Controller
             .Append(remembered.Length == 0 ? " autofocus" : string.Empty)
             .Append('>')
             .Append("<label for=\"password\">Password</label>")
+
+            // Wrapped so the reveal button can sit inside the field. The button is a real
+            // <button type="button"> rather than a span: it has to be reachable by keyboard, and
+            // without the explicit type it would submit the form on Enter instead of toggling.
+            .Append("<div class=\"pw\">")
             .Append("<input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required")
             .Append(remembered.Length == 0 ? string.Empty : " autofocus")
-            .Append('>');
+            .Append('>')
+            .Append("<button type=\"button\" id=\"pw-toggle\" aria-controls=\"password\" aria-pressed=\"false\" ")
+            .Append("aria-label=\"Show password\">Show</button>")
+            .Append("</div>");
 
         page.Append("<input type=\"hidden\" name=\"returnUrl\" value=\"")
             .Append(WebUtility.HtmlEncode(returnUrl ?? "/"))
@@ -390,6 +408,14 @@ public sealed class AccountController : Controller
             .Append("/\">Back to SMA Retail</a></p>")
             .Append("""
               </div>
+            """)
+
+            // Emitted verbatim from the constant the CSP hash is computed over. Any edit to the
+            // script changes the hash automatically, so the two cannot fall out of step.
+            .Append("<script>")
+            .Append(LoginPageScript.Source)
+            .Append("</script>")
+            .Append("""
             </body>
             </html>
             """);

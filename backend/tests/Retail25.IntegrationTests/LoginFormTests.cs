@@ -28,6 +28,62 @@ public sealed class LoginFormTests
 
     public LoginFormTests(AuthApiFixture api) => _api = api;
 
+    /// <summary>
+    /// The reveal script must be permitted by the policy that ships with the page it is on.
+    /// <para>
+    /// This page's content-security-policy was <c>default-src 'none'</c> with no <c>script-src</c>
+    /// — the strongest thing a page can say — and a password reveal cannot be built without script
+    /// (the CSS-only routes need <c>type="text"</c>, which breaks password managers and renders the
+    /// password in plain text on Firefox). So the policy names one script by hash instead, which
+    /// keeps the property that mattered: an injected script hashes differently and is still refused.
+    /// </para>
+    /// <para>
+    /// It is pinned by a test because the failure is silent. If the emitted script and the hash
+    /// ever drift apart the browser simply refuses to run it, the reveal button stops working, and
+    /// the only evidence is a console message nobody is looking at on a sign-in page.
+    /// </para>
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task The_pages_script_is_permitted_by_its_own_content_security_policy()
+    {
+        var client = _api.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var response = await client.GetAsync("/account/login");
+        var html = await response.Content.ReadAsStringAsync();
+
+        var policy = response.Headers.TryGetValues("Content-Security-Policy", out var values)
+            ? string.Join(' ', values)
+            : string.Empty;
+
+        var script = Regex.Match(html, "<script>(?<body>.*?)</script>", RegexOptions.Singleline);
+        script.Success.Should().BeTrue("the page carries its reveal script inline");
+
+        // Hashed exactly as a browser hashes it: the element's text content, verbatim.
+        var hash = Convert.ToBase64String(
+            System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(script.Groups["body"].Value)));
+
+        policy.Should().Contain($"sha256-{hash}",
+            "a browser refuses any inline script whose hash the policy does not name");
+    }
+
+    /// <summary>
+    /// One script, and only by hash. `unsafe-inline` would permit an injected script too, which is
+    /// the whole thing this page is defended against.
+    /// </summary>
+    [RequiresDockerFact]
+    public async Task The_policy_never_permits_arbitrary_inline_script()
+    {
+        var client = _api.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var response = await client.GetAsync("/account/login");
+
+        var policy = string.Join(' ', response.Headers.GetValues("Content-Security-Policy"));
+
+        policy.Should().Contain("script-src");
+        policy.Should().NotContain("unsafe-inline'; script", "styles may be inline; scripts may not");
+        Regex.IsMatch(policy, @"script-src\s+'sha256-[A-Za-z0-9+/=]+'")
+            .Should().BeTrue("the only permitted script is the one named by hash");
+    }
+
     private const string GoodPassword = "Correct-Horse-Battery-9!";
 
     private static string Unique(string prefix) => $"{prefix}-{Guid.NewGuid():N}@retail25.test";

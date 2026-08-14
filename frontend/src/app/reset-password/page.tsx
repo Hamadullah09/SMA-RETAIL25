@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useState } from 'react';
+import { PasswordInput } from '@/components/auth/password-input';
 import { useSearchParams } from 'next/navigation';
 import { AuthField, AuthLink, AuthNotice, AuthShell } from '@/components/auth/auth-shell';
 import { postAccount, type AccountProblem } from '@/lib/account-api';
@@ -100,14 +101,12 @@ function ResetPasswordForm() {
           label="New password"
           hint={`At least ${MIN_PASSWORD} characters. Longer beats complicated.`}
         >
-          <input
+          <PasswordInput
             id="password"
-            type="password"
-            className="pos-input w-full"
             value={password}
-            onChange={(event) => setPassword(event.target.value)}
+            onChange={setPassword}
             autoComplete="new-password"
-            aria-describedby="password-hint"
+            describedBy="password-hint"
             minLength={MIN_PASSWORD}
             required
             autoFocus
@@ -115,15 +114,13 @@ function ResetPasswordForm() {
         </AuthField>
 
         <AuthField id="confirm" label="New password again">
-          <input
+          <PasswordInput
             id="confirm"
-            type="password"
-            className="pos-input w-full"
             value={confirm}
-            onChange={(event) => setConfirm(event.target.value)}
+            onChange={setConfirm}
             autoComplete="new-password"
-            aria-invalid={mismatch}
-            aria-describedby={mismatch ? 'confirm-error' : undefined}
+            invalid={mismatch}
+            describedBy={mismatch ? 'confirm-error' : undefined}
             required
           />
           {mismatch ? (

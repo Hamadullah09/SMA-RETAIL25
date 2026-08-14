@@ -27,6 +27,13 @@ public sealed class SecurityHeadersMiddleware
         _contentSecurityPolicy =
             "default-src 'none'; " +
             "style-src 'unsafe-inline'; " +   // the login page's own <style> block, nothing external
+
+            // Exactly one script, pinned by hash: the login page's password reveal. This was
+            // 'none', which is stronger in principle and unusable in practice — nothing but script
+            // can change an input's type, and the CSS-only alternatives render the password in
+            // plain text on Firefox. A hash keeps the property that mattered: an injected script
+            // hashes differently and is still refused.
+            $"script-src {LoginPageScript.CspHash}; " +
             "img-src 'self' data:; " +
             $"form-action 'self' {webOrigin.TrimEnd('/')}; " +
             "frame-ancestors 'none'; " +
