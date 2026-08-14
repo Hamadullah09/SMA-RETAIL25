@@ -18,6 +18,7 @@ import { BrowseFormShell, FormSection } from '@/components/masters/browse-form';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi, type AuditFilters } from '@/lib/masters-api';
+import { LOG_CATEGORIES, logCategory } from '@/lib/log-categories';
 import { PosApiError } from '@/lib/pos-api';
 import { cn } from '@/lib/utils';
 import type { AuditAction, AuditLogRow } from '@/types/masters';
@@ -65,6 +66,10 @@ export default function AuditPage() {
   const [from, setFrom] = useState(() => isoDate(-7));
   const [to, setTo] = useState(() => isoDate(0));
   const [entityType, setEntityType] = useState('');
+
+  // The category the tabs select. A category is several record types — a sale is a transaction, its
+  // lines, its tenders and a drawer movement — so this cannot be one entity name.
+  const [category, setCategory] = useState('all');
   const [action, setAction] = useState<AuditAction | ''>('');
   const [rows, setRows] = useState<AuditLogRow[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -79,10 +84,16 @@ export default function AuditPage() {
       from: `${from}T00:00:00Z`,
       to: `${to}T23:59:59Z`,
       entityType: entityType || undefined,
+
+      // Only when no explicit record type is typed: a name the investigator entered by hand is a
+      // more specific request than the category it happens to belong to.
+      entityTypes: entityType ? undefined : (logCategory(category).entityTypes.length > 0
+        ? logCategory(category).entityTypes
+        : undefined),
       action: action || undefined,
       take: 200,
     }),
-    [from, to, entityType, action],
+    [from, to, entityType, action, category],
   );
 
   const load = useCallback(async () => {
@@ -182,6 +193,34 @@ export default function AuditPage() {
       }
       filters={
         <>
+          {/*
+            The categories, first, because choosing what you are looking at comes before narrowing
+            when. Each is several record types — see log-categories.ts — which is what the old
+            single free-text box could not express.
+          */}
+          <div className="flex flex-wrap items-center gap-1" role="tablist" aria-label="Log category">
+            {LOG_CATEGORIES.map((entry) => (
+              <button
+                key={entry.id}
+                type="button"
+                role="tab"
+                aria-selected={category === entry.id}
+                title={entry.hint}
+                onClick={() => setCategory(entry.id)}
+                className={cn(
+                  'rounded-sm px-2 py-1 text-label transition-colors',
+                  category === entry.id
+                    ? 'bg-panel-sunken font-semibold text-ink'
+                    : 'text-ink-muted hover:bg-panel-hover hover:text-ink',
+                )}
+              >
+                {entry.label}
+              </button>
+            ))}
+          </div>
+
+          <span className="h-4 w-px bg-subtle" aria-hidden />
+
           <label className="flex items-center gap-1.5 text-ink-muted">
             From
             <input
@@ -202,10 +241,17 @@ export default function AuditPage() {
             />
           </label>
 
+          {/*
+            Kept, and demoted. The free-text box is the only way to ask about one exact table, which
+            an investigator following a specific record does want — but it was the *only* control,
+            so the ordinary question ("what happened with sales today") required knowing the schema
+            and typing it correctly. Typing here overrides the category, because a name somebody
+            entered by hand is the more specific request.
+          */}
           <input
             className="w-56 pos-input"
-            aria-label="Record type"
-            placeholder="Record type, e.g. Product"
+            aria-label="Exact record type"
+            placeholder={category === 'all' ? 'Exact record type, e.g. Product' : `Overrides ${logCategory(category).label}`}
             value={entityType}
             onChange={(event) => setEntityType(event.target.value)}
           />

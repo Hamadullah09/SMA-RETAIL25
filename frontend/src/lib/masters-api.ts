@@ -163,14 +163,24 @@ async function callPdf(fn: () => Promise<{ data: Blob }>): Promise<Blob> {
   }
 }
 
-function query(params: Record<string, string | number | boolean | null | undefined>): string {
+function query(
+  params: Record<string, string | number | boolean | readonly string[] | null | undefined>,
+): string {
   const search = new URLSearchParams();
 
   for (const [key, value] of Object.entries(params)) {
     // Undefined and empty mean "no filter". Sending them as empty strings would make the server
     // filter on a blank, which matches nothing.
     if (value === undefined || value === null || value === '') continue;
-    search.set(key, String(value));
+
+    // A repeated key rather than a joined string: ASP.NET Core binds `?k=a&k=b` to an array, and
+    // a comma-joined value would arrive as one nonsensical entity type.
+    if (Array.isArray(value)) {
+      for (const item of value) if (item !== '') search.append(key, String(item));
+      continue;
+    }
+
+    search.set(key, String(value as string | number | boolean));
   }
 
   return search.toString();
@@ -247,6 +257,9 @@ export interface AuditFilters {
   actorStaffId?: number;
   stationId?: number;
   entityType?: string;
+
+  /** Several record types at once — a category rather than a single table. Repeated in the query. */
+  entityTypes?: readonly string[];
   entityId?: number;
   action?: AuditAction;
   skip?: number;

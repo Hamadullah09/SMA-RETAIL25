@@ -102,12 +102,17 @@ public sealed class AuditController : ControllerBase
         [FromQuery] long? actorStaffId = null,
         [FromQuery] long? stationId = null,
         [FromQuery] string? entityType = null,
+
+        // Repeatable: ?entityTypes=SalesTransaction&entityTypes=SaleLine. A category on the screen
+        // is several record types underneath, and asking for them one request at a time would make
+        // "show me everything about sales" four round trips and four lists to merge.
+        [FromQuery] string[]? entityTypes = null,
         [FromQuery] string? entityId = null,
         [FromQuery] AuditAction? action = null,
         [FromQuery] int skip = 0,
         [FromQuery] int take = 100)
         => Ok(await _sender.Send(new AuditLogQuery(
-            from, to, actorStaffId, stationId, entityType, entityId, action, null, skip, take)));
+            from, to, actorStaffId, stationId, entityType, entityId, action, null, skip, take, entityTypes)));
 
     /// <summary>Everything one request did — the question an investigation actually asks.</summary>
     [HttpGet("request/{correlationId}")]

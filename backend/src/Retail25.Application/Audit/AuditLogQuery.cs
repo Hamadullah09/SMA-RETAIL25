@@ -36,11 +36,27 @@ public sealed record AuditLogQuery(
     long? ActorStaffId = null,
     long? StationId = null,
     string? EntityType = null,
+
     string? EntityId = null,
     AuditAction? Action = null,
     string? CorrelationId = null,
     int Skip = 0,
-    int Take = 100) : IRequest<AuditLogPage>;
+    int Take = 100,
+
+    /// <summary>
+    /// Several record types at once, for a category rather than a single table.
+    /// <para>
+    /// "Sales" is not one entity — it is the transaction, its lines, its tenders and the drawer
+    /// movements that went with it. The screen offered a free-text box where an investigator had
+    /// to type <c>SalesTransaction</c> exactly and learned nothing of the other three, so the
+    /// obvious question could not be asked at all.
+    /// </para>
+    /// <para>
+    /// Last in the list deliberately: this record has positional callers, and adding a parameter
+    /// anywhere else silently rebinds their arguments to the wrong slots.
+    /// </para>
+    /// </summary>
+    IReadOnlyList<string>? EntityTypes = null) : IRequest<AuditLogPage>;
 
 /// <summary>
 /// Everything one request did, by correlation id. This is the question an investigation actually
@@ -84,6 +100,13 @@ public sealed class AuditLogHandlers
         if (!string.IsNullOrWhiteSpace(request.EntityType))
         {
             query = query.Where(e => e.EntityType == request.EntityType);
+        }
+
+        // Narrower wins if both arrive: an explicit single type is a more specific request than the
+        // category it happens to sit in.
+        else if (request.EntityTypes is { Count: > 0 } types)
+        {
+            query = query.Where(e => types.Contains(e.EntityType));
         }
 
         if (!string.IsNullOrWhiteSpace(request.EntityId))
