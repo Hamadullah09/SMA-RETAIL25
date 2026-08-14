@@ -35,6 +35,19 @@ public static class LoginPageScript
     /// and any in-progress selection, and would defeat a password manager that had just filled it.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Toggles the password field between hidden and visible.
+    /// <para>
+    /// Only the <c>type</c> attribute changes. Re-setting the value would lose the caret position
+    /// and any in-progress selection, and would defeat a password manager that had just filled it.
+    /// </para>
+    /// <para>
+    /// The two icons are both in the markup and one is hidden, so the script swaps a class rather
+    /// than writing HTML. Building an element from a string here would be the one place in the
+    /// system doing that, on the page that handles passwords, and the CSP exists to make exactly
+    /// that impossible.
+    /// </para>
+    /// </summary>
     public const string Source =
         """
         (function () {
@@ -46,7 +59,7 @@ public static class LoginPageScript
             field.setAttribute('type', shown ? 'password' : 'text');
             toggle.setAttribute('aria-pressed', shown ? 'false' : 'true');
             toggle.setAttribute('aria-label', shown ? 'Show password' : 'Hide password');
-            toggle.textContent = shown ? 'Show' : 'Hide';
+            toggle.classList.toggle('revealed', !shown);
             field.focus();
           });
         })();

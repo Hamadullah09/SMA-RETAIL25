@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { connectionCopy, connectionStateFrom } from '@/lib/connection-state';
 
@@ -184,7 +185,7 @@ export function PasswordField({
     <Field label={label} hint={hint}>
       <div className="relative">
         <input
-          className={cn(inputClass, 'pr-16')}
+          className={cn(inputClass, 'pr-11')}
           type={revealed ? 'text' : 'password'}
           value={value}
           placeholder={placeholder}
@@ -192,14 +193,20 @@ export function PasswordField({
           autoComplete="new-password"
           onChange={(event) => onChange(event.target.value)}
         />
+        {/*
+          An eye, matching the sign-in and sign-up pages. This was the word "Show", which meant the
+          application offered the same control three different ways depending which screen you were
+          on — the sort of small inconsistency that makes software feel like several products.
+        */}
         <button
           type="button"
-          className="absolute inset-y-0 right-2 my-auto h-6 px-2 text-xs text-ink-muted hover:text-ink"
+          className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-ink-muted transition-colors hover:text-ink focus-visible:text-ink"
           onClick={() => setRevealed((current) => !current)}
           disabled={disabled}
-          aria-label={revealed ? 'Hide the password' : 'Show the password'}
+          aria-pressed={revealed}
+          aria-label={revealed ? 'Hide password' : 'Show password'}
         >
-          {revealed ? 'Hide' : 'Show'}
+          {revealed ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
         </button>
       </div>
     </Field>

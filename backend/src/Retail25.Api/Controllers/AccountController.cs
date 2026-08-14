@@ -237,6 +237,18 @@ public sealed class AccountController : Controller
     /// for both shapes rather than a special case for one.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// The open eye — shown when the password is hidden, because the icon offers the action rather
+    /// than reporting the state. Matches the lucide "eye" the rest of the application uses, so the
+    /// server-rendered page and the React pages do not have visibly different controls.
+    /// </summary>
+    private const string EyeIcon =
+        """<svg class="icon-show" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>""";
+
+    /// <summary>The struck-through eye, shown while the password is visible.</summary>
+    private const string EyeOffIcon =
+        """<svg class="icon-hide" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.4 0 10 7 10 7a18.5 18.5 0 0 1-2.2 3.2M6.6 6.6A18.5 18.5 0 0 0 2 11s3.6 7 10 7a9.1 9.1 0 0 0 4.2-1M2 2l20 20"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>""";
+
     private string AppPath(string path) => Request.PathBase + path;
 
     private string LoginUrl(string returnUrl, string error, string? username = null)
@@ -268,13 +280,18 @@ public sealed class AccountController : Controller
               <style>
                 /* The password field and its reveal, which sits inside the field's own box. */
                 .pw { position: relative; }
-                .pw input { padding-right: 4.25rem; }
+                .pw input { padding-right: 2.9rem; }
                 .pw button {
                   position: absolute; top: 0; right: 0; height: 100%;
-                  width: 4rem; border: 0; background: none; cursor: pointer;
-                  font: inherit; font-size: 0.85rem; color: #64748b;
+                  width: 2.75rem; border: 0; background: none; cursor: pointer;
+                  display: flex; align-items: center; justify-content: center; color: #64748b;
                 }
                 .pw button:hover, .pw button:focus-visible { color: #0f172a; }
+
+                /* One icon at a time: the eye offers "show", the struck eye offers "hide". */
+                .pw button .icon-hide { display: none; }
+                .pw button.revealed .icon-show { display: none; }
+                .pw button.revealed .icon-hide { display: block; }
                 /* The one screen every user of this system sees, and the only one the identity
                    server draws itself. It sat on the app's defaults from before there was a design:
                    a black button, square corners, no mark. Arriving here from the app read as being
@@ -375,8 +392,14 @@ public sealed class AccountController : Controller
             .Append("<input id=\"password\" name=\"password\" type=\"password\" autocomplete=\"current-password\" required")
             .Append(remembered.Length == 0 ? string.Empty : " autofocus")
             .Append('>')
+            // Both icons ship in the markup and CSS shows one; the script only toggles a class.
+            // Drawn inline rather than fetched — the policy allows no external origin, and an icon
+            // font on the sign-in page would be a network round trip before anyone can type.
             .Append("<button type=\"button\" id=\"pw-toggle\" aria-controls=\"password\" aria-pressed=\"false\" ")
-            .Append("aria-label=\"Show password\">Show</button>")
+            .Append("aria-label=\"Show password\">")
+            .Append(EyeIcon)
+            .Append(EyeOffIcon)
+            .Append("</button>")
             .Append("</div>");
 
         page.Append("<input type=\"hidden\" name=\"returnUrl\" value=\"")
