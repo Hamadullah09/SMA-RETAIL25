@@ -2105,6 +2105,8 @@ function NewColleague({ locationId, onCreated }: { locationId: number; onCreated
 
   const patch = (changes: Partial<typeof BLANK_COLLEAGUE>) => setForm((current) => ({ ...current, ...changes }));
 
+  const chosenRole = roles.find((role) => role.name === form.role);
+
   // The roles come from the server rather than a constant here, so a deployment that adds one does
   // not need a rebuilt front end to be able to assign it.
   useEffect(() => {
@@ -2204,7 +2206,22 @@ function NewColleague({ locationId, onCreated }: { locationId: number; onCreated
         />
       </FieldGroup>
 
-      <FieldGroup title="Access" columns={3}>
+      {/*
+        One control, not two.
+        <p>
+          Role and Access level asked the same question twice. Every seeded role carries the level it
+          means — Trainee is 0, Cashier 1, up to Administrator at 4 — and picking a role already moved
+          the level to match. So the pair could be left disagreeing: choose Cashier, then set the
+          level to Manager, and the form showed a Cashier while the server was told something else.
+          Which one won was not visible from the screen.
+        </p>
+        <p>
+          The role is the question worth asking, because it is the one phrased in terms of the shop —
+          what this person is allowed to do — rather than a number from the old system. The level is
+          derived and shown, so nothing is hidden, just no longer separately editable.
+        </p>
+      */}
+      <FieldGroup title="Access" columns={2}>
         <SelectField
           label="Role"
           value={form.role}
@@ -2217,13 +2234,11 @@ function NewColleague({ locationId, onCreated }: { locationId: number; onCreated
             const chosen = roles.find((role) => role.name === v);
             patch({ role: v, accessLevel: chosen?.legacyLevel ?? form.accessLevel });
           }}
-          hint="What they are allowed to do. Changing it preselects the matching level."
-        />
-        <SelectField
-          label="Access level"
-          value={String(form.accessLevel)}
-          options={LEVEL_LABELS.map((label, level) => ({ value: String(level), label }))}
-          onChange={(v) => patch({ accessLevel: Number(v) || 0 })}
+          hint={
+            chosenRole?.legacyLevel != null
+              ? `What they are allowed to do. Access level ${chosenRole.legacyLevel} — ${LEVEL_LABELS[chosenRole.legacyLevel] ?? ''}.`
+              : 'What they are allowed to do.'
+          }
         />
         <TextField
           label="Till PIN (optional)"
@@ -2231,6 +2246,21 @@ function NewColleague({ locationId, onCreated }: { locationId: number; onCreated
           onChange={(v) => patch({ pin: v.replace(/\D/g, '') })}
           hint="Four digits or more, for fast-switching at a till."
         />
+
+        {/*
+          A role added later that maps to no level cannot have one derived, and the server still needs
+          one. Rather than guess, the picker comes back — but only for the role that actually needs it,
+          instead of sitting on the form permanently contradicting the roles that do not.
+        */}
+        {chosenRole != null && chosenRole.legacyLevel == null ? (
+          <SelectField
+            label="Access level"
+            value={String(form.accessLevel)}
+            options={LEVEL_LABELS.map((label, level) => ({ value: String(level), label }))}
+            onChange={(v) => patch({ accessLevel: Number(v) || 0 })}
+            hint="This role does not imply a level, so choose one."
+          />
+        ) : null}
       </FieldGroup>
     </SettingsSection>
   );
