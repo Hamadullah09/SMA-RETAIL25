@@ -2237,6 +2237,84 @@ function NewColleague({ locationId, onCreated }: { locationId: number; onCreated
 }
 
 /** An administrator setting someone's password for them — the answer to a locked-out cashier. */
+/**
+ * Taking somebody's access away, behind a confirmation.
+ *
+ * Two clicks rather than one, and the second one names the person. This sits directly under a
+ * password field on a screen an administrator uses in a hurry, and "are you sure?" that does not
+ * say who is a question nobody reads.
+ *
+ * The word is "Revoke access" rather than "Delete" because that is what happens. The staff record
+ * stays — it is what a sale is attributed to and what an audit entry points at — and the server
+ * refuses two cases outright: removing your own access, and removing the last administrator. Both
+ * end with nobody able to sign in.
+ */
+function RevokeAccess({
+  staff,
+  onDone,
+}: {
+  staff: import('@/types/masters').StaffSettings;
+  onDone: () => void | Promise<void>;
+}) {
+  const { busy, run } = useSaver(onDone);
+  const [confirming, setConfirming] = useState(false);
+
+  if (!staff.isActive) {
+    return (
+      <FieldGroup title="Access">
+        <p className="text-body text-ink-muted">
+          This person cannot sign in. Their record and history are kept.
+        </p>
+        <SaveButton
+          busy={busy}
+          variant="secondary"
+          label="Restore access"
+          onClick={() => void run(() => mastersApi.staff.reactivate(staff.id), 'Access restored')}
+        />
+      </FieldGroup>
+    );
+  }
+
+  return (
+    <FieldGroup title="Access">
+      {confirming ? (
+        <div className="rounded border border-negative/40 bg-negative/10 p-3">
+          <p className="text-body font-semibold text-ink">
+            Remove access for {staff.firstName} {staff.lastName}?
+          </p>
+          <p className="mt-0.5 text-body text-ink-muted">
+            They will not be able to sign in. Their sales, hours and audit history are kept, and you
+            can restore access later.
+          </p>
+
+          <div className="mt-2 flex gap-2">
+            <button
+              type="button"
+              className="pos-button-danger px-3"
+              disabled={busy}
+              onClick={() =>
+                void run(async () => {
+                  await mastersApi.staff.deactivate(staff.id);
+                  setConfirming(false);
+                }, 'Access removed')
+              }
+            >
+              {busy ? 'Removing…' : 'Remove access'}
+            </button>
+            <button type="button" className="pos-button px-3" disabled={busy} onClick={() => setConfirming(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="pos-button px-3 text-negative" onClick={() => setConfirming(true)}>
+          Remove access…
+        </button>
+      )}
+    </FieldGroup>
+  );
+}
+
 function ResetPassword({ staffId, onDone }: { staffId: number; onDone: () => void | Promise<void> }) {
   const { busy, run } = useSaver(onDone);
   const [password, setPassword] = useState('');
@@ -2362,6 +2440,7 @@ function UsersTab({
           </FieldGroup>
 
           {canWrite ? <ResetPassword staffId={staff.id} onDone={onSaved} /> : null}
+          {canWrite ? <RevokeAccess staff={staff} onDone={onSaved} /> : null}
         </SettingsSection>
       ))}
     </>

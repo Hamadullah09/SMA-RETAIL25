@@ -190,7 +190,7 @@ public sealed class CreateStaffTests
         var hasher = Substitute.For<IPinHasher>();
         hasher.Hash("4821").Returns("hashed-pin");
 
-        var handlers = new StaffProvisioningHandlers(harness.Db, Provisioner(), hasher);
+        var handlers = new StaffProvisioningHandlers(harness.Db, Provisioner(), hasher, new Carts.TestCurrentUser());
 
         await handlers.Handle(Command() with { Pin = "4821" }, CancellationToken.None);
 
@@ -324,6 +324,9 @@ public sealed class CreateStaffTests
         return provisioner;
     }
 
-    private static StaffProvisioningHandlers Handlers(MastersTestHarness harness, IUserProvisioner provisioner)
-        => new(harness.Db, provisioner, Substitute.For<IPinHasher>());
+    private static StaffProvisioningHandlers Handlers(
+        MastersTestHarness harness,
+        IUserProvisioner provisioner,
+        ICurrentUser? currentUser = null)
+        => new(harness.Db, provisioner, Substitute.For<IPinHasher>(), currentUser ?? new Carts.TestCurrentUser());
 }

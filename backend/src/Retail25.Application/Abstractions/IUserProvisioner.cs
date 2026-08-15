@@ -47,4 +47,15 @@ public interface IUserProvisioner
 
     /// <summary>Enables or disables the sign-in, leaving the staff record and its history intact.</summary>
     Task<Result> SetEnabledAsync(long userId, bool enabled, CancellationToken ct);
+
+    Task<bool> IsInRoleAsync(long userId, string role, CancellationToken ct);
+
+    /// <summary>
+    /// How many people in this role can still sign in.
+    /// <para>
+    /// Disabled accounts are excluded deliberately: the question being asked is "would anybody be
+    /// left who can actually get in", and a disabled administrator answers no.
+    /// </para>
+    /// </summary>
+    Task<int> CountEnabledInRoleAsync(string role, CancellationToken ct);
 }

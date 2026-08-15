@@ -123,6 +123,20 @@ public sealed class UserProvisioner : IUserProvisioner
         return updated.Succeeded ? Result.Success() : Result.Failure(FirstError(updated));
     }
 
+    public async Task<bool> IsInRoleAsync(long userId, string role, CancellationToken ct)
+    {
+        var user = await _users.FindByIdAsync(userId.ToString(CultureInfo.InvariantCulture));
+
+        return user is not null && await _users.IsInRoleAsync(user, role);
+    }
+
+    public async Task<int> CountEnabledInRoleAsync(string role, CancellationToken ct)
+    {
+        var inRole = await _users.GetUsersInRoleAsync(role);
+
+        return inRole.Count(u => u.IsEnabled);
+    }
+
     /// <summary>
     /// Identity returns a list; the UI shows one message. The first is the most specific in
     /// practice, and its <c>Code</c> ("PasswordTooShort") is stable enough to translate against.

@@ -42,11 +42,41 @@ public sealed record ResetStaffPasswordCommand(long StaffId, string NewPassword)
 [RequiresPermission(PermissionKeys.Staff.Read)]
 public sealed record ListAssignableRolesQuery : IRequest<IReadOnlyList<AssignableRoleDto>>;
 
+/// <summary>
+/// Takes somebody's access away.
+/// <para>
+/// Deactivation, not deletion, and the distinction is not squeamishness. A staff row is what a sale
+/// is attributed to, what a commission is owed against and what an audit entry points at — deleting
+/// one would either break those references or silently rewrite who did what, which is the one thing
+/// an audit trail exists to prevent. The sign-in stops working, the person disappears from the
+/// active list, and every record they touched still says their name.
+/// </para>
+/// <para>
+/// Reversible by design: <see cref="ReactivateStaffCommand"/> puts it back. A shop that walks
+/// somebody out on Friday and rehires them in March should not need a database restore.
+/// </para>
+/// </summary>
+[RequiresPermission(PermissionKeys.Staff.Write)]
+public sealed record DeactivateStaffCommand(long StaffId) : IRequest<Result>;
+
+[RequiresPermission(PermissionKeys.Staff.Write)]
+public sealed record ReactivateStaffCommand(long StaffId) : IRequest<Result>;
+
 public sealed class StaffProvisioningHandlers :
     IRequestHandler<CreateStaffCommand, Result<StaffRowDto>>,
     IRequestHandler<ResetStaffPasswordCommand, Result>,
+    IRequestHandler<DeactivateStaffCommand, Result>,
+    IRequestHandler<ReactivateStaffCommand, Result>,
     IRequestHandler<ListAssignableRolesQuery, IReadOnlyList<AssignableRoleDto>>
 {
+    public static readonly Error CannotDeactivateSelf = new(
+        "staff.cannot_deactivate_self",
+        "You cannot remove your own access. Ask another administrator.");
+
+    public static readonly Error LastAdministrator = new(
+        "staff.last_administrator",
+        "This is the only administrator left. Give somebody else administrator access first.");
+
     public static readonly Error EmailRequired = new("staff.email_required", "An email address is required.");
 
     public static readonly Error EmailMalformed = new("staff.email_malformed", "That does not look like an email address.");
@@ -78,15 +108,18 @@ public sealed class StaffProvisioningHandlers :
     private readonly IApplicationDbContext _db;
     private readonly IUserProvisioner _provisioner;
     private readonly IPinHasher _pinHasher;
+    private readonly ICurrentUser _currentUser;
 
     public StaffProvisioningHandlers(
         IApplicationDbContext db,
         IUserProvisioner provisioner,
-        IPinHasher pinHasher)
+        IPinHasher pinHasher,
+        ICurrentUser currentUser)
     {
         _db = db;
         _provisioner = provisioner;
         _pinHasher = pinHasher;
+        _currentUser = currentUser;
     }
 
     public async Task<IReadOnlyList<AssignableRoleDto>> Handle(ListAssignableRolesQuery request, CancellationToken ct)
@@ -211,6 +244,86 @@ public sealed class StaffProvisioningHandlers :
             ? Result.Failure(StaffNotFound)
             : await _provisioner.ResetPasswordAsync(staff.UserId, request.NewPassword ?? string.Empty, ct);
     }
+
+    public async Task<Result> Handle(DeactivateStaffCommand request, CancellationToken ct)
+    {
+        var staff = await _db.StaffProfiles.FirstOrDefaultAsync(s => s.Id == request.StaffId, ct);
+
+        if (staff is null)
+        {
+            return Result.Failure(StaffNotFound);
+        }
+
+        // Locking yourself out is the mistake this is most likely to be. Refusing it costs nothing
+        // and the alternative is an administrator who cannot undo what they just did.
+        if (_currentUser.StaffId == staff.Id)
+        {
+            return Result.Failure(CannotDeactivateSelf);
+        }
+
+        // And locking *everybody* out. Counted across the account rather than the location: an
+        // administrator is an administrator everywhere, and a shop with one left is one careless
+        // click from having none and no way back in short of a database edit.
+        if (await IsLastAdministratorAsync(staff, ct))
+        {
+            return Result.Failure(LastAdministrator);
+        }
+
+        var disabled = await _provisioner.SetEnabledAsync(staff.UserId, false, ct);
+        if (disabled.IsFailure)
+        {
+            return disabled;
+        }
+
+        staff.SetActive(false);
+        await _db.SaveChangesAsync(ct);
+
+        return Result.Success();
+    }
+
+    public async Task<Result> Handle(ReactivateStaffCommand request, CancellationToken ct)
+    {
+        var staff = await _db.StaffProfiles.FirstOrDefaultAsync(s => s.Id == request.StaffId, ct);
+
+        if (staff is null)
+        {
+            return Result.Failure(StaffNotFound);
+        }
+
+        var enabled = await _provisioner.SetEnabledAsync(staff.UserId, true, ct);
+        if (enabled.IsFailure)
+        {
+            return enabled;
+        }
+
+        staff.SetActive(true);
+        await _db.SaveChangesAsync(ct);
+
+        return Result.Success();
+    }
+
+    /// <summary>
+    /// Whether this person is the only administrator still able to sign in.
+    /// <para>
+    /// Asks Identity rather than reading the legacy access level, because the level is a preset and
+    /// the role is the thing authorisation actually uses — somebody can hold level 4 and not be in
+    /// the Administrator role, and it is the role that would be lost.
+    /// </para>
+    /// </summary>
+    private async Task<bool> IsLastAdministratorAsync(StaffProfile staff, CancellationToken ct)
+    {
+        if (!await _provisioner.IsInRoleAsync(staff.UserId, AdministratorRole, ct))
+        {
+            return false;
+        }
+
+        var administrators = await _provisioner.CountEnabledInRoleAsync(AdministratorRole, ct);
+
+        return administrators <= 1;
+    }
+
+    /// <summary>The role the seeder creates and the one that can reach every permission.</summary>
+    private const string AdministratorRole = "Administrator";
 
     /// <summary>
     /// Deliberately permissive: one <c>@</c> with something either side and a dot in the domain.

@@ -40,6 +40,19 @@ public sealed class StaffController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateStaffCommand command, CancellationToken ct)
         => (await _sender.Send(command, ct)).ToActionResult(this);
 
+    /// <summary>
+    /// Takes somebody's access away. DELETE, because that is what an administrator is doing from
+    /// their side — but it deactivates rather than destroys: a staff row is what a sale is
+    /// attributed to and what an audit entry points at.
+    /// </summary>
+    [HttpDelete("{staffId:long}")]
+    public async Task<IActionResult> Deactivate(long staffId, CancellationToken ct)
+        => (await _sender.Send(new DeactivateStaffCommand(staffId), ct)).ToActionResult(this);
+
+    [HttpPost("{staffId:long}/reactivate")]
+    public async Task<IActionResult> Reactivate(long staffId, CancellationToken ct)
+        => (await _sender.Send(new ReactivateStaffCommand(staffId), ct)).ToActionResult(this);
+
     [HttpPost("{staffId:long}/password")]
     public async Task<IActionResult> ResetPassword(
         long staffId, [FromBody] ResetStaffPasswordRequest request, CancellationToken ct)

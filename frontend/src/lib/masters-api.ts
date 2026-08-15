@@ -755,6 +755,15 @@ export const mastersApi = {
     resetPassword: (staffId: number, newPassword: string) =>
       call<void>(() => apiClient.post(`/staff/${staffId}/password`, { newPassword })),
 
+    /**
+     * Takes somebody's access away. DELETE from the caller's side, deactivation underneath — a
+     * staff row is what a sale is attributed to and what an audit entry points at, so it is never
+     * destroyed.
+     */
+    deactivate: (staffId: number) => call<void>(() => apiClient.delete(`/staff/${staffId}`)),
+
+    reactivate: (staffId: number) => call<void>(() => apiClient.post(`/staff/${staffId}/reactivate`)),
+
     myTimeClock: (locationId: number) =>
       call<TimeClockState>(() => apiClient.get(`/staff/time-clock/me?${query({ locationId })}`)),
 
