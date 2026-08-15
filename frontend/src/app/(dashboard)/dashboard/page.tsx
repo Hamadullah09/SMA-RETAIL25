@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
 import { EmptyState, KpiTile, Panel, RankedBars, TileSkeleton } from '@/components/dashboard/kpi';
+import { Eye, EyeOff } from 'lucide-react';
 import { SalesTrend } from '@/components/dashboard/sales-trend';
+import { HIDDEN_AMOUNT, useAmountVisibility } from '@/lib/amount-visibility';
 import { formatCurrency } from '@/lib/utils';
 
 /**
@@ -89,6 +91,16 @@ export default function DashboardPage() {
   //
   // Left off entirely when yesterday took nothing. A percentage against zero is either a division by
   // zero or a fabricated "100%", and a shop that was shut yesterday should not be told it is up.
+  const { visible: amountsVisible, toggle: toggleAmounts } = useAmountVisibility();
+
+  /**
+   * Hidden money is never rendered, only replaced.
+   *
+   * Blurring or colouring the real figure leaves it in the DOM, where it is one inspector — or one
+   * screen reader — away from being read out. The number does not reach the page at all.
+   */
+  const amount = (value: number) => (amountsVisible ? formatCurrency(value) : HIDDEN_AMOUNT);
+
   const yesterdayNet = rows.find((r) => r.groupKey === isoDate(-1))?.netSales ?? 0;
   const todayNet = todayRow?.netSales ?? 0;
   const salesDelta = yesterdayNet > 0 ? ((todayNet - yesterdayNet) / yesterdayNet) * 100 : undefined;
@@ -119,9 +131,29 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        <Link href="/pos" className="pos-button-primary">
-          Open the till
-        </Link>
+        <div className="flex items-center gap-2">
+          {/*
+            Only offered to somebody who could see the figures anyway. A hide control on a screen
+            that never shows takings is a switch that does nothing, and it would imply there is
+            something behind it.
+          */}
+          {auth.can('reports.sales') ? (
+            <button
+              type="button"
+              onClick={toggleAmounts}
+              className="pos-button px-3"
+              aria-pressed={amountsVisible}
+              aria-label={amountsVisible ? 'Hide takings' : 'Show takings'}
+            >
+              {amountsVisible ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
+              {amountsVisible ? 'Hide takings' : 'Show takings'}
+            </button>
+          ) : null}
+
+          <Link href="/pos" className="pos-button-primary">
+            Open the till
+          </Link>
+        </div>
       </header>
 
       {/* One column on a phone, two on a tablet, four on a desktop. The tiles are the summary, so
@@ -133,10 +165,10 @@ export default function DashboardPage() {
           ) : (
             <KpiTile
               label="Sales today"
-              value={formatCurrency(todayNet)}
+              value={amount(todayNet)}
               hint={`${todayRow?.transactionCount ?? 0} transaction${todayRow?.transactionCount === 1 ? '' : 's'}`}
               delta={
-                salesDelta != null
+                salesDelta != null && amountsVisible
                   ? { percent: salesDelta, comparison: `vs yesterday ${formatCurrency(yesterdayNet)}` }
                   : undefined
               }
@@ -151,9 +183,9 @@ export default function DashboardPage() {
           ) : (
             <KpiTile
               label="Last 14 days"
-              value={formatCurrency(trend.data?.grandNetSales ?? 0)}
+              value={amount(trend.data?.grandNetSales ?? 0)}
               hint={
-                trend.data?.grandGrossMargin != null
+                trend.data?.grandGrossMargin != null && amountsVisible
                   ? `${formatCurrency(trend.data.grandGrossMargin)} margin`
                   : `${rows.length} trading day${rows.length === 1 ? '' : 's'}`
               }
@@ -206,8 +238,10 @@ export default function DashboardPage() {
           >
             {trend.isPending ? (
               <div className="h-48 animate-pulse rounded-sm bg-panel-sunken" />
-            ) : (
+            ) : amountsVisible ? (
               <SalesTrend rows={rows} todayKey={today} />
+            ) : (
+              <HiddenNote />
             )}
           </Panel>
         ) : null}
@@ -216,6 +250,8 @@ export default function DashboardPage() {
           <Panel title="Top sellers" className="min-h-[16rem]">
             {topSellers.isPending ? (
               <div className="h-48 animate-pulse rounded-sm bg-panel-sunken" />
+            ) : !amountsVisible ? (
+              <HiddenNote />
             ) : (
               <RankedBars
                 empty="Nothing sold in this period."
@@ -376,4 +412,22 @@ function isoDate(offset: number): string {
   date.setDate(date.getDate() + offset);
 
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * What a panel shows in place of its figures.
+ *
+ * The panels go too, not just the tiles. A chart of the last fortnight has a labelled axis and a
+ * tooltip naming the exact money, and the top-seller bars are ranked and sized by revenue — a
+ * screen with those still on it has not hidden the takings, it has only made them take a second
+ * longer to read.
+ */
+function HiddenNote() {
+  return (
+    <div className="flex h-48 flex-col items-center justify-center gap-1 text-center text-body text-ink-muted">
+      <EyeOff className="h-5 w-5" aria-hidden />
+      <p>Takings hidden.</p>
+      <p className="text-caption">Use &ldquo;Show takings&rdquo; above.</p>
+    </div>
+  );
 }
