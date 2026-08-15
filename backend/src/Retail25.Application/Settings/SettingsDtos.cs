@@ -201,7 +201,20 @@ public sealed record NumberSequenceDto(
 /// <summary>Options tab — the pricing precedence ladder, reorderable without a release (decision P1).</summary>
 public sealed record PricingRuleDto(long Id, string RuleKey, int Order, bool Enabled, string? ParametersJson);
 
-/// <summary>Users tab (guide p.82). PIN state is reported, never the PIN or its hash.</summary>
+/// <summary>
+/// Users tab (guide p.82).
+/// <para>
+/// State is reported, secrets never are: whether a PIN is set but not the PIN, whether the account
+/// is locked but not the hash, which address signs in but nothing that would let anybody else use
+/// it. There is deliberately no field here that a secret could be put in later without somebody
+/// noticing they were adding one.
+/// </para>
+/// <para>
+/// The account half arrives from Identity and is optional, because a staff record can outlive its
+/// sign-in. An administrator looking at somebody with no account should see exactly that rather
+/// than a screen that fails to load.
+/// </para>
+/// </summary>
 public sealed record StaffSettingsDto(
     long Id,
     long UserId,
@@ -212,7 +225,12 @@ public sealed record StaffSettingsDto(
     bool IsActive,
     bool HasPin,
     bool PinLocked,
-    DateTimeOffset? PinLockedUntil);
+    DateTimeOffset? PinLockedUntil,
+    string? Email = null,
+    bool EmailConfirmed = false,
+    IReadOnlyList<string>? Roles = null,
+    bool CanSignIn = false,
+    DateTimeOffset? LockedOutUntil = null);
 
 /// <summary>Everything the settings screen needs in one round trip.</summary>
 public sealed record SettingsSnapshotDto(

@@ -734,6 +734,15 @@ export interface StaffSettings {
   hasPin: boolean;
   pinLocked: boolean;
   pinLockedUntil: string | null;
+
+  // The account behind the person. Optional throughout, because a staff record can outlive its
+  // sign-in — and because everything here is state, never a secret: whether a PIN is set but not
+  // the PIN, which address signs in but nothing that would let anyone else use it.
+  email: string | null;
+  emailConfirmed: boolean;
+  roles: string[] | null;
+  canSignIn: boolean;
+  lockedOutUntil: string | null;
 }
 
 export interface SettingsSnapshot {

@@ -2372,6 +2372,71 @@ function ResetPassword({ staffId, onDone }: { staffId: number; onDone: () => voi
   );
 }
 
+/**
+ * The sign-in behind a member of staff, read-only.
+ *
+ * Everything here is state rather than a secret, and that is the design rather than an oversight.
+ * An administrator asks four questions about an account — what does this person sign in with, what
+ * are they allowed to do, can they get in, and if not why not — and none of the answers requires
+ * showing anything that would let somebody else sign in as them. There is no reveal control because
+ * there is nothing behind it: the password is a hash the server will not project, and the PIN is
+ * the same. The way to give somebody access is to set a new password, not to look up the old one.
+ *
+ * Read-only on purpose too. The email and the role are changed through the flows that also update
+ * Identity; an editable field here would be a text box that silently disagreed with what the person
+ * actually signs in with.
+ */
+function AccountSummary({ staff }: { staff: import('@/types/masters').StaffSettings }) {
+  const lockedUntil = staff.lockedOutUntil ? new Date(staff.lockedOutUntil) : null;
+
+  return (
+    <FieldGroup title="Sign-in">
+      <dl className="grid gap-x-6 gap-y-2 text-body sm:grid-cols-[auto_1fr]">
+        <dt className="text-ink-muted">Signs in with</dt>
+        <dd className="text-ink">
+          {staff.email ?? <span className="text-ink-muted">No sign-in — this person cannot log in at all.</span>}
+          {staff.email && !staff.emailConfirmed ? (
+            <span className="pos-badge ml-2 text-warning">Unconfirmed</span>
+          ) : null}
+        </dd>
+
+        <dt className="text-ink-muted">Allowed to</dt>
+        <dd className="text-ink">
+          {staff.roles && staff.roles.length > 0 ? (
+            staff.roles.join(', ')
+          ) : (
+            <span className="text-ink-muted">No role</span>
+          )}
+        </dd>
+
+        <dt className="text-ink-muted">Status</dt>
+        <dd>
+          {/*
+            Locked out and disabled both mean "cannot get in", and saying which matters: one clears
+            itself in a quarter of an hour, the other needs somebody to act. Telling a manager only
+            that access is refused sends them resetting a password that was never the problem.
+          */}
+          {lockedUntil ? (
+            <span className="text-negative">
+              Locked out until {lockedUntil.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} after
+              too many wrong passwords. It clears itself.
+            </span>
+          ) : staff.canSignIn ? (
+            <span className="text-positive">Can sign in</span>
+          ) : (
+            <span className="text-ink-muted">Cannot sign in. Access was revoked, not locked.</span>
+          )}
+        </dd>
+      </dl>
+
+      <p className="text-caption text-ink-muted">
+        Passwords and PINs are stored hashed and cannot be read back — not here, not anywhere. If
+        someone is locked out, set them a new password below.
+      </p>
+    </FieldGroup>
+  );
+}
+
 function UsersTab({
   locationId,
   rows,
@@ -2425,6 +2490,7 @@ function UsersTab({
               ) : (
                 <span className="pos-badge text-warning">No PIN</span>
               )}
+              {staff.lockedOutUntil ? <span className="pos-badge text-negative">Locked out</span> : null}
               {staff.isActive ? null : <span className="pos-badge text-ink-muted">Inactive</span>}
             </>
           }
@@ -2451,6 +2517,8 @@ function UsersTab({
             ) : null
           }
         >
+          <AccountSummary staff={staff} />
+
           <FieldGroup title="Identity" columns={3}>
             <TextField label="Staff code" value={staff.staffCode} onChange={(v) => patch(staff.id, { staffCode: v })} disabled={!canWrite} />
             <TextField label="First name" value={staff.firstName} onChange={(v) => patch(staff.id, { firstName: v })} disabled={!canWrite} />

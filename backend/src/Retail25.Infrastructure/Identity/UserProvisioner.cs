@@ -20,11 +20,16 @@ public sealed class UserProvisioner : IUserProvisioner
 
     private readonly UserManager<ApplicationUser> _users;
     private readonly RoleManager<ApplicationRole> _roles;
+    private readonly Persistence.ApplicationDbContext _db;
 
-    public UserProvisioner(UserManager<ApplicationUser> users, RoleManager<ApplicationRole> roles)
+    public UserProvisioner(
+        UserManager<ApplicationUser> users,
+        RoleManager<ApplicationRole> roles,
+        Persistence.ApplicationDbContext db)
     {
         _users = users;
         _roles = roles;
+        _db = db;
     }
 
     public async Task<IReadOnlyList<RoleInfo>> RolesAsync(CancellationToken ct)
@@ -135,6 +140,63 @@ public sealed class UserProvisioner : IUserProvisioner
         var inRole = await _users.GetUsersInRoleAsync(role);
 
         return inRole.Count(u => u.IsEnabled);
+    }
+
+    public async Task<IReadOnlyDictionary<long, UserAccountInfo>> AccountsAsync(
+        IReadOnlyCollection<long> userIds,
+        CancellationToken ct)
+    {
+        if (userIds.Count == 0)
+        {
+            return new Dictionary<long, UserAccountInfo>();
+        }
+
+        var ids = userIds.Distinct().ToArray();
+
+        var accounts = await _users.Users
+            .AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .Select(u => new
+            {
+                u.Id,
+                u.Email,
+                u.EmailConfirmed,
+                u.IsEnabled,
+                u.LockoutEnd,
+            })
+            .ToListAsync(ct);
+
+        // The role names in one join rather than a GetRolesAsync per user. Identity's own helper
+        // takes a user, so using it here would mean a round trip each — the thing this method exists
+        // to avoid.
+        var roles = await (
+                from userRole in _db.UserRoles
+                join role in _db.Roles on userRole.RoleId equals role.Id
+                where ids.Contains(userRole.UserId)
+                select new { userRole.UserId, role.Name })
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        var byUser = roles
+            .GroupBy(r => r.UserId)
+            .ToDictionary(
+                g => g.Key,
+                g => (IReadOnlyList<string>)g.Select(r => r.Name!).Where(n => n is not null).OrderBy(n => n).ToList());
+
+        var now = DateTimeOffset.UtcNow;
+
+        return accounts.ToDictionary(
+            a => a.Id,
+            a => new UserAccountInfo(
+                a.Id,
+                a.Email,
+                a.EmailConfirmed,
+                byUser.TryGetValue(a.Id, out var named) ? named : [],
+                // Disabled and locked out are different states with the same consequence, and the
+                // screen needs both: one is a decision somebody made, the other is five bad
+                // passwords and will clear itself.
+                a.IsEnabled && (a.LockoutEnd is null || a.LockoutEnd <= now),
+                a.LockoutEnd > now ? a.LockoutEnd : null));
     }
 
     /// <summary>

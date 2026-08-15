@@ -27,10 +27,13 @@ public sealed class SettingsQueryHandler : IRequestHandler<GetSettingsQuery, Res
     private readonly IApplicationDbContext _db;
     private readonly IDateTime _clock;
 
-    public SettingsQueryHandler(IApplicationDbContext db, IDateTime clock)
+    private readonly IUserProvisioner _accounts;
+
+    public SettingsQueryHandler(IApplicationDbContext db, IDateTime clock, IUserProvisioner accounts)
     {
         _db = db;
         _clock = clock;
+        _accounts = accounts;
     }
 
     public async Task<Result<SettingsSnapshotDto>> Handle(GetSettingsQuery request, CancellationToken ct)
@@ -82,6 +85,13 @@ public sealed class SettingsQueryHandler : IRequestHandler<GetSettingsQuery, Res
         var staff = await _db.StaffProfiles.AsNoTracking()
             .OrderBy(s => s.StaffCode).ToListAsync(ct);
 
+        // The sign-ins behind those staff records, fetched once for the whole list. Without this the
+        // Users tab can say who somebody is but not what they sign in with, which makes it a staff
+        // directory rather than a screen you can administer accounts from.
+        var accounts = await _accounts.AccountsAsync(
+            staff.Select(s => s.UserId).Where(id => id != 0).Distinct().ToArray(),
+            ct);
+
         var now = _clock.Now;
 
         return Result.Success(new SettingsSnapshotDto(
@@ -108,7 +118,7 @@ public sealed class SettingsQueryHandler : IRequestHandler<GetSettingsQuery, Res
             currencies.Select(ToDto).ToList(),
             sequences.Select(ToDto).ToList(),
             rules.Select(r => new PricingRuleDto(r.Id, r.RuleKey, r.Order, r.Enabled, r.ParametersJson)).ToList(),
-            staff.Select(s => ToDto(s, now)).ToList()));
+            staff.Select(s => ToDto(s, now, accounts.GetValueOrDefault(s.UserId))).ToList()));
     }
 
     public static TaxSettingsDto ToDto(TaxConfiguration tax, DateOnly today)
@@ -292,7 +302,7 @@ public sealed class SettingsQueryHandler : IRequestHandler<GetSettingsQuery, Res
     /// display it, but because a DTO that carries it will eventually be logged or cached by
     /// something that does not know what it is holding.
     /// </summary>
-    public static StaffSettingsDto ToDto(StaffProfile staff, DateTimeOffset now)
+    public static StaffSettingsDto ToDto(StaffProfile staff, DateTimeOffset now, UserAccountInfo? account = null)
         => new(
             staff.Id,
             staff.UserId,
@@ -303,5 +313,10 @@ public sealed class SettingsQueryHandler : IRequestHandler<GetSettingsQuery, Res
             staff.IsActive,
             staff.HasPin,
             staff.IsPinLocked(now),
-            staff.PinLockedUntil);
+            staff.PinLockedUntil,
+            account?.Email,
+            account?.EmailConfirmed ?? false,
+            account?.Roles,
+            account?.CanSignIn ?? false,
+            account?.LockedOutUntil);
 }

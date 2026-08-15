@@ -59,7 +59,13 @@ internal sealed class MastersTestHarness : IDisposable
         CustomerOrders = new CustomerOrderHandlers(db, Sequences, Clock);
         Layaways = new LayawayHandlers(db, Sequences, Clock);
         PriceQuotes = new PriceQuoteHandlers(db, Sequences, Clock);
-        Settings = new SettingsQueryHandler(db, Clock);
+        // A stub that knows about no accounts: the settings query has to render a staff list whose
+        // sign-ins it cannot see, and every existing test in here exercises exactly that case.
+        Accounts = Substitute.For<IUserProvisioner>();
+        Accounts.AccountsAsync(Arg.Any<IReadOnlyCollection<long>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<long, UserAccountInfo>());
+
+        Settings = new SettingsQueryHandler(db, Clock, Accounts);
         SettingsCommands = new SettingsCommandHandlers(db, Notifier, Sequences, Clock);
         Hardware = new HardwareSettingsHandlers(db, Notifier, Terminals, Clock);
         Commerce = new CommerceSettingsHandlers(db, Notifier, Clock);
@@ -117,6 +123,8 @@ internal sealed class MastersTestHarness : IDisposable
     public LayawayHandlers Layaways { get; }
 
     public PriceQuoteHandlers PriceQuotes { get; }
+
+    public IUserProvisioner Accounts { get; }
 
     public SettingsQueryHandler Settings { get; }
 
