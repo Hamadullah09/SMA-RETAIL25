@@ -1,4 +1,8 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+# Ten, because Directory.Build.props says net10.0 and an SDK cannot build a framework newer than
+# itself. This said 8.0 from the day it was written, so `dotnet restore` failed on the target
+# framework every time and the image has never once built. Nothing deploys from here yet, so the
+# only symptom was a red tick on a job nobody could act on.
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY src/Retail25.Domain/Retail25.Domain.csproj src/Retail25.Domain/
@@ -13,7 +17,7 @@ RUN dotnet restore src/Retail25.Api/Retail25.Api.csproj
 COPY src/ src/
 RUN dotnet publish src/Retail25.Api/Retail25.Api.csproj -c Release -o /app/publish --no-restore
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
 WORKDIR /app
 EXPOSE 8080
 COPY --from=build /app/publish .

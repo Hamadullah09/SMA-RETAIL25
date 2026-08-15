@@ -114,6 +114,10 @@ jobs:
       Database__AutoMigrate: 'true'
       Database__Seed: 'true'
       OpenIddict__AllowInsecureHttp: 'true'
+      # github.workspace rather than runner.temp: the runner context is not available to job-level
+      # env, so ${{ runner.temp }} would expand to nothing here and leave these pointing at /.
+      OpenIddict__SigningCertificatePath: ${{ github.workspace }}/ci-keys/signing.pem
+      OpenIddict__EncryptionCertificatePath: ${{ github.workspace }}/ci-keys/encryption.pem
       Auth__AdminEmail: admin@retail25.local
       Auth__AdminPassword: ${{ secrets.E2E_ADMIN_PASSWORD || 'Ci-Password-1234!' }}
       Auth__WebOrigin: http://localhost:3000
@@ -134,6 +138,22 @@ jobs:
           node-version: '20'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
+
+      # Outside Development the API refuses to start without token-signing keys, and that refusal is
+      # deliberate — the development fallback keeps its key in the launching user's certificate
+      # store, where it is regenerated on every restart and signs the whole shop out at intervals
+      # nobody can account for. `dotnet run --no-launch-profile` has no launch profile to set an
+      # environment, so this job runs as Production and hits that guard. It is why "Start the API"
+      # has failed on every run since the workflow was written.
+      #
+      # Two throwaway keys rather than switching the job to Development. They exist for the length of
+      # one run and protect nothing, and generating them keeps the job exercising the code path that
+      # actually ships instead of a fallback that is refused everywhere it matters.
+      - name: Generate throwaway token-signing keys
+        run: |
+          mkdir -p ci-keys
+          openssl genrsa -out ci-keys/signing.pem 2048
+          openssl genrsa -out ci-keys/encryption.pem 2048
 
       # The API's own output is kept, because the previous version of this step threw it away. With
       # the connection string broken the job reported "API failed to become healthy" and nothing
@@ -191,6 +211,10 @@ jobs:
       contents: read
       packages: write
     strategy:
+      # Both images are reported, rather than the first failure cancelling the other. The two
+      # Dockerfiles were broken in unrelated ways and each run only ever showed one of them, so
+      # fixing what was on screen produced a run that failed again for the reason it had hidden.
+      fail-fast: false
       matrix:
         include:
           - image: api
