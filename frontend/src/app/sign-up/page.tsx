@@ -5,9 +5,9 @@ import { PasswordInput } from '@/components/auth/password-input';
 import { useRouter } from 'next/navigation';
 import { AuthField, AuthLink, AuthNotice, AuthShell } from '@/components/auth/auth-shell';
 import { postAccount, type AccountProblem } from '@/lib/account-api';
+import { PasswordRequirements } from '@/components/auth/password-requirements';
+import { MIN_PASSWORD, identityParts, meetsPasswordPolicy } from '@/lib/password-policy';
 
-/** Matches the API's own floor. Enforced there too — this is a courtesy, not the control. */
-const MIN_PASSWORD = 8;
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -23,10 +23,14 @@ export default function SignUpPage() {
   // receives one password and has no idea what the second box said.
   const mismatch = confirm.length > 0 && confirm !== password;
 
+  // The same parts the server refuses to see inside a password: the email's local part and the
+  // words of the display name. Both are typed on this very form, so the check can be live here.
+  const identity = identityParts(email, displayName);
+
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (mismatch || password.length < MIN_PASSWORD) return;
+    if (mismatch || !meetsPasswordPolicy(password, identity)) return;
 
     setBusy(true);
     setProblem(null);
@@ -83,17 +87,18 @@ export default function SignUpPage() {
         <AuthField
           id="password"
           label="Password"
-          hint={`At least ${MIN_PASSWORD} characters. Longer beats complicated.`}
+          hint="Longer beats complicated."
         >
           <PasswordInput
             id="password"
             value={password}
             onChange={setPassword}
             autoComplete="new-password"
-            describedBy="password-hint"
+            describedBy="password-rules"
             minLength={MIN_PASSWORD}
             required
           />
+          <PasswordRequirements id="password-rules" password={password} identity={identity} />
         </AuthField>
 
         <AuthField id="confirm" label="Password again">
@@ -116,7 +121,7 @@ export default function SignUpPage() {
         <button
           type="submit"
           className="pos-button-primary mt-1 w-full"
-          disabled={busy || mismatch || password.length < MIN_PASSWORD}
+          disabled={busy || mismatch || !meetsPasswordPolicy(password, identity)}
         >
           {busy ? 'Creating the account…' : 'Create account'}
         </button>

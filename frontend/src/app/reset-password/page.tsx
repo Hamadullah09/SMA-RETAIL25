@@ -5,8 +5,8 @@ import { PasswordInput } from '@/components/auth/password-input';
 import { useSearchParams } from 'next/navigation';
 import { AuthField, AuthLink, AuthNotice, AuthShell } from '@/components/auth/auth-shell';
 import { postAccount, type AccountProblem } from '@/lib/account-api';
-
-const MIN_PASSWORD = 8;
+import { PasswordRequirements } from '@/components/auth/password-requirements';
+import { MIN_PASSWORD, identityParts, meetsPasswordPolicy } from '@/lib/password-policy';
 
 export default function ResetPasswordPage() {
   // useSearchParams needs a Suspense boundary or the whole route opts out of static rendering and
@@ -31,6 +31,7 @@ function ResetPasswordForm() {
   const [busy, setBusy] = useState(false);
 
   const mismatch = confirm.length > 0 && confirm !== password;
+  const identity = identityParts(email);
 
   // A link that lost its query string cannot be redeemed, and finding that out only after typing a
   // password twice is a poor way to learn it.
@@ -66,7 +67,7 @@ function ResetPasswordForm() {
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (mismatch || password.length < MIN_PASSWORD) return;
+    if (mismatch || !meetsPasswordPolicy(password, identity)) return;
 
     setBusy(true);
     setProblem(null);
@@ -99,18 +100,19 @@ function ResetPasswordForm() {
         <AuthField
           id="password"
           label="New password"
-          hint={`At least ${MIN_PASSWORD} characters. Longer beats complicated.`}
+          hint="Longer beats complicated."
         >
           <PasswordInput
             id="password"
             value={password}
             onChange={setPassword}
             autoComplete="new-password"
-            describedBy="password-hint"
+            describedBy="password-rules"
             minLength={MIN_PASSWORD}
             required
             autoFocus
           />
+          <PasswordRequirements id="password-rules" password={password} identity={identity} />
         </AuthField>
 
         <AuthField id="confirm" label="New password again">
@@ -133,7 +135,7 @@ function ResetPasswordForm() {
         <button
           type="submit"
           className="pos-button-primary mt-1 w-full"
-          disabled={busy || mismatch || password.length < MIN_PASSWORD}
+          disabled={busy || mismatch || !meetsPasswordPolicy(password, identity)}
         >
           {busy ? 'Saving…' : 'Change password'}
         </button>
