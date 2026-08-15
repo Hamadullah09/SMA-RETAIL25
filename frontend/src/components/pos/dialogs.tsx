@@ -1132,15 +1132,7 @@ export function CheatSheetDialog() {
             <ul className="space-y-0.5 text-body">
               {entries.map((entry) => (
                 <li key={`${group}-${entry.combo}`} className="flex items-baseline justify-between gap-3">
-                  <span className={cn('font-normal', entry.disabled ? 'text-ink-faint' : 'text-ink-muted')}>
-                    {entry.label}
-                    {/*
-                      Said rather than merely greyed. A shortcut that does nothing right now is not
-                      the same as one that does not exist, and a cashier who presses it and gets
-                      nothing needs to know which.
-                    */}
-                    {entry.disabled ? <span className="ml-1 text-caption">(not available here)</span> : null}
-                  </span>
+                  <span className="font-normal text-ink-muted">{entry.label}</span>
                   <kbd className="pos-kbd shrink-0 font-semibold">{entry.combo}</kbd>
                 </li>
               ))}

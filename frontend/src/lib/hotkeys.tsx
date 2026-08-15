@@ -201,13 +201,17 @@ export function useHotkeyBindings(): HotkeyBinding[] {
  * advertised.
  */
 export function useAllHotkeyBindings(): HotkeyBinding[] {
-  const { bindings, activeScope } = useRegistry();
+  const { bindings } = useRegistry();
 
-  return useMemo(
-    () =>
-      bindings
-        .filter((b) => !b.hidden)
-        .map((b) => ({ ...b, disabled: b.disabled || !(b.scope === activeScope || b.scope === 'global') })),
-    [bindings, activeScope],
-  );
+  // Availability is deliberately *not* marked here.
+  //
+  // The only thing that reads this is the cheat sheet, and the cheat sheet is itself a dialog — so
+  // opening it pushes the dialog scope and every sale-screen shortcut immediately reads as
+  // unavailable. Eleven of thirteen entries said "not available here" about keys that work
+  // perfectly well the moment the sheet is closed, which is worse than saying nothing: it is a
+  // reference that lies about the thing it is a reference for.
+  //
+  // The key bar already shows what is live right now. This list answers the other question — what
+  // exists — and answers it the same way wherever it is opened from.
+  return useMemo(() => bindings.filter((b) => !b.hidden), [bindings]);
 }
