@@ -2235,8 +2235,10 @@ function NewColleague({ locationId, onCreated }: { locationId: number; onCreated
             patch({ role: v, accessLevel: chosen?.legacyLevel ?? form.accessLevel });
           }}
           hint={
-            chosenRole?.legacyLevel != null
-              ? `What they are allowed to do. Access level ${chosenRole.legacyLevel} — ${LEVEL_LABELS[chosenRole.legacyLevel] ?? ''}.`
+            // LEVEL_LABELS already begins with the number ("0 — Trainee"), so the level must not be
+            // prefixed again: doing so rendered "Access level 0 — 0 — Trainee" on the live screen.
+            chosenRole?.legacyLevel != null && LEVEL_LABELS[chosenRole.legacyLevel]
+              ? `What they are allowed to do. Access level ${LEVEL_LABELS[chosenRole.legacyLevel]}.`
               : 'What they are allowed to do.'
           }
         />
