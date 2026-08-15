@@ -180,7 +180,13 @@ jobs:
             echo "::group::API log"
             cat "$RUNNER_TEMP/api.log" || true
             echo "::endgroup::"
-            echo "::error::API failed to become healthy"
+            # Also as an annotation, not only in the log. A step log needs permission to download;
+            # an annotation is readable from the commit, which is where somebody looking at a red
+            # tick actually is.
+            tail -n 40 "$RUNNER_TEMP/api.log" \
+              | sed 's/%/%25/g; s/\r//g' \
+              | awk 'BEGIN { printf "::error::API failed to become healthy. Last lines:%0A" } { printf "%s%%0A", $0 }'
+            echo
             exit 1
           fi
 
@@ -244,12 +250,38 @@ jobs:
             type=sha,format=long
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - uses: docker/build-push-action@v6
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      # A compiler error inside a Docker build is buried in the step log, where it is only visible to
+      # somebody with permission to download run logs. Whoever is looking at a red tick usually is
+      # not, so the tail of the build output is re-emitted as an annotation, which is readable from
+      # the commit itself. The image build already failed twice here for reasons that took a
+      # workflow read and a guess to identify; a legible error is the difference.
+      - name: Build the image
+        id: build
+        run: |
+          set -o pipefail
+          push=false
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            push=true
+          fi
+
+          tags=""
+          while IFS= read -r tag; do
+            [ -n "$tag" ] && tags="$tags --tag $tag"
+          done <<< "${{ steps.meta.outputs.tags }}"
+
+          docker buildx build \
+            --file "${{ matrix.dockerfile }}" \
+            $tags \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --output "type=image,push=$push" \
+            --progress plain \
+            "${{ matrix.context }}" 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      - name: Report why the image did not build
+        if: failure() && steps.build.outcome == 'failure'
+        run: |
+          tail -n 60 "$RUNNER_TEMP/build.log" \
+            | sed 's/%/%25/g; s/\r//g' \
+            | awk 'BEGIN { printf "::error::Image build failed. Last lines:%0A" } { printf "%s%%0A", $0 }'
+          echo
