@@ -281,12 +281,27 @@ public sealed class AccountController : Controller
                 /* The password field and its reveal, which sits inside the field's own box. */
                 .pw { position: relative; }
                 .pw input { padding-right: 2.9rem; }
+                /*
+                  Every one of these resets exists because the page has a generic `button` rule for
+                  the primary action — full width, purple gradient, rounded, with a top margin — and
+                  without overriding it the reveal control rendered as a purple block that lit up on
+                  hover.
+                  
+                  `bottom: 16px` rather than `height: 100%`: inputs carry a 16px bottom margin, so a
+                  full-height button centres itself in the input *plus* that margin and sits low. This
+                  pins it to the input's own box and follows the field if its height ever changes.
+                */
                 .pw button {
-                  position: absolute; top: 0; right: 0; height: 100%;
-                  width: 2.75rem; border: 0; background: none; cursor: pointer;
-                  display: flex; align-items: center; justify-content: center; color: #64748b;
+                  position: absolute; top: 0; right: 0; bottom: 16px;
+                  width: 2.75rem; min-height: 0; margin: 0; padding: 0;
+                  border: 0; border-radius: 0; background: none; cursor: pointer;
+                  display: flex; align-items: center; justify-content: center;
+                  color: inherit; opacity: .55; transition: opacity .15s;
                 }
-                .pw button:hover, .pw button:focus-visible { color: #0f172a; }
+
+                /* Opacity rather than a colour, so it reads correctly on either theme. */
+                .pw button:hover, .pw button:focus-visible { background: none; opacity: 1; }
+                .pw button:active { background: none; }
 
                 /* One icon at a time: the eye offers "show", the struck eye offers "hide". */
                 .pw button .icon-hide { display: none; }
