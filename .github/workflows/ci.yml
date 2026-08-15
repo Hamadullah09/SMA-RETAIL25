@@ -183,10 +183,14 @@ jobs:
             # Also as an annotation, not only in the log. A step log needs permission to download;
             # an annotation is readable from the commit, which is where somebody looking at a red
             # tick actually is.
+            # sed throughout, deliberately. The first attempt at this built the annotation with
+            # awk's printf, where %0A in the *format* string is read as a conversion spec rather
+            # than the escape an annotation needs — awk died with exit 2 and emitted nothing, so
+            # the step that existed to explain a failure became a second unexplained failure.
             tail -n 40 "$RUNNER_TEMP/api.log" \
               | sed 's/%/%25/g; s/\r//g' \
-              | awk 'BEGIN { printf "::error::API failed to become healthy. Last lines:%0A" } { printf "%s%%0A", $0 }'
-            echo
+              | sed ':a;N;$!ba;s/\n/%0A/g' \
+              | sed 's/^/::error::API failed to become healthy. Last lines:%0A/'
             exit 1
           fi
 
@@ -281,7 +285,8 @@ jobs:
       - name: Report why the image did not build
         if: failure() && steps.build.outcome == 'failure'
         run: |
+          # See the note on the API log for why this is sed and not awk printf.
           tail -n 60 "$RUNNER_TEMP/build.log" \
             | sed 's/%/%25/g; s/\r//g' \
-            | awk 'BEGIN { printf "::error::Image build failed. Last lines:%0A" } { printf "%s%%0A", $0 }'
-          echo
+            | sed ':a;N;$!ba;s/\n/%0A/g' \
+            | sed 's/^/::error::Image build failed. Last lines:%0A/'
