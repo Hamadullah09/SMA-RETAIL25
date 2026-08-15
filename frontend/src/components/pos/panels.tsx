@@ -393,37 +393,19 @@ export function CartList() {
 }
 
 /**
- * The empty sale.
+ * The empty sale — deliberately empty.
  *
- * A cashier at the start of a shift, and a new starter on their first day, both look at this. One
- * grey sentence told them nothing about the three ways an item can get onto the screen, and the
- * cheapest place to teach that is the space that is empty anyway.
+ * This carried an icon, a heading, a sentence explaining the three ways an item can reach the
+ * screen, and an F9 button. All of it was already on screen: F9 Find sits in the key bar a few
+ * centimetres below, permanently, and the scan box has the caret. A cashier opening a till is not
+ * reading a tutorial, and the same panel that shows the sale should not look like a different
+ * screen when the sale is empty.
+ *
+ * Left as an empty region rather than deleted outright so the panel keeps its height and the
+ * totals below it do not jump upward the moment the first item is scanned.
  */
 function EmptySale() {
-  const openDialog = usePosStore((s) => s.openDialog);
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6 py-8 text-center">
-      <span
-        aria-hidden
-        className="mb-3 flex h-12 w-12 items-center justify-center rounded-full text-accent-text"
-        style={{ backgroundColor: 'oklch(var(--accent) / 0.10)' }}
-      >
-        <ScanLine className="h-6 w-6" />
-      </span>
-
-      <p className="text-h3 font-medium text-ink">Nothing on this sale yet</p>
-
-      <p className="mt-1 max-w-xs text-body text-ink-muted">
-        Scan a barcode, hold a tagged item near the antenna, or look the item up by name.
-      </p>
-
-      <button type="button" className="pos-button mt-4" onClick={() => openDialog('find')}>
-        <span className="pos-kbd">F9</span>
-        Find an item
-      </button>
-    </div>
-  );
+  return <div className="min-h-0 flex-1" aria-hidden />;
 }
 
 /* ---------------------------------------------------------------------- region ② totals */
