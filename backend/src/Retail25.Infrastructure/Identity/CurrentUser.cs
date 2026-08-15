@@ -88,8 +88,33 @@ public sealed class CurrentUser : ICurrentUser
         PermissionKeys.Pos.Sell,
     ];
 
+    /// <summary>
+    /// The role a shopper's own account holds, and the only one it may hold.
+    /// <para>
+    /// It grants nothing. It exists so that a customer account can be recognised and refused rather
+    /// than merely failing to match anything.
+    /// </para>
+    /// </summary>
+    public const string CustomerRole = "Customer";
+
     private static IReadOnlySet<string> ResolvePermissions(ClaimsPrincipal user)
     {
+        // A shopper's own account, stopped here before any of the ladder below can run.
+        //
+        // Everything after this point is a fallback that hands out staff permissions when it finds
+        // something familiar: an access-level claim resolves to a till preset, and the Administrator
+        // role resolves to every permission there is. Both are right for staff and catastrophic for
+        // a customer, and neither asks whose account it is looking at.
+        //
+        // Relying on a customer simply having none of those claims would be an argument about what
+        // is absent, and absence is one careless seeder or one copied registration path away from
+        // ending. This is an explicit refusal: whatever a customer account turns out to carry, it
+        // resolves to nothing, and self-checkout cannot become a route to the back office.
+        if (user.IsInRole(CustomerRole))
+        {
+            return new HashSet<string>(StringComparer.Ordinal);
+        }
+
         var granted = new HashSet<string>(
             user.FindAll(PermissionClaim).Select(c => c.Value),
             StringComparer.Ordinal);
