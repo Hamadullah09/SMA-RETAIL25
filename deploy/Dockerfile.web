@@ -1,13 +1,18 @@
 # syntax=docker/dockerfile:1
+
+# Paths here are relative to the build context, which CI sets to "frontend" — the same convention
+# Dockerfile.api follows with "backend". They used to be written as frontend/retail25-web/…, a
+# directory that has not existed since the front end was moved, so every image build failed on the
+# first COPY. Nothing referenced these images, so the breakage was only ever visible as a red tick.
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY frontend/retail25-web/package.json frontend/retail25-web/package-lock.json* ./
+COPY package.json package-lock.json* ./
 RUN npm ci
 
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
-COPY frontend/retail25-web/ ./
+COPY . ./
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 

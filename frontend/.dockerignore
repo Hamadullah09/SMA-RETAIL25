@@ -1,0 +1,18 @@
+# The build stage runs `npm ci` and `npm run build` itself, so anything a previous local build left
+# behind is not just redundant — it is actively wrong. node_modules from a Windows machine carries
+# the wrong native binaries for an Alpine image, and a stale .next would be copied over the top of
+# the one the image just produced.
+node_modules
+.next
+out
+
+# Nothing here belongs in an image, and .env in particular is the file most likely to be sitting in
+# a working copy with real credentials in it.
+.env
+.env.*
+*.log
+.git
+.dockerignore
+Dockerfile*
+playwright-report
+test-results

@@ -105,7 +105,11 @@ jobs:
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
-      ConnectionStrings__DefaultConnection: Server=localhost,1433;Database=retail25;User Id=sa;******;TrustServerCertificate=True;MultipleActiveResultSets=True
+      # The password here is the throwaway one the SQL Server service container is started with a
+      # few lines above, not a secret. It had been replaced with a row of asterisks — which reads as
+      # redaction but is simply an invalid connection string, so the API could not reach the
+      # database and every run since has failed at startup.
+      ConnectionStrings__DefaultConnection: Server=localhost,1433;Database=retail25;User Id=sa;Password=Ci-Sql-Password-1234!;TrustServerCertificate=True;MultipleActiveResultSets=True
       ConnectionStrings__Redis: localhost:6379
       Database__AutoMigrate: 'true'
       Database__Seed: 'true'
@@ -131,12 +135,21 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      # The API's own output is kept, because the previous version of this step threw it away. With
+      # the connection string broken the job reported "API failed to become healthy" and nothing
+      # else — true, useless, and the reason this sat red for days. The log is printed on failure so
+      # the next person reads the actual exception instead of re-deriving it.
       - name: Start the API
         run: |
           dotnet run --project backend/src/Retail25.Api -c Release --no-launch-profile \
-            --urls http://localhost:5000 &
+            --urls http://localhost:5000 > "$RUNNER_TEMP/api.log" 2>&1 &
+          api_pid=$!
           healthy=false
           for i in $(seq 1 60); do
+            if ! kill -0 "$api_pid" 2>/dev/null; then
+              echo "::error::API exited before it became healthy"
+              break
+            fi
             if curl -sf http://localhost:5000/health/live; then
               healthy=true
               break
@@ -144,6 +157,9 @@ jobs:
             sleep 2
           done
           if [ "$healthy" != "true" ]; then
+            echo "::group::API log"
+            cat "$RUNNER_TEMP/api.log" || true
+            echo "::endgroup::"
             echo "::error::API failed to become healthy"
             exit 1
           fi
