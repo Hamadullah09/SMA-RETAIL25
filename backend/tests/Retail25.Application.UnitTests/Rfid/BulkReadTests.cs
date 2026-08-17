@@ -240,16 +240,19 @@ public sealed class BulkReadTests
         unit.State.Should().Be(SerializedUnitState.InCart);
     }
 
+    // The mechanics moved into RfidCheckout, shared with the shopper handheld's tag submission; the
+    // handler is now only the staff permission gate around it.
     private static AddRfidBatchHandler Handler(PosTestHarness harness) => new(
-        harness.CartStore,
-        harness.Db,
-        harness.ContextLoader,
-        harness.Pricing,
-        harness.Resolver,
-        harness.LineFactory,
-        harness.Debouncer,
-        harness.Notifier,
-        harness.Clock);
+        new Retail25.Application.Rfid.Services.RfidCheckout(
+            harness.CartStore,
+            harness.Db,
+            harness.ContextLoader,
+            harness.Pricing,
+            harness.Resolver,
+            harness.LineFactory,
+            harness.Debouncer,
+            harness.Notifier,
+            harness.Clock));
 
     private static async Task<List<string>> CommissionAsync(PosTestHarness harness, Product product, int count)
     {

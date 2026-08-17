@@ -63,6 +63,22 @@ public sealed class ShopperTrolleyController : ControllerBase
         => (await _sender.Send(new ReleaseTrolleyCommand())).ToActionResult(this);
 
     /// <summary>
+    /// Tags the shopper's handheld read. Each accepted tag becomes a line on their own basket; each
+    /// refusal comes back with its reason, exactly as the cashier's feed shows them.
+    /// </summary>
+    [HttpPost("cart/tags")]
+    public async Task<IActionResult> SubmitTags([FromBody] SubmitTagsRequest request)
+        => (await _sender.Send(new SubmitMyTagsCommand(request.Epcs ?? []))).ToActionResult(this);
+
+    /// <summary>
+    /// Takes an item back out of the basket — the customer changed their mind and reshelved it. The
+    /// unit returns to stock and the tag is free to sell again.
+    /// </summary>
+    [HttpDelete("cart/lines/{sequence:int}")]
+    public async Task<IActionResult> RemoveLine(int sequence)
+        => (await _sender.Send(new RemoveMyLineCommand(sequence))).ToActionResult(this);
+
+    /// <summary>
     /// The caller's own past visits, newest first. Their receipts and nobody else's — the shopper is
     /// taken from the token, never from the route.
     /// </summary>
@@ -86,3 +102,6 @@ public sealed record ClaimTrolleyRequest(string? Code, long? LocationId = null);
 /// nothing to say here; a chain names the branch so a customer is not issued a counter in another town.
 /// </summary>
 public sealed record SelfCheckoutRequest(long? LocationId = null);
+
+/// <summary>What the handheld read: bare EPCs. See <c>SubmitMyTagsCommand</c> for why not TagReads.</summary>
+public sealed record SubmitTagsRequest(IReadOnlyList<string>? Epcs);

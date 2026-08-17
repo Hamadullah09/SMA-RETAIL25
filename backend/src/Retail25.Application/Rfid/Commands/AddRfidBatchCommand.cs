@@ -1,14 +1,8 @@
 using MediatR;
-using Microsoft.EntityFrameworkCore;
-using Retail25.Application.Abstractions;
-using Retail25.Application.Carts.Commands;
 using Retail25.Application.Carts.Dtos;
-using Retail25.Application.Carts.Services;
 using Retail25.Application.Common;
 using Retail25.Contracts.Terminals;
 using Retail25.Domain.Common;
-using Retail25.Domain.Sales;
-using Retail25.Domain.Terminals;
 
 namespace Retail25.Application.Rfid.Commands;
 
@@ -34,188 +28,26 @@ public sealed record RfidBatchResult(
 /// claim it, checked against the EPC state machine, and either added or rejected with a reason. No
 /// tag is ever silently dropped.
 /// </para>
+/// <para>
+/// The mechanics live in <see cref="Services.RfidCheckout"/>, shared with the shopper handheld's
+/// tag submission — whose token can never satisfy the permission below, and which authorises by
+/// owning a live trolley session instead. What this command adds is the staff half: the gate.
+/// </para>
 /// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
 public sealed record AddRfidBatchCommand(long CartId, IReadOnlyList<TagRead> Tags) : IRequest<Result<RfidBatchResult>>;
 
 public sealed class AddRfidBatchHandler : IRequestHandler<AddRfidBatchCommand, Result<RfidBatchResult>>
 {
-    public static readonly Error ClaimedElsewhere = new("epc.claimed_by_other_station", "Another till is holding that tag.");
-    public static readonly Error FilteredOut = new("epc.filtered", "The tag did not meet this reader's signal or zone thresholds.");
-    public static readonly Error AlreadyOnCart = new("epc.already_on_cart", "That tag is already on this sale.");
+    // Referenced by callers and tests under these names; the values moved with the mechanics.
+    public static readonly Error ClaimedElsewhere = Services.RfidCheckout.ClaimedElsewhere;
+    public static readonly Error FilteredOut = Services.RfidCheckout.FilteredOut;
+    public static readonly Error AlreadyOnCart = Services.RfidCheckout.AlreadyOnCart;
 
-    private readonly ICartStore _store;
-    private readonly IApplicationDbContext _db;
-    private readonly PosContextLoader _contextLoader;
-    private readonly CartPricingService _pricing;
-    private readonly IdentifierResolver _resolver;
-    private readonly CartLineFactory _lineFactory;
-    private readonly ITagDebouncer _debouncer;
-    private readonly IPosNotifier _notifier;
-    private readonly IDateTime _clock;
+    private readonly Services.RfidCheckout _checkout;
 
-    public AddRfidBatchHandler(
-        ICartStore store,
-        IApplicationDbContext db,
-        PosContextLoader contextLoader,
-        CartPricingService pricing,
-        IdentifierResolver resolver,
-        CartLineFactory lineFactory,
-        ITagDebouncer debouncer,
-        IPosNotifier notifier,
-        IDateTime clock)
-    {
-        _store = store;
-        _db = db;
-        _contextLoader = contextLoader;
-        _pricing = pricing;
-        _resolver = resolver;
-        _lineFactory = lineFactory;
-        _debouncer = debouncer;
-        _notifier = notifier;
-        _clock = clock;
-    }
+    public AddRfidBatchHandler(Services.RfidCheckout checkout) => _checkout = checkout;
 
-    public async Task<Result<RfidBatchResult>> Handle(AddRfidBatchCommand request, CancellationToken ct)
-    {
-        var snapshot = await _store.GetAsync(request.CartId, ct);
-        if (snapshot is null || !snapshot.Cart.IsActive)
-        {
-            return Result.Failure<RfidBatchResult>(Cart.NotActive.With("cartId", request.CartId));
-        }
-
-        var contextResult = await _contextLoader.LoadAsync(snapshot.Cart.StationId, ct);
-        if (contextResult.IsFailure)
-        {
-            return Result.Failure<RfidBatchResult>(contextResult.Error);
-        }
-
-        var context = contextResult.Value;
-        var profile = await LoadReaderProfileAsync(context, ct);
-        var stationId = snapshot.Cart.StationId;
-
-        var rejected = new List<RejectedTag>();
-        // Sequences, not ids: a cached cart's lines have no database id to collect.
-        var acceptedSequences = new List<int>();
-
-        // Deduplicate inside the batch itself: a single antenna sweep can report the same tag from
-        // two angles, and the agent's coalescing window does not span batches.
-        var tags = request.Tags
-            .GroupBy(t => t.Epc.Trim().ToUpperInvariant(), StringComparer.Ordinal)
-            .Select(g => g.OrderByDescending(t => t.ReadCount).First())
-            .ToList();
-
-        foreach (var tag in tags)
-        {
-            var epc = tag.Epc.Trim().ToUpperInvariant();
-
-            if (!profile.Accepts(tag.Antenna, tag.Rssi, tag.ReadCount))
-            {
-                rejected.Add(new RejectedTag(epc, FilteredOut.Code, FilteredOut.Message));
-                continue;
-            }
-
-            if (snapshot.Lines.Any(l => string.Equals(l.Epc, epc, StringComparison.Ordinal)))
-            {
-                rejected.Add(new RejectedTag(epc, AlreadyOnCart.Code, AlreadyOnCart.Message));
-                continue;
-            }
-
-            var claimed = await _debouncer.TryClaimAsync(epc, stationId, TimeSpan.FromMilliseconds(profile.DebounceMs), ct);
-            if (!claimed)
-            {
-                rejected.Add(new RejectedTag(epc, ClaimedElsewhere.Code, ClaimedElsewhere.Message));
-                continue;
-            }
-
-            var resolved = await _resolver.ResolveEpcAsync(epc, snapshot.Cart.LocationId, ct);
-            if (resolved.IsFailure)
-            {
-                await _debouncer.ReleaseAsync(epc, stationId, ct);
-                rejected.Add(new RejectedTag(epc, resolved.Error.Code, resolved.Error.Message));
-                continue;
-            }
-
-            var added = await _lineFactory.AddAsync(
-                snapshot,
-                context,
-                resolved.Value,
-                new CartLineRequest(1m, null, null, null, null, null),
-                ct);
-
-            if (added.IsFailure)
-            {
-                await _debouncer.ReleaseAsync(epc, stationId, ct);
-                rejected.Add(new RejectedTag(epc, added.Error.Code, added.Error.Message));
-                continue;
-            }
-
-            acceptedSequences.Add(snapshot.Lines[^1].Sequence);
-            resolved.Value.Unit?.UpdateLastSeen(tag.LastSeen);
-        }
-
-        foreach (var rejection in rejected)
-        {
-            await _notifier.CartLineRejectedAsync(stationId, rejection.Epc, rejection.Reason, rejection.Message, ct);
-        }
-
-        if (acceptedSequences.Count == 0)
-        {
-            return Result.Success(new RfidBatchResult(null, [], rejected, tags.Count));
-        }
-
-        await _db.SaveChangesAsync(ct);
-
-        snapshot.Cart.Touch(_clock.Now, context.Policy.AbandonedCartTimeoutMinutes);
-        var quote = await _pricing.QuoteAsync(snapshot, context, ct);
-        await _store.SaveAsync(snapshot, ct);
-
-        var accepted = quote.Dto.Lines.Where(l => acceptedSequences.Contains(l.Sequence)).ToList();
-
-        // The fast path: send only the new lines plus totals, not the whole cart. At 300 tags that
-        // difference is the gap between the 300 ms budget and a visibly stuttering list.
-        await _notifier.CartLinesAddedAsync(
-            snapshot.Cart.LocationId,
-            snapshot.Cart.Id,
-            accepted.Cast<object>().ToArray(),
-            snapshot.Cart.Revision,
-            ct);
-
-        await _notifier.TotalsChangedAsync(
-            snapshot.Cart.LocationId,
-            snapshot.Cart.Id,
-            quote.Dto.Totals,
-            snapshot.Cart.Revision,
-            ct);
-
-        return Result.Success(new RfidBatchResult(quote.Dto, accepted, rejected, tags.Count));
-    }
-
-    /// <summary>
-    /// The station's own reader profile, falling back to the location's, then to a default. A missing
-    /// profile must not stop a till selling — it just means nothing is filtered out at this layer.
-    /// </summary>
-    private async Task<ReaderProfile> LoadReaderProfileAsync(PosContext context, CancellationToken ct)
-    {
-        if (context.Station.ReaderProfileId is { } profileId)
-        {
-            var assigned = await _db.ReaderProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.Id == profileId, ct);
-            if (assigned is not null)
-            {
-                return assigned;
-            }
-        }
-
-        var stationProfile = await _db.ReaderProfiles.AsNoTracking()
-            .FirstOrDefaultAsync(p => p.StationId == context.Station.Id && p.IsActive, ct);
-
-        if (stationProfile is not null)
-        {
-            return stationProfile;
-        }
-
-        return await _db.ReaderProfiles.AsNoTracking()
-                   .FirstOrDefaultAsync(p => p.LocationId == context.Location.Id && p.StationId == null && p.IsActive, ct)
-               ?? ReaderProfile.CreateDefault(context.Location.Id);
-    }
+    public Task<Result<RfidBatchResult>> Handle(AddRfidBatchCommand request, CancellationToken ct)
+        => _checkout.AddBatchAsync(request.CartId, request.Tags, ct);
 }
