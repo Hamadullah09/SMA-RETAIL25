@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
+import { posApi, PosApiError } from '@/lib/pos-api';
+import { printPdf } from '@/lib/print';
 import { formatCurrency } from '@/lib/utils';
 import type { SaleDetail, SaleDetailLine, SalesLogRow, TenderSettings } from '@/types/masters';
 
@@ -156,16 +158,59 @@ export default function PreviousSalesPage() {
     }
   }
 
+  /**
+   * Opens the print dialog for this receipt.
+   *
+   * It used to post to the till's thermal printer and answer "Receipt sent to the printer", which
+   * was not something the screen could know. The request only reaches the server; whether a printer
+   * exists, is switched on, or has paper is decided far past the point where that toast was shown.
+   * On a till whose printer was offline it announced success and produced nothing, which is the
+   * failure a back-office user is least equipped to diagnose — they are not stood next to the till.
+   *
+   * The browser's own dialog is honest by construction: the operator sees the receipt, picks a
+   * printer, and knows whether it printed because they watched it happen.
+   */
   async function reprint() {
+    if (!selected) return;
+
+    setBusy(true);
+
+    try {
+      const outcome = await printPdf(await posApi.receiptPdf(selected.id));
+
+      if (outcome === 'blocked') {
+        toast({
+          title: 'Pop-up blocked',
+          description: 'Allow pop-ups for this site to print the receipt.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Could not print the receipt',
+        description:
+          error instanceof PosApiError ? error.problem.detail : 'The receipt could not be produced.',
+        variant: 'destructive',
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** The thermal printer at the till, for a shop that wants the slip where the customer is. */
+  async function sendToTill() {
     if (!selected) return;
 
     try {
       await mastersApi.sales.reprint(selected.id);
-      toast({ title: 'Receipt sent to the printer' });
+      toast({
+        title: 'Sent to the till printer',
+        description: 'If nothing prints, the till printer is offline — use Print instead.',
+      });
     } catch {
       toast({
-        title: 'Could not reprint',
-        description: 'The receipt was not sent. Please try again.',
+        title: 'Could not send it',
+        description: 'The till did not accept the receipt.',
         variant: 'destructive',
       });
     }
@@ -307,34 +352,66 @@ export default function PreviousSalesPage() {
                 <dd className="text-right font-semibold">{formatCurrency(selected.grandTotal)}</dd>
               </dl>
 
-              <div className="flex flex-wrap items-end gap-2 border-t pt-3">
-                {canReprint && (
-                  <Button variant="outline" onClick={() => void reprint()} disabled={busy}>
-                    Reprint receipt
-                  </Button>
+              {/*
+                Two groups, separated, because they are two different intentions and one of them
+                moves money. Printing sits on the left as an ordinary action; refunding is boxed on
+                the right, so nobody reaches it while meaning to reach the other. They used to be a
+                single flat row of controls in which a dropdown, a label and two buttons all had
+                different heights and no stated relationship to each other.
+              */}
+              <div className="flex flex-col gap-3 border-t pt-3 sm:flex-row sm:items-start sm:justify-between">
+                {canReprint ? (
+                  <div className="flex flex-wrap gap-2">
+                    <Button onClick={() => void reprint()} disabled={busy}>
+                      Print receipt
+                    </Button>
+
+                    {/*
+                      The till's own printer, kept but no longer the default. It is the right answer
+                      only when the customer is stood at that till, and it cannot report whether
+                      anything came out -- the request stops at the server.
+                    */}
+                    <Button variant="outline" onClick={() => void sendToTill()} disabled={busy}>
+                      Send to till printer
+                    </Button>
+                  </div>
+                ) : (
+                  <span />
                 )}
 
                 {canRefund && selected.status === 'Completed' && (
-                  <>
-                    <label className="flex flex-col text-xs">
-                      Refund to
-                      <select
-                        className="pos-input"
-                        value={refundTenderId ?? ''}
-                        onChange={(e) => setRefundTenderId(Number(e.target.value))}
-                      >
-                        {tenders.map((tender) => (
-                          <option key={tender.id} value={tender.id}>
-                            {tender.displayName}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                  <div className="rounded-md border border-subtle bg-panel-sunken p-3 sm:min-w-[19rem]">
+                    {rounded <= 0 ? (
+                      // Says what to do instead of offering a dead button. A disabled control
+                      // reading "Refund Rs 0.00" states an amount nobody asked for and gives no
+                      // hint that the quantity boxes above are what make it live.
+                      <p className="text-xs text-ink-muted">
+                        Enter a quantity in <strong>Return</strong> against the items coming back,
+                        then choose how the money goes out.
+                      </p>
+                    ) : (
+                      <div className="flex flex-wrap items-end justify-between gap-2">
+                        <label className="flex flex-col gap-1 text-xs text-ink-muted">
+                          Refund to
+                          <select
+                            className="pos-input"
+                            value={refundTenderId ?? ''}
+                            onChange={(e) => setRefundTenderId(Number(e.target.value))}
+                          >
+                            {tenders.map((tender) => (
+                              <option key={tender.id} value={tender.id}>
+                                {tender.displayName}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
 
-                    <Button onClick={() => void refund()} disabled={busy || rounded <= 0}>
-                      {busy ? 'Refunding…' : `Refund ${formatCurrency(rounded)}`}
-                    </Button>
-                  </>
+                        <Button onClick={() => void refund()} disabled={busy}>
+                          {busy ? 'Refunding…' : `Refund ${formatCurrency(rounded)}`}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
