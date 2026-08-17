@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Retail25.Application.Abstractions;
 using Retail25.Domain.Configuration;
@@ -10,7 +10,7 @@ namespace Retail25.Infrastructure.Persistence;
 /// <summary>
 /// Seeds the working defaults a store needs before it can ring anything up.
 /// <para>
-/// The standing constraint is that no rule is compiled in — but a database of empty configuration
+/// The standing constraint is that no rule is compiled in â€” but a database of empty configuration
 /// tables is not usable either. This writes a defensible starting point (a location, a currency, the
 /// documented pricing ladder, tax rows, the standard tenders, one station and its peripherals) that
 /// an administrator then edits. It is idempotent, so it is safe to run on every start.
@@ -83,8 +83,8 @@ public sealed class DatabaseSeeder
             return;
         }
 
-        // Two named taxes, non-compound, exclusive — the shape the legacy Setup screen models
-        // (guide p.76–77). Names and rates are data; this is only a starting point.
+        // Two named taxes, non-compound, exclusive â€” the shape the legacy Setup screen models
+        // (guide p.76â€“77). Names and rates are data; this is only a starting point.
         var created = TaxConfiguration.Create(
             locationId,
             DateOnly.FromDateTime(_clock.Now.Date).AddYears(-1),
@@ -122,15 +122,15 @@ public sealed class DatabaseSeeder
             return;
         }
 
-        // The documented order from doc 04 §2. Reordering these two rows is what implements the
-        // alternative to decision P1 — no code change (README, standing build constraint).
+        // The documented order from doc 04 Â§2. Reordering these two rows is what implements the
+        // alternative to decision P1 â€” no code change (README, standing build constraint).
         _db.PricingRuleSettings.AddRange(PricingRuleSetting.SeedDefaults(locationId));
     }
 
     /// <summary>
     /// The legacy "next number" settings (guide p.76), starting at 1 for a fresh store.
     /// <para>
-    /// A migrated store overwrites these from its own counters before the first sale — which is the
+    /// A migrated store overwrites these from its own counters before the first sale â€” which is the
     /// whole reason they are rows. Customer 4,182 has to be followed by 4,183, because staff and
     /// paper records refer to those numbers.
     /// </para>
@@ -214,7 +214,7 @@ public sealed class DatabaseSeeder
         // Saved before the station is told about them.
         //
         // The profiles' ids are assigned by the database, so reading them here without saving first
-        // wires the station to profile 0 four times over — and nothing objects, because a station's
+        // wires the station to profile 0 four times over â€” and nothing objects, because a station's
         // peripheral columns are nullable references with no constraint behind them. The till would
         // simply come up with no printer, no reader, no scale and no pole display, and the reason
         // would be invisible in the data.
@@ -223,4 +223,5 @@ public sealed class DatabaseSeeder
         station.AssignPeripherals(printer.Id, reader.Id, scale.Id, pole.Id);
         _db.Stations.Add(station);
     }
+
 }

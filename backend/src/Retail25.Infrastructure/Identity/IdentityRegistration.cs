@@ -2,7 +2,9 @@ using System.Globalization;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using System.Text;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -12,6 +14,7 @@ using Microsoft.Extensions.Hosting;
 using OpenIddict.Abstractions;
 using OpenIddict.Validation.AspNetCore;
 using Retail25.Application.Abstractions;
+using Retail25.Infrastructure.Identity.Shoppers;
 using Retail25.Infrastructure.Persistence;
 
 namespace Retail25.Infrastructure.Identity;
@@ -33,6 +36,12 @@ public static class AuthConstants
     public const string StationIdClaim = "station_id";
     public const string LocationIdClaim = "location_id";
     public const string AccessLevelClaim = "access_level";
+
+    /// <summary>
+    /// Present only on a phone app's hub connection, naming the single cart it may subscribe to.
+    /// See <see cref="Application.Abstractions.HubTicket"/>.
+    /// </summary>
+    public const string CartIdClaim = "cart_id";
 
     /// <summary>
     /// Fifteen minutes. Short enough that a leaked access token has a small window, long enough that
@@ -196,6 +205,8 @@ public static class IdentityRegistration
                 options.UseAspNetCore();
             });
 
+        AddShopperAuthentication(services, configuration, environment);
+
         // Every business controller carries a plain [Authorize], not [Authorize(AuthenticationSchemes
         // = ...)]. AddIdentity's own AddAuthentication call sets the default authenticate/challenge
         // scheme to the Identity cookie, so without this, an unadorned [Authorize] checks for that
@@ -233,6 +244,74 @@ public static class IdentityRegistration
                 new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions { SizeLimit = 10_000 }));
 
         return services;
+    }
+
+    /// <summary>
+    /// The phone app's authentication, kept entirely separate from staff sign-in.
+    /// <para>
+    /// A second scheme rather than another OpenIddict grant, because the two audiences share nothing:
+    /// different subject table, different lifetime, different revocation story, and — the point of the
+    /// exercise — a claim set with no permissions in it. Two schemes means a shopper token and a staff
+    /// token are validated by different keys against different issuers, so neither can ever be
+    /// mistaken for the other however the endpoints are attributed.
+    /// </para>
+    /// </summary>
+    private static void AddShopperAuthentication(
+        IServiceCollection services,
+        IConfiguration configuration,
+        IHostEnvironment environment)
+    {
+        services.Configure<ShopperTokenOptions>(configuration.GetSection(ShopperTokenOptions.Section));
+
+        var options = new ShopperTokenOptions();
+        configuration.GetSection(ShopperTokenOptions.Section).Bind(options);
+
+        // Configured if configured, generated and kept on the host if not. See ShopperSigningKey for
+        // why an unconfigured deployment is worth handling rather than refusing: this runs on shared
+        // hosting where nobody can reach an environment editor, and the alternative is an API that
+        // starts happily and 500s the first customer who tries to create an account.
+        var signingKey = ShopperSigningKey.Resolve(configuration, environment);
+
+        // The issuer reads its key from options, not from here, so the resolved value has to be put
+        // back — otherwise validation would use the generated key while issuing still saw the empty
+        // one, and every freshly minted token would be rejected by the request that carried it.
+        services.PostConfigure<ShopperTokenOptions>(o => o.SigningKey = signingKey);
+
+        // Still possible to have no key at all: a content root nothing can write to. The phone app is
+        // simply not enabled there — the POS itself does not need it, and a store that never bought
+        // trolleys should not be blocked from starting. Registering the scheme anyway, against a key
+        // nothing can hold, keeps that an honest 401 rather than a 500 from an unregistered scheme.
+        var key = Encoding.UTF8.GetByteCount(signingKey) >= 32
+            ? new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey))
+            : new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(32));
+
+        services.AddAuthentication()
+            .AddJwtBearer(ShopperAuthentication.Scheme, jwt =>
+            {
+                // Left on, the handler rewrites "sub" to the long ClaimTypes.NameIdentifier URI, and
+                // CurrentShopper — which reads "sub", the claim the token actually carries — finds
+                // nothing and reports every authenticated shopper as anonymous.
+                jwt.MapInboundClaims = false;
+
+                jwt.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = options.Issuer,
+                    ValidateAudience = true,
+                    ValidAudience = options.Audience,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = key,
+                    ValidateLifetime = true,
+
+                    // The default five minutes is a long time to keep honouring an expired token when
+                    // the server and a handset both get their clock from the network.
+                    ClockSkew = TimeSpan.FromSeconds(30),
+                };
+            });
+
+        services.AddScoped<ICurrentShopper, CurrentShopper>();
+        services.AddScoped<IShopperPasswordHasher, ShopperPasswordHasher>();
+        services.AddScoped<IShopperTokenIssuer, ShopperTokenIssuer>();
     }
 
     /// <summary>

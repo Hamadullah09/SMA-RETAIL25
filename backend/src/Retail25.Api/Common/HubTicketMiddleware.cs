@@ -46,6 +46,31 @@ public sealed class HubTicketMiddleware
 
         if (string.IsNullOrWhiteSpace(value))
         {
+            // Also the Authorization header, and this is not belt-and-braces — it is half the
+            // handshake.
+            //
+            // Opening a connection is two requests. The WebSocket upgrade cannot carry headers, so
+            // the token goes in the query string, which is what this middleware was written for. But
+            // the negotiate POST that precedes it is an ordinary HTTP request, and every SignalR
+            // client — .NET and JavaScript alike — sends the token as a bearer header there.
+            //
+            // Reading only the query meant negotiate arrived unauthenticated. The hub's [Authorize]
+            // then challenged, the default challenge scheme is the Identity cookie, and the client
+            // got a 302 to the sign-in page. What it reports is "Failed to complete negotiation:
+            // Unexpected token '<'" — an HTML login page where JSON was expected — which reads like
+            // a broken URL and is in fact an auth failure.
+            var header = context.Request.Headers.Authorization.ToString();
+
+            const string bearer = "Bearer ";
+
+            if (header.StartsWith(bearer, StringComparison.OrdinalIgnoreCase))
+            {
+                value = header[bearer.Length..].Trim();
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
             await _next(context);
             return;
         }
@@ -80,6 +105,13 @@ public sealed class HubTicketMiddleware
         if (ticket.LocationId is { } locationId)
         {
             identity.AddClaim(new Claim(AuthConstants.LocationIdClaim, locationId.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        // Only the phone app's tickets carry this. It is a ceiling, not a grant: the hub refuses any
+        // cart group other than this one.
+        if (ticket.CartId is { } cartId)
+        {
+            identity.AddClaim(new Claim(AuthConstants.CartIdClaim, cartId.ToString(CultureInfo.InvariantCulture)));
         }
 
         foreach (var permission in ticket.Permissions)

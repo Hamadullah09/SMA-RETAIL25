@@ -35,6 +35,8 @@ public static class DependencyInjection
         services.AddScoped<PosContextLoader>();
         services.AddScoped<CartPricingService>();
         services.AddScoped<CartWorkflow>();
+        services.AddScoped<CartOpener>();
+        services.AddScoped<Shoppers.Services.ShopperSessionFactory>();
         services.AddScoped<IdentifierResolver>();
         services.AddScoped<CartLineFactory>();
         services.AddScoped<ReceiptBuilder>();

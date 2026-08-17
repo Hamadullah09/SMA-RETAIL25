@@ -172,6 +172,10 @@ public static class DependencyInjection
     /// </summary>
     private static void AddServerReaders(IServiceCollection services, IConfiguration configuration)
     {
+        // Which counters the phone app may connect to, and whether it may bring new ones into service.
+        services.Configure<Application.Trolleys.TrolleyOptions>(
+            configuration.GetSection(Application.Trolleys.TrolleyOptions.Section));
+
         services.Configure<ServerReaderOptions>(configuration.GetSection(ServerReaderOptions.Section));
 
         services.AddSingleton<ServerReaderStatus>();

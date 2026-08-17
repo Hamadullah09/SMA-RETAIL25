@@ -35,3 +35,9 @@ Desktop.ini
 # BenchmarkDotNet writes its raw logs and per-run reports here. The deliverable is
 # RFID_Throughput_Benchmark.md, which is written by hand from them.
 BenchmarkDotNet.Artifacts/
+
+# The shopper token signing key, generated on first run where none is configured, and the database
+# backups. Both are per-host state that lives inside the application folder because that is the one
+# place an IIS pool identity can reliably write. Committing either would publish a credential or a
+# copy of the shop's data.
+App_Data/

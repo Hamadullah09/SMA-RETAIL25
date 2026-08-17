@@ -1,12 +1,22 @@
 namespace Retail25.Application.Abstractions;
 
 /// <summary>What a hub ticket stands for once redeemed.</summary>
+/// <param name="CartId">
+/// Pins the connection to a single cart, and is set only for the phone app.
+/// <para>
+/// A till's ticket leaves this null: a cashier legitimately watches whichever cart their station has
+/// open, and the permission set is what bounds them. A shopper has no permissions at all, so without
+/// a pin the hub would happily let them subscribe to <c>cart:{any id}</c> and watch a stranger's
+/// shopping appear on their phone. Cart ids are sequential integers, so that is a two-minute attack.
+/// </para>
+/// </summary>
 public sealed record HubTicket(
     long UserId,
     long? StaffId,
     long? StationId,
     long? LocationId,
-    IReadOnlyList<string> Permissions);
+    IReadOnlyList<string> Permissions,
+    long? CartId = null);
 
 /// <summary>
 /// Single-use, 60-second tickets for opening a SignalR connection (doc 07 §Topology).

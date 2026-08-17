@@ -219,11 +219,20 @@ public sealed class InMemoryIdempotencyStore : IIdempotencyStore
 }
 
 /// <summary>
-/// Single-use SignalR tickets, in process.
+/// SignalR tickets in process, good for the exchanges one connection costs.
 /// <para>
-/// The security properties that matter are preserved in full: 32 bytes of CSPRNG output, consumed on
-/// redemption, and expiring on time. What is lost is only that a ticket minted by one instance
-/// cannot be redeemed at another.
+/// The security properties that matter are preserved in full: 32 bytes of CSPRNG output, a bounded
+/// number of redemptions, and expiry on time. What is lost is only that a ticket minted by one
+/// instance cannot be redeemed at another.
+/// </para>
+/// <para>
+/// It used to remove the ticket on first read, and that broke WebSockets outright — the same fault
+/// <see cref="CachedHubTicket"/> documents for the SQL store, which was fixed there and not here.
+/// Opening a connection costs two exchanges: the negotiate POST, then the transport upgrade. The
+/// client asks its token factory once and presents the same value to both, so a single-use ticket
+/// dies at negotiate and the upgrade arrives holding nothing. The visible symptom is a client that
+/// reports the socket failed and silently falls back to long polling — or, where no fallback is
+/// configured, a live feed that simply never arrives.
 /// </para>
 /// </summary>
 public sealed class InMemoryHubTicketStore : IHubTicketStore
@@ -245,14 +254,31 @@ public sealed class InMemoryHubTicketStore : IHubTicketStore
 
     public Task<HubTicket?> RedeemAsync(string ticket, CancellationToken ct = default)
     {
-        // Removed, not read: single-use is the whole point, and a ticket left behind after a
-        // successful connection is a ticket a second connection could use.
-        if (_tickets.TryRemove(ticket, out var entry) && entry.ExpiresAt > DateTimeOffset.UtcNow)
+        if (!_tickets.TryGetValue(ticket, out var entry))
         {
-            return Task.FromResult<HubTicket?>(entry.Ticket);
+            return Task.FromResult<HubTicket?>(null);
         }
 
-        return Task.FromResult<HubTicket?>(null);
+        if (entry.ExpiresAt <= DateTimeOffset.UtcNow)
+        {
+            _tickets.TryRemove(ticket, out _);
+            return Task.FromResult<HubTicket?>(null);
+        }
+
+        // Interlocked rather than a lock: two exchanges of one connection can overlap, and the count
+        // is the only thing standing between "two legitimate uses" and "a replayed ticket".
+        if (!entry.TryConsume())
+        {
+            _tickets.TryRemove(ticket, out _);
+            return Task.FromResult<HubTicket?>(null);
+        }
+
+        if (entry.Exhausted)
+        {
+            _tickets.TryRemove(ticket, out _);
+        }
+
+        return Task.FromResult<HubTicket?>(entry.Ticket);
     }
 
     private void Sweep()
@@ -270,7 +296,25 @@ public sealed class InMemoryHubTicketStore : IHubTicketStore
         }
     }
 
-    private sealed record Entry(HubTicket Ticket, DateTimeOffset ExpiresAt);
+    private sealed class Entry
+    {
+        private int _remaining = HubTicketRedemptions.PerConnection;
+
+        public Entry(HubTicket ticket, DateTimeOffset expiresAt)
+        {
+            Ticket = ticket;
+            ExpiresAt = expiresAt;
+        }
+
+        public HubTicket Ticket { get; }
+
+        public DateTimeOffset ExpiresAt { get; }
+
+        public bool Exhausted => Volatile.Read(ref _remaining) <= 0;
+
+        /// <summary>Takes one redemption, or reports that there were none left to take.</summary>
+        public bool TryConsume() => Interlocked.Decrement(ref _remaining) >= 0;
+    }
 }
 
 /// <summary>Says once, at startup, exactly what has been given up. Nobody should discover this later.</summary>

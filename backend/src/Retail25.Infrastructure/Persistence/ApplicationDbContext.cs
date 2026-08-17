@@ -14,8 +14,10 @@ using Retail25.Domain.Purchasing;
 using Retail25.Domain.Receivables;
 using Retail25.Domain.Sales;
 using Retail25.Domain.Security;
+using Retail25.Domain.Shoppers;
 using Retail25.Domain.Staff;
 using Retail25.Domain.Terminals;
+using Retail25.Domain.Trolleys;
 
 namespace Retail25.Infrastructure.Persistence;
 
@@ -85,6 +87,12 @@ public class ApplicationDbContext
     public DbSet<CustomerAccount> CustomerAccounts => Set<CustomerAccount>();
     public DbSet<CustomerPricingProfile> CustomerPricingProfiles => Set<CustomerPricingProfile>();
     public DbSet<LoyaltyLedgerEntry> LoyaltyLedgerEntries => Set<LoyaltyLedgerEntry>();
+
+    // --- Shoppers (the phone app) ---
+    public DbSet<Shopper> Shoppers => Set<Shopper>();
+    public DbSet<ShopperDevice> ShopperDevices => Set<ShopperDevice>();
+    public DbSet<Trolley> Trolleys => Set<Trolley>();
+    public DbSet<TrolleySession> TrolleySessions => Set<TrolleySession>();
 
     // --- Purchasing ---
     public DbSet<Supplier> Suppliers => Set<Supplier>();

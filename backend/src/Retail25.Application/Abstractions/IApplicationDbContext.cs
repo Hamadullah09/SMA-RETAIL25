@@ -10,8 +10,10 @@ using Retail25.Domain.Purchasing;
 using Retail25.Domain.Receivables;
 using Retail25.Domain.Sales;
 using Retail25.Domain.Security;
+using Retail25.Domain.Shoppers;
 using Retail25.Domain.Staff;
 using Retail25.Domain.Terminals;
+using Retail25.Domain.Trolleys;
 
 namespace Retail25.Application.Abstractions;
 
@@ -53,6 +55,12 @@ public interface IApplicationDbContext
     DbSet<CustomerAccount> CustomerAccounts { get; }
     DbSet<CustomerPricingProfile> CustomerPricingProfiles { get; }
     DbSet<LoyaltyLedgerEntry> LoyaltyLedgerEntries { get; }
+
+    // --- Shoppers (the phone app) ---
+    DbSet<Shopper> Shoppers { get; }
+    DbSet<ShopperDevice> ShopperDevices { get; }
+    DbSet<Trolley> Trolleys { get; }
+    DbSet<TrolleySession> TrolleySessions { get; }
 
     // --- Purchasing ---
     DbSet<Supplier> Suppliers { get; }

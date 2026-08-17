@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Carts.Commands;
+using Retail25.Application.Carts.Services;
 using Retail25.Application.Common;
 using Retail25.Domain.Sales;
 using Xunit;
@@ -58,13 +59,17 @@ public sealed class CartCommandTests
         var orphan = Cart.Open(harness.Station.Id, harness.Location.Id, 1, harness.Clock.Now, 720);
         await harness.CartStore.SaveAsync(new CartSnapshot(orphan));
 
+        // Opening a cart moved into CartOpener, shared with the shopper app's trolley pairing. The
+        // handler is now only the staff half — permission gate and whose staff number the sale books
+        // against — so the mechanics these tests are about are assembled here.
         var handler = new CreateCartHandler(
-            harness.CartStore,
-            harness.ContextLoader,
-            harness.Pricing,
-            harness.CurrentUser,
-            harness.Clock,
-            harness.Db);
+            new CartOpener(
+                harness.CartStore,
+                harness.ContextLoader,
+                harness.Pricing,
+                harness.Clock,
+                harness.Db),
+            harness.CurrentUser);
 
         var result = await handler.Handle(new CreateCartCommand(harness.Station.Id), default);
 
@@ -95,13 +100,17 @@ public sealed class CartCommandTests
         harness.Db.Carts.Remove(harness.Db.Carts.First(c => c.Id == phantom.Id));
         await harness.Db.SaveChangesAsync(default);
 
+        // Opening a cart moved into CartOpener, shared with the shopper app's trolley pairing. The
+        // handler is now only the staff half — permission gate and whose staff number the sale books
+        // against — so the mechanics these tests are about are assembled here.
         var handler = new CreateCartHandler(
-            harness.CartStore,
-            harness.ContextLoader,
-            harness.Pricing,
-            harness.CurrentUser,
-            harness.Clock,
-            harness.Db);
+            new CartOpener(
+                harness.CartStore,
+                harness.ContextLoader,
+                harness.Pricing,
+                harness.Clock,
+                harness.Db),
+            harness.CurrentUser);
 
         var result = await handler.Handle(new CreateCartCommand(harness.Station.Id), default);
 

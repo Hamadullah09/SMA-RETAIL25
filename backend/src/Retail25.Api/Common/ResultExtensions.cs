@@ -70,6 +70,25 @@ public static class ResultExtensions
         "price.override_not_permitted" => StatusCodes.Status403Forbidden,
         "price.level_not_permitted" => StatusCodes.Status403Forbidden,
 
+        // The phone app. A shopper who mistyped their password has to be told something different
+        // from a shopper whose token expired mid-shop, and the app decides which by status: 401 means
+        // "sign in again", and it must never be confused with a 400 about the shape of the request.
+        "shopper.credentials_invalid" => StatusCodes.Status401Unauthorized,
+        "shopper.not_signed_in" => StatusCodes.Status401Unauthorized,
+        "shopper_device.token_rejected" => StatusCodes.Status401Unauthorized,
+        "shopper_device.not_recognised" => StatusCodes.Status401Unauthorized,
+        "shopper.deactivated" => StatusCodes.Status403Forbidden,
+        "shopper.email_taken" => StatusCodes.Status409Conflict,
+
+        "trolley.not_found" => StatusCodes.Status404NotFound,
+        "trolley_session.none" => StatusCodes.Status404NotFound,
+        "trolley.not_a_shopper_station" => StatusCodes.Status403Forbidden,
+        "trolley.out_of_service" => StatusCodes.Status409Conflict,
+        "trolley.already_claimed" => StatusCodes.Status409Conflict,
+        "trolley_session.already_shopping" => StatusCodes.Status409Conflict,
+        "trolley_session.not_shopping" => StatusCodes.Status409Conflict,
+        "trolley_session.not_yours" => StatusCodes.Status403Forbidden,
+
         "epc.unknown" => StatusCodes.Status404NotFound,
         "product.not_found" => StatusCodes.Status404NotFound,
         "customer.not_found" => StatusCodes.Status404NotFound,

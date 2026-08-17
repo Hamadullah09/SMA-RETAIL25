@@ -43,6 +43,13 @@
       OpenIddict 7 rather than 5: its EF Core integration binds to the EF Core major it was built
       against, so it has to move when EF Core does. 5.x is built against EF Core 8.
     -->
+    <!--
+      Shopper tokens only. Staff sign in through OpenIddict and always will; the phone app is a
+      separate audience with a separate signing key and no permission claims at all, and giving it
+      its own scheme is what keeps "a customer's token can never satisfy a till" a property of the
+      wiring rather than of a check somebody has to remember.
+    -->
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.10" />
     <PackageVersion Include="OpenIddict.AspNetCore" Version="7.6.0" />
     <PackageVersion Include="OpenIddict.EntityFrameworkCore" Version="7.6.0" />
     <PackageVersion Include="OpenIddict.Validation.AspNetCore" Version="7.6.0" />

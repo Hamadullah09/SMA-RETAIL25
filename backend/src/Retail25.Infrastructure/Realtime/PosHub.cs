@@ -58,8 +58,29 @@ public sealed class PosHub : Hub
     public Task JoinLocation(long locationId)
         => Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Location(locationId));
 
+    /// <summary>
+    /// Subscribes this connection to a cart's updates.
+    /// <para>
+    /// A till's ticket carries no cart pin and may watch whatever its station has open — that is what
+    /// the permission set is for. The phone app's ticket pins exactly one cart, and this is where that
+    /// pin is enforced. Without it a shopper could call <c>JoinCart(otherId)</c> and watch a
+    /// stranger's basket fill up in real time, since cart ids are sequential integers and the shopper
+    /// principal holds no permission the authorisation layer could have refused.
+    /// </para>
+    /// </summary>
     public Task JoinCart(long cartId)
-        => Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Cart(cartId));
+    {
+        var pinned = Context.User?.FindFirst(AuthConstants.CartIdClaim)?.Value;
+
+        if (pinned is not null
+            && (!long.TryParse(pinned, NumberStyles.Integer, CultureInfo.InvariantCulture, out var allowed)
+                || allowed != cartId))
+        {
+            throw new HubException("This connection may not watch that cart.");
+        }
+
+        return Groups.AddToGroupAsync(Context.ConnectionId, PosGroups.Cart(cartId));
+    }
 
     public Task LeaveCart(long cartId)
         => Groups.RemoveFromGroupAsync(Context.ConnectionId, PosGroups.Cart(cartId));
