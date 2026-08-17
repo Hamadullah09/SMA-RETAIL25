@@ -9,7 +9,7 @@ namespace Retail25.Api.Controllers;
 
 /// <summary>
 /// Printable documents: price tags, barcode labels, statement envelopes and the price list
-/// (guide App. L). Everything here answers with a PDF the browser downloads.
+/// (guide App. L). Everything here answers with a PDF the browser opens rather than saves.
 /// </summary>
 [ApiController]
 [Authorize]
@@ -19,6 +19,28 @@ public sealed class DocumentsController : ControllerBase
     private readonly ISender _sender;
 
     public DocumentsController(ISender sender) => _sender = sender;
+
+    /// <summary>
+    /// A PDF the browser shows, rather than one it files away.
+    /// <para>
+    /// <c>File(bytes, type, fileName)</c> sets <c>Content-Disposition: attachment</c>, and an
+    /// attachment is downloaded whatever the caller does with it — opening it in a tab, in an
+    /// iframe, or following a link all end the same way, with a file in Downloads and no print
+    /// dialog. Every document here was returned that way while the comment above this class said
+    /// they opened in the viewer, so pressing Print produced a saved file and nothing else. Somebody
+    /// wanting the file can still save it from the viewer; somebody wanting to print can now print.
+    /// </para>
+    /// <para>
+    /// The name is kept, because <c>inline</c> still supplies it to "Save as" and a viewer tab
+    /// titled <c>price-tags.pdf</c> is worth more than one titled with a GUID.
+    /// </para>
+    /// </summary>
+    private IActionResult Pdf(byte[] content, string fileName)
+    {
+        Response.Headers.ContentDisposition = $"inline; filename=\"{fileName}\"";
+
+        return File(content, "application/pdf");
+    }
 
     /// <summary>A sheet of price tags for the chosen items.</summary>
     [HttpPost("labels/price-tags")]
@@ -34,7 +56,7 @@ public sealed class DocumentsController : ControllerBase
             request.SkipLabels));
 
         return result.IsSuccess
-            ? File(result.Value, "application/pdf", "price-tags.pdf")
+            ? Pdf(result.Value, "price-tags.pdf")
             : result.ToActionResult(this);
     }
 
@@ -52,7 +74,7 @@ public sealed class DocumentsController : ControllerBase
             request.SkipLabels));
 
         return result.IsSuccess
-            ? File(result.Value, "application/pdf", "barcode-labels.pdf")
+            ? Pdf(result.Value, "barcode-labels.pdf")
             : result.ToActionResult(this);
     }
 
@@ -69,7 +91,7 @@ public sealed class DocumentsController : ControllerBase
             locationId, [new LabelRequestLine(productId, copies)], stock));
 
         return result.IsSuccess
-            ? File(result.Value, "application/pdf", "price-tag.pdf")
+            ? Pdf(result.Value, "price-tag.pdf")
             : result.ToActionResult(this);
     }
 
@@ -80,7 +102,7 @@ public sealed class DocumentsController : ControllerBase
         var result = await _sender.Send(new PrintStatementEnvelopeQuery(customerId));
 
         return result.IsSuccess
-            ? File(result.Value, "application/pdf", "envelope.pdf")
+            ? Pdf(result.Value, "envelope.pdf")
             : result.ToActionResult(this);
     }
 
@@ -95,7 +117,7 @@ public sealed class DocumentsController : ControllerBase
         var result = await _sender.Send(new PrintCatalogueQuery(locationId, departmentId, categoryId, search));
 
         return result.IsSuccess
-            ? File(result.Value, "application/pdf", "price-list.pdf")
+            ? Pdf(result.Value, "price-list.pdf")
             : result.ToActionResult(this);
     }
 

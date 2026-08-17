@@ -5,6 +5,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/toaster';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
+import { downloadPdf, printPdf } from '@/lib/print';
 import { formatCurrency } from '@/lib/utils';
 import type { LabelStock, LabelStockOption } from '@/types/masters';
 
@@ -75,37 +76,62 @@ export function PrintLabelsDialog({
   const setAll = (value: number) =>
     setCopies(Object.fromEntries(items.map((item) => [item.id, Math.max(0, value)])));
 
+  const build = async () => {
+    const body = { locationId, lines, stock, showBarcode, skipLabels };
+
+    return barcodeFirst
+      ? mastersApi.documents.printBarcodeLabels(body)
+      : mastersApi.documents.printPriceTags(body);
+  };
+
+  const failed = (error: unknown, title: string) =>
+    toast({
+      title,
+      description: error instanceof PosApiError ? error.problem.detail : 'Something went wrong.',
+      variant: 'destructive',
+    });
+
   const print = async () => {
     if (lines.length === 0) return;
 
     setBusy(true);
 
     try {
-      const body = { locationId, lines, stock, showBarcode, skipLabels };
-      const pdf = barcodeFirst
-        ? await mastersApi.documents.printBarcodeLabels(body)
-        : await mastersApi.documents.printPriceTags(body);
+      // The print dialog, not a file in Downloads. This used to open a tab and call that printing,
+      // which it was not: the document arrived as an attachment, so the tab saved it and went away.
+      const outcome = await printPdf(await build());
 
-      // Opened rather than saved: the operator wants the print dialog, not a file in Downloads.
-      const url = URL.createObjectURL(pdf);
-      const opened = window.open(url, '_blank', 'noopener');
-
-      if (!opened) {
+      if (outcome === 'blocked') {
         toast({
           title: 'Pop-up blocked',
-          description: 'Allow pop-ups for this site to see the labels.',
+          description: 'Allow pop-ups for this site, or use Save and print the file.',
           variant: 'destructive',
         });
+      } else if (outcome === 'opened') {
+        toast({
+          title: 'Labels opened',
+          description: 'This browser would not open the print dialog. Press Ctrl+P in the new tab.',
+        });
       }
-
-      // Revoked on a delay: revoking immediately can beat the new tab to the bytes.
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (error) {
-      toast({
-        title: 'Could not print',
-        description: error instanceof PosApiError ? error.problem.detail : 'Something went wrong.',
-        variant: 'destructive',
-      });
+      failed(error, 'Could not print');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Kept as its own button rather than left to the viewer's save icon. Printing is the common case
+  // and now costs one press; wanting the file is rarer but real -- a sheet emailed to whoever has
+  // the label printer -- and it should not require finding a control inside a PDF viewer.
+  const save = async () => {
+    if (lines.length === 0) return;
+
+    setBusy(true);
+
+    try {
+      downloadPdf(await build(), barcodeFirst ? 'barcode-labels.pdf' : 'price-tags.pdf');
+    } catch (error) {
+      failed(error, 'Could not save');
     } finally {
       setBusy(false);
     }
@@ -124,6 +150,15 @@ export function PrintLabelsDialog({
         <>
           <button type="button" className="pos-button" onClick={onClose}>
             Cancel
+          </button>
+          <button
+            type="button"
+            className="pos-button"
+            disabled={busy || totalLabels === 0}
+            onClick={() => void save()}
+            title="Save the sheet as a PDF instead of printing it"
+          >
+            Save PDF
           </button>
           <button
             type="button"
