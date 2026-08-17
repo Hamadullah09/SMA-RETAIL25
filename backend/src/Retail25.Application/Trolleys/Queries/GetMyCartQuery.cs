@@ -50,7 +50,7 @@ public sealed class GetMyCartHandler : IRequestHandler<GetMyCartQuery, Result<Sh
     {
         if (_shopper.ShopperId is not { } shopperId)
         {
-            return Result.Failure<ShopperCartDto>(ClaimTrolleyHandler.NotSignedIn);
+            return Result.Failure<ShopperCartDto>(Services.TrolleyAllocator.NotSignedIn);
         }
 
         var session = await _db.TrolleySessions

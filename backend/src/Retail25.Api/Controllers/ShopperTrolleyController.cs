@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Retail25.Api.Common;
+using Retail25.Application.Shoppers.Queries;
 using Retail25.Application.Trolleys.Commands;
 using Retail25.Application.Trolleys.Queries;
 using Retail25.Infrastructure.Identity.Shoppers;
@@ -34,6 +35,18 @@ public sealed class ShopperTrolleyController : ControllerBase
 
     public ShopperTrolleyController(ISender sender) => _sender = sender;
 
+    /// <summary>
+    /// Gives the caller a self-checkout station and opens the basket on it. The phone calls this
+    /// straight after signing in; the customer types nothing.
+    /// <para>
+    /// Safe to call repeatedly — a shopper already mid-trip gets that trip back rather than a second
+    /// counter, so the app may call it on every launch without checking first.
+    /// </para>
+    /// </summary>
+    [HttpPost("self-checkout")]
+    public async Task<IActionResult> SelfCheckout([FromBody] SelfCheckoutRequest? request)
+        => (await _sender.Send(new IssueSelfCheckoutStationCommand(request?.LocationId))).ToActionResult(this);
+
     /// <summary>Claims the trolley whose code is printed on the handle and opens the basket.</summary>
     [HttpPost("trolleys/claim")]
     public async Task<IActionResult> Claim([FromBody] ClaimTrolleyRequest request)
@@ -50,6 +63,14 @@ public sealed class ShopperTrolleyController : ControllerBase
         => (await _sender.Send(new ReleaseTrolleyCommand())).ToActionResult(this);
 
     /// <summary>
+    /// The caller's own past visits, newest first. Their receipts and nobody else's — the shopper is
+    /// taken from the token, never from the route.
+    /// </summary>
+    [HttpGet("sales")]
+    public async Task<IActionResult> PreviousSales([FromQuery] int take = 20)
+        => (await _sender.Send(new GetMyPreviousSalesQuery(take))).ToActionResult(this);
+
+    /// <summary>
     /// The ticket for the live connection. The phone calls this, then opens
     /// <c>/hubs/pos?access_token={ticket}</c> and joins the returned cart.
     /// </summary>
@@ -59,3 +80,9 @@ public sealed class ShopperTrolleyController : ControllerBase
 }
 
 public sealed record ClaimTrolleyRequest(string? Code, long? LocationId = null);
+
+/// <summary>
+/// Optional, and optional all the way down — the body may be absent entirely. A single-store shop has
+/// nothing to say here; a chain names the branch so a customer is not issued a counter in another town.
+/// </summary>
+public sealed record SelfCheckoutRequest(long? LocationId = null);

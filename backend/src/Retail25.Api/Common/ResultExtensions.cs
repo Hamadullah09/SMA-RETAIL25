@@ -81,6 +81,11 @@ public static class ResultExtensions
         "shopper.email_taken" => StatusCodes.Status409Conflict,
 
         "trolley.not_found" => StatusCodes.Status404NotFound,
+
+        // Not a fault and not the shopper's mistake: every self-checkout counter is genuinely in use.
+        // 503 rather than 409, because the answer is "wait", and it is the one shopper error a retry
+        // can actually resolve.
+        "trolley.none_free" => StatusCodes.Status503ServiceUnavailable,
         "trolley_session.none" => StatusCodes.Status404NotFound,
         "trolley.not_a_shopper_station" => StatusCodes.Status403Forbidden,
         "trolley.out_of_service" => StatusCodes.Status409Conflict,

@@ -44,7 +44,7 @@ public sealed class ReleaseTrolleyHandler : IRequestHandler<ReleaseTrolleyComman
     {
         if (_shopper.ShopperId is not { } shopperId)
         {
-            return Result.Failure(ClaimTrolleyHandler.NotSignedIn);
+            return Result.Failure(Services.TrolleyAllocator.NotSignedIn);
         }
 
         var session = await _db.TrolleySessions

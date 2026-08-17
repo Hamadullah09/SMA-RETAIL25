@@ -51,7 +51,7 @@ public sealed class IssueShopperHubTicketHandler
     {
         if (_shopper.ShopperId is not { } shopperId)
         {
-            return Result.Failure<ShopperHubTicketDto>(ClaimTrolleyHandler.NotSignedIn);
+            return Result.Failure<ShopperHubTicketDto>(Services.TrolleyAllocator.NotSignedIn);
         }
 
         var session = await _db.TrolleySessions
