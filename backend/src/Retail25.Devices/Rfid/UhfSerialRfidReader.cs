@@ -114,6 +114,8 @@ public sealed class UhfSerialRfidReader : IRfidReader
         _lifetimeCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _pump = Task.Run(() => PumpAsync(_lifetimeCts.Token), CancellationToken.None);
 
+        await ProveItIsAReaderAsync(ct);
+
         _logger.LogInformation(
             "Connected to {Reader}, inventorying antennas {Antennas}",
             Description,
@@ -156,6 +158,106 @@ public sealed class UhfSerialRfidReader : IRfidReader
             _controlGate.Release();
         }
     }
+
+    /// <summary>
+    /// Makes the device prove it is a reader before we report one.
+    /// <para>
+    /// Opening is not evidence. A TCP connect proves something is listening on a port; opening a COM
+    /// port proves almost nothing at all, because Windows opens a serial port successfully whether or
+    /// not anything is on the other end of it. <see cref="IsConnected"/> was built on exactly that,
+    /// so any openable port counted as a working reader.
+    /// </para>
+    /// <para>
+    /// A till in a shop found the hole. The serial fallback picked the highest COM port, which on that
+    /// machine was <c>Intel(R) Active Management Technology - SOL (COM3)</c> — a motherboard virtual
+    /// port with no reader behind it. It opened, so the agent announced a reader, the status strip lit
+    /// green, and the real reader on the shop LAN was left alone. A cashier held a tag against a
+    /// reader the screen called healthy and nothing happened, which is worse than an outage: an
+    /// outage at least tells you to go and look.
+    /// </para>
+    /// <para>
+    /// One firmware query is enough, and it is the cheapest frame the protocol has. A reader answers
+    /// it; a virtual COM port, a printer, or a scale on the wrong lead does not. Failing here throws,
+    /// which puts the reconnect loop back to searching instead of settling on a device that will never
+    /// read a tag.
+    /// </para>
+    /// </summary>
+    private async Task ProveItIsAReaderAsync(CancellationToken ct)
+    {
+        byte[]? firmware;
+
+        await _controlGate.WaitAsync(ct);
+
+        try
+        {
+            firmware = await ControlQueryAsync(UhfSerialCommand.GetFirmwareVersion, [], ct);
+        }
+        catch (Exception ex) when (ex is SocketException or IOException)
+        {
+            firmware = null;
+        }
+        finally
+        {
+            _controlGate.Release();
+        }
+
+        if (firmware is not null)
+        {
+            return;
+        }
+
+        var refused = Description;
+
+        // Torn down here rather than left to the caller: this is a COM port on the failing path, and
+        // a handle held by a dead session is one the next attempt cannot open.
+        await TearDownAsync();
+
+        throw new IOException(
+            $"{refused} opened but did not answer a firmware query, so it is not a reader.");
+    }
+
+    /// <summary>
+    /// Closes the wire and stops the pump, leaving the object reusable for the next attempt.
+    /// <para>
+    /// The connection is disposed <em>before</em> the pump is waited on, and the wait is bounded. Both
+    /// matter, and the first version of this had neither: a serial port's stream does not honour a
+    /// cancellation token on a pending read — the token is accepted and then ignored — so cancelling
+    /// and awaiting the pump waits for a read that will never be cancelled. Disposing the stream is
+    /// what actually unblocks it. The timeout is the belt to that braces: a teardown on the failing
+    /// path must never be able to wedge the reconnect loop, because the whole point of reaching here
+    /// is to go and try something else.
+    /// </para>
+    /// </summary>
+    private async Task TearDownAsync()
+    {
+        if (_lifetimeCts is not null)
+        {
+            await _lifetimeCts.CancelAsync();
+        }
+
+        _connection?.Dispose();
+
+        if (_pump is not null)
+        {
+            try
+            {
+                await _pump.WaitAsync(TearDownTimeout);
+            }
+            catch (Exception ex) when (ex is OperationCanceledException or TimeoutException or IOException or SocketException)
+            {
+                // Expected: this is the shutdown path, and an abandoned pump on a disposed stream
+                // ends itself. Waiting longer would achieve nothing a caller can use.
+            }
+        }
+
+        _connection = null;
+        _stream = null;
+        _pump = null;
+        _lifetimeCts?.Dispose();
+        _lifetimeCts = null;
+    }
+
+    private static readonly TimeSpan TearDownTimeout = TimeSpan.FromSeconds(5);
 
     public async Task<IReadOnlyList<string>> ApplySettingsAsync(ReaderProfileContract profile, CancellationToken ct)
     {
