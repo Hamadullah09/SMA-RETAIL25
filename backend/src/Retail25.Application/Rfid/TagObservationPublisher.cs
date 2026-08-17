@@ -110,12 +110,13 @@ public sealed class TagObservationPublisher
         long stationId,
         bool connected,
         int readsPerSecond,
+        string mode,
         string? detail = null,
         CancellationToken ct = default)
         => await _notifier.ReaderStatusAsync(
             await LocationOfAsync(stationId, ct),
             stationId,
-            new RfidReaderStatus(connected, readsPerSecond, _registry.For(stationId).TagsInField, detail),
+            new RfidReaderStatus(connected, readsPerSecond, _registry.For(stationId).TagsInField, mode, detail),
             ct);
 
     /// <summary>

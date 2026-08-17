@@ -30,11 +30,11 @@ public sealed record ReportAgentStatusCommand(
     bool PoleDisplayOnline,
     int ReadRate) : IRequest<Result>;
 
-/// <summary>The device profile bundle an agent pulls on connect (doc 06 Â§7).</summary>
+/// <summary>The device profile bundle an agent pulls on connect (doc 06 §7).</summary>
 [RequiresPermission(PermissionKeys.Terminals.Read)]
 public sealed record GetTerminalProfileQuery(long StationId) : IRequest<Result<TerminalProfileContract>>;
 
-/// <summary>Changes how hard the reader is working â€” off, on demand, or continuous (doc 06 Â§5).</summary>
+/// <summary>Changes how hard the reader is working — off, on demand, or continuous (doc 06 §5).</summary>
 [RequiresPermission(PermissionKeys.Terminals.Operate)]
 public sealed record SetReaderModeCommand(long StationId, Domain.Terminals.ReaderMode Mode) : IRequest<Result>;
 
@@ -72,17 +72,20 @@ public sealed class TerminalHandlers
     private readonly IPosNotifier _notifier;
     private readonly ITerminalNotifier _terminals;
     private readonly IDateTime _clock;
+    private readonly Rfid.TagObservationPublisher _readerFeed;
 
     public TerminalHandlers(
         IApplicationDbContext db,
         IPosNotifier notifier,
         ITerminalNotifier terminals,
-        IDateTime clock)
+        IDateTime clock,
+        Rfid.TagObservationPublisher readerFeed)
     {
         _db = db;
         _notifier = notifier;
         _terminals = terminals;
         _clock = clock;
+        _readerFeed = readerFeed;
     }
 
     public async Task<Result> Handle(ReportAgentStatusCommand request, CancellationToken ct)
@@ -109,6 +112,24 @@ public sealed class TerminalHandlers
 
         await _notifier.PeripheralStatusAsync(request.StationId, status, ct);
         await _notifier.TagStreamStatusAsync(request.StationId, request.ReaderOnline, request.ReadRate, ct);
+
+        // The reader feed's own status, which until now nothing published at all.
+        //
+        // PublishStatusAsync existed and was never called, so the tag reader panel's status was
+        // permanently null. Everything it displays degraded to a default: the read rate showed an
+        // em dash forever, and the panel reported "Reading" whenever its hub was up — including
+        // when the antenna was switched off. A reader that stops mid-shift is exactly what that
+        // panel is for, and it could not have told anyone.
+        //
+        // The heartbeat is the right place because it is the only moment the server hears from the
+        // agent about hardware, it already carries both facts, and it arrives every few seconds, so
+        // a panel opened later is correct within one beat rather than waiting for a tag to be read.
+        await _readerFeed.PublishStatusAsync(
+            request.StationId,
+            request.ReaderOnline,
+            request.ReadRate,
+            station.ReaderMode.ToString(),
+            ct: ct);
 
         return Result.Success();
     }

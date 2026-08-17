@@ -115,7 +115,7 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
           like a reader with nothing in front of it, and the cashier has no way to tell which.
         */}
         <span className={cn('pos-badge normal-case', readerTone(connected, status))}>
-          {readerOffline(connected, status) ? (
+          {readerNotReading(connected, status) ? (
             <TriangleAlert className="h-3 w-3 shrink-0" aria-hidden />
           ) : (
             <Radio className="h-3 w-3 shrink-0" aria-hidden />
@@ -141,7 +141,8 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
             {status ? status.readsPerSecond : '—'}/s
           </span>
 
-          <ReaderRunControls statusReading={status ? status.connected : null} />
+          {/* Whether it is listening, not whether we can reach it — see RfidReaderStatus.mode. */}
+          <ReaderRunControls statusReading={status ? status.mode !== 'Off' : null} />
           <ScanSoundToggle />
         </span>
       </div>
@@ -295,15 +296,30 @@ function readerLabel(connected: boolean, status: RfidReaderStatus | null): strin
   if (!connected) return 'Feed offline';
   if (status?.detail) return status.detail;
   if (status && !status.connected) return 'Reader not responding';
+
+  // Switched off is not a fault, but it is emphatically not reading, and it used to be displayed as
+  // "Reading" — so a cashier held a tag at a panel that claimed to be working and nothing happened.
+  if (status?.mode === 'Off') return 'Reader stopped';
+
+  // Nothing heard yet. Previously this said "Reading", which was a guess dressed as a fact; the
+  // status arrives on the agent's next heartbeat, so this shows for a moment at most.
+  if (!status) return 'Waiting for the reader';
+
   return 'Reading';
 }
 
 function readerTone(connected: boolean, status: RfidReaderStatus | null): string {
-  if (readerOffline(connected, status)) return 'text-warning';
+  if (readerNotReading(connected, status)) return 'text-warning';
   return 'text-live';
 }
 
-/** Drives the glyph as well as the hue, so the badge's two states differ in shape and not only tone. */
-function readerOffline(connected: boolean, status: RfidReaderStatus | null): boolean {
-  return !connected || Boolean(status && !status.connected);
+/**
+ * Drives the glyph as well as the hue, so the badge's two states differ in shape and not only tone.
+ *
+ * "Not reading" rather than "offline": a stopped reader and an unreachable one are different
+ * problems with different fixes, but from the cashier's side they share the only consequence that
+ * matters mid-sale — no tag is going to appear — so both earn the warning glyph.
+ */
+function readerNotReading(connected: boolean, status: RfidReaderStatus | null): boolean {
+  return !connected || !status || !status.connected || status.mode === 'Off';
 }

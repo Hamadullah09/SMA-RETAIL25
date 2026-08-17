@@ -49,9 +49,20 @@ public sealed record ObservedTag(
 /// <param name="Connected">Whether the agent currently holds a session with the reader.</param>
 /// <param name="ReadsPerSecond">Raw reads off the antenna, before debounce — the number that tells you an antenna has died.</param>
 /// <param name="DistinctTagsInField">How many different tags the window currently holds.</param>
+/// <param name="Mode">
+/// What the reader has been told to do: <c>Off</c>, <c>OnDemand</c> or <c>Continuous</c>.
+/// <para>
+/// Carried separately from <paramref name="Connected"/> because the two are genuinely different
+/// facts and the till was conflating them. A reader can hold a perfectly good session and still be
+/// switched off, which is the case a cashier cannot diagnose: the panel said "Reading", offered a
+/// Stop button, and no tag was ever read because the antenna was not on. Connected answers "can we
+/// talk to it"; this answers "is it listening".
+/// </para>
+/// </param>
 /// <param name="Detail">Free text for a fault, shown to the operator as-is.</param>
 public sealed record RfidReaderStatus(
     bool Connected,
     int ReadsPerSecond,
     int DistinctTagsInField,
+    string Mode,
     string? Detail = null);

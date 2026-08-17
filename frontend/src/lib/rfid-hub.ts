@@ -38,6 +38,13 @@ export interface RfidReaderStatus {
   /** Raw reads off the antenna, before debounce. The figure that reveals a dead antenna. */
   readsPerSecond: number;
   distinctTagsInField: number;
+  /**
+   * What the reader has been told to do: `Off`, `OnDemand` or `Continuous`.
+   *
+   * Distinct from {@link connected}. A reader can hold a good session and still be switched off,
+   * and a cashier holding a tag at a panel that says "Reading" has no way to tell the difference.
+   */
+  mode: string;
   detail: string | null;
 }
 
