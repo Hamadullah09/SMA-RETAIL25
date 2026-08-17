@@ -97,7 +97,16 @@ public sealed record ReaderProfileContract(
     int AntennaReturnLossThresholdDb = 0,
     bool ImpinjFastTid = false,
     bool DenseReaderMode = false,
-    int DeviceAddress = 0xFF);
+    int DeviceAddress = 0xFF,
+
+    /// <summary>
+    /// The line speed when <see cref="Host"/> names a serial port rather than an address.
+    /// <para>
+    /// The R2000 family ships at 115200 and that is what a USB lead presents, so it is the default;
+    /// a unit whose DIP switches say otherwise is a setting, not a rebuild.
+    /// </para>
+    /// </summary>
+    int BaudRate = 115_200);
 
 /// <summary>
 /// Printer wiring. Every escape sequence is a decimal-ASCII string, because Epson cuts with

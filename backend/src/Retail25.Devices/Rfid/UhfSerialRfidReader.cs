@@ -49,8 +49,8 @@ public sealed class UhfSerialRfidReader : IRfidReader
 
     private readonly UhfSerialCodec.FrameReassembler _reassembler = new();
 
-    private TcpClient? _client;
-    private NetworkStream? _stream;
+    private ReaderConnection? _connection;
+    private Stream? _stream;
     private CancellationTokenSource? _lifetimeCts;
     private Task? _pump;
     private Task? _inventoryLoop;
@@ -72,22 +72,36 @@ public sealed class UhfSerialRfidReader : IRfidReader
     /// </summary>
     private const int AntennaPorts = 4;
 
-    public UhfSerialRfidReader(ILogger<UhfSerialRfidReader> logger) => _logger = logger;
+    private readonly ReaderConnectionOpener _open;
+
+    /// <param name="open">
+    /// How to reach the reader. Defaults to the network, which is the only wire this project can
+    /// open on its own; the terminal agent passes one that also understands a COM port, because a
+    /// serial lead is attached to the till and only something running there can use it.
+    /// </param>
+    public UhfSerialRfidReader(ILogger<UhfSerialRfidReader> logger, ReaderConnectionOpener? open = null)
+    {
+        _logger = logger;
+        _open = open ?? NetworkReaderTransport.OpenAsync;
+    }
 
     public string Description { get; private set; } = "UHF Serial";
 
-    public bool IsConnected => _client?.Connected == true;
+    public bool IsConnected => _connection?.IsOpen == true;
 
     public async Task ConnectAsync(ReaderProfileContract profile, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(profile);
 
         _profile = profile;
-        Description = $"UHF Serial {profile.Host}:{profile.Port}";
 
-        _client = new TcpClient { NoDelay = true };
-        await _client.ConnectAsync(profile.Host, profile.Port, ct);
-        _stream = _client.GetStream();
+        // A socket or a COM port, decided by what the profile's Host looks like. The same reader
+        // speaks the same frames either way; only the lead differs, which is why everything below
+        // this line is unchanged.
+        _connection = await _open(profile.Host, profile.Port, profile.BaudRate, ct);
+        _stream = _connection.Stream;
+
+        Description = $"UHF Serial {_connection.Description}";
 
         // Antenna ids on the wire are 0-based (per-port); the reader profile's zoning is 1-based, so a
         // configured "1" is physical port 0. No zoning configured falls back to port 0 â€” matches the
@@ -438,8 +452,9 @@ public sealed class UhfSerialRfidReader : IRfidReader
         }
 
         _lifetimeCts?.Dispose();
-        _stream?.Dispose();
-        _client?.Dispose();
+
+        // The connection owns the stream and closes it in the right order for its kind.
+        _connection?.Dispose();
         _reads.Writer.TryComplete();
         _frames.Writer.TryComplete();
     }

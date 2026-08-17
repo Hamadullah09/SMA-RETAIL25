@@ -99,6 +99,9 @@ public sealed class RfidReaderService : BackgroundService
     /// </summary>
     private string? _discovered;
 
+    /// <summary>Rotates the serial port tried when the network search finds nothing.</summary>
+    private int _serialAttempt;
+
     public RfidReaderService(
         IServiceProvider services,
         ProfileStore profiles,
@@ -282,28 +285,64 @@ public sealed class RfidReaderService : BackgroundService
         }
 
         var preferred = _discovered ?? profile.Host;
+
+        // A lead plugged into this machine wins, and is not searched for over the network.
+        //
+        // Asked first because it is the cheaper and the more certain answer: a COM port either
+        // exists on this machine or it does not, while a network sweep takes seconds and can find
+        // somebody else's reader on a shared shop network.
+        if (SerialReaderTransport.IsSerialPort(preferred))
+        {
+            return profile with { Host = preferred };
+        }
+
         var host = await _discovery.FindAsync(preferred, profile.Port, ct);
 
-        // Nothing answered anywhere. Hand back what was configured so the connection attempt — and
-        // the error it raises — names the address the operator set, which is the one they can act on.
-        if (host is null)
+        if (host is not null)
         {
-            return profile;
+            _discovered = host;
+
+            if (!string.Equals(host, profile.Host, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger.LogInformation(
+                    "Reader {Name} answered on {Found} rather than the configured {Configured}; using {Found}",
+                    profile.Name,
+                    host,
+                    profile.Host,
+                    host);
+            }
+
+            return profile with { Host = host };
         }
 
-        _discovered = host;
+        // Nothing on the network. Before giving up, look at what is plugged in — a reader on a USB
+        // lead is the ordinary case for a single till, and it is invisible to an address sweep.
+        //
+        // The ports are re-read every time rather than remembered, because the whole point is to
+        // notice a reader somebody has just connected. The session loop retries on a backoff, so a
+        // lead plugged in while the till is open is picked up within the minute, with nobody
+        // restarting anything.
+        var ports = SerialReaderTransport.AvailablePorts();
 
-        if (!string.Equals(host, profile.Host, StringComparison.OrdinalIgnoreCase))
+        if (ports.Count > 0)
         {
+            // A different port each attempt, so a machine with a modem on COM1 and the reader on
+            // COM7 reaches the reader on the second try rather than failing on the first for ever.
+            var chosen = ports[_serialAttempt++ % ports.Count];
+
             _logger.LogInformation(
-                "Reader {Name} answered on {Found} rather than the configured {Configured}; using {Found}",
-                profile.Name,
-                host,
-                profile.Host,
-                host);
+                "No reader answered on the network; trying the serial port {Port} ({Count} available)",
+                chosen,
+                ports.Count);
+
+            // Deliberately not cached: caching would pin the choice to whichever port happened to
+            // be first, and a lead moved to another socket would never be found again.
+            return profile with { Host = chosen };
         }
 
-        return profile with { Host = host };
+        // Nothing anywhere. Hand back what was configured so the connection attempt — and the error
+        // it raises — names the address the operator set, which is the one they can act on.
+        return profile;
     }
 
     /// <summary>
@@ -326,7 +365,12 @@ public sealed class RfidReaderService : BackgroundService
         return EffectiveProtocol(profile) switch
         {
             ReaderProtocol.Llrp => ActivatorUtilities.CreateInstance<LlrpRfidReader>(_services),
-            ReaderProtocol.UhfSerial => ActivatorUtilities.CreateInstance<UhfSerialRfidReader>(_services),
+
+            // Given the agent's own opener, which understands a COM port as well as a socket. The
+            // driver is shared with the API, and the API can never open a lead plugged into a till.
+            ReaderProtocol.UhfSerial => ActivatorUtilities.CreateInstance<UhfSerialRfidReader>(
+                _services,
+                (ReaderConnectionOpener)SerialReaderTransport.OpenAsync),
             _ => ActivatorUtilities.CreateInstance<SimulatedRfidReader>(_services),
         };
     }
