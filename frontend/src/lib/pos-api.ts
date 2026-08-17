@@ -207,6 +207,24 @@ export const posApi = {
   reprintLast: (stationId: number) =>
     call<unknown>(() => apiClient.post('/sales/reprint-last', { stationId })),
 
+  /**
+   * The receipt as a PDF, for printing from the browser.
+   *
+   * Distinct from {@link reprintLast}, which asks the server to send ESC/POS to the till's thermal
+   * printer through the agent and shows the cashier nothing. That is the right path when the till
+   * has a working printer and the wrong one in every other case — a printer offline mid-trade, a
+   * counter with no printer at all, or a copy wanted at a desk. Until this existed a broken printer
+   * meant no receipt could be produced by any means, which turned a consumable problem into an
+   * outage.
+   */
+  receiptPdf: async (transactionId: number): Promise<Blob> => {
+    const { data } = await apiClient.get(`/documents/receipt/${transactionId}`, {
+      responseType: 'blob',
+    });
+
+    return data as Blob;
+  },
+
   packingSlip: (transactionId: number, stationId: number) =>
     call<unknown>(() => apiClient.post(`/sales/${transactionId}/packing-slip`, { stationId })),
 

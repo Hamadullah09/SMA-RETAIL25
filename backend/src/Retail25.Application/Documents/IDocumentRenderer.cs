@@ -38,4 +38,21 @@ public interface IDocumentRenderer
 
     /// <summary>A multi-page price list, grouped by department.</summary>
     byte[] RenderCatalogue(CatalogueRequest request);
+
+    /// <summary>
+    /// A receipt, for a printer the browser can reach.
+    /// <para>
+    /// The till's own receipt goes to a thermal printer as ESC/POS through the terminal agent, and
+    /// that remains the fast path. This is for every case where that printer is not the answer: a
+    /// till whose printer is offline, an office reprinting a copy for a customer, a shop with an A4
+    /// laser and no thermal unit at all. Until this existed there was no way to print a receipt
+    /// from a browser, which made a broken printer an outage rather than an inconvenience.
+    /// </para>
+    /// <para>
+    /// It takes the same <see cref="ReceiptDocument"/> the agent renders, so the two cannot drift.
+    /// That type was written for exactly this — it holds no escape codes precisely so that more than
+    /// one renderer can consume it.
+    /// </para>
+    /// </summary>
+    byte[] RenderReceipt(Retail25.Contracts.Terminals.ReceiptDocument document);
 }

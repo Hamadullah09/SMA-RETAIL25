@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Common;
+using Retail25.Contracts.Terminals;
 using Retail25.Domain.Common;
 
 namespace Retail25.Application.Documents;
@@ -37,29 +38,47 @@ public sealed record PrintCatalogueQuery(
     long? CategoryId = null,
     string? Search = null) : IRequest<Result<byte[]>>;
 
+/// <summary>
+/// A receipt as a printable document.
+/// <para>
+/// Gated on <c>pos.reprint</c>, the same permission the thermal reprint uses. Printing a copy of a
+/// sale is the same act whichever printer it lands on, and a cashier who may not reprint a slip must
+/// not be able to obtain one by asking for a PDF instead.
+/// </para>
+/// </summary>
+[RequiresPermission(PermissionKeys.Pos.Reprint)]
+public sealed record PrintReceiptQuery(
+    long TransactionId,
+    ReceiptFormat Format = ReceiptFormat.Slip40) : IRequest<Result<byte[]>>;
+
 public sealed class DocumentHandlers
     : IRequestHandler<PrintPriceTagsQuery, Result<byte[]>>,
       IRequestHandler<PrintStatementEnvelopeQuery, Result<byte[]>>,
-      IRequestHandler<PrintCatalogueQuery, Result<byte[]>>
+      IRequestHandler<PrintCatalogueQuery, Result<byte[]>>,
+      IRequestHandler<PrintReceiptQuery, Result<byte[]>>
 {
     public static readonly Error NothingToPrint = new("documents.nothing_to_print", "There is nothing to print.");
     public static readonly Error CustomerNotFound = new("documents.customer_not_found", "No such customer.");
+    public static readonly Error SaleNotFound = new("documents.sale_not_found", "No such sale.");
 
     private readonly IApplicationDbContext _db;
     private readonly ILabelRenderer _labels;
     private readonly IDocumentRenderer _documents;
     private readonly IDateTime _clock;
+    private readonly Receipts.ReceiptBuilder _receipts;
 
     public DocumentHandlers(
         IApplicationDbContext db,
         ILabelRenderer labels,
         IDocumentRenderer documents,
-        IDateTime clock)
+        IDateTime clock,
+        Receipts.ReceiptBuilder receipts)
     {
         _db = db;
         _labels = labels;
         _documents = documents;
         _clock = clock;
+        _receipts = receipts;
     }
 
     public async Task<Result<byte[]>> Handle(PrintPriceTagsQuery request, CancellationToken ct)
@@ -113,6 +132,26 @@ public sealed class DocumentHandlers
         return Result.Success(request.BarcodeFirst
             ? _labels.RenderBarcodeLabels(sheet)
             : _labels.RenderPriceTags(sheet));
+    }
+
+    /// <summary>
+    /// Marked as a reprint whatever the caller says.
+    /// <para>
+    /// A browser only ever asks for this after the sale is committed, so the customer's original is
+    /// either already printed or was never going to be. Guide p.79 wants a copy identifiable as a
+    /// copy; leaving that to the caller would let a till hand out two documents that each claim to
+    /// be the original.
+    /// </para>
+    /// </summary>
+    public async Task<Result<byte[]>> Handle(PrintReceiptQuery request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var document = await _receipts.BuildAsync(request.TransactionId, request.Format, isReprint: true, ct);
+
+        return document is null
+            ? Result.Failure<byte[]>(SaleNotFound.With("transactionId", request.TransactionId))
+            : Result.Success(_documents.RenderReceipt(document));
     }
 
     public async Task<Result<byte[]>> Handle(PrintStatementEnvelopeQuery request, CancellationToken ct)

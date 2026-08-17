@@ -33,6 +33,9 @@ public sealed class QuestPdfDocumentRenderer : IDocumentRenderer
 
     public byte[] RenderCom10Envelope(EnvelopeRequest request) => BuildEnvelope(request).GeneratePdf();
 
+    public byte[] RenderReceipt(Retail25.Contracts.Terminals.ReceiptDocument document)
+        => QuestPdfReceiptRenderer.Render(document);
+
     /// <summary>
     /// The composed envelope, before it becomes bytes. Exposed so it can also be rendered as an
     /// image — the address block's position relative to the window is not something a byte count

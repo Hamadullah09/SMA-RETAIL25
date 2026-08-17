@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
 using Retail25.Application.Documents;
+using Retail25.Contracts.Terminals;
 
 namespace Retail25.Api.Controllers;
 
@@ -92,6 +93,27 @@ public sealed class DocumentsController : ControllerBase
 
         return result.IsSuccess
             ? Pdf(result.Value, "price-tag.pdf")
+            : result.ToActionResult(this);
+    }
+
+    /// <summary>
+    /// A sale's receipt, for a printer the browser can reach.
+    /// <para>
+    /// The till's receipt normally goes to the thermal printer through the terminal agent, and still
+    /// does. This is the path for when that printer is not the answer — offline, absent, or the copy
+    /// is wanted at a desk in the office rather than at the counter.
+    /// </para>
+    /// </summary>
+    [HttpGet("receipt/{transactionId:long}")]
+    [Produces("application/pdf")]
+    public async Task<IActionResult> Receipt(
+        long transactionId,
+        [FromQuery] ReceiptFormat format = ReceiptFormat.Slip40)
+    {
+        var result = await _sender.Send(new PrintReceiptQuery(transactionId, format));
+
+        return result.IsSuccess
+            ? Pdf(result.Value, $"receipt-{transactionId}.pdf")
             : result.ToActionResult(this);
     }
 

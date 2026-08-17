@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { HotkeyProvider, useHotkey } from '@/lib/hotkeys';
 import { usePosStore } from '@/stores/pos-store';
-import { posApi } from '@/lib/pos-api';
+import { posApi, PosApiError } from '@/lib/pos-api';
+import { printPdf } from '@/lib/print';
+import { toast } from '@/components/ui/toaster';
 import {
   CartList,
   ConnectionBanner,
@@ -160,6 +162,35 @@ function PosScreen() {
   // they have always had; Find and Credits took over the two keys that were only doing something
   // another key already did (F9 opened the payment dialog exactly as F4 does, and F12 closed a
   // dialog exactly as Escape does).
+  /**
+   * The just-finished sale, on paper, through the browser's own print dialog.
+   *
+   * The till's F7 reprint sends ESC/POS to the thermal printer through the agent and shows the
+   * cashier nothing at all — correct when that printer works, useless when it does not. This is the
+   * fallback that was missing: any printer the browser can see, including a PDF writer.
+   */
+  const printReceipt = async () => {
+    if (!lastSale) return;
+
+    try {
+      const outcome = await printPdf(await posApi.receiptPdf(lastSale.transactionId));
+
+      if (outcome === 'blocked') {
+        toast({
+          title: 'Pop-up blocked',
+          description: 'Allow pop-ups for this site to print the receipt.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Could not print the receipt',
+        description: error instanceof PosApiError ? error.problem.detail : 'Something went wrong.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   useHotkey('F4', () => hasLines && openDialog('payment'), { label: 'Pay', group: 'Sale', disabled: !hasLines });
   useHotkey('F5', () => openDialog('client'), { label: 'Client menu', group: 'Sale' });
   useHotkey('F6', () => void removeLastLine(), { label: 'Delete last line', group: 'Sale', disabled: !hasLines });
@@ -173,6 +204,14 @@ function PosScreen() {
   useHotkey('F11', () => openDialog('special'), { label: 'Special menu', group: 'Sale' });
   useHotkey('F12', () => lastSale && stationId && void posApi.packingSlip(lastSale.transactionId, stationId), {
     label: 'Packing slip',
+    group: 'Documents',
+    disabled: !lastSale,
+  });
+  // Ctrl+P, deliberately taking the key the browser would otherwise use for its own print dialog.
+  // Printing the browser's rendering of the POS screen is never what anybody standing at a till
+  // wants, and a cashier who reaches for the familiar shortcut should get the receipt.
+  useHotkey('Ctrl+P', () => void printReceipt(), {
+    label: 'Print receipt',
     group: 'Documents',
     disabled: !lastSale,
   });
@@ -252,6 +291,7 @@ function PosScreen() {
             { key: 'F5', label: 'Client', onSelect: () => openDialog('client') },
             { key: 'F6', label: 'Delete', onSelect: () => void removeLastLine(), disabled: !hasLines },
             { key: 'F7', label: 'Reprint', onSelect: () => stationId && void posApi.reprintLast(stationId) },
+            { key: 'Ctrl+P', label: 'Print', onSelect: () => void printReceipt(), disabled: !lastSale },
             { key: 'F8', label: 'Credits', onSelect: () => openDialog('credits'), disabled: !cart },
             { key: 'F9', label: 'Find', onSelect: () => openDialog('find') },
             { key: 'F10', label: 'Drawer', onSelect: () => openDialog('drawer') },

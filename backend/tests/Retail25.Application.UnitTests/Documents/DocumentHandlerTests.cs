@@ -29,7 +29,26 @@ public sealed class DocumentHandlerTests
     }
 
     private DocumentHandlers Handlers(MastersTestHarness harness)
-        => new(harness.Db, _labels, _documents, _clock);
+        => new(harness.Db, _labels, _documents, _clock, new Retail25.Application.Receipts.ReceiptBuilder(harness.Db));
+
+    /// <summary>
+    /// Asking for a receipt that does not exist says so, rather than handing back a PDF of nothing.
+    /// <para>
+    /// A blank slip is the worst possible answer here: it prints, it looks like a receipt, and it
+    /// tells whoever is holding it that the sale had no lines rather than that it was never found.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_receipt_for_a_sale_that_does_not_exist_is_refused()
+    {
+        using var harness = await MastersTestHarness.CreateAsync();
+
+        var result = await Handlers(harness).Handle(new PrintReceiptQuery(404_404), default);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("documents.sale_not_found");
+        _documents.DidNotReceive().RenderReceipt(Arg.Any<Retail25.Contracts.Terminals.ReceiptDocument>());
+    }
 
     [Fact]
     public async Task A_price_tag_run_carries_the_item_details_through()
