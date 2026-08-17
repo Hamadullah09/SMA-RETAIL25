@@ -675,12 +675,11 @@ export function FunctionKeyBar({ keys }: { keys: FunctionKey[] }) {
       {keys.map((entry) => (
         <button key={entry.key} type="button" onClick={entry.onSelect} disabled={entry.disabled}>
           {/*
-            The key is bold and the label is not, because they are read at different moments. A
-            cashier learning the till reads "Pay"; one who has used it for a week is looking for
-            F4 and wants to find it without reading anything. Weighting the key lets the same row
-            serve both, and it is the key that has to be legible from standing distance.
+            The weight lives in `.pos-keybar > button .pos-kbd`, not here. A utility class on this
+            element loses to that selector on specificity and is silently ignored — which is exactly
+            what happened when the weight was first set here and appeared to change nothing.
           */}
-          <kbd className="pos-kbd shrink-0 font-bold">{entry.key}</kbd>
+          <kbd className="pos-kbd shrink-0">{entry.key}</kbd>
           <span className="truncate">{entry.label}</span>
         </button>
       ))}

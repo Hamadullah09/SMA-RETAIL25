@@ -410,9 +410,16 @@
     min-height: 2.25rem;
   }
 
-  /* Emphasised only inside the key bar; a <kbd> in running prose should not shout. */
+  /*
+   * Emphasised only inside the key bar; a <kbd> in running prose should not shout.
+   *
+   * Bold rather than semibold: this row is read from standing distance, at an angle, on a cheap
+   * panel, by somebody who already knows what the words say and is hunting for the key. Six hundred
+   * against a four-hundred label is a difference you have to look for; seven hundred is one you land
+   * on. The label stays normal — the contrast is the point, not the weight.
+   */
   .pos-keybar > button .pos-kbd {
-    @apply font-semibold text-ink;
+    @apply font-bold text-ink;
   }
 
   .pos-keybar > button:hover:not(:disabled) {
