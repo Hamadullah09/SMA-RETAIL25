@@ -26,6 +26,12 @@ RTO above is trusted.
 
 ## Backup
 
+> **`COMPRESSION` is Standard and Enterprise only.** On SQL Server Express — which is what a single
+> shop runs, and what `on-premise.md` recommends — the whole statement fails with *"BACKUP DATABASE
+> WITH COMPRESSION is not supported on Express Edition"* and **writes no file**. Drop the word on
+> Express; the backup is then uncompressed and everything else about it is identical. Verified on
+> Express 2022: without it, 3,786 pages in 0.33s and `RESTORE VERIFYONLY` reports a valid set.
+
 `COMPRESSION` because the backup ships off the machine, `CHECKSUM` because it is what makes the
 verification in the next step mean anything — without it, `RESTORE VERIFYONLY` confirms the file is
 structurally a backup and not that its pages are intact.
