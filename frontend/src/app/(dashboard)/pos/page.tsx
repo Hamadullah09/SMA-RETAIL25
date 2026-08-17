@@ -230,7 +230,18 @@ function PosScreen() {
           does not read, and that is a mid-sale moment — so it takes the slack rather than being
           pushed off the bottom, and it is the panel that shrinks when a customer's details grow.
         */}
-        {CONFIGURED ? <TagFeed stationId={STATION_ID} locationId={LOCATION_ID} /> : null}
+        {/*
+          The resolved station, not the build-time one. This panel opens its own RFID hub
+          connection and joins a station group with it, so passing STATION_ID subscribed it to
+          whichever till the bundle was built for while the rest of the screen ran on the station
+          the agent reported. On a shop where those differ the panel showed a reader that was
+          plainly working as offline, and no tag ever appeared in the feed, because the reads were
+          being announced to a group this browser had never joined.
+
+          Gating on stationId rather than CONFIGURED also delays the connection until resolution
+          has finished, instead of opening one to NaN and reconnecting.
+        */}
+        {stationId ? <TagFeed stationId={stationId} locationId={LOCATION_ID} /> : null}
       </div>
 
       <div className="pos-area-keys">
