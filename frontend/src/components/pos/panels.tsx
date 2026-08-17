@@ -674,7 +674,13 @@ export function FunctionKeyBar({ keys }: { keys: FunctionKey[] }) {
     <nav className="pos-panel pos-keybar p-1" aria-label="Function keys">
       {keys.map((entry) => (
         <button key={entry.key} type="button" onClick={entry.onSelect} disabled={entry.disabled}>
-          <kbd className="pos-kbd shrink-0">{entry.key}</kbd>
+          {/*
+            The key is bold and the label is not, because they are read at different moments. A
+            cashier learning the till reads "Pay"; one who has used it for a week is looking for
+            F4 and wants to find it without reading anything. Weighting the key lets the same row
+            serve both, and it is the key that has to be legible from standing distance.
+          */}
+          <kbd className="pos-kbd shrink-0 font-bold">{entry.key}</kbd>
           <span className="truncate">{entry.label}</span>
         </button>
       ))}
