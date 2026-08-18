@@ -15,6 +15,7 @@ import {
   SidePanel,
   StatusBar,
 } from '@/components/pos/panels';
+import { readStationOverride } from '@/lib/station-override';
 import { TagFeed } from '@/components/pos/tag-feed';
 import { ProductGrid } from '@/components/pos/product-grid';
 import {
@@ -72,6 +73,13 @@ const AGENT = process.env.NEXT_PUBLIC_AGENT_URL ?? 'http://127.0.0.1:8477';
  * than one that asks again on each start.
  */
 async function resolveStation(): Promise<number> {
+  // An administrator's explicit choice outranks the machine's own opinion, and is checked before the
+  // agent is even asked. That order is the point: the reason to pin a browser is usually that the
+  // agent's answer is wrong for it — a self-checkout counter read by a handheld, or a PC watching a
+  // till it is not installed on. See lib/station-override.
+  const pinned = readStationOverride();
+  if (pinned !== null) return pinned;
+
   try {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 1500);

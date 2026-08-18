@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth-config';
 import { useLiveGrid } from '@/lib/inventory-hub';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
+import { readStationOverride, writeStationOverride } from '@/lib/station-override';
 import { cn } from '@/lib/utils';
 import { TrolleysTab } from '@/components/settings/trolleys-tab';
 import {
@@ -1491,6 +1492,92 @@ function ReferenceList({
 
 // --- Stations ------------------------------------------------------------------------------------
 
+/**
+ * Pins this browser to a till.
+ *
+ * The point-of-sale screen normally asks the agent installed on the machine which station it is,
+ * which is right for a shop where every till runs one and useless everywhere else: a back-office PC,
+ * a laptop on the shop floor, or a self-checkout counter whose reader is a handheld all fall back to
+ * the same build-time station, and nothing distinguishes them.
+ *
+ * Deliberately per browser and deliberately loud. The POS refuses to remember a station between
+ * loads on purpose — a stale id outliving a reconfigured agent means a till quietly ringing sales
+ * against the one next door. This is the opposite of that: a choice somebody made on this screen,
+ * stated plainly here, and cleared from the same place it was set.
+ */
+function ThisBrowserStation({ stations }: { stations: StationSettings[] }) {
+  // Read after mount, never during render: localStorage does not exist on the server, and reading it
+  // in the render body makes the first client paint disagree with the server's HTML.
+  const [pinned, setPinned] = useState<number | null>(null);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setPinned(readStationOverride());
+    setReady(true);
+  }, []);
+
+  const apply = (value: number | null) => {
+    writeStationOverride(value);
+    setPinned(value);
+
+    toast({
+      title: value === null ? 'Following the agent again' : 'This browser is now that till',
+      description:
+        value === null
+          ? 'Point-of-sale will ask the agent installed on this machine.'
+          : 'Reload the point-of-sale screen for it to take effect.',
+    });
+  };
+
+  const saved = stations.filter((station) => station.id > 0);
+  const current = saved.find((station) => station.id === pinned);
+
+  return (
+    <div className="mb-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
+      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Which till is this browser?</p>
+      <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+        Point-of-sale on this computer rings sales against this station. It applies to this browser
+        only, so every machine can be a different till. Left unset, the till asks the agent installed
+        on it.
+      </p>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <select
+          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+          value={pinned === null ? '' : String(pinned)}
+          disabled={!ready}
+          onChange={(event) => apply(event.target.value === '' ? null : Number(event.target.value))}
+        >
+          <option value="">Follow the agent on this machine</option>
+          {saved.map((station) => (
+            <option key={station.id} value={station.id}>
+              Station {station.stationCode} — {station.name}
+            </option>
+          ))}
+        </select>
+
+        {pinned !== null && (
+          <button
+            type="button"
+            className="rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-700 hover:bg-white dark:border-slate-700 dark:text-slate-200"
+            onClick={() => apply(null)}
+          >
+            Clear
+          </button>
+        )}
+      </div>
+
+      {ready && pinned !== null && (
+        <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+          {current
+            ? `This browser is pinned to Station ${current.stationCode} — ${current.name}.`
+            : `This browser is pinned to station ${pinned}, which no longer exists. Clear it, or pick another.`}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function StationsTab({
   locationId,
   settings,
@@ -1582,6 +1669,8 @@ function StationsTab({
         description="One card per till. A station may override the store's selling switches, and it names the peripherals that till is wired to."
         action={canWrite ? addStation : null}
       />
+
+      <ThisBrowserStation stations={drafts} />
 
       {drafts.length === 0 ? (
         <EmptyState
