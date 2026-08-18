@@ -14,8 +14,23 @@
  * take.
  */
 
-/** Twelve, not eight. Length is the rule that actually costs an attacker something. */
-export const MIN_PASSWORD = 12;
+/**
+ * Eight, with composition, matching `Auth:Password` in appsettings.
+ * <p>
+ * Twelve-with-no-composition is the better policy and was what this shipped with — length is the
+ * rule that actually costs an attacker something, and composition rules mostly teach people to
+ * write "Password1!". This shop issues credentials centrally to a small staff and asked for eight,
+ * so length is what was given up and the composition rules below buy some of it back. The server's
+ * banned-password list is what still refuses "Password1!"; these rules never would.
+ * </p>
+ * <p>
+ * If this number is ever changed, change `Auth:Password:MinimumLength` in the API's appsettings in
+ * the same commit. They disagreed once — the form accepted eight and the server demanded twelve —
+ * and every password chosen at the stated minimum was rejected after the fact, which reads as the
+ * software being broken rather than the password being short.
+ * </p>
+ */
+export const MIN_PASSWORD = 8;
 
 /**
  * Identity's RequiredUniqueChars. Stops "aaaaaaaaaaaa" and "abababababab" from clearing the length
@@ -65,6 +80,26 @@ export const PASSWORD_RULES: readonly PasswordRule[] = [
     id: 'variety',
     label: `At least ${MIN_UNIQUE_CHARS} different characters`,
     met: (password) => new Set(password).size >= MIN_UNIQUE_CHARS,
+  },
+  // The composition rules, listed separately rather than as one "mix it up" line. A single combined
+  // rule tells somebody they have failed without telling them which part is missing, and they then
+  // guess — which is how a password ends up with a symbol bolted onto the end of a word.
+  {
+    id: 'upper-lower',
+    label: 'Both a capital and a small letter',
+    met: (password) => /[A-Z]/.test(password) && /[a-z]/.test(password),
+  },
+  {
+    id: 'digit',
+    label: 'A number',
+    met: (password) => /[0-9]/.test(password),
+  },
+  {
+    id: 'symbol',
+    // Identity's definition is "not a letter or a digit", which is wider than any list of examples
+    // would suggest, so the test matches that rather than a handful of characters.
+    label: 'A symbol, such as @ or !',
+    met: (password) => /[^a-zA-Z0-9]/.test(password),
   },
   {
     id: 'identity',
