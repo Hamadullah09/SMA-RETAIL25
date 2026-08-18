@@ -49,12 +49,35 @@ public sealed class ProfileRefreshService : BackgroundService
         _logger = logger;
     }
 
+    /// <summary>
+    /// How long to wait before trying again while the agent has no profile at all.
+    /// <para>
+    /// Five minutes is the right pace for noticing that a setting changed. It is the wrong pace for
+    /// a till that has never had a profile, because until one arrives the agent runs the simulator —
+    /// and a simulator reports itself online and reading while finding nothing, so the screen says
+    /// the reader is working and no tag ever appears.
+    /// </para>
+    /// <para>
+    /// That is not hypothetical. A till rebooted, the agent started before the network did, its
+    /// first fetch failed on DNS, and it sat on the simulator for the next five minutes with a
+    /// healthy-looking reader panel. Nine seconds after the failure the server was reachable again.
+    /// </para>
+    /// </summary>
+    private static readonly TimeSpan RetryWhileUnconfigured = TimeSpan.FromSeconds(10);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
             await TryRefreshAsync(stoppingToken);
-            await Task.Delay(PollInterval, stoppingToken);
+
+            // A till that has a profile can wait; one that has none cannot. Boot-order races are the
+            // common case here and they clear in seconds, so this is a short wait rather than a
+            // backoff — there is nothing to be gentle about when the alternative is a shop with a
+            // reader that looks fine and reads nothing.
+            var wait = _profiles.Current is null ? RetryWhileUnconfigured : PollInterval;
+
+            await Task.Delay(wait, stoppingToken);
         }
     }
 
@@ -94,7 +117,23 @@ public sealed class ProfileRefreshService : BackgroundService
             // line. The stack trace goes to Debug: a shop that has been offline overnight would
             // otherwise wake up to a log file made entirely of identical socket exceptions, and the
             // one genuinely different error in it would be invisible.
-            _logger.LogWarning("Could not refresh the device profile ({Reason}); keeping the current one", ex.Message);
+            // Two different situations, and saying "keeping the current one" for both is what made
+            // this hard to read: on a cold start there is no current one, and the sentence quietly
+            // asserts a safety the agent does not have. The till is on the simulator at that point,
+            // which is worth a louder line than a routine refresh failure.
+            if (_profiles.Current is null)
+            {
+                _logger.LogWarning(
+                    "Could not fetch the device profile ({Reason}) and this agent has none, so it is "
+                    + "running the simulator and will read no real tags. Retrying every {Seconds}s.",
+                    ex.Message,
+                    RetryWhileUnconfigured.TotalSeconds);
+            }
+            else
+            {
+                _logger.LogWarning("Could not refresh the device profile ({Reason}); keeping the current one", ex.Message);
+            }
+
             _logger.LogDebug(ex, "Profile refresh failed");
         }
     }
