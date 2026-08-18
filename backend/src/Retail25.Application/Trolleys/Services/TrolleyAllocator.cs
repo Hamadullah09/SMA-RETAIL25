@@ -297,10 +297,18 @@ public sealed class TrolleyAllocator
     /// a time. Idempotent by construction: an existing counter is returned untouched.
     /// </para>
     /// </summary>
-    public Task<Result<Trolley>> EnsureAsync(string code, long? locationId, CancellationToken ct)
-        => ResolveTrolleyAsync(code, locationId, ct);
+    public Task<Result<Trolley>> EnsureAsync(
+        string code,
+        long? locationId,
+        CancellationToken ct,
+        decimal? tareIfNew = null)
+        => ResolveTrolleyAsync(code, locationId, ct, tareIfNew);
 
-    private async Task<Result<Trolley>> ResolveTrolleyAsync(string code, long? locationId, CancellationToken ct)
+    private async Task<Result<Trolley>> ResolveTrolleyAsync(
+        string code,
+        long? locationId,
+        CancellationToken ct,
+        decimal? tareIfNew = null)
     {
         var existing = await _db.Trolleys
             .Where(t => t.Code == code)
@@ -395,7 +403,7 @@ public sealed class TrolleyAllocator
             station.Id,
             station.StationCode,
             station.Name,
-            _options.DefaultTareKg);
+            tareIfNew ?? _options.DefaultTareKg);
 
         if (registration.IsFailure)
         {

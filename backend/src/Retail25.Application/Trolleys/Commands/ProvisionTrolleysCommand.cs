@@ -59,10 +59,20 @@ public sealed class ProvisionTrolleysHandler
 
         for (var code = first; code <= last; code++)
         {
+            var spread = SpreadFor(code, first, last);
+
+            // Handed in rather than applied afterwards.
+            //
+            // The allocator seeds a newly created counter with the fleet default, so by the time it
+            // comes back its weight is never null and a "only set it if it is missing" guard never
+            // fires. The first run of this proved it: two hundred counters created, every one of
+            // them reading 2.35, and the summary honestly reporting that it had weighed none of
+            // them. Passing the figure into the creation is what makes it land.
             var trolley = await _allocator.EnsureAsync(
                 code.ToString(CultureInfo.InvariantCulture),
                 request.LocationId,
-                ct);
+                ct,
+                spread);
 
             if (trolley.IsFailure)
             {
@@ -70,12 +80,15 @@ public sealed class ProvisionTrolleysHandler
                 continue;
             }
 
-            // A counter that already carried a weight keeps it. Somebody may have put that one on a
-            // scale, and a spread figure is an assumption — overwriting a measurement with an
-            // assumption is the one thing this must not do.
-            if (trolley.Value.TareWeightKg is null)
+            // For counters that already existed: filled in only where nothing is recorded, and where
+            // what is recorded is the fleet default — that is the stand-in this is meant to replace,
+            // not a measurement. A figure somebody actually weighed is left alone, because
+            // overwriting a measurement with an assumption is the one thing this must not do.
+            var current = trolley.Value.TareWeightKg;
+
+            if (current is null || current == _options.DefaultTareKg)
             {
-                var applied = trolley.Value.SetTareWeight(SpreadFor(code, first, last));
+                var applied = trolley.Value.SetTareWeight(spread);
 
                 if (applied.IsSuccess)
                 {
