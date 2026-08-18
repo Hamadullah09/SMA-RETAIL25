@@ -70,7 +70,23 @@ public sealed class DatabaseSeeder
             return existing;
         }
 
-        var created = Location.Create("Main Store", "TST", currencyCode, TimeZoneInfo.Local.Id, TimeOnly.MinValue).Value;
+        // UTC, deliberately, rather than the machine's own time zone.
+        //
+        // This used to seed TimeZoneInfo.Local.Id, which is the *server's* zone — and on any hosted
+        // deployment that is the datacentre's clock, not the shop's. A shop in Karachi hosted in the
+        // US Pacific zone was seeded eleven hours out, so its business day rolled over at noon local
+        // and every morning's takings were filed under the previous day. The shop's time zone is a
+        // property of the shop; the machine happens to be wherever it is.
+        //
+        // UTC is not right either, but it is wrong in a way somebody notices and can correct, rather
+        // than wrong in a way that looks deliberate. Administration → Settings → Business ID is
+        // where it is set, and the warning below names it.
+        _logger.LogWarning(
+            "Seeding the location with the UTC time zone. Set the shop's own zone in Administration, "
+            + "Settings, Business ID — until then the business date rolls over at midnight UTC and "
+            + "sales may be filed under the wrong day.");
+
+        var created = Location.Create("Main Store", "TST", currencyCode, "UTC", TimeOnly.MinValue).Value;
         _db.Locations.Add(created);
         await _db.SaveChangesAsync(ct);
         return created;
