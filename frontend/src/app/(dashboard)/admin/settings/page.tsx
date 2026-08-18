@@ -10,6 +10,7 @@ import { useLiveGrid } from '@/lib/inventory-hub';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
 import { cn } from '@/lib/utils';
+import { TrolleysTab } from '@/components/settings/trolleys-tab';
 import {
   ArrowDown,
   ArrowUp,
@@ -71,6 +72,7 @@ const TABS = [
   'Printers',
   'Hardware',
   'Stations',
+  'Trolleys',
   'Tenders',
   'Currencies',
   'Numbering',
@@ -96,6 +98,7 @@ const TAB_ICONS: Record<Tab, LucideIcon> = {
   Printers: Printer,
   Hardware: Cpu,
   Stations: Monitor,
+  Trolleys: ShoppingCart,
   Tenders: CreditCard,
   Currencies: Coins,
   Numbering: Hash,
@@ -206,6 +209,7 @@ export default function SettingsPage() {
               />
             ) : null}
             {tab === 'Stations' ? <StationsTab locationId={locationId} settings={settings} canWrite={canHardware} onSaved={load} /> : null}
+            {tab === 'Trolleys' ? <TrolleysTab locationId={locationId} canWrite={canWrite} /> : null}
             {tab === 'Tenders' ? <TendersTab locationId={locationId} rows={settings.tenders} canWrite={canWrite} onSaved={load} /> : null}
             {tab === 'Currencies' ? <CurrenciesTab locationId={locationId} rows={settings.currencies} canWrite={canWrite} onSaved={load} /> : null}
             {tab === 'Numbering' ? <NumberingTab locationId={locationId} rows={settings.numbering} canWrite={canWrite} onSaved={load} /> : null}
