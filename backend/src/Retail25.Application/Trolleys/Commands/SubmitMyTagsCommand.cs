@@ -103,7 +103,12 @@ public sealed class SubmitMyTagsHandler : IRequestHandler<SubmitMyTagsCommand, R
             .Select(e => new TagRead(e.Trim().ToUpperInvariant(), 1, TagRead.UnknownRssi, 1, now, now))
             .ToList();
 
-        var result = await _checkout.AddBatchAsync(session.CartId, reads, ct);
+        // attested: a person aimed the handheld at this tag and pulled the trigger. Without it the
+        // profile pre-filter refuses every scan — its MinimumReadCount defaults to 2 and one
+        // deliberate presentation is one read, so the customer is told their tag "did not meet the
+        // reader's signal or zone thresholds" about a reader that is not involved. See the parameter
+        // on AddBatchAsync for what is skipped and, more importantly, what is not.
+        var result = await _checkout.AddBatchAsync(session.CartId, reads, ct, attested: true);
 
         if (result.IsSuccess)
         {

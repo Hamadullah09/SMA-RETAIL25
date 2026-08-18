@@ -61,10 +61,27 @@ public sealed class RfidCheckout
         _clock = clock;
     }
 
+    /// <param name="attested">
+    /// True when a person deliberately presented the tag — a handheld trigger pull — rather than a
+    /// fixed antenna sweeping the area around a till.
+    /// <para>
+    /// It skips the reader-profile pre-filter, and only that. The filter answers "did the antenna
+    /// really see this, or is it noise from the shelf behind the counter?" — a question with no
+    /// meaning when somebody aimed a device at one tag and pulled a trigger. Applied anyway it
+    /// refuses every handheld scan, because the profile's default MinimumReadCount is 2 and a
+    /// deliberate scan is, by definition, one read on no particular antenna.
+    /// </para>
+    /// <para>
+    /// Everything after it still runs: in-batch deduplication, the already-on-cart check, cross-till
+    /// arbitration, the EPC state machine and pricing. Those are the checks that stop an item being
+    /// sold twice, and a handheld is no more entitled to skip them than a fixed reader is.
+    /// </para>
+    /// </param>
     public async Task<Result<RfidBatchResult>> AddBatchAsync(
         long cartId,
         IReadOnlyList<TagRead> reads,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool attested = false)
     {
         var snapshot = await _store.GetAsync(cartId, ct);
         if (snapshot is null || !snapshot.Cart.IsActive)
@@ -97,7 +114,7 @@ public sealed class RfidCheckout
         {
             var epc = tag.Epc.Trim().ToUpperInvariant();
 
-            if (!profile.Accepts(tag.Antenna, tag.Rssi, tag.ReadCount))
+            if (!attested && !profile.Accepts(tag.Antenna, tag.Rssi, tag.ReadCount))
             {
                 rejected.Add(new RejectedTag(epc, FilteredOut.Code, FilteredOut.Message));
                 continue;
