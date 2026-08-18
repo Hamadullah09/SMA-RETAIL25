@@ -50,6 +50,17 @@ public interface IUserProvisioner
     Task<bool> EmailTakenAsync(string email, CancellationToken ct);
 
     /// <summary>
+    /// The id of the sign-in behind an address, or null.
+    /// <para>
+    /// Exists so a half-finished colleague can be recovered. Creating one writes the sign-in first
+    /// and the staff profile second; if the second step fails the sign-in survives with no profile,
+    /// invisible on the users screen, and every retry is refused as "that address is taken" with no
+    /// way to see or remove the thing doing the refusing.
+    /// </para>
+    /// </summary>
+    Task<long?> FindIdByEmailAsync(string email, CancellationToken ct);
+
+    /// <summary>
     /// Creates the sign-in and puts it in <paramref name="role"/>. Returns the new user's Id.
     /// Failures carry the Identity validator's own codes, e.g. <c>PasswordTooShort</c>.
     /// </summary>

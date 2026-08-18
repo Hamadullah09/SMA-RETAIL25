@@ -47,6 +47,13 @@ public sealed class UserProvisioner : IUserProvisioner
         => await _users.FindByEmailAsync(email) is not null
             || await _users.FindByNameAsync(email) is not null;
 
+    public async Task<long?> FindIdByEmailAsync(string email, CancellationToken ct)
+    {
+        var user = await _users.FindByEmailAsync(email) ?? await _users.FindByNameAsync(email);
+
+        return user?.Id;
+    }
+
     public async Task<Result<long>> CreateAsync(
         string email,
         string displayName,

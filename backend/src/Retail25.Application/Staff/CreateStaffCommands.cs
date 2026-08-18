@@ -191,9 +191,30 @@ public sealed class StaffProvisioningHandlers :
             return Result.Failure<StaffRowDto>(UnknownRole.With("role", role));
         }
 
+        // A sign-in already on this address is usually a real colleague, and refusing is right. But
+        // it is sometimes the wreckage of a half-finished creation: the sign-in is written first and
+        // the staff profile second, so a failure between them leaves a login with no profile —
+        // invisible on the users screen, and refusing every retry as "that address is taken" with
+        // nothing on screen to see or remove. An administrator has no way out of that except a
+        // database edit.
+        //
+        // So: taken by somebody with a profile is a refusal; taken by nothing is an orphan, and the
+        // creation adopts it rather than starting an argument it cannot win.
+        var orphanUserId = (long?)null;
+
         if (await _provisioner.EmailTakenAsync(email, ct))
         {
-            return Result.Failure<StaffRowDto>(EmailTaken);
+            var existingUserId = await _provisioner.FindIdByEmailAsync(email, ct);
+
+            var hasProfile = existingUserId is { } id
+                && await _db.StaffProfiles.AnyAsync(s => s.UserId == id, ct);
+
+            if (existingUserId is null || hasProfile)
+            {
+                return Result.Failure<StaffRowDto>(EmailTaken);
+            }
+
+            orphanUserId = existingUserId;
         }
 
         if (await _db.StaffProfiles.AnyAsync(s => s.StaffCode == code, ct))
@@ -203,20 +224,49 @@ public sealed class StaffProvisioningHandlers :
 
         // Identity's own password validator decides whether the password is acceptable, so the
         // rule configured at startup is the only rule in play.
-        var created = await _provisioner.CreateAsync(
-            email,
-            $"{first} {last}",
-            request.Password ?? string.Empty,
-            role,
-            request.LocationId,
-            ct);
+        long userId;
 
-        if (created.IsFailure)
+        if (orphanUserId is { } adopted)
         {
-            return Result.Failure<StaffRowDto>(created.Error);
+            // Re-set the password and enable it, so an adopted sign-in is in exactly the state a
+            // freshly created one would be. The administrator typed a password on this form and
+            // expects it to be the one that works; silently keeping whatever the abandoned attempt
+            // set would leave them holding a credential that does not.
+            var reset = await _provisioner.ResetPasswordAsync(adopted, request.Password ?? string.Empty, ct);
+
+            if (reset.IsFailure)
+            {
+                return Result.Failure<StaffRowDto>(reset.Error);
+            }
+
+            var enabled = await _provisioner.SetEnabledAsync(adopted, true, ct);
+
+            if (enabled.IsFailure)
+            {
+                return Result.Failure<StaffRowDto>(enabled.Error);
+            }
+
+            userId = adopted;
+        }
+        else
+        {
+            var created = await _provisioner.CreateAsync(
+                email,
+                $"{first} {last}",
+                request.Password ?? string.Empty,
+                role,
+                request.LocationId,
+                ct);
+
+            if (created.IsFailure)
+            {
+                return Result.Failure<StaffRowDto>(created.Error);
+            }
+
+            userId = created.Value;
         }
 
-        var staff = StaffProfile.Create(created.Value, code, first, last, request.AccessLevel);
+        var staff = StaffProfile.Create(userId, code, first, last, request.AccessLevel);
 
         if (pin is { Length: >= 4 })
         {
