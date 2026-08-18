@@ -403,4 +403,67 @@ public sealed class EpcCatalogCsvTests
         row.Barcode.Should().Be("111");
         row.Upc.Should().Be("222");
     }
+
+    /// <summary>
+    /// Weight is the column the till's WEIGHT panel reads. It stays blank at zero on purpose, so a
+    /// catalogue that has never been weighed shows blanks rather than a column of noughts — which
+    /// means importing it is the only way a shop fills that column without opening every item.
+    /// </summary>
+    [Fact]
+    public void Weight_and_the_ordering_figures_are_read()
+    {
+        const string csv =
+            "stock code,name,weight,case qty,reorder point,reorder qty,base stock\n" +
+            "A-1,Thing,0.4,12,3,24,6\n";
+
+        var row = EpcCatalogCsv.Parse(csv).Rows.Single();
+
+        row.Weight.Should().Be(0.4m);
+        row.CaseQty.Should().Be(12m);
+        row.ReorderPoint.Should().Be(3);
+        row.ReorderQty.Should().Be(24);
+        row.BaseStock.Should().Be(6);
+    }
+
+    /// <summary>
+    /// A tax column absent means "keep the default". Reading a missing column as "no" is the one
+    /// mistake here that shows up as missing money rather than as a wrong-looking screen.
+    /// </summary>
+    [Theory]
+    [InlineData("Yes", true)]
+    [InlineData("y", true)]
+    [InlineData("1", true)]
+    [InlineData("TRUE", true)]
+    [InlineData("No", false)]
+    [InlineData("0", false)]
+    public void A_tax_column_is_read_in_the_spellings_a_spreadsheet_holds(string cell, bool expected)
+    {
+        var row = EpcCatalogCsv.Parse($"stock code,name,tax1\nA-1,Thing,{cell}\n").Rows.Single();
+
+        row.Tax1Applies.Should().Be(expected);
+    }
+
+    [Fact]
+    public void An_absent_tax_column_leaves_the_default_alone()
+    {
+        var row = EpcCatalogCsv.Parse("stock code,name\nA-1,Thing\n").Rows.Single();
+
+        row.Tax1Applies.Should().BeNull();
+        row.Tax2Applies.Should().BeNull();
+    }
+
+    [Fact]
+    public void The_messages_and_the_image_link_are_read()
+    {
+        const string csv =
+            "stock code,name,pos message,invoice message,notes,image url\n" +
+            "A-1,Thing,Check the zip,Dry clean only,Bought in 2026,https://example.test/a.jpg\n";
+
+        var row = EpcCatalogCsv.Parse(csv).Rows.Single();
+
+        row.PosMessage.Should().Be("Check the zip");
+        row.InvoiceMessage.Should().Be("Dry clean only");
+        row.Notes.Should().Be("Bought in 2026");
+        row.ImageUrl.Should().Be("https://example.test/a.jpg");
+    }
 }

@@ -480,6 +480,54 @@ public sealed class ImportEpcCatalogHandler
         {
             product.UpdatePricing(row.RegularPrice, cost, cost);
         }
+
+        // Weight, and the ordering figures beside it.
+        //
+        // Weight is what the till's WEIGHT column shows, and it stays blank at zero on purpose: no
+        // weight on file and weighing nothing are different claims, and a column of blanks is the
+        // honest signal that a catalogue has not been weighed. Importing it is the only way a shop
+        // fills that column without opening every item by hand.
+        //
+        // Set together because UpdateOrdering takes them together; each falls back to what the item
+        // already has, so a file carrying only a reorder point does not zero the rest.
+        if (row.BaseStock is not null
+            || row.ReorderPoint is not null
+            || row.ReorderQty is not null
+            || row.CaseQty is not null
+            || row.Weight is not null)
+        {
+            product.UpdateOrdering(
+                row.BaseStock ?? product.BaseStock,
+                row.ReorderPoint ?? product.ReorderPoint,
+                row.ReorderQty ?? product.ReorderQty,
+                row.CaseQty ?? product.CaseQty,
+                row.Weight ?? product.ShipWeight);
+        }
+
+        // Absent means "leave the default alone". A file that never mentions tax must not quietly
+        // make a whole catalogue non-taxable, which is the one mistake here that shows up as missing
+        // money rather than as a wrong-looking screen.
+        if (row.Tax1Applies is not null || row.Tax2Applies is not null)
+        {
+            product.SetTaxFlags(
+                row.Tax1Applies ?? product.Tax1Applies,
+                row.Tax2Applies ?? product.Tax2Applies);
+        }
+
+        if (row.PosMessage is not null || row.InvoiceMessage is not null)
+        {
+            product.UpdateMessages(row.PosMessage, row.InvoiceMessage);
+        }
+
+        if (row.Notes is not null)
+        {
+            product.UpdateDetails(
+                row.ProductName,
+                row.Description ?? product.Description,
+                row.Upc ?? row.Barcode ?? product.Upc,
+                row.BinLocation ?? product.BinLocation,
+                row.Notes);
+        }
     }
 
     /// <summary>

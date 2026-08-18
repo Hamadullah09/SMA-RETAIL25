@@ -84,9 +84,14 @@ public sealed class SerializedUnitsController : ControllerBase
     public IActionResult ImportTemplate()
     {
         const string template =
-            "Stock Code,Item Name,Description,Department,Category,Supplier,Barcode,Cost,Price,Qty,Bin,EPC\n" +
-            "SHIRT-01,Blue Shirt Medium,Cotton oxford shirt,Menswear,Shirts,Acme Textiles,5012345678900,900,1500,12,A3,\n" +
-            "JACKET-01,Olive Quilted Jacket XL,,Menswear,Outerwear,Acme Textiles,5012345678917,4200,7500,1,B1,E28011606000020C1B3E1234\n";
+            "Stock Code,Item Name,Description,Department,Category,Supplier,Barcode,Cost,Price,Qty," +
+            "Bin,Weight,Case Qty,Reorder Point,Reorder Qty,Base Stock,Tax1,Tax2,POS Message," +
+            "Invoice Message,Notes,EPC\n" +
+            "SHIRT-01,Blue Shirt Medium,Cotton oxford shirt,Menswear,Shirts,Acme Textiles," +
+            "5012345678900,900,1500,12,A3,0.4,12,3,24,6,Yes,Yes,,,,\n" +
+            "JACKET-01,Olive Quilted Jacket XL,,Menswear,Outerwear,Acme Textiles," +
+            "5012345678917,4200,7500,1,B1,1.2,6,1,6,2,Yes,No,Check the zip,Dry clean only,," +
+            "E28011606000020C1B3E1234\n";
 
         // Attachment, not inline: this one is meant to be saved, filled in and sent back. It is the
         // opposite case to the printable documents, which open in a viewer.

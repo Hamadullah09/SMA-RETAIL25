@@ -34,7 +34,18 @@ public sealed record EpcCatalogRow(
     string? Upc = null,
     string? BinLocation = null,
     decimal? Cost = null,
-    decimal? OnHand = null);
+    decimal? OnHand = null,
+    decimal? Weight = null,
+    decimal? CaseQty = null,
+    int? BaseStock = null,
+    int? ReorderPoint = null,
+    int? ReorderQty = null,
+    bool? Tax1Applies = null,
+    bool? Tax2Applies = null,
+    string? PosMessage = null,
+    string? InvoiceMessage = null,
+    string? Notes = null,
+    string? ImageUrl = null);
 
 /// <summary>
 /// Something the file said that the importer could not take at face value.
@@ -223,7 +234,18 @@ public static class EpcCatalogCsv
                 Text(fields, header.Upc, 50),
                 Text(fields, header.BinLocation, 50),
                 Optional(fields, header.Cost),
-                Optional(fields, header.OnHand)));
+                Optional(fields, header.OnHand),
+                Optional(fields, header.Weight),
+                Optional(fields, header.CaseQty),
+                Whole(fields, header.BaseStock),
+                Whole(fields, header.ReorderPoint),
+                Whole(fields, header.ReorderQty),
+                Flag(fields, header.Tax1),
+                Flag(fields, header.Tax2),
+                Text(fields, header.PosMessage, 200),
+                Text(fields, header.InvoiceMessage, 200),
+                Text(fields, header.Notes, 2000),
+                Text(fields, header.ImageUrl, 500)));
         }
 
         return new EpcCatalogParse(rows, problems, dataRows);
@@ -337,6 +359,33 @@ public static class EpcCatalogCsv
             : null;
     }
 
+    private static int? Whole(IReadOnlyList<string> fields, int index)
+        => Optional(fields, index) is { } value ? (int)decimal.Truncate(value) : null;
+
+    /// <summary>
+    /// A yes/no column, in the spellings a spreadsheet actually contains.
+    /// <para>
+    /// Null where the column is absent, so an item keeps the system's default rather than being
+    /// silently made non-taxable by a file that never mentioned tax.
+    /// </para>
+    /// </summary>
+    private static bool? Flag(IReadOnlyList<string> fields, int index)
+    {
+        var raw = Field(fields, index).Trim();
+
+        if (raw.Length == 0)
+        {
+            return null;
+        }
+
+        return raw.ToLowerInvariant() switch
+        {
+            "1" or "y" or "yes" or "t" or "true" or "x" => true,
+            "0" or "n" or "no" or "f" or "false" => false,
+            _ => null,
+        };
+    }
+
     private static decimal ReadDecimal(IReadOnlyList<string> fields, int index)
         => decimal.TryParse(Field(fields, index), NumberStyles.Number, CultureInfo.InvariantCulture, out var value)
             ? value
@@ -386,7 +435,18 @@ public static class EpcCatalogCsv
         int Upc,
         int BinLocation,
         int Cost,
-        int OnHand)
+        int OnHand,
+        int Weight,
+        int CaseQty,
+        int BaseStock,
+        int ReorderPoint,
+        int ReorderQty,
+        int Tax1,
+        int Tax2,
+        int PosMessage,
+        int InvoiceMessage,
+        int Notes,
+        int ImageUrl)
     {
         /// <summary>
         /// What a shopkeeper might reasonably have called each column.
@@ -407,6 +467,17 @@ public static class EpcCatalogCsv
             ["bin_location", "bin", "shelf", "location_in_store"],
             ["cost", "unit_cost", "cost_price", "buy_price"],
             ["on_hand", "onhand", "quantity", "qty", "stock", "opening_stock", "in_stock"],
+            ["weight", "ship_weight", "shipping_weight", "unit_weight"],
+            ["case_qty", "case_quantity", "pack_quantity", "pack_qty", "pack_size", "units_per_case"],
+            ["base_stock", "min_stock", "minimum_stock"],
+            ["reorder_point", "reorder_level", "reorder_at"],
+            ["reorder_qty", "reorder_quantity", "order_qty"],
+            ["tax1", "tax_1", "taxable", "gst"],
+            ["tax2", "tax_2", "pst"],
+            ["pos_message", "till_message", "cashier_message"],
+            ["invoice_message", "receipt_message"],
+            ["notes", "note", "internal_notes"],
+            ["image_url", "image", "image_link", "picture", "photo", "photo_url"],
         ];
 
         public static Columns From(IReadOnlyList<string> header)
@@ -442,7 +513,18 @@ public static class EpcCatalogCsv
                 Upc: FindAny(names, productFrom, Aliases[5]),
                 BinLocation: FindAny(names, productFrom, Aliases[6]),
                 Cost: FindAny(names, productFrom, Aliases[7]),
-                OnHand: FindAny(names, productFrom, Aliases[8]));
+                OnHand: FindAny(names, productFrom, Aliases[8]),
+                Weight: FindAny(names, productFrom, Aliases[9]),
+                CaseQty: FindAny(names, productFrom, Aliases[10]),
+                BaseStock: FindAny(names, productFrom, Aliases[11]),
+                ReorderPoint: FindAny(names, productFrom, Aliases[12]),
+                ReorderQty: FindAny(names, productFrom, Aliases[13]),
+                Tax1: FindAny(names, productFrom, Aliases[14]),
+                Tax2: FindAny(names, productFrom, Aliases[15]),
+                PosMessage: FindAny(names, productFrom, Aliases[16]),
+                InvoiceMessage: FindAny(names, productFrom, Aliases[17]),
+                Notes: FindAny(names, productFrom, Aliases[18]),
+                ImageUrl: FindAny(names, productFrom, Aliases[19]));
         }
 
         /// <summary>
