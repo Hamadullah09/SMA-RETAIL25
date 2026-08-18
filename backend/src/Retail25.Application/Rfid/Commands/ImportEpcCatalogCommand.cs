@@ -49,12 +49,18 @@ public sealed class ImportEpcCatalogHandler
     private readonly IApplicationDbContext _db;
     private readonly IDateTime _clock;
     private readonly TagStreamRegistry _tagStreams;
+    private readonly IRemoteImageFetcher _images;
 
-    public ImportEpcCatalogHandler(IApplicationDbContext db, IDateTime clock, TagStreamRegistry tagStreams)
+    public ImportEpcCatalogHandler(
+        IApplicationDbContext db,
+        IDateTime clock,
+        TagStreamRegistry tagStreams,
+        IRemoteImageFetcher images)
     {
         _db = db;
         _clock = clock;
         _tagStreams = tagStreams;
+        _images = images;
     }
 
     public async Task<Result<EpcCatalogImportResult>> Handle(ImportEpcCatalogCommand request, CancellationToken ct)
@@ -176,6 +182,7 @@ public sealed class ImportEpcCatalogHandler
         }
 
         await LinkSuppliersAndOpeningStockAsync(request.LocationId, created, firstRowFor, lookups, ct);
+        await FetchImagesAsync(created, firstRowFor, problems, ct);
 
         // --- Pass two: the tags --------------------------------------------------------------
 
@@ -582,6 +589,75 @@ public sealed class ImportEpcCatalogHandler
                     staffId: null,
                     ct: ct);
             }
+        }
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
+    /// Downloads the pictures the file named.
+    /// <para>
+    /// Last, and one at a time, because it is the only part of an import that waits on somebody
+    /// else's web server. A file of a thousand rows lands its items, tags and stock first; the
+    /// pictures then arrive against items that already exist, so a slow or dead image host costs
+    /// pictures rather than the import.
+    /// </para>
+    /// <para>
+    /// A picture that cannot be fetched is a reported problem, never a dropped row. The item is
+    /// real, priced and sellable without it, and refusing the row would be a worse answer than an
+    /// item with no photograph. That includes the addresses the fetcher refuses on purpose — those
+    /// are reported in the same list, so a file pointing at a private network says so plainly rather
+    /// than failing silently.
+    /// </para>
+    /// </summary>
+    private async Task FetchImagesAsync(
+        IReadOnlyList<Product> created,
+        Dictionary<string, EpcCatalogRow> firstRowFor,
+        List<EpcCatalogProblem> problems,
+        CancellationToken ct)
+    {
+        var wanted = created
+            .Select(p => (Product: p, Row: firstRowFor.TryGetValue(p.StockCode, out var r) ? r : null))
+            .Where(x => !string.IsNullOrWhiteSpace(x.Row?.ImageUrl))
+            .ToList();
+
+        if (wanted.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var (product, row) in wanted)
+        {
+            var fetched = await _images.FetchAsync(row!.ImageUrl!, ct);
+
+            if (fetched.IsFailure)
+            {
+                problems.Add(new EpcCatalogProblem(
+                    row.LineNumber,
+                    row.ImageUrl!,
+                    fetched.Error.Code,
+                    fetched.Error.Message,
+                    RowDropped: false));
+
+                continue;
+            }
+
+            var image = ProductImage.Create(product.Id, fetched.Value.Content, fetched.Value.ContentType);
+
+            if (image.IsFailure)
+            {
+                problems.Add(new EpcCatalogProblem(
+                    row.LineNumber,
+                    row.ImageUrl!,
+                    image.Error.Code,
+                    image.Error.Message,
+                    RowDropped: false));
+
+                continue;
+            }
+
+            _db.ProductImages.Add(image.Value);
+            product.SetHasImage(true);
         }
 
         await _db.SaveChangesAsync(ct);

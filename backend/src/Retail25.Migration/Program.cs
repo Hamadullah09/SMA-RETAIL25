@@ -1,4 +1,6 @@
 using System.Globalization;
+using Microsoft.Extensions.Logging.Abstractions;
+using Retail25.Infrastructure.Catalog;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Rfid;
 using Retail25.Application.Rfid.Commands;
@@ -112,7 +114,15 @@ static async Task<int> ImportTags(string[] args)
 
     var csv = await File.ReadAllTextAsync(path);
 
-    var handler = new ImportEpcCatalogHandler(db, new SystemClock(), new TagStreamRegistry());
+    // The same fetcher the API uses, so a CSV imported from the command line behaves identically.
+    // Redirects off for the reason the fetcher documents: it revalidates each hop itself.
+    using var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false, UseCookies = false });
+
+    var handler = new ImportEpcCatalogHandler(
+        db,
+        new SystemClock(),
+        new TagStreamRegistry(),
+        new HttpRemoteImageFetcher(http, NullLogger<HttpRemoteImageFetcher>.Instance));
 
     var result = await handler.Handle(
         new ImportEpcCatalogCommand(locationId, csv, dryRun, ResetToInStock: !args.Contains("--keep-states")),

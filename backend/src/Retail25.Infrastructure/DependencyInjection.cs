@@ -39,6 +39,15 @@ public static class DependencyInjection
 
         services.AddHttpContextAccessor();
         services.AddSingleton<IDateTime, SystemClock>();
+
+        // Redirects are followed by hand inside the fetcher so each hop's address can be revalidated;
+        // letting the handler do it automatically is the standard way past an address allow-list.
+        services.AddHttpClient<IRemoteImageFetcher, Catalog.HttpRemoteImageFetcher>()
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AllowAutoRedirect = false,
+                UseCookies = false,
+            });
         services.AddScoped<ICurrentUser, CurrentUser>();
         services.AddScoped<IRequestContext, HttpRequestContext>();
         // Which kind of backup this deployment can actually take.

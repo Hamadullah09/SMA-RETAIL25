@@ -190,9 +190,24 @@ export function ImportCatalogueDialog({
           <p className="mt-2 text-xs text-ink-muted">
             <strong>Stock Code</strong> is the only one required — it is what identifies an item.
             Everything else is optional: Item Name, Description, Department, Category, Supplier,
-            Barcode or UPC, Cost, Price, Qty, Bin, EPC. Departments, categories and suppliers are
-            matched by name and created if they are new. Qty becomes the opening stock. Anything the
-            importer does not recognise is ignored rather than rejected.
+            Barcode or UPC, Cost, Price, Qty, Bin, Weight, Case Qty, Reorder Point, Reorder Qty,
+            Base Stock, Tax1, Tax2, POS Message, Invoice Message, Notes, Image URL and EPC.
+          </p>
+          <p className="mt-2 text-xs text-ink-muted">
+            Departments, categories and suppliers are matched by name and created if they are new.
+            Qty becomes the opening stock. A column you leave out keeps the item&rsquo;s existing
+            value rather than clearing it. Anything the importer does not recognise is ignored
+            rather than rejected.
+          </p>
+          <p className="mt-2 text-xs text-ink-muted">
+            <strong>Image URL</strong> is downloaded and stored against the item. It must be a
+            public http or https address ending in a PNG, JPEG or WebP — addresses on a private
+            network are refused, and a picture that cannot be fetched is reported without holding up
+            the rest of the import.
+          </p>
+          <p className="mt-2 text-xs text-ink-muted">
+            <strong>On order</strong> is not imported. It is worked out from purchase orders, so a
+            number here would stop meaning anything the moment a real order existed.
           </p>
         </details>
 

@@ -86,11 +86,11 @@ public sealed class SerializedUnitsController : ControllerBase
         const string template =
             "Stock Code,Item Name,Description,Department,Category,Supplier,Barcode,Cost,Price,Qty," +
             "Bin,Weight,Case Qty,Reorder Point,Reorder Qty,Base Stock,Tax1,Tax2,POS Message," +
-            "Invoice Message,Notes,EPC\n" +
+            "Invoice Message,Notes,Image URL,EPC\n" +
             "SHIRT-01,Blue Shirt Medium,Cotton oxford shirt,Menswear,Shirts,Acme Textiles," +
-            "5012345678900,900,1500,12,A3,0.4,12,3,24,6,Yes,Yes,,,,\n" +
+            "5012345678900,900,1500,12,A3,0.4,12,3,24,6,Yes,Yes,,,,https://example.com/shirt.jpg,\n" +
             "JACKET-01,Olive Quilted Jacket XL,,Menswear,Outerwear,Acme Textiles," +
-            "5012345678917,4200,7500,1,B1,1.2,6,1,6,2,Yes,No,Check the zip,Dry clean only,," +
+            "5012345678917,4200,7500,1,B1,1.2,6,1,6,2,Yes,No,Check the zip,Dry clean only,,," +
             "E28011606000020C1B3E1234\n";
 
         // Attachment, not inline: this one is meant to be saved, filled in and sent back. It is the
