@@ -48,17 +48,20 @@ public sealed class SubmitMyTagsHandler : IRequestHandler<SubmitMyTagsCommand, R
     private readonly IApplicationDbContext _db;
     private readonly ICurrentShopper _shopper;
     private readonly RfidCheckout _checkout;
+    private readonly TrolleyAllocator _allocator;
     private readonly IDateTime _clock;
 
     public SubmitMyTagsHandler(
         IApplicationDbContext db,
         ICurrentShopper shopper,
         RfidCheckout checkout,
+        TrolleyAllocator allocator,
         IDateTime clock)
     {
         _db = db;
         _shopper = shopper;
         _checkout = checkout;
+        _allocator = allocator;
         _clock = clock;
     }
 
@@ -95,6 +98,19 @@ public sealed class SubmitMyTagsHandler : IRequestHandler<SubmitMyTagsCommand, R
             return Result.Failure<RfidBatchResult>(Queries.GetMyCartHandler.NoLiveSession);
         }
 
+        // The session's cart may have aged out of the cart store, or been lost when the API last
+        // restarted. The session row outlives both, so a shopper halfway round the shop can be
+        // holding a cart id nobody can serve — and every scan then fails with "this cart is no
+        // longer active" until they leave the counter and reconnect, carrying a basket of items
+        // they have already scanned. Re-pointing the session at the station's live cart costs one
+        // lookup and removes that dead end entirely.
+        var cart = await _allocator.EnsureLiveCartAsync(session, ct);
+
+        if (cart.IsFailure)
+        {
+            return Result.Failure<RfidBatchResult>(cart.Error);
+        }
+
         var now = _clock.Now;
 
         // Antenna 1 is the default profile's checkout zone; UnknownRssi is the contract's own value
@@ -108,7 +124,7 @@ public sealed class SubmitMyTagsHandler : IRequestHandler<SubmitMyTagsCommand, R
         // deliberate presentation is one read, so the customer is told their tag "did not meet the
         // reader's signal or zone thresholds" about a reader that is not involved. See the parameter
         // on AddBatchAsync for what is skipped and, more importantly, what is not.
-        var result = await _checkout.AddBatchAsync(session.CartId, reads, ct, attested: true);
+        var result = await _checkout.AddBatchAsync(cart.Value, reads, ct, attested: true);
 
         if (result.IsSuccess)
         {

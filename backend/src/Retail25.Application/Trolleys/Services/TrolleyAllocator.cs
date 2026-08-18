@@ -478,6 +478,56 @@ public sealed class TrolleyAllocator
         return Result.Success(station);
     }
 
+    /// <summary>
+    /// Makes sure the session points at a cart the shop can actually serve, and re-points it if not.
+    /// <para>
+    /// A cart lives in the cart store, which is a cache: it ages out on a TTL and is lost outright
+    /// when the API restarts. The session row is in the database and survives all of that, so a
+    /// shopper halfway round the shop can be holding a session whose cart id nobody can serve any
+    /// more. Every scan then fails with "this cart is no longer active" and the only way out is to
+    /// leave the counter and reconnect — with a basket full of items already scanned.
+    /// </para>
+    /// <para>
+    /// Re-opening is safe because the station is the identity that matters: CartOpener hands back
+    /// the station's live cart or starts one, and the session adopts whatever it gets. What is lost
+    /// is the evicted cart's contents, which were already unreachable; what is saved is the shopper's
+    /// ability to carry on scanning.
+    /// </para>
+    /// </summary>
+    public async Task<Result<long>> EnsureLiveCartAsync(TrolleySession session, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+
+        var existing = await _store.GetAsync(session.CartId, ct);
+
+        if (existing is { Cart.IsActive: true })
+        {
+            return Result.Success(session.CartId);
+        }
+
+        var trolley = await _db.Trolleys.FirstOrDefaultAsync(t => t.Id == session.TrolleyId, ct);
+
+        if (trolley is null)
+        {
+            return Result.Failure<long>(Trolley.NotFound);
+        }
+
+        var reopened = await _opener.OpenAsync(trolley.StationId, staffId: 0L, ct);
+
+        if (reopened.IsFailure)
+        {
+            return Result.Failure<long>(reopened.Error);
+        }
+
+        if (reopened.Value.Id != session.CartId)
+        {
+            session.AdoptCart(reopened.Value.Id);
+            await _db.SaveChangesAsync(ct);
+        }
+
+        return Result.Success(reopened.Value.Id);
+    }
+
     private async Task<Result<ShopperCartDto>> ProjectAsync(
         TrolleySession session,
         Trolley trolley,
