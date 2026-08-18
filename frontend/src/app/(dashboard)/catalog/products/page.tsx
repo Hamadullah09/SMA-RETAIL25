@@ -16,6 +16,7 @@ import {
 import { ProductImageField } from '@/components/masters/product-image-field';
 import { MatrixEditor } from '@/components/masters/matrix-editor';
 import { PrintLabelsDialog } from '@/components/documents/print-labels-dialog';
+import { ImportCatalogueDialog } from '@/components/catalog/import-catalogue-dialog';
 import { RecordPicker, type PickerOption } from '@/components/masters/record-picker';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
@@ -65,6 +66,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [printing, setPrinting] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const { data: departments = [] } = useQuery({
     queryKey: ['departments', locationId],
@@ -207,6 +209,17 @@ export default function ProductsPage() {
             </a>
           ) : null}
 
+          {/*
+            The importer had no screen at all, which meant it did not exist as far as anybody
+            running a shop was concerned. It belongs here, next to the items it creates, rather than
+            under Administration where nobody stocking a shop would look for it.
+          */}
+          {locationId && auth.can('inventory.commission_tags') ? (
+            <button type="button" className="pos-button" onClick={() => setImporting(true)}>
+              Import CSV
+            </button>
+          ) : null}
+
           {auth.can('catalog.bulk_adjust') ? (
             <Link className="pos-button" href="/catalog/bulk">
               Batch changes
@@ -320,6 +333,15 @@ export default function ProductsPage() {
 
       {printing && locationId ? (
         <PrintLabelsDialog locationId={locationId} items={rows} onClose={() => setPrinting(false)} />
+      ) : null}
+
+      {locationId ? (
+        <ImportCatalogueDialog
+          locationId={locationId}
+          open={importing}
+          onClose={() => setImporting(false)}
+          onImported={() => void load(false, null)}
+        />
       ) : null}
     </>
   );

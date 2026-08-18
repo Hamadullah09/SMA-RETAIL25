@@ -183,14 +183,26 @@ public sealed class EpcCatalogCsvTests
         parsed.Rows.Select(r => r.StockCode).Distinct().Should().ContainSingle().Which.Should().Be("11111");
     }
 
+    /// <summary>
+    /// A file with no EPC column is now a catalogue, not a fault.
+    /// <para>
+    /// This test previously required an EPC column and expected <c>header.no_epc_column</c>. That
+    /// expectation was correct while this only read tag exports, and wrong the moment it became the
+    /// importer a shop uses to load its stock: most shops have no RFID, and demanding a column they
+    /// cannot fill meant they could not import a catalogue at all. The requirement changed, so the
+    /// test pins the new one — the file still has to say which item each row is about, which is
+    /// what the case below covers.
+    /// </para>
+    /// </summary>
     [Fact]
-    public void A_file_with_no_epc_column_says_so_instead_of_importing_nothing_quietly()
+    public void A_file_with_no_epc_column_is_a_catalogue_rather_than_an_error()
     {
-        var parsed = EpcCatalogCsv.Parse("id,name\n1,Keyboard");
+        var parsed = EpcCatalogCsv.Parse("stock code,name\nKB-1,Keyboard");
 
-        parsed.Rows.Should().BeEmpty();
-        parsed.Problems.Should().ContainSingle()
-            .Which.Reason.Should().Be("header.no_epc_column");
+        parsed.Problems.Should().BeEmpty();
+        parsed.Rows.Should().ContainSingle();
+        parsed.Rows[0].StockCode.Should().Be("KB-1");
+        parsed.Rows[0].Epc.Should().BeEmpty();
     }
 
     [Fact]
@@ -271,5 +283,124 @@ public sealed class EpcCatalogCsvTests
 
         parsed.Rows.Should().ContainSingle()
             .Which.StockCode.Should().Be("FR0207001");
+    }
+
+    // --- The one-file catalogue ------------------------------------------------------------
+    //
+    // The shape a shopkeeper actually has: one sheet, headed however they head it, holding the item
+    // and everything about it side by side. These pin that it imports without a second file, a
+    // conversion step, or an RFID tag.
+
+    /// <summary>
+    /// Headed the way a person writes headings — spaces, capitals, and names of their own choosing.
+    /// A file rejected for saying "Qty" instead of "on_hand" is a file the shopkeeper cannot fix
+    /// without being told the secret.
+    /// </summary>
+    [Fact]
+    public void A_plain_sheet_with_human_headings_imports()
+    {
+        const string csv =
+            "Stock Code,Item Name,Department,Category,Supplier,Barcode,Cost,Price,Qty,Bin\n" +
+            "SHIRT-01,Blue Shirt,Menswear,Shirts,Acme Textiles,5012345678900,900,1500,12,A3\n";
+
+        var parsed = EpcCatalogCsv.Parse(csv);
+
+        parsed.Rows.Should().HaveCount(1);
+
+        var row = parsed.Rows[0];
+        row.StockCode.Should().Be("SHIRT-01");
+        row.ProductName.Should().Be("Blue Shirt");
+        row.Department.Should().Be("Menswear");
+        row.Category.Should().Be("Shirts");
+        row.Supplier.Should().Be("Acme Textiles");
+        row.Barcode.Should().Be("5012345678900");
+        row.BinLocation.Should().Be("A3");
+        row.Cost.Should().Be(900m);
+        row.RegularPrice.Should().Be(1500m);
+        row.OnHand.Should().Be(12m);
+        row.Epc.Should().BeEmpty("this shop has no tags");
+    }
+
+    /// <summary>
+    /// An untagged item is ordinary stock counted by quantity. Calling it serialized would demand a
+    /// tag per unit from a shop that has none, and every sale would ask which numbered one was going.
+    /// </summary>
+    [Fact]
+    public void An_untagged_item_is_standard_stock_and_a_tagged_one_is_serialized()
+    {
+        const string csv =
+            "stock code,name,epc\n" +
+            "PLAIN-1,Socks,\n" +
+            "TAGGED-1,Jacket,E28011606000020C1B3E1234\n";
+
+        var parsed = EpcCatalogCsv.Parse(csv);
+
+        parsed.Rows.Should().HaveCount(2);
+        parsed.Rows[0].Type.Should().Be(ProductType.Standard);
+        parsed.Rows[1].Type.Should().Be(ProductType.Serialized);
+    }
+
+    /// <summary>
+    /// A blank cost is not a cost of zero. Zero would make the first margin report announce that the
+    /// whole catalogue is pure profit, which is a worse answer than declining to say.
+    /// </summary>
+    [Fact]
+    public void An_absent_number_stays_absent_rather_than_becoming_zero()
+    {
+        const string csv =
+            "stock code,name,cost,qty\n" +
+            "A-1,Thing,,\n";
+
+        var row = EpcCatalogCsv.Parse(csv).Rows.Single();
+
+        row.Cost.Should().BeNull();
+        row.OnHand.Should().BeNull();
+    }
+
+    /// <summary>A spreadsheet writes 1,250.00 and means 1250.</summary>
+    [Fact]
+    public void A_thousands_separator_is_read_as_a_number()
+    {
+        const string csv =
+            "stock code,name,price,cost\n" +
+            "A-1,Thing,\"1,250.00\",\"999.50\"\n";
+
+        var row = EpcCatalogCsv.Parse(csv).Rows.Single();
+
+        row.RegularPrice.Should().Be(1250.00m);
+        row.Cost.Should().Be(999.50m);
+    }
+
+    /// <summary>
+    /// Without a stock code there is nothing to attach a row to, and the message has to say which
+    /// column is missing — "no rows this importer could use" sends somebody hunting.
+    /// </summary>
+    [Fact]
+    public void A_file_with_no_stock_code_column_says_which_column_it_wanted()
+    {
+        const string csv = "name,price\nThing,10\n";
+
+        var parsed = EpcCatalogCsv.Parse(csv);
+
+        parsed.Rows.Should().BeEmpty();
+        parsed.Problems.Should().ContainSingle()
+            .Which.Reason.Should().Be("header.no_stock_code_column");
+    }
+
+    /// <summary>
+    /// Both spellings of the same field, on one file. UPC is the more specific name, so it wins;
+    /// the importer stores one barcode and must not pick at random.
+    /// </summary>
+    [Fact]
+    public void Upc_and_barcode_are_both_read_when_both_are_present()
+    {
+        const string csv =
+            "stock code,name,barcode,upc\n" +
+            "A-1,Thing,111,222\n";
+
+        var row = EpcCatalogCsv.Parse(csv).Rows.Single();
+
+        row.Barcode.Should().Be("111");
+        row.Upc.Should().Be("222");
     }
 }

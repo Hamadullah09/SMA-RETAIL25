@@ -4,7 +4,19 @@ using Retail25.Domain.ValueObjects;
 
 namespace Retail25.Application.Rfid.Import;
 
-/// <summary>One physical tag, as one row of the export describes it.</summary>
+/// <summary>
+/// One row of the file: an item, and optionally the one tag hanging on it.
+/// <para>
+/// <paramref name="Epc"/> is empty for a shop with no RFID, or for any item in a tagged shop that
+/// simply is not tagged. That is the difference between a tag export and a catalogue: this importer
+/// now reads both, because asking a shopkeeper to prepare one file for items, another for barcodes
+/// and a third for tags is asking them to do a join by hand.
+/// </para>
+/// <para>
+/// Everything after <paramref name="RegularPrice"/> is optional. A file holding nothing but a stock
+/// code and a name imports; each column that is present adds to what the item knows.
+/// </para>
+/// </summary>
 public sealed record EpcCatalogRow(
     int LineNumber,
     string Epc,
@@ -13,7 +25,16 @@ public sealed record EpcCatalogRow(
     ProductType Type,
     decimal RegularPrice,
     SerializedUnitState State,
-    DateTimeOffset? ReceivedOn);
+    DateTimeOffset? ReceivedOn,
+    string? Description = null,
+    string? Department = null,
+    string? Category = null,
+    string? Supplier = null,
+    string? Barcode = null,
+    string? Upc = null,
+    string? BinLocation = null,
+    decimal? Cost = null,
+    decimal? OnHand = null);
 
 /// <summary>
 /// Something the file said that the importer could not take at face value.
@@ -76,13 +97,18 @@ public static class EpcCatalogCsv
         }
 
         var header = Columns.From(records[0].Fields);
-        if (header.Epc < 0)
+
+        // A stock code is the only column this importer cannot do without: it is what an item is
+        // called, what a tag hangs on, and what a second import matches against. An EPC column is
+        // no longer required -- demanding one meant a shop with no RFID could not import its
+        // catalogue at all, which is most shops on their first day.
+        if (header.StockCode < 0)
         {
             problems.Add(new EpcCatalogProblem(
                 records[0].LineNumber,
                 string.Empty,
-                "header.no_epc_column",
-                "The file has no EPC column, so there is nothing here to import.",
+                "header.no_stock_code_column",
+                "The file needs a Stock Code column. Nothing else identifies which item a row is about.",
                 RowDropped: true));
 
             return new EpcCatalogParse(rows, problems, 0);
@@ -108,9 +134,11 @@ public static class EpcCatalogCsv
             // import screen describes, and the shape anybody hand-builds — had every row silently
             // dropped and came back "the file held no rows this importer could use". Where no id
             // column exists, a row is data if it says which tag it is about.
+            // A row is data if it says which item it is about. The id test still applies to the
+            // joined export, whose annotation row would otherwise read as an item.
             var skip = header.HasLeadingId
                 ? !int.TryParse(Field(fields, 0), NumberStyles.Integer, CultureInfo.InvariantCulture, out _)
-                : Field(fields, header.Epc).Trim().Length == 0;
+                : Field(fields, header.StockCode).Trim().Length == 0;
 
             if (skip)
             {
@@ -119,50 +147,55 @@ public static class EpcCatalogCsv
 
             dataRows++;
 
-            var rawEpc = Field(fields, header.Epc);
-
-            // Half the file writes the EPC as space-separated hex pairs, the way a reader's console
-            // prints it. Same tag, different transcription.
-            var epc = new string(rawEpc.Where(c => !char.IsWhiteSpace(c)).ToArray()).ToUpperInvariant();
-
-            var validated = Epc.Create(epc);
-            if (validated.IsFailure)
-            {
-                problems.Add(new EpcCatalogProblem(
-                    record.LineNumber,
-                    rawEpc,
-                    validated.Error.Code,
-                    validated.Error.Message,
-                    RowDropped: true));
-
-                continue;
-            }
-
-            epc = validated.Value.Value;
-
-            if (!seen.Add(epc))
-            {
-                problems.Add(new EpcCatalogProblem(
-                    record.LineNumber,
-                    epc,
-                    "epc.duplicate_in_file",
-                    "This tag appears earlier in the same file. The first occurrence was used.",
-                    RowDropped: true));
-
-                continue;
-            }
-
             var stockCode = Field(fields, header.StockCode).Trim();
             if (stockCode.Length == 0)
             {
                 problems.Add(new EpcCatalogProblem(
                     record.LineNumber,
-                    epc,
+                    string.Empty,
                     "row.no_stock_code",
-                    "The row has no stock code, so there is no item to hang the tag on.",
+                    "The row has no stock code, so there is no item to attach it to.",
                     RowDropped: true));
 
                 continue;
+            }
+
+            var rawEpc = header.Epc >= 0 ? Field(fields, header.Epc) : string.Empty;
+
+            // Half the file writes the EPC as space-separated hex pairs, the way a reader's console
+            // prints it. Same tag, different transcription.
+            var epc = new string(rawEpc.Where(c => !char.IsWhiteSpace(c)).ToArray()).ToUpperInvariant();
+
+            // An untagged row is an ordinary item, not a fault. A shop that tags only its high-value
+            // stock sends one file with the column filled in for some rows and blank for the rest.
+            if (epc.Length > 0)
+            {
+                var validated = Epc.Create(epc);
+                if (validated.IsFailure)
+                {
+                    problems.Add(new EpcCatalogProblem(
+                        record.LineNumber,
+                        rawEpc,
+                        validated.Error.Code,
+                        validated.Error.Message,
+                        RowDropped: true));
+
+                    continue;
+                }
+
+                epc = validated.Value.Value;
+
+                if (!seen.Add(epc))
+                {
+                    problems.Add(new EpcCatalogProblem(
+                        record.LineNumber,
+                        epc,
+                        "epc.duplicate_in_file",
+                        "This tag appears earlier in the same file. The first occurrence was used.",
+                        RowDropped: true));
+
+                    continue;
+                }
             }
 
             var name = ProductName(fields, header);
@@ -178,10 +211,19 @@ public static class EpcCatalogCsv
                 epc,
                 Truncate(stockCode, 30),
                 Truncate(name, 200),
-                ReadType(fields, header),
+                ReadType(fields, header, epc.Length > 0),
                 ReadDecimal(fields, header.RegularPrice),
                 state,
-                ReadTimestamp(fields, header.ReceivedOn)));
+                ReadTimestamp(fields, header.ReceivedOn),
+                Text(fields, header.Description, 500),
+                Text(fields, header.Department, 100),
+                Text(fields, header.Category, 100),
+                Text(fields, header.Supplier, 200),
+                Text(fields, header.Barcode, 50),
+                Text(fields, header.Upc, 50),
+                Text(fields, header.BinLocation, 50),
+                Optional(fields, header.Cost),
+                Optional(fields, header.OnHand)));
         }
 
         return new EpcCatalogParse(rows, problems, dataRows);
@@ -243,7 +285,7 @@ public static class EpcCatalogCsv
     /// blank the answer is still <see cref="ProductType.Serialized"/> — every row in this file has
     /// an EPC, and an EPC is one physical unit.
     /// </summary>
-    private static ProductType ReadType(IReadOnlyList<string> fields, Columns header)
+    private static ProductType ReadType(IReadOnlyList<string> fields, Columns header, bool tagged)
     {
         var raw = Field(fields, header.Type).Trim();
 
@@ -254,9 +296,45 @@ public static class EpcCatalogCsv
             return (ProductType)numeric;
         }
 
-        return Enum.TryParse<ProductType>(raw, ignoreCase: true, out var named)
-            ? named
-            : ProductType.Serialized;
+        if (Enum.TryParse<ProductType>(raw, ignoreCase: true, out var named))
+        {
+            return named;
+        }
+
+        // An EPC is one physical unit, so a tagged row is serialized. An untagged one is ordinary
+        // stock counted by quantity -- calling it serialized would demand a tag per unit for a shop
+        // that has none, and every sale would then ask which numbered item was leaving.
+        return tagged ? ProductType.Serialized : ProductType.Standard;
+    }
+
+    /// <summary>A trimmed value, or null where the column is absent or the cell empty.</summary>
+    private static string? Text(IReadOnlyList<string> fields, int index, int length)
+    {
+        var value = Field(fields, index).Trim();
+
+        return value.Length == 0 ? null : Truncate(value, length);
+    }
+
+    /// <summary>
+    /// A number, or null where there was none.
+    /// <para>
+    /// Null and zero are different answers and the importer treats them differently: a blank cost
+    /// column leaves an existing cost alone, where a zero would overwrite it with nothing. Thousands
+    /// separators are stripped first, because a spreadsheet writes 1,250.00 and means 1250.
+    /// </para>
+    /// </summary>
+    private static decimal? Optional(IReadOnlyList<string> fields, int index)
+    {
+        var raw = Field(fields, index).Trim();
+
+        if (raw.Length == 0)
+        {
+            return null;
+        }
+
+        return decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
     }
 
     private static decimal ReadDecimal(IReadOnlyList<string> fields, int index)
@@ -299,8 +377,38 @@ public static class EpcCatalogCsv
         int Name,
         int Type,
         int RegularPrice,
-        bool HasLeadingId)
+        bool HasLeadingId,
+        int Description,
+        int Department,
+        int Category,
+        int Supplier,
+        int Barcode,
+        int Upc,
+        int BinLocation,
+        int Cost,
+        int OnHand)
     {
+        /// <summary>
+        /// What a shopkeeper might reasonably have called each column.
+        /// <para>
+        /// Spelled out rather than guessed at, because the alternative is telling somebody their
+        /// file was rejected for calling a column "qty" instead of "on_hand". Order matters only in
+        /// that the first match wins, so the most specific name in each group comes first.
+        /// </para>
+        /// </summary>
+        private static readonly string[][] Aliases =
+        [
+            ["description", "long_name", "details"],
+            ["department", "dept"],
+            ["category", "sub_department", "subcategory", "sub_category"],
+            ["supplier", "vendor", "brand_supplier"],
+            ["barcode", "bar_code", "ean", "code39", "code_39"],
+            ["upc", "u_p_c"],
+            ["bin_location", "bin", "shelf", "location_in_store"],
+            ["cost", "unit_cost", "cost_price", "buy_price"],
+            ["on_hand", "onhand", "quantity", "qty", "stock", "opening_stock", "in_stock"],
+        ];
+
         public static Columns From(IReadOnlyList<string> header)
         {
             var names = header.Select(Normalise).ToList();
@@ -321,17 +429,60 @@ public static class EpcCatalogCsv
                 Epc: Find(names, 0, tagHalf, "epc"),
                 State: Find(names, 0, tagHalf, "state"),
                 ReceivedOn: Find(names, 0, tagHalf, "received_on"),
-                StockCode: Find(names, productFrom, names.Count, "stock_code"),
-                Name: Find(names, productFrom, names.Count, "name"),
+                StockCode: FindAny(names, productFrom, "stock_code", "item_code", "sku", "code"),
+                Name: FindAny(names, productFrom, "name", "item_name", "product_name", "item"),
                 Type: Find(names, productFrom, names.Count, "type"),
-                RegularPrice: Find(names, productFrom, names.Count, "regular_price"),
-                HasLeadingId: names.Count > 0 && names[0] == "id");
+                RegularPrice: FindAny(names, productFrom, "regular_price", "price", "retail_price", "sell_price"),
+                HasLeadingId: names.Count > 0 && names[0] == "id",
+                Description: FindAny(names, productFrom, Aliases[0]),
+                Department: FindAny(names, productFrom, Aliases[1]),
+                Category: FindAny(names, productFrom, Aliases[2]),
+                Supplier: FindAny(names, productFrom, Aliases[3]),
+                Barcode: FindAny(names, productFrom, Aliases[4]),
+                Upc: FindAny(names, productFrom, Aliases[5]),
+                BinLocation: FindAny(names, productFrom, Aliases[6]),
+                Cost: FindAny(names, productFrom, Aliases[7]),
+                OnHand: FindAny(names, productFrom, Aliases[8]));
         }
 
         /// <summary>
         /// Prefix matching, because two headers carry an inline note: <c>product_id PRODUCT NAME</c>
         /// and <c>state FLAG</c>. The note is what the column is for; the prefix is what it is.
         /// </summary>
+        /// <summary>
+        /// The first of several spellings that the header actually uses.
+        /// <para>
+        /// Exact match before prefix match, and in alias order, so a file carrying both
+        /// <c>price</c> and <c>cost_price</c> resolves each to the column it names rather than to
+        /// whichever happens to sit further left.
+        /// </para>
+        /// </summary>
+        private static int FindAny(IReadOnlyList<string> names, int from, params string[] candidates)
+        {
+            foreach (var candidate in candidates)
+            {
+                for (var i = from; i < names.Count; i++)
+                {
+                    if (names[i] == candidate)
+                    {
+                        return i;
+                    }
+                }
+            }
+
+            foreach (var candidate in candidates)
+            {
+                var prefixed = Find(names, from, names.Count, candidate);
+
+                if (prefixed >= 0)
+                {
+                    return prefixed;
+                }
+            }
+
+            return -1;
+        }
+
         private static int Find(IReadOnlyList<string> names, int from, int to, string prefix)
         {
             for (var i = from; i < to; i++)

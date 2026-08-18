@@ -67,6 +67,32 @@ public sealed class SerializedUnitsController : ControllerBase
     /// to look at a file somebody has been editing by hand before it touches a live catalogue.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// A starter file with the headings filled in and two example rows.
+    /// <para>
+    /// Here because "what should the CSV look like" is the question that stops an import before it
+    /// starts, and every answer that lives only in documentation is an answer somebody has to be
+    /// told about first. A file they can open, overwrite and send back needs no telling.
+    /// </para>
+    /// <para>
+    /// The two rows are deliberately different: one tagged, one not. A template showing only tagged
+    /// items reads as though the EPC column is required, which is the misunderstanding this whole
+    /// change exists to remove.
+    /// </para>
+    /// </summary>
+    [HttpGet("import/template")]
+    public IActionResult ImportTemplate()
+    {
+        const string template =
+            "Stock Code,Item Name,Description,Department,Category,Supplier,Barcode,Cost,Price,Qty,Bin,EPC\n" +
+            "SHIRT-01,Blue Shirt Medium,Cotton oxford shirt,Menswear,Shirts,Acme Textiles,5012345678900,900,1500,12,A3,\n" +
+            "JACKET-01,Olive Quilted Jacket XL,,Menswear,Outerwear,Acme Textiles,5012345678917,4200,7500,1,B1,E28011606000020C1B3E1234\n";
+
+        // Attachment, not inline: this one is meant to be saved, filled in and sent back. It is the
+        // opposite case to the printable documents, which open in a viewer.
+        return File(System.Text.Encoding.UTF8.GetBytes(template), "text/csv", "inventory-import-template.csv");
+    }
+
     [HttpPost("import")]
     [RequestSizeLimit(MaximumImportBytes)]
     public async Task<IActionResult> Import(

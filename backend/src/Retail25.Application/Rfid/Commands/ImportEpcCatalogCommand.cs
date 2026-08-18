@@ -7,6 +7,7 @@ using Retail25.Application.Rfid.Import;
 using Retail25.Domain.Catalog;
 using Retail25.Domain.Common;
 using Retail25.Domain.Inventory;
+using Retail25.Domain.Purchasing;
 
 namespace Retail25.Application.Rfid.Commands;
 
@@ -123,20 +124,43 @@ public sealed class ImportEpcCatalogHandler
             created.Add(product.Value);
         }
 
+        // Only the rows that actually carry a tag. An untagged row is an ordinary item and has
+        // nothing to do in the tag pass; left in, its empty EPC would be looked up against every
+        // untagged unit in the database and then handed to SerializedUnit.Create as though it were
+        // a tag. Counted here as well as used below, so a dry run does not report a tag per item
+        // for a file that has no tags in it at all.
+        var tagged = parsed.Rows.Where(r => r.Epc.Length > 0).ToList();
+
         if (request.DryRun)
         {
             // Nothing has been added to the change tracker, so there is nothing to undo. The counts
             // are what the caller wanted; a dry run that wrote anything would not be one.
-            var wouldSkip = await CountMappedTagsAsync(parsed.Rows, ct);
+            var wouldSkip = await CountMappedTagsAsync(tagged, ct);
 
             return Result.Success(new EpcCatalogImportResult(
                 parsed.DataRows,
-                TagsCreated: parsed.Rows.Count - wouldSkip,
+                TagsCreated: tagged.Count - wouldSkip,
                 TagsAlreadyMapped: wouldSkip,
                 ProductsCreated: created.Count,
                 ProductsMatched: existing.Count,
                 StockCodes: codes,
                 Problems: problems));
+        }
+
+        // Everything the file said about an item beyond its code, name and price.
+        //
+        // Applied to items this import creates and to no others. The class comment's promise --
+        // matched, never overwritten -- is what makes a re-import safe, and it would mean nothing if
+        // a second pass quietly rewrote departments and costs across a live catalogue.
+        var lookups = await ResolveLookupsAsync(request.LocationId, parsed.Rows, ct);
+        var firstRowFor = byStockCode.ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var product in created)
+        {
+            if (firstRowFor.TryGetValue(product.StockCode, out var row))
+            {
+                Enrich(product, row, lookups);
+            }
         }
 
         _db.Products.AddRange(created);
@@ -151,9 +175,11 @@ public sealed class ImportEpcCatalogHandler
             existing[product.StockCode] = product;
         }
 
+        await LinkSuppliersAndOpeningStockAsync(request.LocationId, created, firstRowFor, lookups, ct);
+
         // --- Pass two: the tags --------------------------------------------------------------
 
-        var epcs = parsed.Rows.Select(r => r.Epc).ToList();
+        var epcs = tagged.Select(r => r.Epc).ToList();
 
         var mapped = await _db.SerializedUnits.AsNoTracking()
             .Where(u => u.Epc != null && epcs.Contains(u.Epc))
@@ -163,7 +189,7 @@ public sealed class ImportEpcCatalogHandler
         var alreadyMapped = new HashSet<string>(mapped, StringComparer.Ordinal);
         var imported = new List<string>();
 
-        foreach (var row in parsed.Rows)
+        foreach (var row in tagged)
         {
             if (alreadyMapped.Contains(row.Epc))
             {
@@ -295,6 +321,230 @@ public sealed class ImportEpcCatalogHandler
     /// it is on somebody's basket, still owned and not yet paid for.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// The departments, categories and suppliers the file names, by name, created where absent.
+    /// <para>
+    /// By name because that is what a shopkeeper has. A file exported from a supplier's system says
+    /// "Menswear", not the id of a row in a database it has never seen, and demanding ids would mean
+    /// keying every department by hand before the import that was supposed to save the keying.
+    /// </para>
+    /// <para>
+    /// Matched case-insensitively so "menswear" and "Menswear" do not become two departments.
+    /// </para>
+    /// </summary>
+    private async Task<ImportLookups> ResolveLookupsAsync(
+        long locationId,
+        IReadOnlyList<EpcCatalogRow> rows,
+        CancellationToken ct)
+    {
+        var departments = await ResolveAsync(
+            rows.Select(r => r.Department),
+            async names => (await _db.Departments
+                    .Where(d => d.LocationId == locationId && !d.IsDeleted && names.Contains(d.Name))
+                    .ToListAsync(ct))
+                .ToDictionary(d => d.Name, d => d.Id, StringComparer.OrdinalIgnoreCase),
+            name =>
+            {
+                var created = Department.Create(locationId, name);
+                if (created.IsFailure)
+                {
+                    return null;
+                }
+
+                _db.Departments.Add(created.Value);
+                return created.Value;
+            },
+            d => d.Id,
+            ct);
+
+        var categories = await ResolveAsync(
+            rows.Select(r => r.Category),
+            async names => (await _db.Categories
+                    .Where(c => c.LocationId == locationId && !c.IsDeleted && names.Contains(c.Name))
+                    .ToListAsync(ct))
+                .ToDictionary(c => c.Name, c => c.Id, StringComparer.OrdinalIgnoreCase),
+            name =>
+            {
+                var created = Category.Create(locationId, name);
+                if (created.IsFailure)
+                {
+                    return null;
+                }
+
+                _db.Categories.Add(created.Value);
+                return created.Value;
+            },
+            c => c.Id,
+            ct);
+
+        var suppliers = await ResolveAsync(
+            rows.Select(r => r.Supplier),
+            async names => (await _db.Suppliers
+                    .Where(s => s.LocationId == locationId && !s.IsDeleted && names.Contains(s.Company))
+                    .ToListAsync(ct))
+                .ToDictionary(s => s.Company, s => s.Id, StringComparer.OrdinalIgnoreCase),
+            name =>
+            {
+                // The supplier number is required and the file has none, so the name doubles as one.
+                // A shop that cares can rename it afterwards; a shop that does not never sees it.
+                var created = Supplier.Create(locationId, name, name);
+                if (created.IsFailure)
+                {
+                    return null;
+                }
+
+                _db.Suppliers.Add(created.Value);
+                return created.Value;
+            },
+            s => s.Id,
+            ct);
+
+        return new ImportLookups(departments, categories, suppliers);
+    }
+
+    /// <summary>
+    /// Loads what exists, creates what does not, and saves once so the new rows have ids.
+    /// </summary>
+    private async Task<Dictionary<string, long>> ResolveAsync<TEntity>(
+        IEnumerable<string?> names,
+        Func<List<string>, Task<Dictionary<string, long>>> load,
+        Func<string, TEntity?> create,
+        Func<TEntity, long> idOf,
+        CancellationToken ct)
+        where TEntity : class
+    {
+        var wanted = names
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (wanted.Count == 0)
+        {
+            return new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var found = await load(wanted);
+        var made = new List<(string Name, TEntity Entity)>();
+
+        foreach (var name in wanted.Where(n => !found.ContainsKey(n)))
+        {
+            var entity = create(name);
+
+            if (entity is not null)
+            {
+                made.Add((name, entity));
+            }
+        }
+
+        if (made.Count > 0)
+        {
+            await _db.SaveChangesAsync(ct);
+
+            foreach (var (name, entity) in made)
+            {
+                found[name] = idOf(entity);
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>Applies the file's remaining columns to an item this import is creating.</summary>
+    private static void Enrich(Product product, EpcCatalogRow row, ImportLookups lookups)
+    {
+        if (row.Department is not null && lookups.Departments.TryGetValue(row.Department, out var departmentId))
+        {
+            product.SetDepartment(departmentId);
+        }
+
+        if (row.Category is not null && lookups.Categories.TryGetValue(row.Category, out var categoryId))
+        {
+            product.SetCategory(categoryId);
+        }
+
+        // Barcode and UPC are the same field here: Product.Upc is what the label renderer prints and
+        // what the till matches a scan against. A file may head the column either way, and one that
+        // carries both is taken at its word on the more specific name.
+        var barcode = row.Upc ?? row.Barcode;
+
+        if (row.Description is not null || barcode is not null || row.BinLocation is not null)
+        {
+            product.UpdateDetails(row.ProductName, row.Description, barcode, row.BinLocation, null);
+        }
+
+        // Cost seeds both last and average cost, because one import is the only history there is.
+        // Left alone when the column is absent -- a missing cost is not a cost of zero, and a zero
+        // would make the first margin report claim the whole catalogue is pure profit.
+        if (row.Cost is { } cost)
+        {
+            product.UpdatePricing(row.RegularPrice, cost, cost);
+        }
+    }
+
+    /// <summary>
+    /// The supplier link and the opening stock, both of which need item ids and so happen after the
+    /// save.
+    /// </summary>
+    private async Task LinkSuppliersAndOpeningStockAsync(
+        long locationId,
+        IReadOnlyList<Product> created,
+        Dictionary<string, EpcCatalogRow> firstRowFor,
+        ImportLookups lookups,
+        CancellationToken ct)
+    {
+        foreach (var product in created)
+        {
+            if (!firstRowFor.TryGetValue(product.StockCode, out var row))
+            {
+                continue;
+            }
+
+            if (row.Supplier is not null && lookups.Suppliers.TryGetValue(row.Supplier, out var supplierId))
+            {
+                var link = ProductSupplier.Create(product.Id, supplierId, rank: 1, cost: row.Cost ?? 0m);
+
+                if (link.IsSuccess)
+                {
+                    _db.ProductSuppliers.Add(link.Value);
+                }
+            }
+
+            // Opening stock, for items counted by quantity rather than by tag.
+            //
+            // Tagged items get their stock from the tag pass, one unit per EPC, so adding an on-hand
+            // figure here as well would count the same garments twice. And only for items this
+            // import created: running the same file again must not keep adding stock that never
+            // arrived. It is a ledger entry rather than a column, because on-hand is derived --
+            // writing the number straight onto the item is the fault that produced negative stock.
+            var untagged = row.Epc.Length == 0;
+
+            if (untagged && row.OnHand is { } quantity && quantity != 0m)
+            {
+                await StockMovements.ApplyAsync(
+                    _db,
+                    product.Id,
+                    variantId: null,
+                    locationId,
+                    quantity,
+                    unitCost: row.Cost ?? 0m,
+                    MovementType.Adjustment,
+                    reason: "Catalogue import: opening stock",
+                    occurredAt: _clock.Now,
+                    staffId: null,
+                    ct: ct);
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Names resolved to ids, once, for the whole file.</summary>
+    private sealed record ImportLookups(
+        Dictionary<string, long> Departments,
+        Dictionary<string, long> Categories,
+        Dictionary<string, long> Suppliers);
+
     private static bool EndsUpOnHand(SerializedUnitState state)
         => state is SerializedUnitState.InStock or SerializedUnitState.InCart or SerializedUnitState.Returned;
 
