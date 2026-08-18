@@ -2396,6 +2396,26 @@ function RevokeAccess({
           label="Restore access"
           onClick={() => void run(() => mastersApi.staff.reactivate(staff.id), 'Access restored')}
         />
+
+        {/*
+          Offered only once somebody is already deactivated, so removing them outright is never the
+          first thing to hand — and the server refuses it for anybody who has sales, drawer counts
+          or audit entries against them, saying to deactivate instead. What it is really for is
+          tidying up accounts created by mistake.
+        */}
+        <p className="text-body text-ink-muted">
+          Deleting removes the account entirely. Only possible for somebody who never traded — the
+          server refuses it once there are sales or changes recorded against them, because their
+          name has to stay readable on those.
+        </p>
+        <SaveButton
+          busy={busy}
+          variant="secondary"
+          label="Delete permanently"
+          onClick={() =>
+            void run(() => mastersApi.staff.remove(staff.id), 'Account deleted')
+          }
+        />
       </FieldGroup>
     );
   }

@@ -62,11 +62,28 @@ public sealed record DeactivateStaffCommand(long StaffId) : IRequest<Result>;
 [RequiresPermission(PermissionKeys.Staff.Write)]
 public sealed record ReactivateStaffCommand(long StaffId) : IRequest<Result>;
 
+/// <summary>
+/// Removes a colleague outright — the staff profile and the sign-in behind it.
+/// <para>
+/// Only for somebody who never traded. Every sale, drawer count and audit entry names the staff who
+/// did it, so deleting one who has history would leave last month's takings with no cashier against
+/// them and the audit log unable to say who changed a price. Where there is history the answer is
+/// Deactivate, which removes the access and keeps the books readable, and this refuses and says so.
+/// </para>
+/// <para>
+/// What it is genuinely for: clearing up accounts created by mistake, and the half-finished ones
+/// left by a failed creation.
+/// </para>
+/// </summary>
+[RequiresPermission(PermissionKeys.Staff.Write)]
+public sealed record DeleteStaffCommand(long StaffId) : IRequest<Result>;
+
 public sealed class StaffProvisioningHandlers :
     IRequestHandler<CreateStaffCommand, Result<StaffRowDto>>,
     IRequestHandler<ResetStaffPasswordCommand, Result>,
     IRequestHandler<DeactivateStaffCommand, Result>,
     IRequestHandler<ReactivateStaffCommand, Result>,
+    IRequestHandler<DeleteStaffCommand, Result>,
     IRequestHandler<ListAssignableRolesQuery, IReadOnlyList<AssignableRoleDto>>
 {
     public static readonly Error CannotDeactivateSelf = new(
@@ -98,6 +115,11 @@ public sealed class StaffProvisioningHandlers :
     public static readonly Error PinNotNumeric = new("staff.pin_not_numeric", "A PIN must be digits only.");
 
     public static readonly Error StaffNotFound = new("staff.not_found", "No such member of staff.");
+
+    public static readonly Error HasHistory = new(
+        "staff.has_history",
+        "This person has already worked — sales, drawer counts or changes are recorded against them. "
+        + "Deactivate them instead, which removes their access and leaves the records readable.");
 
     /// <summary>
     /// The longest staff code the schema accepts. Checked here so an over-long code comes back as a
@@ -329,6 +351,55 @@ public sealed class StaffProvisioningHandlers :
         await _db.SaveChangesAsync(ct);
 
         return Result.Success();
+    }
+
+    public async Task<Result> Handle(DeleteStaffCommand request, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var staff = await _db.StaffProfiles.FirstOrDefaultAsync(s => s.Id == request.StaffId, ct);
+
+        if (staff is null)
+        {
+            return Result.Failure(StaffNotFound);
+        }
+
+        // The same two guards deactivation has, for the same reasons, and more sharply here: this
+        // one cannot be undone by a second click the way Reactivate undoes the other.
+        if (_currentUser.StaffId == staff.Id)
+        {
+            return Result.Failure(CannotDeactivateSelf);
+        }
+
+        if (await IsLastAdministratorAsync(staff, ct))
+        {
+            return Result.Failure(LastAdministrator);
+        }
+
+        // Anything that names them. A sale attributed to a staff row that no longer exists is a
+        // receipt with no cashier and a commission report that cannot be reconciled; an audit entry
+        // pointing at a deleted actor is an audit trail that has stopped being one. So the answer
+        // for anybody who has worked is deactivation, and this says so rather than doing damage the
+        // administrator cannot see from this screen.
+        var traded = await _db.SalesTransactions.AnyAsync(t => t.StaffId == staff.Id, ct)
+            || await _db.SalesTransactions.AnyAsync(t => t.VoidApprovedByStaffId == staff.Id, ct)
+            || await _db.DrawerSessions.AnyAsync(d => d.OpenedByStaffId == staff.Id || d.ClosedByStaffId == staff.Id, ct)
+            || await _db.AuditLogEntries.AnyAsync(a => a.ActorStaffId == staff.Id || a.ApproverStaffId == staff.Id, ct);
+
+        if (traded)
+        {
+            return Result.Failure(HasHistory);
+        }
+
+        var userId = staff.UserId;
+
+        _db.StaffProfiles.Remove(staff);
+        await _db.SaveChangesAsync(ct);
+
+        // The profile goes first and the sign-in second, so a failure here leaves a sign-in with no
+        // profile — which is recoverable, because creating the same address again adopts it. The
+        // other order would leave a profile whose sign-in has gone, and nothing recovers that.
+        return await _provisioner.DeleteAsync(userId, ct);
     }
 
     public async Task<Result> Handle(ReactivateStaffCommand request, CancellationToken ct)

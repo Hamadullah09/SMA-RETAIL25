@@ -762,7 +762,10 @@ export const mastersApi = {
      */
     deactivate: (staffId: number) => call<void>(() => apiClient.delete(`/staff/${staffId}`)),
 
-    reactivate: (staffId: number) => call<void>(() => apiClient.post(`/staff/${staffId}/reactivate`)),
+    reactivate: (staffId: number) => call<void>(() => apiClient.post(`/staff//reactivate`)),
+
+    /** Removes them outright. Refused by the server for anybody who has already worked. */
+    remove: (staffId: number) => call<void>(() => apiClient.delete(`/staff/${staffId}/permanent`)),
 
     myTimeClock: (locationId: number) =>
       call<TimeClockState>(() => apiClient.get(`/staff/time-clock/me?${query({ locationId })}`)),

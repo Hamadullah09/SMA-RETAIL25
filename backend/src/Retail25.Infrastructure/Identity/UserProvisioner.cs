@@ -47,6 +47,23 @@ public sealed class UserProvisioner : IUserProvisioner
         => await _users.FindByEmailAsync(email) is not null
             || await _users.FindByNameAsync(email) is not null;
 
+    public async Task<Result> DeleteAsync(long userId, CancellationToken ct)
+    {
+        var user = await _users.FindByIdAsync(userId.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+        // Already gone is the outcome the caller wanted, so it is a success rather than an error.
+        if (user is null)
+        {
+            return Result.Success();
+        }
+
+        var removed = await _users.DeleteAsync(user);
+
+        return removed.Succeeded
+            ? Result.Success()
+            : Result.Failure(new Error("staff.delete_failed", string.Join(" ", removed.Errors.Select(e => e.Description))));
+    }
+
     public async Task<long?> FindIdByEmailAsync(string email, CancellationToken ct)
     {
         var user = await _users.FindByEmailAsync(email) ?? await _users.FindByNameAsync(email);

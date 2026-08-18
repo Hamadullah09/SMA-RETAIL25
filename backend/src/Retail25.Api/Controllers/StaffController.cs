@@ -49,6 +49,14 @@ public sealed class StaffController : ControllerBase
     public async Task<IActionResult> Deactivate(long staffId, CancellationToken ct)
         => (await _sender.Send(new DeactivateStaffCommand(staffId), ct)).ToActionResult(this);
 
+    /// <summary>
+    /// Removes a colleague outright. Refused for anybody with recorded history, who should be
+    /// deactivated instead — see <c>DeleteStaffCommand</c>.
+    /// </summary>
+    [HttpDelete("{staffId:long}/permanent")]
+    public async Task<IActionResult> Delete(long staffId, CancellationToken ct)
+        => (await _sender.Send(new DeleteStaffCommand(staffId), ct)).ToActionResult(this);
+
     [HttpPost("{staffId:long}/reactivate")]
     public async Task<IActionResult> Reactivate(long staffId, CancellationToken ct)
         => (await _sender.Send(new ReactivateStaffCommand(staffId), ct)).ToActionResult(this);

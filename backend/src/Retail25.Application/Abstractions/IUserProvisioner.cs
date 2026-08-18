@@ -60,6 +60,9 @@ public interface IUserProvisioner
     /// </summary>
     Task<long?> FindIdByEmailAsync(string email, CancellationToken ct);
 
+    /// <summary>Removes a sign-in outright. Only ever called for somebody with no recorded history.</summary>
+    Task<Result> DeleteAsync(long userId, CancellationToken ct);
+
     /// <summary>
     /// Creates the sign-in and puts it in <paramref name="role"/>. Returns the new user's Id.
     /// Failures carry the Identity validator's own codes, e.g. <c>PasswordTooShort</c>.
