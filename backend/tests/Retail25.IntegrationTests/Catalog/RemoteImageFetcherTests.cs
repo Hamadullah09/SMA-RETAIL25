@@ -74,13 +74,32 @@ public sealed class RemoteImageFetcherTests
     [InlineData("")]
     [InlineData("   ")]
     [InlineData("not a url")]
-    [InlineData("/images/a.png")]
     public async Task Something_that_is_not_an_address_is_refused_rather_than_guessed_at(string url)
     {
         var result = await Fetcher().FetchAsync(url, default);
 
         result.IsFailure.Should().BeTrue();
         result.Error.Code.Should().Be("image.url_invalid");
+    }
+
+    /// <summary>
+    /// A bare path is refused, but which guard catches it depends on the platform, so the assertion
+    /// is on the refusal rather than on the wording.
+    /// <para>
+    /// On Windows <c>/images/a.png</c> is not an absolute URI and never parses. On Linux it does —
+    /// as <c>file:///images/a.png</c> — and is stopped one step later by the scheme check. This test
+    /// originally demanded the first code and passed locally while failing in CI, which is the test
+    /// being wrong rather than the code: both paths refuse it, and both refuse it before a socket is
+    /// opened, which is the property that matters.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_bare_path_is_refused_however_the_platform_parses_it()
+    {
+        var result = await Fetcher().FetchAsync("/images/a.png", default);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().BeOneOf("image.url_invalid", "image.url_scheme");
     }
 
     /// <summary>
