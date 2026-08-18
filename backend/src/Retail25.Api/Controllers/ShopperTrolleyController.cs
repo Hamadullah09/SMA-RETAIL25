@@ -79,6 +79,15 @@ public sealed class ShopperTrolleyController : ControllerBase
         => (await _sender.Send(new RemoveMyLineCommand(sequence))).ToActionResult(this);
 
     /// <summary>
+    /// Empties the basket in one action — for a shopper who changed their mind about the trip, or
+    /// swept a neighbouring shelf into the bill. Every unit goes back to stock and every tag is
+    /// released, as removing the lines one by one would, but as a single update.
+    /// </summary>
+    [HttpDelete("cart/lines")]
+    public async Task<IActionResult> ClearCart()
+        => (await _sender.Send(new ClearMyCartCommand())).ToActionResult(this);
+
+    /// <summary>
     /// The caller's own past visits, newest first. Their receipts and nobody else's — the shopper is
     /// taken from the token, never from the route.
     /// </summary>
