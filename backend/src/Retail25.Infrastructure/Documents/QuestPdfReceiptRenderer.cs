@@ -20,7 +20,7 @@ namespace Retail25.Infrastructure.Documents;
 /// re-derives a total, because both are handed one that was frozen at the moment of sale.
 /// </para>
 /// </summary>
-internal static class QuestPdfReceiptRenderer
+public static class QuestPdfReceiptRenderer
 {
     private const float Mm = 2.834645f;
 
@@ -30,7 +30,16 @@ internal static class QuestPdfReceiptRenderer
 
     private const int Columns = 40;
 
-    public static byte[] Render(ReceiptDocument doc)
+    public static byte[] Render(ReceiptDocument doc) => Build(doc).GeneratePdf();
+
+    /// <summary>
+    /// The composed receipt, before it becomes bytes.
+    /// <para>
+    /// Exposed for the same reason <c>BuildEnvelope</c> is: a byte count says nothing about whether
+    /// the columns line up, and this can be rendered to an image and looked at.
+    /// </para>
+    /// </summary>
+    public static IDocument Build(ReceiptDocument doc)
     {
         ArgumentNullException.ThrowIfNull(doc);
 
@@ -51,7 +60,7 @@ internal static class QuestPdfReceiptRenderer
 
                 page.Content().Column(column => Compose(column, doc));
             });
-        }).GeneratePdf();
+        });
     }
 
     private static void Compose(ColumnDescriptor column, ReceiptDocument doc)
@@ -67,8 +76,19 @@ internal static class QuestPdfReceiptRenderer
             }
         }
 
+        // Centred by the layout engine, not by padding with spaces. Padding only lands in the middle
+        // when the text is the same size as the 40-column body; the shop name is larger, so counting
+        // characters put it visibly off to one side.
         void Centred(string text, bool bold = false, float size = 8)
-            => Line(text.Length >= Columns ? text : text.PadLeft((Columns + text.Length) / 2), bold, size);
+        {
+            var item = column.Item().AlignCenter().Text(text);
+            item.FontSize(size);
+
+            if (bold)
+            {
+                item.Bold();
+            }
+        }
 
         var money = new NumberFormatInfo { NumberDecimalDigits = 2, NumberGroupSeparator = "," };
 
@@ -81,6 +101,25 @@ internal static class QuestPdfReceiptRenderer
             var room = Math.Max(1, Columns - right.Length);
             return (left.Length > room ? left[..room] : left).PadRight(room) + right;
         }
+
+        // The same, with two columns held back on the right for tax flags. Every money line reserves
+        // them whether or not it has flags, so the amounts form one column down the whole slip
+        // instead of the item lines sitting two characters left of the totals.
+        string Row(string left, string amount, string flags)
+        {
+            var trailing = " " + (flags.Length == 0 ? "  " : flags);
+            var room = Math.Max(1, Columns - amount.Length - trailing.Length);
+
+            return (left.Length > room ? left[..room] : left).PadRight(room) + amount + trailing;
+        }
+
+        string Money(string left, decimal value) => Row(left, Amount(value), string.Empty);
+
+        // The tax's own initial rather than "1" and "2". On a line reading "12 x 3,900.00 12" the
+        // flags were indistinguishable from the quantity; G and P are not. Taken from the configured
+        // tax names, so a VAT shop gets V and nothing here needs changing.
+        static string Flag(bool applies, string taxName)
+            => applies && !string.IsNullOrWhiteSpace(taxName) ? taxName.Trim()[..1].ToUpperInvariant() : " ";
 
         if (doc.IsTraining)
         {
@@ -132,15 +171,18 @@ internal static class QuestPdfReceiptRenderer
 
             if (showMoney)
             {
-                var taxFlags = $"{(line.Tax1Applies ? "1" : " ")}{(line.Tax2Applies ? "2" : " ")}";
-                Line(Pair($"  {quantity} x {Amount(line.UnitPrice)} {taxFlags}", Amount(line.ExtendedNet)));
+                var flags = $"{Flag(line.Tax1Applies, doc.Tax1Name)}{Flag(line.Tax2Applies, doc.Tax2Name)}";
+                Line(Row($"  {quantity} x {Amount(line.UnitPrice)}", Amount(line.ExtendedNet), flags));
             }
             else
             {
                 Line($"  {quantity}");
             }
 
-            if (!string.IsNullOrWhiteSpace(line.PriceOriginLabel))
+            // Suppressed on a packing slip, which shows no money by design (guide p.12). "Price level
+            // 2" is a pricing decision, and a slip that travels with the goods to a customer should
+            // not carry one -- least of all on the one document chosen for showing no prices.
+            if (showMoney && !string.IsNullOrWhiteSpace(line.PriceOriginLabel))
             {
                 Line($"    {line.PriceOriginLabel}");
             }
@@ -161,44 +203,48 @@ internal static class QuestPdfReceiptRenderer
 
         foreach (var adjustment in doc.Adjustments)
         {
-            Line(Pair(adjustment.Label, Amount(adjustment.Amount)));
+            Line(Money(adjustment.Label, adjustment.Amount));
         }
 
-        Line(Pair("Subtotal", Amount(doc.Subtotal)));
+        Line(Money("Subtotal", doc.Subtotal));
 
         if (doc.DiscountTotal != 0)
         {
-            Line(Pair("Discount", Amount(-doc.DiscountTotal)));
+            Line(Money("Discount", -doc.DiscountTotal));
         }
 
         // Named from the tax configuration, never labelled "Tax": the shop's own words are what a
         // customer and an auditor both expect to see.
         if (doc.Tax1Total != 0)
         {
-            Line(Pair(doc.Tax1Name, Amount(doc.Tax1Total)));
+            Line(Money(doc.Tax1Name, doc.Tax1Total));
         }
 
         if (doc.Tax2Total != 0)
         {
-            Line(Pair(doc.Tax2Name, Amount(doc.Tax2Total)));
+            Line(Money(doc.Tax2Name, doc.Tax2Total));
         }
 
         if (doc.AddOnCharge != 0)
         {
-            Line(Pair(doc.AddOnChargeName, Amount(doc.AddOnCharge)));
+            Line(Money(doc.AddOnChargeName, doc.AddOnCharge));
         }
 
         if (doc.RoundingAdjustment != 0)
         {
-            Line(Pair("Rounding", Amount(doc.RoundingAdjustment)));
+            Line(Money("Rounding", doc.RoundingAdjustment));
         }
 
-        Line(Pair("TOTAL", $"{doc.CurrencySymbol} {Amount(doc.GrandTotal)}"), bold: true, size: 10);
+        // Bold at the body size, not larger. At 10pt a 40-character line no longer fits 72mm, so the
+        // most important line on the receipt wrapped and the amount fell onto its own line under the
+        // word TOTAL. Emphasis that breaks the number it is emphasising is worse than no emphasis.
+        Line(new string('=', Columns));
+        Line(Row("TOTAL", $"{doc.CurrencySymbol} {Amount(doc.GrandTotal)}", string.Empty), bold: true);
         Line();
 
         foreach (var tender in doc.Tenders)
         {
-            Line(Pair(tender.Name, Amount(tender.AmountTendered == 0 ? tender.Amount : tender.AmountTendered)));
+            Line(Money(tender.Name, tender.AmountTendered == 0 ? tender.Amount : tender.AmountTendered));
 
             if (!string.IsNullOrWhiteSpace(tender.Reference))
             {
@@ -208,14 +254,14 @@ internal static class QuestPdfReceiptRenderer
 
         if (doc.ChangeGiven != 0)
         {
-            Line(Pair("Change", Amount(doc.ChangeGiven)));
+            Line(Money("Change", doc.ChangeGiven));
         }
 
         if (doc.LoyaltyPointsEarned != 0 || doc.LoyaltyPointsBalance != 0)
         {
             Line();
-            Line(Pair("Points earned", doc.LoyaltyPointsEarned.ToString(CultureInfo.InvariantCulture)));
-            Line(Pair("Points balance", doc.LoyaltyPointsBalance.ToString(CultureInfo.InvariantCulture)));
+            Line(Row("Points earned", doc.LoyaltyPointsEarned.ToString(CultureInfo.InvariantCulture), string.Empty));
+            Line(Row("Points balance", doc.LoyaltyPointsBalance.ToString(CultureInfo.InvariantCulture), string.Empty));
         }
 
         Footer(doc, Line, Centred);
