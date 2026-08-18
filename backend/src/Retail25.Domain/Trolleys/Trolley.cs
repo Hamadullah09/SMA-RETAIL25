@@ -33,6 +33,9 @@ public sealed class Trolley : AggregateRoot, IAuditable
     public static readonly Error CodeInvalid =
         new("trolley.code_invalid", "A counter number must be 3–6 digits.");
 
+    public static readonly Error TareInvalid =
+        new("trolley.tare_invalid", "A trolley's empty weight must be more than zero.");
+
     public static readonly Error NotFound =
         new("trolley.not_found", "No counter has that number. Check the number shown at the counter.");
 
@@ -62,6 +65,21 @@ public sealed class Trolley : AggregateRoot, IAuditable
 
     public bool IsActive { get; private set; } = true;
 
+    /// <summary>
+    /// What the trolley itself weighs, empty, in kilograms.
+    /// <para>
+    /// Recorded per trolley rather than as one number for the fleet because they are not identical:
+    /// this shop's run between about 2.2 and 2.5 kg, and a scale that verifies a basket by weight has
+    /// to subtract the right one. Treating 2.35 as universal would put every trolley up to 150 g out
+    /// before a single item was in it, which is more than plenty of items weigh.
+    /// </para>
+    /// <para>
+    /// Nullable on purpose: unknown and "weighs nothing" are different claims, and a trolley nobody
+    /// has weighed yet must not silently report a tare of zero to whatever later does the arithmetic.
+    /// </para>
+    /// </summary>
+    public decimal? TareWeightKg { get; private set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 
     public long? CreatedBy { get; set; }
@@ -70,7 +88,12 @@ public sealed class Trolley : AggregateRoot, IAuditable
 
     public long? ModifiedBy { get; set; }
 
-    public static Result<Trolley> Create(long locationId, long stationId, string? code, string? label = null)
+    public static Result<Trolley> Create(
+        long locationId,
+        long stationId,
+        string? code,
+        string? label = null,
+        decimal? tareWeightKg = null)
     {
         var trimmed = (code ?? string.Empty).Trim();
 
@@ -79,13 +102,38 @@ public sealed class Trolley : AggregateRoot, IAuditable
             return Result.Failure<Trolley>(CodeInvalid.With("value", code));
         }
 
+        if (tareWeightKg is { } tare && tare <= 0m)
+        {
+            return Result.Failure<Trolley>(TareInvalid.With("value", tare));
+        }
+
         return Result.Success(new Trolley
         {
             LocationId = locationId,
             StationId = stationId,
             Code = trimmed,
             Label = label?.Trim(),
+            TareWeightKg = tareWeightKg,
         });
+    }
+
+    /// <summary>
+    /// Records what this trolley actually weighs, once somebody has put it on a scale.
+    /// <para>
+    /// Null clears it back to unknown, which is a real thing to want: a trolley whose wheels have
+    /// been replaced no longer weighs what the sticker said, and an unknown tare is safer than a
+    /// stale one.
+    /// </para>
+    /// </summary>
+    public Result SetTareWeight(decimal? tareWeightKg)
+    {
+        if (tareWeightKg is { } tare && tare <= 0m)
+        {
+            return Result.Failure(TareInvalid.With("value", tare));
+        }
+
+        TareWeightKg = tareWeightKg;
+        return Result.Success();
     }
 
     /// <summary>

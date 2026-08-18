@@ -20,7 +20,37 @@ public sealed class TrolleyOptions
 
     public int MinStationCode { get; set; } = 300;
 
-    public int MaxStationCode { get; set; } = 399;
+    /// <summary>
+    /// The last code reserved for shoppers. This shop has set aside 300–500 for self-checkout, so a
+    /// counter can be added anywhere in that block without a release.
+    /// </summary>
+    public int MaxStationCode { get; set; } = 500;
+
+    /// <summary>
+    /// What a newly created trolley is assumed to weigh empty, in kilograms.
+    /// <para>
+    /// A default rather than a measurement: nobody is going to put two hundred trolleys on a scale
+    /// before the system will run. It is the midpoint of the range below, so the assumption is never
+    /// more than half the spread out, and any trolley that is later weighed properly overwrites it.
+    /// </para>
+    /// <para>
+    /// Configuration, not a literal, because the next shop buys a different trolley.
+    /// </para>
+    /// </summary>
+    public decimal DefaultTareKg { get; set; } = 2.35m;
+
+    /// <summary>
+    /// The lightest and heaviest a trolley in this fleet is believed to be.
+    /// <para>
+    /// Not used to reject anything at present — they are here so that whatever later verifies a
+    /// basket by weight has the tolerance to work with, rather than inventing one. A reading outside
+    /// this band means the tare on file is wrong or the trolley is not the one it claims to be, and
+    /// that is a different conversation from "the basket is heavier than the bill".
+    /// </para>
+    /// </summary>
+    public decimal MinTareKg { get; set; } = 2.2m;
+
+    public decimal MaxTareKg { get; set; } = 2.5m;
 
     /// <summary>
     /// Register a station for app use the first time somebody connects to it, so adding a counter is

@@ -14,6 +14,11 @@ public class TrolleyConfiguration : IEntityTypeConfiguration<Trolley>
         builder.Property(t => t.Code).IsRequired().HasMaxLength(6);
         builder.Property(t => t.Label).HasMaxLength(100);
 
+        // Three decimal places: grams. A trolley is weighed to the gram or not at all — the whole
+        // point of storing it per trolley is that the fleet varies by around 300 g, so rounding to
+        // 100 g would throw away most of what makes it worth recording.
+        builder.Property(t => t.TareWeightKg).HasPrecision(6, 3);
+
         // Codes are printed on handles and only ever read inside one shop, so they are unique per
         // location rather than globally — two branches may both have a trolley 482.
         builder.HasIndex(t => new { t.LocationId, t.Code }).IsUnique();

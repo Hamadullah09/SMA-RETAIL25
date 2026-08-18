@@ -375,7 +375,15 @@ public sealed class TrolleyAllocator
             return Result.Success(already);
         }
 
-        var registration = Trolley.Create(station.LocationId, station.Id, station.StationCode, station.Name);
+        // Seeded with the fleet's assumed empty weight rather than left unknown, so a scale has a
+        // tare to subtract from the moment a counter exists. Any trolley that is actually weighed
+        // overwrites it; the configured default is only ever a stand-in.
+        var registration = Trolley.Create(
+            station.LocationId,
+            station.Id,
+            station.StationCode,
+            station.Name,
+            _options.DefaultTareKg);
 
         if (registration.IsFailure)
         {
