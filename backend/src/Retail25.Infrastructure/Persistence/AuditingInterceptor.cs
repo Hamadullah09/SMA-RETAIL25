@@ -218,6 +218,34 @@ public sealed class AuditingInterceptor : SaveChangesInterceptor
     /// Only the columns that actually changed, so a diff is readable. Storing whole entities would
     /// make a one-field price change indistinguishable from a wholesale rewrite.
     /// </summary>
+    /// <summary>
+    /// Columns that record that a machine is alive, not that anybody changed anything.
+    /// <para>
+    /// Each till's agent reports in every few seconds, and each report writes the station's last
+    /// heartbeat and agent version. Audited like an edit, that is one row per till every few
+    /// seconds — hundreds an hour, all identical, burying the sign-ins and refusals the log exists
+    /// for. The live log was exactly that: page after page of "Updated Station", four seconds apart.
+    /// </para>
+    /// <para>
+    /// An audit trail nobody can read is one nobody checks, so this is a correctness problem rather
+    /// than a tidiness one. Treated like the audit stamps above: ignored when working out what
+    /// changed, so an update touching only these produces an empty diff and the existing guard drops
+    /// the row. An update that changes a station's code *and* its heartbeat is still recorded, with
+    /// the code in the diff and the heartbeat left out of it.
+    /// </para>
+    /// <para>
+    /// The liveness itself is not lost. It is on the station row, it drives the online indicator,
+    /// and it is what <c>IsAgentOnline</c> reads. This only stops it being filed as an edit.
+    /// </para>
+    /// </summary>
+    private static readonly HashSet<string> TelemetryProperties = new(StringComparer.Ordinal)
+    {
+        "LastHeartbeat",
+        "AgentVersion",
+    };
+
+    private static bool IsTelemetry(string name) => TelemetryProperties.Contains(name);
+
     private static (string? Before, string? After) Diff(EntityEntry entry, AuditAction action)
     {
         var before = new Dictionary<string, object?>(StringComparer.Ordinal);
@@ -227,7 +255,7 @@ public sealed class AuditingInterceptor : SaveChangesInterceptor
         {
             var name = property.Metadata.Name;
 
-            if (RedactedProperties.Contains(name) || IsAuditColumn(name))
+            if (RedactedProperties.Contains(name) || IsAuditColumn(name) || IsTelemetry(name))
             {
                 continue;
             }
