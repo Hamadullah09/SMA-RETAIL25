@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Retail25.Api.Common;
+using Retail25.Application.Trolleys.Commands;
 using Retail25.Application.Trolleys.Queries;
 
 namespace Retail25.Api.Controllers;
@@ -28,6 +29,18 @@ public sealed class TrolleysController : ControllerBase
         => (await _sender.Send(new ListTrolleysQuery(locationId), ct)).ToActionResult(this);
 
     /// <summary>
+    /// Creates every counter in the self-checkout block that does not exist yet, and gives each one a
+    /// starting weight spread across the fleet's band.
+    /// <para>
+    /// Idempotent, so pressing it twice is safe -- which matters, because pressing it again is the
+    /// obvious thing to do when a page looks wrong.
+    /// </para>
+    /// </summary>
+    [HttpPost("provision")]
+    public async Task<IActionResult> Provision([FromBody] ProvisionRequest? request, CancellationToken ct)
+        => (await _sender.Send(new ProvisionTrolleysCommand(request?.LocationId), ct)).ToActionResult(this);
+
+    /// <summary>
     /// Records what a trolley weighs empty. A null weight clears it back to unknown, which is not
     /// the same as zero and is the right answer for a trolley that has been rebuilt.
     /// </summary>
@@ -37,3 +50,5 @@ public sealed class TrolleysController : ControllerBase
 }
 
 public sealed record SetTareRequest(decimal? TareWeightKg);
+
+public sealed record ProvisionRequest(long? LocationId = null);

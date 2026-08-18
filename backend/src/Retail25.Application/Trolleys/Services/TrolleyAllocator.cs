@@ -288,6 +288,18 @@ public sealed class TrolleyAllocator
     /// is what keeps the front counter out of a shopper's hands.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Brings one counter into existence if it is not there already, creating its station too, and
+    /// returns it either way.
+    /// <para>
+    /// The same path a shopper takes when they are issued a counter, exposed so a shop can lay the
+    /// whole block down in advance instead of waiting for two hundred shoppers to create them one at
+    /// a time. Idempotent by construction: an existing counter is returned untouched.
+    /// </para>
+    /// </summary>
+    public Task<Result<Trolley>> EnsureAsync(string code, long? locationId, CancellationToken ct)
+        => ResolveTrolleyAsync(code, locationId, ct);
+
     private async Task<Result<Trolley>> ResolveTrolleyAsync(string code, long? locationId, CancellationToken ct)
     {
         var existing = await _db.Trolleys

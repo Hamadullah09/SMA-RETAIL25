@@ -94,6 +94,38 @@ export function TrolleysTab({ locationId, canWrite }: { locationId?: number; can
 
   const unweighed = rows.filter((t) => t.tareWeightKg === null).length;
 
+  // Lays the whole block down at once. Counters were only ever created when a shopper was issued
+  // one, which is fine for running a shop and useless for setting one up: nobody wants to wait for
+  // two hundred shoppers before the fleet appears on this screen.
+  const provision = async () => {
+    setLoading(true);
+
+    try {
+      const { data } = await apiClient.post('/trolleys/provision', {});
+      const result = data as { created: number; alreadyThere: number; weighed: number; failed: number };
+
+      toast({
+        title: result.created > 0 ? `${result.created} counters added` : 'Nothing to add',
+        description:
+          result.failed > 0
+            ? `${result.weighed} given a starting weight. ${result.failed} could not be created.`
+            : `${result.weighed} given a starting weight.`,
+        variant: result.failed > 0 ? 'destructive' : undefined,
+      });
+
+      await load();
+    } catch (error) {
+      const problem = (error as { response?: { data?: { detail?: string } } })?.response?.data;
+      toast({
+        title: 'Could not add the counters',
+        description: problem?.detail ?? 'Something went wrong.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <section className="flex flex-col gap-3">
       <header>
@@ -108,6 +140,19 @@ export function TrolleysTab({ locationId, canWrite }: { locationId?: number; can
           Leave a box empty to mark a trolley as never weighed. That is not the same as zero, and it
           is the right answer for one that has been rebuilt.
         </p>
+
+        {canWrite ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button type="button" className="pos-button" disabled={loading} onClick={() => void provision()}>
+              {loading ? 'Working…' : 'Add every counter in the block'}
+            </button>
+            <span className="text-xs text-ink-muted">
+              Creates any counter in the self-checkout range that does not exist yet and gives each a
+              starting weight spread across the band. Safe to press twice; it never overwrites a
+              weight already recorded.
+            </span>
+          </div>
+        ) : null}
       </header>
 
       {loading ? (
