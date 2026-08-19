@@ -166,6 +166,28 @@ builder.Services.AddCors(options =>
     });
 });
 
+// --- Is this deployment served over plain HTTP? ---
+//
+// One question, asked once, because three separate decisions depend on the answer: whether
+// OpenIddict lifts its transport requirement, whether the cookies below may carry `__Host-`, and
+// whether their SecurePolicy may be Always.
+//
+// It is read from the same explicit setting OpenIddict uses rather than from `IsDevelopment()`.
+// That matters, and the reason is written out in IdentityRegistration: the switch is "deliberately
+// keyed to an explicit setting rather than to the absence of one, so a production deployment cannot
+// end up here by forgetting to configure something". Environment name is precisely the absence of
+// one — Production is what you get when nothing is set — so keying the cookies on it made them
+// answer a different question from the one OpenIddict was asking.
+//
+// The visible cost of that disagreement: the API runs as Production over plain http in CI, so the
+// antiforgery cookie demanded Secure, and ASP.NET Core's antiforgery system throws rather than
+// degrades when SecurePolicy=Always meets a non-SSL request. The sign-in page answered 500 — not a
+// warning, not a dropped cookie, a server error on the page every end-to-end test starts from.
+//
+// This cannot loosen the live shop. Production without the flag is unchanged: `__Host-` and Always,
+// exactly as before. A deployment only reaches the relaxed branch by declaring itself plain HTTP.
+var servedOverPlainHttp = builder.Configuration.GetValue<bool>("OpenIddict:AllowInsecureHttp");
+
 // --- Authentication cookie ---
 // Only the sign-in page uses it; the API itself is bearer-only. It is httpOnly and SameSite=Lax so
 // it survives the redirect back from the authorization endpoint without being sendable cross-site.
@@ -178,7 +200,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     // this project's own documented plain-HTTP dev flow. Without this split, sign-in looked like
     // it succeeded (PasswordSignInAsync 302) but the cookie never landed, so /connect/authorize
     // never saw the user as signed in and bounced straight back to the login page.
-    options.Cookie.Name = builder.Environment.IsDevelopment() ? "r25.identity" : "__Host-r25.identity";
+    options.Cookie.Name = servedOverPlainHttp ? "r25.identity" : "__Host-r25.identity";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Lax;
 
@@ -197,7 +219,7 @@ builder.Services.ConfigureApplicationCookie(options =>
     // Worth it to keep the prefix: this account serves several sibling subdomains, and `__Host-` is
     // exactly what stops one of them setting a Domain-wide cookie that shadows this name.
     options.Cookie.Path = "/";
-    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+    options.Cookie.SecurePolicy = servedOverPlainHttp
         ? CookieSecurePolicy.SameAsRequest
         : CookieSecurePolicy.Always;
     options.ExpireTimeSpan = TimeSpan.FromHours(8);
@@ -236,11 +258,11 @@ builder.Services.AddAntiforgery(options =>
 {
     // __Host- requires Secure, and ASP.NET Core's antiforgery middleware throws outright if
     // SecurePolicy=Always is set on a non-HTTPS request — it has no localhost exception the way
-    // browsers do. So the prefix itself, not just the policy, has to follow environment: this
-    // project's own documented dev flow runs the API on plain http://localhost (OpenIddict:
-    // AllowInsecureHttp above), where __Host- can never be satisfied. Same split the Identity
-    // cookie above uses, applied to the cookie name as well as SecurePolicy.
-    options.Cookie.Name = builder.Environment.IsDevelopment() ? "r25.antiforgery" : "__Host-r25.antiforgery";
+    // browsers do, and it throws rather than degrading, so the sign-in page answers 500 outright.
+    // So the prefix itself, not just the policy, has to follow the transport: where the API is
+    // served over plain http, `__Host-` can never be satisfied. Same switch the Identity cookie
+    // above uses, applied to the cookie name as well as SecurePolicy.
+    options.Cookie.Name = servedOverPlainHttp ? "r25.antiforgery" : "__Host-r25.antiforgery";
     options.Cookie.HttpOnly = true;
     options.Cookie.SameSite = SameSiteMode.Strict;
 
@@ -248,7 +270,7 @@ builder.Services.AddAntiforgery(options =>
     // application's PathBase. This is the cookie whose loss produced the visible symptom — the
     // token in the form had nothing to be checked against, so every sign-in was rejected as stale.
     options.Cookie.Path = "/";
-    options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+    options.Cookie.SecurePolicy = servedOverPlainHttp
         ? CookieSecurePolicy.SameAsRequest
         : CookieSecurePolicy.Always;
 });
