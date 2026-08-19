@@ -44,6 +44,8 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
   const [status, setStatus] = useState<RfidReaderStatus | null>(null);
   const [connected, setConnected] = useState(false);
 
+  const reportReaderStatus = usePosStore((state) => state.reportReaderStatus);
+
   const hubRef = useRef<RfidHub | null>(null);
 
   const onTagsObserved = useCallback((tags: ObservedTag[]) => {
@@ -83,6 +85,19 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
       hubRef.current = null;
     };
   }, [stationId, locationId, onTagsObserved]);
+
+  // Tells the status strip what this panel already knows.
+  //
+  // The strip's RFID chip is fed by the agent's heartbeat over a different hub, so it could sit on
+  // "offline" while this panel listed the tags it was reading at that moment — the two disagreeing
+  // in the same screenshot. The reader's own status is the better source: it comes from the reader
+  // rather than from a heartbeat about it, and it is already here.
+  //
+  // Only ever reports connected-and-reading as online, so the chip does not brighten for a reader
+  // that is attached but stopped.
+  useEffect(() => {
+    reportReaderStatus(!readerNotReading(connected, status), status?.readsPerSecond ?? 0);
+  }, [connected, status, reportReaderStatus]);
 
   // Retires stale rows. A tick rather than a timeout per row, because a hundred tags would otherwise
   // mean a hundred pending timers.

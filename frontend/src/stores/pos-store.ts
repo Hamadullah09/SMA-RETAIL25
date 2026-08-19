@@ -119,6 +119,19 @@ interface PosState {
   addVariant: (variantId: number, quantity?: number) => Promise<void>;
   addUnit: (unitId: number) => Promise<void>;
   setReaderMode: (mode: 'Off' | 'OnDemand' | 'Continuous') => Promise<void>;
+
+  /**
+   * What the tag reader itself says, reported from the RFID hub.
+   *
+   * The status strip used to learn this only from the agent's heartbeat, which arrives on the POS
+   * hub. Where that message was late, or landed on another station's group, the strip read "RFID
+   * offline" directly above a panel listing the nine tags it was reading at that moment. Two
+   * channels carrying one fact, and the one the cashier looks at first was the slower of them.
+   *
+   * The tag panel already holds the answer, so it says so here rather than the strip waiting on a
+   * second opinion that may never come.
+   */
+  reportReaderStatus: (online: boolean, readRate: number) => void;
   switchStaff: (staffCode: string, pin: string) => Promise<void>;
   requestApproval: (permission: string, action: string, context?: string) => Promise<PendingApproval | null>;
   approveWithPin: (staffCode: string, pin: string) => Promise<void>;
@@ -373,6 +386,8 @@ export const usePosStore = create<PosState>((set, get) => ({
       set({ busy: false });
     }
   },
+
+  reportReaderStatus: (online, readRate) => set({ readerOnline: online, readRate }),
 
   setReaderMode: async (mode) => {
     const stationId = get().stationId;
