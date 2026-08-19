@@ -126,11 +126,24 @@ jobs:
       # only Auth__WebOrigin left the placeholder in the array and the API refused to start —
       # correctly, and with the exact fix in the message. `__0` is the first element of the array.
       AllowedOrigins__0: http://localhost:3000
+      # The fictional catalogue. Two of the specs read a populated shop — a product grid with
+      # pictures, a live-updating inventory list — and a fresh seed creates a location, a station and
+      # no products at all, so they were asserting against an empty screen.
+      Demo__SeedCatalogue: 'true'
       E2E_USERNAME: admin@retail25.local
       E2E_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD || 'Ci-Password-1234!' }}
       API_URL: http://localhost:5000
       APP_ORIGIN: http://localhost:3000
       SESSION_SECRET: ci-session-secret-at-least-32-characters
+      # Which till this machine is. The app refuses to draw a POS screen without them and says so on
+      # the page — correct behaviour that read as four broken tests, because nothing here had ever
+      # set them. 1 and 1 are what the seeder creates on a fresh database.
+      NEXT_PUBLIC_LOCATION_ID: '1'
+      NEXT_PUBLIC_STATION_ID: '1'
+      # The hub origin, needed in the browser bundle rather than only on the server: the live-grid
+      # spec waits for the connected indicator, which is a SignalR connection the browser opens
+      # itself. Without this it has no address to open one to.
+      NEXT_PUBLIC_API_URL: http://localhost:5000
     steps:
       - uses: actions/checkout@v4
 

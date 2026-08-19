@@ -45,7 +45,7 @@ test.describe('the browser never holds a token', () => {
     await page.getByLabel('Password', { exact: true }).fill(CREDENTIALS.password);
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await page.waitForURL(/\/pos/);
+    await page.waitForURL((url) => !url.pathname.startsWith('/account'));
 
     // --- localStorage and sessionStorage --------------------------------------------------------
 
@@ -115,7 +115,7 @@ test.describe('the browser never holds a token', () => {
     await page.getByLabel('Username or email').fill(CREDENTIALS.username);
     await page.getByLabel('Password', { exact: true }).fill(CREDENTIALS.password);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL(/\/pos/);
+    await page.waitForURL((url) => !url.pathname.startsWith('/account'));
     await page.waitForTimeout(1000);
 
     expect(offenders, 'no response reaching the browser may contain a token').toEqual([]);
@@ -172,5 +172,10 @@ async function signIn(page: import('@playwright/test').Page): Promise<void> {
   await page.getByLabel('Username or email').fill(CREDENTIALS.username);
   await page.getByLabel('Password', { exact: true }).fill(CREDENTIALS.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.waitForURL(/\/pos/);
+
+  // "Somewhere that is not the sign-in page", rather than a named route. These tests are about what
+  // the browser is holding, not about where the app lands — and the landing page moved from /pos to
+  // /dashboard while this job could not run, so a named route pinned here was asserting a product
+  // decision by accident and failing on it three tests at a time.
+  await page.waitForURL((url) => !url.pathname.startsWith('/account'));
 }
