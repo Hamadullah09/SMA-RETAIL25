@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<Shoppers.Services.ShopperSessionFactory>();
         services.AddScoped<Trolleys.Services.TrolleyAllocator>();
         services.AddScoped<Rfid.Services.RfidCheckout>();
+        services.AddScoped<Rfid.Services.TagObservationRouter>();
         services.AddScoped<IdentifierResolver>();
         services.AddScoped<CartLineFactory>();
         services.AddScoped<ReceiptBuilder>();
