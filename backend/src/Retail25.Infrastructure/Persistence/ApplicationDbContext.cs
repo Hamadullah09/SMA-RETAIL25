@@ -145,6 +145,8 @@ public class ApplicationDbContext
     public DbSet<RfidReader> RfidReaders => Set<RfidReader>();
 
     public DbSet<ReaderAntennaAssignment> ReaderAntennaAssignments => Set<ReaderAntennaAssignment>();
+
+    public DbSet<DeviceEnrolment> DeviceEnrolments => Set<DeviceEnrolment>();
     public DbSet<ScaleProfile> ScaleProfiles => Set<ScaleProfile>();
     public DbSet<PoleDisplayProfile> PoleDisplayProfiles => Set<PoleDisplayProfile>();
 

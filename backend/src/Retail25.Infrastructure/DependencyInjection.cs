@@ -39,6 +39,7 @@ public static class DependencyInjection
 
         services.AddHttpContextAccessor();
         services.AddSingleton<IDateTime, SystemClock>();
+        services.AddScoped<IAgentCredentialProvider, Identity.AgentCredentialProvider>();
 
         // Redirects are followed by hand inside the fetcher so each hop's address can be revalidated;
         // letting the handler do it automatically is the standard way past an address allow-list.

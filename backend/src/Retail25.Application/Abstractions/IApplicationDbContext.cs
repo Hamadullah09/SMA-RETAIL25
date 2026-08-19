@@ -115,6 +115,8 @@ public interface IApplicationDbContext
     DbSet<RfidReader> RfidReaders { get; }
 
     DbSet<ReaderAntennaAssignment> ReaderAntennaAssignments { get; }
+
+    DbSet<DeviceEnrolment> DeviceEnrolments { get; }
     DbSet<ScaleProfile> ScaleProfiles { get; }
     DbSet<PoleDisplayProfile> PoleDisplayProfiles { get; }
 

@@ -61,6 +61,32 @@ public sealed class RfidTopologyController : ControllerBase
             request.Enabled), ct)).ToActionResult(this);
 
     /// <summary>
+    /// Produces what an installer takes to a machine: where to connect, which machine it is, and a
+    /// one-time code to prove it. No durable secret -- that is handed back at redemption, over TLS.
+    /// </summary>
+    [HttpPost("enrolments")]
+    public async Task<IActionResult> GenerateEnrolment([FromBody] GenerateEnrolmentRequest request, CancellationToken ct)
+        => (await _sender.Send(new GenerateAgentEnrolmentCommand(request.LocationId, request.DeviceKey, request.Name), ct))
+            .ToActionResult(this);
+
+    /// <summary>
+    /// An agent presenting its code at first start.
+    /// <para>
+    /// Anonymous because the code is the credential: a machine being installed has nothing else to
+    /// authenticate with, which is the problem enrolment exists to solve. The code is single-use,
+    /// expires, and is checked against a stored hash.
+    /// </para>
+    /// </summary>
+    [AllowAnonymous]
+    [HttpPost("enrolments/redeem")]
+    public async Task<IActionResult> RedeemEnrolment([FromBody] RedeemEnrolmentRequest request, CancellationToken ct)
+        => (await _sender.Send(new RedeemAgentEnrolmentCommand(
+            request.EnrolmentCode,
+            request.Hostname,
+            request.OperatingSystem,
+            request.AgentVersion), ct)).ToActionResult(this);
+
+    /// <summary>
     /// Turns an existing one-reader-one-station setup into the new model, without changing what any
     /// till does. Dry-runnable, and safe to press twice.
     /// </summary>
@@ -84,3 +110,11 @@ public sealed record SaveReaderRequest(
 public sealed record AssignAntennaRequest(long? StationId, bool Enabled = true);
 
 public sealed record BackfillRequest(long LocationId, bool DryRun = false);
+
+public sealed record GenerateEnrolmentRequest(long LocationId, string DeviceKey, string? Name = null);
+
+public sealed record RedeemEnrolmentRequest(
+    string EnrolmentCode,
+    string? Hostname = null,
+    string? OperatingSystem = null,
+    string? AgentVersion = null);
