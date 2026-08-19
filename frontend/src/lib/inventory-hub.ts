@@ -284,13 +284,37 @@ export function useLiveGrid<TRow extends { id: number }>(
       },
     };
 
-    void hub.acquire(locationId, handlers).catch(() => {
-      // A grid that cannot reach the hub still works; it just stops updating on its own.
-      if (!cancelled) setConnected(false);
-    });
+    // Keep trying to make the first connection.
+    //
+    // withAutomaticReconnect covers a socket that drops, not one that never opened — so a hub ticket
+    // that failed while the page was still settling used to end it there: no retry, no error, a grid
+    // reading "Connecting…" for as long as anyone left it open, quietly serving whatever it had
+    // loaded once. The state that most needs a retry was the only one that had none.
+    //
+    // Backoff, capped, and unbounded in time: the reason to stop trying is the user leaving the
+    // screen, and that is what the cleanup below is. Giving up after N attempts only means the grid
+    // is stale in a different way.
+    let attempt = 0;
+    let timer: number | undefined;
+
+    const connect = (): void => {
+      void hub.acquire(locationId, handlers).catch(() => {
+        if (cancelled) return;
+
+        // A grid that cannot reach the hub still works; it just stops updating on its own.
+        setConnected(false);
+
+        const delay = Math.min(30_000, 1_000 * 2 ** attempt) + Math.floor(Math.random() * 500);
+        attempt += 1;
+        timer = window.setTimeout(connect, delay);
+      });
+    };
+
+    connect();
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
       hub.release(handlers);
     };
   }, [entity, locationId, flash]);
