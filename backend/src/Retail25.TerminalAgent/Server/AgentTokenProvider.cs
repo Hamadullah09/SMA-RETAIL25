@@ -40,15 +40,36 @@ public sealed class AgentTokenProvider : IDisposable
     private string? _token;
     private DateTimeOffset _expiresAt;
 
+    private readonly AgentCredentialStore _credentials;
+
     public AgentTokenProvider(
         IHttpClientFactory factory,
         IOptions<AgentOptions> options,
+        AgentCredentialStore credentials,
         ILogger<AgentTokenProvider> logger)
     {
         _factory = factory;
         _options = options.Value;
+        _credentials = credentials;
         _logger = logger;
     }
+
+    /// <summary>
+    /// The credential this machine authenticates with.
+    /// <para>
+    /// What it was given at enrolment wins over what is in its configuration file, and that order is
+    /// the migration: a machine installed from a generated package holds no bootstrap secret at all,
+    /// while one installed the old way keeps working untouched until somebody re-enrols it. Neither
+    /// needs a flag to say which it is.
+    /// </para>
+    /// <para>
+    /// Read each time rather than captured, because enrolment completes after this class is
+    /// constructed — a value read once at startup would be the empty one for the life of the process.
+    /// </para>
+    /// </summary>
+    private string Secret => _credentials.Current?.Secret is { Length: > 0 } enrolled
+        ? enrolled
+        : _options.BootstrapSecret ?? string.Empty;
 
     /// <summary>
     /// The current access token, fetching or renewing it if needed.
@@ -101,7 +122,7 @@ public sealed class AgentTokenProvider : IDisposable
         {
             ["grant_type"] = "client_credentials",
             ["client_id"] = "retail25-agent",
-            ["client_secret"] = _options.BootstrapSecret!,
+            ["client_secret"] = Secret,
             ["scope"] = "retail25.terminal",
         });
 

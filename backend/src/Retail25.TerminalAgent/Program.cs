@@ -57,6 +57,8 @@ builder.Services.AddHttpClient("server", client =>
 builder.Services.AddSingleton<TagBuffer>();
 builder.Services.AddSingleton<ProfileStore>();
 builder.Services.AddSingleton<DeviceConfigurationStore>();
+builder.Services.AddSingleton<AgentCredentialStore>();
+builder.Services.AddHostedService<EnrolmentService>();
 builder.Services.AddSingleton<ITagSpool, SqliteTagSpool>();
 builder.Services.AddSingleton<IServerConnection, SignalRServerConnection>();
 

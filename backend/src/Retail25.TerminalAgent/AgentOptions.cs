@@ -47,6 +47,16 @@ public sealed class AgentOptions
     /// <summary>Presented when registering. Exchanged for a session; never logged.</summary>
     public string? BootstrapSecret { get; set; }
 
+    /// <summary>
+    /// The one-time code from a generated enrolment package.
+    /// <para>
+    /// Present on a machine installed the new way and absent on one carrying a bootstrap secret
+    /// directly. Spent at first start: what the agent keeps afterwards is the credential it was
+    /// given, not this.
+    /// </para>
+    /// </summary>
+    public string? EnrolmentCode { get; set; }
+
     /// <summary>Loopback only. The browser calls this for actions with no server-side meaning.</summary>
     public string LocalApiUrl { get; set; } = "http://127.0.0.1:8477";
 
