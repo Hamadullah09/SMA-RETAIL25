@@ -65,7 +65,20 @@ public sealed class RetireTagsHandler : IRequestHandler<RetireTagsCommand, Resul
 
             retired++;
 
-            if (!wasOnHand || request.DryRun)
+            if (!wasOnHand)
+            {
+                continue;
+            }
+
+            // Counted before the dry-run check, not after it.
+            //
+            // The first run of this reported "148 retired, 0 stock adjusted", because the counter sat
+            // behind the same guard as the write. Zero was the one number somebody would read to
+            // decide this was safe, and it was the number describing the part that changes the books.
+            // A dry run that understates its own effect is worse than no dry run.
+            adjusted++;
+
+            if (request.DryRun)
             {
                 continue;
             }
@@ -87,8 +100,6 @@ public sealed class RetireTagsHandler : IRequestHandler<RetireTagsCommand, Resul
                 occurredAt: _clock.Now,
                 staffId: null,
                 ct: ct);
-
-            adjusted++;
         }
 
         if (request.DryRun)
