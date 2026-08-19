@@ -98,7 +98,7 @@ export default function CustomersPage() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const { connected, changed } = useLiveGrid('customer', locationId, setRows);
+  const { connected, hasEverConnected, changed } = useLiveGrid('customer', locationId, setRows);
 
   const columns = useMemo<DataGridColumn<CustomerRow>[]>(
     () => [
@@ -147,7 +147,7 @@ export default function CustomersPage() {
       title="Customers"
       toolbar={
         <>
-          <LiveBadge connected={connected} />
+          <LiveBadge connected={connected} hasEverConnected={hasEverConnected} />
           {canWrite ? (
             <button type="button" className="pos-button-primary" onClick={() => setSelectedId(NEW_RECORD)}>
               New customer

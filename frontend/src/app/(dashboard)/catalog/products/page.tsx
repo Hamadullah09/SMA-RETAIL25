@@ -115,7 +115,7 @@ export default function ProductsPage() {
     return () => window.clearTimeout(timer);
   }, [load]);
 
-  const { connected, changed } = useLiveGrid('product', locationId, setRows);
+  const { connected, hasEverConnected, changed } = useLiveGrid('product', locationId, setRows);
 
   const columns = useMemo<DataGridColumn<ProductRow>[]>(
     () => [
@@ -183,7 +183,7 @@ export default function ProductsPage() {
       title="Inventory"
       toolbar={
         <>
-          <LiveBadge connected={connected} />
+          <LiveBadge connected={connected} hasEverConnected={hasEverConnected} />
 
           {/* Both print the items currently listed, so the filters above are the selection. */}
           <button

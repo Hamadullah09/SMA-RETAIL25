@@ -39,6 +39,16 @@ test.describe('the till can be worked from a product grid', () => {
     await page.setViewportSize({ width: 1600, height: 900 });
     await signIn(page);
     await page.goto('/pos');
+
+    // The picker is a remembered toggle now, not something width alone decides, and it starts shut:
+    // the till's default screen is the sale, and a cashier who works by barcode never wants a grid
+    // taking a third of it. Every test here gets a clean profile, so there is nothing remembered and
+    // it is always shut.
+    //
+    // Clicking the button *named* "Show items" rather than pressing Ctrl+G is deliberate: the label
+    // flips to "Hide items" when the picker is open, so this can only ever open it — a blind hotkey
+    // press would close it if that assumption ever stopped holding.
+    await page.getByRole('button', { name: 'Show items' }).click();
   });
 
   test('the grid lists items and their pictures load', async ({ page }) => {

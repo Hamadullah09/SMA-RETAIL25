@@ -94,7 +94,10 @@ test.describe('the back-office grid updates live', () => {
 
     await page.goto('/admin/undelete');
 
-    await expect(page.getByRole('heading', { name: 'Undelete items' })).toBeVisible();
+    // The page's own heading is "Undelete"; "Undelete items" is what the menu and the command
+    // palette call it, and what the toasts point you at. Role-name matching is substring-based, so
+    // asking for the longer form never matches the shorter one.
+    await expect(page.getByRole('heading', { name: 'Undelete' })).toBeVisible();
 
     // The screen must be honest when there is nothing in it, rather than showing an empty table that
     // reads as a loading failure.

@@ -61,8 +61,16 @@ test.describe('the browser never holds a token', () => {
 
     // --- cookies ---------------------------------------------------------------------------------
 
+    // By suffix, because the prefix follows the build. `__Host-` requires Secure, and a browser
+    // silently discards a cookie that carries the prefix without it — so the BFF drops the prefix
+    // when it is not serving over HTTPS, which under `next dev` it never is. Naming the prefixed
+    // form here asserted the build mode rather than the security property, and failed on a session
+    // that had in fact been established correctly.
+    //
+    // What this test is actually about survives intact and is asserted below: httpOnly, SameSite,
+    // and nothing readable from script.
     const cookies = await context.cookies();
-    const session = cookies.find((cookie) => cookie.name === '__Host-r25.session');
+    const session = cookies.find((cookie) => cookie.name.endsWith('r25.session'));
 
     expect(session, 'the session cookie must exist after signing in').toBeDefined();
     expect(session!.httpOnly, 'the session cookie must be httpOnly').toBe(true);
