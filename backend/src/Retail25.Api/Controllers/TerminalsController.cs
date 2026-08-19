@@ -118,6 +118,21 @@ public sealed class TerminalsController : ControllerBase
     /// so it is not a thing an unauthenticated caller on the shop LAN should be able to say.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Everything one machine should be doing: its readers, and what each antenna stands for.
+    /// <para>
+    /// One round trip for the whole machine rather than one per station. At 252 stations the
+    /// per-station shape would be an estate polling itself to a standstill, and a machine driving
+    /// three readers has no single station to ask about in any case.
+    /// </para>
+    /// </summary>
+    [HttpGet("devices/{deviceKey}/configuration")]
+    public async Task<IActionResult> DeviceConfiguration(
+        string deviceKey,
+        [FromQuery][BindRequired] long locationId,
+        CancellationToken ct)
+        => (await _sender.Send(new GetDeviceConfigurationQuery(locationId, deviceKey), ct)).ToActionResult(this);
+
     [HttpPost("devices/status")]
     public async Task<IActionResult> ReportDeviceStatus(
         [FromBody] DeviceStatusRequest request,
