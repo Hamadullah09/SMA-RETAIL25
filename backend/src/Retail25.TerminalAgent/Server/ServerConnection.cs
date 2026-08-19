@@ -33,6 +33,9 @@ public interface IServerConnection
     /// <summary>Publishes a batch. Returns false when the server could not be reached, so the caller spools.</summary>
     Task<bool> PublishTagsAsync(IReadOnlyList<TagRead> tags, CancellationToken ct);
 
+    /// <summary>Publishes a batch addressed by reader, for a machine driving more than one.</summary>
+    Task<bool> PublishReaderTagsAsync(long readerId, IReadOnlyList<TagRead> tags, CancellationToken ct);
+
     Task<bool> ReportStatusAsync(AgentStatusReport status, CancellationToken ct);
 
     Task<bool> ReportWeightAsync(decimal value, string unit, bool stable, CancellationToken ct);
@@ -248,6 +251,9 @@ public sealed class SignalRServerConnection : IServerConnection, IAsyncDisposabl
 
     public Task<bool> PublishTagsAsync(IReadOnlyList<TagRead> tags, CancellationToken ct)
         => TryInvokeAsync(TerminalHubMethods.ToServer.PublishTags, [_options.StationId, tags], ct);
+
+    public Task<bool> PublishReaderTagsAsync(long readerId, IReadOnlyList<TagRead> tags, CancellationToken ct)
+        => TryInvokeAsync(TerminalHubMethods.ToServer.PublishReaderTags, [readerId, tags], ct);
 
     public Task<bool> ReportStatusAsync(AgentStatusReport status, CancellationToken ct)
         => TryInvokeAsync(

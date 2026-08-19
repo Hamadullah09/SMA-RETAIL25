@@ -244,6 +244,14 @@ public sealed class TagFlushBehaviourTests
 
         public Task StartAsync(ITerminalCommandHandler handler, CancellationToken ct) => Task.CompletedTask;
 
+        /// <summary>
+        /// Delegates to the station-addressed publish, so a reader-addressed batch meets the same
+        /// failure the test is exercising. A fake that always succeeded here would make the spool
+        /// tests pass for the wrong reason once the agent starts addressing batches by reader.
+        /// </summary>
+        public Task<bool> PublishReaderTagsAsync(long readerId, IReadOnlyList<TagRead> tags, CancellationToken ct)
+            => PublishTagsAsync(tags, ct);
+
         public Task<bool> PublishTagsAsync(IReadOnlyList<TagRead> tags, CancellationToken ct)
         {
             if (!Connected || FailPublish)

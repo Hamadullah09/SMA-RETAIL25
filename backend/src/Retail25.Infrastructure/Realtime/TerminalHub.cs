@@ -47,6 +47,24 @@ public sealed class TerminalHub : Hub
         await _sender.Send(new IngestTagReadsCommand(id, tags), Context.ConnectionAborted);
     }
 
+    /// <summary>
+    /// A batch from one reader, whose antennas may stand for several different stations.
+    /// <para>
+    /// The agent says which reader saw what; the server decides where that belongs. That is the
+    /// whole point of the split -- a reader driving four checkouts has no single station to address
+    /// a batch to, and asking the till to choose is what tied one reader to one station.
+    /// </para>
+    /// </summary>
+    public async Task PublishReaderTags(string readerId, IReadOnlyList<TagRead> tags)
+    {
+        if (!long.TryParse(readerId, out var id) || tags is null || tags.Count == 0)
+        {
+            return;
+        }
+
+        await _sender.Send(new IngestReaderTagsCommand(id, tags), Context.ConnectionAborted);
+    }
+
     public async Task ReportWeight(string stationId, decimal value, string unit, bool stable)
     {
         if (long.TryParse(stationId, out var id))

@@ -33,6 +33,13 @@ public static class TerminalHubMethods
     {
         public const string RegisterStation = "RegisterStation";
         public const string PublishTags = "PublishTags";
+
+        /// <summary>
+        /// A batch addressed by the reader that saw it, leaving the station to be resolved on the
+        /// server from the reader and antenna. The station-addressed method above stays for agents
+        /// still running the per-station profile.
+        /// </summary>
+        public const string PublishReaderTags = "PublishReaderTags";
         public const string ReportWeight = "ReportWeight";
         public const string ReportStatus = "ReportStatus";
         public const string ReportPrintResult = "ReportPrintResult";

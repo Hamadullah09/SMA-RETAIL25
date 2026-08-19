@@ -73,30 +73,55 @@ public sealed class TagFlushService : BackgroundService
 
     private async Task FlushAsync(int maxBatchSize, CancellationToken ct)
     {
-        var batch = _buffer.Drain(maxBatchSize);
-        if (batch.Count == 0)
+        // Split by the reader that saw each tag. A machine driving three readers sends three
+        // batches, each addressed to its own reader, because the station is resolved on the server
+        // from reader and antenna and a merged batch could not say which reader saw what.
+        var batches = _buffer.DrainByReader(maxBatchSize);
+
+        if (batches.Count == 0)
         {
             return;
         }
 
-        if (await _server.PublishTagsAsync(batch, ct))
+        var delivered = true;
+
+        foreach (var batch in batches)
         {
-            if (_warnedOffline)
+            // Reader 0 is an agent still running the per-station profile: it has no reader identity
+            // to address a batch to, so it goes out by station exactly as it always did. That is what
+            // lets an estate be upgraded one till at a time rather than in a single evening.
+            var sent = batch.ReaderId == 0
+                ? await _server.PublishTagsAsync(batch.Tags, ct)
+                : await _server.PublishReaderTagsAsync(batch.ReaderId, batch.Tags, ct);
+
+            if (sent)
             {
-                _logger.LogInformation("Server reachable again; tag publishing resumed");
-                _warnedOffline = false;
+                continue;
+            }
+
+            // Spooled per batch, keeping its own reads together. One reader's batch failing must not
+            // cost another's: they are separate observations of separate places, and merging them
+            // into one spool entry would replay them as though one reader had seen everything.
+            delivered = false;
+            await _spool.EnqueueAsync(batch.Tags, ct);
+        }
+
+        if (!delivered)
+        {
+            if (!_warnedOffline)
+            {
+                _logger.LogWarning("Server unreachable; spooling tag reads locally");
+                _warnedOffline = true;
             }
 
             return;
         }
 
-        if (!_warnedOffline)
+        if (_warnedOffline)
         {
-            _logger.LogWarning("Server unreachable; spooling tag reads locally");
-            _warnedOffline = true;
+            _logger.LogInformation("Server reachable again; tag publishing resumed");
+            _warnedOffline = false;
         }
-
-        await _spool.EnqueueAsync(batch, ct);
     }
 
     /// <summary>
