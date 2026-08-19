@@ -104,7 +104,42 @@ public sealed class TerminalsController : ControllerBase
             request.DrawerOnline,
             request.PoleDisplayOnline,
             request.ReadRate))).ToActionResult(this);
+
+    /// <summary>
+    /// A machine checking in, with the readers it is driving.
+    /// <para>
+    /// Beside the per-station heartbeat above rather than replacing it: that one carries a till's
+    /// printer, scale and drawer, which are genuinely per-till. This carries the machine and its
+    /// readers, which are not — one PC may drive three readers serving twelve stations, and no
+    /// station owns that fact.
+    /// </para>
+    /// <para>
+    /// Authenticated, unlike the station heartbeat: this one can rewrite where a reader is reachable,
+    /// so it is not a thing an unauthenticated caller on the shop LAN should be able to say.
+    /// </para>
+    /// </summary>
+    [HttpPost("devices/status")]
+    public async Task<IActionResult> ReportDeviceStatus(
+        [FromBody] DeviceStatusRequest request,
+        CancellationToken ct)
+        => (await _sender.Send(new ReportDeviceStatusCommand(
+            request.LocationId,
+            request.DeviceKey,
+            request.Hostname,
+            request.LocalIpAddresses,
+            request.OperatingSystem,
+            request.AgentVersion,
+            request.Readers ?? []), ct)).ToActionResult(this);
 }
+
+public sealed record DeviceStatusRequest(
+    long LocationId,
+    string DeviceKey,
+    string? Hostname = null,
+    string? LocalIpAddresses = null,
+    string? OperatingSystem = null,
+    string? AgentVersion = null,
+    IReadOnlyList<ReaderHealthReport>? Readers = null);
 
 public sealed record ReaderModeRequest(ReaderMode Mode);
 
