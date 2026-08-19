@@ -126,7 +126,12 @@ test.describe('the till can be worked from a product grid', () => {
     await first.getByRole('button').click();
 
     // The cart is the till's own region and is where the line has to appear for this to have worked.
-    await expect(page.getByRole('region', { name: /cart|sale/i }).or(page.locator('.pos-area-cart')))
+    //
+    // Named exactly rather than matched loosely against a class as well. The `.or()` was written to
+    // survive one of the two changing, and instead matched both at once — the region and the element
+    // carrying the class are nested, so Playwright refused the assertion for ambiguity rather than
+    // making it. Two ways of finding the same thing is not a fallback.
+    await expect(page.getByRole('region', { name: 'Sale lines' }))
       .toContainText(code!, { timeout: 15_000 });
   });
 });

@@ -102,7 +102,9 @@ test.describe('the back-office grid updates live', () => {
     // The screen must be honest when there is nothing in it, rather than showing an empty table that
     // reads as a loading failure.
     const rows = page.locator('tbody tr');
-    const empty = page.getByText('Nothing has been deleted.');
+    // No full stop: the page's empty-state heading is "Nothing has been deleted", and text matching
+    // is substring-based, so the sentence-shaped version never matches the heading-shaped one.
+    const empty = page.getByText('Nothing has been deleted');
 
     await expect(rows.first().or(empty)).toBeVisible({ timeout: 10_000 });
   });
