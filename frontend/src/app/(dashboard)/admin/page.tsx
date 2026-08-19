@@ -107,6 +107,15 @@ const groups: AdminGroup[] = [
         icon: ScrollText,
         permission: 'audit.read',
       },
+      {
+        key: 'rfid-health',
+        href: '/admin/rfid-health',
+        title: 'RFID health',
+        description:
+          'Every antenna in the shop, and which layer is stopping the ones that are not reading — the PC, the reader, or an antenna nobody assigned.',
+        icon: ScrollText,
+        permission: 'settings.read',
+      },
     ],
   },
   {

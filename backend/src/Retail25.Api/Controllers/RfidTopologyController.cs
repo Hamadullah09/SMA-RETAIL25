@@ -61,6 +61,13 @@ public sealed class RfidTopologyController : ControllerBase
             request.Enabled), ct)).ToActionResult(this);
 
     /// <summary>
+    /// The health of every antenna in the shop, layered: machine, reader, assignment.
+    /// </summary>
+    [HttpGet("dashboard")]
+    public async Task<IActionResult> Dashboard([FromQuery][BindRequired] long locationId, CancellationToken ct)
+        => (await _sender.Send(new GetRfidDashboardQuery(locationId), ct)).ToActionResult(this);
+
+    /// <summary>
     /// Produces what an installer takes to a machine: where to connect, which machine it is, and a
     /// one-time code to prove it. No durable secret -- that is handed back at redemption, over TLS.
     /// </summary>
