@@ -108,6 +108,13 @@ public interface IApplicationDbContext
     DbSet<DrawerLedgerEntry> DrawerLedgerEntries { get; }
     DbSet<PrinterProfile> PrinterProfiles { get; }
     DbSet<ReaderProfile> ReaderProfiles { get; }
+
+    // The RFID topology: a device drives readers, a reader's antennas stand for stations.
+    DbSet<Device> Devices { get; }
+
+    DbSet<RfidReader> RfidReaders { get; }
+
+    DbSet<ReaderAntennaAssignment> ReaderAntennaAssignments { get; }
     DbSet<ScaleProfile> ScaleProfiles { get; }
     DbSet<PoleDisplayProfile> PoleDisplayProfiles { get; }
 

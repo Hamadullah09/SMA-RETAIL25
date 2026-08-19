@@ -139,6 +139,12 @@ public class ApplicationDbContext
     public DbSet<DrawerLedgerEntry> DrawerLedgerEntries => Set<DrawerLedgerEntry>();
     public DbSet<PrinterProfile> PrinterProfiles => Set<PrinterProfile>();
     public DbSet<ReaderProfile> ReaderProfiles => Set<ReaderProfile>();
+
+    public DbSet<Device> Devices => Set<Device>();
+
+    public DbSet<RfidReader> RfidReaders => Set<RfidReader>();
+
+    public DbSet<ReaderAntennaAssignment> ReaderAntennaAssignments => Set<ReaderAntennaAssignment>();
     public DbSet<ScaleProfile> ScaleProfiles => Set<ScaleProfile>();
     public DbSet<PoleDisplayProfile> PoleDisplayProfiles => Set<PoleDisplayProfile>();
 
