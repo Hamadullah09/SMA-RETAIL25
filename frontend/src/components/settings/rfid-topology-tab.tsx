@@ -71,6 +71,7 @@ export function RfidTopologyTab({
 }) {
   const [topology, setTopology] = useState<Topology | null>(null);
   const [busy, setBusy] = useState(false);
+  const [nothingToBringAcross, setNothingToBringAcross] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!locationId) return;
@@ -115,12 +116,37 @@ export function RfidTopologyTab({
 
     try {
       const { data } = await apiClient.post('/rfid-topology/backfill', { locationId, dryRun: false });
-      const result = data as { readersCreated: number; assignmentsCreated: number };
 
-      toast({
-        title: 'Existing readers brought across',
-        description: `${result.readersCreated} reader(s), ${result.assignmentsCreated} antenna assignment(s).`,
-      });
+      const result = data as {
+        readersCreated: number;
+        assignmentsCreated: number;
+        profilesWithoutStation: number;
+        skipped: string[];
+      };
+
+      // Nothing happening has a reason, and the reason is the whole message.
+      //
+      // The first live run of this created nothing and said "brought across", because the count that
+      // explained it — a reader profile with no till assigned — was returned by the server and
+      // dropped here. Correct behaviour that looks like a broken button is worse than an error.
+      if (result.readersCreated === 0) {
+        setNothingToBringAcross(
+          result.profilesWithoutStation > 0
+            ? `${result.profilesWithoutStation} reader profile(s) under Hardware have no till assigned, so there was `
+              + 'nothing to bring across. Set a station on the reader under Hardware first, or add the '
+              + 'reader here directly.'
+            : result.skipped.length > 0
+              ? `Already brought across: ${result.skipped.join(', ')}.`
+              : 'There are no reader profiles under Hardware to bring across.',
+        );
+      } else {
+        setNothingToBringAcross(null);
+
+        toast({
+          title: 'Existing readers brought across',
+          description: `${result.readersCreated} reader(s), ${result.assignmentsCreated} antenna assignment(s).`,
+        });
+      }
 
       await load();
     } catch {
@@ -209,10 +235,18 @@ export function RfidTopologyTab({
                 </p>
 
                 {canWrite ? (
-                  <div>
-                    <button type="button" className="pos-button" disabled={busy} onClick={() => void backfill()}>
-                      Bring existing readers across
-                    </button>
+                  <div className="flex flex-col gap-2">
+                    <div>
+                      <button type="button" className="pos-button" disabled={busy} onClick={() => void backfill()}>
+                        Bring existing readers across
+                      </button>
+                    </div>
+
+                    {nothingToBringAcross ? (
+                      <p className="rounded-md border border-subtle bg-panel-sunken p-2 text-xs text-ink-muted">
+                        {nothingToBringAcross}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
