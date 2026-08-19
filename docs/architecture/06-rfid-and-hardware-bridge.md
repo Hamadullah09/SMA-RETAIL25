@@ -52,17 +52,54 @@ concurrency. `InCart → Sold` is a compare-and-swap: a second station cannot se
 
 ```
 LLRP RO_ACCESS_REPORT
-   └─ RfidReaderService              parse EPC, antenna, RSSI, firstSeen/lastSeen, readCount
-      └─ local pre-filter            drop RSSI < threshold; drop antenna zones ≠ Checkout
-         └─ local ring buffer        coalesce duplicates within 250 ms (per reader)
-            └─ PublishTags(batch)    SignalR → server, batched every 200 ms or 50 tags
-               └─ TagIngestHandler
-                  ├─ Redis debounce  SET tag:{epc} {stationId} NX PX {debounceMs}  (default 3000)
-                  ├─ resolve         SerializedUnit by EPC (cached; Redis hash, 5-min TTL)
-                  ├─ validate state  InStock ✓  | Sold/Void/Lost ✗ → CartLineRejected
-                  ├─ validate loc.   unit.LocationId == station.LocationId
-                  └─ AddRfidBatchCommand → cart lines → CartLinesAdded / TotalsChanged
+   └─ ReaderSession                  one per reader; parse EPC, antenna, RSSI, seen times, readCount
+      └─ local pre-filter            drop RSSI < threshold (only where the reader measured it)
+         └─ TagBuffer                coalesce duplicates within 250 ms, keyed on (reader, EPC)
+            └─ PublishReaderTags     SignalR → server, addressed by reader, every 200 ms or 50 tags
+               └─ IngestReaderTagsCommand
+                  └─ TagObservationRouter
+                     ├─ (readerId, antenna) → ReaderAntennaAssignment → stationId
+                     ├─ unassigned antennas reported, never dropped
+                     └─ one batch fans out to as many stations as it has antennas
+                        └─ IngestTagReadsCommand, per station
+                           ├─ debounce      SET tag:{epc} {stationId} NX PX {debounceMs}
+                           ├─ resolve       SerializedUnit by EPC
+                           ├─ validate      InStock ✓ | Sold/Void/Lost ✗ → CartLineRejected
+                           ├─ validate loc. unit.LocationId == station.LocationId
+                           └─ AddRfidBatchCommand → cart lines → CartLinesAdded / TotalsChanged
 ```
+
+### Reader + antenna → station
+
+The load-bearing change, and the one that dates everything written before it.
+
+A reader used to *be* a station: `ReaderProfile.StationId` decided where a read landed, so a
+four-antenna reader could only ever watch one till. It is now the **antenna** that stands for a
+station, and the pair `(readerId, antennaNumber)` is the routing key:
+
+```
+Device (a PC, identified by a key that survives DHCP)
+  └─ RfidReader (identified by serial where the protocol reports one; host and port are mutable)
+       ├─ Antenna 1 → Station ST-001
+       ├─ Antenna 2 → Station ST-002
+       ├─ Antenna 3 → Station ST-003
+       └─ Antenna 4 → Station ST-004
+```
+
+Routing on the antenna alone would be wrong in a way that only appears at scale: antenna 1 exists on
+every reader in the building, and 63 of them would resolve to one till.
+
+`UNIQUE(ReaderId, AntennaNumber)` is enforced by the database rather than checked in a handler,
+because a check-then-save does not survive two administrators saving at once and the failure it
+admits is silent — one antenna feeding two tills, both ringing the same garment, neither looking
+wrong.
+
+Scale is rows, not code. 63 readers × 4 antennas = 252 stations run the same routing as one reader
+with four. Measured against SQL Server at that size: routing a batch 2 ms, the health dashboard
+71 ms, a 63-reader machine's configuration 169 ms.
+
+**Not yet proven against hardware.** No test here has driven two physical readers; the numbers above
+are the database and the routing, not the radios.
 
 ### Why debouncing lives in two places
 
@@ -172,7 +209,9 @@ The agent is resilient; the *business* is not fully offline-capable in v1 (see Q
 | Failure | Behaviour |
 |---|---|
 | Server unreachable | Agent queues tag reads and status to a local SQLite spool (bounded, 24 h), retries with backoff; **carts do not advance**. UI shows an unmistakable offline banner; cashier can fall back to cash-and-paper per store policy. |
-| Reader unreachable | Reader status red; manual entry and barcode scanning continue to work normally. |
+| Reader unreachable | That reader's session backs off and retries; **its siblings keep reading**, because each reader has its own session, connection and backoff. The stations it feeds show `ReaderOffline` on the health screen while the rest of the estate is unaffected. Manual entry and barcode scanning continue normally. |
+| Machine unreachable | Every station fed by that PC shows `AgentOffline`, stated once against the machine rather than repeated per station — liveness is a property of the PC, and the health screen derives station availability downward from it. |
+| Antenna unassigned | Reads resolve to no station and are **reported, not dropped**. This is the most common commissioning mistake and is otherwise invisible: the reads happen, nothing reaches a till, and a dead antenna, a bad cable and an unconfigured one all look identical. |
 | Printer unreachable | Sale still completes; receipt is queued and reprintable — the legacy "printer jammed, reprint the last sale" story (p.12) is preserved. |
 | Agent crashed | Windows service auto-restart; browser detects `PeripheralStatus` loss within 15 s. |
 
@@ -184,8 +223,21 @@ scoped but not built in v1.
 
 - Packaged as a Windows Service (`winsw` or WiX MSI), auto-start, runs as a dedicated low-privilege
   account with COM-port access.
-- Config: `appsettings.json` for `stationId` + `apiUrl` + a bootstrap secret; **device profiles are
-  pulled from the server** so a peripheral change is a settings edit, not a site visit.
+- Config: `appsettings.json` for `apiUrl`, the machine's `deviceKey`, and a one-time `enrolmentCode`
+  generated from Administration → Settings → RFID. **Everything else is pulled from the server** —
+  which readers this machine drives, where they are, and what each antenna stands for — so adding a
+  reader or re-pointing an antenna is a settings edit rather than a site visit.
+- Enrolment: the code is single-use and expires in 24 hours. The agent presents it once, is told
+  which machine it is, and is handed the durable credential over TLS; that credential is written
+  under ProgramData and used from then on. The file an installer carries is therefore worth nothing
+  after first start and nothing to anyone else before it.
+
+  *Known gap:* what enrolment currently hands back is the secret **every** agent shares. On one till
+  that is untidy; across 252 it cannot be rotated for a single machine, and one compromised PC is
+  every PC. `IAgentCredentialProvider` is the seam where a per-device secret replaces it — the seam
+  exists, the improvement does not yet.
+- A machine may drive several readers. Each gets its own session, so one reader failing costs that
+  reader alone. `DesiredReaders()` is the single place that decides how many exist.
 - Auto-update: agent polls `/api/v1/terminals/agent-version`, downloads a signed package, and
   restarts outside trading hours (configurable window).
 - Structured logs to file + OTLP; `GET /status` doubles as the health probe.
