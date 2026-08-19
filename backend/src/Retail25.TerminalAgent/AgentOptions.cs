@@ -20,6 +20,27 @@ public sealed class AgentOptions
     [Required]
     public string StationId { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Which machine this is, for the device registry.
+    /// <para>
+    /// Defaults to the computer's own name so an agent installed with no configuration still has a
+    /// stable identity — one that survives a DHCP lease, a new switch port and a move between
+    /// subnets, which is the whole reason identity is not an address.
+    /// </para>
+    /// <para>
+    /// Set it explicitly where machine names are not unique across a chain. Two shops each with a
+    /// "TILL-01" would otherwise be one device as far as the registry is concerned, and the second to
+    /// check in would take the first one's readers.
+    /// </para>
+    /// </summary>
+    public string DeviceKey { get; set; } = string.Empty;
+
+    /// <summary>The shop this machine belongs to. Needed to resolve the device key, which is unique per location.</summary>
+    public long LocationId { get; set; } = 1;
+
+    public string ResolvedDeviceKey =>
+        string.IsNullOrWhiteSpace(DeviceKey) ? Environment.MachineName.ToUpperInvariant() : DeviceKey.Trim().ToUpperInvariant();
+
     [Required]
     public string ApiUrl { get; set; } = "http://localhost:5000";
 

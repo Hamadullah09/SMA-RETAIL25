@@ -94,6 +94,7 @@ public sealed class RfidReaderService : BackgroundService
     private readonly TagBuffer _buffer;
     private readonly AgentOptions _options;
     private readonly ReaderDiscovery _discovery;
+    private readonly DeviceConfigurationStore _devices;
     private readonly ILogger<RfidReaderService> _logger;
 
     private readonly Dictionary<long, RunningSession> _sessions = [];
@@ -105,6 +106,7 @@ public sealed class RfidReaderService : BackgroundService
         TagBuffer buffer,
         IOptions<AgentOptions> options,
         ReaderDiscovery discovery,
+        DeviceConfigurationStore devices,
         ILogger<RfidReaderService> logger)
     {
         ArgumentNullException.ThrowIfNull(options);
@@ -114,6 +116,7 @@ public sealed class RfidReaderService : BackgroundService
         _buffer = buffer;
         _options = options.Value;
         _discovery = discovery;
+        _devices = devices;
         _logger = logger;
     }
 
@@ -155,6 +158,10 @@ public sealed class RfidReaderService : BackgroundService
 
         _profiles.Changed += OnProfileChanged;
 
+        // The device configuration is the other thing that can change which readers exist, and it
+        // changes far more often than the station profile once an estate is being commissioned.
+        _devices.Changed += OnProfileChanged;
+
         try
         {
             await ReconcileAsync(stoppingToken);
@@ -171,6 +178,7 @@ public sealed class RfidReaderService : BackgroundService
         finally
         {
             _profiles.Changed -= OnProfileChanged;
+            _devices.Changed -= OnProfileChanged;
             await StopAllAsync();
         }
     }
@@ -245,21 +253,63 @@ public sealed class RfidReaderService : BackgroundService
     /// <summary>
     /// Which readers this machine should be driving.
     /// <para>
-    /// One, from the per-station profile, until the device configuration is wired in. The shape is
-    /// what matters: this is the only method that decides how many readers exist, so making a machine
-    /// drive twelve is a change here and nowhere else.
+    /// The device configuration when the server has sent one, and the per-station profile when it has
+    /// not. This is the only method that decides how many readers exist, which is why one PC driving
+    /// twelve of them is this method returning twelve entries and no other change anywhere.
+    /// </para>
+    /// <para>
+    /// The fallback is not a nicety. An agent the server has not registered still has a till to serve,
+    /// and a machine that read nothing until somebody had created a device row would make the upgrade
+    /// an outage.
     /// </para>
     /// </summary>
     private Dictionary<long, ReaderProfileContract> DesiredReaders()
-        => new() { [0] = _profiles.Reader };
+    {
+        var configuration = _devices.Current;
+
+        if (configuration is null || configuration.Readers.Count == 0)
+        {
+            return new Dictionary<long, ReaderProfileContract> { [0] = _profiles.Reader };
+        }
+
+        return configuration.Readers.ToDictionary(r => r.ReaderId, ToProfile);
+    }
+
+    /// <summary>
+    /// A managed reader as the drivers expect to receive it.
+    /// <para>
+    /// The reader's own tuning is carried through when the server sent it, because power, region and
+    /// debounce are the reader's settings and a machine driving three readers may well have three
+    /// different ones. Where it is absent the station profile supplies the thresholds — its address
+    /// and protocol are still overridden, since those belong to the reader rather than the till.
+    /// </para>
+    /// </summary>
+    private ReaderProfileContract ToProfile(ManagedReaderContract reader)
+    {
+        var basis = reader.Settings ?? _profiles.Reader;
+
+        return basis with
+        {
+            Id = reader.ReaderId,
+            Name = reader.ReaderKey,
+            Host = reader.Host,
+            Port = reader.Port,
+            Protocol = Enum.TryParse<ReaderProtocol>(reader.Protocol, ignoreCase: true, out var parsed)
+                ? parsed
+                : basis.Protocol,
+        };
+    }
 
     private void Start(long readerId, ReaderProfileContract profile, CancellationToken stoppingToken)
     {
         var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
 
+        // Its own profile, captured for this session. Handing every session the shared station
+        // profile would point all of a machine.s readers at one address -- the single-reader
+        // assumption reappearing one layer down.
         var session = new ReaderSession(
             readerId,
-            () => _profiles.Reader,
+            () => profile,
             () => _profiles.Mode,
             _services,
             _buffer,

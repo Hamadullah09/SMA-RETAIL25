@@ -30,6 +30,7 @@ public sealed class ProfileRefreshService : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ProfileStore _profiles;
     private readonly PeripheralCoordinator _peripherals;
+    private readonly Rfid.DeviceConfigurationStore _devices;
     private readonly AgentOptions _options;
     private readonly ILogger<ProfileRefreshService> _logger;
 
@@ -37,6 +38,7 @@ public sealed class ProfileRefreshService : BackgroundService
         IHttpClientFactory httpClientFactory,
         ProfileStore profiles,
         PeripheralCoordinator peripherals,
+        Rfid.DeviceConfigurationStore devices,
         IOptions<AgentOptions> options,
         ILogger<ProfileRefreshService> logger)
     {
@@ -45,6 +47,7 @@ public sealed class ProfileRefreshService : BackgroundService
         _httpClientFactory = httpClientFactory;
         _profiles = profiles;
         _peripherals = peripherals;
+        _devices = devices;
         _options = options.Value;
         _logger = logger;
     }
@@ -70,6 +73,7 @@ public sealed class ProfileRefreshService : BackgroundService
         while (!stoppingToken.IsCancellationRequested)
         {
             await TryRefreshAsync(stoppingToken);
+            await TryRefreshDeviceAsync(stoppingToken);
 
             // A till that has a profile can wait; one that has none cannot. Boot-order races are the
             // common case here and they clear in seconds, so this is a short wait rather than a
@@ -78,6 +82,82 @@ public sealed class ProfileRefreshService : BackgroundService
             var wait = _profiles.Current is null ? RetryWhileUnconfigured : PollInterval;
 
             await Task.Delay(wait, stoppingToken);
+        }
+    }
+
+    /// <summary>
+    /// Fetches what this machine should be driving: its readers, and what each antenna stands for.
+    /// <para>
+    /// Separate from the station profile above because they answer different questions and fail
+    /// independently. A machine may be registered with readers while its station profile is missing,
+    /// or the reverse, and collapsing them would make either failure look like both.
+    /// </para>
+    /// <para>
+    /// A 404 is a real answer rather than an error: it means the server does not know this machine,
+    /// so the configuration is cleared and the agent falls back to the per-station profile. Carrying
+    /// on with a configuration that has been revoked would leave a machine driving readers it no
+    /// longer owns.
+    /// </para>
+    /// </summary>
+    private async Task TryRefreshDeviceAsync(CancellationToken ct)
+    {
+        try
+        {
+            var client = _httpClientFactory.CreateClient("server");
+
+            var url = $"api/v1/terminals/devices/{Uri.EscapeDataString(_options.ResolvedDeviceKey)}/configuration"
+                + $"?locationId={_options.LocationId}";
+
+            using var response = await client.GetAsync(url, ct);
+
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                if (_devices.Current is not null)
+                {
+                    _logger.LogInformation(
+                        "The server no longer recognises this machine as {DeviceKey}; falling back to the station profile",
+                        _options.ResolvedDeviceKey);
+                }
+
+                _devices.Clear();
+                return;
+            }
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return;
+            }
+
+            var configuration = await response.Content
+                .ReadFromJsonAsync<DeviceConfigurationContract>(SerializerOptions, ct);
+
+            if (configuration is null)
+            {
+                return;
+            }
+
+            var had = _devices.Current;
+            _devices.Set(configuration);
+
+            if (had?.Revision != configuration.Revision)
+            {
+                _logger.LogInformation(
+                    "Device configuration for {DeviceKey}: {Readers} reader(s), {Antennas} antenna assignment(s)",
+                    configuration.DeviceKey,
+                    configuration.Readers.Count,
+                    configuration.Readers.Sum(r => r.Antennas.Count));
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+        catch (Exception ex)
+        {
+            // Kept, not cleared. Unreachable is not the same as revoked, and dropping every reader
+            // because a poll failed would stop a shop trading over a network blip.
+            _logger.LogWarning("Could not refresh the device configuration ({Reason}); keeping the current one", ex.Message);
+            _logger.LogDebug(ex, "Device configuration refresh failed");
         }
     }
 
