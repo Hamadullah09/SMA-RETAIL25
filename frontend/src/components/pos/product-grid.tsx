@@ -392,7 +392,19 @@ function ListView({
               <span className="h-8 w-8 shrink-0" aria-hidden="true" />
             )}
 
-            <span className="w-20 shrink-0 truncate font-mono text-caption text-ink-muted">{item.stockCode}</span>
+            {/*
+              data-testid because a stock code has no shape. The shopkeeper picks the scheme and the
+              legacy system never constrained it, so a test that recovers the code by pattern from
+              the row's text is guessing at somebody's convention — DEMO-0078 sitting against
+              "2-in-1 conditioner" reads as DEMO-00782 to any regex greedy enough to catch a
+              four-digit code. This hands the test the value instead.
+            */}
+            <span
+              data-testid="stock-code"
+              className="w-20 shrink-0 truncate font-mono text-caption text-ink-muted"
+            >
+              {item.stockCode}
+            </span>
             <span className="min-w-0 flex-1 truncate text-body text-ink">{item.name}</span>
             <StockPip onHand={item.onHand} />
             <span className="w-20 shrink-0 text-right text-body font-medium tabular-nums text-ink">

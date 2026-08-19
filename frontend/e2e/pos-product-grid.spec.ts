@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 /**
  * The till's product picker, in a real browser against the real stack.
@@ -51,12 +51,29 @@ test.describe('the till can be worked from a product grid', () => {
     await page.getByRole('button', { name: 'Show items' }).click();
   });
 
+  /**
+   * Waits for the grid to hold items, not merely to have drawn.
+   *
+   * The counter reads "0 of 0" from the first paint, before the query has answered, so a wait for
+   * "some digits of some digits" is satisfied instantly by an empty grid. Three of these tests
+   * survived that only because what they asserted next retried until the data arrived; the one that
+   * read the count straight out of the element got the zero and failed on it.
+   *
+   * Insisting the total is non-zero is what makes this a wait for the shop rather than for the panel.
+   */
+  async function waitForItems(grid: Locator): Promise<number> {
+    const counter = grid.getByText(/\d+ of \d+/);
+    await expect(counter).toHaveText(/\d+ of [1-9]\d*/, { timeout: 15_000 });
+
+    return Number((await counter.textContent())?.split(' of ')[1]);
+  }
+
   test('the grid lists items and their pictures load', async ({ page }) => {
     const grid = page.getByRole('region', { name: 'Products' });
     await expect(grid).toBeVisible();
 
     // "12 of 340" — the count is the proof the query answered, not just that the panel drew.
-    await expect(grid.getByText(/\d+ of \d+/)).toBeVisible({ timeout: 15_000 });
+    await waitForItems(grid);
 
     await grid.getByRole('radio', { name: 'Large thumbnails' }).click();
 
@@ -74,21 +91,19 @@ test.describe('the till can be worked from a product grid', () => {
 
   test('switching to the list view lays the same items out row by row', async ({ page }) => {
     const grid = page.getByRole('region', { name: 'Products' });
-    await expect(grid.getByText(/\d+ of \d+/)).toBeVisible({ timeout: 15_000 });
+    await waitForItems(grid);
 
     await grid.getByRole('radio', { name: 'List' }).click();
     await expect(grid.getByRole('radio', { name: 'List' })).toHaveAttribute('aria-checked', 'true');
 
     // The list view shows the stock code; the tile view does not. That is the difference under test.
-    await expect(grid.getByRole('listitem').first()).toContainText(/[A-Z]{2,}\d/);
+    await expect(grid.getByRole('listitem').first().getByTestId('stock-code')).not.toBeEmpty();
   });
 
   test('searching narrows the grid', async ({ page }) => {
     const grid = page.getByRole('region', { name: 'Products' });
-    const counter = grid.getByText(/\d+ of \d+/);
-    await expect(counter).toBeVisible({ timeout: 15_000 });
 
-    const before = Number((await counter.textContent())?.split(' of ')[1] ?? 0);
+    const before = await waitForItems(grid);
     expect(before).toBeGreaterThan(0);
 
     await grid.getByRole('searchbox', { name: 'Search products' }).fill('zzzzz-no-such-item');
@@ -98,14 +113,14 @@ test.describe('the till can be worked from a product grid', () => {
 
   test('tapping an item puts it on the sale', async ({ page }) => {
     const grid = page.getByRole('region', { name: 'Products' });
-    await expect(grid.getByText(/\d+ of \d+/)).toBeVisible({ timeout: 15_000 });
+    await waitForItems(grid);
 
     // The list view, because a row carries the stock code and so identifies which item was tapped.
     await grid.getByRole('radio', { name: 'List' }).click();
 
     const first = grid.getByRole('listitem').first();
-    const label = (await first.textContent()) ?? '';
-    const code = label.match(/[A-Z]{2,}\d{3,}/)?.[0];
+
+    const code = (await first.getByTestId('stock-code').textContent())?.trim();
     expect(code, 'the first row should show a stock code').toBeTruthy();
 
     await first.getByRole('button').click();
