@@ -123,6 +123,12 @@ test.describe('the till can be worked from a product grid', () => {
     const code = (await first.getByTestId('stock-code').textContent())?.trim();
     expect(code, 'the first row should show a stock code').toBeTruthy();
 
+    // The name as well as the code, because the two screens identify an item differently: the picker
+    // row leads with the stock code, the sale line shows what the customer is buying. Asserting the
+    // code against the cart was asking it to display something it deliberately does not.
+    const name = (await first.getByTestId('product-name').textContent())?.trim();
+    expect(name, 'the first row should show a description').toBeTruthy();
+
     await first.getByRole('button').click();
 
     // The cart is the till's own region and is where the line has to appear for this to have worked.
@@ -132,6 +138,6 @@ test.describe('the till can be worked from a product grid', () => {
     // carrying the class are nested, so Playwright refused the assertion for ambiguity rather than
     // making it. Two ways of finding the same thing is not a fallback.
     await expect(page.getByRole('region', { name: 'Sale lines' }))
-      .toContainText(code!, { timeout: 15_000 });
+      .toContainText(name!, { timeout: 15_000 });
   });
 });

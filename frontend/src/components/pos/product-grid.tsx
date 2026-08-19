@@ -405,7 +405,10 @@ function ListView({
             >
               {item.stockCode}
             </span>
-            <span className="min-w-0 flex-1 truncate text-body text-ink">{item.name}</span>
+            {/* Same reason as the code above: the row's text runs description straight into price. */}
+            <span data-testid="product-name" className="min-w-0 flex-1 truncate text-body text-ink">
+              {item.name}
+            </span>
             <StockPip onHand={item.onHand} />
             <span className="w-20 shrink-0 text-right text-body font-medium tabular-nums text-ink">
               {money(item.regularPrice)}

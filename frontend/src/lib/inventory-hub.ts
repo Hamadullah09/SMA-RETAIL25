@@ -69,11 +69,15 @@ class InventoryHub {
   private locationId: number | null = null;
 
   /**
-   * The in-flight connection attempt, so a second subscriber joins the first one's socket instead of
-   * racing it with another. Without this, two grids mounting together each got their own connection
-   * and the later one silently replaced the earlier — leaving the earlier grid's rows never patched.
+   * The connection attempt still in flight, and which location it is for.
+   *
+   * Opening a socket is not instant and cannot be cancelled part-way, so the window between asking
+   * and arriving is real and things happen inside it. Two grids mounting together both ask; a grid
+   * unmounting mid-connect asks for it to stop before there is anything to stop. Holding the attempt
+   * here is what lets the second case adopt the first's socket, and what stops the third leaving one
+   * running that nothing owns.
    */
-  private starting: Promise<void> | null = null;
+  private pending: { locationId: number; promise: Promise<HubConnection> } | null = null;
 
   private announce(connected: boolean): void {
     for (const handlers of this.subscribers) handlers.onConnectionChanged?.(connected);
@@ -87,15 +91,14 @@ class InventoryHub {
       return;
     }
 
-    // Join an attempt already under way rather than tearing it down and starting again.
-    if (this.starting && this.locationId === locationId) {
-      await this.starting;
-      handlers.onConnectionChanged?.(this.connection?.state === HubConnectionState.Connected);
+    // Join an attempt already under way rather than tearing it down and starting another.
+    if (this.pending?.locationId === locationId) {
+      const connection = await this.pending.promise;
+      handlers.onConnectionChanged?.(connection.state === HubConnectionState.Connected);
       return;
     }
 
     await this.stop();
-    this.locationId = locationId;
 
     const connection = new HubConnectionBuilder()
       .withUrl(`${API_BASE}/hubs/inventory`, { accessTokenFactory: () => fetchHubTicket() })
@@ -134,21 +137,38 @@ class InventoryHub {
     connection.onreconnecting(() => this.announce(false));
     connection.onclose(() => this.announce(false));
 
-    const starting = (async () => {
+    const promise = (async () => {
       await connection.start();
       await connection.invoke('JoinLocation', locationId);
 
-      this.connection = connection;
+      return connection;
     })();
 
-    this.starting = starting;
+    const pending = { locationId, promise };
+    this.pending = pending;
+
+    let opened: HubConnection;
 
     try {
-      await starting;
-    } finally {
-      // Only if it is still ours: a later acquire for a different location will have replaced it.
-      if (this.starting === starting) this.starting = null;
+      opened = await promise;
+    } catch (error) {
+      if (this.pending === pending) this.pending = null;
+      throw error;
     }
+
+    // Adopt it only if it is still the attempt anyone is waiting on. Between asking and arriving the
+    // last grid may have unmounted, or a different location been asked for; publishing this one then
+    // would put a socket nobody wants into `connection`, where the early return above reports its
+    // state to every future subscriber. That is a grid stuck on "Connecting…" over a live socket,
+    // which is precisely what this looked like from the outside.
+    if (this.pending !== pending) {
+      await opened.stop();
+      return;
+    }
+
+    this.pending = null;
+    this.connection = opened;
+    this.locationId = locationId;
 
     this.announce(true);
   }
@@ -162,9 +182,18 @@ class InventoryHub {
   }
 
   private async stop(): Promise<void> {
+    const pending = this.pending;
     const connection = this.connection;
+
+    this.pending = null;
     this.connection = null;
     this.locationId = null;
+
+    // An attempt in flight is waited for and then closed. It cannot be cancelled, and abandoning it
+    // leaves a socket that goes on receiving with nothing reading it — the failure that hides,
+    // because everything on screen looks merely idle.
+    if (pending) await pending.promise.then((c) => c.stop()).catch(() => undefined);
+
     await connection?.stop();
   }
 }
