@@ -121,6 +121,11 @@ jobs:
       Auth__AdminEmail: admin@retail25.local
       Auth__AdminPassword: ${{ secrets.E2E_ADMIN_PASSWORD || 'Ci-Password-1234!' }}
       Auth__WebOrigin: http://localhost:3000
+      # Both keys, because the startup guard checks both. appsettings.Production.json ships
+      # `https://your-site.example` in AllowedOrigins, and this job runs as Production, so setting
+      # only Auth__WebOrigin left the placeholder in the array and the API refused to start —
+      # correctly, and with the exact fix in the message. `__0` is the first element of the array.
+      AllowedOrigins__0: http://localhost:3000
       E2E_USERNAME: admin@retail25.local
       E2E_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD || 'Ci-Password-1234!' }}
       API_URL: http://localhost:5000

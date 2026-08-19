@@ -9,9 +9,17 @@ COPY src/Retail25.Domain/Retail25.Domain.csproj src/Retail25.Domain/
 COPY src/Retail25.Application/Retail25.Application.csproj src/Retail25.Application/
 COPY src/Retail25.Contracts/Retail25.Contracts.csproj src/Retail25.Contracts/
 COPY src/Retail25.Infrastructure/Retail25.Infrastructure.csproj src/Retail25.Infrastructure/
+# Infrastructure references Devices, so restoring the API needs its project file as well. Omitting it
+# does not fail on this line: it fails several lines down with NETSDK1004 naming a missing assets
+# file, which reads as a NuGet problem rather than a missing COPY.
+COPY src/Retail25.Devices/Retail25.Devices.csproj src/Retail25.Devices/
 COPY src/Retail25.Api/Retail25.Api.csproj src/Retail25.Api/
 COPY Directory.Build.props .
 COPY Directory.Packages.props .
+# Analyzer severities live in .editorconfig, not in Directory.Build.props. Without it this image is a
+# stricter compiler than any developer or CI machine runs: CA1707 fires on RF link names such as
+# Miller4_250kHz, which are the spec's names for those modulations, and warnings are errors here.
+COPY .editorconfig .
 RUN dotnet restore src/Retail25.Api/Retail25.Api.csproj
 
 COPY src/ src/
