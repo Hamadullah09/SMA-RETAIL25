@@ -51,19 +51,46 @@ export interface LiveGridHandlers<TRow> {
 class InventoryHub {
   private connection: HubConnection | null = null;
 
-  private handlers: LiveGridHandlers<unknown> = {};
+  /**
+   * Everyone currently listening, rather than whoever subscribed most recently.
+   *
+   * This was a single slot that each acquire overwrote, and a reference count beside it. The two
+   * disagree the moment anything subscribes twice, which React does on every mount in development:
+   * effects run mount, cleanup, mount. The cleanup marked the first subscriber cancelled, the slot
+   * still pointed at it, and so the connection came up and reported itself to a listener that had
+   * already stopped listening. The socket was open and working; every grid on the page sat on
+   * "Connecting…" indefinitely, and nothing anywhere said why.
+   *
+   * A set removes the disagreement — membership *is* the reference count — and makes the reconnect
+   * callbacks fan out, which the single slot could never do for more than one grid at a time.
+   */
+  private readonly subscribers = new Set<LiveGridHandlers<unknown>>();
 
   private locationId: number | null = null;
 
-  /** Reference counted, because several grids on one page share one socket. */
-  private subscribers = 0;
+  /**
+   * The in-flight connection attempt, so a second subscriber joins the first one's socket instead of
+   * racing it with another. Without this, two grids mounting together each got their own connection
+   * and the later one silently replaced the earlier — leaving the earlier grid's rows never patched.
+   */
+  private starting: Promise<void> | null = null;
+
+  private announce(connected: boolean): void {
+    for (const handlers of this.subscribers) handlers.onConnectionChanged?.(connected);
+  }
 
   async acquire(locationId: number, handlers: LiveGridHandlers<unknown>): Promise<void> {
-    this.handlers = handlers;
-    this.subscribers += 1;
+    this.subscribers.add(handlers);
 
     if (this.connection && this.locationId === locationId) {
       handlers.onConnectionChanged?.(this.connection.state === HubConnectionState.Connected);
+      return;
+    }
+
+    // Join an attempt already under way rather than tearing it down and starting again.
+    if (this.starting && this.locationId === locationId) {
+      await this.starting;
+      handlers.onConnectionChanged?.(this.connection?.state === HubConnectionState.Connected);
       return;
     }
 
@@ -82,29 +109,54 @@ class InventoryHub {
       .configureLogging(LogLevel.Warning)
       .build();
 
-    connection.on('RowChanged', (event: RowChanged<unknown>) => this.handlers.onRowChanged?.(event));
-    connection.on('RowRemoved', (event: { entity: string; id: number }) => this.handlers.onRowRemoved?.(event));
-    connection.on('SettingsChanged', (event: { section: string }) => this.handlers.onSettingsChanged?.(event));
-
-    connection.onreconnected(async () => {
-      this.handlers.onConnectionChanged?.(true);
-      await connection.invoke('JoinLocation', locationId);
+    // Every listener, not the newest one. Two grids on a page share this socket, and with a single
+    // slot only one of them ever saw a row patch.
+    connection.on('RowChanged', (event: RowChanged<unknown>) => {
+      for (const handlers of this.subscribers) handlers.onRowChanged?.(event);
     });
 
-    connection.onreconnecting(() => this.handlers.onConnectionChanged?.(false));
-    connection.onclose(() => this.handlers.onConnectionChanged?.(false));
+    connection.on('RowRemoved', (event: { entity: string; id: number }) => {
+      for (const handlers of this.subscribers) handlers.onRowRemoved?.(event);
+    });
 
-    await connection.start();
-    await connection.invoke('JoinLocation', locationId);
+    connection.on('SettingsChanged', (event: { section: string }) => {
+      for (const handlers of this.subscribers) handlers.onSettingsChanged?.(event);
+    });
 
-    this.connection = connection;
-    this.handlers.onConnectionChanged?.(true);
+    // Rejoin before announcing, not after. Announcing first says "live" during the window where the
+    // connection is up but this client is in no group, so nothing would reach it — the badge would
+    // be telling the truth about the socket and a lie about the screen.
+    connection.onreconnected(async () => {
+      await connection.invoke('JoinLocation', locationId);
+      this.announce(true);
+    });
+
+    connection.onreconnecting(() => this.announce(false));
+    connection.onclose(() => this.announce(false));
+
+    const starting = (async () => {
+      await connection.start();
+      await connection.invoke('JoinLocation', locationId);
+
+      this.connection = connection;
+    })();
+
+    this.starting = starting;
+
+    try {
+      await starting;
+    } finally {
+      // Only if it is still ours: a later acquire for a different location will have replaced it.
+      if (this.starting === starting) this.starting = null;
+    }
+
+    this.announce(true);
   }
 
-  release(): void {
-    this.subscribers = Math.max(0, this.subscribers - 1);
+  release(handlers: LiveGridHandlers<unknown>): void {
+    this.subscribers.delete(handlers);
 
-    if (this.subscribers === 0) {
+    if (this.subscribers.size === 0) {
       void this.stop();
     }
   }
@@ -165,49 +217,52 @@ export function useLiveGrid<TRow extends { id: number }>(
 
     let cancelled = false;
 
-    void hub
-      .acquire(locationId, {
-        onConnectionChanged: (isConnected) => {
-          if (!cancelled) {
-            setConnected(isConnected);
-            if (isConnected) setHasEverConnected(true);
-          }
-        },
-        onRowChanged: (event) => {
-          if (cancelled || event.entity !== entity) return;
+    // Held in a variable so the same object is handed back on release. The hub keys its subscribers
+    // by identity, and an object literal written out twice is two objects: releasing one of them
+    // would leave the other listening for the life of the page.
+    const handlers: LiveGridHandlers<unknown> = {
+      onConnectionChanged: (isConnected) => {
+        if (!cancelled) {
+          setConnected(isConnected);
+          if (isConnected) setHasEverConnected(true);
+        }
+      },
+      onRowChanged: (event) => {
+        if (cancelled || event.entity !== entity) return;
 
-          const row = event.row as TRow;
+        const row = event.row as TRow;
 
-          setRowsRef.current((current) => {
-            const index = current.findIndex((r) => r.id === event.id);
+        setRowsRef.current((current) => {
+          const index = current.findIndex((r) => r.id === event.id);
 
-            // A row that is not on this page is not appended: it may not match the active filter, and
-            // inserting it would put it in the wrong sort position with no way to know the right one.
-            if (index < 0) return current;
+          // A row that is not on this page is not appended: it may not match the active filter, and
+          // inserting it would put it in the wrong sort position with no way to know the right one.
+          if (index < 0) return current;
 
-            const next = [...current];
-            next[index] = row;
-            return next;
-          });
+          const next = [...current];
+          next[index] = row;
+          return next;
+        });
 
-          flash(event.id);
-        },
-        onRowRemoved: (event) => {
-          if (cancelled || event.entity !== entity) return;
-          setRowsRef.current((current) => current.filter((r) => r.id !== event.id));
-        },
-        onSettingsChanged: (event) => {
-          if (!cancelled) settingsRef.current?.(event.section);
-        },
-      })
-      .catch(() => {
-        // A grid that cannot reach the hub still works; it just stops updating on its own.
-        if (!cancelled) setConnected(false);
-      });
+        flash(event.id);
+      },
+      onRowRemoved: (event) => {
+        if (cancelled || event.entity !== entity) return;
+        setRowsRef.current((current) => current.filter((r) => r.id !== event.id));
+      },
+      onSettingsChanged: (event) => {
+        if (!cancelled) settingsRef.current?.(event.section);
+      },
+    };
+
+    void hub.acquire(locationId, handlers).catch(() => {
+      // A grid that cannot reach the hub still works; it just stops updating on its own.
+      if (!cancelled) setConnected(false);
+    });
 
     return () => {
       cancelled = true;
-      hub.release();
+      hub.release(handlers);
     };
   }, [entity, locationId, flash]);
 
