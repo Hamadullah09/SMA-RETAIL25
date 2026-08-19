@@ -61,12 +61,16 @@ public sealed class SerializedUnitsController : ControllerBase
             request.VariantId))).ToActionResult(this);
 
     /// <summary>
-    /// Loads a tag export — items and their tags in one file — into a location's catalogue.
+    /// Withdraws every tag at a location from service, for a shop being re-tagged.
     /// <para>
-    /// <c>dryRun</c> reports what the file would do and writes nothing, which is the only safe way
-    /// to look at a file somebody has been editing by hand before it touches a live catalogue.
+    /// Keeps the units and their history — a sold tag is left exactly as it is, because a receipt
+    /// points at it. <c>dryRun</c> reports the counts and writes nothing.
     /// </para>
     /// </summary>
+    [HttpPost("retire")]
+    public async Task<IActionResult> Retire([FromBody] RetireTagsRequest request, CancellationToken ct)
+        => (await _sender.Send(new RetireTagsCommand(request.LocationId, request.DryRun), ct)).ToActionResult(this);
+
     /// <summary>
     /// A starter file with the headings filled in and two example rows.
     /// <para>
@@ -98,6 +102,13 @@ public sealed class SerializedUnitsController : ControllerBase
         return File(System.Text.Encoding.UTF8.GetBytes(template), "text/csv", "inventory-import-template.csv");
     }
 
+    /// <summary>
+    /// Loads a tag export — items and their tags in one file — into a location's catalogue.
+    /// <para>
+    /// <c>dryRun</c> reports what the file would do and writes nothing, which is the only safe way
+    /// to look at a file somebody has been editing by hand before it touches a live catalogue.
+    /// </para>
+    /// </summary>
     [HttpPost("import")]
     [RequestSizeLimit(MaximumImportBytes)]
     public async Task<IActionResult> Import(
@@ -137,6 +148,8 @@ public sealed class SerializedUnitsController : ControllerBase
     /// <summary>A quarter of a million tags at the widths this file uses. Well past any real export.</summary>
     private const int MaximumImportBytes = 8 * 1024 * 1024;
 }
+
+public sealed record RetireTagsRequest(long LocationId, bool DryRun = false);
 
 /// <summary>Matrix items: the dimension grid and the variants it generates (guide p.39–40).</summary>
 [ApiController]

@@ -162,6 +162,25 @@ public sealed class SerializedUnit : Entity, IAuditable
         return Result.Success();
     }
 
+    /// <summary>
+    /// Withdraws a tag from service, keeping the unit and its history.
+    /// <para>
+    /// For re-tagging: the physical stock is unchanged, the label on it is being replaced, and the old
+    /// EPC must stop being sellable without the record of what it did being lost. A sold unit is left
+    /// alone — it has already left, and rewriting its state would rewrite what a receipt refers to.
+    /// </para>
+    /// </summary>
+    public Result Retire()
+    {
+        if (State is SerializedUnitState.Sold or SerializedUnitState.Transferred or SerializedUnitState.Void)
+        {
+            return Result.Failure(InvalidStateTransition.With("from", State).With("to", SerializedUnitState.Void));
+        }
+
+        State = SerializedUnitState.Void;
+        return Result.Success();
+    }
+
     public Result MarkLost()
     {
         State = SerializedUnitState.Lost;
