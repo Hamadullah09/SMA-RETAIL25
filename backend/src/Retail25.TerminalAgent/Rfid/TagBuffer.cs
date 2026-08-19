@@ -3,6 +3,16 @@ using Retail25.Contracts.Terminals;
 namespace Retail25.TerminalAgent.Rfid;
 
 /// <summary>
+/// One reader's share of a drained window.
+/// <para>
+/// <c>ReaderId</c> is 0 for a reader the server has not registered — an agent still running on the
+/// per-station profile. Those batches go out by station as they always did, which is what lets an
+/// estate be upgraded one till at a time.
+/// </para>
+/// </summary>
+public sealed record ReaderTagBatch(long ReaderId, IReadOnlyList<TagRead> Tags);
+
+/// <summary>
 /// The agent-side coalescing window (doc 06 §2).
 /// <para>
 /// A reader reports the same tag twenty times a second. That is pure noise, and it must not cost a
@@ -17,7 +27,7 @@ namespace Retail25.TerminalAgent.Rfid;
 /// </summary>
 public sealed class TagBuffer
 {
-    private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
+    private readonly Dictionary<(long ReaderId, string Epc), Entry> _entries = new();
     private readonly object _gate = new();
 
     private long _totalReads;
@@ -41,7 +51,18 @@ public sealed class TagBuffer
     /// Folds a read into the window. The strongest signal is kept because it is the one most likely
     /// to have come from the basket rather than from the shelf behind it.
     /// </summary>
-    public void Offer(TagRead read)
+    public void Offer(TagRead read) => Offer(0, read);
+
+    /// <summary>
+    /// The same, attributed to the reader that saw it.
+    /// <para>
+    /// Keyed on reader and tag together, never on the tag alone. One machine may drive several
+    /// readers watching different doorways, and the same garment carried past two of them is two
+    /// observations of two different places — folding them into one entry would lose whichever
+    /// reader was second and send the read to the wrong station.
+    /// </para>
+    /// </summary>
+    public void Offer(long readerId, TagRead read)
     {
         ArgumentNullException.ThrowIfNull(read);
 
@@ -51,11 +72,13 @@ public sealed class TagBuffer
             return;
         }
 
+        var key = (readerId, epc);
+
         Interlocked.Increment(ref _totalReads);
 
         lock (_gate)
         {
-            if (_entries.TryGetValue(epc, out var existing))
+            if (_entries.TryGetValue(key, out var existing))
             {
                 // Strongest read wins the antenna, because the strongest is the one nearest the tag —
                 // that is what makes "which zone is this item in" answerable on a multi-antenna
@@ -65,7 +88,7 @@ public sealed class TagBuffer
                 var betterSignal = read.HasRssi && read.Rssi > existing.Rssi;
                 var noSignalEither = !read.HasRssi && existing.Rssi == TagRead.UnknownRssi;
 
-                _entries[epc] = existing with
+                _entries[key] = existing with
                 {
                     ReadCount = existing.ReadCount + read.ReadCount,
                     Rssi = Math.Max(existing.Rssi, read.Rssi),
@@ -77,7 +100,7 @@ public sealed class TagBuffer
                 return;
             }
 
-            _entries[epc] = new Entry(epc, read.Antenna, read.Rssi, read.ReadCount, read.FirstSeen, read.LastSeen);
+            _entries[key] = new Entry(readerId, epc, read.Antenna, read.Rssi, read.ReadCount, read.FirstSeen, read.LastSeen);
         }
     }
 
@@ -106,11 +129,55 @@ public sealed class TagBuffer
 
             foreach (var entry in selected)
             {
-                _entries.Remove(entry.Epc);
+                _entries.Remove((entry.ReaderId, entry.Epc));
             }
 
             return selected
                 .Select(e => new TagRead(e.Epc, e.Antenna, e.Rssi, e.ReadCount, e.FirstSeen, e.LastSeen))
+                .ToList();
+        }
+    }
+
+    /// <summary>
+    /// The same drain, split by the reader that saw each tag.
+    /// <para>
+    /// Needed because a batch now goes to the server addressed by reader, and the server resolves the
+    /// station from the reader and antenna. A single flat list could not say which reader saw what,
+    /// so on a machine driving three readers every read would have to be attributed to a guess.
+    /// </para>
+    /// <para>
+    /// The cap applies to the drain as a whole rather than per reader: it exists to keep one request
+    /// from growing large enough to time out, and three readers each sending a capped batch would
+    /// defeat that.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<ReaderTagBatch> DrainByReader(int maxBatchSize)
+    {
+        lock (_gate)
+        {
+            if (_entries.Count == 0)
+            {
+                return [];
+            }
+
+            var take = maxBatchSize <= 0 ? _entries.Count : Math.Min(maxBatchSize, _entries.Count);
+
+            var selected = _entries.Values
+                .OrderBy(e => e.FirstSeen)
+                .Take(take)
+                .ToList();
+
+            foreach (var entry in selected)
+            {
+                _entries.Remove((entry.ReaderId, entry.Epc));
+            }
+
+            return selected
+                .GroupBy(e => e.ReaderId)
+                .Select(g => new ReaderTagBatch(
+                    g.Key,
+                    g.Select(e => new TagRead(e.Epc, e.Antenna, e.Rssi, e.ReadCount, e.FirstSeen, e.LastSeen))
+                        .ToList()))
                 .ToList();
         }
     }
@@ -126,6 +193,7 @@ public sealed class TagBuffer
     public long ResetRate() => Interlocked.Exchange(ref _totalReads, 0);
 
     private sealed record Entry(
+        long ReaderId,
         string Epc,
         int Antenna,
         int Rssi,
