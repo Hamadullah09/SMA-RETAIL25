@@ -74,12 +74,17 @@ public sealed class ProfileStore
 }
 
 /// <summary>
-/// Keeps a reader connected and streaming into the coalescing buffer (doc 06 §3).
+/// Supervises this machine's reader sessions (doc 06 §3).
 /// <para>
-/// A reader that faults is reconnected with backoff, forever. That is deliberate: the most common
-/// real failure is a network switch rebooting or a reader power-cycling overnight, and the correct
-/// behaviour in both cases is to come back on its own rather than to need someone to restart a
-/// service before the shop can open.
+/// It used to hold one reader in a field and one loop in <c>ExecuteAsync</c>, which is what made a
+/// machine mean a reader. It now owns a set of <see cref="ReaderSession"/>s and does nothing itself
+/// except decide which should exist: each session connects, reads and reconnects on its own backoff,
+/// so one reader failing costs that reader and no other.
+/// </para>
+/// <para>
+/// A reader that faults is reconnected forever. That is deliberate: the most common real failure is
+/// a switch rebooting or a reader power-cycling overnight, and the correct behaviour in both cases is
+/// to come back unaided rather than to need somebody to restart a service before the shop can open.
 /// </para>
 /// </summary>
 public sealed class RfidReaderService : BackgroundService
@@ -91,16 +96,8 @@ public sealed class RfidReaderService : BackgroundService
     private readonly ReaderDiscovery _discovery;
     private readonly ILogger<RfidReaderService> _logger;
 
-    private IRfidReader? _reader;
-
-    /// <summary>
-    /// The address last found by searching, kept so a reader that moved is not hunted for again on
-    /// every reconnect. Cleared implicitly by being overwritten when the search runs afresh.
-    /// </summary>
-    private string? _discovered;
-
-    /// <summary>Rotates the serial port tried when the network search finds nothing.</summary>
-    private int _serialAttempt;
+    private readonly Dictionary<long, RunningSession> _sessions = [];
+    private readonly SemaphoreSlim _gate = new(1, 1);
 
     public RfidReaderService(
         IServiceProvider services,
@@ -120,116 +117,195 @@ public sealed class RfidReaderService : BackgroundService
         _logger = logger;
     }
 
-    /// <summary>True while a reader is connected. Drives the red strip on the live feed.</summary>
-    public bool ReaderOnline => _reader?.IsConnected == true;
+    /// <summary>
+    /// True while any reader is connected. Drives the red strip on the live feed.
+    /// <para>
+    /// Any rather than all, because the strip answers "can this till read a tag" and one working
+    /// reader means yes. Which readers are down is a question for the dashboard, where there is room
+    /// to say so per reader.
+    /// </para>
+    /// </summary>
+    public bool ReaderOnline => _sessions.Values.Any(s => s.Session.IsConnected);
 
-    public string ReaderDescription => _reader?.Description ?? "none";
+    public string ReaderDescription
+    {
+        get
+        {
+            var connected = _sessions.Values
+                .Where(s => s.Session.IsConnected)
+                .Select(s => s.Session.Description)
+                .ToList();
+
+            return connected.Count switch
+            {
+                0 => "none",
+                1 => connected[0],
+                _ => $"{connected.Count} readers: {string.Join(", ", connected)}",
+            };
+        }
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var attempt = 0;
+        // Fire-and-forget, because the event is raised from whichever thread received the profile and
+        // must not block it — but never unobserved. An exception thrown into a discarded task is a
+        // reconciliation that silently did not happen, which presents as a reader that never comes
+        // back after a settings change and leaves nothing behind to explain why.
+        void OnProfileChanged() => _ = ReconcileSafelyAsync(stoppingToken);
 
-        while (!stoppingToken.IsCancellationRequested)
+        _profiles.Changed += OnProfileChanged;
+
+        try
         {
-            // Cancelled either by shutdown or by the server sending new hardware settings. The second
-            // is the one that matters here: the agent starts before the server has answered, so its
-            // first session always runs on the built-in Simulator default. Without a way to interrupt
-            // that session, the simulator stayed for the life of the process — the real reader was
-            // configured, reachable, and never opened, and nothing in the logs said so, because from
-            // the agent's point of view every step had succeeded.
-            using var session = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+            await ReconcileAsync(stoppingToken);
 
-            void OnProfileChanged()
+            // The supervisor itself does nothing while the shop trades. Every reader is a session
+            // running on its own task, and the only reason to wake up here is a configuration change,
+            // which arrives as an event rather than as a poll.
+            await Task.Delay(Timeout.InfiniteTimeSpan, stoppingToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down.
+        }
+        finally
+        {
+            _profiles.Changed -= OnProfileChanged;
+            await StopAllAsync();
+        }
+    }
+
+    /// <summary>
+    /// Starts, stops and leaves alone, so that a change to one reader does not disturb the others.
+    /// <para>
+    /// The reconciliation is the point. Restarting every session whenever anything changed would mean
+    /// re-pointing antenna 2 of one reader dropped tags on the other three readers of the same
+    /// machine — which is precisely the coupling this design exists to remove.
+    /// </para>
+    /// </summary>
+    private async Task ReconcileSafelyAsync(CancellationToken stoppingToken)
+    {
+        try
+        {
+            await ReconcileAsync(stoppingToken);
+        }
+        catch (OperationCanceledException)
+        {
+            // Shutting down mid-reconcile.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Could not apply the new reader configuration; the previous one is still running");
+        }
+    }
+
+    private async Task ReconcileAsync(CancellationToken stoppingToken)
+    {
+        if (stoppingToken.IsCancellationRequested)
+        {
+            return;
+        }
+
+        await _gate.WaitAsync(stoppingToken);
+
+        try
+        {
+            var wanted = DesiredReaders();
+
+            foreach (var readerId in _sessions.Keys.Where(id => !wanted.ContainsKey(id)).ToList())
             {
-                _logger.LogInformation("The device profile changed; restarting the reader session");
-
-                // Already disposed if the session ended for its own reasons first.
-                try
-                {
-                    session.Cancel();
-                }
-                catch (ObjectDisposedException)
-                {
-                }
+                _logger.LogInformation("Reader {ReaderId} is no longer assigned to this machine; stopping it", readerId);
+                await StopAsync(readerId);
             }
 
-            _profiles.Changed += OnProfileChanged;
-
-            try
+            foreach (var (readerId, profile) in wanted)
             {
-                var profile = await LocateAsync(_profiles.Reader, session.Token);
-                _reader = CreateReader(profile);
-
-                await _reader.ConnectAsync(profile, session.Token);
-                attempt = 0;
-
-                if (_profiles.Mode != ReaderMode.Off)
+                if (_sessions.TryGetValue(readerId, out var running))
                 {
-                    await _reader.StartAsync(session.Token);
-                }
-
-                await foreach (var read in _reader.ReadsAsync(session.Token))
-                {
-                    // Local pre-filter (doc 06 §2). The server re-checks it, so this is purely about
-                    // not paying for a round trip on a tag that could never be accepted.
-                    //
-                    // Only applied when the reader actually measured. A reader that reports no signal
-                    // strength — which R2000-family units do in real-time inventory mode — would
-                    // otherwise have every one of its reads discarded here, and the symptom at the
-                    // till would be a reader that connects, reports healthy, and never sees a tag.
-                    if (read.HasRssi && read.Rssi < profile.RssiThresholdDbm)
+                    // Already running. Restarted only if its own settings moved: a session whose
+                    // reader is unchanged keeps its connection, and keeps reading.
+                    if (running.Profile == profile)
                     {
                         continue;
                     }
 
-                    _buffer.Offer(read);
+                    _logger.LogInformation("Reader {ReaderId} settings changed; restarting its session", readerId);
+                    await StopAsync(readerId);
                 }
 
+                Start(readerId, profile, stoppingToken);
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (OperationCanceledException)
-            {
-                // The profile changed. Not a fault, so the backoff counter is left alone — the next
-                // session should start immediately rather than after a penalty this did not earn.
-                attempt = 0;
-            }
-            catch (Exception ex)
-            {
-                attempt++;
-                _logger.LogWarning(ex, "Reader session ended (attempt {Attempt}); reconnecting", attempt);
-            }
-            finally
-            {
-                _profiles.Changed -= OnProfileChanged;
-                await SafeStopAsync();
-            }
-
-            if (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-
-            // Backoff caps at a minute: past that, retrying faster does not help and the logs become
-            // noise that hides the actual fault.
-            var delay = TimeSpan.FromSeconds(Math.Min(60, _options.ReaderRetrySeconds * Math.Max(1, attempt)));
-            await Task.Delay(delay, stoppingToken);
         }
-
-        await SafeStopAsync();
+        finally
+        {
+            _gate.Release();
+        }
     }
 
-    /// <summary>Applies a mode change from the server without dropping the session.</summary>
+    /// <summary>
+    /// Which readers this machine should be driving.
+    /// <para>
+    /// One, from the per-station profile, until the device configuration is wired in. The shape is
+    /// what matters: this is the only method that decides how many readers exist, so making a machine
+    /// drive twelve is a change here and nowhere else.
+    /// </para>
+    /// </summary>
+    private Dictionary<long, ReaderProfileContract> DesiredReaders()
+        => new() { [0] = _profiles.Reader };
+
+    private void Start(long readerId, ReaderProfileContract profile, CancellationToken stoppingToken)
+    {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+
+        var session = new ReaderSession(
+            readerId,
+            () => _profiles.Reader,
+            () => _profiles.Mode,
+            _services,
+            _buffer,
+            _discovery,
+            _options,
+            _logger);
+
+        // Not awaited: each session runs for the life of the agent, and awaiting one would mean the
+        // second reader never started.
+        var runner = Task.Run(() => session.RunAsync(cts.Token), CancellationToken.None);
+
+        _sessions[readerId] = new RunningSession(session, cts, runner, profile);
+    }
+
+    private async Task StopAsync(long readerId)
+    {
+        if (!_sessions.Remove(readerId, out var running))
+        {
+            return;
+        }
+
+        await running.StopAsync(_logger);
+    }
+
+    private async Task StopAllAsync()
+    {
+        foreach (var readerId in _sessions.Keys.ToList())
+        {
+            await StopAsync(readerId);
+        }
+    }
+
+    /// <summary>The reader this control targets, or the only one when a caller did not say.</summary>
+    private ReaderSession? SessionFor(long? readerId = null)
+        => readerId is { } id
+            ? _sessions.TryGetValue(id, out var found) ? found.Session : null
+            : _sessions.Values.FirstOrDefault()?.Session;
+
     /// <summary>
     /// What the attached reader reports about itself. Answers even with no reader connected, so a
     /// settings screen on a misconfigured till says so rather than hanging.
     /// </summary>
     public Task<ReaderDiagnostics> ReadDiagnosticsAsync(CancellationToken ct)
-        => _reader is null
-            ? Task.FromResult(new ReaderDiagnostics { Unavailable = ["no reader is connected to this station"] })
-            : _reader.ReadDiagnosticsAsync(ct);
+        => SessionFor() is { } session
+            ? session.ReadDiagnosticsAsync(ct)
+            : Task.FromResult(new ReaderDiagnostics { Unavailable = ["no reader is connected to this station"] });
 
     /// <summary>
     /// Pushes the current profile into the device again, returning what it would not take.
@@ -240,160 +316,56 @@ public sealed class RfidReaderService : BackgroundService
     /// </para>
     /// </summary>
     public Task<IReadOnlyList<string>> ApplySettingsAsync(CancellationToken ct)
-        => _reader is null
-            ? Task.FromResult<IReadOnlyList<string>>(["no reader is connected to this station"])
-            : _reader.ApplySettingsAsync(_profiles.Reader, ct);
+        => SessionFor() is { } session
+            ? session.ApplySettingsAsync(ct)
+            : Task.FromResult<IReadOnlyList<string>>(["no reader is connected to this station"]);
 
+    /// <summary>Applies a mode change to every reader this machine drives.</summary>
     public async Task ApplyModeAsync(ReaderMode mode, CancellationToken ct)
     {
         _profiles.SetMode(mode);
 
-        if (_reader is null)
-        {
-            return;
-        }
-
         if (mode == ReaderMode.Off)
         {
-            await _reader.StopAsync(ct);
             _buffer.Clear();
-            return;
         }
 
-        await _reader.StartAsync(ct);
+        foreach (var running in _sessions.Values.ToList())
+        {
+            await running.Session.ApplyModeAsync(mode, ct);
+        }
     }
 
-    /// <summary>
-    /// Returns the profile with its host replaced by wherever the reader actually is.
-    ///
-    /// <para>
-    /// Only network protocols are searched for. A simulator has nothing to find, and moving its
-    /// loopback address to some other machine on the shop's network would be actively wrong.
-    /// </para>
-    /// <para>
-    /// The address the search last settled on is preferred over the configured one, because after a
-    /// DHCP change the configured one is the stale value and re-probing it first costs a timeout on
-    /// every reconnect. The configured value is still tried if the remembered address stops
-    /// answering — a reader put back on its old lease is found without a restart.
-    /// </para>
-    /// </summary>
-    private async Task<ReaderProfileContract> LocateAsync(ReaderProfileContract profile, CancellationToken ct)
+    private sealed record RunningSession(
+        ReaderSession Session,
+        CancellationTokenSource Cts,
+        Task Runner,
+        ReaderProfileContract Profile)
     {
-        if (EffectiveProtocol(profile) is not (ReaderProtocol.UhfSerial or ReaderProtocol.Llrp))
+        public async Task StopAsync(ILogger logger)
         {
-            return profile;
-        }
-
-        var preferred = _discovered ?? profile.Host;
-
-        // A lead plugged into this machine wins, and is not searched for over the network.
-        //
-        // Asked first because it is the cheaper and the more certain answer: a COM port either
-        // exists on this machine or it does not, while a network sweep takes seconds and can find
-        // somebody else's reader on a shared shop network.
-        if (SerialReaderTransport.IsSerialPort(preferred))
-        {
-            return profile with { Host = preferred };
-        }
-
-        var host = await _discovery.FindAsync(preferred, profile.Port, ct);
-
-        if (host is not null)
-        {
-            _discovered = host;
-
-            if (!string.Equals(host, profile.Host, StringComparison.OrdinalIgnoreCase))
+            try
             {
-                _logger.LogInformation(
-                    "Reader {Name} answered on {Found} rather than the configured {Configured}; using {Found}",
-                    profile.Name,
-                    host,
-                    profile.Host,
-                    host);
+                await Cts.CancelAsync();
+
+                // Bounded: a driver blocked in a synchronous read cannot be interrupted, and waiting
+                // on it for ever would stop the agent shutting down. The session disposes its reader
+                // in its own finally either way.
+                await Runner.WaitAsync(TimeSpan.FromSeconds(5), CancellationToken.None);
             }
-
-            return profile with { Host = host };
-        }
-
-        // Nothing on the network. Before giving up, look at what is plugged in — a reader on a USB
-        // lead is the ordinary case for a single till, and it is invisible to an address sweep.
-        //
-        // The ports are re-read every time rather than remembered, because the whole point is to
-        // notice a reader somebody has just connected. The session loop retries on a backoff, so a
-        // lead plugged in while the till is open is picked up within the minute, with nobody
-        // restarting anything.
-        var ports = SerialReaderTransport.AvailablePorts();
-
-        if (ports.Count > 0)
-        {
-            // A different port each attempt, so a machine with a modem on COM1 and the reader on
-            // COM7 reaches the reader on the second try rather than failing on the first for ever.
-            var chosen = ports[_serialAttempt++ % ports.Count];
-
-            _logger.LogInformation(
-                "No reader answered on the network; trying the serial port {Port} ({Count} available)",
-                chosen,
-                ports.Count);
-
-            // Deliberately not cached: caching would pin the choice to whichever port happened to
-            // be first, and a lead moved to another socket would never be found again.
-            return profile with { Host = chosen };
-        }
-
-        // Nothing anywhere. Hand back what was configured so the connection attempt — and the error
-        // it raises — names the address the operator set, which is the one they can act on.
-        return profile;
-    }
-
-    /// <summary>
-    /// The protocol actually used, which is the profile's unless this machine overrides it.
-    /// <para>
-    /// Shared with <see cref="LocateAsync"/> so the override cannot mean one thing when deciding
-    /// whether to search for the reader and another when deciding how to talk to it — forcing
-    /// UhfSerial on a bench would otherwise skip the search, because the profile still said
-    /// Simulator.
-    /// </para>
-    /// </summary>
-    private ReaderProtocol EffectiveProtocol(ReaderProfileContract profile) =>
-        // A bench or a demo forces the simulator regardless of what the store's profile says.
-        Enum.TryParse<ReaderProtocol>(_options.ForceReaderProtocol, ignoreCase: true, out var forced)
-            ? forced
-            : profile.Protocol;
-
-    private IRfidReader CreateReader(ReaderProfileContract profile)
-    {
-        return EffectiveProtocol(profile) switch
-        {
-            ReaderProtocol.Llrp => ActivatorUtilities.CreateInstance<LlrpRfidReader>(_services),
-
-            // Given the agent's own opener, which understands a COM port as well as a socket. The
-            // driver is shared with the API, and the API can never open a lead plugged into a till.
-            ReaderProtocol.UhfSerial => ActivatorUtilities.CreateInstance<UhfSerialRfidReader>(
-                _services,
-                (ReaderConnectionOpener)SerialReaderTransport.OpenAsync),
-            _ => ActivatorUtilities.CreateInstance<SimulatedRfidReader>(_services),
-        };
-    }
-
-    private async Task SafeStopAsync()
-    {
-        if (_reader is null)
-        {
-            return;
-        }
-
-        try
-        {
-            await _reader.StopAsync(CancellationToken.None);
-            await _reader.DisposeAsync();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "Ignoring an error while closing the reader");
-        }
-        finally
-        {
-            _reader = null;
+            catch (TimeoutException)
+            {
+                logger.LogWarning("Reader {ReaderId} did not stop within five seconds", Session.ReaderId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "Ignoring an error while stopping reader {ReaderId}", Session.ReaderId);
+            }
+            finally
+            {
+                await Session.DisposeAsync();
+                Cts.Dispose();
+            }
         }
     }
 }
