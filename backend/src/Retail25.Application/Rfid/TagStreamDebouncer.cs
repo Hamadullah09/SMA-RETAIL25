@@ -47,6 +47,15 @@ public sealed class TagStreamDebouncer
     private const int StaleWindows = 4;
 
     private readonly ConcurrentDictionary<string, Slot> _slots;
+
+    /// <summary>
+    /// The monotonic source. A parameter rather than a static call so a test can decide what "a
+    /// millisecond later" means: the number of tags legitimately held is the number that arrived
+    /// within the stale window, which on a real clock is a function of how fast the machine happens
+    /// to run. A bound written against that is not a bound, and one of them failed a deploy by
+    /// landing exactly on it.
+    /// </summary>
+    private readonly TimeProvider _time;
     private readonly long _windowTicks;
 
     private int _sinceSweep;
@@ -57,7 +66,11 @@ public sealed class TagStreamDebouncer
     /// <summary>Reads that opened a window and will be broadcast.</summary>
     private long _admitted;
 
-    public TagStreamDebouncer(TimeSpan? window = null, int concurrencyHint = 0, int capacityHint = 4096)
+    public TagStreamDebouncer(
+        TimeSpan? window = null,
+        int concurrencyHint = 0,
+        int capacityHint = 4096,
+        TimeProvider? timeProvider = null)
     {
         var effective = window ?? DefaultWindow;
 
@@ -66,7 +79,8 @@ public sealed class TagStreamDebouncer
             throw new ArgumentOutOfRangeException(nameof(window), effective, "The debounce window must be positive.");
         }
 
-        _windowTicks = (long)(effective.TotalSeconds * Stopwatch.Frequency);
+        _time = timeProvider ?? TimeProvider.System;
+        _windowTicks = (long)(effective.TotalSeconds * _time.TimestampFrequency);
 
         // Sized up front. Growing a ConcurrentDictionary means taking every lock and rehashing, and
         // doing that on the reader's thread at five thousand reads a second is a visible stall.
@@ -88,9 +102,9 @@ public sealed class TagStreamDebouncer
     /// folded into an observation already in flight.
     /// </summary>
     /// <remarks>
-    /// Timing comes from <see cref="Stopwatch.GetTimestamp"/>, not the wall clock. A monotonic source
-    /// is not optional here: an NTP correction or a daylight-saving step would otherwise either open
-    /// the gate for every tag at once or wedge it shut for an hour.
+    /// Timing comes from the time provider's monotonic timestamp, not the wall clock. A monotonic
+    /// source is not optional here: an NTP correction or a daylight-saving step would otherwise
+    /// either open the gate for every tag at once or wedge it shut for an hour.
     /// </remarks>
     public bool TryAdmit(string epc)
     {
@@ -98,7 +112,7 @@ public sealed class TagStreamDebouncer
 
         Interlocked.Increment(ref _observed);
 
-        var now = Stopwatch.GetTimestamp();
+        var now = _time.GetTimestamp();
 
         while (true)
         {
@@ -150,7 +164,7 @@ public sealed class TagStreamDebouncer
         {
             readCount = (int)Interlocked.Read(ref slot.ReadCount);
             age = TimeSpan.FromSeconds(
-                (double)(Stopwatch.GetTimestamp() - Interlocked.Read(ref slot.WindowOpenedAt)) / Stopwatch.Frequency);
+                (double)(_time.GetTimestamp() - Interlocked.Read(ref slot.WindowOpenedAt)) / _time.TimestampFrequency);
 
             return true;
         }
@@ -181,7 +195,7 @@ public sealed class TagStreamDebouncer
     /// </summary>
     public int Sweep()
     {
-        var cutoff = Stopwatch.GetTimestamp() - (_windowTicks * StaleWindows);
+        var cutoff = _time.GetTimestamp() - (_windowTicks * StaleWindows);
         var removed = 0;
 
         foreach (var pair in _slots)

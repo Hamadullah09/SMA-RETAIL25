@@ -208,7 +208,23 @@ public sealed class TagStreamDebouncerTests
         const int InFieldAtOnce = 200;
         const int OverTheHour = 20_000;
 
-        var debouncer = new TagStreamDebouncer(TimeSpan.FromMilliseconds(1));
+        // Mirrors TagStreamDebouncer.StaleWindows, which is private. Named here so the expected
+        // figure below reads as a derivation rather than as a number somebody once observed.
+        const int StaleWindows = 4;
+
+        // A clock this test drives, not the machine's.
+        //
+        // What the debouncer legitimately holds is whatever arrived inside the stale window, so on a
+        // real clock the answer is a function of how fast the runner happens to execute the loop
+        // below — the same code holds four hundred tags on one machine and two thousand on a quicker
+        // one, and neither is a leak. A bound written against that is not a bound. This one landed
+        // exactly on it and failed a deploy, having passed everywhere else.
+        //
+        // Advancing time by a whole window each tick makes the shape of the claim exact: each batch
+        // of two hundred goes stale before the next arrives, so what is held is a couple of batches,
+        // whatever the hardware.
+        var clock = new SteppingTime();
+        var debouncer = new TagStreamDebouncer(TimeSpan.FromMilliseconds(1), timeProvider: clock);
 
         for (var tick = 0; tick < OverTheHour / InFieldAtOnce; tick++)
         {
@@ -216,12 +232,41 @@ public sealed class TagStreamDebouncerTests
             {
                 debouncer.TryAdmit($"30DDDD00000000{(tick * InFieldAtOnce) + (read % InFieldAtOnce):D10}");
             }
+
+            clock.Advance(TimeSpan.FromMilliseconds(1));
         }
 
-        // Generously bounded — the exact figure depends on where the amortised sweep last fired —
-        // but the point is the order of magnitude: hundreds, not tens of thousands.
-        debouncer.TagsInField.Should().BeLessThan(InFieldAtOnce * 10);
+        // Exactly five batches, and the exactness is the point of driving the clock.
+        //
+        // The tick just finished, plus the four a slot survives — StaleWindows, which is deliberate:
+        // a tag read at the very end of its window must not be evicted and re-admitted a moment
+        // later, which is the duplicate the debounce exists to stop. So a thousand held out of twenty
+        // thousand seen, and the leak this guards against is the shape where it holds all twenty.
+        //
+        // Stated as a number rather than a ceiling because a ceiling here has twice now been written
+        // at the value the code actually produces, which passes and asserts nothing. If StaleWindows
+        // or the sweep changes, this fails and names the new figure.
+        debouncer.TagsInField.Should().Be(InFieldAtOnce * (StaleWindows + 1));
         debouncer.ObservedReads.Should().Be(500_000);
+    }
+
+    /// <summary>
+    /// A monotonic timestamp that only moves when a test says so.
+    /// <para>
+    /// Hand-written rather than pulled from Microsoft.Extensions.TimeProvider.Testing: the debouncer
+    /// reads a timestamp and a frequency and nothing else, and a package reference for two members
+    /// is a dependency bought at a poor price.
+    /// </para>
+    /// </summary>
+    private sealed class SteppingTime : TimeProvider
+    {
+        private long _timestamp;
+
+        public override long TimestampFrequency => TimeSpan.TicksPerSecond;
+
+        public override long GetTimestamp() => Interlocked.Read(ref _timestamp);
+
+        public void Advance(TimeSpan by) => Interlocked.Add(ref _timestamp, by.Ticks);
     }
 
     [Fact]
