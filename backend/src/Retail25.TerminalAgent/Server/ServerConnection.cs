@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -252,8 +253,16 @@ public sealed class SignalRServerConnection : IServerConnection, IAsyncDisposabl
     public Task<bool> PublishTagsAsync(IReadOnlyList<TagRead> tags, CancellationToken ct)
         => TryInvokeAsync(TerminalHubMethods.ToServer.PublishTags, [_options.StationId, tags], ct);
 
+    // As a string, like every other identifier this hub takes. It was sent as a long, and the hub
+    // parameter is a string, so argument binding failed on every batch: the invoke faulted, the
+    // batch was spooled, and the spool replayed it by station -- to this machine's own till,
+    // carrying antenna numbers nobody then used. One reader serving two checkouts put both of them
+    // on one till, and every screen agreed it was working, because the tags did arrive.
     public Task<bool> PublishReaderTagsAsync(long readerId, IReadOnlyList<TagRead> tags, CancellationToken ct)
-        => TryInvokeAsync(TerminalHubMethods.ToServer.PublishReaderTags, [readerId, tags], ct);
+        => TryInvokeAsync(
+            TerminalHubMethods.ToServer.PublishReaderTags,
+            [readerId.ToString(CultureInfo.InvariantCulture), tags],
+            ct);
 
     public Task<bool> ReportStatusAsync(AgentStatusReport status, CancellationToken ct)
         => TryInvokeAsync(

@@ -12,7 +12,15 @@ namespace Retail25.TerminalAgent.Spooling;
 /// </summary>
 public interface ITagSpool
 {
-    Task EnqueueAsync(IReadOnlyList<TagRead> tags, CancellationToken ct = default);
+    /// <summary>
+    /// Spools a batch together with the reader that saw it.
+    /// <para>
+    /// The reader travels with the tags because the station is resolved from reader and antenna. A
+    /// spool that stored only the reads had to guess on replay, and guessed the machine's own till —
+    /// so a batch that failed to send once came back addressed to the wrong checkout.
+    /// </para>
+    /// </summary>
+    Task EnqueueAsync(long readerId, IReadOnlyList<TagRead> tags, CancellationToken ct = default);
 
     /// <summary>Oldest entries first, capped. Returns the rows and the ids needed to acknowledge them.</summary>
     Task<IReadOnlyList<SpooledBatch>> PeekAsync(int maxBatches, CancellationToken ct = default);
@@ -22,7 +30,7 @@ public interface ITagSpool
     Task<int> CountAsync(CancellationToken ct = default);
 }
 
-public sealed record SpooledBatch(long Id, DateTimeOffset SpooledAt, IReadOnlyList<TagRead> Tags);
+public sealed record SpooledBatch(long Id, DateTimeOffset SpooledAt, IReadOnlyList<TagRead> Tags, long ReaderId);
 
 /// <summary>
 /// SQLite because the spool has to survive a power cut, not just a process restart, and a till loses
@@ -68,14 +76,32 @@ public sealed class SqliteTagSpool : ITagSpool, IDisposable
             CREATE TABLE IF NOT EXISTS tag_spool (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 spooled_at  TEXT NOT NULL,
-                payload     TEXT NOT NULL
+                payload     TEXT NOT NULL,
+
+                -- Which reader saw these. Nullable, because a spool written by an older agent has
+                -- no answer and must still replay: 0 there means "no reader identity", which is
+                -- exactly what the per-station path is for.
+                reader_id   INTEGER NOT NULL DEFAULT 0
             );
             CREATE INDEX IF NOT EXISTS ix_tag_spool_spooled_at ON tag_spool (spooled_at);
             """;
         command.ExecuteNonQuery();
+
+        // The table above is only created on a fresh till. A spool file already on disk keeps the
+        // shape it was made with, so the column has to be added to it as well — and SQLite has no
+        // "add column if missing", hence asking.
+        using var columns = _connection.CreateCommand();
+        columns.CommandText = "SELECT COUNT(*) FROM pragma_table_info('tag_spool') WHERE name = 'reader_id'";
+
+        if (Convert.ToInt64(columns.ExecuteScalar(), CultureInfo.InvariantCulture) == 0)
+        {
+            using var add = _connection.CreateCommand();
+            add.CommandText = "ALTER TABLE tag_spool ADD COLUMN reader_id INTEGER NOT NULL DEFAULT 0";
+            add.ExecuteNonQuery();
+        }
     }
 
-    public async Task EnqueueAsync(IReadOnlyList<TagRead> tags, CancellationToken ct = default)
+    public async Task EnqueueAsync(long readerId, IReadOnlyList<TagRead> tags, CancellationToken ct = default)
     {
         if (tags is null || tags.Count == 0)
         {
@@ -87,9 +113,10 @@ public sealed class SqliteTagSpool : ITagSpool, IDisposable
         try
         {
             await using var command = _connection.CreateCommand();
-            command.CommandText = "INSERT INTO tag_spool (spooled_at, payload) VALUES ($at, $payload)";
+            command.CommandText = "INSERT INTO tag_spool (spooled_at, payload, reader_id) VALUES ($at, $payload, $reader)";
             command.Parameters.AddWithValue("$at", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
             command.Parameters.AddWithValue("$payload", JsonSerializer.Serialize(tags));
+            command.Parameters.AddWithValue("$reader", readerId);
 
             await command.ExecuteNonQueryAsync(ct);
             await TrimAsync(ct);
@@ -107,7 +134,7 @@ public sealed class SqliteTagSpool : ITagSpool, IDisposable
         try
         {
             await using var command = _connection.CreateCommand();
-            command.CommandText = "SELECT id, spooled_at, payload FROM tag_spool ORDER BY id LIMIT $limit";
+            command.CommandText = "SELECT id, spooled_at, payload, reader_id FROM tag_spool ORDER BY id LIMIT $limit";
             command.Parameters.AddWithValue("$limit", Math.Max(1, maxBatches));
 
             var batches = new List<SpooledBatch>();
@@ -119,7 +146,8 @@ public sealed class SqliteTagSpool : ITagSpool, IDisposable
                 batches.Add(new SpooledBatch(
                     reader.GetInt64(0),
                     DateTimeOffset.Parse(reader.GetString(1), CultureInfo.InvariantCulture),
-                    tags));
+                    tags,
+                    reader.GetInt64(3)));
             }
 
             return batches;

@@ -64,10 +64,14 @@ public sealed class TagFlushService : BackgroundService
 
         // On shutdown, whatever is left is spooled rather than lost: the till may be being restarted
         // mid-basket, and those tags are still on the counter.
-        var remaining = _buffer.Drain(int.MaxValue);
-        if (remaining.Count > 0)
+        //
+        // By reader, like the live path. Draining them into one heap would spool a restart's worth of
+        // reads with no reader identity, and they would come back after the restart addressed to this
+        // machine's own till — which for a reader serving two checkouts is the wrong one for half of
+        // them, on the first basket after every restart.
+        foreach (var batch in _buffer.DrainByReader(int.MaxValue))
         {
-            await _spool.EnqueueAsync(remaining, CancellationToken.None);
+            await _spool.EnqueueAsync(batch.ReaderId, batch.Tags, CancellationToken.None);
         }
     }
 
@@ -103,7 +107,7 @@ public sealed class TagFlushService : BackgroundService
             // cost another's: they are separate observations of separate places, and merging them
             // into one spool entry would replay them as though one reader had seen everything.
             delivered = false;
-            await _spool.EnqueueAsync(batch.Tags, ct);
+            await _spool.EnqueueAsync(batch.ReaderId, batch.Tags, ct);
         }
 
         if (!delivered)
@@ -145,7 +149,15 @@ public sealed class TagFlushService : BackgroundService
 
         foreach (var batch in batches)
         {
-            if (!await _server.PublishTagsAsync(batch.Tags, ct))
+            // Replayed the way it was taken. A batch from a managed reader goes back addressed to
+            // that reader, so the server resolves the station from the antenna exactly as it would
+            // have live; only a batch with no reader identity — an older spool file, or an agent on
+            // the per-station profile — goes out by station.
+            var sent = batch.ReaderId == 0
+                ? await _server.PublishTagsAsync(batch.Tags, ct)
+                : await _server.PublishReaderTagsAsync(batch.ReaderId, batch.Tags, ct);
+
+            if (!sent)
             {
                 break;
             }

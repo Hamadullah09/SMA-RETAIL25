@@ -25,7 +25,7 @@ public sealed class SqliteTagSpoolTests : IDisposable
         using var spool = CreateSpool();
 
         var tags = new[] { Tag("EPC001"), Tag("EPC002") };
-        await spool.EnqueueAsync(tags);
+        await spool.EnqueueAsync(0, tags);
 
         var batches = await spool.PeekAsync(10);
 
@@ -44,9 +44,9 @@ public sealed class SqliteTagSpoolTests : IDisposable
     {
         using var spool = CreateSpool();
 
-        await spool.EnqueueAsync([Tag("A")]);
-        await spool.EnqueueAsync([Tag("B")]);
-        await spool.EnqueueAsync([Tag("C")]);
+        await spool.EnqueueAsync(0, [Tag("A")]);
+        await spool.EnqueueAsync(0, [Tag("B")]);
+        await spool.EnqueueAsync(0, [Tag("C")]);
 
         var batches = await spool.PeekAsync(10);
         await spool.AcknowledgeAsync([batches[0].Id, batches[1].Id]);
@@ -62,9 +62,9 @@ public sealed class SqliteTagSpoolTests : IDisposable
     {
         using var spool = CreateSpool();
 
-        await spool.EnqueueAsync([Tag("FIRST")]);
-        await spool.EnqueueAsync([Tag("SECOND")]);
-        await spool.EnqueueAsync([Tag("THIRD")]);
+        await spool.EnqueueAsync(0, [Tag("FIRST")]);
+        await spool.EnqueueAsync(0, [Tag("SECOND")]);
+        await spool.EnqueueAsync(0, [Tag("THIRD")]);
 
         var batches = await spool.PeekAsync(10);
 
@@ -82,7 +82,7 @@ public sealed class SqliteTagSpoolTests : IDisposable
 
         for (var i = 0; i < 20; i++)
         {
-            await spool.EnqueueAsync([Tag($"EPC{i:D3}")]);
+            await spool.EnqueueAsync(0, [Tag($"EPC{i:D3}")]);
         }
 
         (await spool.CountAsync()).Should().Be(5);
@@ -97,7 +97,7 @@ public sealed class SqliteTagSpoolTests : IDisposable
     {
         using (var spool = CreateSpool())
         {
-            await spool.EnqueueAsync([Tag("SURVIVOR")]);
+            await spool.EnqueueAsync(0, [Tag("SURVIVOR")]);
         }
 
         // A till loses power mid-basket; the reads have to still be there when it comes back.
@@ -113,7 +113,7 @@ public sealed class SqliteTagSpoolTests : IDisposable
     {
         using var spool = CreateSpool();
 
-        await spool.EnqueueAsync([]);
+        await spool.EnqueueAsync(0, []);
 
         (await spool.CountAsync()).Should().Be(0);
     }
@@ -167,7 +167,7 @@ public sealed class TagFlushBehaviourTests
         var spool = new InMemorySpool();
         var buffer = new TagBuffer();
 
-        await spool.EnqueueAsync([new TagRead("OLD", 1, -55, 3, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)]);
+        await spool.EnqueueAsync(0, [new TagRead("OLD", 1, -55, 3, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)]);
         buffer.Offer(new TagRead("NEW", 1, -55, 3, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch));
 
         await FlushOnceAsync(buffer, server, spool);
@@ -189,7 +189,7 @@ public sealed class TagFlushBehaviourTests
         var server = new FakeServerConnection { Connected = true, FailPublish = true };
         var spool = new InMemorySpool();
 
-        await spool.EnqueueAsync([new TagRead("EPC001", 1, -55, 3, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)]);
+        await spool.EnqueueAsync(0, [new TagRead("EPC001", 1, -55, 3, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)]);
 
         await FlushOnceAsync(new TagBuffer(), server, spool);
 
@@ -228,7 +228,7 @@ public sealed class TagFlushBehaviourTests
 
         if (!await server.PublishTagsAsync(live, default))
         {
-            await spool.EnqueueAsync(live);
+            await spool.EnqueueAsync(0, live);
         }
     }
 
@@ -280,11 +280,11 @@ public sealed class TagFlushBehaviourTests
 
         public List<SpooledBatch> Batches { get; } = [];
 
-        public Task EnqueueAsync(IReadOnlyList<TagRead> tags, CancellationToken ct = default)
+        public Task EnqueueAsync(long readerId, IReadOnlyList<TagRead> tags, CancellationToken ct = default)
         {
             if (tags.Count > 0)
             {
-                Batches.Add(new SpooledBatch(_nextId++, DateTimeOffset.UnixEpoch, tags));
+                Batches.Add(new SpooledBatch(_nextId++, DateTimeOffset.UnixEpoch, tags, readerId));
             }
 
             return Task.CompletedTask;
