@@ -48,7 +48,19 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
 
   const hubRef = useRef<RfidHub | null>(null);
 
-  const onTagsObserved = useCallback((tags: ObservedTag[]) => {
+  const onTagsObserved = useCallback((tags: ObservedTag[], observedAt: number) => {
+    // Only this till's reads.
+    //
+    // The hub hands the station along with the tags and this dropped it, so whatever arrived was
+    // shown and applied here. That was invisible while one reader served one till; with an antenna
+    // map it means the item a customer is holding at the next checkout lands on this sale.
+    //
+    // Kept even though the server now sends to the station alone: this is the end that puts a line
+    // on somebody's bill, and it should not depend on a broadcast being addressed correctly.
+    if (observedAt !== stationId) {
+      return;
+    }
+
     const now = Date.now();
 
     setRows((current) => {
@@ -68,7 +80,7 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
       // bottom, and an unbounded array on a screen that stays open all day is a leak.
       return [...byEpc.values()].sort((a, b) => b.receivedAt - a.receivedAt).slice(0, MAX_ROWS);
     });
-  }, []);
+  }, [stationId]);
 
   useEffect(() => {
     const hub = new RfidHub();

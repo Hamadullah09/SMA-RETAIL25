@@ -76,8 +76,18 @@ public sealed class RfidNotifier : IRfidNotifier
 
         var payload = new { stationId, locationId, tags };
 
+        // The station that the reads were routed to, and nowhere else.
+        //
+        // This also went to the whole location, which was harmless while one reader served one till
+        // and stopped being harmless the moment an antenna map existed: every till in the shop
+        // received every read, and the till screen applies what it receives. An item held at the
+        // antenna serving till one would go onto till two's open sale — silently, correctly
+        // according to every log, and wrongly according to the customer.
+        //
+        // It is also what the estate cannot afford. Two hundred and fifty-two tills each receiving
+        // every read in the building is the fan-out the routing exists to avoid.
         return _hub.Clients
-            .Groups(RfidGroups.Station(stationId), RfidGroups.Location(locationId))
+            .Group(RfidGroups.Station(stationId))
             .SendAsync("TagsObserved", payload, ct);
     }
 
