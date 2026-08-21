@@ -61,6 +61,17 @@ public sealed class ReaderSession : IAsyncDisposable
 
     public bool IsConnected => _reader?.IsConnected == true;
 
+    /// <summary>
+    /// Where this session actually reached the reader, once it has.
+    /// <para>
+    /// Null until discovery has answered, and that distinction is the point: the configured address
+    /// is a guess the server holds, while this is the one that worked. Reporting the guess back to
+    /// the server as fact is how a shipped placeholder — 127.0.0.1 out of the fallback profile —
+    /// overwrote a real address and took the reader off the air.
+    /// </para>
+    /// </summary>
+    public string? ConnectedHost => _discovered;
+
     public string Description => _reader?.Description ?? "none";
 
     /// <summary>

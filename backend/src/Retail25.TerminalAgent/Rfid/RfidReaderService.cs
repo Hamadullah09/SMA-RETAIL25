@@ -176,8 +176,12 @@ public sealed class RfidReaderService : BackgroundService
         => [.. _snapshot.Select(s => new ReaderCheckIn(
             s.Profile.Name is { Length: > 0 } name ? name : $"reader-{s.Session.ReaderId}",
             s.Session.IsConnected,
-            s.Profile.Host,
-            s.Profile.Port))];
+
+            // Only an address discovery has confirmed. Null otherwise, so the server keeps whatever
+            // it already had rather than learning this machine's guess — which, before a reader has
+            // ever answered, is the shipped 127.0.0.1 placeholder out of the fallback profile.
+            s.Session.ConnectedHost,
+            s.Session.ConnectedHost is null ? null : s.Profile.Port))];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

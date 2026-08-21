@@ -116,6 +116,40 @@ public sealed class DeviceRegistryHandlers : IRequestHandler<ReportDeviceStatusC
     }
 
     /// <summary>
+    /// Whether an address a machine reported is worth writing over the one an administrator set.
+    /// <para>
+    /// Loopback is not. It is the shipped placeholder in the agent's own fallback profile, and an
+    /// agent that has not yet been told where its reader lives reports exactly that — so a check-in
+    /// could overwrite a working address with one that means "this machine, and no other".
+    /// </para>
+    /// <para>
+    /// It did. A till checked in reporting 127.0.0.1, the address was learned, the configuration then
+    /// told the agent to dial 127.0.0.1, and the reader went dark — with the agent, the server and
+    /// the health screen all agreeing on an address that was never right. Every layer was working;
+    /// the number they agreed on was wrong, and each check-in wrote it again five seconds later, so
+    /// correcting the row by hand lasted one beat.
+    /// </para>
+    /// <para>
+    /// An administrator may still set loopback deliberately through the topology screen. This governs
+    /// only what a machine may teach the server about itself, which is the path with no human on it.
+    /// </para>
+    /// </summary>
+    private static bool IsWorthLearning(string host)
+    {
+        var trimmed = host.Trim();
+
+        if (trimmed.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // A serial lead — COM3 — is a real answer and is kept: it says the reader is plugged into
+        // this machine, which is exactly the kind of thing only the machine can report.
+        return !System.Net.IPAddress.TryParse(trimmed, out var address)
+               || !System.Net.IPAddress.IsLoopback(address);
+    }
+
+    /// <summary>
     /// Records where each reader is and whether the agent can currently reach it.
     /// <para>
     /// This is where a changed address stops mattering. The reader is found by its serial where the
@@ -179,7 +213,7 @@ public sealed class DeviceRegistryHandlers : IRequestHandler<ReportDeviceStatusC
             {
                 reader.LastSeen = _clock.Now;
 
-                if (report.Host is { } host && host.Length > 0)
+                if (report.Host is { } host && host.Length > 0 && IsWorthLearning(host))
                 {
                     reader.MoveTo(host, report.Port ?? reader.Port);
                 }
