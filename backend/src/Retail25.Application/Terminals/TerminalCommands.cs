@@ -124,12 +124,23 @@ public sealed class TerminalHandlers
         // The heartbeat is the right place because it is the only moment the server hears from the
         // agent about hardware, it already carries both facts, and it arrives every few seconds, so
         // a panel opened later is correct within one beat rather than waiting for a tag to be read.
-        await _readerFeed.PublishStatusAsync(
-            request.StationId,
-            request.ReaderOnline,
-            request.ReadRate,
-            station.ReaderMode.ToString(),
-            ct: ct);
+        // To every till this reader serves, not just the one the agent is installed at.
+        //
+        // Narrowing this to the reporting station was a fix for a real leak — every till was getting
+        // every other till's status, and the last to arrive won — but it went one step too far. A
+        // checkout whose antenna hangs off a reader driven by the machine next door then heard
+        // nothing at all: it listed the tags it was reading that second while its own panel said
+        // "Waiting for the reader", its chip read offline, and its button offered to Start a reader
+        // already running. The status belongs to the radio, so it goes to everyone on that radio.
+        foreach (var till in await TillsSharingTheReaderAsync(request.StationId, ct))
+        {
+            await _readerFeed.PublishStatusAsync(
+                till,
+                request.ReaderOnline,
+                request.ReadRate,
+                station.ReaderMode.ToString(),
+                ct: ct);
+        }
 
         return Result.Success();
     }
@@ -158,6 +169,32 @@ public sealed class TerminalHandlers
             ToContract(pole)));
     }
 
+    /// <summary>
+    /// Every till served by the same reader as this one, including this one.
+    /// <para>
+    /// One reader with four antennas is one radio shared by up to four checkouts, and several things
+    /// that used to belong to a station now belong to that shared radio: whether it is running, how
+    /// fast it is reading, whether it is there at all. Addressing those to the station the agent
+    /// happens to be installed at leaves the other tills describing a reader nobody told them about.
+    /// </para>
+    /// <para>
+    /// Falls back to the station alone, which is the honest answer for a till whose reader has no
+    /// antenna map — every shop before this one, and every shop mid-upgrade.
+    /// </para>
+    /// </summary>
+    private async Task<IReadOnlyList<long>> TillsSharingTheReaderAsync(long stationId, CancellationToken ct)
+    {
+        var shared = await _db.ReaderAntennaAssignments
+            .Where(a => a.IsEnabled)
+            .Where(a => _db.ReaderAntennaAssignments
+                .Any(mine => mine.ReaderId == a.ReaderId && mine.StationId == stationId && mine.IsEnabled))
+            .Select(a => a.StationId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        return shared.Count > 0 ? shared : [stationId];
+    }
+
     public async Task<Result> Handle(SetReaderModeCommand request, CancellationToken ct)
     {
         var station = await _db.Stations.FirstOrDefaultAsync(s => s.Id == request.StationId, ct);
@@ -166,9 +203,28 @@ public sealed class TerminalHandlers
             return Result.Failure(PosContextLoaderErrors.StationNotFound.With("stationId", request.StationId));
         }
 
-        station.SetReaderMode(request.Mode);
+        // Applied to every till on the same reader, because there is only one radio to start or stop.
+        //
+        // Setting it on one station alone made the control silently ineffective from the others: the
+        // agent runs the mode belonging to the station it is installed at, so a cashier at any other
+        // till pressed Stop, saw "Reader stopped", and watched the reader carry on. Stopping a shared
+        // reader does stop it for everyone — that is a property of the hardware, and the screen
+        // should not pretend otherwise.
+        var tills = await TillsSharingTheReaderAsync(request.StationId, ct);
+
+        var stations = await _db.Stations.Where(s => tills.Contains(s.Id)).ToListAsync(ct);
+
+        foreach (var each in stations)
+        {
+            each.SetReaderMode(request.Mode);
+        }
+
         await _db.SaveChangesAsync(ct);
-        await _terminals.SetReaderModeAsync(request.StationId, request.Mode.ToString(), ct);
+
+        foreach (var till in tills)
+        {
+            await _terminals.SetReaderModeAsync(till, request.Mode.ToString(), ct);
+        }
 
         return Result.Success();
     }
