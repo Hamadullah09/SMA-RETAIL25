@@ -100,6 +100,21 @@ public sealed class RfidReaderService : BackgroundService
     private readonly Dictionary<long, RunningSession> _sessions = [];
     private readonly SemaphoreSlim _gate = new(1, 1);
 
+    /// <summary>
+    /// The sessions as an array, rebuilt inside the gate whenever the set changes.
+    /// <para>
+    /// The heartbeat thread asks what is connected several times a second while this service adds and
+    /// removes sessions on its own loop, and enumerating the dictionary from the other thread is a
+    /// collection-modified exception waiting for a reader to reconnect at the wrong moment. Reading a
+    /// snapshot needs no lock, and the elements are the live sessions, so connectivity is still
+    /// current — only the membership is frozen.
+    /// </para>
+    /// </summary>
+    private volatile RunningSession[] _snapshot = [];
+
+    /// <summary>Call inside <see cref="_gate"/>, after any change to <see cref="_sessions"/>.</summary>
+    private void RefreshSnapshot() => _snapshot = [.. _sessions.Values];
+
     public RfidReaderService(
         IServiceProvider services,
         ProfileStore profiles,
@@ -128,13 +143,13 @@ public sealed class RfidReaderService : BackgroundService
     /// to say so per reader.
     /// </para>
     /// </summary>
-    public bool ReaderOnline => _sessions.Values.Any(s => s.Session.IsConnected);
+    public bool ReaderOnline => _snapshot.Any(s => s.Session.IsConnected);
 
     public string ReaderDescription
     {
         get
         {
-            var connected = _sessions.Values
+            var connected = _snapshot
                 .Where(s => s.Session.IsConnected)
                 .Select(s => s.Session.Description)
                 .ToList();
@@ -147,6 +162,22 @@ public sealed class RfidReaderService : BackgroundService
             };
         }
     }
+
+    /// <summary>
+    /// What this machine is driving, for the check-in that registers it with the server.
+    /// <para>
+    /// The address is reported as the session actually found it rather than as configured. Reader
+    /// discovery moves a reader that has answered on a different address — a DHCP lease changing over
+    /// a weekend is the ordinary case — and reporting the configured address would tell the server the
+    /// one place the reader demonstrably is not.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<ReaderCheckIn> ReaderCheckIns()
+        => [.. _snapshot.Select(s => new ReaderCheckIn(
+            s.Profile.Name is { Length: > 0 } name ? name : $"reader-{s.Session.ReaderId}",
+            s.Session.IsConnected,
+            s.Profile.Host,
+            s.Profile.Port))];
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -322,6 +353,7 @@ public sealed class RfidReaderService : BackgroundService
         var runner = Task.Run(() => session.RunAsync(cts.Token), CancellationToken.None);
 
         _sessions[readerId] = new RunningSession(session, cts, runner, profile);
+        RefreshSnapshot();
     }
 
     private async Task StopAsync(long readerId)
@@ -330,6 +362,8 @@ public sealed class RfidReaderService : BackgroundService
         {
             return;
         }
+
+        RefreshSnapshot();
 
         await running.StopAsync(_logger);
     }
@@ -419,3 +453,13 @@ public sealed class RfidReaderService : BackgroundService
         }
     }
 }
+
+/// <summary>
+/// One reader, as this machine reports it when checking in.
+/// <para>
+/// Deliberately not the whole profile. The server owns the settings and does not need them echoed
+/// back; what it cannot know without being told is which readers this machine actually has hold of
+/// and whether each is answering right now.
+/// </para>
+/// </summary>
+public sealed record ReaderCheckIn(string ReaderKey, bool Connected, string? Host, int? Port);

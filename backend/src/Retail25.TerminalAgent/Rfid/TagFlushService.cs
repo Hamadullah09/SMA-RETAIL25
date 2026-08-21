@@ -175,6 +175,7 @@ public sealed class HeartbeatService : BackgroundService
     private readonly RfidReaderService _reader;
     private readonly Peripherals.PeripheralCoordinator _peripherals;
     private readonly TagBuffer _buffer;
+    private readonly Server.DeviceCheckIn _checkIn;
     private readonly AgentOptions _options;
     private readonly ILogger<HeartbeatService> _logger;
 
@@ -183,6 +184,7 @@ public sealed class HeartbeatService : BackgroundService
         RfidReaderService reader,
         Peripherals.PeripheralCoordinator peripherals,
         TagBuffer buffer,
+        Server.DeviceCheckIn checkIn,
         Microsoft.Extensions.Options.IOptions<AgentOptions> options,
         ILogger<HeartbeatService> logger)
     {
@@ -192,6 +194,7 @@ public sealed class HeartbeatService : BackgroundService
         _reader = reader;
         _peripherals = peripherals;
         _buffer = buffer;
+        _checkIn = checkIn;
         _options = options.Value;
         _logger = logger;
     }
@@ -220,6 +223,12 @@ public sealed class HeartbeatService : BackgroundService
                         _peripherals.PoleDisplayOnline,
                         rate),
                     stoppingToken);
+
+                // The station heartbeat above says "this till is alive". This says "this machine
+                // exists, and here is what it is driving" — which is what the server needs before it
+                // can answer with an antenna map. Same beat, because the server marks a machine
+                // offline after three of them.
+                await _checkIn.CheckInAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {

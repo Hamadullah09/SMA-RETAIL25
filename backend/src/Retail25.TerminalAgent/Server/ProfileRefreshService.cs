@@ -68,6 +68,9 @@ public sealed class ProfileRefreshService : BackgroundService
     /// </summary>
     private static readonly TimeSpan RetryWhileUnconfigured = TimeSpan.FromSeconds(10);
 
+    /// <summary>The status last logged for a refused configuration fetch, so it is said once.</summary>
+    private int _deviceFetchFailed;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
@@ -125,8 +128,26 @@ public sealed class ProfileRefreshService : BackgroundService
 
             if (!response.IsSuccessStatusCode)
             {
+                // Said once, not every poll — but said. This returned in silence, and the silence is
+                // why a live till spent days asking for its antenna map, being refused, and falling
+                // back to one antenna with nothing anywhere recording that it had happened. The
+                // rejection was 400 device.not_found; the branch above waits for a 404, so the case
+                // that actually occurs had no handler and no log.
+                if (_deviceFetchFailed != (int)response.StatusCode)
+                {
+                    _deviceFetchFailed = (int)response.StatusCode;
+
+                    _logger.LogWarning(
+                        "The server would not send this machine's reader configuration for {DeviceKey} "
+                        + "({Status}); running from the station profile, which drives one reader",
+                        _options.ResolvedDeviceKey,
+                        (int)response.StatusCode);
+                }
+
                 return;
             }
+
+            _deviceFetchFailed = 0;
 
             var configuration = await response.Content
                 .ReadFromJsonAsync<DeviceConfigurationContract>(SerializerOptions, ct);

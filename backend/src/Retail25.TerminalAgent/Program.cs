@@ -57,6 +57,7 @@ builder.Services.AddHttpClient("server", client =>
 builder.Services.AddSingleton<TagBuffer>();
 builder.Services.AddSingleton<ProfileStore>();
 builder.Services.AddSingleton<DeviceConfigurationStore>();
+builder.Services.AddSingleton<Retail25.TerminalAgent.Server.DeviceCheckIn>();
 builder.Services.AddSingleton<AgentCredentialStore>();
 builder.Services.AddHostedService<EnrolmentService>();
 builder.Services.AddSingleton<ITagSpool, SqliteTagSpool>();
