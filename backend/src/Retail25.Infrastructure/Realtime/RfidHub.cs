@@ -91,12 +91,22 @@ public sealed class RfidNotifier : IRfidNotifier
             .SendAsync("TagsObserved", payload, ct);
     }
 
+    /// <summary>
+    /// The reader's state, to the till it belongs to.
+    /// <para>
+    /// Shop-wide, this is worse than noise. Every till received every other till's reader status, so
+    /// the last one to arrive won: a checkout with an empty field displayed the neighbouring till's
+    /// read rate, and — because the Start/Stop button trusts the reported state over what the
+    /// cashier just asked for — pressing Stop showed "Reader stopped" and then flipped straight back
+    /// to Stop, overwritten by a status belonging to a different till. Two symptoms, one broadcast.
+    /// </para>
+    /// </summary>
     public Task ReaderStatusAsync(
         long locationId,
         long stationId,
         RfidReaderStatus status,
         CancellationToken ct = default)
         => _hub.Clients
-            .Groups(RfidGroups.Station(stationId), RfidGroups.Location(locationId))
+            .Group(RfidGroups.Station(stationId))
             .SendAsync("ReaderStatus", new { stationId, locationId, status }, ct);
 }

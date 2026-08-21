@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Play, Radio, Square, TriangleAlert, Volume2, VolumeX } from 'lucide-react';
+import { Eraser, Play, Radio, Square, TriangleAlert, Volume2, VolumeX } from 'lucide-react';
 import { RfidHub, type ObservedTag, type RfidReaderStatus } from '@/lib/rfid-hub';
 import { playScanTone } from '@/lib/scan-feedback';
 import { toast } from '@/components/ui/toaster';
@@ -88,7 +88,13 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
 
     void hub.connect(stationId, locationId, {
       onTagsObserved,
-      onReaderStatus: setStatus,
+      // This till's reader, not the shop's. Same reasoning as the tags above, and it had a sharper
+      // symptom: the Start/Stop button trusts the reported state over what was just asked for, so a
+      // status from another till arriving a moment after a press flipped the button back and made a
+      // working control look broken.
+      onReaderStatus: (next, forStation) => {
+        if (forStation === stationId) setStatus(next);
+      },
       onConnectionChanged: setConnected,
     });
 
@@ -168,6 +174,13 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
             {status ? status.readsPerSecond : '—'}/s
           </span>
 
+          {/* Empties the list without touching the reader.
+              The field does not clear itself while a tagged item is still sitting on the counter —
+              a row stays until the tag stops being seen — so after a mis-scan, or a tray left in
+              range, the cashier is reading a list they cannot act on. This is the "start again"
+              they reach for. It clears what is displayed, not the sale. */}
+          <ClearFeedButton onClear={() => setRows([])} disabled={rows.length === 0} />
+
           {/* Whether it is listening, not whether we can reach it — see RfidReaderStatus.mode. */}
           <ReaderRunControls statusReading={status ? status.mode !== 'Off' : null} />
           <ScanSoundToggle />
@@ -184,6 +197,33 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
         )}
       </ul>
     </section>
+  );
+}
+
+/**
+ * Empties the tag list on screen.
+ * <para>
+ * Deliberately local: it clears what this screen is showing and asks the server for nothing. A tag
+ * still physically in the field will reappear on the next read, which is correct — the list
+ * describes what the antenna can see, and a button that pretended otherwise would be lying about
+ * the counter.
+ * </para>
+ */
+function ClearFeedButton({ onClear, disabled }: { onClear: () => void; disabled: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={onClear}
+      disabled={disabled}
+      title="Clear the list. Anything still in the field will reappear as it is read again."
+      className={cn(
+        'inline-flex h-6 items-center gap-1 rounded px-2 text-caption font-medium transition-colors',
+        'text-ink-muted hover:bg-panel-hover disabled:opacity-40 disabled:hover:bg-transparent',
+      )}
+    >
+      <Eraser className="h-3 w-3" aria-hidden />
+      <span>Clear</span>
+    </button>
   );
 }
 
