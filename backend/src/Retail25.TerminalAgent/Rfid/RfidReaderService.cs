@@ -319,6 +319,25 @@ public sealed class RfidReaderService : BackgroundService
     {
         var basis = reader.Settings ?? _profiles.Reader;
 
+        // The antennas the assignments actually name, rather than whatever the legacy profile's zone
+        // string happens to say.
+        //
+        // This was the last link, and it was missing. The server sent "1 reader, 2 antenna
+        // assignments", the agent logged exactly that, and then connected "inventorying antennas 1" —
+        // because the driver takes its antenna list from AntennaZones, and AntennaZones came through
+        // untouched from the per-station profile, which says "1=Checkout". A shop could assign every
+        // antenna it owned and the reader would go on energising the first one.
+        //
+        // Only assignments that are enabled and point at a station. An antenna reading into no
+        // station produces tags the router can only discard, and transmitting to collect them costs
+        // the dwell time of the antennas that do have a till.
+        var zones = string.Join(
+            ';',
+            reader.Antennas
+                .Where(a => a.Enabled)
+                .OrderBy(a => a.AntennaNumber)
+                .Select(a => $"{a.AntennaNumber}=Checkout"));
+
         return basis with
         {
             Id = reader.ReaderId,
@@ -328,6 +347,12 @@ public sealed class RfidReaderService : BackgroundService
             Protocol = Enum.TryParse<ReaderProtocol>(reader.Protocol, ignoreCase: true, out var parsed)
                 ? parsed
                 : basis.Protocol,
+
+            // An empty string leaves the driver on its own fallback of antenna one. That is the right
+            // behaviour for a reader nobody has finished commissioning: it stays connected, so the
+            // health screen can say "assigned to no till" rather than "reader offline", which is a
+            // different fault and would send an installer to the wrong end of the cable.
+            AntennaZones = zones.Length > 0 ? zones : basis.AntennaZones,
         };
     }
 
