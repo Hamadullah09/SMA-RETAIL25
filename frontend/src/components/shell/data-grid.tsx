@@ -57,7 +57,9 @@ export function DataGrid<TRow>({
   onRowActivate,
   recentlyChanged,
   emptyMessage = 'Nothing to show.',
-  rowHeight = 32,
+  // 48, matching --grid-row-height. A 32px row cannot hold 16px type with any breathing room,
+  // and the virtualiser measures every row from this one number.
+  rowHeight = 48,
 }: DataGridProps<TRow>) {
   const scrollRef = useRef<HTMLDivElement>(null);
 

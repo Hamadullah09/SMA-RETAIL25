@@ -42,7 +42,10 @@
 
     --text: 23 26 38;
     --text-muted: 100 106 128;
-    --text-faint: 139 144 163;      /* decorative only, never load-bearing */
+    /* Darkened from 139 144 163, which measured 3.17:1 on panel — below AA for any size this scale
+       now contains. "Decorative only" was the justification, but it is what placeholders, empty
+       states and disabled labels are written in, and a placeholder is instruction. */
+    --text-faint: 104 110 132;
 
     /* oklch, as `L C H`. Split into one variable so the alpha slot stays free for Tailwind. */
     --accent: 0.52 0.17 265;
@@ -101,15 +104,16 @@
 
     /* Layout constants. Written once so a header height change cannot silently break the scroll box
        on nine pages that had each hard-coded calc(100vh - 8rem). */
-    --header-height: 3.5rem;
-    --toolbar-height: 3rem;
-    --control-height: 2rem;
-    --sidebar-width: 15rem;
-    --sidebar-collapsed-width: 3.5rem;
+    --header-height: 4rem;
+    --toolbar-height: 3.5rem;
+    --control-height: 3rem;
+    --sidebar-width: 16rem;
+    --sidebar-collapsed-width: 4.5rem;
 
-    /* The till is touched, not clicked; the back office is a mouse-and-keyboard screen and 32px is
-       the density doc 08 asks for. */
-    --control-height-touch: 2.75rem;
+    /* Bigger again where the input is a finger. Applied by pointer type rather than by which screen
+       you are on: the back office is run from a tablet in plenty of shops, and it used to get the
+       32px mouse density there because the touch sizing was scoped to .pos-layout. */
+    --control-height-touch: 3.5rem;
 
     /* The floor for anything that can be pressed, including an icon on its own. Separate from
        --control-height because a control may be wider than it is tall, and this is the square. */
@@ -121,7 +125,7 @@
     --nav-child-height: 2.75rem;
 
     /* A DataGrid row. The grid measures its own virtual rows from this. */
-    --grid-row-height: 2rem;
+    --grid-row-height: 3rem;
 
     /* One opacity for "you cannot use this", rather than 0.40 on buttons and 0.35 on the key bar —
        two values that disagree about how disabled a disabled thing looks. */
@@ -162,7 +166,8 @@
 
     --text: 237 239 246;
     --text-muted: 152 158 178;
-    --text-faint: 120 126 146;
+    /* 4.15:1 on panel and 3.58:1 on panel-hover before; lifted so it clears AA on both. */
+    --text-faint: 140 146 166;
 
     /* The same hue, lifted. Because oklch lightness is perceptual, these are the light values moved
        up the scale rather than a second palette that has to be re-checked against the ground. */
@@ -200,6 +205,19 @@
     --shadow-1: 0 1px 2px rgb(0 0 0 / 0.35), 0 2px 8px rgb(0 0 0 / 0.25);
     --shadow-2: 0 2px 4px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.45);
     --shadow-3: 0 4px 12px rgb(0 0 0 / 0.40), 0 28px 72px rgb(0 0 0 / 0.60);
+  }
+
+  /*
+   * Sized by what is pointing at it, not by which screen it is.
+   *
+   * The touch height used to be scoped to .pos-layout, so the till got finger-sized controls and
+   * the back office got mouse density — including on the tablets plenty of shops run the back
+   * office from. A pointer query asks the right question: coarse means a finger, wherever it is.
+   */
+  @media (pointer: coarse) {
+    :root {
+      --control-height: var(--control-height-touch);
+    }
   }
 }
 
@@ -265,8 +283,25 @@
    * There were three `focus-visible` rules in the whole app, and several inputs called
    * `outline-none` with nothing in its place — which is a keyboard user losing their place entirely.
    */
+  /*
+   * A real outline, not a ring.
+   *
+   * The ring was a box-shadow, and nineteen containers in this app are overflow:hidden. The POS
+   * scan box is one of them — the field every barcode goes into showed no focus at all, because
+   * its own panel clipped the shadow. An outline is painted outside the box and no ancestor can
+   * cut it off.
+   */
   :focus-visible {
-    @apply outline-none ring-2 ring-accent ring-offset-1 ring-offset-surface;
+    outline: 3px solid oklch(var(--accent));
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
+
+  /* The primary button's ring was the same colour as its own fill, so focusing it changed nothing
+     visible. The lighter outline plus an inset keyline reads on top of the gradient. */
+  .pos-button-primary:focus-visible {
+    outline-color: oklch(var(--accent-strong));
+    box-shadow: inset 0 0 0 2px rgb(var(--accent-foreground));
   }
 
   /* A heading hierarchy that does not have to be restated on every page. */
@@ -330,14 +365,6 @@
    * header padding and 2px of type; five panels' worth of that is most of a line, and a line of the
    * sale is the one thing the till cannot spend.
    */
-  .pos-layout .pos-panel-header {
-    @apply gap-2 px-3 py-2 text-label font-medium uppercase tracking-wide text-ink-muted;
-  }
-
-  .pos-layout .pos-panel-header .normal-case {
-    @apply text-label text-ink-muted;
-  }
-
   /**
    * One button system.
    *
@@ -346,7 +373,7 @@
    * rather than reimplementing it.
    */
   .pos-button {
-    @apply inline-flex min-h-control items-center justify-center gap-1.5 rounded border border-subtle bg-panel px-3 text-body font-medium text-ink shadow-raised transition-colors duration-150;
+    @apply inline-flex min-h-control items-center justify-center gap-1.5 rounded border border-control bg-panel px-4 text-body font-medium text-ink shadow-raised transition-colors duration-150;
   }
 
   .pos-button:hover:not(:disabled) {
@@ -361,7 +388,7 @@
      and the 1px inner highlight are what make it read as a pressable object rather than a painted
      rectangle; the flat `bg-accent` underneath is the fallback while the image paints. */
   .pos-button-primary {
-    @apply inline-flex min-h-control items-center justify-center gap-1.5 rounded border border-transparent px-3 text-body font-semibold text-accent-foreground transition-shadow duration-150;
+    @apply inline-flex min-h-control items-center justify-center gap-1.5 rounded border border-transparent px-4 text-body font-semibold text-accent-foreground transition-shadow duration-150;
     background-color: oklch(var(--accent-fill));
     background-image: var(--accent-grad);
     box-shadow:
@@ -379,7 +406,7 @@
   }
 
   .pos-button-danger {
-    @apply inline-flex min-h-control items-center justify-center gap-1.5 rounded border border-subtle bg-panel px-3 text-body font-medium text-negative transition-colors duration-150;
+    @apply inline-flex min-h-control items-center justify-center gap-1.5 rounded border border-control bg-panel px-4 text-body font-medium text-negative-text transition-colors duration-150;
   }
 
   .pos-button-danger:hover:not(:disabled) {
@@ -393,13 +420,8 @@
   .pos-button:disabled,
   .pos-button-primary:disabled,
   .pos-button-danger:disabled {
-    @apply cursor-not-allowed opacity-40;
-  }
-
-  /* The till is touched, not clicked. */
-  .pos-layout .pos-button,
-  .pos-layout .pos-button-primary {
-    min-height: var(--control-height-touch);
+    cursor: not-allowed;
+    opacity: var(--disabled-opacity);
   }
 
   /**
@@ -409,7 +431,7 @@
    * three of them ended up a pixel taller than the rest.
    */
   .pos-input {
-    @apply min-h-control rounded-sm border border-subtle bg-panel px-2.5 text-body text-ink placeholder:text-ink-faint;
+    @apply min-h-control rounded-sm border border-control bg-panel px-3.5 text-body text-ink placeholder:text-ink-faint;
     transition: border-color 150ms ease, box-shadow 150ms ease;
   }
 
@@ -417,12 +439,11 @@
     @apply border-strong;
   }
 
-  /* The accent belongs on the field being typed into, not only on its focus ring. The halo replaces
-     the global two-tone ring on inputs specifically: a soft 3px accent wash plus the recoloured
-     border is calmer against a page of fields, and just as visible. */
+  /* The border recolour stays as the secondary cue; the halo does not. It measured 1.29:1 against
+     the panel — a wash you can only see once you already know where the cursor is — and it competed
+     with the global outline that now does the work. */
   .pos-input:focus-visible {
     @apply border-accent;
-    box-shadow: 0 0 0 3px oklch(var(--accent) / 0.18);
   }
 
   .pos-input:disabled {
@@ -462,8 +483,8 @@
    * eye lands on the key first.
    */
   .pos-keybar > button {
-    @apply flex min-w-0 items-center justify-center gap-1.5 rounded-sm px-1 py-1.5 text-label font-normal text-ink-muted transition-colors duration-150;
-    min-height: 2.25rem;
+    @apply flex min-w-0 items-center justify-center gap-1.5 rounded-sm px-2 py-1.5 text-label font-normal text-ink-muted transition-colors duration-150;
+    min-height: var(--control-height);
   }
 
   /*
@@ -578,8 +599,7 @@
    * customer reads it from a metre away and at an angle.
    */
   .pos-grand-total {
-    @apply font-bold tabular-nums;
-    font-size: 2.125rem;
+    @apply text-display font-bold tabular-nums;
     line-height: 1;
     letter-spacing: -0.025em;
   }
@@ -619,7 +639,7 @@
    * at body size. A components-layer class is never passed through the merge, so it cannot be eaten.
    */
   .pos-kpi-value {
-    @apply text-display font-semibold leading-none tracking-tight tabular-nums;
+    @apply min-w-0 break-words text-value-lg font-semibold leading-none tracking-tight tabular-nums;
   }
 
   /**
@@ -664,12 +684,15 @@
    * here so nothing in the till or the back office moves.
    */
   .auth-form .pos-input {
-    @apply h-10 rounded px-3 text-body-lg;
+    @apply rounded px-3.5 text-body-lg;
   }
 
+  /* Taller than a back-office control, deliberately: this is the one form somebody fills in before
+     they have any idea where they are, often on a phone. The height comes from the token now
+     rather than an h-11 that pinned it below everything else once the scale moved. */
   .auth-form .pos-button,
   .auth-form .pos-button-primary {
-    @apply h-11 rounded text-body-lg;
+    @apply h-14 rounded text-body-lg;
   }
 
   /* The product mark: the accent gradient in a small tile. Shared by the sidebar and the hero so
@@ -693,7 +716,8 @@
    * reader who cannot separate the two hues — the fill is still the only dark row in the rail.
    */
   .pos-nav-item {
-    @apply relative flex h-10 items-center gap-3 rounded-md px-3 text-body font-medium text-ink-muted transition-colors duration-150;
+    @apply relative flex items-center gap-3 rounded-md px-3 text-body font-medium text-ink-muted transition-colors duration-150;
+    min-height: var(--nav-item-height);
   }
 
   .pos-nav-item:hover {
@@ -717,11 +741,12 @@
   /* A child of an expanded group. Indented past the parent's icon so the tree reads down the gutter
      rather than needing a rule drawn for it. */
   .pos-nav-child {
-    @apply h-9 pl-11 text-body font-normal;
+    @apply pl-11 text-body font-normal;
+    min-height: var(--nav-child-height);
   }
 
   .pos-nav-section {
-    @apply px-3 pb-1 pt-4 text-caption font-semibold uppercase tracking-wider text-ink-muted;
+    @apply px-3 pb-1 pt-4 text-label font-semibold text-ink-muted;
   }
 
   /**
@@ -743,7 +768,7 @@
   /* One row height, read by the header, the rows and the arithmetic in doc 08. 38px is the smallest
      row that still reads across a counter at arm's length; 32px was chosen to fit twelve lines, and
      the layout below now fits fourteen at 38px, so the density argument no longer paid for it. */
-  --pos-row-height: 2.375rem;
+  --pos-row-height: 3rem;
 
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
@@ -825,7 +850,7 @@
  */
 @media (max-height: 740px) {
   .pos-layout {
-    --pos-row-height: 2.125rem;
+    --pos-row-height: 2.75rem;
   }
 
   .pos-grand-total {

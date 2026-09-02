@@ -99,13 +99,22 @@ module.exports = {
        * so a heading never has to be corrected at the call site.
        */
       fontSize: {
-        caption: ['0.6875rem', { lineHeight: '1rem', letterSpacing: '0.01em' }],
-        label: ['0.75rem', { lineHeight: '1.125rem', letterSpacing: '0.02em' }],
-        body: ['0.8125rem', { lineHeight: '1.25rem' }],
-        'body-lg': ['0.875rem', { lineHeight: '1.375rem' }],
-        h3: ['1rem', { lineHeight: '1.5rem', letterSpacing: '-0.005em' }],
-        h2: ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.01em' }],
-        h1: ['1.625rem', { lineHeight: '2rem', letterSpacing: '-0.02em' }],
+        /*
+         * Re-pitched for the people who actually use this: retail staff, often older, on a cheap
+         * panel at arm's length, under pressure. Nothing in the scale is below 14px any more, so
+         * "secondary information stays readable" is a property of the system rather than something
+         * review has to police at every call site.
+         *
+         * The names are unchanged, so all 539 call sites keep working and the whole shift is these
+         * ten values.
+         */
+        caption: ['0.875rem', { lineHeight: '1.25rem', letterSpacing: '0.005em' }],
+        label: ['0.9375rem', { lineHeight: '1.375rem', letterSpacing: '0.01em' }],
+        body: ['1rem', { lineHeight: '1.5rem' }],
+        'body-lg': ['1.125rem', { lineHeight: '1.625rem' }],
+        h3: ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.005em' }],
+        h2: ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.01em' }],
+        h1: ['1.875rem', { lineHeight: '2.375rem', letterSpacing: '-0.02em' }],
 
         /*
          * The band the scale did not have. A figure that is the point of its tile — a day's takings,

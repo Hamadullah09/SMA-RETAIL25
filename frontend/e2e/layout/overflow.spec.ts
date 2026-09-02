@@ -101,7 +101,9 @@ async function signIn(page: Page): Promise<void> {
 
   await page.waitForURL(/\/account\/login/);
   await page.getByLabel('Username or email').fill(CREDENTIALS.username);
-  await page.getByLabel('Password').fill(CREDENTIALS.password);
+  // exact, because the reveal toggle beside the field is labelled "Show password" and
+  // getByLabel matches substrings — without this the locator resolves to two elements.
+  await page.getByLabel('Password', { exact: true }).fill(CREDENTIALS.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
 
   await page.waitForURL((url) => !url.pathname.startsWith('/account'));
