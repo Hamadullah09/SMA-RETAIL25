@@ -52,10 +52,36 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
 
+  /**
+   * Three widths, because one width proves nothing about a layout.
+   *
+   * Desktop Chrome is 1280×720, which is precisely the width at which the POS product picker
+   * reappears — it is `display: none` below 1280 while its toggle stays live and does nothing. A
+   * suite that only ever runs at 1280 cannot see that, and did not. The tablet and phone widths are
+   * the two the brief names where the layout has to change rather than shrink.
+   *
+   * `isMobile` is left off deliberately: it switches Chromium into touch emulation, and these
+   * projects exist to measure layout, not to re-test every interaction under a different input
+   * model. Touch behaviour is worth its own project when something actually asserts on it.
+   */
   projects: [
     {
-      name: 'chromium',
+      name: 'desktop',
       use: { ...devices['Desktop Chrome'] },
+    },
+    // The narrow projects run the layout specs only. The existing suite asserts on behaviour that
+    // is width-independent — token storage, uploads, tender parsing — and re-running it at 390px
+    // would triple its cost to re-prove the same facts, while any failure would be about a layout
+    // those specs were never written against.
+    {
+      name: 'tablet',
+      testMatch: /layout\/.*\.spec\.ts$/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 820, height: 1180 } },
+    },
+    {
+      name: 'phone',
+      testMatch: /layout\/.*\.spec\.ts$/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 390, height: 844 } },
     },
   ],
 

@@ -1,4 +1,46 @@
 {
   "extends": "next/core-web-vitals",
-  "ignorePatterns": ["e2e/**"]
+  "ignorePatterns": [
+    "e2e/**"
+  ],
+  "rules": {
+    "no-restricted-syntax": [
+      "warn",
+      {
+        "selector": "Literal[value=/(^|\\s)text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)(\\s|$)/]",
+        "message": "Off-scale font size. Use a design token: text-caption, text-label, text-body, text-body-lg, text-h3, text-h2, text-h1, text-display. Stock Tailwind sizes do not move when the scale is re-pitched, so a page using them silently stays small."
+      },
+      {
+        "selector": "TemplateElement[value.raw=/(^|\\s)text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)(\\s|$)/]",
+        "message": "Off-scale font size in a template literal. Use a design token: text-caption, text-label, text-body, text-body-lg, text-h3, text-h2, text-h1, text-display."
+      },
+      {
+        "selector": "Literal[value=/(^|\\s)(text|bg|border)-muted-foreground(\\s|$)/]",
+        "message": "text-muted-foreground is from a shadcn theme this app does not use, so it resolves to nothing. Use text-ink-muted."
+      },
+      {
+        "selector": "Literal[value=/(^|\\s)(text|bg|border|ring|fill|stroke)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(50|[1-9]00)(\\s|$)/]",
+        "message": "Raw Tailwind palette colour. Colour must carry meaning here: use positive, warning, negative, live or accent, or a surface token (surface, panel, ink, subtle). A literal hue does not change with the theme and reads the same in dark mode."
+      },
+      {
+        "selector": "TemplateElement[value.raw=/(^|\\s)(text|bg|border|ring|fill|stroke)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-(50|[1-9]00)(\\s|$)/]",
+        "message": "Raw Tailwind palette colour in a template literal. Use positive, warning, negative, live, accent, or a surface token."
+      },
+      {
+        "selector": "Literal[value=/(^|\\s)shadow-(sm|md|lg|xl|2xl)(\\s|$)/]",
+        "message": "Stock Tailwind shadow. Use shadow-raised, shadow-popover or shadow-overlay, which are defined per colour scheme \u2014 a black blur is invisible on a near-black ground."
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": [
+        "src/**/*.test.ts",
+        "src/**/*.test.tsx"
+      ],
+      "rules": {
+        "no-restricted-syntax": "off"
+      }
+    }
+  ]
 }

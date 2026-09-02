@@ -1,0 +1,128 @@
+{
+  "/admin/accounting": {
+    "gridsOnPage": 1,
+    "needsPx": 1268,
+    "subHundredCols": 3,
+    "widestGridPx": 980
+  },
+  "/admin/audit": {
+    "gridsOnPage": 1,
+    "needsPx": 1368,
+    "subHundredCols": 0,
+    "widestGridPx": 1080
+  },
+  "/admin/staff": {
+    "gridsOnPage": 1,
+    "needsPx": 998,
+    "subHundredCols": 1,
+    "widestGridPx": 710
+  },
+  "/catalog/products": {
+    "gridsOnPage": 1,
+    "needsPx": 1508,
+    "subHundredCols": 7,
+    "widestGridPx": 1220
+  },
+  "/customers": {
+    "gridsOnPage": 1,
+    "needsPx": 1568,
+    "subHundredCols": 2,
+    "widestGridPx": 1280
+  },
+  "/inventory": {
+    "gridsOnPage": 1,
+    "needsPx": 1108,
+    "subHundredCols": 3,
+    "widestGridPx": 820
+  },
+  "/inventory/counts": {
+    "gridsOnPage": 1,
+    "needsPx": 1058,
+    "subHundredCols": 3,
+    "widestGridPx": 770
+  },
+  "/inventory/transfers": {
+    "gridsOnPage": 1,
+    "needsPx": 1138,
+    "subHundredCols": 1,
+    "widestGridPx": 850
+  },
+  "/orders": {
+    "gridsOnPage": 3,
+    "needsPx": 898,
+    "subHundredCols": 0,
+    "widestGridPx": 610
+  },
+  "/purchasing": {
+    "gridsOnPage": 1,
+    "needsPx": 1128,
+    "subHundredCols": 2,
+    "widestGridPx": 840
+  },
+  "/purchasing/suppliers": {
+    "gridsOnPage": 1,
+    "needsPx": 1358,
+    "subHundredCols": 2,
+    "widestGridPx": 1070
+  },
+  "/receivables": {
+    "gridsOnPage": 1,
+    "needsPx": 958,
+    "subHundredCols": 0,
+    "widestGridPx": 670
+  },
+  "/reports/on-order": {
+    "gridsOnPage": 1,
+    "needsPx": 1598,
+    "subHundredCols": 1,
+    "widestGridPx": 1310
+  },
+  "/reports/reward-points": {
+    "gridsOnPage": 1,
+    "needsPx": 1088,
+    "subHundredCols": 0,
+    "widestGridPx": 800
+  },
+  "/reports/sales": {
+    "gridsOnPage": 1,
+    "needsPx": 1478,
+    "subHundredCols": 4,
+    "widestGridPx": 1190
+  },
+  "/reports/sales-analysis": {
+    "gridsOnPage": 1,
+    "needsPx": 1388,
+    "subHundredCols": 3,
+    "widestGridPx": 1100
+  },
+  "/reports/stock-position": {
+    "gridsOnPage": 1,
+    "needsPx": 1578,
+    "subHundredCols": 0,
+    "widestGridPx": 1290
+  },
+  "/reports/stock-received": {
+    "gridsOnPage": 1,
+    "needsPx": 1558,
+    "subHundredCols": 1,
+    "widestGridPx": 1270
+  },
+  "/reports/stock-value": {
+    "gridsOnPage": 1,
+    "needsPx": 2238,
+    "subHundredCols": 1,
+    "widestGridPx": 1950
+  },
+  "/reports/tax": {
+    "gridsOnPage": 1,
+    "needsPx": 948,
+    "subHundredCols": 2,
+    "widestGridPx": 660
+  },
+  "/sales": {
+    "gridsOnPage": 1,
+    "needsPx": 1218,
+    "subHundredCols": 3,
+    "widestGridPx": 930
+  }
+}

@@ -76,6 +76,10 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
+      # Unit tests live here rather than in the e2e job because they need neither a browser nor the
+      # API, and the rule they currently guard — that class merging cannot silently delete a font
+      # size — has to be checked on every push, not only when the whole stack happens to be healthy.
+      - run: npm test
       - run: npm run build
       - run: npm audit --audit-level=high
         continue-on-error: true
