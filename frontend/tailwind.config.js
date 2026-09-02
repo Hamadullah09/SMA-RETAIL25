@@ -20,6 +20,22 @@ module.exports = {
   ],
 
   theme: {
+    /**
+     * The two widths this product actually changes shape at, named so they stop being magic numbers
+     * repeated in globals.css media queries. Tailwind's defaults are kept underneath; these two are
+     * the ones that mean something here — below `tablet` the POS unpins, below `desk` the product
+     * picker is not shown beside the cart.
+     */
+    screens: {
+      sm: '640px',
+      md: '768px',
+      tablet: '1024px',
+      lg: '1024px',
+      desk: '1280px',
+      xl: '1280px',
+      '2xl': '1536px',
+    },
+
     extend: {
       colors: {
         /** The page behind everything. */
@@ -35,6 +51,9 @@ module.exports = {
         /** The 1px border that does the work cards would otherwise do. */
         subtle: 'rgb(var(--border) / <alpha-value>)',
         strong: 'rgb(var(--border-strong) / <alpha-value>)',
+
+        /** The edge of an operable control, which WCAG asks to be 3:1 rather than merely quiet. */
+        control: 'rgb(var(--border-control) / <alpha-value>)',
 
         ink: {
           DEFAULT: 'rgb(var(--text) / <alpha-value>)',
@@ -58,11 +77,20 @@ module.exports = {
           foreground: 'rgb(var(--accent-foreground) / <alpha-value>)',
         },
 
-        /** The only four meanings colour is allowed to carry. */
+        /**
+         * The only four meanings colour is allowed to carry.
+         *
+         * Each has a fill and a text tone, the way `accent` does. The plain token fills; the `-text`
+         * token is the same meaning at a lightness that can be read as words on its own tint.
+         */
         positive: 'oklch(var(--positive) / <alpha-value>)',
         warning: 'oklch(var(--warning) / <alpha-value>)',
         negative: 'oklch(var(--negative) / <alpha-value>)',
         live: 'oklch(var(--live) / <alpha-value>)',
+        'positive-text': 'oklch(var(--positive-text) / <alpha-value>)',
+        'warning-text': 'oklch(var(--warning-text) / <alpha-value>)',
+        'negative-text': 'oklch(var(--negative-text) / <alpha-value>)',
+        'live-text': 'oklch(var(--live-text) / <alpha-value>)',
       },
 
       /**
@@ -78,6 +106,16 @@ module.exports = {
         h3: ['1rem', { lineHeight: '1.5rem', letterSpacing: '-0.005em' }],
         h2: ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.01em' }],
         h1: ['1.625rem', { lineHeight: '2rem', letterSpacing: '-0.02em' }],
+
+        /*
+         * The band the scale did not have. A figure that is the point of its tile — a day's takings,
+         * an amount due, a balance — belongs between a heading and the POS grand total, and there
+         * was nothing between h1 and display, so tiles reached for the 36px display and overflowed
+         * at four-up, or for h1 and read as a heading rather than a number.
+         */
+        value: ['1.5rem', { lineHeight: '1.75rem', letterSpacing: '-0.01em' }],
+        'value-lg': ['1.75rem', { lineHeight: '2rem', letterSpacing: '-0.015em' }],
+
         display: ['2.25rem', { lineHeight: '2.5rem', letterSpacing: '-0.03em' }],
       },
 
@@ -89,10 +127,19 @@ module.exports = {
         mono: ['var(--font-mono)', 'ui-monospace', 'SFMono-Regular', 'Consolas', 'monospace'],
       },
 
-      /** 8px base, with the half-steps a dense grid genuinely needs. */
+      /**
+       * 8px base, with the half-steps a dense grid genuinely needs, plus four steps that say what
+       * they are for. A page margin chosen by name is one a second page can match.
+       */
       spacing: {
         4.5: '1.125rem',
         18: '4.5rem',
+        page: 'var(--space-page)',
+        section: 'var(--space-section)',
+        panel: 'var(--space-panel)',
+        field: 'var(--space-field)',
+        control: 'var(--control-height)',
+        tap: 'var(--tap-min)',
       },
 
       borderRadius: {
@@ -133,6 +180,21 @@ module.exports = {
       margin: {
         sidebar: 'var(--sidebar-width)',
         'sidebar-collapsed': 'var(--sidebar-collapsed-width)',
+      },
+
+      /**
+       * Four steps, in the order things actually stack.
+       *
+       * The drawer's scrim and the app header were both z-30, so the header painted over the very
+       * overlay meant to cover it — the shop's own name sitting on top of a dimmed screen. Naming
+       * the layers is what stops the next such collision being settled by whichever number somebody
+       * typed last.
+       */
+      zIndex: {
+        base: '0',
+        sticky: '10',
+        drawer: '30',
+        overlay: '50',
       },
 
       keyframes: {

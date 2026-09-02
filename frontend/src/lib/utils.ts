@@ -9,14 +9,17 @@ import { extendTailwindMerge } from 'tailwind-merge';
  * alternative is importing the config, which would drag it into the browser bundle to answer a
  * question that only matters at build time.
  */
-const FONT_SIZES = ['caption', 'label', 'body', 'body-lg', 'h3', 'h2', 'h1', 'display'] as const;
+const FONT_SIZES = [
+  'caption', 'label', 'body', 'body-lg', 'h3', 'h2', 'h1', 'value', 'value-lg', 'display',
+] as const;
 
 /** Every colour token that can appear as `text-…`. */
 const TEXT_COLOURS = [
   'ink', 'ink-muted', 'ink-faint',
   'accent', 'accent-strong', 'accent-soft', 'accent-text', 'accent-foreground',
   'positive', 'warning', 'negative', 'live',
-  'surface', 'panel', 'panel-hover', 'panel-sunken', 'subtle', 'strong',
+  'positive-text', 'warning-text', 'negative-text', 'live-text',
+  'surface', 'panel', 'panel-hover', 'panel-sunken', 'subtle', 'strong', 'control',
 ] as const;
 
 /**

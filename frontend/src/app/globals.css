@@ -76,6 +76,24 @@
     --negative: 0.53 0.16 25;
     --live: 0.55 0.13 230;
 
+    /* The same four meanings, at a lightness that survives being read as words.
+
+       A semantic used as a fill only has to be seen; used as text it has to be read, and the two
+       want different lightnesses. Held as one value, the badges measured 4.31:1 (positive), 4.23:1
+       (warning) and 3.92:1 (live) against their own tinted grounds — all below AA for body text.
+       This is the structure `--accent` already has: a base to fill with, a text tone to write in. */
+    --positive-text: 0.44 0.13 160;
+    --warning-text: 0.46 0.13 75;
+    --negative-text: 0.47 0.16 25;
+    --live-text: 0.45 0.13 230;
+
+    /* The edge of something you can operate.
+
+       Distinct from --border, which divides. WCAG 1.4.11 asks 3:1 of a control's boundary against
+       its surroundings, and a divider tuned to be quiet cannot also be that: --border measures
+       about 1.4:1 on panel. An input drawn in it has no visible edge, only an implied one. */
+    --border-control: 150 154 168;
+
     /* Rounder than before. The old 4px read as "unstyled" next to the density of the type. */
     --radius: 10px;
     --radius-dense: 8px;
@@ -92,6 +110,29 @@
     /* The till is touched, not clicked; the back office is a mouse-and-keyboard screen and 32px is
        the density doc 08 asks for. */
     --control-height-touch: 2.75rem;
+
+    /* The floor for anything that can be pressed, including an icon on its own. Separate from
+       --control-height because a control may be wider than it is tall, and this is the square. */
+    --tap-min: 3rem;
+
+    /* Nav rows, sized here rather than at each call site so the rail and its children stay in step
+       when the type scale moves under them. */
+    --nav-item-height: 3rem;
+    --nav-child-height: 2.75rem;
+
+    /* A DataGrid row. The grid measures its own virtual rows from this. */
+    --grid-row-height: 2rem;
+
+    /* One opacity for "you cannot use this", rather than 0.40 on buttons and 0.35 on the key bar —
+       two values that disagree about how disabled a disabled thing looks. */
+    --disabled-opacity: 0.6;
+
+    /* Spacing with a job rather than a number. Thirty-five page roots currently pick p-2, p-3, p-4,
+       p-6, p-8 or nothing at all, which is why no two screens have the same margin. */
+    --space-page: 1.5rem;
+    --space-section: 1.25rem;
+    --space-panel: 1rem;
+    --space-field: 0.75rem;
 
     --font-sans: 'Onest', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
@@ -140,10 +181,19 @@
     --accent-grad: linear-gradient(180deg, oklch(0.565 0.165 263) 0%, oklch(0.495 0.18 267) 100%);
     --accent-grad-hover: linear-gradient(180deg, oklch(0.515 0.17 263) 0%, oklch(0.445 0.185 267) 100%);
 
+    --border-control: 104 109 128;
+
     --positive: 0.75 0.12 160;
     --warning: 0.78 0.12 75;
     --negative: 0.72 0.14 25;
     --live: 0.75 0.11 230;
+
+    /* Lighter than the fills, for the same reason the light theme's are darker: on this ground the
+       direction that gains contrast is up. */
+    --positive-text: 0.84 0.11 160;
+    --warning-text: 0.86 0.11 75;
+    --negative-text: 0.82 0.12 25;
+    --live-text: 0.84 0.10 230;
 
     /* Shadows do almost nothing on a dark ground — a black blur on near-black is invisible. Depth
        here comes from the panel being lighter than the page, so these only deepen rather than lift. */
