@@ -183,7 +183,7 @@ export function Sidebar() {
       {/* Only rendered when open, so it can never swallow clicks on a desktop. */}
       {drawerOpen ? (
         <div
-          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-drawer bg-black/40 lg:hidden"
           onClick={closeDrawer}
           role="presentation"
         />
@@ -191,7 +191,7 @@ export function Sidebar() {
 
       <aside
         className={cn(
-          'fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-subtle bg-panel',
+          'fixed left-0 top-0 z-overlay flex h-screen flex-col border-r border-subtle bg-panel',
           'transition-transform duration-200 lg:transition-[width]',
 
           // Off-canvas until opened, and always full width when it is — a collapsed icon rail on a
@@ -378,7 +378,7 @@ export function Header() {
   const { toggleDrawer } = useUIStore();
 
   return (
-    <header className="sticky top-0 z-30 flex h-header items-center justify-between gap-4 border-b border-subtle bg-panel/85 px-4 backdrop-blur-md">
+    <header className="sticky top-0 z-sticky flex h-header flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-subtle bg-panel/85 px-4 backdrop-blur-md">
       {/*
         The only way to reach navigation below `lg`, where the rail is off-canvas. Hidden from `lg`
         up, where the rail is always visible and this would be a button that appears to do nothing.
@@ -404,7 +404,7 @@ export function Header() {
         <CompanyLogo className="h-7 w-auto max-w-[180px] shrink-0 object-contain" />
       </div>
 
-      <div className="flex items-center gap-3 text-body">
+      <div className="flex min-w-0 items-center gap-3 text-body">
         <PunchClock />
         <ThemeToggle />
 

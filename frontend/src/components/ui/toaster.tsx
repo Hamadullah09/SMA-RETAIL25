@@ -100,7 +100,7 @@ export function Toaster() {
         empty region sits over the bottom-right corner of every screen and swallows clicks on
         whatever is underneath it.
       */}
-      <ToastPrimitive.Viewport className="pointer-events-none fixed bottom-4 right-4 z-50 flex w-full max-w-sm flex-col gap-2 outline-none" />
+      <ToastPrimitive.Viewport className="pointer-events-none fixed inset-x-4 bottom-4 z-overlay flex flex-col gap-2 outline-none sm:left-auto sm:right-4 sm:w-full sm:max-w-sm" />
     </ToastPrimitive.Provider>
   );
 }

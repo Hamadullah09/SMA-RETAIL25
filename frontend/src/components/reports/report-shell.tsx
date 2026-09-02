@@ -23,7 +23,7 @@ export function ReportShell({
   summary?: ReactNode;
 }) {
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-0 flex-col gap-2">
+    <div className="flex h-below-header min-h-0 flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-h3 font-semibold">{title}</h1>
         {exportHref ? (

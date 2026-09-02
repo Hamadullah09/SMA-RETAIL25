@@ -246,41 +246,50 @@ export function DataGrid<TRow>({
         </span>
       </div>
 
-      <div
-        role="row"
-        className="grid border-b border-subtle bg-panel-sunken text-label font-medium text-ink-muted"
-        style={{ gridTemplateColumns: visibleColumns.map((c) => `${c.width}px`).join(' '), minWidth: totalWidth }}
-      >
-        {visibleColumns.map((column) => {
-          const sorted_ = sortKey === column.key;
+      {/*
+        One scroll box, with the header inside it.
 
-          return (
-            <div
-              key={column.key}
-              role="columnheader"
-
-              // Announced rather than left to the arrow glyph, which a screen reader reads as
-              // "up arrow" or skips entirely.
-              aria-sort={sorted_ ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
-              className="min-w-0"
-            >
-              <button
-                type="button"
-                onClick={() => toggleSort(column.key)}
-                className={cn(
-                  'flex w-full items-center gap-1 px-2 py-1.5 transition-colors hover:text-ink',
-                  column.numeric ? 'justify-end' : 'justify-start',
-                )}
-              >
-                <span className="truncate">{column.header}</span>
-                {sorted_ ? <span aria-hidden>{sortDirection === 'asc' ? '↑' : '↓'}</span> : null}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-
+        The header used to be a sibling of the scroller, and both carried minWidth: totalWidth. A
+        grid wider than its panel therefore pushed the header out of the panel and put a horizontal
+        scrollbar on the *document* — the whole page slid sideways to reveal a column. Inside the
+        scroller and stuck to its top, the same grid scrolls within its own box and the page does
+        not move, which is what "wide content scrolls in its own container" means.
+      */}
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto" role="rowgroup">
+        <div
+          role="row"
+          className="sticky top-0 z-sticky grid border-b border-subtle bg-panel-sunken text-label font-medium text-ink-muted"
+          style={{ gridTemplateColumns: visibleColumns.map((c) => `${c.width}px`).join(' '), minWidth: totalWidth }}
+        >
+          {visibleColumns.map((column) => {
+            const sorted_ = sortKey === column.key;
+
+            return (
+              <div
+                key={column.key}
+                role="columnheader"
+
+                // Announced rather than left to the arrow glyph, which a screen reader reads as
+                // "up arrow" or skips entirely.
+                aria-sort={sorted_ ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                className="min-w-0"
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleSort(column.key)}
+                  className={cn(
+                    'flex w-full items-center gap-1 px-2 py-1.5 transition-colors hover:text-ink',
+                    column.numeric ? 'justify-end' : 'justify-start',
+                  )}
+                >
+                  <span className="truncate">{column.header}</span>
+                  {sorted_ ? <span aria-hidden>{sortDirection === 'asc' ? '↑' : '↓'}</span> : null}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
         {sorted.length === 0 ? (
           <p className="px-3 py-12 text-center text-body text-ink-muted">{emptyMessage}</p>
         ) : (

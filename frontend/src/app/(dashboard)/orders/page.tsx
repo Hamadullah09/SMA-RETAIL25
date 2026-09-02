@@ -31,7 +31,7 @@ export default function OrdersPage() {
   }, [locationId]);
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] min-h-0 flex-col gap-2">
+    <div className="flex h-below-header min-h-0 flex-col gap-2">
       <div className="flex items-center justify-between">
         <h1 className="text-h3 font-semibold">Orders &amp; Layaways</h1>
         <div className="flex gap-2">

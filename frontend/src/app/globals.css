@@ -441,10 +441,16 @@
    * long before they read the label, and a row whose keys shift as labels change ("Show items" /
    * "Hide items") is a row that has to be re-read each time.
    */
+  /*
+   * Wraps rather than crushing. Nine equal columns in a single row means each key gets a ninth of
+   * the width whatever the width is: at 1024px that is ~110px, and the Ctrl+G chip alone takes a
+   * third of it, so "Hide items" truncates on a tablet and vanishes below 768px. auto-fit keeps a
+   * legible minimum and moves the overflow onto a second line, which costs one row of height and
+   * saves every label.
+   */
   .pos-keybar {
     @apply grid gap-1;
-    grid-auto-flow: column;
-    grid-auto-columns: minmax(0, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
   }
 
   /**
@@ -508,7 +514,20 @@
    */
   .pos-cart-grid {
     display: grid;
-    grid-template-columns: 2.75rem minmax(0, 1fr) 4rem 4.5rem 5.5rem;
+    /*
+     * The money columns size to their content, with a floor.
+     *
+     * They were fixed at 4/4.5/5.5rem, which fits today's 14px figures and nothing wider: a
+     * nine-glyph extended price at 18px measures about 97px against an 88px track. A price column
+     * that truncates is worse than one that is wide — it is a wrong number rendered confidently —
+     * so these grow to fit and never fall below what they hold today.
+     */
+    grid-template-columns:
+      2.75rem
+      minmax(0, 1fr)
+      minmax(4rem, max-content)
+      minmax(4.5rem, max-content)
+      minmax(5.5rem, max-content);
     gap: 0.5rem;
     align-items: center;
   }
@@ -733,7 +752,11 @@
     'status status'
     'cart   side'
     'keys   keys';
+  /* 100vh, then 100dvh where it is understood. On a tablet or phone with browser chrome, 100vh is
+     the viewport as if the chrome were not there, so the key bar sits under the address bar — and
+     .pos-layout is overflow:hidden, so what overruns is clipped rather than scrolled to. */
   height: 100vh;
+  height: 100dvh;
   /* Row gap is tighter than the column gap: vertical space is the scarce one, and 8px between the
      scan box and the sale bought nothing a 1px border was not already saying. */
   gap: 6px 8px;

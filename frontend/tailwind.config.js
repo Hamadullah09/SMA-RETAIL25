@@ -161,11 +161,20 @@ module.exports = {
         overlay: 'var(--shadow-3)',
       },
 
-      /** Drives the shell so a header height change cannot silently break a page's scroll box. */
+      /**
+       * Drives the shell so a header height change cannot silently break a page's scroll box.
+       *
+       * dvh rather than vh: on a tablet or phone, 100vh is the viewport as though the browser
+       * chrome were not there, so a box sized against it runs under the address bar. The vh value
+       * stays as the fallback for anything that has not heard of dvh.
+       */
       height: {
         header: 'var(--header-height)',
-        'below-header': 'calc(100vh - var(--header-height))',
-        'below-chrome': 'calc(100vh - var(--header-height) - var(--toolbar-height))',
+        'below-header': ['calc(100vh - var(--header-height))', 'calc(100dvh - var(--header-height))'],
+        'below-chrome': [
+          'calc(100vh - var(--header-height) - var(--toolbar-height))',
+          'calc(100dvh - var(--header-height) - var(--toolbar-height))',
+        ],
       },
 
       minHeight: {
