@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
-import { KpiTile, Panel, PanelNote, RankedBars, TileSkeleton } from '@/components/dashboard/kpi';
+import { FailedTile, KpiTile, Panel, PanelNote, RankedBars, TileSkeleton } from '@/components/dashboard/kpi';
 import { Banknote, Eye, EyeOff, HandCoins, PackageSearch, TrendingUp } from 'lucide-react';
 import { SalesTrend } from '@/components/dashboard/sales-trend';
 import { HIDDEN_AMOUNT, useAmountVisibility } from '@/lib/amount-visibility';
@@ -100,6 +100,15 @@ export default function DashboardPage() {
    * Blurring or colouring the real figure leaves it in the DOM, where it is one inspector — or one
    * screen reader — away from being read out. The number does not reach the page at all.
    */
+  /**
+   * Every figure of money on this screen, without exception.
+   *
+   * "Hide takings" covered the two sales tiles and the two charts and left the rest: what customers
+   * owe, what is overdue, and the value of everything on order. Those are the same fact about the
+   * business as the day's takings, on the same monitor, which on this screen is quite likely to be
+   * facing the shop floor. A control that hides some of the money teaches people the money is
+   * hidden.
+   */
   const amount = (value: number) => (amountsVisible ? formatCurrency(value) : HIDDEN_AMOUNT);
 
   const yesterdayNet = rows.find((r) => r.groupKey === isoDate(-1))?.netSales ?? 0;
@@ -160,6 +169,8 @@ export default function DashboardPage() {
         {auth.can('reports.sales') ? (
           trend.isPending ? (
             <TileSkeleton label="Sales today" />
+          ) : trend.isError ? (
+            <FailedTile label="Sales today" onRetry={() => void trend.refetch()} />
           ) : (
             <KpiTile
               icon={Banknote}
@@ -180,6 +191,8 @@ export default function DashboardPage() {
         {auth.can('reports.sales') ? (
           trend.isPending ? (
             <TileSkeleton label="Last 14 days" />
+          ) : trend.isError ? (
+            <FailedTile label="Last 14 days" onRetry={() => void trend.refetch()} />
           ) : (
             <KpiTile
               icon={TrendingUp}
@@ -199,6 +212,8 @@ export default function DashboardPage() {
         {auth.can('reports.inventory') ? (
           stock.isPending ? (
             <TileSkeleton label="Below reorder" />
+          ) : stock.isError ? (
+            <FailedTile label="Below reorder" onRetry={() => void stock.refetch()} />
           ) : (
             <KpiTile
               icon={PackageSearch}
@@ -216,12 +231,14 @@ export default function DashboardPage() {
         {auth.can('ar.read') ? (
           aging.isPending ? (
             <TileSkeleton label="Owed to you" />
+          ) : aging.isError ? (
+            <FailedTile label="Owed to you" onRetry={() => void aging.refetch()} />
           ) : (
             <KpiTile
               icon={HandCoins}
               label="Owed to you"
-              value={formatCurrency(outstanding)}
-              hint={overdue > 0 ? `${formatCurrency(overdue)} overdue` : 'None overdue'}
+              value={amount(outstanding)}
+              hint={overdue > 0 ? `${amount(overdue)} overdue` : 'None overdue'}
               tone={overdue > 0 ? 'negative' : 'neutral'}
               href="/receivables"
             />
@@ -346,7 +363,7 @@ export default function DashboardPage() {
                     which line is biggest. */}
                 <p className="mb-2.5 flex items-baseline gap-2 border-b border-subtle pb-2.5">
                   <span className="pos-kpi-value text-h2">
-                    {formatCurrency(outstandingPos.reduce((sum, r) => sum + r.expectedValue, 0))}
+                    {amount(outstandingPos.reduce((sum, r) => sum + r.expectedValue, 0))}
                   </span>
                   <span className="text-caption text-ink-muted">
                     across {outstandingPos.length} line{outstandingPos.length === 1 ? '' : 's'}
@@ -369,7 +386,7 @@ export default function DashboardPage() {
 
                       <span className="shrink-0 text-right">
                         <span className="pos-amount block text-body font-medium text-ink">
-                          {formatCurrency(row.expectedValue)}
+                          {amount(row.expectedValue)}
                         </span>
                         <span className="mt-0.5 block text-caption text-ink-muted">
                           {row.qtyOutstanding} due

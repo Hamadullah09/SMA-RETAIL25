@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
+import { TriangleAlert } from 'lucide-react';
 import { cn, formatCurrency } from '@/lib/utils';
 
 /**
@@ -221,6 +222,36 @@ export function PanelNote({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-[6rem] items-center justify-center rounded-md border border-dashed border-subtle bg-panel-sunken/60 px-4 py-6">
       <p className="text-center text-body text-ink-muted">{children}</p>
+    </div>
+  );
+}
+
+/**
+ * A tile whose figure could not be fetched.
+ *
+ * Distinct from a zero, and that distinction is the whole point. Every query on this screen falls
+ * back to an empty array, so a failed request rendered "Owed to you 0.00 · None overdue" and
+ * "Nothing needs ordering" — not as a gap, but as a statement about the business. A manager
+ * glancing at that walks away believing the debtors are clear.
+ */
+export function FailedTile({ label, onRetry }: { label: string; onRetry?: () => void }) {
+  return (
+    <div className="pos-panel relative flex flex-col justify-between overflow-hidden p-5 before:absolute before:inset-x-0 before:top-0 before:h-1.5 before:bg-warning before:content-['']">
+      <p className="text-body font-medium text-ink-muted">{label}</p>
+
+      <p className="mt-2 flex items-center gap-2 text-body-lg font-semibold text-warning-text">
+        <TriangleAlert className="h-5 w-5 shrink-0" aria-hidden />
+        Not available
+      </p>
+
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <p className="text-caption text-ink-muted">This figure could not be loaded.</p>
+        {onRetry ? (
+          <button type="button" onClick={onRetry} className="text-caption underline">
+            Try again
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
