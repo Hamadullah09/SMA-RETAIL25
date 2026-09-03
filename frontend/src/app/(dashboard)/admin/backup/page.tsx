@@ -17,6 +17,8 @@ import { useAuth } from '@/lib/auth-config';
 import { apiClient } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
 import { PageHeader as SharedPageHeader } from '@/components/shell/page-header';
+import { describeError } from '@/lib/errors';
+import { EmptyState } from '@/components/ui/states';
 
 type BackupFile = {
   fileName: string;
@@ -32,11 +34,6 @@ function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-}
-
-function describeError(error: unknown): string {
-  const err = error as { response?: { data?: { detail?: string; title?: string } } };
-  return err.response?.data?.detail ?? err.response?.data?.title ?? 'Something went wrong.';
 }
 
 /**
@@ -121,7 +118,7 @@ export default function BackupPage() {
           <EmptyState
             icon={Lock}
             title="You do not have permission to manage backups"
-            hint="Backing up and restoring the database needs the system.backup permission. Ask an administrator to grant it on your role."
+            description="Backing up and restoring the database needs the system.backup permission. Ask an administrator to grant it on your role."
           />
         </section>
       </div>
@@ -167,7 +164,7 @@ export default function BackupPage() {
           <EmptyState
             icon={HardDriveDownload}
             title={loading ? 'Loading…' : 'No backups yet'}
-            hint={
+            description={
               loading
                 ? 'Reading the server’s backup folder.'
                 : 'Press “Back up now” to write the first one. It takes a copy of the whole database into the server’s backup folder.'
@@ -280,15 +277,5 @@ function Panel({
       </header>
       {children}
     </section>
-  );
-}
-
-function EmptyState({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
-      <Icon className="mb-1 h-6 w-6 text-ink-faint" aria-hidden />
-      <p className="text-body-lg font-medium text-ink">{title}</p>
-      <p className="max-w-[52ch] text-body text-ink-muted">{hint}</p>
-    </div>
   );
 }

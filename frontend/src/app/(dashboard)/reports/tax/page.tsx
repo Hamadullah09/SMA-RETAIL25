@@ -67,7 +67,8 @@ export default function TaxReportPage() {
           rows={data?.rows ?? []}
           columns={columns}
           rowKey={(row) => `${row.taxName}-${row.rate}`}
-          emptyMessage={loading ? 'Loading…' : 'No tax was collected in this window.'}
+          loading={loading}
+          emptyMessage="No tax was collected in this window."
         />
       }
       summary={

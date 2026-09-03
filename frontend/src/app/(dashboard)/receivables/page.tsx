@@ -20,6 +20,7 @@ import type {
   ReceivablesAgingRow,
   TenderSettings,
 } from '@/types/masters';
+import { describeError } from '@/lib/errors';
 
 const selectClass =
   'pos-input';
@@ -60,7 +61,7 @@ export default function ReceivablesPage() {
         setCursor(page.nextCursor);
         setHasMore(page.hasMore);
       } catch (error) {
-        toast({ title: 'Could not load accounts', description: describe(error), variant: 'destructive' });
+        toast({ title: 'Could not load accounts', description: describeError(error), variant: 'destructive' });
       } finally {
         setLoading(false);
       }
@@ -84,7 +85,7 @@ export default function ReceivablesPage() {
       setAging(await mastersApi.receivables.aging(locationId));
       setView('aging');
     } catch (error) {
-      toast({ title: 'Could not load the aging report', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load the aging report', description: describeError(error), variant: 'destructive' });
     }
   };
 
@@ -143,7 +144,8 @@ export default function ReceivablesPage() {
             columns={columns}
             rowKey={(row) => row.customerId}
             onRowActivate={(row) => setSelectedId(row.customerId)}
-            emptyMessage={loading ? 'Loading…' : 'No accounts match these filters.'}
+            loading={loading}
+            emptyMessage="No accounts match these filters."
           />
         )
       }
@@ -173,10 +175,6 @@ export default function ReceivablesPage() {
       }
     />
   );
-}
-
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
 // Was `currency: 'USD'` — US dollars on a page about what customers owe this shop.
@@ -248,7 +246,7 @@ function GiftCardsPanel({ onClose }: { onClose: () => void }) {
       setSerialNumber('');
       toast({ title: `Gift card ${card.serialNumber} issued for ${currency(card.originalValue)}` });
     } catch (error) {
-      toast({ title: 'Could not issue the gift card', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not issue the gift card', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -262,7 +260,7 @@ function GiftCardsPanel({ onClose }: { onClose: () => void }) {
       setFound(await mastersApi.giftCards.balance(lookupSerial.trim()));
     } catch (error) {
       setFound(null);
-      toast({ title: 'Could not find that gift card', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not find that gift card', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -366,7 +364,7 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: number; onClose: ()
       setPolicy(await mastersApi.loyalty.savePolicy(policy));
       toast({ title: 'Loyalty policy saved' });
     } catch (error) {
-      toast({ title: 'Could not save the policy', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not save the policy', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -395,7 +393,7 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: number; onClose: ()
       setReason('');
       toast({ title: 'Points adjusted' });
     } catch (error) {
-      toast({ title: 'Could not adjust points', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not adjust points', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -541,7 +539,7 @@ function StatementPanel({
     try {
       setStatement(await mastersApi.receivables.statement(customerId));
     } catch (error) {
-      toast({ title: 'Could not open the statement', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not open the statement', description: describeError(error), variant: 'destructive' });
     }
   }, [customerId]);
 
@@ -577,7 +575,7 @@ function StatementPanel({
       await reload();
       onChanged();
     } catch (error) {
-      toast({ title: 'Could not take the payment', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not take the payment', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -591,7 +589,7 @@ function StatementPanel({
       await reload();
       onChanged();
     } catch (error) {
-      toast({ title: 'Could not void the invoice', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not void the invoice', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -609,7 +607,7 @@ function StatementPanel({
       await reload();
       onChanged();
     } catch (error) {
-      toast({ title: 'Could not refund the invoice', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not refund the invoice', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }

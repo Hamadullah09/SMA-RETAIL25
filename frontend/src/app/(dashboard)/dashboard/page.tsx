@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
-import { EmptyState, KpiTile, Panel, RankedBars, TileSkeleton } from '@/components/dashboard/kpi';
+import { KpiTile, Panel, PanelNote, RankedBars, TileSkeleton } from '@/components/dashboard/kpi';
 import { Banknote, Eye, EyeOff, HandCoins, PackageSearch, TrendingUp } from 'lucide-react';
 import { SalesTrend } from '@/components/dashboard/sales-trend';
 import { HIDDEN_AMOUNT, useAmountVisibility } from '@/lib/amount-visibility';
@@ -284,13 +284,13 @@ export default function DashboardPage() {
             {stock.isPending ? (
               <div className="h-32 animate-pulse rounded-sm bg-panel-sunken" />
             ) : understocked.length === 0 ? (
-              <EmptyState>
+              <PanelNote>
                 {unmanaged > 0
                   ? `Every line with a reorder point is above it. ${unmanaged} item${
                       unmanaged === 1 ? ' has' : 's have'
                     } no reorder point set.`
                   : 'Every line is above its reorder point.'}
-              </EmptyState>
+              </PanelNote>
             ) : (
               <ul className="space-y-1">
                 {understocked.slice(0, 6).map((row) => {
@@ -337,9 +337,9 @@ export default function DashboardPage() {
             {onOrder.isPending ? (
               <div className="h-32 animate-pulse rounded-sm bg-panel-sunken" />
             ) : outstandingPos.length === 0 ? (
-              <EmptyState>
+              <PanelNote>
                 Nothing on order. Anything short above has to be ordered before it arrives.
-              </EmptyState>
+              </PanelNote>
             ) : (
               <>
                 {/* The total first, because the question is usually what is committed rather than

@@ -69,7 +69,8 @@ export default function OnOrderPage() {
           rows={data ?? []}
           columns={columns}
           rowKey={(row) => `${row.poNumber}-${row.productId}`}
-          emptyMessage={loading ? 'Loading…' : 'Nothing is on order.'}
+          loading={loading}
+          emptyMessage="Nothing is on order."
         />
       }
       summary={

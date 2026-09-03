@@ -34,6 +34,8 @@ import type {
   ValidationFinding,
 } from '@/types/masters';
 import { PageHeader as SharedPageHeader } from '@/components/shell/page-header';
+import { describeError } from '@/lib/errors';
+import { EmptyState } from '@/components/ui/states';
 
 const inputClass =
   'pos-input';
@@ -98,7 +100,7 @@ export default function MigrationPage() {
     try {
       setBatches(await mastersApi.migration.batches(locationId));
     } catch (error) {
-      toast({ title: 'Could not load the batches', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load the batches', description: describeError(error), variant: 'destructive' });
     }
   }, [locationId]);
 
@@ -121,7 +123,7 @@ export default function MigrationPage() {
           <EmptyState
             icon={Lock}
             title="You do not have permission to run a migration"
-            hint="Bringing legacy data across needs the migration.run permission. Ask an administrator to grant it on your role."
+            description="Bringing legacy data across needs the migration.run permission. Ask an administrator to grant it on your role."
           />
         </section>
       </div>
@@ -141,7 +143,7 @@ export default function MigrationPage() {
       await load();
       toast({ title: `${batch.rowsStaged} row(s) read in` });
     } catch (error) {
-      toast({ title: 'Could not read that file', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not read that file', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
 
@@ -219,7 +221,7 @@ export default function MigrationPage() {
           <EmptyState
             icon={Inbox}
             title="Nothing read in yet"
-            hint="Choose the kind of file and pick it above. Reading a file in writes nothing to the live system — it only stages the rows so they can be checked."
+            description="Choose the kind of file and pick it above. Reading a file in writes nothing to the live system — it only stages the rows so they can be checked."
           />
         ) : (
           <div className="overflow-x-auto">
@@ -302,10 +304,6 @@ export default function MigrationPage() {
   );
 }
 
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
-}
-
 /** Reads a file as base64 without the data-URL prefix. */
 function toBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -358,7 +356,7 @@ function BatchPanel({
       await onChanged(await mastersApi.migration.batch(batch.id));
       toast({ title: success });
     } catch (error) {
-      toast({ title: 'Not done', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not done', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -720,15 +718,5 @@ function Panel({
       </header>
       {children}
     </section>
-  );
-}
-
-function EmptyState({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
-      <Icon className="mb-1 h-6 w-6 text-ink-faint" aria-hidden />
-      <p className="text-body-lg font-medium text-ink">{title}</p>
-      <p className="max-w-[52ch] text-body text-ink-muted">{hint}</p>
-    </div>
   );
 }

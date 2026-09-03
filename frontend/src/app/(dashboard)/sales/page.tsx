@@ -11,6 +11,7 @@ import { printPdf } from '@/lib/print';
 import { formatCurrency } from '@/lib/utils';
 import type { SaleDetail, SaleDetailLine, SalesLogRow, TenderSettings } from '@/types/masters';
 import { PageHeader } from '@/components/shell/page-header';
+import { DomainStatusBadge } from '@/components/ui/status-badge';
 
 /**
  * Previous sales, and what can be done to one.
@@ -248,10 +249,8 @@ export default function PreviousSalesPage() {
     {
       key: 'status',
       header: 'Status',
-      width: 110,
-      render: (r) => (
-        <span className={r.status === 'Completed' ? 'text-emerald-600' : 'text-amber-600'}>{r.status}</span>
-      ),
+      width: 150,
+      render: (r) => <DomainStatusBadge status={r.status} />,
     },
   ];
 
@@ -289,7 +288,8 @@ export default function PreviousSalesPage() {
             gridId="previous-sales"
             rows={visible}
             columns={columns}
-            emptyMessage={loading ? 'Loading…' : 'No sales in that period.'}
+            loading={loading}
+            emptyMessage="No sales in that period."
             onRowActivate={(row) => void open(row.id)}
             rowKey={(row) => row.id}
           />

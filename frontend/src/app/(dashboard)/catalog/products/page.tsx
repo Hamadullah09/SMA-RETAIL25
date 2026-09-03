@@ -32,6 +32,8 @@ import {
   type ProductSort,
   type ProductType,
 } from '@/types/masters';
+import { describeError } from '@/lib/errors';
+import { StockBadge } from '@/components/ui/status-badge';
 
 /**
  * The id a form holds while it is creating rather than editing.
@@ -101,7 +103,7 @@ export default function ProductsPage() {
         setCursor(page.nextCursor);
         setHasMore(page.hasMore);
       } catch (error) {
-        toast({ title: 'Could not load items', description: describe(error), variant: 'destructive' });
+        toast({ title: 'Could not load items', description: describeError(error), variant: 'destructive' });
       } finally {
         setLoading(false);
       }
@@ -150,19 +152,13 @@ export default function ProductsPage() {
       {
         key: 'onHand',
         header: 'On hand',
-        width: 80,
-        numeric: true,
-        // Below the reorder point is called out in colour, because "what needs buying" is the
-        // question this grid is opened for most often.
-        render: (r) => (
-          <span
-            className={
-              r.reorderPoint > 0 && r.onHand + r.onOrder <= r.reorderPoint ? 'text-warning' : undefined
-            }
-          >
-            {r.onHand}
-          </span>
-        ),
+        // Wider than the 80px a bare number needed: the badge carries a word as well as a figure,
+        // which is the point of it.
+        width: 150,
+        // "What needs buying" is the question this grid is opened for most often, and it was
+        // answered in colour alone — an orange number, which says nothing to a reader who cannot
+        // separate orange from black and nothing at all about whether orange is bad here.
+        render: (r) => <StockBadge onHand={r.onHand} reorderPoint={r.reorderPoint} />,
         sortValue: (r) => r.onHand,
       },
       { key: 'onOrder', header: 'On order', width: 80, numeric: true, render: (r) => r.onOrder },
@@ -180,7 +176,7 @@ export default function ProductsPage() {
   return (
     <>
     <BrowseFormShell
-      title="Inventory"
+      title="Products"
       toolbar={
         <>
           <LiveBadge connected={connected} hasEverConnected={hasEverConnected} />
@@ -298,7 +294,8 @@ export default function ProductsPage() {
           rowKey={(row) => row.id}
           recentlyChanged={changed}
           onRowActivate={(row) => setSelectedId(row.id)}
-          emptyMessage={loading ? 'Loading…' : 'No items match these filters.'}
+          loading={loading}
+          emptyMessage="No items match these filters."
         />
       }
       form={
@@ -326,7 +323,6 @@ export default function ProductsPage() {
               Load more
             </button>
           ) : null}
-          <span>Double-click a row to open it.</span>
         </span>
       }
     />
@@ -345,10 +341,6 @@ export default function ProductsPage() {
       ) : null}
     </>
   );
-}
-
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
 function today(): string {
@@ -458,7 +450,7 @@ function ProductFormPanel({
       .get(productId)
       .then(setForm)
       .catch((error) =>
-        toast({ title: 'Could not open the item', description: describe(error), variant: 'destructive' }),
+        toast({ title: 'Could not open the item', description: describeError(error), variant: 'destructive' }),
       );
   }, [productId, locationId]);
 
@@ -487,7 +479,7 @@ function ProductFormPanel({
       onSaved();
       toast({ title: productId ? 'Saved' : 'Item created' });
     } catch (error) {
-      toast({ title: 'Not saved', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not saved', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -504,7 +496,7 @@ function ProductFormPanel({
       onSaved();
       onClose();
     } catch (error) {
-      toast({ title: 'Not deleted', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not deleted', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -522,7 +514,7 @@ function ProductFormPanel({
       onSaved();
       toast({ title: 'Copied', description: 'Stock and barcode are not copied.' });
     } catch (error) {
-      toast({ title: 'Not copied', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not copied', description: describeError(error), variant: 'destructive' });
     }
   };
 
@@ -532,7 +524,7 @@ function ProductFormPanel({
       onSaved();
       toast({ title: 'Restored' });
     } catch (error) {
-      toast({ title: 'Not restored', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not restored', description: describeError(error), variant: 'destructive' });
     }
   };
 

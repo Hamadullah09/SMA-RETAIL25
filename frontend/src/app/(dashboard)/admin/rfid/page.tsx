@@ -34,6 +34,8 @@ import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { cn } from '@/lib/utils';
 import { PageHeader as SharedPageHeader } from '@/components/shell/page-header';
+import { describeError } from '@/lib/errors';
+import { EmptyState } from '@/components/ui/states';
 
 /**
  * RFID reader configuration.
@@ -69,7 +71,7 @@ export default function RfidSettingsPage() {
       setReaders(rows);
       setSelected((current) => current ?? rows[0]?.id ?? null);
     } catch (error) {
-      toast({ title: 'Could not load readers', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load readers', description: describeError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -110,7 +112,7 @@ export default function RfidSettingsPage() {
       await load();
       setSelected(created.id);
     } catch (error) {
-      toast({ title: 'Could not add the reader', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not add the reader', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -131,7 +133,7 @@ export default function RfidSettingsPage() {
         description: 'Tills pick this up on their next profile refresh, or press "Send to reader now".',
       });
     } catch (error) {
-      toast({ title: 'Not saved', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not saved', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -145,7 +147,7 @@ export default function RfidSettingsPage() {
           <EmptyState
             icon={RadioTower}
             title="No location is selected for this account"
-            hint="A reader profile belongs to a location. Sign in against one, or ask an administrator to attach a location to your account."
+            description="A reader profile belongs to a location. Sign in against one, or ask an administrator to attach a location to your account."
           />
         </section>
       </div>
@@ -192,7 +194,7 @@ export default function RfidSettingsPage() {
           <EmptyState
             icon={RadioTower}
             title="No reader is configured for this location"
-            hint={
+            description={
               canWrite
                 ? 'Press “Add reader” at the top of the page. It starts with the defaults that suit most units — give it an address and a port and it is a reader.'
                 : 'Ask someone with the terminals.register permission to add one. Until then this till cannot read a tag.'
@@ -767,15 +769,6 @@ function Reading({ label, value, warn }: { label: string; value?: string | null;
  * selected region's band reported only the status code, so the one field at fault was the one thing
  * the operator could not learn.
  */
-function describe(error: unknown): string {
-  const problem = (error as { response?: { data?: { detail?: string; title?: string } } })?.response?.data;
-
-  if (problem?.detail || problem?.title) {
-    return problem.detail ?? problem.title!;
-  }
-
-  return error instanceof Error ? error.message : 'The request was refused.';
-}
 
 /* ------------------------------------------------------------------ page furniture */
 
@@ -788,14 +781,4 @@ function describe(error: unknown): string {
  */
 function PageHeader({ title, lede, children }: { title: string; lede: string; children?: ReactNode }) {
   return <SharedPageHeader title={title} description={lede} actions={children} />;
-}
-
-function EmptyState({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
-      <Icon className="mb-1 h-6 w-6 text-ink-faint" aria-hidden />
-      <p className="text-body-lg font-medium text-ink">{title}</p>
-      <p className="max-w-[52ch] text-body text-ink-muted">{hint}</p>
-    </div>
-  );
 }

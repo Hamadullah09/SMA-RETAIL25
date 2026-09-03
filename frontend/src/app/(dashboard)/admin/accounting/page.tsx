@@ -23,6 +23,8 @@ import { PosApiError } from '@/lib/pos-api';
 import { cn } from '@/lib/utils';
 import type { ExternalMapRow, PreflightReport, SyncEntityName, SyncLogDetail, SyncLogRow } from '@/types/masters';
 import { PageHeader as SharedPageHeader } from '@/components/shell/page-header';
+import { describeError } from '@/lib/errors';
+import { EmptyState } from '@/components/ui/states';
 
 const PUSHABLE: { entity: SyncEntityName; label: string; needsDate?: boolean }[] = [
   { entity: 'Customers', label: 'Customers' },
@@ -67,7 +69,7 @@ export default function AccountingSyncPage() {
       setLogRows(log.rows);
       setMaps(mappings);
     } catch (error) {
-      toast({ title: 'Could not load the accounting link', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load the accounting link', description: describeError(error), variant: 'destructive' });
     }
   }, [locationId]);
 
@@ -91,7 +93,7 @@ export default function AccountingSyncPage() {
 
       await load();
     } catch (error) {
-      toast({ title: 'The sync failed', description: describe(error), variant: 'destructive' });
+      toast({ title: 'The sync failed', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -101,7 +103,7 @@ export default function AccountingSyncPage() {
     try {
       setSelected(await mastersApi.accounting.logDetail(row.id));
     } catch (error) {
-      toast({ title: 'Could not open the attempt', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not open the attempt', description: describeError(error), variant: 'destructive' });
     }
   };
 
@@ -136,7 +138,7 @@ export default function AccountingSyncPage() {
           <EmptyState
             icon={Link2}
             title="No location is attached to this session"
-            hint="The accounting link posts one location's figures at a time. Sign in against a location, or ask an administrator to attach one to your account."
+            description="The accounting link posts one location's figures at a time. Sign in against a location, or ask an administrator to attach one to your account."
           />
         </section>
       </div>
@@ -279,7 +281,7 @@ export default function AccountingSyncPage() {
           <EmptyState
             icon={MapPin}
             title="Nothing mapped yet"
-            hint="A mapping is written the first time a record is posted successfully. Post customers or items above and they will appear here."
+            description="A mapping is written the first time a record is posted successfully. Post customers or items above and they will appear here."
           />
         ) : (
           <div className="overflow-x-auto">
@@ -363,10 +365,6 @@ export default function AccountingSyncPage() {
   );
 }
 
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
-}
-
 /* ------------------------------------------------------------------ page furniture */
 
 /**
@@ -402,15 +400,5 @@ function Panel({
       </header>
       {children}
     </section>
-  );
-}
-
-function EmptyState({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
-      <Icon className="mb-1 h-6 w-6 text-ink-faint" aria-hidden />
-      <p className="text-body-lg font-medium text-ink">{title}</p>
-      <p className="max-w-[52ch] text-body text-ink-muted">{hint}</p>
-    </div>
   );
 }

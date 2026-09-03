@@ -22,6 +22,7 @@ import { LOG_CATEGORIES, logCategory } from '@/lib/log-categories';
 import { PosApiError } from '@/lib/pos-api';
 import { cn } from '@/lib/utils';
 import type { AuditAction, AuditLogRow } from '@/types/masters';
+import { describeError } from '@/lib/errors';
 
 const ACTIONS: Array<{ value: AuditAction | ''; label: string }> = [
   { value: '', label: 'All actions' },
@@ -106,7 +107,7 @@ export default function AuditPage() {
       setRows(page.rows);
       setTotalCount(page.totalCount);
     } catch (error) {
-      toast({ title: 'Could not load the audit log', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load the audit log', description: describeError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -314,10 +315,6 @@ function isoDate(offsetDays: number): string {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
   return date.toISOString().slice(0, 10);
-}
-
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
 function AuditDetailPanel({ row, trail, onClose }: { row: AuditLogRow; trail: AuditLogRow[]; onClose: () => void }) {

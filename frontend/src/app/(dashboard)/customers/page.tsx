@@ -19,6 +19,7 @@ import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
 import { formatCurrency } from '@/lib/utils';
 import type { Address, ContactDetails, CustomerForm, CustomerRow, CustomerSort } from '@/types/masters';
+import { describeError } from '@/lib/errors';
 
 /**
  * The id a form holds while it is creating rather than editing.
@@ -85,7 +86,7 @@ export default function CustomersPage() {
         setCursor(page.nextCursor);
         setHasMore(page.hasMore);
       } catch (error) {
-        toast({ title: 'Could not load customers', description: describe(error), variant: 'destructive' });
+        toast({ title: 'Could not load customers', description: describeError(error), variant: 'destructive' });
       } finally {
         setLoading(false);
       }
@@ -205,7 +206,8 @@ export default function CustomersPage() {
           rowKey={(row) => row.id}
           recentlyChanged={changed}
           onRowActivate={(row) => setSelectedId(row.id)}
-          emptyMessage={loading ? 'Loading…' : 'No customers match these filters.'}
+          loading={loading}
+          emptyMessage="No customers match these filters."
         />
       }
       form={
@@ -235,10 +237,6 @@ export default function CustomersPage() {
       }
     />
   );
-}
-
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
 const emptyCustomer: CustomerForm = {
@@ -298,7 +296,7 @@ function CustomerFormPanel({
       .get(customerId)
       .then(setForm)
       .catch((error) =>
-        toast({ title: 'Could not open the customer', description: describe(error), variant: 'destructive' }),
+        toast({ title: 'Could not open the customer', description: describeError(error), variant: 'destructive' }),
       );
   }, [customerId, locationId]);
 
@@ -345,7 +343,7 @@ function CustomerFormPanel({
       onSaved();
       toast({ title: customerId ? 'Saved' : 'Customer created' });
     } catch (error) {
-      toast({ title: 'Not saved', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not saved', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -362,7 +360,7 @@ function CustomerFormPanel({
       onSaved();
       onClose();
     } catch (error) {
-      toast({ title: 'Not deleted', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not deleted', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }

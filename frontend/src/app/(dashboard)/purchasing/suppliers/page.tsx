@@ -9,6 +9,7 @@ import { useLiveGrid } from '@/lib/inventory-hub';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
 import type { Address, ContactDetails, SupplierForm, SupplierRow, SupplierSort } from '@/types/masters';
+import { describeError } from '@/lib/errors';
 
 /**
  * The id a form holds while it is creating rather than editing.
@@ -51,7 +52,7 @@ export default function SuppliersPage() {
         setCursor(page.nextCursor);
         setHasMore(page.hasMore);
       } catch (error) {
-        toast({ title: 'Could not load suppliers', description: describe(error), variant: 'destructive' });
+        toast({ title: 'Could not load suppliers', description: describeError(error), variant: 'destructive' });
       } finally {
         setLoading(false);
       }
@@ -126,7 +127,8 @@ export default function SuppliersPage() {
           rowKey={(row) => row.id}
           recentlyChanged={changed}
           onRowActivate={(row) => setSelectedId(row.id)}
-          emptyMessage={loading ? 'Loading…' : 'No suppliers match these filters.'}
+          loading={loading}
+          emptyMessage="No suppliers match these filters."
         />
       }
       form={
@@ -155,10 +157,6 @@ export default function SuppliersPage() {
       }
     />
   );
-}
-
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
 const emptySupplier: SupplierForm = {
@@ -203,7 +201,7 @@ function SupplierFormPanel({
       .get(supplierId)
       .then(setForm)
       .catch((error) =>
-        toast({ title: 'Could not open the supplier', description: describe(error), variant: 'destructive' }),
+        toast({ title: 'Could not open the supplier', description: describeError(error), variant: 'destructive' }),
       );
   }, [supplierId, locationId]);
 
@@ -232,7 +230,7 @@ function SupplierFormPanel({
       onSaved();
       toast({ title: supplierId ? 'Saved' : 'Supplier created' });
     } catch (error) {
-      toast({ title: 'Not saved', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not saved', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -249,7 +247,7 @@ function SupplierFormPanel({
       onSaved();
       onClose();
     } catch (error) {
-      toast({ title: 'Not deleted', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not deleted', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }

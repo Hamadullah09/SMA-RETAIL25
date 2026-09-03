@@ -164,7 +164,8 @@ export default function SalesAnalysisPage() {
           rows={data?.rows ?? []}
           columns={columns}
           rowKey={(row) => row.groupKey}
-          emptyMessage={loading ? 'Loading…' : 'No sales in this window.'}
+          loading={loading}
+          emptyMessage="No sales in this window."
         />
       }
       summary={

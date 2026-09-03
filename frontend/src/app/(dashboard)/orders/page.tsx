@@ -15,6 +15,8 @@ import type {
   TenderSettings,
 } from '@/types/masters';
 import type { Product } from '@/types';
+import { describeError } from '@/lib/errors';
+import { DomainStatusBadge } from '@/components/ui/status-badge';
 
 type Tab = 'customerOrders' | 'layaways' | 'priceQuotes';
 
@@ -58,10 +60,6 @@ export default function OrdersPage() {
 
 function tabClass(active: boolean): string {
   return active ? 'pos-button-primary' : 'pos-button';
-}
-
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
 // Was `currency: 'USD'`, which printed US dollars on a page a shop reads its own takings from.
@@ -289,7 +287,7 @@ function CustomerOrdersTab({ locationId }: { locationId: number }) {
       const page = await mastersApi.customerOrders.browse(locationId, { pageSize: 100 });
       setRows(page.items);
     } catch (error) {
-      toast({ title: 'Could not load customer orders', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load customer orders', description: describeError(error), variant: 'destructive' });
     }
   }, [locationId]);
 
@@ -300,14 +298,14 @@ function CustomerOrdersTab({ locationId }: { locationId: number }) {
   const columns: DataGridColumn<CustomerOrder>[] = [
     { key: 'orderNumber', header: 'Order #', width: 90, numeric: true, render: (r) => r.orderNumber },
     { key: 'customer', header: 'Customer', width: 200, render: (r) => r.customerName },
-    { key: 'status', header: 'Status', width: 120, render: (r) => r.status },
+    { key: 'status', header: 'Status', width: 150, render: (r) => <DomainStatusBadge status={r.status} /> },
     { key: 'lines', header: 'Lines', width: 70, numeric: true, render: (r) => r.lines.length },
     { key: 'orderedOn', header: 'Ordered', width: 110, render: (r) => r.orderedOn },
   ];
 
   return (
     <BrowseFormShell
-      title=""
+      title="Orders & Layaways"
       toolbar={canWrite ? <button type="button" className="pos-button-primary" onClick={() => setShowNew(true)}>New order</button> : null}
       grid={
         <DataGrid
@@ -369,7 +367,7 @@ function NewCustomerOrderPanel({
       toast({ title: `Order #${order.orderNumber} created` });
       onCreated(order.id);
     } catch (error) {
-      toast({ title: 'Could not create the order', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not create the order', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -418,7 +416,7 @@ function CustomerOrderPanel({
     try {
       setOrder(await mastersApi.customerOrders.get(id));
     } catch (error) {
-      toast({ title: 'Could not open the order', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not open the order', description: describeError(error), variant: 'destructive' });
     }
   }, [id]);
 
@@ -436,7 +434,7 @@ function CustomerOrderPanel({
       await reload();
       await onChanged();
     } catch (error) {
-      toast({ title: 'Could not fill the order', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not fill the order', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -450,7 +448,7 @@ function CustomerOrderPanel({
       await reload();
       await onChanged();
     } catch (error) {
-      toast({ title: 'Could not cancel the order', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not cancel the order', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -510,7 +508,7 @@ function LayawaysTab({ locationId, tenders }: { locationId: number; tenders: Ten
       const page = await mastersApi.layaways.browse(locationId, { pageSize: 100 });
       setRows(page.items);
     } catch (error) {
-      toast({ title: 'Could not load layaways', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load layaways', description: describeError(error), variant: 'destructive' });
     }
   }, [locationId]);
 
@@ -521,7 +519,7 @@ function LayawaysTab({ locationId, tenders }: { locationId: number; tenders: Ten
   const columns: DataGridColumn<Layaway>[] = [
     { key: 'layawayNumber', header: 'Layaway #', width: 100, numeric: true, render: (r) => r.layawayNumber },
     { key: 'customer', header: 'Customer', width: 200, render: (r) => r.customerName },
-    { key: 'status', header: 'Status', width: 110, render: (r) => r.status },
+    { key: 'status', header: 'Status', width: 150, render: (r) => <DomainStatusBadge status={r.status} /> },
     { key: 'total', header: 'Total', width: 100, numeric: true, render: (r) => currency(r.total) },
     { key: 'paid', header: 'Paid', width: 100, numeric: true, render: (r) => currency(r.amountPaid) },
   ];
@@ -580,7 +578,7 @@ function NewLayawayPanel({ locationId, onClose, onCreated }: { locationId: numbe
       toast({ title: `Layaway #${layaway.layawayNumber} created`, description: `Total ${currency(layaway.total)}` });
       onCreated(layaway.id);
     } catch (error) {
-      toast({ title: 'Could not create the layaway', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not create the layaway', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -628,7 +626,7 @@ function LayawayPanel({
     try {
       setLayaway(await mastersApi.layaways.get(id));
     } catch (error) {
-      toast({ title: 'Could not open the layaway', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not open the layaway', description: describeError(error), variant: 'destructive' });
     }
   }, [id]);
 
@@ -656,7 +654,7 @@ function LayawayPanel({
       await reload();
       await onChanged();
     } catch (error) {
-      toast({ title: 'Could not take the payment', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not take the payment', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -670,7 +668,7 @@ function LayawayPanel({
       await reload();
       await onChanged();
     } catch (error) {
-      toast({ title: 'Could not cancel the layaway', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not cancel the layaway', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -744,7 +742,7 @@ function PriceQuotesTab({ locationId }: { locationId: number }) {
       const page = await mastersApi.priceQuotes.browse(locationId, { pageSize: 100 });
       setRows(page.items);
     } catch (error) {
-      toast({ title: 'Could not load price quotes', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load price quotes', description: describeError(error), variant: 'destructive' });
     }
   }, [locationId]);
 
@@ -816,7 +814,7 @@ function NewPriceQuotePanel({ locationId, onClose, onCreated }: { locationId: nu
       toast({ title: `Quote #${quote.quoteNumber} created`, description: `Total ${currency(quote.total)}` });
       onCreated(quote.id);
     } catch (error) {
-      toast({ title: 'Could not create the quote', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not create the quote', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -864,7 +862,7 @@ function PriceQuotePanel({
     try {
       setQuote(await mastersApi.priceQuotes.get(id));
     } catch (error) {
-      toast({ title: 'Could not open the quote', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not open the quote', description: describeError(error), variant: 'destructive' });
     }
   }, [id]);
 
@@ -882,7 +880,7 @@ function PriceQuotePanel({
       await reload();
       await onChanged();
     } catch (error) {
-      toast({ title: 'Could not convert the quote', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not convert the quote', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -896,7 +894,7 @@ function PriceQuotePanel({
       await reload();
       await onChanged();
     } catch (error) {
-      toast({ title: 'Could not cancel the quote', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not cancel the quote', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }

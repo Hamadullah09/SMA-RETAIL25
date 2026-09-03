@@ -9,6 +9,7 @@ import { PosApiError } from '@/lib/pos-api';
 import { cn } from '@/lib/utils';
 import type { DeletedEntityKind, DeletedRow } from '@/types/masters';
 import { PageHeader as SharedPageHeader } from '@/components/shell/page-header';
+import { EmptyState } from '@/components/ui/states';
 
 const KINDS: Array<{ value: DeletedEntityKind | ''; label: string }> = [
   { value: '', label: 'Everything' },
@@ -140,7 +141,7 @@ export default function UndeletePage() {
           <EmptyState
             icon={Undo2}
             title={filtered ? 'Nothing deleted matches that' : 'Nothing has been deleted'}
-            hint={
+            description={
               filtered
                 ? 'Widen the kind to “Everything” or clear the search box to see the whole list.'
                 : 'Deleted items, customers, suppliers, departments and categories collect here, and every one of them can be put back.'
@@ -235,23 +236,5 @@ function Panel({
       </header>
       {children}
     </section>
-  );
-}
-
-function EmptyState({
-  icon: Icon,
-  title,
-  hint,
-}: {
-  icon: LucideIcon;
-  title: string;
-  hint: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
-      <Icon className="mb-1 h-6 w-6 text-ink-faint" aria-hidden />
-      <p className="text-body-lg font-medium text-ink">{title}</p>
-      <p className="max-w-[52ch] text-body text-ink-muted">{hint}</p>
-    </div>
   );
 }

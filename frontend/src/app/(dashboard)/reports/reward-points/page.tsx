@@ -75,7 +75,8 @@ export default function RewardPointsPage() {
           rows={data?.rows ?? []}
           columns={columns}
           rowKey={(row) => row.customerId}
-          emptyMessage={loading ? 'Loading…' : 'No point activity in this window.'}
+          loading={loading}
+          emptyMessage="No point activity in this window."
         />
       }
       summary={

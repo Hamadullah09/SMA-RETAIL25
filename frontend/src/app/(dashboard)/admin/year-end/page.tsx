@@ -21,6 +21,8 @@ import { PosApiError } from '@/lib/pos-api';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { ArchiveRow, FiscalYear, FiscalYearCloseResult } from '@/types/masters';
 import { PageHeader as SharedPageHeader } from '@/components/shell/page-header';
+import { describeError } from '@/lib/errors';
+import { EmptyState } from '@/components/ui/states';
 
 const inputClass =
   'pos-input';
@@ -61,7 +63,7 @@ export default function YearEndPage() {
     try {
       setYears(await mastersApi.fiscalYears.list(locationId));
     } catch (error) {
-      toast({ title: 'Could not load the years', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load the years', description: describeError(error), variant: 'destructive' });
     }
   }, [locationId]);
 
@@ -71,7 +73,7 @@ export default function YearEndPage() {
     try {
       setHistory(await mastersApi.fiscalYears.history(locationId, historyYear === '' ? undefined : historyYear));
     } catch (error) {
-      toast({ title: 'Could not load the history', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load the history', description: describeError(error), variant: 'destructive' });
     }
   }, [locationId, historyYear]);
 
@@ -94,7 +96,7 @@ export default function YearEndPage() {
           <EmptyState
             icon={Lock}
             title="You do not have permission to close a fiscal year"
-            hint="Closing and reopening a year needs the inventory.year_end permission. Ask an administrator to grant it on your role."
+            description="Closing and reopening a year needs the inventory.year_end permission. Ask an administrator to grant it on your role."
           />
         </section>
       </div>
@@ -110,7 +112,7 @@ export default function YearEndPage() {
       await load();
       toast({ title: `${newYear} opened` });
     } catch (error) {
-      toast({ title: 'Not opened', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not opened', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -125,7 +127,7 @@ export default function YearEndPage() {
       setPreviewFor(year.id);
     } catch (error) {
       setPreviewFor(null);
-      toast({ title: 'Could not work that out', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not work that out', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -148,7 +150,7 @@ export default function YearEndPage() {
       await loadHistory();
       toast({ title: `${year.year} closed`, description: `${result.archiveRows} archive row(s) written.` });
     } catch (error) {
-      toast({ title: 'Not closed', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not closed', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -169,7 +171,7 @@ export default function YearEndPage() {
       await loadHistory();
       toast({ title: `${year.year} reopened` });
     } catch (error) {
-      toast({ title: 'Not reopened', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not reopened', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -206,7 +208,7 @@ export default function YearEndPage() {
           <EmptyState
             icon={CalendarDays}
             title="No fiscal years yet"
-            hint="Type the year you want to close in the box at the top of the page and press “Open year”. A year has to exist before it can be closed."
+            description="Type the year you want to close in the box at the top of the page and press “Open year”. A year has to exist before it can be closed."
           />
         ) : (
           <>
@@ -392,7 +394,7 @@ export default function YearEndPage() {
           <EmptyState
             icon={Table2}
             title="Nothing archived yet"
-            hint="The history fills up as years are closed. Run a dry run on an open year above to see what its first rows would look like."
+            description="The history fills up as years are closed. Run a dry run on an open year above to see what its first rows would look like."
           />
         ) : (
           <div className="max-h-96 overflow-auto">
@@ -441,10 +443,6 @@ function Figure({ label, value }: { label: string; value: string }) {
   );
 }
 
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
-}
-
 /* ------------------------------------------------------------------ page furniture */
 
 /**
@@ -480,15 +478,5 @@ function Panel({
       </header>
       {children}
     </section>
-  );
-}
-
-function EmptyState({ icon: Icon, title, hint }: { icon: LucideIcon; title: string; hint: string }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5 px-4 py-12 text-center">
-      <Icon className="mb-1 h-6 w-6 text-ink-faint" aria-hidden />
-      <p className="text-body-lg font-medium text-ink">{title}</p>
-      <p className="max-w-[52ch] text-body text-ink-muted">{hint}</p>
-    </div>
   );
 }

@@ -10,6 +10,7 @@ import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
 import { formatCurrency , recordIdFrom} from '@/lib/utils';
 import type { StockCount, StockCountRow, StockCountStatus } from '@/types/masters';
+import { describeError } from '@/lib/errors';
 
 const filterClass =
   'pos-input';
@@ -50,7 +51,7 @@ export default function StockCountsPage() {
     try {
       setRows(await mastersApi.stockCounts.browse(locationId, status || undefined));
     } catch (error) {
-      toast({ title: 'Could not load counts', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load counts', description: describeError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -101,7 +102,7 @@ export default function StockCountsPage() {
       setSelectedId(created.id);
       await load();
     } catch (error) {
-      toast({ title: 'Could not start a count', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not start a count', description: describeError(error), variant: 'destructive' });
     }
   };
 
@@ -148,7 +149,8 @@ export default function StockCountsPage() {
           columns={columns}
           rowKey={(row) => row.id}
           onRowActivate={(row) => setSelectedId(row.id)}
-          emptyMessage={loading ? 'Loading…' : 'No counts yet.'}
+          loading={loading}
+          emptyMessage="No counts yet."
         />
       }
       form={
@@ -165,15 +167,10 @@ export default function StockCountsPage() {
       status={
         <span className="flex items-center gap-3">
           <span>{rows.length} count(s)</span>
-          <span>Double-click a row to open it.</span>
         </span>
       }
     />
   );
-}
-
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
 function CountPanel({
@@ -199,7 +196,7 @@ function CountPanel({
       try {
         setCount(await mastersApi.stockCounts.get(countId, only));
       } catch (error) {
-        toast({ title: 'Could not open the count', description: describe(error), variant: 'destructive' });
+        toast({ title: 'Could not open the count', description: describeError(error), variant: 'destructive' });
       }
     },
     [countId],
@@ -226,7 +223,7 @@ function CountPanel({
         description: result.skipped.length > 0 ? `${result.skipped.length} row(s) did not go in.` : undefined,
       });
     } catch (error) {
-      toast({ title: 'Nothing imported', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Nothing imported', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -240,7 +237,7 @@ function CountPanel({
       onChanged();
       toast({ title: success });
     } catch (error) {
-      toast({ title: 'Not done', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not done', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }

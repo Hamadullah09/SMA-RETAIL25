@@ -10,6 +10,7 @@ import { useLiveGrid } from '@/lib/inventory-hub';
 import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
 import type { StockLevelRow } from '@/types/masters';
+import { describeError } from '@/lib/errors';
 
 /** Stock levels, receiving, adjustments and case-break (guide p.20–22, p.43). */
 export default function InventoryPage() {
@@ -43,7 +44,7 @@ export default function InventoryPage() {
         setCursor(page.nextCursor);
         setHasMore(page.hasMore);
       } catch (error) {
-        toast({ title: 'Could not load stock levels', description: describe(error), variant: 'destructive' });
+        toast({ title: 'Could not load stock levels', description: describeError(error), variant: 'destructive' });
       } finally {
         setLoading(false);
       }
@@ -73,7 +74,7 @@ export default function InventoryPage() {
 
   return (
     <BrowseFormShell
-      title="Inventory"
+      title="Stock"
       toolbar={
         <>
           {/* One badge, one vocabulary — this screen used to invent its own wording, and said it in
@@ -119,7 +120,8 @@ export default function InventoryPage() {
           rowKey={(row) => row.id}
           recentlyChanged={changed}
           onRowActivate={(row) => setSelectedId(row.id)}
-          emptyMessage={loading ? 'Loading…' : 'No items match these filters.'}
+          loading={loading}
+          emptyMessage="No items match these filters."
         />
       }
       form={
@@ -148,10 +150,6 @@ export default function InventoryPage() {
       }
     />
   );
-}
-
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
 function StockActionsPanel({
@@ -190,7 +188,7 @@ function StockActionsPanel({
       setReceiveQty(0);
       onChanged();
     } catch (error) {
-      toast({ title: 'Could not receive stock', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not receive stock', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -215,7 +213,7 @@ function StockActionsPanel({
       setReason('');
       onChanged();
     } catch (error) {
-      toast({ title: 'Could not adjust stock', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not adjust stock', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }

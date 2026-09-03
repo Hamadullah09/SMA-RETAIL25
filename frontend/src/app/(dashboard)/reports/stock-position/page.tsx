@@ -90,7 +90,8 @@ export default function StockPositionPage() {
           rows={data ?? []}
           columns={columns}
           rowKey={(row) => row.productId}
-          emptyMessage={loading ? 'Loading…' : 'Nothing is short or overstocked.'}
+          loading={loading}
+          emptyMessage="Nothing is short or overstocked."
         />
       }
       summary={

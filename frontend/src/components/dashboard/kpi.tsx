@@ -180,7 +180,7 @@ export function RankedBars({
   empty: string;
 }) {
   if (rows.length === 0) {
-    return <EmptyState>{empty}</EmptyState>;
+    return <PanelNote>{empty}</PanelNote>;
   }
 
   const largest = Math.max(...rows.map((r) => Math.abs(r.value)), 1);
@@ -210,10 +210,14 @@ export function RankedBars({
 }
 
 /**
- * Nothing to show, said so it reads as a state rather than a failure. The dashed border marks the
- * region a list would fill, so an empty panel still has a shape.
+ * A quiet note where a small list would be.
+ *
+ * Not the shared EmptyState, and no longer named as though it were: this is a single sentence
+ * inside a third-of-a-screen panel, where the shared component's 56px icon and action row would be
+ * larger than the region it is explaining. Two things called EmptyState in one application is how
+ * somebody imports the wrong one and wonders why their panel grew.
  */
-export function EmptyState({ children }: { children: ReactNode }) {
+export function PanelNote({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-[6rem] items-center justify-center rounded-md border border-dashed border-subtle bg-panel-sunken/60 px-4 py-6">
       <p className="text-center text-body text-ink-muted">{children}</p>

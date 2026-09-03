@@ -18,6 +18,8 @@ import {
   type SupplierRow,
 } from '@/types/masters';
 import type { Product } from '@/types';
+import { describeError } from '@/lib/errors';
+import { DomainStatusBadge } from '@/components/ui/status-badge';
 
 const selectClass =
   'pos-input';
@@ -63,7 +65,7 @@ export default function PurchasingPage() {
         setCursor(page.nextCursor);
         setHasMore(page.hasMore);
       } catch (error) {
-        toast({ title: 'Could not load purchase orders', description: describe(error), variant: 'destructive' });
+        toast({ title: 'Could not load purchase orders', description: describeError(error), variant: 'destructive' });
       } finally {
         setLoading(false);
       }
@@ -81,7 +83,7 @@ export default function PurchasingPage() {
     () => [
       { key: 'poNumber', header: 'PO #', width: 90, numeric: true, render: (r) => r.poNumber, sortValue: (r) => r.poNumber },
       { key: 'supplier', header: 'Supplier', width: 220, render: (r) => r.supplierCompany, sortValue: (r) => r.supplierCompany },
-      { key: 'status', header: 'Status', width: 130, render: (r) => statusLabels[r.status] },
+      { key: 'status', header: 'Status', width: 160, render: (r) => <DomainStatusBadge status={r.status} /> },
       { key: 'lines', header: 'Lines', width: 70, numeric: true, render: (r) => r.lineCount },
       { key: 'total', header: 'Total', width: 110, numeric: true, render: (r) => currency(r.total), sortValue: (r) => r.total },
       { key: 'posted', header: 'Posted', width: 110, render: (r) => r.postedOn ?? '—' },
@@ -127,7 +129,8 @@ export default function PurchasingPage() {
           rowKey={(row) => row.id}
           recentlyChanged={changed}
           onRowActivate={(row) => setSelectedId(row.id)}
-          emptyMessage={loading ? 'Loading…' : 'No purchase orders match these filters.'}
+          loading={loading}
+          emptyMessage="No purchase orders match these filters."
         />
       }
       form={
@@ -167,10 +170,6 @@ export default function PurchasingPage() {
   );
 }
 
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
-}
-
 // Was `currency: 'USD'` — US dollars on a page about what this shop owes its suppliers.
 const currency = formatCurrency;
 
@@ -204,7 +203,7 @@ function GeneratePanel({
       toast({ title: `PO-${order.poNumber} created`, description: `${order.lines.length} line(s) from ${strategy}.` });
       onGenerated(order.id);
     } catch (error) {
-      toast({ title: 'Could not generate the order', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not generate the order', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -278,7 +277,7 @@ function PurchaseOrderPanel({
     try {
       setOrder(await mastersApi.purchaseOrders.get(purchaseOrderId));
     } catch (error) {
-      toast({ title: 'Could not open the order', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not open the order', description: describeError(error), variant: 'destructive' });
     }
   }, [purchaseOrderId]);
 
@@ -302,7 +301,7 @@ function PurchaseOrderPanel({
       await reload();
       onChanged();
     } catch (error) {
-      toast({ title: 'Could not post the order', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not post the order', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -316,7 +315,7 @@ function PurchaseOrderPanel({
       await reload();
       onChanged();
     } catch (error) {
-      toast({ title: 'Could not cancel the order', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not cancel the order', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -388,7 +387,7 @@ function LinesTable({
       await mastersApi.purchaseOrders.removeLine(lineId);
       await onChanged();
     } catch (error) {
-      toast({ title: 'Could not remove the line', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not remove the line', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -492,7 +491,7 @@ function AddLinePanel({
       setCostEach(0);
       setCaseQty(0);
     } catch (error) {
-      toast({ title: 'Could not add the line', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not add the line', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -572,7 +571,7 @@ function ReceivePanel({ order, onReceived }: { order: PurchaseOrderDetail; onRec
       setFreight(0);
       onReceived();
     } catch (error) {
-      toast({ title: 'Could not record the receipt', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not record the receipt', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }

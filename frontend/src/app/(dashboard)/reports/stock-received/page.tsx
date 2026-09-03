@@ -86,7 +86,8 @@ export default function StockReceivedPage() {
           rows={data?.rows ?? []}
           columns={columns}
           rowKey={(row) => `${row.occurredAt}-${row.stockCode}`}
-          emptyMessage={loading ? 'Loading…' : 'Nothing was received in this window.'}
+          loading={loading}
+          emptyMessage="Nothing was received in this window."
         />
       }
       summary={

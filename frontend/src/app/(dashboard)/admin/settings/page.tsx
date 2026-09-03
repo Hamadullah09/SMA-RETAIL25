@@ -53,6 +53,8 @@ import type {
   TenderSettings,
 } from '@/types/masters';
 import { PageHeader } from '@/components/shell/page-header';
+import { describeError } from '@/lib/errors';
+import { EmptyState } from '@/components/ui/states';
 
 /**
  * The Setup screen (guide p.76–84).
@@ -148,7 +150,7 @@ export default function SettingsPage() {
     try {
       setSettings(await mastersApi.settings.get(locationId));
     } catch (error) {
-      toast({ title: 'Could not load settings', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load settings', description: describeError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -171,7 +173,7 @@ export default function SettingsPage() {
         <div className="mt-5 max-w-3xl">
           <EmptyState
             title="No location is attached to this session"
-            hint="Setup is held per location. Sign in against a till or ask an administrator to attach your account to one."
+            description="Setup is held per location. Sign in against a till or ask an administrator to attach your account to one."
           />
         </div>
       </div>
@@ -426,18 +428,6 @@ function TabIntro({ title, description, action }: { title: string; description: 
   );
 }
 
-function EmptyState({ icon: Icon = PackageOpen, title, hint }: { icon?: LucideIcon; title: string; hint?: string }) {
-  return (
-    <div className="pos-panel flex flex-col items-center gap-2 px-6 py-12 text-center">
-      <span aria-hidden className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-panel-sunken text-ink-faint">
-        <Icon className="h-5 w-5" />
-      </span>
-      <p className="text-body-lg font-medium text-ink">{title}</p>
-      {hint ? <p className="max-w-md text-body text-ink-muted">{hint}</p> : null}
-    </div>
-  );
-}
-
 /**
  * What the screen shows while the snapshot is in flight.
  *
@@ -479,10 +469,6 @@ function ReadOnlyValue({ children }: { children: ReactNode }) {
   return <p className="pos-input flex w-full items-center bg-panel-sunken text-ink-muted">{children}</p>;
 }
 
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
-}
-
 function useSaver(onSaved: () => void | Promise<void>) {
   const [busy, setBusy] = useState(false);
 
@@ -494,7 +480,7 @@ function useSaver(onSaved: () => void | Promise<void>) {
       await onSaved();
       toast({ title });
     } catch (error) {
-      toast({ title: 'Not saved', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not saved', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -687,7 +673,7 @@ function TaxesTab({
       <EmptyState
         icon={Percent}
         title="No tax configuration yet"
-        hint="Nothing can be rung up until a rate exists — a till that silently charges nothing is worse than one that stops."
+        description="Nothing can be rung up until a rate exists — a till that silently charges nothing is worse than one that stops."
       />
     );
   }
@@ -1049,7 +1035,7 @@ function PrintersTab({
         <EmptyState
           icon={Printer}
           title="No printer profile yet"
-          hint={canWrite ? 'Add one and give it the port the printer is on.' : 'Ask someone with hardware permission to add one.'}
+          description={canWrite ? 'Add one and give it the port the printer is on.' : 'Ask someone with hardware permission to add one.'}
         />
       ) : null}
 
@@ -1158,7 +1144,7 @@ function HardwareTab({
         <EmptyState
           icon={Cpu}
           title="No scale, reader or pole display profile yet"
-          hint="Peripheral profiles are created with the terminal agent, then tuned here."
+          description="Peripheral profiles are created with the terminal agent, then tuned here."
         />
       ) : null}
 
@@ -1369,7 +1355,7 @@ function ReferenceList({
     void api
       .list(locationId, true)
       .then(setRows)
-      .catch((error) => toast({ title: `Could not load ${title.toLowerCase()}`, description: describe(error), variant: 'destructive' }))
+      .catch((error) => toast({ title: `Could not load ${title.toLowerCase()}`, description: describeError(error), variant: 'destructive' }))
       .finally(() => setLoaded(true));
   }, [api, locationId, title]);
 
@@ -1386,7 +1372,7 @@ function ReferenceList({
       load();
       toast({ title: success });
     } catch (error) {
-      toast({ title: 'Not saved', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not saved', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -1679,7 +1665,7 @@ function StationsTab({
         <EmptyState
           icon={Monitor}
           title="No station yet"
-          hint={canWrite ? 'Add one with the code the till reports.' : 'Ask someone with hardware permission to add one.'}
+          description={canWrite ? 'Add one with the code the till reports.' : 'Ask someone with hardware permission to add one.'}
         />
       ) : null}
 
@@ -2584,7 +2570,7 @@ function UsersTab({
       {canWrite ? <NewColleague locationId={locationId} onCreated={onSaved} /> : null}
 
       {drafts.length === 0 ? (
-        <EmptyState icon={Users} title="No staff profiles yet" hint="Everyone who rings a sale needs one, so the sale can be attributed." />
+        <EmptyState icon={Users} title="No staff profiles yet" description="Everyone who rings a sale needs one, so the sale can be attributed." />
       ) : null}
 
       {drafts.map((staff) => (

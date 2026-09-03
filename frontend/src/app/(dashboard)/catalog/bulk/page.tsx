@@ -17,6 +17,7 @@ import type {
   ProductType,
 } from '@/types/masters';
 import { PageHeader } from '@/components/shell/page-header';
+import { describeError } from '@/lib/errors';
 
 const inputClass =
   'pos-input';
@@ -108,7 +109,7 @@ export default function BulkAdjustPage() {
       setPreview(await mastersApi.bulk.previewPrice(filter(), target, method, amount, rounding));
     } catch (error) {
       setPreview(null);
-      toast({ title: 'Could not work that out', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not work that out', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -130,7 +131,7 @@ export default function BulkAdjustPage() {
       setPreview(null);
       toast({ title: `${changed} item(s) changed` });
     } catch (error) {
-      toast({ title: 'Nothing changed', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Nothing changed', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -148,7 +149,7 @@ export default function BulkAdjustPage() {
       const changed = await mastersApi.bulk.applyTax(filter(), tax1, tax2);
       toast({ title: `${changed} item(s) changed` });
     } catch (error) {
-      toast({ title: 'Nothing changed', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Nothing changed', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -438,6 +439,3 @@ export default function BulkAdjustPage() {
   );
 }
 
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
-}

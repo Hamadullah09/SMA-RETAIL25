@@ -30,6 +30,7 @@ import type {
   HoursReportResult,
   StaffRow,
 } from '@/types/masters';
+import { describeError } from '@/lib/errors';
 
 const inputClass =
   'pos-input';
@@ -80,7 +81,7 @@ export default function StaffPage() {
     try {
       setRows(await mastersApi.staff.browse(locationId, includeInactive));
     } catch (error) {
-      toast({ title: 'Could not load staff', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load staff', description: describeError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -202,15 +203,10 @@ export default function StaffPage() {
         <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="tabular-nums">{rows.length} on the books</span>
           <span aria-hidden>·</span>
-          <span>Double-click a row to open it</span>
         </span>
       }
     />
   );
-}
-
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
 function StaffPanel({
@@ -251,7 +247,7 @@ function StaffPanel({
     try {
       setRules(await mastersApi.staff.commissionRules(staff.id));
     } catch (error) {
-      toast({ title: 'Could not load the rules', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load the rules', description: describeError(error), variant: 'destructive' });
     }
   }, [staff.id]);
 
@@ -277,7 +273,7 @@ function StaffPanel({
       await refresh();
       toast({ title: 'Rule added' });
     } catch (error) {
-      toast({ title: 'Not added', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not added', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -291,7 +287,7 @@ function StaffPanel({
       await refresh();
       toast({ title: 'Rule removed', description: 'Commission already earned is unaffected.' });
     } catch (error) {
-      toast({ title: 'Not removed', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not removed', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }
@@ -588,7 +584,7 @@ function ReportsPanel({
       setHours(h);
       setCommissions(c);
     } catch (error) {
-      toast({ title: 'Could not run that', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not run that', description: describeError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }

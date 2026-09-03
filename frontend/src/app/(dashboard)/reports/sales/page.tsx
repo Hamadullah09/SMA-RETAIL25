@@ -9,6 +9,7 @@ import { mastersApi, type SalesLogFilters } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { SaleDetail, SalesLogRow } from '@/types/masters';
+import { describeError } from '@/lib/errors';
 
 /**
  * The itemized sales log (guide p.14–15, p.101) — and, because they are the same question asked from
@@ -45,7 +46,7 @@ export default function SalesLogPage() {
       setRows(page.rows);
       setTotals({ count: page.totalCount, grandTotal: page.grandTotal });
     } catch (error) {
-      toast({ title: 'Could not load the sales log', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load the sales log', description: describeError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -59,7 +60,7 @@ export default function SalesLogPage() {
     try {
       setSelected(await mastersApi.sales.get(row.id));
     } catch (error) {
-      toast({ title: 'Could not open the sale', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not open the sale', description: describeError(error), variant: 'destructive' });
     }
   };
 
@@ -161,7 +162,8 @@ export default function SalesLogPage() {
           columns={columns}
           rowKey={(row) => row.id}
           onRowActivate={(row) => void open(row)}
-          emptyMessage={loading ? 'Loading…' : 'No sales in this window.'}
+          loading={loading}
+          emptyMessage="No sales in this window."
         />
       }
       form={selected ? <SaleDetailPanel sale={selected} stationId={stationId} onClose={() => setSelected(null)} /> : null}
@@ -184,10 +186,6 @@ function isoDate(offsetDays: number): string {
   const date = new Date();
   date.setDate(date.getDate() + offsetDays);
   return date.toISOString().slice(0, 10);
-}
-
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
 function SaleDetailPanel({
@@ -219,7 +217,7 @@ function SaleDetailPanel({
       await mastersApi.sales.reprint(sale.id, stationId);
       toast({ title: 'Sent to the printer' });
     } catch (error) {
-      toast({ title: 'Could not reprint', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not reprint', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }

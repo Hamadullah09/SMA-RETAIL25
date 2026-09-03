@@ -11,6 +11,7 @@ import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
 import { formatCurrency } from '@/lib/utils';
 import type { Transfer, TransferRow, TransferStatus } from '@/types/masters';
+import { describeError } from '@/lib/errors';
 
 const filterClass =
   'pos-input';
@@ -58,7 +59,7 @@ export default function TransfersPage() {
         includeInbound,
       }));
     } catch (error) {
-      toast({ title: 'Could not load transfers', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not load transfers', description: describeError(error), variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -113,7 +114,7 @@ export default function TransfersPage() {
       setSelectedId(created.id);
       await load();
     } catch (error) {
-      toast({ title: 'Could not start a transfer', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not start a transfer', description: describeError(error), variant: 'destructive' });
     }
   };
 
@@ -174,7 +175,8 @@ export default function TransfersPage() {
           columns={columns}
           rowKey={(row) => row.id}
           onRowActivate={(row) => setSelectedId(row.id)}
-          emptyMessage={loading ? 'Loading…' : 'No transfers match these filters.'}
+          loading={loading}
+          emptyMessage="No transfers match these filters."
         />
       }
       form={
@@ -192,15 +194,10 @@ export default function TransfersPage() {
       status={
         <span className="flex items-center gap-3">
           <span>{rows.length} transfer(s)</span>
-          <span>Double-click a row to open it.</span>
         </span>
       }
     />
   );
-}
-
-function describe(error: unknown): string {
-  return error instanceof PosApiError ? error.problem.detail : 'Something went wrong.';
 }
 
 function TransferPanel({
@@ -225,7 +222,7 @@ function TransferPanel({
     try {
       setTransfer(await mastersApi.transfers.get(transferId));
     } catch (error) {
-      toast({ title: 'Could not open the transfer', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Could not open the transfer', description: describeError(error), variant: 'destructive' });
     }
   }, [transferId]);
 
@@ -241,7 +238,7 @@ function TransferPanel({
       onChanged();
       toast({ title: success });
     } catch (error) {
-      toast({ title: 'Not done', description: describe(error), variant: 'destructive' });
+      toast({ title: 'Not done', description: describeError(error), variant: 'destructive' });
     } finally {
       setBusy(false);
     }

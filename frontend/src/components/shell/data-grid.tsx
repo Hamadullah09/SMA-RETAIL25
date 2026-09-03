@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
+import { ErrorState, Skeleton } from '@/components/ui/states';
+import { describeError, isWorthRetrying } from '@/lib/errors';
 
 /**
  * The back-office grid (doc 08 §Back office).
@@ -45,6 +47,20 @@ interface DataGridProps<TRow> {
   /** Rows changed since the last render, briefly highlighted so a live patch is visible once. */
   recentlyChanged?: ReadonlySet<string | number>;
   emptyMessage?: string;
+  /**
+   * A designed empty state, for when "Nothing to show." is not enough.
+   *
+   * Sixteen call sites wrote `emptyMessage={loading ? 'Loading…' : 'No products.'}`, which is three
+   * different states — loading, empty, and failed — flattened into one string. A failed load showed
+   * the empty copy, so "we could not reach the server" and "you have no products" were the same
+   * sentence, and the only difference between them was whether pressing refresh helped.
+   */
+  empty?: React.ReactNode;
+  /** True while the rows are being fetched. Renders held rows rather than an empty table. */
+  loading?: boolean;
+  /** Whatever the fetch threw. Renders a retryable error instead of empty copy. */
+  error?: unknown;
+  onRetry?: () => void;
   /** 32px comfortable, 28px compact (doc 08 §Density over air). */
   rowHeight?: number;
 }
@@ -57,6 +73,10 @@ export function DataGrid<TRow>({
   onRowActivate,
   recentlyChanged,
   emptyMessage = 'Nothing to show.',
+  empty,
+  loading = false,
+  error,
+  onRetry,
   // 48, matching --grid-row-height. A 32px row cannot hold 16px type with any breathing room,
   // and the virtualiser measures every row from this one number.
   rowHeight = 48,
@@ -292,8 +312,21 @@ export function DataGrid<TRow>({
           })}
         </div>
 
-        {sorted.length === 0 ? (
-          <p className="px-3 py-12 text-center text-body text-ink-muted">{emptyMessage}</p>
+        {/*
+          Three states, told apart. In order of precedence: a failure is the most important thing to
+          say, a load in progress is the second, and empty is only empty once we know it is.
+        */}
+        {error ? (
+          <ErrorState
+            description={describeError(error)}
+            onRetry={onRetry && isWorthRetrying(error) ? onRetry : undefined}
+          />
+        ) : loading ? (
+          <div className="p-3">
+            <Skeleton label="rows" rows={8} />
+          </div>
+        ) : sorted.length === 0 ? (
+          empty ?? <p className="px-3 py-12 text-center text-body text-ink-muted">{emptyMessage}</p>
         ) : (
           <div style={{ height: virtualizer.getTotalSize(), position: 'relative', minWidth: totalWidth }}>
             {virtualizer.getVirtualItems().map((virtualRow) => {
@@ -313,11 +346,20 @@ export function DataGrid<TRow>({
                   tabIndex={entryKey === key ? 0 : -1}
                   aria-rowindex={virtualRow.index + 1}
                   onFocus={() => setFocusedKey(key)}
-                  onClick={() => setFocusedKey(key)}
-                  onDoubleClick={() => onRowActivate?.(row)}
+                  onClick={() => {
+                    setFocusedKey(key);
+                    // One click opens it.
+                    //
+                    // This was double-click only, which is undiscoverable — the grid had to tell
+                    // people "" in its own footer — and is not a
+                    // gesture a touch screen has at all. Every back-office row was unopenable on
+                    // the tablets these shops actually use.
+                    onRowActivate?.(row);
+                  }}
                   onKeyDown={(event) => onRowKeyDown(event, virtualRow.index, row)}
                   className={cn(
-                    'grid cursor-default items-center border-b border-subtle text-body transition-colors hover:bg-panel-hover',
+                    'grid items-center border-b border-subtle text-body transition-colors hover:bg-panel-hover',
+                    onRowActivate ? 'cursor-pointer' : 'cursor-default',
                     'focus-visible:relative focus-visible:z-10',
                     focusedKey === key && 'bg-panel-hover',
                     recentlyChanged?.has(key) && 'pos-settling',

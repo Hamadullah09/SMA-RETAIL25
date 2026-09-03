@@ -112,6 +112,7 @@ const STATUS_VOCABULARY: Record<string, { label: string; tone: StatusTone; icon?
   // Purchase orders
   Draft: { label: 'Draft', tone: 'neutral' },
   Ordered: { label: 'Ordered', tone: 'live' },
+  Posted: { label: 'Posted', tone: 'live' },
   PartiallyReceived: { label: 'Part received', tone: 'warning' },
   Received: { label: 'Received', tone: 'positive' },
   Cancelled: { label: 'Cancelled', tone: 'negative', icon: Ban },
