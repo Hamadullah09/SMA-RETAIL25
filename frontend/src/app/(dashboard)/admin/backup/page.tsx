@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { PageHeader as SharedPageHeader } from '@/components/shell/page-header';
 import { describeError } from '@/lib/errors';
 import { EmptyState } from '@/components/ui/states';
+import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 type BackupFile = {
   fileName: string;
@@ -50,6 +51,7 @@ export default function BackupPage() {
   const [files, setFiles] = useState<BackupFile[]>([]);
   const [loading, setLoading] = useState(false);
   const [working, setWorking] = useState(false);
+  const confirmer = useConfirm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -85,16 +87,29 @@ export default function BackupPage() {
     }
   };
 
-  const restore = async (file: BackupFile) => {
-    const confirmed = window.confirm(
-      `Restore ${file.fileName}?\n\n` +
-        'This replaces EVERYTHING in the database with the contents of this backup. ' +
-        'Every sale, item and change made since it was taken will be gone, and every ' +
-        'signed-in user (including you) will be thrown out while it runs.',
+  /**
+   * The widest blast radius in the application, so this is one of the two places that make you
+   * type the name.
+   *
+   * A browser confirm here was a single click, under a cursor already moving, for an operation that
+   * discards every sale taken since the backup and signs the whole shop out while it runs.
+   */
+  const askRestore = (file: BackupFile) => {
+    confirmer.ask(
+      {
+        subject: file.fileName,
+        consequence:
+          'Everything in the database is replaced with the contents of this backup. Every sale, '
+          + 'item and change made since it was taken will be gone, and everybody signed in — '
+          + 'including you — is thrown out while it runs.',
+        verb: 'Restore database',
+        typeToConfirm: file.fileName,
+      },
+      () => restore(file),
     );
+  };
 
-    if (!confirmed) return;
-
+  const restore = async (file: BackupFile) => {
     setWorking(true);
 
     try {
@@ -217,7 +232,7 @@ export default function BackupPage() {
                         <button
                           type="button"
                           className="pos-button-danger"
-                          onClick={() => void restore(file)}
+                          onClick={() => askRestore(file)}
                           disabled={working}
                           title={`Replace the whole database with ${file.fileName}`}
                         >
@@ -238,6 +253,14 @@ export default function BackupPage() {
           a backup on the disk that fails with the database is not a backup.
         </p>
       </Panel>
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
+      />
     </div>
   );
 }

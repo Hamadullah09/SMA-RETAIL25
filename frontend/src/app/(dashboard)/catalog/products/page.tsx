@@ -34,6 +34,7 @@ import {
 } from '@/types/masters';
 import { describeError } from '@/lib/errors';
 import { StockBadge } from '@/components/ui/status-badge';
+import { PromptDialog } from '@/components/ui/confirm-dialog';
 
 /**
  * The id a form holds while it is creating rather than editing.
@@ -502,11 +503,10 @@ function ProductFormPanel({
     }
   };
 
-  const clone = async () => {
-    if (!productId) return;
+  const [cloning, setCloning] = useState(false);
 
-    const code = window.prompt('Stock code for the copy');
-    if (!code) return;
+  const clone = async (code: string) => {
+    if (!productId) return;
 
     try {
       const created = await mastersApi.products.clone(productId, code);
@@ -1075,7 +1075,7 @@ function ProductFormPanel({
             </a>
 
             {canWrite ? (
-              <button type="button" className="pos-button" onClick={() => void clone()} disabled={busy}>
+              <button type="button" className="pos-button" onClick={() => setCloning(true)} disabled={busy}>
                 Copy to a new code
               </button>
             ) : null}
@@ -1103,6 +1103,19 @@ function ProductFormPanel({
           Save the item first — pricing, ordering and messages open once it exists.
         </p>
       )}
+
+      <PromptDialog
+        open={cloning}
+        onOpenChange={setCloning}
+        title="Copy this product"
+        label="Stock code for the copy"
+        hint="Everything is copied except the stock on hand and the barcode."
+        verb="Create copy"
+        onSubmit={async (code) => {
+          await clone(code);
+          setCloning(false);
+        }}
+      />
     </div>
   );
 }

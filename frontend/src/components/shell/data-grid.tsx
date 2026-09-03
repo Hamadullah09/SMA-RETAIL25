@@ -5,6 +5,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { cn } from '@/lib/utils';
 import { ErrorState, Skeleton } from '@/components/ui/states';
 import { describeError, isWorthRetrying } from '@/lib/errors';
+import { PromptDialog } from '@/components/ui/confirm-dialog';
 
 /**
  * The back-office grid (doc 08 §Back office).
@@ -224,10 +225,9 @@ export function DataGrid<TRow>({
     }
   };
 
-  const saveView = () => {
-    const name = window.prompt('Name this view');
-    if (!name) return;
+  const [namingView, setNamingView] = useState(false);
 
+  const saveView = (name: string) => {
     const view: SavedView = {
       name,
       hiddenColumns: [...hidden],
@@ -262,11 +262,26 @@ export function DataGrid<TRow>({
               {view.name}
             </button>
           ))}
-          <button type="button" className="underline" onClick={saveView}>
+          <button type="button" className="underline" onClick={() => setNamingView(true)}>
             Save view
           </button>
         </span>
       </div>
+
+      {/* A named dialog rather than window.prompt, which cannot be styled and, in a browser running
+          kiosk-mode on a till, may not appear at all. */}
+      <PromptDialog
+        open={namingView}
+        onOpenChange={setNamingView}
+        title="Save this view"
+        label="Name"
+        hint="Which columns are showing, and how they are sorted."
+        verb="Save view"
+        onSubmit={(name) => {
+          saveView(name);
+          setNamingView(false);
+        }}
+      />
 
       {/*
         One scroll box, with the header inside it.

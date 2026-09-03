@@ -55,6 +55,7 @@ import type {
 import { PageHeader } from '@/components/shell/page-header';
 import { describeError } from '@/lib/errors';
 import { EmptyState } from '@/components/ui/states';
+import { PromptDialog } from '@/components/ui/confirm-dialog';
 
 /**
  * The Setup screen (guide p.76–84).
@@ -1347,6 +1348,7 @@ function ReferenceList({
     remove: (id: number) => Promise<void>;
   };
 }) {
+  const [naming, setNaming] = useState(false);
   const [rows, setRows] = useState<ReferenceRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -1389,15 +1391,7 @@ function ReferenceList({
             type="button"
             className="pos-button"
             disabled={busy}
-            onClick={() => {
-              const name = window.prompt(`Name of the new ${title.slice(0, -1).toLowerCase()}`);
-              if (!name) return;
-
-              void act(
-                () => api.save({ locationId, id: null, name, code: null, sortOrder: (rows.length + 1) * 10, isActive: true }),
-                'Added',
-              );
-            }}
+            onClick={() => setNaming(true)}
           >
             <Plus className="h-3.5 w-3.5" aria-hidden />
             Add
@@ -1475,6 +1469,21 @@ function ReferenceList({
           ))}
         </div>
       )}
+
+      <PromptDialog
+        open={naming}
+        onOpenChange={setNaming}
+        title={`Add a ${title.slice(0, -1).toLowerCase()}`}
+        label="Name"
+        verb="Add"
+        onSubmit={(name) => {
+          void act(
+            () => api.save({ locationId, id: null, name, code: null, sortOrder: (rows.length + 1) * 10, isActive: true }),
+            'Added',
+          );
+          setNaming(false);
+        }}
+      />
     </SettingsSection>
   );
 }
@@ -1578,6 +1587,7 @@ function StationsTab({
   canWrite: boolean;
   onSaved: () => void | Promise<void>;
 }) {
+  const [namingStation, setNamingStation] = useState(false);
   const { busy, run } = useSaver(onSaved);
   const [drafts, setDrafts] = useState(settings.stations);
 
@@ -1614,37 +1624,36 @@ function StationsTab({
     { value: 'false', label: 'Off' },
   ];
 
+  /** Creating a station, once its code has been collected by a proper dialog. */
+  const createStation = (code: string) =>
+    void run(
+      () =>
+        mastersApi.settings.station({
+          locationId,
+          id: null,
+          stationCode: code,
+          name: null,
+          fastScanMode: null,
+          autoSaveSales: null,
+          confirmBeforeSaving: null,
+          scanRandomWeightBarcodes: null,
+          defaultTenderTypeId: null,
+          printerProfileId: null,
+          readerProfileId: null,
+          scaleProfileId: null,
+          poleDisplayProfileId: null,
+          readerMode: 'OnDemand',
+          isActive: true,
+        }),
+      'Station added',
+    );
+
   const addStation = (
     <button
       type="button"
       className="pos-button"
       disabled={busy}
-      onClick={() => {
-        const code = window.prompt('Station code (1–3 digits)');
-        if (!code) return;
-
-        void run(
-          () =>
-            mastersApi.settings.station({
-              locationId,
-              id: null,
-              stationCode: code,
-              name: null,
-              fastScanMode: null,
-              autoSaveSales: null,
-              confirmBeforeSaving: null,
-              scanRandomWeightBarcodes: null,
-              defaultTenderTypeId: null,
-              printerProfileId: null,
-              readerProfileId: null,
-              scaleProfileId: null,
-              poleDisplayProfileId: null,
-              readerMode: 'OnDemand',
-              isActive: true,
-            }),
-          'Station added',
-        );
-      }}
+      onClick={() => setNamingStation(true)}
     >
       <Plus className="h-3.5 w-3.5" aria-hidden />
       Add a station
@@ -1780,6 +1789,19 @@ function StationsTab({
           </FieldGroup>
         </SettingsSection>
       ))}
+
+      <PromptDialog
+        open={namingStation}
+        onOpenChange={setNamingStation}
+        title="Add a station"
+        label="Station code"
+        hint="One to three digits. It is what the till reports as its own identity."
+        verb="Add station"
+        onSubmit={(code) => {
+          createStation(code);
+          setNamingStation(false);
+        }}
+      />
     </>
   );
 }

@@ -21,6 +21,7 @@ import type {
   TenderSettings,
 } from '@/types/masters';
 import { describeError } from '@/lib/errors';
+import { PromptDialog } from '@/components/ui/confirm-dialog';
 
 const selectClass =
   'pos-input';
@@ -531,6 +532,8 @@ function StatementPanel({
   onChanged: () => void;
 }) {
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
+  /** Which invoice is being refunded, and the ceiling for the amount. Null when the dialog is shut. */
+  const [refunding, setRefunding] = useState<{ invoiceId: number; invoiceTotal: number } | null>(null);
   const [amount, setAmount] = useState(0);
   const [tenderTypeId, setTenderTypeId] = useState<number | ''>('');
   const [busy, setBusy] = useState(false);
@@ -595,14 +598,24 @@ function StatementPanel({
     }
   };
 
-  const refundInvoice = async (invoiceId: number, invoiceTotal: number) => {
-    const value = window.prompt(`Refund how much of this invoice (up to ${currency(invoiceTotal)})?`);
-    const parsed = value ? Number.parseFloat(value) : NaN;
-    if (!parsed || parsed <= 0) return;
+  /**
+   * A refund amount, collected properly.
+   *
+   * This was a `window.prompt`, a `parseFloat`, and `if (!parsed || parsed <= 0) return;` — so
+   * typing "abc", or "25,00", or a figure larger than the invoice, closed the box and did nothing
+   * at all. No message, no refund, and no way to tell which had happened. On money.
+   *
+   * The dialog validates the shape, refuses more than the invoice holds, and says which of those
+   * went wrong.
+   */
+  const askRefund = (invoiceId: number, invoiceTotal: number) => {
+    setRefunding({ invoiceId, invoiceTotal });
+  };
 
+  const refundInvoice = async (invoiceId: number, amount: number) => {
     setBusy(true);
     try {
-      await mastersApi.receivables.refundInvoice(invoiceId, parsed);
+      await mastersApi.receivables.refundInvoice(invoiceId, amount);
       toast({ title: 'Refund recorded' });
       await reload();
       onChanged();
@@ -684,7 +697,7 @@ function StatementPanel({
                 canRefund={canRefund}
                 busy={busy}
                 onVoid={() => void voidInvoice(invoice.id)}
-                onRefund={() => void refundInvoice(invoice.id, invoice.invoiceTotal)}
+                onRefund={() => askRefund(invoice.id, invoice.invoiceTotal)}
               />
             ))}
           </tbody>
@@ -694,6 +707,24 @@ function StatementPanel({
       <FormSection title="Ledger">
         <LedgerTable entries={statement.ledger} />
       </FormSection>
+
+      <PromptDialog
+        open={refunding !== null}
+        onOpenChange={(next) => !next && setRefunding(null)}
+        title="Refund this invoice"
+        label="How much to refund"
+        hint={refunding ? `Up to ${currency(refunding.invoiceTotal)}.` : undefined}
+        verb="Record refund"
+        kind="money"
+        max={refunding?.invoiceTotal}
+        busy={busy}
+        onSubmit={async (value) => {
+          if (!refunding) return;
+
+          await refundInvoice(refunding.invoiceId, Number(value.replace(/[,\s]/g, '')));
+          setRefunding(null);
+        }}
+      />
     </div>
   );
 }

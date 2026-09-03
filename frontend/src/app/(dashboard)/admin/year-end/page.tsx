@@ -23,6 +23,7 @@ import type { ArchiveRow, FiscalYear, FiscalYearCloseResult } from '@/types/mast
 import { PageHeader as SharedPageHeader } from '@/components/shell/page-header';
 import { describeError } from '@/lib/errors';
 import { EmptyState } from '@/components/ui/states';
+import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 const inputClass =
   'pos-input';
@@ -56,6 +57,7 @@ export default function YearEndPage() {
   const [history, setHistory] = useState<ArchiveRow[]>([]);
   const [historyYear, setHistoryYear] = useState<number | ''>('');
   const [busy, setBusy] = useState(false);
+  const confirmer = useConfirm();
 
   const load = useCallback(async () => {
     if (!locationId) return;
@@ -133,13 +135,21 @@ export default function YearEndPage() {
     }
   };
 
-  const close = async (year: FiscalYear) => {
-    const confirmed = window.confirm(
-      `Close ${year.year}? Nothing is deleted — the year is rolled up and checkpointed, and it can be reopened.`,
+  const askClose = (year: FiscalYear) => {
+    confirmer.ask(
+      {
+        subject: `Financial year ${year.year}`,
+        consequence:
+          'The year is rolled up and checkpointed. Nothing is deleted, and it can be reopened '
+          + 'afterwards if something was posted late.',
+        verb: 'Close year',
+        tone: 'caution',
+      },
+      () => close(year),
     );
+  };
 
-    if (!confirmed) return;
-
+  const close = async (year: FiscalYear) => {
     setBusy(true);
 
     try {
@@ -156,13 +166,28 @@ export default function YearEndPage() {
     }
   };
 
-  const reopen = async (year: FiscalYear) => {
-    const confirmed = window.confirm(
-      `Reopen ${year.year}? The archive rows and checkpoints go with it. The sales they were derived from are untouched.`,
+  /**
+   * The second place that makes you type the year.
+   *
+   * Reopening discards every archive row and checkpoint the close produced. It is recoverable —
+   * closing again rebuilds them — but not cheaply, and it is one click away from a button labelled
+   * with a year that looks much like the year next to it.
+   */
+  const askReopen = (year: FiscalYear) => {
+    confirmer.ask(
+      {
+        subject: `Financial year ${year.year}`,
+        consequence:
+          'The archive rows and checkpoints written when this year was closed are discarded. The '
+          + 'sales they were derived from are untouched, and closing again rebuilds them.',
+        verb: 'Reopen year',
+        typeToConfirm: String(year.year),
+      },
+      () => reopen(year),
     );
+  };
 
-    if (!confirmed) return;
-
+  const reopen = async (year: FiscalYear) => {
     setBusy(true);
 
     try {
@@ -268,7 +293,7 @@ export default function YearEndPage() {
                                 type="button"
                                 className="pos-button-danger"
                                 disabled={busy || previewFor !== year.id}
-                                onClick={() => void close(year)}
+                                onClick={() => askClose(year)}
                                 title={
                                   previewFor === year.id
                                     ? `Close ${year.year} for good — it stops accepting trading and is rolled up`
@@ -284,7 +309,7 @@ export default function YearEndPage() {
                               type="button"
                               className="pos-button-danger"
                               disabled={busy}
-                              onClick={() => void reopen(year)}
+                              onClick={() => askReopen(year)}
                               title={`Reopen ${year.year} and discard its archive rows and checkpoints`}
                             >
                               <Undo2 className="h-3.5 w-3.5" aria-hidden />
@@ -430,6 +455,14 @@ export default function YearEndPage() {
           </div>
         )}
       </Panel>
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
+      />
     </div>
   );
 }
@@ -439,6 +472,7 @@ function Figure({ label, value }: { label: string; value: string }) {
     <div className="min-w-0">
       <p className="text-label text-ink-muted">{label}</p>
       <p className="pos-amount mt-0.5 text-body-lg font-semibold text-ink">{value}</p>
+
     </div>
   );
 }

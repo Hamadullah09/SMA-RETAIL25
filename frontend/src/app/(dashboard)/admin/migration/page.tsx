@@ -36,6 +36,7 @@ import type {
 import { PageHeader as SharedPageHeader } from '@/components/shell/page-header';
 import { describeError } from '@/lib/errors';
 import { EmptyState } from '@/components/ui/states';
+import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 const inputClass =
   'pos-input';
@@ -362,14 +363,22 @@ function BatchPanel({
     }
   };
 
-  const doImport = async () => {
-    const confirmed = window.confirm(
-      `Import ${batch.rowsStaged} row(s) from ${batch.sourceFileName} into the live system? `
-      + 'This writes to the catalogue and the stock ledger.',
+  const confirmer = useConfirm();
+
+  const askImport = () => {
+    confirmer.ask(
+      {
+        subject: `${batch.rowsStaged} row${batch.rowsStaged === 1 ? '' : 's'} from ${batch.sourceFileName}`,
+        consequence:
+          'These are written into the live catalogue and the stock ledger. Existing items are '
+          + 'updated in place, and the stock movements are real.',
+        verb: 'Import into the live system',
+      },
+      doImport,
     );
+  };
 
-    if (!confirmed) return;
-
+  const doImport = async () => {
     await run(() => mastersApi.migration.import(batch.id, totals), 'Imported');
   };
 
@@ -431,7 +440,7 @@ function BatchPanel({
               type="button"
               className="pos-button-primary"
               disabled={busy || !batch.canImport}
-              onClick={() => void doImport()}
+              onClick={askImport}
               title="Writes these rows into the live catalogue and stock ledger"
             >
               <DatabaseZap className="h-3.5 w-3.5" aria-hidden />
@@ -679,6 +688,14 @@ function BatchPanel({
           ) : null}
         </Panel>
       ) : null}
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
+      />
     </>
   );
 }

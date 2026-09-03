@@ -18,6 +18,7 @@ import type {
 } from '@/types/masters';
 import { PageHeader } from '@/components/shell/page-header';
 import { describeError } from '@/lib/errors';
+import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 const inputClass =
   'pos-input';
@@ -69,6 +70,7 @@ export default function BulkAdjustPage() {
 
   const [preview, setPreview] = useState<BulkPricePreview | null>(null);
   const [busy, setBusy] = useState(false);
+  const confirmer = useConfirm();
 
   const { data: departments = [] } = useQuery({
     queryKey: ['departments', locationId],
@@ -115,14 +117,23 @@ export default function BulkAdjustPage() {
     }
   };
 
-  const apply = async () => {
+  const askApply = () => {
     if (!locationId || !preview) return;
 
-    const confirmed = window.confirm(
-      `This will change ${preview.matchedCount} item(s). There is no undo. Continue?`,
+    confirmer.ask(
+      {
+        // The count is the whole point. A confirm that says "every matching item" leaves somebody
+        // guessing whether that is nine items or nine hundred, on an operation with no undo.
+        subject: `${preview.matchedCount} item${preview.matchedCount === 1 ? '' : 's'}`,
+        consequence: 'Their prices are rewritten at once. There is no undo.',
+        verb: 'Change prices',
+      },
+      apply,
     );
+  };
 
-    if (!confirmed) return;
+  const apply = async () => {
+    if (!locationId || !preview) return;
 
     setBusy(true);
 
@@ -137,11 +148,21 @@ export default function BulkAdjustPage() {
     }
   };
 
-  const applyTax = async (tax1: boolean | null, tax2: boolean | null) => {
+  const askApplyTax = (tax1: boolean | null, tax2: boolean | null) => {
     if (!locationId) return;
 
-    const confirmed = window.confirm('This changes the tax flags on every matching item. Continue?');
-    if (!confirmed) return;
+    confirmer.ask(
+      {
+        subject: preview ? `${preview.matchedCount} item${preview.matchedCount === 1 ? '' : 's'}` : 'Every matching item',
+        consequence: 'Their tax flags are rewritten at once. There is no undo.',
+        verb: 'Change tax flags',
+      },
+      () => applyTax(tax1, tax2),
+    );
+  };
+
+  const applyTax = async (tax1: boolean | null, tax2: boolean | null) => {
+    if (!locationId) return;
 
     setBusy(true);
 
@@ -349,7 +370,7 @@ export default function BulkAdjustPage() {
               type="button"
               className="pos-button-primary"
               disabled={busy || preview === null || preview.wouldGoNegative > 0}
-              onClick={() => void apply()}
+              onClick={askApply}
             >
               Apply
             </button>
@@ -416,25 +437,33 @@ export default function BulkAdjustPage() {
             is never made taxable, whatever is asked for — the tax is charged when the card is spent.
           </p>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className="pos-button" disabled={busy} onClick={() => void applyTax(true, null)}>
+            <button type="button" className="pos-button" disabled={busy} onClick={() => askApplyTax(true, null)}>
               Tax 1 on
             </button>
-            <button type="button" className="pos-button" disabled={busy} onClick={() => void applyTax(false, null)}>
+            <button type="button" className="pos-button" disabled={busy} onClick={() => askApplyTax(false, null)}>
               Tax 1 off
             </button>
-            <button type="button" className="pos-button" disabled={busy} onClick={() => void applyTax(null, true)}>
+            <button type="button" className="pos-button" disabled={busy} onClick={() => askApplyTax(null, true)}>
               Tax 2 on
             </button>
-            <button type="button" className="pos-button" disabled={busy} onClick={() => void applyTax(null, false)}>
+            <button type="button" className="pos-button" disabled={busy} onClick={() => askApplyTax(null, false)}>
               Tax 2 off
             </button>
-            <button type="button" className="pos-button" disabled={busy} onClick={() => void applyTax(false, false)}>
+            <button type="button" className="pos-button" disabled={busy} onClick={() => askApplyTax(false, false)}>
               Both off (exempt)
             </button>
           </div>
         </div>
       </section>
       </div>
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
+      />
     </div>
   );
 }
