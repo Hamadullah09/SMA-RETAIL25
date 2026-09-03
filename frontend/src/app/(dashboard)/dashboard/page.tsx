@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
 import { EmptyState, KpiTile, Panel, RankedBars, TileSkeleton } from '@/components/dashboard/kpi';
-import { Eye, EyeOff } from 'lucide-react';
+import { Banknote, Eye, EyeOff, HandCoins, PackageSearch, TrendingUp } from 'lucide-react';
 import { SalesTrend } from '@/components/dashboard/sales-trend';
 import { HIDDEN_AMOUNT, useAmountVisibility } from '@/lib/amount-visibility';
 import { formatCurrency } from '@/lib/utils';
@@ -162,6 +162,8 @@ export default function DashboardPage() {
             <TileSkeleton label="Sales today" />
           ) : (
             <KpiTile
+              icon={Banknote}
+              tone={todayNet > 0 ? 'positive' : 'neutral'}
               label="Sales today"
               value={amount(todayNet)}
               hint={`${todayRow?.transactionCount ?? 0} transaction${todayRow?.transactionCount === 1 ? '' : 's'}`}
@@ -180,6 +182,8 @@ export default function DashboardPage() {
             <TileSkeleton label="Last 14 days" />
           ) : (
             <KpiTile
+              icon={TrendingUp}
+              tone="live"
               label="Last 14 days"
               value={amount(trend.data?.grandNetSales ?? 0)}
               hint={
@@ -197,6 +201,7 @@ export default function DashboardPage() {
             <TileSkeleton label="Below reorder" />
           ) : (
             <KpiTile
+              icon={PackageSearch}
               label="Below reorder"
               value={understocked.length}
               // Stated in words as well as colour: a red number says nothing to anyone who cannot
@@ -213,6 +218,7 @@ export default function DashboardPage() {
             <TileSkeleton label="Owed to you" />
           ) : (
             <KpiTile
+              icon={HandCoins}
               label="Owed to you"
               value={formatCurrency(outstanding)}
               hint={overdue > 0 ? `${formatCurrency(overdue)} overdue` : 'None overdue'}

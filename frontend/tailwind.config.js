@@ -84,10 +84,19 @@ module.exports = {
         warning: 'oklch(var(--warning) / <alpha-value>)',
         negative: 'oklch(var(--negative) / <alpha-value>)',
         live: 'oklch(var(--live) / <alpha-value>)',
+        special: 'oklch(var(--special) / <alpha-value>)',
         'positive-text': 'oklch(var(--positive-text) / <alpha-value>)',
         'warning-text': 'oklch(var(--warning-text) / <alpha-value>)',
         'negative-text': 'oklch(var(--negative-text) / <alpha-value>)',
         'live-text': 'oklch(var(--live-text) / <alpha-value>)',
+        'special-text': 'oklch(var(--special-text) / <alpha-value>)',
+
+        /** The tint a meaning sits on. Paired with its -text tone, never with ink. */
+        'positive-soft': 'oklch(var(--positive-soft) / <alpha-value>)',
+        'warning-soft': 'oklch(var(--warning-soft) / <alpha-value>)',
+        'negative-soft': 'oklch(var(--negative-soft) / <alpha-value>)',
+        'live-soft': 'oklch(var(--live-soft) / <alpha-value>)',
+        'special-soft': 'oklch(var(--special-soft) / <alpha-value>)',
       },
 
       /**

@@ -34,6 +34,7 @@ export function KpiTile({
   hint,
   delta,
   tone = 'neutral',
+  icon: Icon,
   href,
 }: {
   label: string;
@@ -41,7 +42,15 @@ export function KpiTile({
   hint?: string;
   delta?: KpiDelta;
   /** Semantic, and separate from the accent hue — a tile is not styled by brand, it is styled by state. */
-  tone?: 'neutral' | 'positive' | 'warning' | 'negative';
+  tone?: 'neutral' | 'positive' | 'warning' | 'negative' | 'live' | 'special';
+  /**
+   * The glyph in the tile's corner chip.
+   *
+   * A tile with only a label and a number is four grey rectangles that have to be read to be told
+   * apart. The chip gives each one a shape and a colour, so somebody scanning the row lands on the
+   * right tile before reading a word of it — and the colour is the tone's, so it means something.
+   */
+  icon?: LucideIcon;
   href?: string;
 }) {
   const Wrapper = href ? 'a' : 'div';
@@ -53,23 +62,56 @@ export function KpiTile({
     <Wrapper
       {...(href ? { href } : {})}
       className={cn(
-        'pos-panel flex flex-col justify-between p-5',
+        'pos-panel relative flex flex-col justify-between overflow-hidden p-5',
+        // The tone, as a band. Colour is never the only carrier — the chip's glyph and the label
+        // say the same thing — but a band is what makes a row of four tiles four *different* tiles
+        // at a glance instead of four rectangles to be read in turn.
+        'before:absolute before:inset-x-0 before:top-0 before:h-1.5 before:content-[""]',
+        tone === 'positive' && 'before:bg-positive',
+        tone === 'warning' && 'before:bg-warning',
+        tone === 'negative' && 'before:bg-negative',
+        tone === 'live' && 'before:bg-live',
+        tone === 'special' && 'before:bg-special',
+        tone === 'neutral' && 'before:bg-accent',
         // A linked tile lifts rather than tints: the shadow step and half-pixel rise say
         // "clickable" without repainting the figure someone is trying to read.
         href &&
           'transition-all duration-150 hover:-translate-y-0.5 hover:border-strong hover:shadow-popover',
       )}
     >
-      {/* Sentence case. The label names the figure; it is not a column heading on a form, and
-          uppercase at 12px is measurably slower to read for no gain in a four-word phrase. */}
-      <p className="text-body font-medium text-ink-muted">{label}</p>
+      <div className="flex items-start justify-between gap-3">
+        {/* Sentence case. The label names the figure; it is not a column heading on a form, and
+            uppercase at 12px is measurably slower to read for no gain in a four-word phrase. */}
+        <p className="text-body font-medium text-ink-muted">{label}</p>
+
+        {Icon ? (
+          <span
+            className={cn(
+              'flex h-12 w-12 shrink-0 items-center justify-center rounded-lg',
+              tone === 'positive' && 'bg-positive-soft text-positive-text',
+              tone === 'warning' && 'bg-warning-soft text-warning-text',
+              tone === 'negative' && 'bg-negative-soft text-negative-text',
+              tone === 'live' && 'bg-live-soft text-live-text',
+              tone === 'special' && 'bg-special-soft text-special-text',
+              tone === 'neutral' && 'bg-accent-soft text-accent-text',
+            )}
+            aria-hidden
+          >
+            <Icon className="h-6 w-6" />
+          </span>
+        ) : null}
+      </div>
 
       <p
         className={cn(
           'pos-amount pos-kpi-value mt-2',
-          tone === 'positive' && 'text-positive',
-          tone === 'warning' && 'text-warning',
-          tone === 'negative' && 'text-negative',
+          // The -text tones, not the fills: these are words on a panel, and the fill lightnesses
+          // are tuned to be seen rather than read.
+          tone === 'positive' && 'text-positive-text',
+          tone === 'warning' && 'text-warning-text',
+          tone === 'negative' && 'text-negative-text',
+          tone === 'live' && 'text-live-text',
+          tone === 'special' && 'text-special-text',
           tone === 'neutral' && 'text-ink',
         )}
       >

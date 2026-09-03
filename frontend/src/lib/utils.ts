@@ -17,8 +17,9 @@ const FONT_SIZES = [
 const TEXT_COLOURS = [
   'ink', 'ink-muted', 'ink-faint',
   'accent', 'accent-strong', 'accent-soft', 'accent-text', 'accent-foreground',
-  'positive', 'warning', 'negative', 'live',
-  'positive-text', 'warning-text', 'negative-text', 'live-text',
+  'positive', 'warning', 'negative', 'live', 'special',
+  'positive-text', 'warning-text', 'negative-text', 'live-text', 'special-text',
+  'positive-soft', 'warning-soft', 'negative-soft', 'live-soft', 'special-soft',
   'surface', 'panel', 'panel-hover', 'panel-sunken', 'subtle', 'strong', 'control',
 ] as const;
 

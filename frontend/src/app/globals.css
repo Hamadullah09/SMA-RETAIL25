@@ -90,6 +90,25 @@
     --negative-text: 0.47 0.16 25;
     --live-text: 0.45 0.13 230;
 
+    /* A sixth meaning, for the workflows that are neither good nor bad but not ordinary either — a
+       layaway, a quote, a held sale. They were being drawn in the accent, which made them look like
+       the thing to press. */
+    --special: 0.52 0.16 300;
+    --special-text: 0.45 0.16 300;
+
+    /* The tint each meaning sits on.
+    
+       This is what makes the interface colourful without making it loud: a chip, a tile's icon, a
+       badge's ground. Light enough that the -text tone above clears AA on it, saturated enough to
+       be told apart at a glance across a shop floor. Colour is never the only carrier — every one
+       of these appears with a glyph and a word — but a screen where the only hue is one blue button
+       gives the eye nothing to navigate by. */
+    --positive-soft: 0.955 0.035 160;
+    --warning-soft: 0.96 0.045 75;
+    --negative-soft: 0.955 0.032 25;
+    --live-soft: 0.955 0.032 230;
+    --special-soft: 0.955 0.032 300;
+
     /* The edge of something you can operate.
 
        Distinct from --border, which divides. WCAG 1.4.11 asks 3:1 of a control's boundary against
