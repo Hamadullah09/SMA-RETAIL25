@@ -20,6 +20,7 @@ import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
 import { cn, formatCurrency } from '@/lib/utils';
 import type { ArchiveRow, FiscalYear, FiscalYearCloseResult } from '@/types/masters';
+import { PageHeader as SharedPageHeader } from '@/components/shell/page-header';
 
 const inputClass =
   'pos-input';
@@ -446,16 +447,15 @@ function describe(error: unknown): string {
 
 /* ------------------------------------------------------------------ page furniture */
 
+/**
+ * Delegates to the shared header.
+ *
+ * This was copy-pasted verbatim into six admin screens, and had already drifted: year-end
+ * aligned its actions to the bottom while the other five centred them. Kept behind the local
+ * name so the call sites in this file do not change.
+ */
 function PageHeader({ title, lede, children }: { title: string; lede: string; children?: ReactNode }) {
-  return (
-    <header className="flex flex-wrap items-start justify-between gap-4">
-      <div className="min-w-0">
-        <h1>{title}</h1>
-        <p className="mt-1 max-w-[68ch] text-body text-ink-muted">{lede}</p>
-      </div>
-      {children ? <div className="flex shrink-0 flex-wrap items-end gap-2">{children}</div> : null}
-    </header>
-  );
+  return <SharedPageHeader title={title} description={lede} actions={children} />;
 }
 
 function Panel({

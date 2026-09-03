@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/lib/auth-config';
 import { apiClient } from '@/lib/api-client';
+import { PageHeader } from '@/components/shell/page-header';
 
 /**
  * Every antenna in the shop, and which layer is stopping the ones that are not working.
@@ -107,16 +108,14 @@ export default function RfidHealthPage() {
   const summary = dashboard?.summary;
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <header>
-        <h1 className="text-heading">RFID health</h1>
-        <p className="text-sm text-ink-muted">
-          Every antenna in the shop, and which layer is stopping the ones that are not reading.
-          Refreshes every {REFRESH_MS / 1000} seconds.
-          {updatedAt ? ` Last read at ${updatedAt.toLocaleTimeString()}.` : ''}
-        </p>
-        {error ? <p className="mt-1 text-sm text-warning">{error}</p> : null}
-      </header>
+    <div className="flex flex-col">
+      <PageHeader
+        title="RFID health"
+        description={`Every antenna in the shop, and which layer is stopping the ones that are not reading. Refreshes every ${REFRESH_MS / 1000} seconds.${updatedAt ? ` Last read at ${updatedAt.toLocaleTimeString()}.` : ''}`}
+      />
+
+      <div className="flex flex-col gap-4 px-page py-panel">
+        {error ? <p className="text-body text-warning">{error}</p> : null}
 
       {summary ? (
         <div className="flex flex-wrap gap-2">
@@ -174,6 +173,7 @@ export default function RfidHealthPage() {
           </table>
         </div>
       )}
+      </div>
     </div>
   );
 }

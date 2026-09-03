@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { PageHeader } from '@/components/shell/page-header';
 
 /** One destination on an index page. */
 export interface NavCardItem {
@@ -67,25 +68,27 @@ export function NavIndex({
   children?: ReactNode;
 }) {
   return (
-    <div className="space-y-6 p-6">
-      <header className="max-w-3xl space-y-1">
-        <h1>{title}</h1>
-        {description ? <p className="text-body-lg text-ink-muted">{description}</p> : null}
-      </header>
+    // The header spans the full width and the content is padded beneath it, rather than the header
+    // sitting inside the page padding. Every other screen puts its title against the same edge, and
+    // an index page that inset its own would be the one page whose header did not line up.
+    <div className="flex flex-col">
+      <PageHeader title={title} description={description} />
 
-      {children}
+      <div className="space-y-6 px-page py-panel">
+        {children}
 
-      {items.length === 0 ? (
-        <p className="text-body text-ink-muted">
-          {empty ?? 'Nothing here is available to your account. Ask an administrator if you need access.'}
-        </p>
-      ) : (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {items.map((item) => (
-            <NavCard key={item.key} item={item} />
-          ))}
-        </div>
-      )}
+        {items.length === 0 ? (
+          <p className="text-body text-ink-muted">
+            {empty ?? 'Nothing here is available to your account. Ask an administrator if you need access.'}
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {items.map((item) => (
+              <NavCard key={item.key} item={item} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

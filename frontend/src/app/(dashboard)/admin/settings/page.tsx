@@ -52,6 +52,7 @@ import type {
   TaxSettings,
   TenderSettings,
 } from '@/types/masters';
+import { PageHeader } from '@/components/shell/page-header';
 
 /**
  * The Setup screen (guide p.76–84).
@@ -230,13 +231,10 @@ export default function SettingsPage() {
 
 function PageHeading() {
   return (
-    <header className="max-w-3xl space-y-1">
-      <h1>Setup</h1>
-      <p className="text-body-lg text-ink-muted">
-        Everything the store’s behaviour is read from — taxes, tills, printers, tenders and the people who use them.
-        Each tab is saved on its own.
-      </p>
-    </header>
+    <PageHeader
+      title="Setup"
+      description="Everything the store’s behaviour is read from — taxes, tills, printers, tenders and the people who use them. Each tab is saved on its own."
+    />
   );
 }
 

@@ -9,6 +9,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { SalesTrend } from '@/components/dashboard/sales-trend';
 import { HIDDEN_AMOUNT, useAmountVisibility } from '@/lib/amount-visibility';
 import { formatCurrency } from '@/lib/utils';
+import { PageHeader } from '@/components/shell/page-header';
 
 /**
  * The trading day, at a glance.
@@ -121,44 +122,41 @@ export default function DashboardPage() {
   const understocked = managed;
 
   return (
-    <div className="space-y-3 p-4">
-      <header className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h1>Today</h1>
-          <p className="mt-0.5 text-body text-ink-muted">
-            {new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}
-            {auth.user?.name ? ` · ${auth.user.name}` : ''}
-          </p>
-        </div>
+    <div className="flex flex-col">
+      <PageHeader
+        title="Today"
+        description={`${new Date().toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' })}${auth.user?.name ? ` · ${auth.user.name}` : ''}`}
+        actions={
+          <>
+            {/*
+              Only offered to somebody who could see the figures anyway. A hide control on a screen
+              that never shows takings is a switch that does nothing, and it would imply there is
+              something behind it.
+            */}
+            {auth.can('reports.sales') ? (
+              <button
+                type="button"
+                onClick={toggleAmounts}
+                className="pos-button"
+                aria-pressed={amountsVisible}
+                aria-label={amountsVisible ? 'Hide takings' : 'Show takings'}
+              >
+                {amountsVisible ? <EyeOff className="h-5 w-5" aria-hidden /> : <Eye className="h-5 w-5" aria-hidden />}
+                {amountsVisible ? 'Hide takings' : 'Show takings'}
+              </button>
+            ) : null}
 
-        <div className="flex items-center gap-2">
-          {/*
-            Only offered to somebody who could see the figures anyway. A hide control on a screen
-            that never shows takings is a switch that does nothing, and it would imply there is
-            something behind it.
-          */}
-          {auth.can('reports.sales') ? (
-            <button
-              type="button"
-              onClick={toggleAmounts}
-              className="pos-button px-3"
-              aria-pressed={amountsVisible}
-              aria-label={amountsVisible ? 'Hide takings' : 'Show takings'}
-            >
-              {amountsVisible ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
-              {amountsVisible ? 'Hide takings' : 'Show takings'}
-            </button>
-          ) : null}
+            <Link href="/pos" className="pos-button-primary">
+              Open the till
+            </Link>
+          </>
+        }
+      />
 
-          <Link href="/pos" className="pos-button-primary">
-            Open the till
-          </Link>
-        </div>
-      </header>
-
-      {/* One column on a phone, two on a tablet, four on a desktop. The tiles are the summary, so
-          they come first at every width. */}
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="space-y-3 px-page py-panel">
+        {/* One column on a phone, two on a tablet, four on a desktop. The tiles are the summary, so
+            they come first at every width. */}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {auth.can('reports.sales') ? (
           trend.isPending ? (
             <TileSkeleton label="Sales today" />
@@ -393,6 +391,7 @@ export default function DashboardPage() {
           </p>
         </Panel>
       ) : null}
+      </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { posApi, PosApiError } from '@/lib/pos-api';
 import { printPdf } from '@/lib/print';
 import { formatCurrency } from '@/lib/utils';
 import type { SaleDetail, SaleDetailLine, SalesLogRow, TenderSettings } from '@/types/masters';
+import { PageHeader } from '@/components/shell/page-header';
 
 /**
  * Previous sales, and what can be done to one.
@@ -255,25 +256,23 @@ export default function PreviousSalesPage() {
   ];
 
   return (
-    <div className="flex h-full flex-col gap-4 p-4">
-      <header className="flex flex-wrap items-end gap-3">
-        <div>
-          <h1 className="text-lg font-semibold">Previous sales</h1>
-          <p className="text-sm text-muted-foreground">
-            Find a sale to reprint its receipt or take something back.
-          </p>
-        </div>
+    <div className="flex h-full flex-col">
+      <PageHeader
+        title="Previous sales"
+        description="Find a sale to reprint its receipt or take something back."
+      />
 
-        <div className="ml-auto flex flex-wrap items-end gap-2">
-          <label className="flex flex-col text-xs">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 px-page py-panel">
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col text-label text-ink-muted">
             From
             <input type="date" className="pos-input" value={from} onChange={(e) => setFrom(e.target.value)} />
           </label>
-          <label className="flex flex-col text-xs">
+          <label className="flex flex-col text-label text-ink-muted">
             To
             <input type="date" className="pos-input" value={to} onChange={(e) => setTo(e.target.value)} />
           </label>
-          <label className="flex flex-col text-xs">
+          <label className="flex flex-col text-label text-ink-muted">
             Search
             <input
               className="pos-input"
@@ -283,7 +282,6 @@ export default function PreviousSalesPage() {
             />
           </label>
         </div>
-      </header>
 
       <div className="grid flex-1 gap-4 overflow-hidden lg:grid-cols-[1.4fr_1fr]">
         <section className="min-h-0 overflow-auto rounded border">
@@ -417,6 +415,7 @@ export default function PreviousSalesPage() {
             </div>
           )}
         </section>
+      </div>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { connectionCopy, connectionStateFrom } from '@/lib/connection-state';
+import { PageHeader } from '@/components/shell/page-header';
 
 /**
  * The Browse + Form View pairing the legacy system used everywhere (guide p.23–24, p.30, p.46).
@@ -39,15 +40,7 @@ export function BrowseFormShell({
      * resolves through --header-height, so there is one number and it lives with the header.
      */
     <div className="flex h-below-header min-h-0 flex-col">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-subtle px-4 py-3">
-        <div className="min-w-0">
-          {/* The page's only h1. The shell header no longer carries one. */}
-          <h1>{title}</h1>
-          {description ? <p className="mt-0.5 text-body text-ink-muted">{description}</p> : null}
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">{toolbar}</div>
-      </div>
+      <PageHeader title={title} description={description} actions={toolbar} />
 
       {filters ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-subtle bg-panel-sunken px-4 py-2 text-body">

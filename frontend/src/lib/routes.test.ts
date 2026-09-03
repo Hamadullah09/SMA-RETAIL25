@@ -27,6 +27,10 @@ function routesOnDisk(dir: string, prefix = ''): string[] {
     }
 
     if (statSync(path).isDirectory()) {
+      // A dynamic segment is not a destination — /help/[topic] is a template, not somewhere
+      // anybody navigates to by name, so the registry has nothing to say about it.
+      if (entry.startsWith('[')) continue;
+
       // Route groups like (dashboard) do not appear in the URL.
       const segment = entry.startsWith('(') ? '' : `/${entry}`;
       found.push(...routesOnDisk(path, prefix + segment));

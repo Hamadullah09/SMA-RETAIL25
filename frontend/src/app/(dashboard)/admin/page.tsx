@@ -13,6 +13,7 @@ import {
   Users,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-config';
+import { PageHeader } from '@/components/shell/page-header';
 
 /**
  * The administration index.
@@ -188,13 +189,13 @@ export default function AdminPage() {
     .filter((group) => group.items.length > 0);
 
   return (
-    <div className="space-y-6 p-6">
-      <header className="max-w-3xl space-y-1">
-        <h1>Administration</h1>
-        <p className="text-body-lg text-ink-muted">
-          Setup, staff, the accounting link, the year-end close and bringing data across from the old system.
-        </p>
-      </header>
+    <div className="flex flex-col">
+      <PageHeader
+        title="Administration"
+        description="Setup, staff, the accounting link, the year-end close and bringing data across from the old system."
+      />
+
+      <div className="space-y-6 px-page py-panel">
 
       {visible.length === 0 ? (
         <p className="text-body text-ink-muted">
@@ -220,6 +221,7 @@ export default function AdminPage() {
           ))}
         </div>
       )}
+      </div>
     </div>
   );
 }

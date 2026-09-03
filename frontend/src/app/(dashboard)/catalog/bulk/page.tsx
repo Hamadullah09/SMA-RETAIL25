@@ -16,6 +16,7 @@ import type {
   PriceRounding,
   ProductType,
 } from '@/types/masters';
+import { PageHeader } from '@/components/shell/page-header';
 
 const inputClass =
   'pos-input';
@@ -155,9 +156,9 @@ export default function BulkAdjustPage() {
 
   if (!canAdjust) {
     return (
-      <div className="p-6">
-        <h1 className="text-h1 font-semibold">Batch changes</h1>
-        <p className="mt-2 text-body text-ink-muted">
+      <div className="flex flex-col">
+        <PageHeader title="Batch changes" />
+        <p className="px-page py-panel text-body text-ink-muted">
           You do not have permission to make batch changes to the catalogue.
         </p>
       </div>
@@ -165,14 +166,13 @@ export default function BulkAdjustPage() {
   }
 
   return (
-    <div className="space-y-4 p-6">
-      <header>
-        <h1 className="text-h1 font-semibold">Batch changes</h1>
-        <p className="text-body text-ink-muted">
-          Repricing and tax flags across a selection of items. Every change is written at once and cannot be
-          undone, so check the preview.
-        </p>
-      </header>
+    <div className="flex flex-col">
+      <PageHeader
+        title="Batch changes"
+        description="Repricing and tax flags across a selection of items. Every change is written at once and cannot be undone, so check the preview."
+      />
+
+      <div className="space-y-4 px-page py-panel">
 
       <section className="pos-panel">
         <div className="pos-panel-header">
@@ -433,6 +433,7 @@ export default function BulkAdjustPage() {
           </div>
         </div>
       </section>
+      </div>
     </div>
   );
 }

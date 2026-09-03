@@ -1,6 +1,7 @@
 import {
   BarChart3,
   Boxes,
+  CircleHelp,
   ClipboardList,
   CreditCard,
   FileText,
@@ -232,6 +233,15 @@ export const ROUTES: readonly AppRoute[] = [
   { href: '/reports/on-order', label: 'On order', icon: BarChart3, parent: '/reports', keywords: 'incoming due purchase orders', helpTopic: 'reports' },
   { href: '/reports/reward-points', label: 'Reward points', icon: BarChart3, parent: '/reports', keywords: 'loyalty points balances', helpTopic: 'reports' },
   { href: '/reports/tax', label: 'Tax', icon: BarChart3, parent: '/reports', keywords: 'vat gst return liability', helpTopic: 'reports' },
+
+  {
+    href: '/help',
+    label: 'Help',
+    icon: CircleHelp,
+    section: 'Others',
+    keywords: 'guide how do i instructions manual training',
+    helpTopic: undefined,
+  },
 
   {
     href: '/admin',

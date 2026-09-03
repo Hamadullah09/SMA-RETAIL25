@@ -14,6 +14,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-config';
+import { PageHeader } from '@/components/shell/page-header';
 
 /**
  * The reports index.
@@ -137,8 +138,10 @@ export default function ReportsPage() {
   })).filter((group) => group.reports.length > 0);
 
   return (
-    <div className="space-y-6 p-6">
-      <h1>Reports</h1>
+    <div className="flex flex-col">
+      <PageHeader title="Reports" description="Figures for a period you choose. Every report can be exported." />
+
+      <div className="space-y-6 px-page py-panel">
 
       {groups.map((group) => (
         <section key={group.heading} className="space-y-3">
@@ -202,6 +205,7 @@ export default function ReportsPage() {
           </Link>
         </div>
       </section>
+      </div>
     </div>
   );
 }

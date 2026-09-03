@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { toast } from '@/components/ui/toaster';
 import { PosApiError } from '@/lib/pos-api';
+import { PageHeader } from '@/components/shell/page-header';
 
 /**
  * The parts every analytical report screen repeats: a filter bar, a CSV link, a grid, and a
@@ -24,14 +25,16 @@ export function ReportShell({
 }) {
   return (
     <div className="flex h-below-header min-h-0 flex-col gap-2">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-h3 font-semibold">{title}</h1>
-        {exportHref ? (
-          <a className="pos-button" href={exportHref} download>
-            Export CSV
-          </a>
-        ) : null}
-      </div>
+      <PageHeader
+        title={title}
+        actions={
+          exportHref ? (
+            <a className="pos-button" href={exportHref} download>
+              Export CSV
+            </a>
+          ) : null
+        }
+      />
 
       {filters ? <div className="flex flex-wrap items-center gap-2 text-body">{filters}</div> : null}
 
