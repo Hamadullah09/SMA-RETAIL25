@@ -95,7 +95,10 @@
        Distinct from --border, which divides. WCAG 1.4.11 asks 3:1 of a control's boundary against
        its surroundings, and a divider tuned to be quiet cannot also be that: --border measures
        about 1.4:1 on panel. An input drawn in it has no visible edge, only an implied one. */
-    --border-control: 150 154 168;
+    /* Measured, not estimated. 150 154 168 was specified as 3.1:1 and is 2.81:1 on panel and
+       2.53:1 on surface — the control edge would have failed the very rule it was added for. This
+       clears 3:1 against the lightest ground it can sit on. */
+    --border-control: 136 140 154;
 
     /* Rounder than before. The old 4px read as "unstyled" next to the density of the type. */
     --radius: 10px;
@@ -186,7 +189,8 @@
     --accent-grad: linear-gradient(180deg, oklch(0.565 0.165 263) 0%, oklch(0.495 0.18 267) 100%);
     --accent-grad-hover: linear-gradient(180deg, oklch(0.515 0.17 263) 0%, oklch(0.445 0.185 267) 100%);
 
-    --border-control: 104 109 128;
+    /* 3.03:1 on panel-hover, which is the tightest of the three grounds here. */
+    --border-control: 109 114 133;
 
     --positive: 0.75 0.12 160;
     --warning: 0.78 0.12 75;
