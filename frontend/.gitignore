@@ -11,3 +11,6 @@ yarn-error.log*
 # Playwright run artefacts. Regenerated on every run; never worth a diff.
 test-results/
 playwright-report/
+
+# Screenshots from the shots spec. Regenerated on demand; never worth a diff.
+shots/

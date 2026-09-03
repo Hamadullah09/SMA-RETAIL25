@@ -18,9 +18,15 @@ const CSS = readFileSync(
   'utf8',
 );
 
-/** The light tokens live before `.dark {`, the dark ones after it. */
-const LIGHT = CSS.split('.dark {')[0];
-const DARK = CSS.split('.dark {')[1] ?? '';
+/**
+ * One theme.
+ *
+ * The dark theme is gone: this is a shop-floor system whose users are told which screen to look at,
+ * not a personal tool where a preference is worth the second palette. Two palettes also meant every
+ * colour decision had to be made twice and verified twice, and the second one was where the
+ * contrast failures hid.
+ */
+const LIGHT = CSS;
 
 function token(block: string, name: string): [number, number, number] {
   const match = new RegExp(`--${name}:\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)\\s*;`).exec(block);
@@ -48,10 +54,7 @@ function contrast(a: [number, number, number], b: [number, number, number]): num
 /** Every ground a token can legitimately sit on. A pass on one is not a pass. */
 const GROUNDS = ['panel', 'surface', 'panel-hover'] as const;
 
-const THEMES = [
-  ['light', LIGHT],
-  ['dark', DARK],
-] as const;
+const THEMES = [['light', LIGHT]] as const;
 
 describe.each(THEMES)('%s theme', (_theme, block) => {
   /**

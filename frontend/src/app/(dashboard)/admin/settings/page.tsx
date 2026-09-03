@@ -1536,9 +1536,9 @@ function ThisBrowserStation({ stations }: { stations: StationSettings[] }) {
   const current = saved.find((station) => station.id === pinned);
 
   return (
-    <div className="mb-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900/40">
-      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">Which till is this browser?</p>
-      <p className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+    <div className="mb-4 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4/40">
+      <p className="text-sm font-medium text-slate-900">Which till is this browser?</p>
+      <p className="mt-1 text-xs text-slate-600">
         Point-of-sale on this computer rings sales against this station. It applies to this browser
         only, so every machine can be a different till. Left unset, the till asks the agent installed
         on it.
@@ -1546,7 +1546,7 @@ function ThisBrowserStation({ stations }: { stations: StationSettings[] }) {
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <select
-          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+          className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
           value={pinned === null ? '' : String(pinned)}
           disabled={!ready}
           onChange={(event) => apply(event.target.value === '' ? null : Number(event.target.value))}
@@ -1562,7 +1562,7 @@ function ThisBrowserStation({ stations }: { stations: StationSettings[] }) {
         {pinned !== null && (
           <button
             type="button"
-            className="rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-700 hover:bg-white dark:border-slate-700 dark:text-slate-200"
+            className="rounded-md border border-slate-300 px-2 py-1.5 text-xs text-slate-700 hover:bg-white"
             onClick={() => apply(null)}
           >
             Clear
@@ -1571,7 +1571,7 @@ function ThisBrowserStation({ stations }: { stations: StationSettings[] }) {
       </div>
 
       {ready && pinned !== null && (
-        <p className="mt-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+        <p className="mt-2 text-xs font-medium text-amber-700">
           {current
             ? `This browser is pinned to Station ${current.stationCode} — ${current.name}.`
             : `This browser is pinned to station ${pinned}, which no longer exists. Clear it, or pick another.`}

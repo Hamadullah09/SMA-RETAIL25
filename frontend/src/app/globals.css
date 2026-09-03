@@ -155,61 +155,6 @@
 
   /* POS terminals sit under fluorescent light all day; staff prefer dark. Activated by a class on
      <html> — the previous block could never take effect, because darkMode was not configured in the
-     Tailwind config and nothing ever set the class. */
-  .dark {
-    /* True dark, not black: the surface sits near oklch 0.20 with the same cool tint as the light
-       ramp, and elevation is carried by each layer being a step lighter than the one below it. */
-    --surface: 13 14 20;
-    --panel: 27 29 39;
-    --panel-hover: 38 41 54;
-    --panel-sunken: 22 24 32;
-
-    --border: 44 47 60;
-    --border-strong: 63 66 84;
-
-    --text: 237 239 246;
-    --text-muted: 152 158 178;
-    /* 4.15:1 on panel and 3.58:1 on panel-hover before; lifted so it clears AA on both. */
-    --text-faint: 140 146 166;
-
-    /* The same hue, lifted. Because oklch lightness is perceptual, these are the light values moved
-       up the scale rather than a second palette that has to be re-checked against the ground. */
-    --accent: 0.62 0.16 265;
-    --accent-strong: 0.68 0.16 265;
-    --accent-soft: 0.38 0.09 265;
-    --accent-text: 0.78 0.11 265;
-    --accent-foreground: 255 255 255;
-
-    /* Deliberately *not* lifted with the rest of the palette. Everything else in this block moves up
-       the lightness scale to stay visible on a dark ground; a surface carrying white text has to
-       move the other way. Lifting it was measurable: white on the old 0.655 top stop came out at
-       3.2:1, so every primary button in the application was below AA in dark mode. */
-    --accent-fill: 0.545 0.17 265;
-
-    --accent-grad: linear-gradient(180deg, oklch(0.565 0.165 263) 0%, oklch(0.495 0.18 267) 100%);
-    --accent-grad-hover: linear-gradient(180deg, oklch(0.515 0.17 263) 0%, oklch(0.445 0.185 267) 100%);
-
-    /* 3.03:1 on panel-hover, which is the tightest of the three grounds here. */
-    --border-control: 109 114 133;
-
-    --positive: 0.75 0.12 160;
-    --warning: 0.78 0.12 75;
-    --negative: 0.72 0.14 25;
-    --live: 0.75 0.11 230;
-
-    /* Lighter than the fills, for the same reason the light theme's are darker: on this ground the
-       direction that gains contrast is up. */
-    --positive-text: 0.84 0.11 160;
-    --warning-text: 0.86 0.11 75;
-    --negative-text: 0.82 0.12 25;
-    --live-text: 0.84 0.10 230;
-
-    /* Shadows do almost nothing on a dark ground — a black blur on near-black is invisible. Depth
-       here comes from the panel being lighter than the page, so these only deepen rather than lift. */
-    --shadow-1: 0 1px 2px rgb(0 0 0 / 0.35), 0 2px 8px rgb(0 0 0 / 0.25);
-    --shadow-2: 0 2px 4px rgb(0 0 0 / 0.35), 0 12px 32px rgb(0 0 0 / 0.45);
-    --shadow-3: 0 4px 12px rgb(0 0 0 / 0.40), 0 28px 72px rgb(0 0 0 / 0.60);
-  }
 
   /*
    * Sized by what is pointing at it, not by which screen it is.

@@ -27,7 +27,6 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { PunchClock } from '@/components/staff/punch-clock';
-import { ThemeToggle } from '@/components/shell/theme-toggle';
 import { CompanyLogo } from '@/components/layout/branding';
 import { SmaMark } from '@/components/layout/logo';
 import { useAuth } from '@/lib/auth-config';
@@ -342,7 +341,6 @@ export function Header() {
 
       <div className="flex min-w-0 items-center gap-3 text-body">
         <PunchClock />
-        <ThemeToggle />
 
         {/* Who is signed in, as a face rather than a floating string: an initial on the accent
             tint, then the name. Only below `lg`, where the rail is off-canvas and its user card

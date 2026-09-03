@@ -10,9 +10,6 @@
  * @type {import('tailwindcss').Config}
  */
 module.exports = {
-  // Driven by a class on <html>, so a toggle can switch it and a preference can persist.
-  darkMode: 'class',
-
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',

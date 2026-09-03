@@ -34,31 +34,10 @@ export const metadata: Metadata = {
   description: 'Point of sale, inventory and accounts in one place.',
 };
 
-/**
- * Sets the theme class before the first paint.
- *
- * Without this, a dark-mode user gets a white flash on every navigation to a server-rendered page,
- * because React only applies the class after hydration. Inline and synchronous on purpose — it has
- * to run before the browser paints, and it is small enough to read.
- */
-const themeBootstrap = `
-(function () {
-  try {
-    var stored = localStorage.getItem('r25.theme') || 'system';
-    var dark = stored === 'dark'
-      || (stored === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.classList.toggle('dark', dark);
-  } catch (e) {
-    // Storage disabled. Light mode is the safe default, not a failed page.
-  }
-})();
-`;
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeBootstrap }} />
       </head>
       <body className="font-sans">
         <Providers>{children}</Providers>
