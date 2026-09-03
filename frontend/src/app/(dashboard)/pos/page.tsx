@@ -34,6 +34,7 @@ import {
   SuspendedCartsDialog,
   UnknownItemDialog,
 } from '@/components/pos/dialogs';
+import { describeError } from '@/lib/errors';
 
 /**
  * The point of sale (doc 08).
@@ -202,7 +203,37 @@ function PosScreen() {
   useHotkey('F4', () => hasLines && openDialog('payment'), { label: 'Pay', group: 'Sale', disabled: !hasLines });
   useHotkey('F5', () => openDialog('client'), { label: 'Client menu', group: 'Sale' });
   useHotkey('F6', () => void removeLastLine(), { label: 'Delete last line', group: 'Sale', disabled: !hasLines });
-  useHotkey('F7', () => stationId && void posApi.reprintLast(stationId), {
+  /**
+   * Printing says whether it printed.
+   *
+   * F7 and F12 were bare `void` calls: no then, no catch, no toast. The paper either appeared or it
+   * did not, and a cashier whose printer was offline pressed the key again, and again, with the
+   * screen showing exactly the same thing each time. A print is the one action whose result is
+   * somewhere other than the screen, which is precisely why the screen has to report it.
+   */
+  const reprint = async () => {
+    if (!stationId) return;
+
+    try {
+      await posApi.reprintLast(stationId);
+      toast({ variant: 'success', title: 'Sent to the printer' });
+    } catch (error) {
+      toast({ title: 'Could not print', description: describeError(error), variant: 'destructive' });
+    }
+  };
+
+  const printPackingSlip = async () => {
+    if (!lastSale || !stationId) return;
+
+    try {
+      await posApi.packingSlip(lastSale.transactionId, stationId);
+      toast({ variant: 'success', title: 'Packing slip sent to the printer' });
+    } catch (error) {
+      toast({ title: 'Could not print', description: describeError(error), variant: 'destructive' });
+    }
+  };
+
+  useHotkey('F7', () => void reprint(), {
     label: 'Reprint last sale',
     group: 'Documents',
   });
@@ -210,7 +241,7 @@ function PosScreen() {
   useHotkey('F9', () => openDialog('find'), { label: 'Find item', group: 'Sale' });
   useHotkey('F10', () => openDialog('drawer'), { label: 'Drawer menu', group: 'Drawer' });
   useHotkey('F11', () => openDialog('special'), { label: 'Special menu', group: 'Sale' });
-  useHotkey('F12', () => lastSale && stationId && void posApi.packingSlip(lastSale.transactionId, stationId), {
+  useHotkey('F12', () => void printPackingSlip(), {
     label: 'Packing slip',
     group: 'Documents',
     disabled: !lastSale,
@@ -298,7 +329,7 @@ function PosScreen() {
             { key: 'F4', label: 'Pay', onSelect: () => openDialog('payment'), disabled: !hasLines },
             { key: 'F5', label: 'Client', onSelect: () => openDialog('client') },
             { key: 'F6', label: 'Delete', onSelect: () => void removeLastLine(), disabled: !hasLines },
-            { key: 'F7', label: 'Reprint', onSelect: () => stationId && void posApi.reprintLast(stationId) },
+            { key: 'F7', label: 'Reprint', onSelect: () => void reprint() },
             { key: 'Ctrl+P', label: 'Print', onSelect: () => void printReceipt(), disabled: !lastSale },
             { key: 'F8', label: 'Credits', onSelect: () => openDialog('credits'), disabled: !cart },
             { key: 'F9', label: 'Find', onSelect: () => openDialog('find') },

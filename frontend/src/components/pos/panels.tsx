@@ -50,24 +50,34 @@ function quantity(value: number): string {
  * A short badge for any price that did not come from the regular price. A cashier challenged on a
  * price should be able to answer from the screen rather than from memory.
  */
+/**
+ * Why a line is priced the way it is, in words.
+ *
+ * These were "OVR", "L2", "L3", "U/I" — a legend somebody had to be taught and then remember, on
+ * the screen where a customer is waiting and the question is "why is this the price?". A cashier
+ * who cannot answer that either overrides it or calls a supervisor.
+ *
+ * Longer strings cost nothing here: the badge sizes to its text and these appear one at a time.
+ */
 const ORIGIN_LABELS: Partial<Record<PriceOrigin, string>> = {
-  Sale: 'SALE',
-  Break: 'QTY',
-  Bonus: 'BONUS',
-  Manual: 'OVR',
-  RandomWeight: 'WT',
-  ClientLevel: 'CLIENT',
-  Level2: 'L2',
-  Level3: 'L3',
-  Level4: 'L4',
+  Sale: 'On sale',
+  Break: 'Quantity break',
+  Bonus: 'Bonus',
+  Manual: 'Price overridden',
+  RandomWeight: 'By weight',
+  ClientLevel: 'Customer price',
+  Level2: 'Price level 2',
+  Level3: 'Price level 3',
+  Level4: 'Price level 4',
 };
 
+/** Where the line came from. "U/I" meant unidentified item — which nobody could have guessed. */
 const SOURCE_LABELS: Partial<Record<CartLine['source'], string>> = {
-  Rfid: 'RFID',
-  RandomWeight: 'WEIGHED',
-  Unknown: 'U/I',
-  TagAlong: 'AUTO',
-  Serial: 'SERIAL',
+  Rfid: 'RFID tag',
+  RandomWeight: 'Weighed',
+  Unknown: 'Unidentified item',
+  TagAlong: 'Added automatically',
+  Serial: 'Serial number',
 };
 
 /* ------------------------------------------------------------------ region ⑤ status bar */
@@ -121,11 +131,26 @@ export function StatusBar() {
           <span className="pos-badge shrink-0 text-warning">Recalled: {cart.heldName}</span>
         ) : null}
 
-        {/* Folded into this row rather than given a line of its own; it is a receipt, not an event. */}
+        {/*
+          The change owed is not a footnote.
+          
+          It was in this row in text-ink-faint — the faintest token in the system, inside a truncate
+          — which made the amount to hand back one of the least legible things on the till. It is
+          the number a cashier reads out loud while a customer holds their hand out, and it was
+          rendered smaller and paler than the station name.
+          
+          The sale number stays quiet, because that is a receipt. The change is a figure.
+        */}
         {lastSale ? (
-          <span className="truncate text-ink-faint" role="status">
-            Sale #{lastSale.transactionNumber} saved
-            {lastSale.changeGiven > 0 ? ` · change ${money(lastSale.changeGiven)}` : ''}
+          <span className="flex shrink-0 items-center gap-2" role="status">
+            <span className="truncate text-ink-muted">Sale #{lastSale.transactionNumber} saved</span>
+
+            {lastSale.changeGiven > 0 ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-positive-soft px-3 py-1 font-semibold text-positive-text">
+                Change
+                <span className="pos-amount text-body-lg">{money(lastSale.changeGiven)}</span>
+              </span>
+            ) : null}
           </span>
         ) : null}
       </div>

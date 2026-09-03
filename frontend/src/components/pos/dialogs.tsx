@@ -7,6 +7,7 @@ import { useAllHotkeyBindings, useHotkey, useHotkeyBindings, useHotkeyScope } fr
 import { money, useCurrencySymbol } from '@/components/pos/panels';
 import { parseTenderInput } from '@/lib/tender-input';
 import type { ProductVariant, SerializedUnit, SuspendedCart, TenderType } from '@/types/pos';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -31,19 +32,102 @@ function Shell({
   useHotkey('Escape', onClose, { scope: 'dialog', label: 'Close', hidden: true });
   useHotkey('F12', onClose, { scope: 'dialog', label: 'F12 Cancel' });
 
+  const panelRef = useRef<HTMLDivElement>(null);
+  const returnFocusTo = useRef<HTMLElement | null>(null);
+
+  /**
+   * Focus goes into the dialog and comes back out again.
+   *
+   * Neither happened. Opening one left focus on the button behind it, so a keyboard user tabbed
+   * through the sale underneath while the dialog covered it, and closing one dropped focus to the
+   * body — which on this screen means the scan box stops receiving the next barcode.
+   */
+  useEffect(() => {
+    returnFocusTo.current = document.activeElement as HTMLElement | null;
+
+    const first = panelRef.current?.querySelector<HTMLElement>(
+      'input:not([type="hidden"]), select, textarea, button, [tabindex]:not([tabindex="-1"])',
+    );
+
+    (first ?? panelRef.current)?.focus();
+
+    return () => {
+      returnFocusTo.current?.focus?.();
+    };
+  }, []);
+
+  /**
+   * Tab is kept inside.
+   *
+   * Radix does this for the back office's dialogs; the till's own shell is hand-rolled because it
+   * has to push a hotkey scope, and the focus trap never came with it.
+   */
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key !== 'Tab') return;
+
+    const focusable = [
+      ...(panelRef.current?.querySelectorAll<HTMLElement>(
+        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ) ?? []),
+    ];
+
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="presentation">
+    <div
+      className="fixed inset-0 z-overlay flex items-center justify-center bg-black/50 p-4"
+      role="presentation"
+      // Tapping outside closes it. The backdrop was inert, and with no close button either, a till
+      // without a keyboard had no way out of any of these fourteen dialogs at all.
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={cn('pos-panel w-full shadow-lg', wide ? 'max-w-3xl' : 'max-w-md')}
+        tabIndex={-1}
+        onKeyDown={onKeyDown}
+        className={cn('pos-panel w-full shadow-overlay', wide ? 'max-w-3xl' : 'max-w-md')}
       >
         <div className="pos-panel-header">
           <span>{title}</span>
-          {hint ? <span className="normal-case">{hint}</span> : null}
+
+          <span className="flex items-center gap-2">
+            {hint ? <span className="normal-case">{hint}</span> : null}
+
+            {/* A real target, on the screen most likely to be a touch panel. */}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="-m-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ink-muted transition-colors hover:bg-panel-hover hover:text-ink"
+            >
+              <X className="h-6 w-6" aria-hidden />
+            </button>
+          </span>
         </div>
+
         <div className="p-3">{children}</div>
+
+        {/* Said out loud, because both ways out are otherwise things you have to already know. */}
+        <p className="border-t border-subtle px-3 py-2 text-caption text-ink-muted">
+          Press Esc, or tap outside, to cancel.
+        </p>
       </div>
     </div>
   );
@@ -454,7 +538,10 @@ function AmountPrompt({
 
 /** F11 Special (guide p.11). */
 export function SpecialDialog() {
-  const { cart, closeDialog, setTaxOverride, suspend, openDialog, policy } = usePosStore();
+  const { cart, closeDialog, setTaxOverride, suspend, openDialog, policy, clearLines } = usePosStore();
+  const [confirmingClear, setConfirmingClear] = useState(false);
+
+  const lineCount = cart?.lines.length ?? 0;
 
   return (
     <Shell title="Special" onClose={closeDialog}>
@@ -473,6 +560,50 @@ export function SpecialDialog() {
           }
         />
         <MenuButton hotkey="F7" label="Unknown item" onSelect={() => openDialog('unknownItem')} />
+
+        {/*
+          Clearing the sale, which until now could not be done at all.
+          
+          `clearLines` has existed in the store and in the API the whole time and was wired to no
+          control and no key — so a cashier facing a sale that had gone wrong had to delete the lines
+          one at a time with F6, or suspend it and abandon it. It asks first, because it throws away
+          work and sits in a menu somebody is holding open mid-transaction.
+        */}
+        {confirmingClear ? (
+          <div className="rounded-md border border-negative/40 bg-negative-soft p-3">
+            <p className="text-body font-semibold text-negative-text">
+              Take {lineCount} line{lineCount === 1 ? '' : 's'} off this sale?
+            </p>
+            <p className="mt-1 text-body text-ink-muted">
+              The sale stays open and empty. Nothing is recorded and no stock moves.
+            </p>
+
+            <div className="mt-3 flex gap-2">
+              <button type="button" className="pos-button" onClick={() => setConfirmingClear(false)}>
+                Keep the sale
+              </button>
+              <button
+                type="button"
+                className="pos-button-danger"
+                onClick={() => {
+                  void clearLines();
+                  setConfirmingClear(false);
+                  closeDialog();
+                }}
+              >
+                Clear the sale
+              </button>
+            </div>
+          </div>
+        ) : (
+          <MenuButton
+            hotkey="F8"
+            label="Clear this sale"
+            disabled={lineCount === 0}
+            onSelect={() => setConfirmingClear(true)}
+          />
+        )}
+
         <MenuButton hotkey="F9" label="Keyboard shortcuts" onSelect={() => openDialog('cheatSheet')} />
       </div>
 
