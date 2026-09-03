@@ -10,6 +10,7 @@ import { mastersApi } from '@/lib/masters-api';
 import { PosApiError } from '@/lib/pos-api';
 import type { Address, ContactDetails, SupplierForm, SupplierRow, SupplierSort } from '@/types/masters';
 import { describeError } from '@/lib/errors';
+import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 /**
  * The id a form holds while it is creating rather than editing.
@@ -188,6 +189,7 @@ function SupplierFormPanel({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const confirmer = useConfirm();
   const [form, setForm] = useState<SupplierForm>(emptySupplier);
   const [busy, setBusy] = useState(false);
 
@@ -234,6 +236,19 @@ function SupplierFormPanel({
     } finally {
       setBusy(false);
     }
+  };
+
+  const askRemove = () => {
+    confirmer.ask(
+      {
+        subject: form.company || 'This supplier',
+        consequence:
+          'They are removed from the supplier list. Purchase orders already raised against '
+          + 'them are not affected.',
+        verb: 'Delete supplier',
+      },
+      remove,
+    );
   };
 
   const remove = async () => {
@@ -332,12 +347,20 @@ function SupplierFormPanel({
           </p>
 
           {canWrite ? (
-            <button type="button" className="pos-button text-negative" onClick={() => void remove()} disabled={busy}>
+            <button type="button" className="pos-button text-negative" onClick={askRemove} disabled={busy}>
               Delete
             </button>
           ) : null}
         </div>
       ) : null}
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
+      />
     </div>
   );
 }

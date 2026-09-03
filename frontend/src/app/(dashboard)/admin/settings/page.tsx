@@ -55,7 +55,7 @@ import type {
 import { PageHeader } from '@/components/shell/page-header';
 import { describeError } from '@/lib/errors';
 import { EmptyState } from '@/components/ui/states';
-import { PromptDialog } from '@/components/ui/confirm-dialog';
+import { ConfirmDialog, PromptDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 /**
  * The Setup screen (guide p.76–84).
@@ -1349,6 +1349,7 @@ function ReferenceList({
   };
 }) {
   const [naming, setNaming] = useState(false);
+  const confirmer = useConfirm();
   const [rows, setRows] = useState<ReferenceRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -1451,7 +1452,18 @@ function ReferenceList({
                       type="button"
                       className="pos-button-danger"
                       disabled={busy}
-                      onClick={() => void act(() => api.remove(row.id), 'Deleted')}
+                      onClick={() =>
+                        confirmer.ask(
+                          {
+                            subject: row.name,
+                            consequence:
+                              `Products still filed under this ${title.slice(0, -1).toLowerCase()} keep their `
+                              + 'history but stop being grouped by it.',
+                            verb: `Delete ${title.slice(0, -1).toLowerCase()}`,
+                          },
+                          () => act(() => api.remove(row.id), 'Deleted'),
+                        )
+                      }
                       // Refused by the server while items are still filed under it, rather than silently
                       // orphaning them — the count next to the name says whether that will happen.
                       title={row.usageCount > 0 ? `${row.usageCount} items are still filed under this` : undefined}

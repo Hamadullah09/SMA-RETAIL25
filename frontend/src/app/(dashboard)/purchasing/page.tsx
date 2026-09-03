@@ -20,6 +20,7 @@ import {
 import type { Product } from '@/types';
 import { describeError } from '@/lib/errors';
 import { DomainStatusBadge } from '@/components/ui/status-badge';
+import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 const selectClass =
   'pos-input';
@@ -270,6 +271,7 @@ function PurchaseOrderPanel({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const confirmer = useConfirm();
   const [order, setOrder] = useState<PurchaseOrderDetail | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -292,6 +294,19 @@ function PurchaseOrderPanel({
   const isDraft = order.status === 'Draft';
   const isReceivable = order.status === 'Posted' || order.status === 'PartiallyReceived';
   const canCancel = canWrite && !order.lines.some((l) => l.qtyReceived > 0) && (isDraft || order.status === 'Posted');
+
+  const askCancel = () => {
+    confirmer.ask(
+      {
+        subject: `PO-${order.poNumber} · ${order.supplierCompany}`,
+        consequence:
+          'The order is cancelled and the stock stops being expected. Only possible while nothing '
+          + 'on it has been received.',
+        verb: 'Cancel order',
+      },
+      cancel,
+    );
+  };
 
   const post = async () => {
     setBusy(true);
@@ -358,12 +373,20 @@ function PurchaseOrderPanel({
             type="button"
             className="pos-button text-negative"
             disabled={busy}
-            onClick={() => void cancel()}
+            onClick={askCancel}
           >
             Cancel order
           </button>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
+      />
     </div>
   );
 }

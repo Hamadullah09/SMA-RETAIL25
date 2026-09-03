@@ -17,6 +17,7 @@ import type {
 import type { Product } from '@/types';
 import { describeError } from '@/lib/errors';
 import { DomainStatusBadge } from '@/components/ui/status-badge';
+import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 type Tab = 'customerOrders' | 'layaways' | 'priceQuotes';
 
@@ -409,6 +410,7 @@ function CustomerOrderPanel({
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const confirmer = useConfirm();
   const [order, setOrder] = useState<CustomerOrder | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -440,6 +442,17 @@ function CustomerOrderPanel({
     }
   };
 
+  const askCancel = () => {
+    confirmer.ask(
+      {
+        subject: `Order ${order.orderNumber}`,
+        consequence:
+          "The order is cancelled. Anything already taken as a deposit stays on the customer's account.",
+        verb: 'Cancel order',
+      },
+      cancel,
+    );
+  };
   const cancel = async () => {
     setBusy(true);
     try {
@@ -484,9 +497,17 @@ function CustomerOrderPanel({
       {canAct ? (
         <div className="mb-6 flex gap-2">
           <button type="button" className="pos-button" disabled={busy} onClick={() => void fill()}>Fill from stock</button>
-          <button type="button" className="pos-button text-negative" disabled={busy} onClick={() => void cancel()}>Cancel order</button>
+          <button type="button" className="pos-button text-negative" disabled={busy} onClick={askCancel}>Cancel order</button>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
+      />
     </div>
   );
 }
@@ -617,6 +638,7 @@ function LayawayPanel({
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const confirmer = useConfirm();
   const [layaway, setLayaway] = useState<Layaway | null>(null);
   const [amount, setAmount] = useState(0);
   const [tenderTypeId, setTenderTypeId] = useState<number | ''>('');
@@ -660,6 +682,18 @@ function LayawayPanel({
     }
   };
 
+  const askCancel = () => {
+    confirmer.ask(
+      {
+        subject: `Layaway ${layaway.layawayNumber}`,
+        consequence:
+          "The layaway is cancelled and the goods go back into stock. Payments already made stay on "
+          + "the customer's account.",
+        verb: 'Cancel layaway',
+      },
+      cancel,
+    );
+  };
   const cancel = async () => {
     setBusy(true);
     try {
@@ -717,10 +751,18 @@ function LayawayPanel({
             </Field>
           </FormSection>
           <div className="mb-6">
-            <button type="button" className="pos-button text-negative" disabled={busy} onClick={() => void cancel()}>Cancel layaway</button>
+            <button type="button" className="pos-button text-negative" disabled={busy} onClick={askCancel}>Cancel layaway</button>
           </div>
         </>
       ) : null}
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
+      />
     </div>
   );
 }
@@ -855,6 +897,7 @@ function PriceQuotePanel({
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
+  const confirmer = useConfirm();
   const [quote, setQuote] = useState<PriceQuote | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -886,6 +929,16 @@ function PriceQuotePanel({
     }
   };
 
+  const askCancel = () => {
+    confirmer.ask(
+      {
+        subject: `Quote ${quote.quoteNumber}`,
+        consequence: 'The quote is cancelled. It stays on the list as cancelled rather than disappearing.',
+        verb: 'Cancel quote',
+      },
+      cancel,
+    );
+  };
   const cancel = async () => {
     setBusy(true);
     try {
@@ -927,9 +980,17 @@ function PriceQuotePanel({
       {canAct ? (
         <div className="mb-6 flex gap-2">
           <button type="button" className="pos-button" disabled={busy} onClick={() => void convert()}>Convert to sale</button>
-          <button type="button" className="pos-button text-negative" disabled={busy} onClick={() => void cancel()}>Cancel quote</button>
+          <button type="button" className="pos-button text-negative" disabled={busy} onClick={askCancel}>Cancel quote</button>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
+      />
     </div>
   );
 }

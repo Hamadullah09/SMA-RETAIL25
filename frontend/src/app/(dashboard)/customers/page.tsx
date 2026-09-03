@@ -20,6 +20,7 @@ import { PosApiError } from '@/lib/pos-api';
 import { formatCurrency } from '@/lib/utils';
 import type { Address, ContactDetails, CustomerForm, CustomerRow, CustomerSort } from '@/types/masters';
 import { describeError } from '@/lib/errors';
+import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 /**
  * The id a form holds while it is creating rather than editing.
@@ -283,6 +284,7 @@ function CustomerFormPanel({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const confirmer = useConfirm();
   const [form, setForm] = useState<CustomerForm>(emptyCustomer);
   const [busy, setBusy] = useState(false);
 
@@ -347,6 +349,19 @@ function CustomerFormPanel({
     } finally {
       setBusy(false);
     }
+  };
+
+  const askRemove = () => {
+    confirmer.ask(
+      {
+        subject: [form.firstName, form.lastName].filter(Boolean).join(' ') || 'This customer',
+        consequence:
+          'They are removed from the list along with their history on this screen. It can be '
+          + 'brought back from Undelete items.',
+        verb: 'Delete customer',
+      },
+      remove,
+    );
   };
 
   const remove = async () => {
@@ -499,11 +514,19 @@ function CustomerFormPanel({
 
       {canDelete && customerId ? (
         <div className="mb-6">
-          <button type="button" className="pos-button text-negative" onClick={() => void remove()} disabled={busy}>
+          <button type="button" className="pos-button text-negative" onClick={askRemove} disabled={busy}>
             Delete
           </button>
         </div>
       ) : null}
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
+      />
     </div>
   );
 }

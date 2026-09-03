@@ -21,7 +21,7 @@ import type {
   TenderSettings,
 } from '@/types/masters';
 import { describeError } from '@/lib/errors';
-import { PromptDialog } from '@/components/ui/confirm-dialog';
+import { ConfirmDialog, PromptDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 const selectClass =
   'pos-input';
@@ -534,6 +534,7 @@ function StatementPanel({
   const [statement, setStatement] = useState<CustomerStatement | null>(null);
   /** Which invoice is being refunded, and the ceiling for the amount. Null when the dialog is shut. */
   const [refunding, setRefunding] = useState<{ invoiceId: number; invoiceTotal: number } | null>(null);
+  const confirmer = useConfirm();
   const [amount, setAmount] = useState(0);
   const [tenderTypeId, setTenderTypeId] = useState<number | ''>('');
   const [busy, setBusy] = useState(false);
@@ -582,6 +583,23 @@ function StatementPanel({
     } finally {
       setBusy(false);
     }
+  };
+
+  /**
+   * Voiding cancels an invoice that has already been issued, which is an accounting event rather
+   * than an edit — it was one unguarded click.
+   */
+  const askVoid = (invoiceId: number, invoiceNumber: number) => {
+    confirmer.ask(
+      {
+        subject: `Invoice #${invoiceNumber}`,
+        consequence:
+          'The invoice is cancelled and the balance comes off the account. It stays on the ledger '
+          + 'as a voided entry rather than disappearing.',
+        verb: 'Void invoice',
+      },
+      () => voidInvoice(invoiceId),
+    );
   };
 
   const voidInvoice = async (invoiceId: number) => {
@@ -696,7 +714,7 @@ function StatementPanel({
                 canVoid={canVoid}
                 canRefund={canRefund}
                 busy={busy}
-                onVoid={() => void voidInvoice(invoice.id)}
+                onVoid={() => askVoid(invoice.id, invoice.invoiceNumber)}
                 onRefund={() => askRefund(invoice.id, invoice.invoiceTotal)}
               />
             ))}

@@ -11,6 +11,7 @@ import { PosApiError } from '@/lib/pos-api';
 import { formatCurrency , recordIdFrom} from '@/lib/utils';
 import type { StockCount, StockCountRow, StockCountStatus } from '@/types/masters';
 import { describeError } from '@/lib/errors';
+import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 const filterClass =
   'pos-input';
@@ -184,6 +185,36 @@ function CountPanel({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const confirmer = useConfirm();
+
+  const askPost = () => {
+    if (!count) return;
+
+    confirmer.ask(
+      {
+        subject: `Count ${count.countNumber}`,
+        consequence:
+          'Every counted line is written to the stock ledger, so what is on the shelf becomes '
+          + 'what the system believes. Uncounted lines are left alone. This cannot be undone.',
+        verb: 'Post count',
+      },
+      () => run(() => mastersApi.stockCounts.post(count.id, reason || undefined), 'Posted'),
+    );
+  };
+
+  const askCancelCount = () => {
+    if (!count) return;
+
+    confirmer.ask(
+      {
+        subject: `Count ${count.countNumber}`,
+        consequence: 'The count is abandoned and nothing is written to stock.',
+        verb: 'Cancel count',
+      },
+      () => run(() => mastersApi.stockCounts.cancel(count.id), 'Cancelled'),
+    );
+  };
+
   const [count, setCount] = useState<StockCount | null>(null);
   const [varianceOnly, setVarianceOnly] = useState(true);
   const [csv, setCsv] = useState('');
@@ -395,7 +426,7 @@ function CountPanel({
               type="button"
               className="pos-button-primary"
               disabled={busy || count.lineCount === 0}
-              onClick={() => void run(() => mastersApi.stockCounts.post(count.id, reason || undefined), 'Posted')}
+              onClick={askPost}
             >
               Post — this moves stock
             </button>
@@ -403,7 +434,7 @@ function CountPanel({
               type="button"
               className="pos-button text-negative"
               disabled={busy}
-              onClick={() => void run(() => mastersApi.stockCounts.cancel(count.id), 'Cancelled')}
+              onClick={askCancelCount}
             >
               Cancel the count
             </button>
@@ -417,6 +448,14 @@ function CountPanel({
           Nothing has moved yet.
         </p>
       ) : null}
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
+      />
     </div>
   );
 }

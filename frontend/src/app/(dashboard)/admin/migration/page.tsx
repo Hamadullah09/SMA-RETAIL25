@@ -452,7 +452,18 @@ function BatchPanel({
                 type="button"
                 className="pos-button-danger"
                 disabled={busy || batch.stage === 'Imported' || batch.stage === 'Cancelled'}
-                onClick={() => void run(() => mastersApi.migration.cancel(batch.id), 'Cancelled')}
+                onClick={() =>
+                  confirmer.ask(
+                    {
+                      subject: batch.sourceFileName,
+                      consequence:
+                        'The staged rows for this file are thrown away. Anything already imported '
+                        + 'from it is not affected.',
+                      verb: 'Discard staged rows',
+                    },
+                    () => run(() => mastersApi.migration.cancel(batch.id), 'Cancelled'),
+                  )
+                }
                 title="Throws away the staged rows for this file. Nothing that was already imported is affected."
               >
                 <Trash2 className="h-3.5 w-3.5" aria-hidden />

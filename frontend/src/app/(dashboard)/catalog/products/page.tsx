@@ -34,7 +34,7 @@ import {
 } from '@/types/masters';
 import { describeError } from '@/lib/errors';
 import { StockBadge } from '@/components/ui/status-badge';
-import { PromptDialog } from '@/components/ui/confirm-dialog';
+import { ConfirmDialog, PromptDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 /**
  * The id a form holds while it is creating rather than editing.
@@ -438,6 +438,7 @@ function ProductFormPanel({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const confirmer = useConfirm();
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [busy, setBusy] = useState(false);
 
@@ -484,6 +485,19 @@ function ProductFormPanel({
     } finally {
       setBusy(false);
     }
+  };
+
+  const askRemove = () => {
+    confirmer.ask(
+      {
+        subject: form.name ? `${form.name} (${form.stockCode})` : form.stockCode || 'This product',
+        consequence:
+          'It stops appearing at the till and in the catalogue. Sales already rung against it '
+          + 'keep their history, and it can be brought back from Undelete items.',
+        verb: 'Delete product',
+      },
+      remove,
+    );
   };
 
   const remove = async () => {
@@ -1084,7 +1098,7 @@ function ProductFormPanel({
               <button
                 type="button"
                 className="pos-button text-negative"
-                onClick={() => void remove()}
+                onClick={askRemove}
                 disabled={busy}
               >
                 Delete
@@ -1115,6 +1129,14 @@ function ProductFormPanel({
           await clone(code);
           setCloning(false);
         }}
+      />
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
       />
     </div>
   );

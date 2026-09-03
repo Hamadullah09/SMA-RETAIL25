@@ -12,6 +12,7 @@ import { PosApiError } from '@/lib/pos-api';
 import { formatCurrency } from '@/lib/utils';
 import type { Transfer, TransferRow, TransferStatus } from '@/types/masters';
 import { describeError } from '@/lib/errors';
+import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 const filterClass =
   'pos-input';
@@ -213,6 +214,36 @@ function TransferPanel({
   onClose: () => void;
   onChanged: () => void;
 }) {
+  const confirmer = useConfirm();
+
+  const askShip = () => {
+    if (!transfer) return;
+
+    confirmer.ask(
+      {
+        subject: `Transfer ${transfer.transferNumber}`,
+        consequence:
+          'The stock comes off the shelf here straight away and is in transit until the other '
+          + 'branch receives it.',
+        verb: 'Ship transfer',
+      },
+      () => run(() => mastersApi.transfers.ship(transfer.id), 'Shipped'),
+    );
+  };
+
+  const askCancelTransfer = () => {
+    if (!transfer) return;
+
+    confirmer.ask(
+      {
+        subject: `Transfer ${transfer.transferNumber}`,
+        consequence: 'The transfer is abandoned. Nothing moves.',
+        verb: 'Cancel transfer',
+      },
+      () => run(() => mastersApi.transfers.cancel(transfer.id), 'Cancelled'),
+    );
+  };
+
   const [transfer, setTransfer] = useState<Transfer | null>(null);
   const [busy, setBusy] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -397,7 +428,7 @@ function TransferPanel({
             type="button"
             className="pos-button-primary"
             disabled={busy || transfer.lines.length === 0}
-            onClick={() => void run(() => mastersApi.transfers.ship(transfer.id), 'Shipped')}
+            onClick={askShip}
           >
             Ship — take the stock off the shelf
           </button>
@@ -419,7 +450,7 @@ function TransferPanel({
             type="button"
             className="pos-button text-negative"
             disabled={busy}
-            onClick={() => void run(() => mastersApi.transfers.cancel(transfer.id), 'Cancelled')}
+            onClick={askCancelTransfer}
           >
             Cancel
           </button>
@@ -431,6 +462,14 @@ function TransferPanel({
           {transfer.toLocationName} books this in when the box arrives there.
         </p>
       ) : null}
+
+      <ConfirmDialog
+        request={confirmer.request}
+        open={confirmer.open}
+        onOpenChange={confirmer.setOpen}
+        onConfirm={confirmer.confirm}
+        busy={confirmer.busy}
+      />
     </div>
   );
 }
