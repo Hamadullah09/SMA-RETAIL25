@@ -1,6 +1,15 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { connectionCopy, connectionStateFrom } from '@/lib/connection-state';
@@ -51,9 +60,13 @@ export function BrowseFormShell({
       <div
         className={cn(
           'grid min-h-0 flex-1 gap-3 p-4',
-          // The form only takes its own column once there is room for both. Below that it stacks,
-          // rather than squeezing a 28rem panel into whatever is left.
-          form ? 'grid-cols-1 xl:grid-cols-[minmax(0,1fr)_28rem]' : 'grid-cols-1',
+          // Side by side from `lg`, not `xl`.
+          //
+          // At xl the split only appeared above 1280px, so every laptop at 1024–1280 — which is
+          // most of them — stacked a 28rem form under the grid and pushed it off the bottom of the
+          // screen. Opening a row appeared to do nothing until you scrolled. 1024 has room for a
+          // 28rem panel beside a grid; below it, stacking is right.
+          form ? 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_28rem]' : 'grid-cols-1',
         )}
       >
         <div className="min-h-0">{grid}</div>
@@ -61,7 +74,15 @@ export function BrowseFormShell({
       </div>
 
       {status ? (
-        <div className="border-t border-subtle px-4 py-2 text-label text-ink-muted">{status}</div>
+        // A live region: this line is where "100 loaded of more" and "12 rows" appear, and a change
+        // to it after a filter or a Load more was announced to nobody.
+        <div
+          role="status"
+          aria-live="polite"
+          className="border-t border-subtle px-page py-2 text-label text-ink-muted"
+        >
+          {status}
+        </div>
       ) : null}
     </div>
   );
@@ -102,12 +123,43 @@ export function Field({
   children: ReactNode;
   hint?: string;
 }) {
+  /**
+   * A label beside its control, not wrapped around it.
+   *
+   * Wrapping worked for a bare input and corrupted everything else. A `<label>` takes its accessible
+   * name from all the text inside it, so a field wrapping a password box with a "Show password"
+   * button announced "Password Show password", and one wrapping a record picker announced the label
+   * plus every option in the list. The control's own name was buried in the middle of it.
+   *
+   * The auth form has had this right all along — `AuthField` puts the label beside the control and
+   * points at it — so this is that pattern, and the two are now the same shape.
+   */
+  const id = useId();
+  const hintId = hint ? `${id}-hint` : undefined;
+
   return (
-    <label className="block text-body">
-      <span className="mb-0.5 block text-label text-ink-muted">{label}</span>
-      {children}
-      {hint ? <span className="mt-0.5 block text-caption text-ink-muted">{hint}</span> : null}
-    </label>
+    <div className="text-body">
+      <label htmlFor={id} className="mb-0.5 block text-label text-ink-muted">
+        {label}
+      </label>
+
+      {/*
+        The id and the description are handed to whatever control is inside, so the association
+        survives the control being a picker, a password box or a plain input.
+      */}
+      {isValidElement(children)
+        ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+            id: (children.props as { id?: string }).id ?? id,
+            'aria-describedby': (children.props as { 'aria-describedby'?: string })['aria-describedby'] ?? hintId,
+          })
+        : children}
+
+      {hint ? (
+        <p id={hintId} className="mt-0.5 text-caption text-ink-muted">
+          {hint}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
