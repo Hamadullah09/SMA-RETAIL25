@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROUTES, NAV_SECTIONS, PALETTE_ROUTES, childrenOf } from './routes';
 import { activeNavHref, breadcrumbFor, helpTopicFor, matchRoute } from './route-match';
+import { HELP_TOPICS } from './help-content';
 
 /**
  * The registry against the file tree.
@@ -122,16 +123,25 @@ describe('matching a pathname', () => {
 
 describe('help resolution', () => {
   it.each([
-    ['/pos', '/help/pos'],
-    ['/inventory', '/help/inventory'],
-    ['/catalog/products', '/help/products'],
-    ['/inventory/counts', '/help/counts'],
-  ])('%s opens %s', (path, expected) => {
+    ['/pos', 'pos'],
+    ['/inventory', 'inventory'],
+    ['/catalog/products', 'products'],
+    ['/inventory/counts', 'counts'],
+  ])('%s opens the %s guide', (path, expected) => {
     expect(helpTopicFor(path)).toBe(expected);
   });
 
-  it('falls back to the index rather than opening the wrong guide', () => {
-    expect(helpTopicFor('/nowhere')).toBe('/help');
+  it('says nothing rather than opening the wrong guide', () => {
+    expect(helpTopicFor('/nowhere')).toBeUndefined();
+  });
+
+  it('has a written guide for every route that names one', () => {
+    // The registry and the guides are two lists that have to agree. When they do not, the failure
+    // is a Help button that opens "this guide is still being written" — which is exactly the thing
+    // somebody stuck on that screen does not need.
+    const named = [...new Set(ROUTES.map((route) => route.helpTopic).filter(Boolean))];
+
+    expect(named.filter((slug) => !(slug! in HELP_TOPICS))).toEqual([]);
   });
 });
 

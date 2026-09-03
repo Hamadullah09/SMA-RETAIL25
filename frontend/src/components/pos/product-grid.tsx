@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePosStore } from '@/stores/pos-store';
 import { posApi } from '@/lib/pos-api';
+import { StockBadge } from '@/components/ui/status-badge';
 import type { PosGridGroup, PosGridItem, PosGridPage } from '@/types/pos';
 import { cn } from '@/lib/utils';
 import { money } from '@/components/pos/panels';
@@ -349,9 +350,13 @@ function TileView({
             <Thumbnail item={item} />
             <span className="flex flex-1 flex-col gap-0.5 p-2">
               <span className="line-clamp-2 text-label font-medium leading-tight text-ink">{item.name}</span>
-              <span className="mt-auto flex items-baseline justify-between gap-1">
+              <span className="mt-auto flex flex-col gap-1">
                 <span className="text-body font-medium tabular-nums text-ink">{money(item.regularPrice)}</span>
-                <StockPip onHand={item.onHand} />
+                {/* Only the exception is drawn. A till grid that labelled all forty tiles "In stock"
+                    would be forty labels nobody reads, and the one that matters would be among
+                    them. Its own line, because the words do not fit beside a price at this size and
+                    a truncated stock warning is worse than no warning. */}
+                {item.onHand <= 0 ? <StockBadge onHand={item.onHand} /> : null}
               </span>
             </span>
           </button>
@@ -409,7 +414,7 @@ function ListView({
             <span data-testid="product-name" className="min-w-0 flex-1 truncate text-body text-ink">
               {item.name}
             </span>
-            <StockPip onHand={item.onHand} />
+            {item.onHand <= 0 ? <StockBadge onHand={item.onHand} /> : null}
             <span className="w-20 shrink-0 text-right text-body font-medium tabular-nums text-ink">
               {money(item.regularPrice)}
             </span>
@@ -447,19 +452,15 @@ function Thumbnail({ item }: { item: PosGridItem }) {
     <span
       aria-hidden="true"
       className="flex aspect-square w-full items-center justify-center text-h3 font-semibold uppercase tracking-tight text-white"
-      style={{ backgroundColor: `hsl(${hueOf(item.stockCode)} 42% 42%)` }}
+      // 32%, not 42%.
+      //
+      // White on hsl(h 42% 42%) fails 4.5:1 on a hundred and sixty-five of the three hundred and
+      // sixty hues, worst 3.04:1 around yellow — and which items got an unreadable tile depended on
+      // the hash of their stock code, so it looked like nothing was wrong with any particular one.
+      // At 32% the worst hue is 4.91:1 and none fail.
+      style={{ backgroundColor: `hsl(${hueOf(item.stockCode)} 42% 32%)` }}
     >
       {monogram(item.name)}
-    </span>
-  );
-}
-
-function StockPip({ onHand }: { onHand: number }) {
-  if (onHand > 0) return null;
-
-  return (
-    <span className="pos-badge bg-warning/15 text-warning" title="None in stock">
-      0
     </span>
   );
 }

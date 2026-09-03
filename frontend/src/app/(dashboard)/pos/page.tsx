@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { HotkeyProvider, useHotkey } from '@/lib/hotkeys';
+import { useHotkey } from '@/lib/hotkeys';
+import { useHelp } from '@/components/help/help-overlay';
 import { usePosStore } from '@/stores/pos-store';
 import { posApi, PosApiError } from '@/lib/pos-api';
 import { printPdf } from '@/lib/print';
@@ -103,18 +104,18 @@ async function resolveStation(): Promise<number> {
 /** The location still comes from the build: one deployment serves one shop. */
 const CONFIGURED = Number.isFinite(LOCATION_ID) && LOCATION_ID > 0;
 
-export default function PosPage() {
-  return (
-    <HotkeyProvider>
-      <PosScreen />
-    </HotkeyProvider>
-  );
-}
-
-function PosScreen() {
+/**
+ * The registry is no longer opened here.
+ *
+ * It used to be, and a second `HotkeyProvider` nested inside the app's would shadow it — the till's
+ * keys would register in the inner one and Ctrl+H, bound in the outer, would never see the scope
+ * the till had pushed. One registry, mounted once, in `providers.tsx`.
+ */
+export default function PosScreen() {
   const { cart, dialog, lastSale, stationId, initialise, teardown, openDialog, removeLastLine } = usePosStore();
 
   const scanRef = useRef<HTMLInputElement>(null);
+  const help = useHelp();
 
   /**
    * Whether the product picker is showing. A till that mostly scans wants the room for the cart; a
@@ -335,6 +336,16 @@ function PosScreen() {
             { key: 'F9', label: 'Find', onSelect: () => openDialog('find') },
             { key: 'F10', label: 'Drawer', onSelect: () => openDialog('drawer') },
             { key: 'F11', label: 'More', onSelect: () => openDialog('special') },
+            /*
+              Last, and the only entry here that is not about the sale.
+              
+              The till is the one screen in this application with no page header, so it was also the
+              one screen with no Help button — on the machine used by whoever has been in the job the
+              shortest time. It opens the panel rather than the page: navigating away from `/pos`
+              tears down the RFID connection and drops the cart, so a link here would mean the price
+              of asking a question was the customer's basket.
+            */
+            { key: 'Ctrl+H', label: 'Help', onSelect: () => help.open() },
           ]}
         />
       </div>

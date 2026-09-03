@@ -501,9 +501,21 @@
    * legible minimum and moves the overflow onto a second line, which costs one row of height and
    * saves every label.
    */
+  /**
+   * Each key as wide as its own words, not as wide as the longest one's.
+   *
+   * This was an equal-column grid at `minmax(7rem, 1fr)`, which meant every key in the row was
+   * sized by the widest entry in it — so "Ctrl+G Show items" set the requirement for all eleven,
+   * and then truncated anyway. Measured: "Show items" read as "Sho…" at every width below 1920,
+   * and the row broke onto a second line below 1366, taking a line of the item list with it on
+   * exactly the 1280 panels a counter tends to have.
+   *
+   * Flex with `min-width: max-content` inverts that. A four-character F-key takes four characters
+   * of room and gives the rest back, so the three Ctrl chords get the width they need and nothing
+   * truncates. `flex: 1 1 auto` still spreads the slack, so the buttons stay wide targets.
+   */
   .pos-keybar {
-    @apply grid gap-1;
-    grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+    @apply flex flex-wrap gap-1;
   }
 
   /**
@@ -515,7 +527,8 @@
    * eye lands on the key first.
    */
   .pos-keybar > button {
-    @apply flex min-w-0 items-center justify-center gap-1.5 rounded-sm px-2 py-1.5 text-label font-normal text-ink-muted transition-colors duration-150;
+    @apply flex flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 text-label font-normal text-ink-muted transition-colors duration-150;
+    min-width: max-content;
     min-height: var(--control-height);
   }
 
@@ -549,6 +562,27 @@
    * ("offline"), gains weight and gains a filled ground. Colour is the last of the four cues, not
    * the only one.
    */
+  /**
+   * A small control that is still a control.
+   *
+   * The three buttons on the tag panel - Clear, Start/Stop, Sound - were 20 to 24 pixels tall, and
+   * they are the ones a cashier reaches for at exactly the wrong moment: a tag will not read, a
+   * customer's coat is drifting into the field, the queue is watching. Twenty pixels is a thing to
+   * aim at rather than press, and the brief's floor is forty-eight.
+   *
+   * They keep their quiet look - this is a panel header, not a toolbar - and gain the height,
+   * because a target's size and its loudness are separate decisions and only one of them is
+   * negotiable.
+   */
+  .pos-chip {
+    @apply inline-flex flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-transparent px-3 text-label font-medium transition-colors;
+    min-height: var(--control-height);
+  }
+
+  .pos-chip:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+
   .pos-health {
     @apply inline-flex items-center gap-1.5 rounded-full border border-transparent px-2 py-0.5 text-caption font-medium text-ink-muted;
   }
@@ -556,6 +590,18 @@
   .pos-health[data-state='down'] {
     @apply border-negative/45 font-semibold text-negative;
     background-color: oklch(var(--negative) / 0.12);
+  }
+
+  /**
+   * Not yet answered — which is not the same as broken.
+   *
+   * Deliberately the quietest of the three: a dotted edge and muted ink, no fill and no alarm hue.
+   * "We have not heard back" should not look like "it is dead", because a badge that cries wolf on
+   * every page load is a badge a cashier stops reading by the end of the first week — and then the
+   * real failure goes past unnoticed.
+   */
+  .pos-health[data-state='unknown'] {
+    @apply border-dashed border-subtle text-ink-muted;
   }
 
   /**

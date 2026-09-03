@@ -91,7 +91,7 @@ const SOURCE_LABELS: Partial<Record<CartLine['source'], string>> = {
  * four things a cashier reads as one is what made the old screen look like a settings page.
  */
 export function StatusBar() {
-  const { policy, connected, readerOnline, peripherals, drawer, cart, lastSale } = usePosStore();
+  const { policy, connected, hasConnected, readerOnline, peripherals, drawer, cart, lastSale } = usePosStore();
 
   return (
     <header className="flex items-center justify-between gap-3 px-2.5 py-1 text-label">
@@ -156,10 +156,18 @@ export function StatusBar() {
       </div>
 
       <div className="flex shrink-0 items-center gap-1" aria-label="Peripheral status">
-        <Health label="Server" icon={Server} ok={connected} />
-        <Health label="RFID" icon={Radio} ok={readerOnline} />
-        <Health label="Printer" icon={Printer} ok={peripherals?.printerOnline ?? false} />
-        <Health label="Scale" icon={Scale} ok={peripherals?.scaleOnline ?? false} />
+        {/*
+          The same three-way distinction the connection banner already makes: opening for the first
+          time is not the same as having dropped. This badge used to read `connected`, which is
+          false during the handshake — so every cold start showed a red "Server offline" for the
+          second before it went green, to a cashier with a customer in front of them.
+        */}
+        <Health label="Server" icon={Server} ok={connected ? true : hasConnected ? false : undefined} />
+        {/* `peripherals` is null until the first status lands, and that is what these pass on —
+            "not yet known" rather than a fabricated `false`. */}
+        <Health label="RFID" icon={Radio} ok={peripherals === null ? undefined : readerOnline} />
+        <Health label="Printer" icon={Printer} ok={peripherals?.printerOnline} />
+        <Health label="Scale" icon={Scale} ok={peripherals?.scaleOnline} />
       </div>
     </header>
   );
@@ -171,6 +179,13 @@ export function StatusBar() {
  * Colour is the cue a till can least afford to lean on. These four sit under fluorescent light on a
  * cheap panel seen at an angle, and roughly one man in twelve cannot separate the green from the
  * red that used to be the *only* difference between a working printer and a dead one.
+ *
+ * Three states, not two. `ok` was a boolean and the call sites read `peripherals?.printerOnline ??
+ * false`, so for the second or so before the first status arrives — every single time the till is
+ * opened — the printer and the scale announced themselves as *offline*. They were not offline;
+ * nobody had asked them yet. A badge that raises a false alarm on every page load is one a cashier
+ * learns to ignore, and it is the same badge that has to be believed when the printer really has
+ * died mid-queue. `undefined` now means "no answer yet" and says so quietly.
  */
 function Health({
   label,
@@ -178,21 +193,28 @@ function Health({
   icon: Icon,
 }: {
   label: string;
-  ok: boolean;
+  /** `undefined` until the first status arrives. Not the same as `false`. */
+  ok: boolean | undefined;
   icon: typeof Server;
 }) {
+  const state = ok === undefined ? 'unknown' : ok ? 'up' : 'down';
+  const said = { up: `${label} online`, down: `${label} offline`, unknown: `${label} — checking` }[state];
+
   return (
-    <span className="pos-health" data-state={ok ? 'up' : 'down'} title={ok ? `${label} online` : `${label} offline`}>
-      {ok ? (
-        <Icon className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
-      ) : (
+    <span className="pos-health" data-state={state} title={said}>
+      {state === 'down' ? (
         <TriangleAlert className="h-5 w-5 shrink-0" aria-hidden />
+      ) : (
+        <Icon className={cn('h-5 w-5 shrink-0', state === 'up' ? 'opacity-70' : 'opacity-45')} aria-hidden />
       )}
-      <span className="sr-only">{ok ? `${label} online` : `${label} offline`}</span>
+
+      {/* The whole sentence to a screen reader, not the label and a colour. */}
+      <span className="sr-only">{said}</span>
       <span aria-hidden>{label}</span>
-      {ok ? null : (
+
+      {state === 'up' ? null : (
         <span aria-hidden className="opacity-80">
-          offline
+          {state === 'down' ? 'offline' : 'checking'}
         </span>
       )}
     </span>
@@ -672,13 +694,19 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
         disabled={busy}
       />
 
+      {/*
+        A failed scan is the most common thing that goes wrong at a till, and it was reported in an
+        11px badge at the end of the row — the smallest text on the screen, for the message a
+        cashier most needs to read with a customer waiting. It is a banner at reading size now, in
+        the negative tone, with the glyph beside it.
+      */}
       {error ? (
         <span
-          className="pos-badge shrink-0 font-semibold text-negative"
+          className="flex min-w-0 shrink items-center gap-2 rounded-md bg-negative-soft px-3 py-1.5 text-body-lg font-semibold text-negative-text"
           role="alert"
         >
-          <TriangleAlert className="h-5 w-5 shrink-0" aria-hidden />
-          {error.message}
+          <TriangleAlert className="h-6 w-6 shrink-0" aria-hidden />
+          <span className="min-w-0">{error.message}</span>
         </span>
       ) : null}
     </form>
@@ -705,7 +733,9 @@ export function FunctionKeyBar({ keys }: { keys: FunctionKey[] }) {
             what happened when the weight was first set here and appeared to change nothing.
           */}
           <kbd className="pos-kbd shrink-0">{entry.key}</kbd>
-          <span className="truncate">{entry.label}</span>
+          {/* Not truncated. The bar sizes itself to these words now — a key bar whose whole job is
+              to say what a key does has failed the moment it says "Sho…". */}
+          <span>{entry.label}</span>
         </button>
       ))}
     </nav>

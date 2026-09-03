@@ -3,8 +3,9 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronRight, CircleHelp } from 'lucide-react';
-import { breadcrumbFor, helpTopicFor } from '@/lib/route-match';
+import { ChevronRight } from 'lucide-react';
+import { HelpButton } from '@/components/help/help-button';
+import { breadcrumbFor } from '@/lib/route-match';
 
 /**
  * The top of every screen, in one place.
@@ -75,17 +76,7 @@ export function PageHeader({
       <div className="flex flex-wrap items-center gap-2">
         {actions}
 
-        {help ? (
-          <Link
-            href={helpTopicFor(pathname)}
-            className="pos-button"
-            // Named rather than an icon alone. "?" is only obvious to somebody who already knows.
-            title="How this screen works"
-          >
-            <CircleHelp className="h-5 w-5 shrink-0" aria-hidden />
-            Help
-          </Link>
-        ) : null}
+        {help ? <HelpButton /> : null}
       </div>
     </header>
   );

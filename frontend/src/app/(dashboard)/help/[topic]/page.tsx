@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { PageHeader } from '@/components/shell/page-header';
+import { HelpArticle } from '@/components/help/help-article';
 import { helpTopic } from '@/lib/help-content';
 
 /**
@@ -21,45 +22,10 @@ export default function HelpTopicPage({ params }: { params: { topic: string } })
       <PageHeader title={topic.title} description={topic.summary} help={false} />
 
       <div className="min-h-0 flex-1 overflow-auto px-page py-panel">
+        {/* A long measure, not the full width of a 1920px monitor. Prose set across 200 characters
+            is prose whose next line the eye cannot find. */}
         <div className="max-w-2xl space-y-8">
-          {topic.sections.map((section) => (
-            <section key={section.heading} className="space-y-3">
-              <h2 className="text-h2 font-semibold">{section.heading}</h2>
-
-              {section.body?.map((paragraph) => (
-                <p key={paragraph} className="text-body leading-relaxed text-ink">
-                  {paragraph}
-                </p>
-              ))}
-
-              {section.steps ? (
-                <ol className="space-y-2 text-body leading-relaxed text-ink">
-                  {section.steps.map((step, index) => (
-                    <li key={step} className="flex gap-3">
-                      <span
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-accent-soft text-label font-semibold text-accent-text"
-                        aria-hidden
-                      >
-                        {index + 1}
-                      </span>
-                      <span>{step}</span>
-                    </li>
-                  ))}
-                </ol>
-              ) : null}
-
-              {section.definitions ? (
-                <dl className="grid gap-x-6 gap-y-2 text-body sm:grid-cols-[minmax(8rem,auto)_1fr]">
-                  {section.definitions.map((entry) => (
-                    <div key={entry.term} className="contents">
-                      <dt className="font-semibold text-ink">{entry.term}</dt>
-                      <dd className="text-ink-muted">{entry.meaning}</dd>
-                    </div>
-                  ))}
-                </dl>
-              ) : null}
-            </section>
-          ))}
+          <HelpArticle topic={topic} />
 
           <Link href="/help" className="pos-button">
             <ArrowLeft className="h-5 w-5" aria-hidden />

@@ -157,23 +157,33 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
         </span>
       </header>
 
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-subtle bg-panel-sunken px-3 py-1 text-label text-ink-muted">
-        <span className="truncate">
-          {rows.length === 0 ? 'Nothing in the field' : `${rows.length} tag${rows.length === 1 ? '' : 's'} in the field`}
-          {unknownCount > 0 ? ` · ${unknownCount} not recognised` : ''}
-        </span>
+      {/*
+        Two rows, not one.
 
-        <span className="flex shrink-0 items-center gap-1.5">
-          {/* The slot is always drawn so the controls beside it never move, but an em dash rather
-              than a zero until the reader has actually reported: "no reading yet" and "reading
-              nothing" are different facts, and a fabricated 0/s is the more alarming of the two. */}
+        The reading and the three controls used to share a line, which is why the controls were 20
+        pixels tall — it was the only way they fitted beside the text in a side panel this narrow.
+        Given a row of their own they can be the size a control on a touchscreen has to be, and the
+        count stops being squeezed by them.
+      */}
+      <div className="shrink-0 border-b border-subtle bg-panel-sunken px-3 py-1.5 text-label text-ink-muted">
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate">
+            {rows.length === 0 ? 'Nothing in the field' : `${rows.length} tag${rows.length === 1 ? '' : 's'} in the field`}
+            {unknownCount > 0 ? ` · ${unknownCount} not recognised` : ''}
+          </span>
+
+          {/* An em dash rather than a zero until the reader has actually reported: "no reading yet"
+              and "reading nothing" are different facts, and a fabricated 0/s is the more alarming
+              of the two. */}
           <span
-            className="pos-amount tabular-nums font-medium text-ink"
+            className="pos-amount shrink-0 tabular-nums font-medium text-ink"
             title="Raw reads per second, before debounce"
           >
             {status ? status.readsPerSecond : '—'}/s
           </span>
+        </div>
 
+        <div className="mt-1 flex items-center gap-1.5">
           {/* Empties the list without touching the reader.
               The field does not clear itself while a tagged item is still sitting on the counter —
               a row stays until the tag stops being seen — so after a mis-scan, or a tray left in
@@ -184,7 +194,7 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
           {/* Whether it is listening, not whether we can reach it — see RfidReaderStatus.mode. */}
           <ReaderRunControls statusReading={status ? status.mode !== 'Off' : null} />
           <ScanSoundToggle />
-        </span>
+        </div>
       </div>
 
       <ul className="min-h-0 flex-1 overflow-y-auto">
@@ -216,12 +226,9 @@ function ClearFeedButton({ onClear, disabled }: { onClear: () => void; disabled:
       onClick={onClear}
       disabled={disabled}
       title="Clear the list. Anything still in the field will reappear as it is read again."
-      className={cn(
-        'inline-flex h-6 items-center gap-1 rounded px-2 text-caption font-medium transition-colors',
-        'text-ink-muted hover:bg-panel-hover disabled:opacity-40 disabled:hover:bg-transparent',
-      )}
+      className="pos-chip border-subtle text-ink-muted hover:bg-panel-hover"
     >
-      <Eraser className="h-4 w-4" aria-hidden />
+      <Eraser className="h-5 w-5 shrink-0" aria-hidden />
       <span>Clear</span>
     </button>
   );
@@ -271,14 +278,21 @@ function ReaderRunControls({ statusReading }: { statusReading: boolean | null })
       disabled={busy}
       title={reading ? 'Stop the reader' : 'Start reading tags'}
       className={cn(
-        'inline-flex h-6 items-center gap-1 rounded px-2 text-caption font-medium transition-colors disabled:opacity-60',
+        'pos-chip',
         reading
-          ? 'bg-negative/10 text-negative hover:bg-negative/20'
-          : 'bg-positive/10 text-positive hover:bg-positive/20',
+          ? 'border-negative/40 bg-negative-soft text-negative-text hover:bg-negative/20'
+          : 'border-positive/40 bg-positive-soft text-positive-text hover:bg-positive/20',
       )}
     >
-      {reading ? <Square className="h-4 w-4" aria-hidden /> : <Play className="h-4 w-4" aria-hidden />}
-      <span>{reading ? 'Stop' : 'Start'}</span>
+      {reading ? (
+        <Square className="h-5 w-5 shrink-0" aria-hidden />
+      ) : (
+        <Play className="h-5 w-5 shrink-0" aria-hidden />
+      )}
+      {/* The button says what it is doing while it does it. It waits on a round trip to the
+          reader, and a control that looks unchanged for a second reads as one that was not
+          pressed - so it gets pressed again. */}
+      <span>{busy ? 'Working…' : reading ? 'Stop' : 'Start'}</span>
     </button>
   );
 }
@@ -314,13 +328,19 @@ function ScanSoundToggle() {
           ? "The till's own scan sound is on. The reader's buzzer is separate and is set on the reader."
           : "The till's own scan sound is off. If beeping continues it is the reader's own buzzer, set on the reader."
       }
-      className={cn(
-        'inline-flex h-5 items-center gap-1 rounded px-1.5 text-caption transition-colors',
-        scanSound ? 'text-ink-muted hover:bg-panel-hover' : 'text-ink-faint hover:bg-panel-hover',
-      )}
+      className={cn('pos-chip border-subtle hover:bg-panel-hover', scanSound ? 'text-ink-muted' : 'text-ink-faint')}
     >
-      {scanSound ? <Volume2 className="h-5 w-5" aria-hidden /> : <VolumeX className="h-5 w-5" aria-hidden />}
-      <span className="sr-only">{scanSound ? 'Turn scan sounds off' : 'Turn scan sounds on'}</span>
+      {scanSound ? (
+        <Volume2 className="h-5 w-5 shrink-0" aria-hidden />
+      ) : (
+        <VolumeX className="h-5 w-5 shrink-0" aria-hidden />
+      )}
+      {/* The state as a word, not as a crossed-out speaker. Whether a glyph shows sound *being*
+          off or sound being *turned* off is a coin toss to somebody who has not seen it before,
+          and this is the control people press when they cannot work out where a beep is coming
+          from. */}
+      <span>{scanSound ? 'Sound on' : 'Sound off'}</span>
+      <span className="sr-only">. Press to turn scan sounds {scanSound ? 'off' : 'on'}.</span>
     </button>
   );
 }

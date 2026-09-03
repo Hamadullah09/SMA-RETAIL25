@@ -32,15 +32,14 @@ export function activeNavHref(pathname: string): string | undefined {
 }
 
 /**
- * Where Ctrl+H goes from here.
+ * Which guide Ctrl+H opens from here.
  *
- * Falls back to the help index rather than guessing. A guide for the wrong screen is worse than an
- * index, because somebody following it will do the wrong thing confidently.
+ * Returns the slug, not a URL, because help is a panel now rather than a page — and `undefined`
+ * rather than a nearby guess. A guide for the wrong screen is worse than none, because somebody
+ * following it will do the wrong thing confidently; the panel says so and offers the index.
  */
-export function helpTopicFor(pathname: string): string {
-  const topic = matchRoute(pathname)?.helpTopic;
-
-  return topic ? `/help/${topic}` : '/help';
+export function helpTopicFor(pathname: string): string | undefined {
+  return matchRoute(pathname)?.helpTopic;
 }
 
 /**
