@@ -128,7 +128,7 @@ export default function RfidSettingsPage() {
       setReaders((current) => current.map((r) => (r.id === saved.id ? saved : r)));
       setDraft(saved);
 
-      toast({
+      toast({ variant: 'success',
         title: 'Saved',
         description: 'Tills pick this up on their next profile refresh, or press "Send to reader now".',
       });
@@ -177,7 +177,7 @@ export default function RfidSettingsPage() {
 
         {canWrite ? (
           <button type="button" className="pos-button-primary" disabled={busy} onClick={() => void addReader()}>
-            <Plus className="h-3.5 w-3.5" aria-hidden />
+            <Plus className="h-5 w-5" aria-hidden />
             Add reader
           </button>
         ) : null}
@@ -389,7 +389,7 @@ function AgentConnection() {
       </div>
 
       <button type="button" className="pos-button-primary shrink-0" disabled={busy} onClick={() => void connect()}>
-        <PlugZap className="h-3.5 w-3.5" aria-hidden />
+        <PlugZap className="h-5 w-5" aria-hidden />
         {busy ? 'Connecting…' : online ? 'Reconnect' : 'Connect'}
       </button>
     </section>
@@ -629,7 +629,7 @@ function DiagnosticsPanel({ profile, canWrite }: { profile: ReaderProfile; canWr
     }
 
     if (result.applied) {
-      toast({ title: 'Sent to the reader' });
+      toast({ variant: 'success', title: 'Sent to the reader' });
     } else {
       toast({
         title: 'The reader would not take everything',
@@ -661,7 +661,7 @@ function DiagnosticsPanel({ profile, canWrite }: { profile: ReaderProfile; canWr
           onClick={() => void read()}
           disabled={state === 'reading'}
         >
-          <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+          <RefreshCw className="h-5 w-5" aria-hidden />
           {state === 'reading' ? 'Reading…' : 'Refresh'}
         </button>
       </header>
@@ -669,7 +669,7 @@ function DiagnosticsPanel({ profile, canWrite }: { profile: ReaderProfile; canWr
       <div className="space-y-2 p-4">
         {state === 'offline' ? (
           <div className="flex items-start gap-2 text-body text-ink-muted">
-            <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink-faint" aria-hidden />
+            <WifiOff className="mt-0.5 h-5 w-5 shrink-0 text-ink-faint" aria-hidden />
             <p>
               The till agent is not answering on this machine. Diagnostics come from the agent, not the server, so this
               panel only works at a till.
@@ -706,7 +706,7 @@ function DiagnosticsPanel({ profile, canWrite }: { profile: ReaderProfile; canWr
             {diagnostics.returnLossDb ? (
               <div className="space-y-2 border-t border-subtle pt-2.5">
                 <p className="flex items-center gap-1.5 text-label font-medium text-ink-muted">
-                  <Radio className="h-3.5 w-3.5" aria-hidden />
+                  <Radio className="h-5 w-5" aria-hidden />
                   Antenna return loss
                 </p>
                 {Object.entries(diagnostics.returnLossDb).map(([port, db]) => (
@@ -733,7 +733,7 @@ function DiagnosticsPanel({ profile, canWrite }: { profile: ReaderProfile; canWr
 
         {canWrite ? (
           <button type="button" className="pos-button mt-3 w-full" onClick={() => void send()}>
-            <Send className="h-3.5 w-3.5" aria-hidden />
+            <Send className="h-5 w-5" aria-hidden />
             Send settings to reader now
           </button>
         ) : null}
@@ -750,7 +750,7 @@ function Reading({ label, value, warn }: { label: string; value?: string | null;
         {value ?? <span className="text-ink-faint">unknown</span>}
         {warn ? (
           <span className="mt-0.5 flex items-start justify-end gap-1 text-caption font-normal">
-            <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden />
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
             <span>{warn}</span>
           </span>
         ) : null}

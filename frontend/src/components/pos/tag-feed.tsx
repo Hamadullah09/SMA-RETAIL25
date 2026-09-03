@@ -149,9 +149,9 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
         */}
         <span className={cn('pos-badge normal-case', readerTone(connected, status))}>
           {readerNotReading(connected, status) ? (
-            <TriangleAlert className="h-3 w-3 shrink-0" aria-hidden />
+            <TriangleAlert className="h-4 w-4 shrink-0" aria-hidden />
           ) : (
-            <Radio className="h-3 w-3 shrink-0" aria-hidden />
+            <Radio className="h-4 w-4 shrink-0" aria-hidden />
           )}
           {readerLabel(connected, status)}
         </span>
@@ -221,7 +221,7 @@ function ClearFeedButton({ onClear, disabled }: { onClear: () => void; disabled:
         'text-ink-muted hover:bg-panel-hover disabled:opacity-40 disabled:hover:bg-transparent',
       )}
     >
-      <Eraser className="h-3 w-3" aria-hidden />
+      <Eraser className="h-4 w-4" aria-hidden />
       <span>Clear</span>
     </button>
   );
@@ -277,7 +277,7 @@ function ReaderRunControls({ statusReading }: { statusReading: boolean | null })
           : 'bg-positive/10 text-positive hover:bg-positive/20',
       )}
     >
-      {reading ? <Square className="h-3 w-3" aria-hidden /> : <Play className="h-3 w-3" aria-hidden />}
+      {reading ? <Square className="h-4 w-4" aria-hidden /> : <Play className="h-4 w-4" aria-hidden />}
       <span>{reading ? 'Stop' : 'Start'}</span>
     </button>
   );
@@ -319,7 +319,7 @@ function ScanSoundToggle() {
         scanSound ? 'text-ink-muted hover:bg-panel-hover' : 'text-ink-faint hover:bg-panel-hover',
       )}
     >
-      {scanSound ? <Volume2 className="h-3.5 w-3.5" aria-hidden /> : <VolumeX className="h-3.5 w-3.5" aria-hidden />}
+      {scanSound ? <Volume2 className="h-5 w-5" aria-hidden /> : <VolumeX className="h-5 w-5" aria-hidden />}
       <span className="sr-only">{scanSound ? 'Turn scan sounds off' : 'Turn scan sounds on'}</span>
     </button>
   );

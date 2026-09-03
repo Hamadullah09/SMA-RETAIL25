@@ -161,12 +161,12 @@ export default function CustomersPage() {
         <>
           <input
             className="pos-input w-64"
-            placeholder="Name, company, phone or email"
+            aria-label="Search customers" placeholder="Name, company, phone or email"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
 
-          <select
+          <select aria-label="All client types"
             className="pos-input"
             value={clientType}
             onChange={(event) => setClientType(event.target.value)}
@@ -371,7 +371,7 @@ function CustomerFormPanel({
 
     try {
       await mastersApi.customers.remove(customerId);
-      toast({ title: 'Deleted', description: 'It can be brought back from Undelete items.' });
+      toast({ variant: 'success', title: 'Deleted', description: 'It can be brought back from Undelete items.' });
       onSaved();
       onClose();
     } catch (error) {

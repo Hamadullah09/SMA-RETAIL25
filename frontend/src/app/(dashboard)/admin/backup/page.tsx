@@ -114,7 +114,7 @@ export default function BackupPage() {
 
     try {
       await apiClient.post('/maintenance/backups/restore', { fileName: file.fileName });
-      toast({
+      toast({ variant: 'success',
         title: 'Restore complete',
         description: 'The database was replaced. Sign in again if the session was dropped.',
       });
@@ -147,11 +147,11 @@ export default function BackupPage() {
         lede="A backup is the whole database in one file — every item, sale, customer and setting. Take one before anything risky, and on a schedule that matches how much work you can bear to lose."
       >
         <button type="button" className="pos-button" onClick={() => void load()} disabled={loading || working}>
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+          <RotateCcw className="h-5 w-5" aria-hidden />
           Refresh
         </button>
         <button type="button" className="pos-button-primary" onClick={() => void backupNow()} disabled={working}>
-          <DatabaseBackup className="h-3.5 w-3.5" aria-hidden />
+          <DatabaseBackup className="h-5 w-5" aria-hidden />
           {working ? 'Working…' : 'Back up now'}
         </button>
       </PageHeader>
@@ -225,7 +225,7 @@ export default function BackupPage() {
                           download={file.fileName}
                           title={`Save ${file.fileName} to this computer`}
                         >
-                          <Download className="h-3.5 w-3.5" aria-hidden />
+                          <Download className="h-5 w-5" aria-hidden />
                           Download
                         </a>
 
@@ -236,7 +236,7 @@ export default function BackupPage() {
                           disabled={working}
                           title={`Replace the whole database with ${file.fileName}`}
                         >
-                          <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+                          <AlertTriangle className="h-5 w-5" aria-hidden />
                           Restore over everything
                         </button>
                       </div>

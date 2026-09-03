@@ -94,7 +94,7 @@ export function ImportCatalogueDialog({
     try {
       const result = await send(false);
 
-      toast({
+      toast({ variant: 'success',
         title: 'Imported',
         description: result
           ? `${result.productsCreated} new items, ${result.productsMatched} already here, ${result.tagsCreated} tags.`

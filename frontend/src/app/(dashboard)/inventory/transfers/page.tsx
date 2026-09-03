@@ -124,7 +124,7 @@ export default function TransfersPage() {
       title="Stock transfers"
       toolbar={
         canTransfer && destinations.length > 0 ? (
-          <select
+          <select aria-label="New transfer to…"
             className={filterClass}
             value=""
             onChange={(event) => {
@@ -146,7 +146,7 @@ export default function TransfersPage() {
       }
       filters={
         <>
-          <select
+          <select aria-label="All states"
             className={filterClass}
             value={status}
             onChange={(event) => setStatus(event.target.value as TransferStatus | '')}
@@ -404,7 +404,7 @@ function TransferPanel({
             <RecordPicker
               label="Add an item"
               value={null}
-              placeholder="Code or description"
+              aria-label="Search" placeholder="Code or description"
               search={(term) =>
                 mastersApi.products
                   .browse(locationId, { search: term, pageSize: 15 })

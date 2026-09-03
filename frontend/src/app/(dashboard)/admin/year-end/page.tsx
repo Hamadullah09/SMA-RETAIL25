@@ -219,7 +219,7 @@ export default function YearEndPage() {
           />
         </label>
         <button type="button" className="pos-button-primary" disabled={busy} onClick={() => void open()}>
-          <CalendarPlus className="h-3.5 w-3.5" aria-hidden />
+          <CalendarPlus className="h-5 w-5" aria-hidden />
           Open year
         </button>
       </PageHeader>
@@ -266,7 +266,7 @@ export default function YearEndPage() {
                             to read as one for anyone who cannot separate the two hues. */}
                         <td className={td}>
                           <span className={cn('pos-badge', closed ? 'text-ink-muted' : 'text-positive')}>
-                            {closed ? <Lock className="h-3 w-3" aria-hidden /> : <LockOpen className="h-3 w-3" aria-hidden />}
+                            {closed ? <Lock className="h-4 w-4" aria-hidden /> : <LockOpen className="h-4 w-4" aria-hidden />}
                             {closed
                               ? `Closed${year.closedAt ? ` ${new Date(year.closedAt).toLocaleDateString()}` : ''}`
                               : 'Open'}
@@ -286,7 +286,7 @@ export default function YearEndPage() {
                                 onClick={() => void dryRun(year)}
                                 title="Work out what a close would write, without writing anything"
                               >
-                                <FlaskConical className="h-3.5 w-3.5" aria-hidden />
+                                <FlaskConical className="h-5 w-5" aria-hidden />
                                 Dry run
                               </button>
                               <button
@@ -300,7 +300,7 @@ export default function YearEndPage() {
                                     : 'Read a dry run first'
                                 }
                               >
-                                <Lock className="h-3.5 w-3.5" aria-hidden />
+                                <Lock className="h-5 w-5" aria-hidden />
                                 Close year
                               </button>
                             </span>
@@ -312,7 +312,7 @@ export default function YearEndPage() {
                               onClick={() => askReopen(year)}
                               title={`Reopen ${year.year} and discard its archive rows and checkpoints`}
                             >
-                              <Undo2 className="h-3.5 w-3.5" aria-hidden />
+                              <Undo2 className="h-5 w-5" aria-hidden />
                               Reopen
                             </button>
                           )}
@@ -351,7 +351,7 @@ export default function YearEndPage() {
           icon={FlaskConical}
           action={
             <span className="pos-badge text-accent-text">
-              <FlaskConical className="h-3 w-3" aria-hidden />
+              <FlaskConical className="h-4 w-4" aria-hidden />
               Nothing has been written
             </span>
           }
@@ -370,7 +370,7 @@ export default function YearEndPage() {
               <ul className="space-y-1 rounded border border-subtle bg-panel-sunken p-3">
                 {preview.warnings.map((warning) => (
                   <li key={warning} className="flex items-start gap-2 text-body text-ink">
-                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" aria-hidden />
                     <span>{warning}</span>
                   </li>
                 ))}
@@ -409,7 +409,7 @@ export default function YearEndPage() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Download className="h-3.5 w-3.5" aria-hidden />
+              <Download className="h-5 w-5" aria-hidden />
               Download CSV
             </a>
           ) : null}

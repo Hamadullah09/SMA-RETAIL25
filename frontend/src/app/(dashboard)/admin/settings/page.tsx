@@ -312,7 +312,7 @@ function TabBar({ current, onSelect, disabled }: { current: Tab; onSelect: (tab:
                 : 'border-transparent font-medium text-ink-muted hover:bg-panel-hover hover:text-ink',
             )}
           >
-            <Icon className="h-3.5 w-3.5" aria-hidden />
+            <Icon className="h-5 w-5" aria-hidden />
             {name}
           </button>
         );
@@ -510,7 +510,7 @@ function SaveButton({
       disabled={busy}
       onClick={onClick}
     >
-      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Check className="h-3.5 w-3.5" aria-hidden />}
+      {busy ? <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> : <Check className="h-5 w-5" aria-hidden />}
       {busy ? 'Saving…' : label}
     </button>
   );
@@ -1019,7 +1019,7 @@ function PrintersTab({
         )
       }
     >
-      <Plus className="h-3.5 w-3.5" aria-hidden />
+      <Plus className="h-5 w-5" aria-hidden />
       Add a printer
     </button>
   );
@@ -1394,7 +1394,7 @@ function ReferenceList({
             disabled={busy}
             onClick={() => setNaming(true)}
           >
-            <Plus className="h-3.5 w-3.5" aria-hidden />
+            <Plus className="h-5 w-5" aria-hidden />
             Add
           </button>
         ) : null
@@ -1552,7 +1552,7 @@ function ThisBrowserStation({ stations }: { stations: StationSettings[] }) {
       </p>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <select
+        <select aria-label="Follow the agent on this machine"
           className="rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm"
           value={pinned === null ? '' : String(pinned)}
           disabled={!ready}
@@ -1667,7 +1667,7 @@ function StationsTab({
       disabled={busy}
       onClick={() => setNamingStation(true)}
     >
-      <Plus className="h-3.5 w-3.5" aria-hidden />
+      <Plus className="h-5 w-5" aria-hidden />
       Add a station
     </button>
   );
@@ -2171,7 +2171,7 @@ function PricingTab({
                   disabled={!canWrite || index === 0}
                   onClick={() => move(index, -1)}
                 >
-                  <ArrowUp className="h-3.5 w-3.5" aria-hidden />
+                  <ArrowUp className="h-5 w-5" aria-hidden />
                 </button>
                 <button
                   type="button"
@@ -2180,7 +2180,7 @@ function PricingTab({
                   disabled={!canWrite || index === drafts.length - 1}
                   onClick={() => move(index, 1)}
                 >
-                  <ArrowDown className="h-3.5 w-3.5" aria-hidden />
+                  <ArrowDown className="h-5 w-5" aria-hidden />
                 </button>
               </span>
             </li>

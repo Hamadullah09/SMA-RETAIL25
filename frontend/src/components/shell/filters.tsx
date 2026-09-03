@@ -61,7 +61,7 @@ export function FilterCheck({
     <label className="flex cursor-pointer select-none items-center gap-2 self-end pb-1.5 text-body">
       <input
         type="checkbox"
-        className="h-3.5 w-3.5 accent-accent"
+        className="h-5 w-5 accent-accent"
         checked={checked}
         disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}

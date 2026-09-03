@@ -1,123 +1,57 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowRight, ShieldCheck } from 'lucide-react';
-import { AuthLink, AuthNotice, AuthShell } from '@/components/auth/auth-shell';
+import { Suspense, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { AuthShell } from '@/components/auth/auth-shell';
 import { useAuth } from '@/lib/auth-config';
 
 /**
- * The entry point.
+ * The entry point, which is now only a fork in the road.
  *
- * "Sign in" is a link to the BFF, not a form: the redirect, the PKCE verifier and the code exchange
- * all happen server-side, and the password is typed on the identity provider's own origin. So this
- * page has no credential to hold and nothing to leak (doc 07 §Topology).
+ * This used to be a screen: a "Continue to sign in" button, a note explaining that the next page
+ * would look different because it was served by an authorization server on another origin, and a
+ * "Create one" link that asked the server whether self-registration was even switched on.
  *
- * The other two account screens are ordinary forms, because neither of them submits an existing
- * password — one sets a brand new one, the other submits only an email address.
+ * All of that existed to soften a redirect that no longer happens. Sign-in is an ordinary page in
+ * this application now, so the warning is untrue, and the click is a second screen that says nothing
+ * the first one did not. What is left is the decision — signed in, or not — and a held shape while
+ * the session check answers.
  */
-const AUTH_ERRORS: Record<string, string> = {
-  access_denied: 'Sign-in was cancelled.',
-  state_mismatch: 'That sign-in link did not match this browser. Try again.',
-  token_exchange_failed: 'The server could not complete the sign-in. Try again.',
-  invalid_callback: 'That sign-in link was incomplete. Try again.',
-  authorization_failed: 'Sign-in failed. Try again.',
-};
-
-export default function LoginPage() {
+export default function LandingPage() {
   return (
-    <Suspense fallback={<AuthShell title="Sign in" lead="Loading…">{null}</AuthShell>}>
-      <LoginContent />
+    <Suspense fallback={<Waiting />}>
+      <Redirect />
     </Suspense>
   );
 }
 
-function LoginContent() {
-  const { isAuthenticated, isLoading, signIn } = useAuth();
+function Redirect() {
+  const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
-  const params = useSearchParams();
-
-  const error = params.get('authError');
-
-  /** Null until the server has answered, so neither message flashes before it is known to be true. */
-  const [selfRegistration, setSelfRegistration] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // Nothing to decide until the session check has answered; redirecting on an unknown state sends
-    // a signed-in person to the sign-in form for a moment on every cold load.
+    // Nothing to decide until the session check has answered. Redirecting on an unknown state sends
+    // somebody who is signed in to the sign-in form for a moment on every cold load.
     if (isLoading) return;
 
-    // Straight through, either way. This page used to ask for a click before handing over to an
-    // authorization server on another origin, and warned that the next screen would look different.
-    // Sign-in is an ordinary page in this application now, so the warning is untrue and the click is
-    // a second screen that says nothing the first one did not.
     router.replace(isAuthenticated ? '/dashboard' : '/sign-in');
   }, [isAuthenticated, isLoading, router]);
 
-  useEffect(() => {
-    let cancelled = false;
+  return <Waiting />;
+}
 
-    // Straight to the API rather than through the proxy: the proxy needs a session, and nobody
-    // reading this page has one. Failing quietly leaves the footer empty, which is the right
-    // outcome — better to say nothing than to offer a link that may not work.
-    fetch(`${process.env.NEXT_PUBLIC_API_URL ?? ''}/api/v1/account/registration`, { cache: 'no-store' })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body: { enabled?: boolean } | null) => {
-        if (!cancelled && typeof body?.enabled === 'boolean') setSelfRegistration(body.enabled);
-      })
-      .catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
+/**
+ * The shell, with nothing in it.
+ *
+ * A blank page for the half-second before the redirect reads as a broken load; the same frame the
+ * next screen uses reads as the application starting.
+ */
+function Waiting() {
   return (
-    <AuthShell
-      title="Sign in"
-      lead="Use the account your manager set up for you."
-      footer={
-        <div className="space-y-1.5">
-          <p>
-            Forgotten your password? <AuthLink href="/forgot-password">Reset it</AuthLink>
-          </p>
-          {/*
-            Only where the server will actually accept one. This offered "Create one" on a
-            deployment with self sign-up switched off, and the link answered 403 — the dead end the
-            client hit first. Asked of the server rather than baked into the build, so turning
-            registration on does not need the front end rebuilt.
-          */}
-          {selfRegistration === true ? (
-            <p>
-              No account yet? <AuthLink href="/sign-up">Create one</AuthLink>
-            </p>
-          ) : selfRegistration === false ? (
-            <p>Accounts are issued by your administrator.</p>
-          ) : null}
-        </div>
-      }
-    >
-      {error ? <AuthNotice tone="error">{AUTH_ERRORS[error] ?? 'Sign-in failed. Try again.'}</AuthNotice> : null}
-
-      <button
-        type="button"
-        onClick={() => signIn('/dashboard')}
-        className="pos-button-primary w-full"
-        disabled={isLoading}
-      >
-        {isLoading ? 'Checking…' : 'Continue to sign in'}
-        {isLoading ? null : <ArrowRight className="h-4 w-4" aria-hidden />}
-      </button>
-
-      {/*
-        Said plainly rather than left as a surprise. Being bounced to a different-looking page at the
-        moment you are asked for a password is exactly what a phishing flow looks like, so the reason
-        it happens is worth one sentence.
-      */}
-      <p className="mt-5 flex items-start gap-2 text-caption leading-relaxed text-ink-muted">
-        <ShieldCheck className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
-        <span>Passwords are only ever entered on the sign-in page itself, never on this one.</span>
-      </p>
+    <AuthShell title="SMA Retail" lead="Opening…">
+      <span className="sr-only" role="status">
+        Checking whether you are signed in.
+      </span>
     </AuthShell>
   );
 }

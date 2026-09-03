@@ -98,7 +98,7 @@ export default function InventoryPage() {
         <>
           <input
             className="pos-input w-64"
-            placeholder="Stock code or name"
+            aria-label="Search stock" placeholder="Stock code or name"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
@@ -184,7 +184,7 @@ function StockActionsPanel({
     setBusy(true);
     try {
       await mastersApi.inventory.receive({ productId, locationId, quantity: receiveQty, unitCost: receiveCost });
-      toast({ title: 'Stock received' });
+      toast({ variant: 'success', title: 'Stock received' });
       setReceiveQty(0);
       onChanged();
     } catch (error) {
@@ -208,7 +208,7 @@ function StockActionsPanel({
     setBusy(true);
     try {
       await mastersApi.inventory.adjust({ productId, locationId, quantityDelta: adjustDelta, reason: reason.trim() });
-      toast({ title: 'Stock adjusted' });
+      toast({ variant: 'success', title: 'Stock adjusted' });
       setAdjustDelta(0);
       setReason('');
       onChanged();

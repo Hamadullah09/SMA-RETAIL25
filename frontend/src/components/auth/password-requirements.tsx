@@ -35,9 +35,9 @@ export function PasswordRequirements({
             className={`flex items-center gap-1.5 text-caption ${met ? 'text-positive' : 'text-ink-muted'}`}
           >
             {met ? (
-              <Check className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <Check className="h-5 w-5 shrink-0" aria-hidden />
             ) : (
-              <Circle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+              <Circle className="h-5 w-5 shrink-0" aria-hidden />
             )}
             <span>{rule.label}</span>
             <span className="sr-only">{met ? ' — met' : ' — not yet met'}</span>

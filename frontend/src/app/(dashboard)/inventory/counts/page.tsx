@@ -113,7 +113,7 @@ export default function StockCountsPage() {
       toolbar={
         canCount ? (
           <>
-            <select
+            <select aria-label="Whole shop"
               className={filterClass}
               value={newDepartmentId}
               onChange={(event) => setNewDepartmentId(recordIdFrom(event.target.value))}
@@ -132,7 +132,7 @@ export default function StockCountsPage() {
         ) : null
       }
       filters={
-        <select
+        <select aria-label="All states"
           className={filterClass}
           value={status}
           onChange={(event) => setStatus(event.target.value as StockCountStatus | '')}
@@ -418,7 +418,7 @@ function CountPanel({
           <>
             <input
               className={`${filterClass} w-56`}
-              placeholder="Reason (optional)"
+              aria-label="Reason" placeholder="Reason (optional)"
               value={reason}
               onChange={(event) => setReason(event.target.value)}
             />

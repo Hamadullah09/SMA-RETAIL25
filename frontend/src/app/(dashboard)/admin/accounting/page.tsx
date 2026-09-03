@@ -154,7 +154,7 @@ export default function AccountingSyncPage() {
         lede="Hands the shop's figures to the bookkeeper's system. Everything it sends is kept here with what came back, because the link it replaces failed silently."
       >
         <button type="button" className="pos-button" disabled={busy} onClick={() => void load()}>
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+          <RotateCcw className="h-5 w-5" aria-hidden />
           Refresh
         </button>
       </PageHeader>
@@ -166,12 +166,12 @@ export default function AccountingSyncPage() {
           preflight ? (
             outstanding === 0 ? (
               <span className="pos-badge text-positive">
-                <CheckCircle2 className="h-3 w-3" aria-hidden />
+                <CheckCircle2 className="h-4 w-4" aria-hidden />
                 All ready
               </span>
             ) : (
               <span className="pos-badge text-warning">
-                <AlertTriangle className="h-3 w-3" aria-hidden />
+                <AlertTriangle className="h-4 w-4" aria-hidden />
                 {outstanding} need attention
               </span>
             )
@@ -251,7 +251,7 @@ export default function AccountingSyncPage() {
                     )}
                     download
                   >
-                    <Download className="h-3.5 w-3.5" aria-hidden />
+                    <Download className="h-5 w-5" aria-hidden />
                     CSV
                   </a>
 
@@ -261,7 +261,7 @@ export default function AccountingSyncPage() {
                     disabled={busy}
                     onClick={() => void run(item.entity, item.needsDate)}
                   >
-                    <Send className="h-3.5 w-3.5" aria-hidden />
+                    <Send className="h-5 w-5" aria-hidden />
                     Post
                   </button>
                 </span>
@@ -334,7 +334,7 @@ export default function AccountingSyncPage() {
           icon={History}
           action={
             <button type="button" className="pos-button" onClick={() => setSelected(null)}>
-              <X className="h-3.5 w-3.5" aria-hidden />
+              <X className="h-5 w-5" aria-hidden />
               Close
             </button>
           }

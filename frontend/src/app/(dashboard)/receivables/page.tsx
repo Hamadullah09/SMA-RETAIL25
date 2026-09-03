@@ -121,7 +121,7 @@ export default function ReceivablesPage() {
         <>
           <input
             className="pos-input w-64"
-            placeholder="Customer name"
+            aria-label="Search customers" placeholder="Customer name"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
@@ -452,7 +452,7 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: number; onClose: ()
             className="w-full pos-input"
             value={term}
             onChange={(event) => setTerm(event.target.value)}
-            placeholder="Name or customer number"
+            aria-label="Search customers" placeholder="Name or customer number"
           />
           {results.length > 0 ? (
             <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-subtle">
@@ -606,7 +606,7 @@ function StatementPanel({
     setBusy(true);
     try {
       await mastersApi.receivables.voidInvoice(invoiceId);
-      toast({ title: 'Invoice voided' });
+      toast({ variant: 'success', title: 'Invoice voided' });
       await reload();
       onChanged();
     } catch (error) {
@@ -634,7 +634,7 @@ function StatementPanel({
     setBusy(true);
     try {
       await mastersApi.receivables.refundInvoice(invoiceId, amount);
-      toast({ title: 'Refund recorded' });
+      toast({ variant: 'success', title: 'Refund recorded' });
       await reload();
       onChanged();
     } catch (error) {

@@ -230,7 +230,7 @@ export function Sidebar() {
                           )}
                         >
                           <ChevronDown
-                            className={cn('h-3.5 w-3.5 transition-transform duration-150', !expanded && '-rotate-90')}
+                            className={cn('h-5 w-5 transition-transform duration-150', !expanded && '-rotate-90')}
                             aria-hidden
                           />
                         </button>

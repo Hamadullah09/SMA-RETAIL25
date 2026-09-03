@@ -234,12 +234,12 @@ export default function ProductsPage() {
         <>
           <input
             className="pos-input w-64"
-            placeholder="Code, description or barcode"
+            aria-label="Search products" placeholder="Code, description or barcode"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
 
-          <select
+          <select aria-label="All departments"
             className="pos-input"
             value={departmentId}
             onChange={(event) => setDepartmentId(recordIdFrom(event.target.value))}
@@ -252,7 +252,7 @@ export default function ProductsPage() {
             ))}
           </select>
 
-          <select
+          <select aria-label="All types"
             className="pos-input"
             value={type}
             onChange={(event) => setType(event.target.value as ProductType | '')}
@@ -507,7 +507,7 @@ function ProductFormPanel({
 
     try {
       await mastersApi.products.remove(productId);
-      toast({ title: 'Deleted', description: 'It can be brought back from Undelete items.' });
+      toast({ variant: 'success', title: 'Deleted', description: 'It can be brought back from Undelete items.' });
       onSaved();
       onClose();
     } catch (error) {
@@ -526,7 +526,7 @@ function ProductFormPanel({
       const created = await mastersApi.products.clone(productId, code);
       setForm(created);
       onSaved();
-      toast({ title: 'Copied', description: 'Stock and barcode are not copied.' });
+      toast({ variant: 'success', title: 'Copied', description: 'Stock and barcode are not copied.' });
     } catch (error) {
       toast({ title: 'Not copied', description: describeError(error), variant: 'destructive' });
     }
@@ -536,7 +536,7 @@ function ProductFormPanel({
     try {
       await mastersApi.products.restore(form.id);
       onSaved();
-      toast({ title: 'Restored' });
+      toast({ variant: 'success', title: 'Restored' });
     } catch (error) {
       toast({ title: 'Not restored', description: describeError(error), variant: 'destructive' });
     }
@@ -924,7 +924,7 @@ function ProductFormPanel({
               <RecordPicker
                 label="Link a supplier"
                 value={null}
-                placeholder="Company or supplier number"
+                aria-label="Search suppliers" placeholder="Company or supplier number"
                 search={(term) =>
                   mastersApi.suppliers
                     .browse(locationId, { search: term, pageSize: 15 })

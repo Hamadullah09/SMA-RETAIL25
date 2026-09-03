@@ -95,7 +95,7 @@ export function StatusBar() {
           href="/dashboard"
           className="-ml-1 inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 font-medium text-ink-muted transition-colors hover:bg-panel-hover hover:text-ink"
         >
-          <ChevronLeft className="h-3.5 w-3.5" aria-hidden />
+          <ChevronLeft className="h-5 w-5" aria-hidden />
           Back office
         </Link>
 
@@ -159,9 +159,9 @@ function Health({
   return (
     <span className="pos-health" data-state={ok ? 'up' : 'down'} title={ok ? `${label} online` : `${label} offline`}>
       {ok ? (
-        <Icon className="h-3.5 w-3.5 shrink-0 opacity-70" aria-hidden />
+        <Icon className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
       ) : (
-        <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+        <TriangleAlert className="h-5 w-5 shrink-0" aria-hidden />
       )}
       <span className="sr-only">{ok ? `${label} online` : `${label} offline`}</span>
       <span aria-hidden>{label}</span>
@@ -244,7 +244,7 @@ export function LiveFeed() {
           role="status"
         >
           <span className="flex items-center gap-1.5">
-            <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <TriangleAlert className="h-5 w-5 shrink-0" aria-hidden />
             Reader offline — scan or key items as normal.
           </span>
           <button type="button" className="shrink-0 rounded px-1 underline" onClick={() => void setReaderMode('OnDemand')}>
@@ -571,7 +571,7 @@ export function CustomerPanel() {
               className="inline-flex items-center gap-0.5 rounded px-1 text-label text-ink-muted underline hover:text-ink"
               onClick={() => void setCustomer(null)}
             >
-              <X className="h-3 w-3" aria-hidden />
+              <X className="h-4 w-4" aria-hidden />
               Remove
             </button>
           </div>
@@ -652,7 +652,7 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
           className="pos-badge shrink-0 font-semibold text-negative"
           role="alert"
         >
-          <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden />
+          <TriangleAlert className="h-5 w-5 shrink-0" aria-hidden />
           {error.message}
         </span>
       ) : null}

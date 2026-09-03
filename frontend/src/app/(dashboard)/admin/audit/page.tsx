@@ -188,7 +188,7 @@ export default function AuditPage() {
       description="Every change, sign-in and refusal, kept where nobody can edit it. Double-click an entry to see what it changed and what else the same request did."
       toolbar={
         <button type="button" className="pos-button" disabled={loading} onClick={() => void load()}>
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+          <RotateCcw className="h-5 w-5" aria-hidden />
           {loading ? 'Loading…' : 'Refresh'}
         </button>
       }
@@ -305,7 +305,7 @@ function ActionBadge({ action }: { action: AuditAction }) {
 
   return (
     <span className={cn('pos-badge', style.tone)}>
-      <Icon className="h-3 w-3 shrink-0" aria-hidden />
+      <Icon className="h-4 w-4 shrink-0" aria-hidden />
       <span className="truncate">{style.label}</span>
     </span>
   );
@@ -328,7 +328,7 @@ function AuditDetailPanel({ row, trail, onClose }: { row: AuditLogRow; trail: Au
           </div>
         </div>
         <button type="button" className="pos-button shrink-0" onClick={onClose}>
-          <X className="h-3.5 w-3.5" aria-hidden />
+          <X className="h-5 w-5" aria-hidden />
           Close
         </button>
       </div>

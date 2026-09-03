@@ -117,7 +117,7 @@ export function AuthShell({
                   className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-text"
                   aria-hidden
                 >
-                  <Icon className="h-3.5 w-3.5" />
+                  <Icon className="h-5 w-5" />
                 </span>
                 <span className="text-body font-semibold text-ink">{term}</span>
               </span>
@@ -131,7 +131,7 @@ export function AuthShell({
         {/* The one claim worth making on a sign-in page, because it is the one a shop owner asks
             about first and it is true: this runs on their hardware, not on someone else's. */}
         <p className="mt-auto flex items-start gap-2 pt-10 text-caption leading-relaxed text-ink-muted">
-          <Server className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+          <Server className="mt-px h-5 w-5 shrink-0" aria-hidden />
           <span>
             Runs on your own server. The takings, the stock and the customer list stay in the shop.
           </span>

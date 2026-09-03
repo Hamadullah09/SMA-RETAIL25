@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /**
@@ -26,9 +27,16 @@ const buttonVariants = cva('', {
     },
     size: {
       default: '',
-      sm: 'min-h-0 px-2 py-1 text-label',
-      lg: 'px-4 text-body-lg',
-      icon: 'w-8 px-0',
+
+      // No min-h-0. It cancelled the control height the whole design system is built on, so every
+      // "small" button was a 22px target on a screen where the floor is 48 — and small is exactly
+      // where a button is hardest to hit.
+      sm: 'px-3 text-label',
+      lg: 'px-5 text-body-lg',
+
+      // Square at the tap floor, not 32px wide. An icon-only control is the one that most needs the
+      // room, because there is no label to aim at either.
+      icon: 'w-control px-0',
     },
   },
   defaultVariants: { variant: 'outline', size: 'default' },
@@ -38,12 +46,31 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean;
+  /**
+   * Shows a spinner and disables the button.
+   *
+   * Held here rather than at each call site, because every call site that did it by hand forgot at
+   * least one of the two — a button that spins but can still be pressed submits twice.
+   */
+  loading?: boolean;
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, loading = false, disabled, children, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button';
-    return <Comp className={cn(buttonVariants({ variant, size }), className)} ref={ref} {...props} />;
+
+    return (
+      <Comp
+        className={cn(buttonVariants({ variant, size }), className)}
+        ref={ref}
+        disabled={disabled || loading}
+        aria-busy={loading || undefined}
+        {...props}
+      >
+        {loading ? <Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden /> : null}
+        {children}
+      </Comp>
+    );
   },
 );
 

@@ -258,7 +258,7 @@ function SupplierFormPanel({
 
     try {
       await mastersApi.suppliers.remove(supplierId);
-      toast({ title: 'Deleted', description: 'It can be brought back from Undelete items.' });
+      toast({ variant: 'success', title: 'Deleted', description: 'It can be brought back from Undelete items.' });
       onSaved();
       onClose();
     } catch (error) {

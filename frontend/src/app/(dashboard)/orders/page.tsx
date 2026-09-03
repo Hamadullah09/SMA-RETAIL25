@@ -117,7 +117,7 @@ function CustomerPicker({
             onPick(null);
           }
         }}
-        placeholder="Name or customer number"
+        aria-label="Search customers" placeholder="Name or customer number"
       />
 
       {/*
@@ -225,7 +225,7 @@ function LineBuilder({
             setTerm(event.target.value);
             setSelected(null);
           }}
-          placeholder="Stock code or name"
+          aria-label="Search stock" placeholder="Stock code or name"
         />
         {results.length > 0 ? (
           <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-subtle">
@@ -457,7 +457,7 @@ function CustomerOrderPanel({
     setBusy(true);
     try {
       await mastersApi.customerOrders.cancel(order.id);
-      toast({ title: 'Order cancelled' });
+      toast({ variant: 'success', title: 'Order cancelled' });
       await reload();
       await onChanged();
     } catch (error) {
@@ -698,7 +698,7 @@ function LayawayPanel({
     setBusy(true);
     try {
       await mastersApi.layaways.cancel(layaway.id);
-      toast({ title: 'Layaway cancelled' });
+      toast({ variant: 'success', title: 'Layaway cancelled' });
       await reload();
       await onChanged();
     } catch (error) {
@@ -919,7 +919,7 @@ function PriceQuotePanel({
     setBusy(true);
     try {
       await mastersApi.priceQuotes.convert(quote.id);
-      toast({ title: 'Quote converted', description: 'Ring the lines into the cart at the quoted prices.' });
+      toast({ variant: 'success', title: 'Quote converted', description: 'Ring the lines into the cart at the quoted prices.' });
       await reload();
       await onChanged();
     } catch (error) {
@@ -943,7 +943,7 @@ function PriceQuotePanel({
     setBusy(true);
     try {
       await mastersApi.priceQuotes.cancel(quote.id);
-      toast({ title: 'Quote cancelled' });
+      toast({ variant: 'success', title: 'Quote cancelled' });
       await reload();
       await onChanged();
     } catch (error) {

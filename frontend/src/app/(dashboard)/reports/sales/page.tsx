@@ -215,7 +215,7 @@ function SaleDetailPanel({
 
     try {
       await mastersApi.sales.reprint(sale.id, stationId);
-      toast({ title: 'Sent to the printer' });
+      toast({ variant: 'success', title: 'Sent to the printer' });
     } catch (error) {
       toast({ title: 'Could not reprint', description: describeError(error), variant: 'destructive' });
     } finally {

@@ -69,7 +69,7 @@ function StageBadge({ stage }: { stage: MigrationStage }) {
 
   return (
     <span className={cn('pos-badge', tone)}>
-      <Icon className="h-3 w-3" aria-hidden />
+      <Icon className="h-4 w-4" aria-hidden />
       {stageLabel[stage]}
     </span>
   );
@@ -168,7 +168,7 @@ export default function MigrationPage() {
           disabled={busy}
           onClick={() => fileRef.current?.click()}
         >
-          <Upload className="h-3.5 w-3.5" aria-hidden />
+          <Upload className="h-5 w-5" aria-hidden />
           {busy ? 'Reading…' : 'Read a file'}
         </button>
       </PageHeader>
@@ -267,12 +267,12 @@ export default function MigrationPage() {
                       <td className={tdNum} data-numeric="">
                         {batch.blockingErrors > 0 ? (
                           <span className="inline-flex items-center gap-1 font-medium text-negative">
-                            <XCircle className="h-3.5 w-3.5" aria-hidden />
+                            <XCircle className="h-5 w-5" aria-hidden />
                             {batch.blockingErrors} to fix
                           </span>
                         ) : batch.warnings > 0 ? (
                           <span className="inline-flex items-center gap-1 text-warning">
-                            <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+                            <AlertTriangle className="h-5 w-5" aria-hidden />
                             {batch.warnings} noted
                           </span>
                         ) : (
@@ -406,7 +406,7 @@ function BatchPanel({
                 <ul className="space-y-1 rounded border border-subtle bg-panel-sunken p-3">
                   {analysis.notes.map((note) => (
                     <li key={note} className="flex items-start gap-2 text-body text-ink">
-                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+                      <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" aria-hidden />
                       <span>{note}</span>
                     </li>
                   ))}
@@ -422,7 +422,7 @@ function BatchPanel({
               disabled={busy || batch.stage === 'Imported' || batch.stage === 'Cancelled'}
               onClick={() => void run(() => mastersApi.migration.validate(batch.id), 'Checked')}
             >
-              <ClipboardCheck className="h-3.5 w-3.5" aria-hidden />
+              <ClipboardCheck className="h-5 w-5" aria-hidden />
               2 · Check it
             </button>
 
@@ -432,7 +432,7 @@ function BatchPanel({
               disabled={busy || batch.stage === 'Staged' || batch.stage === 'Imported' || batch.stage === 'Cancelled'}
               onClick={() => void run(() => mastersApi.migration.dryRun(batch.id, totals), 'Dry run done')}
             >
-              <FlaskConical className="h-3.5 w-3.5" aria-hidden />
+              <FlaskConical className="h-5 w-5" aria-hidden />
               3 · Dry run
             </button>
 
@@ -443,7 +443,7 @@ function BatchPanel({
               onClick={askImport}
               title="Writes these rows into the live catalogue and stock ledger"
             >
-              <DatabaseZap className="h-3.5 w-3.5" aria-hidden />
+              <DatabaseZap className="h-5 w-5" aria-hidden />
               4 · Import for real
             </button>
 
@@ -466,7 +466,7 @@ function BatchPanel({
                 }
                 title="Throws away the staged rows for this file. Nothing that was already imported is affected."
               >
-                <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                <Trash2 className="h-5 w-5" aria-hidden />
                 Discard
               </button>
             </span>
@@ -486,7 +486,7 @@ function BatchPanel({
 
           {!batch.canImport && batch.stage !== 'Imported' ? (
             <p className="flex items-start gap-2 text-body text-ink-muted">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" aria-hidden />
               {batch.blockingErrors > 0
                 ? `${batch.blockingErrors} problem(s) have to be fixed in the source file first.`
                 : 'Import stays disabled until a dry run has been done for this file.'}
@@ -502,11 +502,11 @@ function BatchPanel({
           action={
             <span className="flex items-center gap-2">
               <span className={cn('pos-badge', batch.blockingErrors > 0 ? 'text-negative' : 'text-ink-muted')}>
-                <XCircle className="h-3 w-3" aria-hidden />
+                <XCircle className="h-4 w-4" aria-hidden />
                 {batch.blockingErrors} to fix
               </span>
               <span className={cn('pos-badge', batch.warnings > 0 ? 'text-warning' : 'text-ink-muted')}>
-                <AlertTriangle className="h-3 w-3" aria-hidden />
+                <AlertTriangle className="h-4 w-4" aria-hidden />
                 {batch.warnings} noted
               </span>
             </span>
@@ -534,12 +534,12 @@ function BatchPanel({
                     <td className={td}>
                       {finding.severity === 'Blocking' ? (
                         <span className="pos-badge text-negative">
-                          <XCircle className="h-3 w-3" aria-hidden />
+                          <XCircle className="h-4 w-4" aria-hidden />
                           Must fix
                         </span>
                       ) : (
                         <span className="pos-badge text-warning">
-                          <AlertTriangle className="h-3 w-3" aria-hidden />
+                          <AlertTriangle className="h-4 w-4" aria-hidden />
                           Noted
                         </span>
                       )}
@@ -671,12 +671,12 @@ function BatchPanel({
                         <span className="text-ink-faint">Nothing to compare</span>
                       ) : line.matches ? (
                         <span className="pos-badge text-positive">
-                          <CheckCircle2 className="h-3 w-3" aria-hidden />
+                          <CheckCircle2 className="h-4 w-4" aria-hidden />
                           Agrees
                         </span>
                       ) : (
                         <span className="pos-badge text-negative">
-                          <XCircle className="h-3 w-3" aria-hidden />
+                          <XCircle className="h-4 w-4" aria-hidden />
                           Does not agree
                         </span>
                       )}
@@ -691,7 +691,7 @@ function BatchPanel({
             <ul className="space-y-1 border-t border-subtle p-4">
               {reconciliation.warnings.map((warning) => (
                 <li key={warning} className="flex items-start gap-2 text-body text-ink">
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" aria-hidden />
+                  <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-warning" aria-hidden />
                   <span>{warning}</span>
                 </li>
               ))}

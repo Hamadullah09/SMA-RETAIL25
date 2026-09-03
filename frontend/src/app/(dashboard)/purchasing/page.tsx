@@ -109,7 +109,7 @@ export default function PurchasingPage() {
         </>
       }
       filters={
-        <select
+        <select aria-label="All statuses"
           className={selectClass}
           value={statusFilter}
           onChange={(event) => setStatusFilter(event.target.value as PurchaseOrderStatus | '')}
@@ -229,7 +229,7 @@ function GeneratePanel({
         }
       >
         <Field label="Supplier">
-          <select className={selectClass + ' w-full'} value={supplierId} onChange={(event) => setSupplierId(recordIdFrom(event.target.value))}>
+          <select aria-label="Choose a supplier…" className={selectClass + ' w-full'} value={supplierId} onChange={(event) => setSupplierId(recordIdFrom(event.target.value))}>
             <option value="">Choose a supplier…</option>
             {suppliers.map((s) => (
               <option key={String(s.id)} value={s.id}>
@@ -537,7 +537,7 @@ function AddLinePanel({
             setTerm(event.target.value);
             setSelected(null);
           }}
-          placeholder="Stock code or name"
+          aria-label="Search stock" placeholder="Stock code or name"
         />
         {results.length > 0 ? (
           <ul className="mt-1 max-h-40 overflow-y-auto rounded-sm border border-subtle">
@@ -589,7 +589,7 @@ function ReceivePanel({ order, onReceived }: { order: PurchaseOrderDetail; onRec
         freightTotal: freight,
         lines,
       });
-      toast({ title: 'Receipt recorded', description: 'Stock and average cost are updated.' });
+      toast({ variant: 'success', title: 'Receipt recorded', description: 'Stock and average cost are updated.' });
       setQtys({});
       setFreight(0);
       onReceived();

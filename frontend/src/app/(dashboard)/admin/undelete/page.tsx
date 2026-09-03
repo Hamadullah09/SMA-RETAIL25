@@ -68,7 +68,7 @@ export default function UndeletePage() {
     try {
       await mastersApi.deleted.restore(row.kind, row.id);
       setRows((current) => current.filter((r) => r.id !== row.id));
-      toast({ title: 'Restored', description: `${row.name} is back in use.` });
+      toast({ variant: 'success', title: 'Restored', description: `${row.name} is back in use.` });
     } catch (error) {
       // The refusals here are the interesting ones: a stock code reused since the delete, a customer
       // who still owes money. Showing the server's own words tells the user what to do next.
@@ -89,7 +89,7 @@ export default function UndeletePage() {
         lede="Nothing in this system is destroyed when it is deleted — it is hidden, and everything that ever referred to it still resolves. This is where it comes back."
       >
         <button type="button" className="pos-button" disabled={loading} onClick={() => void load()}>
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+          <RotateCcw className="h-5 w-5" aria-hidden />
           Refresh
         </button>
       </PageHeader>
@@ -115,7 +115,7 @@ export default function UndeletePage() {
             Name or code
             <input
               className="pos-input w-64"
-              placeholder="Search by name or code"
+              aria-label="Search deleted items" placeholder="Search by name or code"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -183,7 +183,7 @@ export default function UndeletePage() {
                           onClick={() => void restore(row)}
                           title={`Put ${row.name} back in use`}
                         >
-                          <Undo2 className="h-3.5 w-3.5" aria-hidden />
+                          <Undo2 className="h-5 w-5" aria-hidden />
                           Restore
                         </button>
                       ) : (

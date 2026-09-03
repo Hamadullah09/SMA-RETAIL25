@@ -275,7 +275,7 @@ export default function PreviousSalesPage() {
             Search
             <input
               className="pos-input"
-              placeholder="Receipt no., customer, total"
+              aria-label="Search sales" placeholder="Receipt no., customer, total"
               value={term}
               onChange={(e) => setTerm(e.target.value)}
             />

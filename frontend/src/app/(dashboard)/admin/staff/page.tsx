@@ -101,7 +101,7 @@ export default function StaffPage() {
         width: 190,
         render: (r) => (
           <span className={cn('inline-flex items-center gap-1.5', r.accessLevel === 0 && 'text-warning')}>
-            {r.accessLevel === 0 ? <GraduationCap className="h-3.5 w-3.5 shrink-0" aria-hidden /> : null}
+            {r.accessLevel === 0 ? <GraduationCap className="h-5 w-5 shrink-0" aria-hidden /> : null}
             {accessLevelLabel[r.accessLevel] ?? `Level ${r.accessLevel}`}
           </span>
         ),
@@ -115,7 +115,7 @@ export default function StaffPage() {
         render: (r) =>
           r.isClockedIn && r.clockedInAt ? (
             <span className="pos-badge text-positive">
-              <Clock className="h-3 w-3" aria-hidden />
+              <Clock className="h-4 w-4" aria-hidden />
               since {new Date(r.clockedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </span>
           ) : (
@@ -129,12 +129,12 @@ export default function StaffPage() {
         render: (r) =>
           r.isActive ? (
             <span className="pos-badge text-ink-muted">
-              <CircleDot className="h-3 w-3" aria-hidden />
+              <CircleDot className="h-4 w-4" aria-hidden />
               Yes
             </span>
           ) : (
             <span className="pos-badge text-ink-faint">
-              <Minus className="h-3 w-3" aria-hidden />
+              <Minus className="h-4 w-4" aria-hidden />
               Left
             </span>
           ),
@@ -149,7 +149,7 @@ export default function StaffPage() {
       description="Who works here, what they are allowed to ring up, and what each sale earns them. Double-click a person to open their commission rules."
       toolbar={
         <button type="button" className="pos-button" disabled={loading} onClick={() => void load()}>
-          <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+          <RotateCcw className="h-5 w-5" aria-hidden />
           {loading ? 'Loading…' : 'Refresh'}
         </button>
       }
@@ -271,7 +271,7 @@ function StaffPanel({
 
       setProductId(null);
       await refresh();
-      toast({ title: 'Rule added' });
+      toast({ variant: 'success', title: 'Rule added' });
     } catch (error) {
       toast({ title: 'Not added', description: describeError(error), variant: 'destructive' });
     } finally {
@@ -285,7 +285,7 @@ function StaffPanel({
     try {
       await mastersApi.staff.deleteCommissionRule(id);
       await refresh();
-      toast({ title: 'Rule removed', description: 'Commission already earned is unaffected.' });
+      toast({ variant: 'success', title: 'Rule removed', description: 'Commission already earned is unaffected.' });
     } catch (error) {
       toast({ title: 'Not removed', description: describeError(error), variant: 'destructive' });
     } finally {
@@ -304,7 +304,7 @@ function StaffPanel({
           <p className="pos-amount mt-0.5 text-body text-ink-muted">{staff.staffCode}</p>
         </div>
         <button type="button" className="pos-button shrink-0" onClick={onClose}>
-          <X className="h-3.5 w-3.5" aria-hidden />
+          <X className="h-5 w-5" aria-hidden />
           Close
         </button>
       </div>
@@ -398,7 +398,7 @@ function StaffPanel({
                           onClick={() => void remove(rule.id)}
                           title="Stops this rule paying from now on. Commission already earned is unaffected."
                         >
-                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                          <Trash2 className="h-5 w-5" aria-hidden />
                           Remove
                         </button>
                       </td>
@@ -497,7 +497,7 @@ function StaffPanel({
                 disabled={busy || (scope === 'product' && !productId) || (scope === 'department' && !departmentId)}
                 onClick={() => void add()}
               >
-                <Plus className="h-3.5 w-3.5" aria-hidden />
+                <Plus className="h-5 w-5" aria-hidden />
                 Add
               </button>
             </div>
@@ -506,7 +506,7 @@ function StaffPanel({
               <RecordPicker
                 label="Item"
                 value={null}
-                placeholder="Code or description"
+                aria-label="Search" placeholder="Code or description"
                 search={(term) =>
                   mastersApi.products
                     .browse(locationId, { search: term, pageSize: 15 })
@@ -534,7 +534,7 @@ function StaffPanel({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Download className="h-3.5 w-3.5" aria-hidden />
+                <Download className="h-5 w-5" aria-hidden />
                 Download their hours
               </a>
             ) : null}
@@ -545,7 +545,7 @@ function StaffPanel({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <Download className="h-3.5 w-3.5" aria-hidden />
+                <Download className="h-5 w-5" aria-hidden />
                 Download their commission
               </a>
             ) : null}
@@ -616,7 +616,7 @@ function ReportsPanel({
             <input type="date" className={inputClass} value={to} onChange={(e) => setTo(e.target.value)} />
           </label>
           <button type="button" className="pos-button" disabled={loading} onClick={() => void run()}>
-            <RotateCcw className="h-3.5 w-3.5" aria-hidden />
+            <RotateCcw className="h-5 w-5" aria-hidden />
             {loading ? 'Loading…' : 'Refresh'}
           </button>
         </div>
@@ -632,7 +632,7 @@ function ReportsPanel({
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Download className="h-3.5 w-3.5" aria-hidden />
+              <Download className="h-5 w-5" aria-hidden />
               CSV
             </a>
           }
@@ -706,7 +706,7 @@ function ReportsPanel({
               target="_blank"
               rel="noopener noreferrer"
             >
-              <Download className="h-3.5 w-3.5" aria-hidden />
+              <Download className="h-5 w-5" aria-hidden />
               CSV
             </a>
           }
