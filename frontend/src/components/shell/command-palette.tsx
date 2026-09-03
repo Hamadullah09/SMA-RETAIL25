@@ -26,6 +26,8 @@ interface Command {
   permission?: string;
 }
 
+import { PALETTE_ROUTES } from '@/lib/routes';
+
 const RECENTS_KEY = 'r25.palette.recent';
 const MAX_RECENTS = 6;
 
@@ -40,28 +42,24 @@ export function CommandPalette() {
 
   const inputRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * Everything in the registry, plus the actions that are not places.
+   *
+   * This was a hand-written list of twenty destinations, and the application has thirty-three. It
+   * could not reach the dashboard, previous sales, orders, backup, accounting or seven of the nine
+   * reports — screens somebody looking for them by name would conclude did not exist. Reading the
+   * registry means a new route is in the palette the moment it is declared.
+   */
   const commands = useMemo<Command[]>(
     () => [
-      { id: 'pos', label: 'Point of sale', group: 'Go to', href: '/pos', keywords: 'till sell cash register', permission: 'pos.sell' },
-      { id: 'inventory', label: 'Inventory', group: 'Go to', href: '/inventory', keywords: 'stock levels', permission: 'catalog.read' },
-      { id: 'products', label: 'Products', group: 'Go to', href: '/catalog/products', keywords: 'items catalogue sku', permission: 'catalog.read' },
-      { id: 'transfers', label: 'Stock transfers', group: 'Go to', href: '/inventory/transfers', keywords: 'move between stores locations van', permission: 'inventory.transfer' },
-      { id: 'stock-counts', label: 'Stock counts', group: 'Go to', href: '/inventory/counts', keywords: 'stocktake count variance shrinkage', permission: 'inventory.count' },
-      { id: 'bulk-adjust', label: 'Batch changes', group: 'Go to', href: '/catalog/bulk', keywords: 'bulk reprice price increase tax flags', permission: 'catalog.bulk_adjust' },
-      { id: 'year-end', label: 'Year end', group: 'Go to', href: '/admin/year-end', keywords: 'fiscal close archive history rollup', permission: 'inventory.year_end' },
-      { id: 'migration', label: 'Bring data across', group: 'Go to', href: '/admin/migration', keywords: 'migration import legacy dbf cutover convert', permission: 'migration.run' },
-      { id: 'staff', label: 'Staff', group: 'Go to', href: '/admin/staff', keywords: 'time clock hours commission payroll', permission: 'staff.read' },
-      { id: 'customers', label: 'Customers', group: 'Go to', href: '/customers', keywords: 'clients accounts', permission: 'customer.read' },
-      { id: 'receivables', label: 'Receivables', group: 'Go to', href: '/receivables', keywords: 'ar invoices statements', permission: 'ar.read' },
-      { id: 'purchasing', label: 'Purchasing', group: 'Go to', href: '/purchasing', keywords: 'orders po', permission: 'purchasing.read' },
-      { id: 'suppliers', label: 'Suppliers', group: 'Go to', href: '/purchasing/suppliers', keywords: 'vendors reorder', permission: 'purchasing.read' },
-      { id: 'reports', label: 'Reports', group: 'Go to', href: '/reports', keywords: 'analysis', permission: 'reports.sales' },
-      { id: 'sales-log', label: 'Sales log', group: 'Go to', href: '/reports/sales', keywords: 'history transactions receipts reprint export', permission: 'reports.sales' },
-      { id: 'admin', label: 'Administration', group: 'Go to', href: '/admin', keywords: 'setup configuration', permission: 'settings.read' },
-      { id: 'setup', label: 'Setup', group: 'Go to', href: '/admin/settings', keywords: 'taxes pos printers hardware users stations tenders numbering departments categories groupings', permission: 'settings.read' },
-      { id: 'undelete', label: 'Undelete items', group: 'Go to', href: '/admin/undelete', keywords: 'restore deleted recover', permission: 'catalog.delete' },
-      { id: 'rfid', label: 'RFID readers', group: 'Go to', href: '/admin/rfid', keywords: 'reader antenna power frequency region tags epc uhf hardware', permission: 'terminals.read' },
-      { id: 'audit', label: 'Audit log', group: 'Go to', href: '/admin/audit', keywords: 'history who changed', permission: 'audit.read' },
+      ...PALETTE_ROUTES.map((route) => ({
+        id: route.href,
+        label: route.label,
+        group: 'Go to',
+        href: route.href,
+        keywords: route.keywords,
+        permission: route.permission,
+      })),
       { id: 'signout', label: 'Sign out', group: 'Session', action: () => void signOut(), keywords: 'logout leave' },
     ],
     [signOut],

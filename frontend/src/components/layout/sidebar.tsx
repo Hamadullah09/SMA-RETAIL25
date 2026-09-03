@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { NAV_SECTIONS, railChildrenOf, type AppRoute } from '@/lib/routes';
+import { matchRoute } from '@/lib/route-match';
 import {
   LayoutDashboard,
   Menu,
@@ -47,101 +49,34 @@ const RAIL = {
   closed: 'lg:w-sidebar-collapsed',
 } as const;
 
-interface NavItem {
-  href: string;
-  label: string;
-  icon: LucideIcon;
-
-  /**
-   * Sub-destinations, revealed by the row's chevron.
-   *
-   * A group's own row stays a link to `href`. Making the parent a toggle instead would cost a click
-   * on the destination people actually want — nobody opens "Stock" in order to look at the word
-   * "Stock".
-   */
-  children?: Array<{ href: string; label: string }>;
-}
-
 /**
- * The rail, in sections.
+ * The rail is drawn from src/lib/routes.ts, not from a list kept here.
  *
- * Eleven undifferentiated rows is a list to be read; three short ones are a shape to be learned.
- * Every destination the flat list had is still here under its original label — the sections and the
- * two groups are grouping, not a renaming, so nobody has to relearn where anything lives.
+ * There were three such lists — this one, the command palette's, and the index-page cards — and
+ * nothing kept them in step. "Inventory" named /catalog/products here and /inventory in the
+ * palette: opposite screens behind one word. Highlighting is resolved by the same matcher help
+ * uses, so the row that looks current and the guide Ctrl+H opens cannot disagree.
  */
-const navSections: Array<{ heading: string; items: NavItem[] }> = [
-  {
-    heading: 'Main',
-    items: [
-      { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/pos', label: 'Point of Sale', icon: ShoppingCart },
-      { href: '/sales', label: 'Previous sales', icon: Receipt },
-      {
-        href: '/catalog/products',
-        label: 'Inventory',
-        icon: Package,
-        children: [
-          { href: '/catalog/products', label: 'Products' },
-          { href: '/catalog/bulk', label: 'Bulk changes' },
-        ],
-      },
-      {
-        href: '/inventory',
-        label: 'Stock',
-        icon: Warehouse,
-        children: [
-          { href: '/inventory', label: 'Stock on hand' },
-          { href: '/inventory/counts', label: 'Counts' },
-          { href: '/inventory/transfers', label: 'Transfers' },
-        ],
-      },
-      { href: '/customers', label: 'Customers', icon: Users },
-    ],
-  },
-  {
-    heading: 'Operations',
-    items: [
-      { href: '/purchasing/suppliers', label: 'Suppliers', icon: Truck },
-      { href: '/purchasing', label: 'Purchasing', icon: FileText },
-      { href: '/receivables', label: 'Receivables', icon: CreditCard },
-      { href: '/orders', label: 'Orders & Layaways', icon: ClipboardList },
-    ],
-  },
-  {
-    heading: 'Others',
-    items: [
-      { href: '/reports', label: 'Reports', icon: BarChart3 },
-      { href: '/admin', label: 'Administration', icon: Settings },
-    ],
-  },
-];
-
-/** Every href in the rail, parents and children alike. */
-const allHrefs = navSections.flatMap((section) =>
-  section.items.flatMap((item) => [item.href, ...(item.children ?? []).map((child) => child.href)]),
-);
-
-/**
- * Exactly one row is the current page.
- *
- * `startsWith` alone lit up two rows at once — `/purchasing/suppliers` is inside `/purchasing`, and
- * `/inventory/counts` is inside `/inventory`. That was survivable when the active state was a faint
- * tint; with a solid accent fill, two filled rows is simply wrong. The longest matching prefix wins,
- * which is the same rule a router uses.
- */
-function activeHref(pathname: string): string | undefined {
-  return allHrefs
-    .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
-    .sort((a, b) => b.length - a.length)[0];
-}
-
 export function Sidebar() {
   const pathname = usePathname();
   const auth = useAuth();
   const user = auth.user;
   const { sidebarOpen, toggleSidebar, drawerOpen, closeDrawer } = useUIStore();
 
-  const current = activeHref(pathname);
+  // The longest declared prefix, so exactly one row reads as current — /purchasing/suppliers sits
+  // inside /purchasing, and against a solid accent fill two filled rows is simply wrong.
+  const current = matchRoute(pathname)?.href;
+
+  /**
+   * Rows the signed-in person can actually open.
+   *
+   * The rail used to show everything while the palette filtered by permission, so the same person
+   * saw different destinations depending on how they went looking. Filtering happens only where a
+   * route declares a permission the page itself already enforces; the report leaves carry none and
+   * stay visible, because hiding a row somebody is entitled to is worse than showing one that turns
+   * out to be refused — a hidden row cannot even be asked about.
+   */
+  const permitted = (route: AppRoute) => !route.permission || auth.can(route.permission);
 
   /**
    * Which groups are open, over and above the one containing the current page.
@@ -230,7 +165,7 @@ export function Sidebar() {
       </div>
 
       <nav aria-label="Main" className="flex-1 overflow-y-auto px-2 pb-2">
-        {navSections.map((section) => (
+        {NAV_SECTIONS.map((section) => (
           <div key={section.heading}>
             {/* The section headings are the one place uppercase still earns its keep: they are
                 signposts between groups rather than labels on anything, and at 11px they read as
@@ -239,10 +174,11 @@ export function Sidebar() {
             {showLabels ? <p className="pos-nav-section">{section.heading}</p> : null}
 
             <div className="space-y-0.5">
-              {section.items.map((item) => {
+              {section.items.filter(permitted).map((item) => {
                 const Icon = item.icon;
-                const hasChildren = Boolean(item.children?.length) && showLabels;
-                const childActive = (item.children ?? []).some((child) => child.href === current);
+                const children = railChildrenOf(item.href).filter(permitted);
+                const hasChildren = children.length > 0 && showLabels;
+                const childActive = children.some((child) => child.href === current);
 
                 // Open because the user opened it, or because the current page is inside it — the
                 // exclusive-or being the case where they closed the group they are standing in.
@@ -304,7 +240,7 @@ export function Sidebar() {
 
                     {hasChildren && expanded ? (
                       <div className="mt-0.5 space-y-0.5">
-                        {item.children!.map((child) => (
+                        {children.map((child) => (
                           <Link
                             key={child.href}
                             href={child.href}
