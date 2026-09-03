@@ -79,17 +79,20 @@ const SIGNED_IN_ROUTES = [
  * worse than none. Seed them from a real run: SEED_BASELINE=1.
  */
 const KNOWN_OVERFLOW: Record<string, string[]> = {
+  // Five shorter than it was. Moving the grid header inside its scroll container fixed
+  // /customers, /catalog/products, /purchasing/suppliers, /reports/sales and
+  // /reports/sales-analysis outright — the page had been sliding sideways because the header
+  // spilled out of the panel, not because the columns did.
+  //
+  // CI is what said so: each of those reported "Expected to fail, but passed", which is the whole
+  // point of listing them here rather than leaving the suite red. The five below still overrun and
+  // will until their column widths are dealt with.
   desktop: [
     '/reports/stock-value',
     '/reports/on-order',
     '/reports/stock-position',
-    '/customers',
     '/reports/stock-received',
-    '/catalog/products',
-    '/reports/sales',
-    '/reports/sales-analysis',
     '/admin/audit',
-    '/purchasing/suppliers',
   ],
   tablet: [],
   phone: [],
