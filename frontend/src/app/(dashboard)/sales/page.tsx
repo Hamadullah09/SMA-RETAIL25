@@ -315,7 +315,7 @@ export default function PreviousSalesPage() {
                 )}
               </div>
 
-              <table className="w-full text-sm">
+              <table className="pos-table">
                 <thead>
                   <tr className="border-b text-left text-xs text-muted-foreground">
                     <th className="py-1">Item</th>

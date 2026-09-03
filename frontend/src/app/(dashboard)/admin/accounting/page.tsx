@@ -34,8 +34,6 @@ const PUSHABLE: { entity: SyncEntityName; label: string; needsDate?: boolean }[]
   { entity: 'PosRevenue', label: "A day's takings", needsDate: true },
 ];
 
-const thText = 'px-3 py-2 text-left text-label font-medium text-ink-muted';
-const td = 'px-3 py-2 align-middle';
 
 /**
  * The accounting link (doc 09 §1).
@@ -285,12 +283,12 @@ export default function AccountingSyncPage() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-body">
+            <table className="pos-table">
               <thead className="border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th scope="col" className={thText}>Type</th>
-                  <th scope="col" className={thText}>Local</th>
-                  <th scope="col" className={thText}>Remote</th>
+                  <th scope="col" >Type</th>
+                  <th scope="col" >Local</th>
+                  <th scope="col" >Remote</th>
                 </tr>
               </thead>
               <tbody>
@@ -299,9 +297,9 @@ export default function AccountingSyncPage() {
                     key={String(map.id)}
                     className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                   >
-                    <td className={td}>{map.entityType}</td>
-                    <td className={cn(td, 'pos-amount')}>{map.localKey ?? map.localId ?? '—'}</td>
-                    <td className={cn(td, 'text-ink-muted')}>{map.remoteName ?? map.remoteId}</td>
+                    <td>{map.entityType}</td>
+                    <td className={'pos-amount'}>{map.localKey ?? map.localId ?? '—'}</td>
+                    <td className={'text-ink-muted'}>{map.remoteName ?? map.remoteId}</td>
                   </tr>
                 ))}
               </tbody>

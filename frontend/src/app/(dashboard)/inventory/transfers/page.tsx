@@ -340,7 +340,7 @@ function TransferPanel({
         title="Items"
         hint={isDraft ? 'Quantities can be changed until the transfer is shipped.' : undefined}
       >
-        <table className="w-full text-body">
+        <table className="pos-table">
           <thead className="text-label">
             <tr>
               <th className="py-1 text-left">Code</th>
@@ -348,7 +348,7 @@ function TransferPanel({
               <th className="py-1 text-right">Sending</th>
               <th className="py-1 text-right">{isInTransit || transfer.status === 'Received' ? 'Received' : 'On hand'}</th>
               {canReceiveHere ? <th className="py-1 text-right">Receive</th> : null}
-              {isDraft && canTransfer ? <th /> : null}
+              {isDraft && canTransfer ? <th/> : null}
             </tr>
           </thead>
           <tbody>

@@ -133,7 +133,7 @@ export function MatrixEditor({ productId, canWrite }: { productId: number; canWr
 
       {matrix && matrix.variants.length > 0 ? (
         <div className="max-h-64 overflow-y-auto">
-          <table className="w-full text-label">
+          <table className="pos-table">
             <thead className="text-ink-muted">
               <tr>
                 <th className="text-left">Variant</th>

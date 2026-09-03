@@ -804,7 +804,7 @@ function TaxesTab({
 
       <SettingsSection title="History" description="Every rate that has ever applied, and when.">
         <div className="-mx-4 -mb-4 overflow-x-auto border-t border-subtle">
-          <table className="w-full min-w-[34rem] text-body">
+          <table className="pos-table min-w-[34rem]">
             <thead>
               <tr className="border-b border-subtle bg-panel-sunken text-label text-ink-muted">
                 <th className="px-4 py-2 text-left font-medium">From</th>

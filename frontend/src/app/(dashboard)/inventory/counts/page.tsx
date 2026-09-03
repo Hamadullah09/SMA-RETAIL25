@@ -347,7 +347,7 @@ function CountPanel({
           </label>
         }
       >
-        <table className="w-full text-body">
+        <table className="pos-table">
           <thead className="text-label">
             <tr>
               <th className="py-1 text-left">Code</th>
@@ -356,7 +356,7 @@ function CountPanel({
               <th className="py-1 text-right">System</th>
               <th className="py-1 text-right">Variance</th>
               <th className="py-1 text-right">Value</th>
-              {isOpen && canCount ? <th /> : null}
+              {isOpen && canCount ? <th/> : null}
             </tr>
           </thead>
           <tbody>

@@ -262,7 +262,7 @@ function SaleDetailPanel({
       </FormSection>
 
       <FormSection title={`Lines (${sale.lines.length})`}>
-        <table className="w-full text-label">
+        <table className="pos-table">
           <thead className="text-ink-muted">
             <tr>
               <th className="text-left">Item</th>

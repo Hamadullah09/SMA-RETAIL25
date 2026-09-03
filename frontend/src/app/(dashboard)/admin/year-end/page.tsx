@@ -28,10 +28,6 @@ import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
 const inputClass =
   'pos-input';
 
-const thText = 'px-3 py-2 text-left text-label font-medium text-ink-muted';
-const thNum = 'px-3 py-2 text-right text-label font-medium text-ink-muted';
-const td = 'px-3 py-2 align-middle';
-const tdNum = 'px-3 py-2 text-right align-middle tabular-nums';
 
 const monthNames = [
   '', 'January', 'February', 'March', 'April', 'May', 'June',
@@ -238,15 +234,15 @@ export default function YearEndPage() {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-body">
+              <table className="pos-table">
                 <thead className="border-b border-subtle bg-panel-sunken">
                   <tr>
-                    <th scope="col" className={thText}>Year</th>
-                    <th scope="col" className={thText}>Period</th>
-                    <th scope="col" className={thText}>Status</th>
-                    <th scope="col" className={thNum}>Archived</th>
-                    <th scope="col" className={thNum}>Net sales</th>
-                    <th scope="col" className={thNum}>Actions</th>
+                    <th scope="col" >Year</th>
+                    <th scope="col" >Period</th>
+                    <th scope="col" >Status</th>
+                    <th scope="col" data-numeric>Archived</th>
+                    <th scope="col" data-numeric>Net sales</th>
+                    <th scope="col" data-numeric>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -258,13 +254,13 @@ export default function YearEndPage() {
                         key={String(year.id)}
                         className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                       >
-                        <td className={cn(td, 'font-medium tabular-nums text-ink')}>{year.year}</td>
-                        <td className={cn(td, 'tabular-nums text-ink-muted')}>
+                        <td className={'font-medium tabular-nums text-ink'}>{year.year}</td>
+                        <td className={'tabular-nums text-ink-muted'}>
                           {year.startsOn} to {year.endsOn}
                         </td>
                         {/* Words and a glyph rather than a colour: "closed" is the fact, and it needs
                             to read as one for anyone who cannot separate the two hues. */}
-                        <td className={td}>
+                        <td>
                           <span className={cn('pos-badge', closed ? 'text-ink-muted' : 'text-positive')}>
                             {closed ? <Lock className="h-4 w-4" aria-hidden /> : <LockOpen className="h-4 w-4" aria-hidden />}
                             {closed
@@ -272,11 +268,11 @@ export default function YearEndPage() {
                               : 'Open'}
                           </span>
                         </td>
-                        <td className={tdNum} data-numeric="">{closed ? year.archivedRows : '—'}</td>
-                        <td className={tdNum} data-numeric="">
+                        <td data-numeric>{closed ? year.archivedRows : '—'}</td>
+                        <td data-numeric>
                           {closed ? formatCurrency(year.archivedNetSales) : '—'}
                         </td>
-                        <td className={cn(td, 'text-right')}>
+                        <td className={'text-right'}>
                           {year.status === 'Open' ? (
                             <span className="inline-flex items-center gap-2">
                               <button
@@ -423,16 +419,16 @@ export default function YearEndPage() {
           />
         ) : (
           <div className="max-h-96 overflow-auto">
-            <table className="w-full border-collapse text-body">
+            <table className="pos-table">
               <thead className="sticky top-0 z-10 border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th scope="col" className={thText}>Year</th>
-                  <th scope="col" className={thText}>Month</th>
-                  <th scope="col" className={thText}>Code</th>
-                  <th scope="col" className={thText}>Description</th>
-                  <th scope="col" className={thNum}>Sold</th>
-                  <th scope="col" className={thNum}>Net</th>
-                  <th scope="col" className={thNum}>Margin</th>
+                  <th scope="col" >Year</th>
+                  <th scope="col" >Month</th>
+                  <th scope="col" >Code</th>
+                  <th scope="col" >Description</th>
+                  <th scope="col" data-numeric>Sold</th>
+                  <th scope="col" data-numeric>Net</th>
+                  <th scope="col" data-numeric>Margin</th>
                 </tr>
               </thead>
               <tbody>
@@ -441,13 +437,13 @@ export default function YearEndPage() {
                     key={`${row.year}-${row.month}-${row.stockCode}`}
                     className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                   >
-                    <td className={cn(td, 'tabular-nums')}>{row.year}</td>
-                    <td className={cn(td, 'text-ink-muted')}>{monthNames[row.month] ?? row.month}</td>
-                    <td className={cn(td, 'pos-amount')}>{row.stockCode}</td>
-                    <td className={td}>{row.name}</td>
-                    <td className={tdNum} data-numeric="">{row.quantitySold}</td>
-                    <td className={tdNum} data-numeric="">{formatCurrency(row.netSales)}</td>
-                    <td className={tdNum} data-numeric="">{formatCurrency(row.grossMargin)}</td>
+                    <td className={'tabular-nums'}>{row.year}</td>
+                    <td className={'text-ink-muted'}>{monthNames[row.month] ?? row.month}</td>
+                    <td className={'pos-amount'}>{row.stockCode}</td>
+                    <td>{row.name}</td>
+                    <td data-numeric>{row.quantitySold}</td>
+                    <td data-numeric>{formatCurrency(row.netSales)}</td>
+                    <td data-numeric>{formatCurrency(row.grossMargin)}</td>
                   </tr>
                 ))}
               </tbody>

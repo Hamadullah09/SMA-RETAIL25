@@ -20,9 +20,6 @@ const KINDS: Array<{ value: DeletedEntityKind | ''; label: string }> = [
   { value: 'Category', label: 'Categories' },
 ];
 
-const thText = 'px-3 py-2 text-left text-label font-medium text-ink-muted';
-const thNum = 'px-3 py-2 text-right text-label font-medium text-ink-muted';
-const td = 'px-3 py-2 align-middle';
 
 /**
  * Undelete Items (guide p.24), widened to every soft-deleted record.
@@ -149,15 +146,15 @@ export default function UndeletePage() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-body">
+            <table className="pos-table">
               <thead className="border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th scope="col" className={thText}>Kind</th>
-                  <th scope="col" className={thText}>Reference</th>
-                  <th scope="col" className={thText}>Name</th>
-                  <th scope="col" className={thText}>Deleted</th>
-                  <th scope="col" className={thText}>By</th>
-                  <th scope="col" className={thNum}>
+                  <th scope="col" >Kind</th>
+                  <th scope="col" >Reference</th>
+                  <th scope="col" >Name</th>
+                  <th scope="col" >Deleted</th>
+                  <th scope="col" >By</th>
+                  <th scope="col" data-numeric>
                     <span className="sr-only">Action</span>
                   </th>
                 </tr>
@@ -168,14 +165,14 @@ export default function UndeletePage() {
                     key={`${row.kind}-${row.id}`}
                     className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                   >
-                    <td className={td}>{row.kind}</td>
-                    <td className={cn(td, 'pos-amount text-ink-muted')}>{row.reference || '—'}</td>
-                    <td className={cn(td, 'font-medium text-ink')}>{row.name}</td>
-                    <td className={cn(td, 'tabular-nums text-ink-muted')}>
+                    <td>{row.kind}</td>
+                    <td className={'pos-amount text-ink-muted'}>{row.reference || '—'}</td>
+                    <td className={'font-medium text-ink'}>{row.name}</td>
+                    <td className={'tabular-nums text-ink-muted'}>
                       {row.deletedAt ? new Date(row.deletedAt).toLocaleString() : '—'}
                     </td>
-                    <td className={cn(td, 'text-ink-muted')}>{row.deletedByName ?? '—'}</td>
-                    <td className={cn(td, 'text-right')}>
+                    <td className={'text-ink-muted'}>{row.deletedByName ?? '—'}</td>
+                    <td className={'text-right'}>
                       {canRestore ? (
                         <button
                           type="button"

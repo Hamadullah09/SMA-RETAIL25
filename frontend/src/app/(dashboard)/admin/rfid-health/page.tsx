@@ -137,7 +137,7 @@ export default function RfidHealthPage() {
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="pos-table">
             <thead>
               <tr className="border-b border-subtle text-left text-label text-ink-muted">
                 <th className="px-2 py-1">Till</th>

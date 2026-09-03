@@ -35,10 +35,6 @@ import { describeError } from '@/lib/errors';
 const inputClass =
   'pos-input';
 
-const thText = 'px-2 py-2 text-left text-label font-medium text-ink-muted';
-const thNum = 'px-2 py-2 text-right text-label font-medium text-ink-muted';
-const td = 'px-2 py-2 align-middle';
-const tdNum = 'px-2 py-2 text-right align-middle tabular-nums';
 
 const commissionTypeLabel: Record<CommissionType, string> = {
   Percentage: '% of the takings',
@@ -356,14 +352,14 @@ function StaffPanel({
           </p>
         ) : (
           <div className="overflow-x-auto rounded border border-subtle">
-            <table className="w-full border-collapse text-body">
+            <table className="pos-table">
               <thead className="border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th scope="col" className={thText}>Applies to</th>
-                  <th scope="col" className={thText}>Pays</th>
-                  <th scope="col" className={thNum}>Cap</th>
+                  <th scope="col" >Applies to</th>
+                  <th scope="col" >Pays</th>
+                  <th scope="col" data-numeric>Cap</th>
                   {canWrite ? (
-                    <th scope="col" className={thNum}>
+                    <th scope="col" data-numeric>
                       <span className="sr-only">Action</span>
                     </th>
                   ) : null}
@@ -375,22 +371,22 @@ function StaffPanel({
                     key={String(rule.id)}
                     className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                   >
-                    <td className={td}>
+                    <td>
                       {rule.productName ?? rule.departmentName ?? 'Everything they sell'}
                       {!rule.isActive ? (
                         <span className="ml-1.5 pos-badge text-ink-faint">Off</span>
                       ) : null}
                     </td>
-                    <td className={cn(td, 'tabular-nums')}>
+                    <td className={'tabular-nums'}>
                       {rule.commissionType === 'Fixed'
                         ? `${formatCurrency(rule.value)} per unit`
                         : `${rule.value}% ${rule.commissionType === 'PercentOfProfit' ? 'of margin' : 'of takings'}`}
                     </td>
-                    <td className={tdNum} data-numeric="">
+                    <td data-numeric>
                       {rule.maxCommission ? formatCurrency(rule.maxCommission) : '—'}
                     </td>
                     {canWrite ? (
-                      <td className={cn(td, 'text-right')}>
+                      <td className={'text-right'}>
                         <button
                           type="button"
                           className="pos-button-danger"
@@ -643,14 +639,14 @@ function ReportsPanel({
             </p>
           ) : (
             <div className="overflow-x-auto rounded border border-subtle">
-              <table className="w-full border-collapse text-body">
+              <table className="pos-table">
                 <thead className="border-b border-subtle bg-panel-sunken">
                   <tr>
-                    <th scope="col" className={thText}>Code</th>
-                    <th scope="col" className={thText}>Name</th>
-                    <th scope="col" className={thNum}>Shifts</th>
-                    <th scope="col" className={thNum}>Hours</th>
-                    <th scope="col" className={thNum}>Still on</th>
+                    <th scope="col" >Code</th>
+                    <th scope="col" >Name</th>
+                    <th scope="col" data-numeric>Shifts</th>
+                    <th scope="col" data-numeric>Hours</th>
+                    <th scope="col" data-numeric>Still on</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -659,22 +655,22 @@ function ReportsPanel({
                       key={row.staffId}
                       className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                     >
-                      <td className={cn(td, 'pos-amount')}>{row.staffCode}</td>
-                      <td className={td}>{row.staffName}</td>
-                      <td className={tdNum} data-numeric="">{row.shifts}</td>
-                      <td className={tdNum} data-numeric="">{row.hoursWorked}</td>
-                      <td className={tdNum} data-numeric="">{row.openShifts || '—'}</td>
+                      <td className={'pos-amount'}>{row.staffCode}</td>
+                      <td>{row.staffName}</td>
+                      <td data-numeric>{row.shifts}</td>
+                      <td data-numeric>{row.hoursWorked}</td>
+                      <td data-numeric>{row.openShifts || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="border-t border-strong bg-panel-sunken">
                   <tr>
-                    <td className={cn(td, 'font-semibold')} colSpan={2}>
+                    <td className={'font-semibold'} colSpan={2}>
                       Total
                     </td>
-                    <td className={cn(tdNum, 'font-semibold')} data-numeric="">{hours.totalShifts}</td>
-                    <td className={cn(tdNum, 'font-semibold')} data-numeric="">{hours.totalHours}</td>
-                    <td className={cn(tdNum, 'font-semibold')} data-numeric="">{hours.totalOpenShifts || '—'}</td>
+                    <td className={'font-semibold'} data-numeric="">{hours.totalShifts}</td>
+                    <td className={'font-semibold'} data-numeric="">{hours.totalHours}</td>
+                    <td className={'font-semibold'} data-numeric="">{hours.totalOpenShifts || '—'}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -718,14 +714,14 @@ function ReportsPanel({
             </p>
           ) : (
             <div className="overflow-x-auto rounded border border-subtle">
-              <table className="w-full border-collapse text-body">
+              <table className="pos-table">
                 <thead className="border-b border-subtle bg-panel-sunken">
                   <tr>
-                    <th scope="col" className={thText}>Code</th>
-                    <th scope="col" className={thText}>Name</th>
-                    <th scope="col" className={thNum}>Lines</th>
-                    <th scope="col" className={thNum}>Sales</th>
-                    <th scope="col" className={thNum}>Commission</th>
+                    <th scope="col" >Code</th>
+                    <th scope="col" >Name</th>
+                    <th scope="col" data-numeric>Lines</th>
+                    <th scope="col" data-numeric>Sales</th>
+                    <th scope="col" data-numeric>Commission</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -734,25 +730,25 @@ function ReportsPanel({
                       key={row.staffId}
                       className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                     >
-                      <td className={cn(td, 'pos-amount')}>{row.staffCode}</td>
-                      <td className={td}>{row.staffName}</td>
-                      <td className={tdNum} data-numeric="">
+                      <td className={'pos-amount'}>{row.staffCode}</td>
+                      <td>{row.staffName}</td>
+                      <td data-numeric>
                         {row.lines}
                         {row.cappedLines > 0 ? (
                           <span className="text-label text-ink-muted"> ({row.cappedLines} capped)</span>
                         ) : null}
                       </td>
-                      <td className={tdNum} data-numeric="">{formatCurrency(row.salesNet)}</td>
-                      <td className={cn(tdNum, 'font-medium')} data-numeric="">{formatCurrency(row.commission)}</td>
+                      <td data-numeric>{formatCurrency(row.salesNet)}</td>
+                      <td className={'font-medium'} data-numeric="">{formatCurrency(row.commission)}</td>
                     </tr>
                   ))}
                 </tbody>
                 <tfoot className="border-t border-strong bg-panel-sunken">
                   <tr>
-                    <td className={cn(td, 'font-semibold')} colSpan={4}>
+                    <td className={'font-semibold'} colSpan={4}>
                       Owed in total
                     </td>
-                    <td className={cn(tdNum, 'font-semibold')} data-numeric="">
+                    <td className={'font-semibold'} data-numeric="">
                       {formatCurrency(commissions.totalCommission)}
                     </td>
                   </tr>

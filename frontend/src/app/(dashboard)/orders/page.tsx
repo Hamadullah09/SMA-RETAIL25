@@ -250,7 +250,15 @@ function LineBuilder({
       </button>
 
       {lines.length > 0 ? (
-        <table className="mt-2 w-full text-label">
+        <table className="pos-table mt-2">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th data-numeric>Qty</th>
+              <th data-numeric>Price</th>
+              <th><span className="sr-only">Remove</span></th>
+            </tr>
+          </thead>
           <tbody>
             {lines.map((line, index) => (
               <tr key={index} className="border-t border-subtle">
@@ -477,7 +485,7 @@ function CustomerOrderPanel({
       </div>
 
       <FormSection title="Lines">
-        <table className="w-full text-label">
+        <table className="pos-table">
           <thead className="text-left text-ink-muted">
             <tr><th className="pb-1">Item</th><th className="pb-1 text-right">Ordered</th><th className="pb-1 text-right">Filled</th><th className="pb-1 text-right">Price</th></tr>
           </thead>
@@ -723,7 +731,16 @@ function LayawayPanel({
       </FormSection>
 
       <FormSection title="Lines">
-        <table className="w-full text-label">
+        <table className="pos-table">
+          {/* Columns of figures with nothing naming them: the quantity and the price were two
+              right-aligned numbers a reader had to work out from context. */}
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th data-numeric>Qty</th>
+              <th data-numeric>Price</th>
+            </tr>
+          </thead>
           <tbody>
             {layaway.lines.map((line) => (
               <tr key={String(line.id)} className="border-t border-subtle">
@@ -963,7 +980,16 @@ function PriceQuotePanel({
       </div>
 
       <FormSection title="Lines">
-        <table className="w-full text-label">
+        <table className="pos-table">
+          {/* Columns of figures with nothing naming them: the quantity and the price were two
+              right-aligned numbers a reader had to work out from context. */}
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th data-numeric>Qty</th>
+              <th data-numeric>Price</th>
+            </tr>
+          </thead>
           <tbody>
             {quote.lines.map((line) => (
               <tr key={String(line.id)} className="border-t border-subtle">

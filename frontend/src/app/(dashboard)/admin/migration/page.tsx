@@ -41,10 +41,6 @@ import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
 const inputClass =
   'pos-input';
 
-const thText = 'px-3 py-2 text-left text-label font-medium text-ink-muted';
-const thNum = 'px-3 py-2 text-right text-label font-medium text-ink-muted';
-const td = 'px-3 py-2 align-top';
-const tdNum = 'px-3 py-2 text-right align-top tabular-nums';
 
 /** What each stage means in the operator's words, not the enum's. */
 const stageLabel: Record<MigrationStage, string> = {
@@ -226,15 +222,15 @@ export default function MigrationPage() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-body">
+            <table className="pos-table">
               <thead className="border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th scope="col" className={thText}>File</th>
-                  <th scope="col" className={thText}>Kind</th>
-                  <th scope="col" className={thText}>Where it is up to</th>
-                  <th scope="col" className={thNum}>Rows</th>
-                  <th scope="col" className={thNum}>Problems</th>
-                  <th scope="col" className={thNum}>Imported</th>
+                  <th scope="col" >File</th>
+                  <th scope="col" >Kind</th>
+                  <th scope="col" >Where it is up to</th>
+                  <th scope="col" data-numeric>Rows</th>
+                  <th scope="col" data-numeric>Problems</th>
+                  <th scope="col" data-numeric>Imported</th>
                 </tr>
               </thead>
               <tbody>
@@ -258,13 +254,13 @@ export default function MigrationPage() {
                         isSelected && 'bg-accent-soft font-medium',
                       )}
                     >
-                      <td className={cn(td, 'text-ink')}>{batch.sourceFileName}</td>
-                      <td className={cn(td, 'text-ink-muted')}>{batch.entity}</td>
-                      <td className={td}>
+                      <td className={'text-ink'}>{batch.sourceFileName}</td>
+                      <td className={'text-ink-muted'}>{batch.entity}</td>
+                      <td>
                         <StageBadge stage={batch.stage} />
                       </td>
-                      <td className={tdNum} data-numeric="">{batch.rowsStaged}</td>
-                      <td className={tdNum} data-numeric="">
+                      <td data-numeric>{batch.rowsStaged}</td>
+                      <td data-numeric>
                         {batch.blockingErrors > 0 ? (
                           <span className="inline-flex items-center gap-1 font-medium text-negative">
                             <XCircle className="h-5 w-5" aria-hidden />
@@ -279,7 +275,7 @@ export default function MigrationPage() {
                           '—'
                         )}
                       </td>
-                      <td className={tdNum} data-numeric="">
+                      <td data-numeric>
                         {batch.stage === 'Imported' ? batch.rowsImported : '—'}
                       </td>
                     </tr>
@@ -513,13 +509,13 @@ function BatchPanel({
           }
         >
           <div className="max-h-72 overflow-auto">
-            <table className="w-full border-collapse text-body">
+            <table className="pos-table">
               <thead className="sticky top-0 z-10 border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th scope="col" className={thNum}>Row</th>
-                  <th scope="col" className={thText}>Column</th>
-                  <th scope="col" className={thText}>Severity</th>
-                  <th scope="col" className={thText}>What is wrong</th>
+                  <th scope="col" data-numeric>Row</th>
+                  <th scope="col" >Column</th>
+                  <th scope="col" >Severity</th>
+                  <th scope="col" >What is wrong</th>
                 </tr>
               </thead>
               <tbody>
@@ -528,10 +524,10 @@ function BatchPanel({
                     key={`${finding.rowNumber}-${finding.code}-${index}`}
                     className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                   >
-                    <td className={tdNum} data-numeric="">{finding.rowNumber}</td>
-                    <td className={cn(td, 'text-ink-muted')}>{finding.column ?? '—'}</td>
+                    <td data-numeric>{finding.rowNumber}</td>
+                    <td className={'text-ink-muted'}>{finding.column ?? '—'}</td>
                     {/* The word and a glyph, not a colour — a blocking error has to read as one. */}
-                    <td className={td}>
+                    <td>
                       {finding.severity === 'Blocking' ? (
                         <span className="pos-badge text-negative">
                           <XCircle className="h-4 w-4" aria-hidden />
@@ -544,7 +540,7 @@ function BatchPanel({
                         </span>
                       )}
                     </td>
-                    <td className={td}>{finding.message}</td>
+                    <td>{finding.message}</td>
                   </tr>
                 ))}
               </tbody>
@@ -562,12 +558,12 @@ function BatchPanel({
       {rows.length > 0 ? (
         <Panel title="Rows that need looking at" icon={FileSearch} action={`${rows.length} row(s)`}>
           <div className="max-h-72 overflow-auto">
-            <table className="w-full border-collapse text-body">
+            <table className="pos-table">
               <thead className="sticky top-0 z-10 border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th scope="col" className={thNum}>Row</th>
-                  <th scope="col" className={thText}>Key</th>
-                  <th scope="col" className={thText}>Problems</th>
+                  <th scope="col" data-numeric>Row</th>
+                  <th scope="col" >Key</th>
+                  <th scope="col" >Problems</th>
                 </tr>
               </thead>
               <tbody>
@@ -576,9 +572,9 @@ function BatchPanel({
                     key={row.rowNumber}
                     className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                   >
-                    <td className={tdNum} data-numeric="">{row.rowNumber}</td>
-                    <td className={cn(td, 'pos-amount')}>{row.legacyKey ?? '—'}</td>
-                    <td className={cn(td, 'whitespace-pre-line')}>{row.problems}</td>
+                    <td data-numeric>{row.rowNumber}</td>
+                    <td className={'pos-amount'}>{row.legacyKey ?? '—'}</td>
+                    <td className={'whitespace-pre-line'}>{row.problems}</td>
                   </tr>
                 ))}
               </tbody>
@@ -641,14 +637,14 @@ function BatchPanel({
           action={`${reconciliation.rowsWouldImport} of ${reconciliation.rowsConsidered} row(s)`}
         >
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-body">
+            <table className="pos-table">
               <thead className="border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th scope="col" className={thText}>Measure</th>
-                  <th scope="col" className={thNum}>Here</th>
-                  <th scope="col" className={thNum}>Old system</th>
-                  <th scope="col" className={thNum}>Difference</th>
-                  <th scope="col" className={thText}>Agrees</th>
+                  <th scope="col" >Measure</th>
+                  <th scope="col" data-numeric>Here</th>
+                  <th scope="col" data-numeric>Old system</th>
+                  <th scope="col" data-numeric>Difference</th>
+                  <th scope="col" >Agrees</th>
                 </tr>
               </thead>
               <tbody>
@@ -657,16 +653,16 @@ function BatchPanel({
                     key={line.measure}
                     className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                   >
-                    <td className={td}>{line.measure}</td>
-                    <td className={tdNum} data-numeric="">
+                    <td>{line.measure}</td>
+                    <td data-numeric>
                       {line.measure.includes('value') || line.measure.includes('balance')
                         ? formatCurrency(line.imported)
                         : line.imported}
                     </td>
-                    <td className={tdNum} data-numeric="">{line.legacyReported ?? '—'}</td>
-                    <td className={tdNum} data-numeric="">{line.variance ?? '—'}</td>
+                    <td data-numeric>{line.legacyReported ?? '—'}</td>
+                    <td data-numeric>{line.variance ?? '—'}</td>
                     {/* Words and a glyph, because "agrees" and "does not" is the whole answer. */}
-                    <td className={td}>
+                    <td>
                       {line.legacyReported === null ? (
                         <span className="text-ink-faint">Nothing to compare</span>
                       ) : line.matches ? (

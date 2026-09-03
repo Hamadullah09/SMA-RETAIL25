@@ -393,7 +393,7 @@ export default function BulkAdjustPage() {
               </p>
 
               <div className="max-h-80 overflow-y-auto border border-subtle">
-                <table className="w-full text-body">
+                <table className="pos-table">
                   <thead className="sticky top-0 bg-panel text-label">
                     <tr>
                       <th className="px-2 py-1 text-left">Code</th>

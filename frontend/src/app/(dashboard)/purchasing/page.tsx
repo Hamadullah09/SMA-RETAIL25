@@ -421,7 +421,7 @@ function LinesTable({
   }
 
   return (
-    <table className="w-full text-label">
+    <table className="pos-table">
       <thead className="text-left text-ink-muted">
         <tr>
           <th className="pb-1">Item</th>
@@ -429,7 +429,7 @@ function LinesTable({
           <th className="pb-1 text-right">Received</th>
           <th className="pb-1 text-right">Cost</th>
           <th className="pb-1 text-right">Extended</th>
-          {canEdit ? <th /> : null}
+          {canEdit ? <th/> : null}
         </tr>
       </thead>
       <tbody>

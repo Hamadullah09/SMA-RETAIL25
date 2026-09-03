@@ -194,7 +194,7 @@ function ImportSummary({ result, committed }: { result: ImportResult; committed:
             discovers eleven items will not scan, one customer at a time.
           */}
           <div className="mt-2 max-h-60 overflow-auto">
-            <table className="w-full text-caption">
+            <table className="pos-table">
               <thead className="text-ink-muted">
                 <tr>
                   <th className="px-2 py-1 text-left font-medium">Line</th>

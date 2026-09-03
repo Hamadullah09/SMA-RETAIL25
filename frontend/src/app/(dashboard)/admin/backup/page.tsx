@@ -27,9 +27,6 @@ type BackupFile = {
   createdAt: string;
 };
 
-const thText = 'px-3 py-2 text-left text-label font-medium text-ink-muted';
-const thNum = 'px-3 py-2 text-right text-label font-medium text-ink-muted';
-const td = 'px-3 py-2 align-middle';
 
 function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
@@ -187,13 +184,13 @@ export default function BackupPage() {
           />
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-body">
+            <table className="pos-table">
               <thead className="border-b border-subtle bg-panel-sunken">
                 <tr>
-                  <th scope="col" className={thText}>File</th>
-                  <th scope="col" className={thText}>Taken</th>
-                  <th scope="col" className={thNum}>Size</th>
-                  <th scope="col" className={thNum}>
+                  <th scope="col" >File</th>
+                  <th scope="col" >Taken</th>
+                  <th scope="col" data-numeric>Size</th>
+                  <th scope="col" data-numeric>
                     <span className="sr-only">Action</span>
                   </th>
                 </tr>
@@ -204,14 +201,14 @@ export default function BackupPage() {
                     key={file.fileName}
                     className="border-b border-subtle transition-colors last:border-0 hover:bg-panel-hover"
                   >
-                    <td className={cn(td, 'font-mono text-ink')}>{file.fileName}</td>
-                    <td className={cn(td, 'tabular-nums text-ink-muted')}>
+                    <td className={'font-mono text-ink'}>{file.fileName}</td>
+                    <td className={'tabular-nums text-ink-muted'}>
                       {new Date(file.createdAt).toLocaleString()}
                     </td>
-                    <td className={cn(td, 'text-right tabular-nums')} data-numeric="">
+                    <td className={'text-right tabular-nums'} data-numeric="">
                       {formatSize(file.sizeBytes)}
                     </td>
-                    <td className={cn(td, 'text-right')}>
+                    <td className={'text-right'}>
                       <div className="flex items-center justify-end gap-2">
                         {/*
                           A plain link, not a fetch. The browser streams it straight to disk, so a

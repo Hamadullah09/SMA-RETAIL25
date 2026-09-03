@@ -190,7 +190,7 @@ function AgingReport({ rows, onClose }: { rows: ReceivablesAgingRow[]; onClose: 
           Back to accounts
         </button>
       </header>
-      <table className="w-full text-body">
+      <table className="pos-table">
         <thead className="text-left text-ink-muted">
           <tr>
             <th className="p-2">Customer</th>
@@ -488,7 +488,7 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: number; onClose: ()
             </button>
 
             {ledger.length > 0 ? (
-              <table className="mt-2 w-full text-label">
+              <table className="pos-table mt-2">
                 <thead className="text-left text-ink-muted">
                   <tr>
                     <th className="pb-1">When</th>
@@ -694,7 +694,7 @@ function StatementPanel({
       ) : null}
 
       <FormSection title="Invoices">
-        <table className="w-full text-label">
+        <table className="pos-table">
           <thead className="text-left text-ink-muted">
             <tr>
               <th className="pb-1">Invoice</th>
@@ -703,7 +703,7 @@ function StatementPanel({
               <th className="pb-1 text-right">Penalty</th>
               <th className="pb-1 text-right">Balance</th>
               <th className="pb-1">Status</th>
-              {canVoid || canRefund ? <th /> : null}
+              {canVoid || canRefund ? <th/> : null}
             </tr>
           </thead>
           <tbody>
@@ -794,7 +794,7 @@ function LedgerTable({ entries }: { entries: ArLedgerEntryRow[] }) {
   }
 
   return (
-    <table className="w-full text-label">
+    <table className="pos-table">
       <thead className="text-left text-ink-muted">
         <tr>
           <th className="pb-1">When</th>

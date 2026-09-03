@@ -33,6 +33,7 @@ export function DetailTable<TRow>({
   rowKey,
   empty = 'Nothing here yet.',
   maxHeight,
+  stackBelow,
 }: {
   columns: DetailColumn<TRow>[];
   rows: TRow[];
@@ -41,17 +42,36 @@ export function DetailTable<TRow>({
 
   /** Caps the height and scrolls inside, keeping the header visible. */
   maxHeight?: string;
+
+  /**
+   * Below this width the table becomes one card per row.
+   *
+   * A five-column table on a 390px phone is either a horizontal scroll nobody discovers or four
+   * columns crushed to one word each. Stacking keeps every field readable and labelled — the column
+   * header becomes the field's label, which is what a header was all along.
+   */
+  stackBelow?: 'sm' | 'md' | 'never';
 }) {
   if (rows.length === 0) {
     return <p className="text-body text-ink-muted">{empty}</p>;
   }
 
+  const stack = stackBelow ?? 'sm';
+  const hiddenBelow = stack === 'never' ? '' : stack === 'md' ? 'hidden md:block' : 'hidden sm:block';
+  const shownBelow = stack === 'never' ? 'hidden' : stack === 'md' ? 'md:hidden' : 'sm:hidden';
+
   return (
+    <>
     <div
-      className={cn('overflow-auto', maxHeight && 'rounded border border-subtle')}
+      className={cn('overflow-auto', maxHeight && 'rounded border border-subtle', hiddenBelow)}
       style={maxHeight ? { maxHeight } : undefined}
     >
-      <table className="w-full text-body">
+      {/*
+        A minimum width, so `overflow-auto` has something to overflow.
+        Without it the table shrinks to whatever box it is in and the columns crush instead of
+        scrolling — the container scrolls only when its content insists on being wider.
+      */}
+      <table className="w-full min-w-[36rem] text-body">
         <thead className="sticky top-0 bg-panel-sunken">
           <tr>
             {columns.map((column) => (
@@ -93,5 +113,27 @@ export function DetailTable<TRow>({
         </tbody>
       </table>
     </div>
+
+    {/*
+      The same rows as cards, for a phone. Each field carries its column's header as a label, so
+      nothing depends on remembering which column was which.
+    */}
+    <ul className={cn('space-y-2', shownBelow)}>
+      {rows.map((row, index) => (
+        <li key={rowKey(row, index)} className="rounded-lg border border-subtle bg-panel p-3">
+          <dl className="grid grid-cols-[minmax(6rem,auto)_1fr] gap-x-3 gap-y-1.5">
+            {columns.map((column) => (
+              <div key={column.key} className="contents">
+                <dt className="text-label text-ink-muted">{column.header}</dt>
+                <dd className={cn('text-body text-ink', column.numeric && 'tabular-nums')}>
+                  {column.render(row, index)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </li>
+      ))}
+    </ul>
+    </>
   );
 }

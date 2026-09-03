@@ -300,6 +300,70 @@
    * content rather than as the name of the card. The till overrides this back to compact uppercase
    * below, because a header that costs 12px of height costs the cashier a line of the sale.
    */
+  /**
+   * The small table that lists a record's lines.
+   *
+   * Thirty-four of these were written by hand across twenty-two files and had drifted into four
+   * header treatments, three border conventions, and five different type sizes — including
+   * `text-sm` and `text-caption`, which are not in this design system at all, so those tables never
+   * moved when the scale did.
+   *
+   * A class rather than a rewrite of all thirty-four into one component: the markup differs
+   * genuinely from table to table — colspans, footers, inputs in cells — and replacing it wholesale
+   * would risk thirty-four screens to unify something the cascade can unify from here. What has to
+   * be identical is what a person sees, and that is entirely in these rules.
+   */
+  .pos-table {
+    @apply w-full border-collapse text-body;
+  }
+
+  .pos-table thead {
+    @apply bg-panel-sunken;
+  }
+
+  .pos-table th {
+    /* Sentence case, muted, on the sunken tint. A header row is scaffolding for the figures under
+       it, and uppercase gave it more presence than the data it labels. */
+    @apply border-b border-subtle px-3 py-2.5 text-left text-label font-medium text-ink-muted;
+  }
+
+  .pos-table td {
+    @apply border-b border-subtle px-3 py-3 align-middle;
+  }
+
+  .pos-table tbody tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .pos-table tbody tr {
+    @apply transition-colors;
+  }
+
+  .pos-table tbody tr:hover {
+    @apply bg-panel-hover;
+  }
+
+  /* Money and quantities line up or they cannot be scanned. */
+  .pos-table th[data-numeric],
+  .pos-table td[data-numeric],
+  .pos-table .num {
+    @apply text-right tabular-nums;
+  }
+
+  /**
+   * The scroll box a wide table needs.
+   *
+   * `overflow-auto` on its own does nothing unless the content insists on being wider than the box,
+   * so the minimum width is what makes the container scroll instead of the columns crushing.
+   */
+  .pos-table-scroll {
+    @apply overflow-x-auto;
+  }
+
+  .pos-table-scroll > .pos-table {
+    @apply min-w-[32rem];
+  }
+
   .pos-panel-header {
     @apply flex items-center justify-between gap-3 border-b border-subtle px-4 py-3 text-body-lg font-semibold text-ink;
   }

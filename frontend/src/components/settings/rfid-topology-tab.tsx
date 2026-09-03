@@ -185,7 +185,7 @@ export function RfidTopologyTab({
                 None yet. A machine registers itself the first time its agent checks in.
               </p>
             ) : (
-              <table className="mt-2 w-full text-sm">
+              <table className="pos-table mt-2">
                 <thead>
                   <tr className="border-b border-subtle text-left text-label text-ink-muted">
                     <th className="px-2 py-1">Machine</th>
@@ -263,7 +263,7 @@ export function RfidTopologyTab({
                       </span>
                     </div>
 
-                    <table className="mt-2 w-full text-sm">
+                    <table className="pos-table mt-2">
                       <thead>
                         <tr className="border-b border-subtle text-left text-label text-ink-muted">
                           <th className="px-2 py-1 w-24">Antenna</th>
