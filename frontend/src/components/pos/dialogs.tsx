@@ -538,7 +538,7 @@ function AmountPrompt({
 
 /** F11 Special (guide p.11). */
 export function SpecialDialog() {
-  const { cart, closeDialog, setTaxOverride, suspend, openDialog, policy, clearLines } = usePosStore();
+  const { cart, closeDialog, setTaxOverride, openDialog, policy, clearLines } = usePosStore();
   const [confirmingClear, setConfirmingClear] = useState(false);
 
   const lineCount = cart?.lines.length ?? 0;
@@ -546,7 +546,16 @@ export function SpecialDialog() {
   return (
     <Shell title="Special" onClose={closeDialog}>
       <div className="space-y-2">
-        <MenuButton hotkey="F4" label="Suspend this sale" onSelect={() => void suspend()} disabled={!cart} />
+        {/*
+          Asks what to call it.
+
+          This called `suspend()` with no argument, so every held sale went on the shelf as
+          "Unlabelled hold". One is fine. Three, on a Saturday, are three identical rows and a
+          cashier guessing which belongs to the customer who went back for milk -- recalling the
+          wrong one in front of them, then having to suspend it again. The name is the whole point
+          of being able to hold more than one.
+        */}
+        <MenuButton hotkey="F4" label="Suspend this sale" onSelect={() => openDialog('suspend')} disabled={!cart} />
         <MenuButton hotkey="F5" label="Recall a suspended sale" onSelect={() => openDialog('suspended')} />
         <MenuButton
           hotkey="F6"
@@ -820,6 +829,72 @@ export function FindDialog() {
   );
 }
 
+/**
+ * What to call a sale being put on hold.
+ *
+ * Pre-filled rather than blank, because the useful answer is nearly always already known: the
+ * customer's name when one is attached, and otherwise the time it went on hold, which is enough to
+ * tell two holds apart ten minutes later. A cashier who agrees presses Enter and is done; the field
+ * is selected on open so typing over it costs nothing either.
+ *
+ * The name can still be emptied. A hold is better than a lost sale, and refusing to suspend until
+ * somebody types something would be this dialog getting in the way of the thing it exists to help.
+ */
+export function SuspendDialog() {
+  const { cart, suspend, closeDialog, busy, error } = usePosStore();
+
+  const suggested =
+    cart?.customer?.name ??
+    new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+  const [label, setLabel] = useState(suggested);
+
+  return (
+    <Shell title="Put this sale on hold" hint="F4" onClose={closeDialog}>
+      <form
+        className="space-y-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void suspend(label.trim() || undefined);
+        }}
+      >
+        <label className="block">
+          <span className="text-body text-ink-muted">Name this hold, so you can find it again</span>
+          <input
+            value={label}
+            onChange={(event) => setLabel(event.target.value)}
+            autoFocus
+            onFocus={(event) => event.target.select()}
+            autoComplete="off"
+            maxLength={60}
+            className="mt-1 w-full rounded-md border border-control bg-panel px-3 text-body text-ink outline-none focus-visible:border-accent"
+            style={{ minHeight: 'var(--control-height)' }}
+          />
+        </label>
+
+        <p className="text-label text-ink-muted">
+          The sale stays on hold until somebody recalls it with F5. Nothing is sold and no stock moves.
+        </p>
+
+        {error ? (
+          <p className="text-body text-negative" role="alert">
+            {error.message}
+          </p>
+        ) : null}
+
+        <div className="flex gap-2">
+          <button type="button" className="pos-button flex-1" onClick={closeDialog}>
+            Cancel
+          </button>
+          <button type="submit" className="pos-button-primary flex-1 text-body" disabled={busy}>
+            {busy ? 'Putting on hold\u2026' : 'Put on hold'}
+          </button>
+        </div>
+      </form>
+    </Shell>
+  );
+}
+
 export function SuspendedCartsDialog() {
   const { closeDialog, recall, locationId } = usePosStore();
   const [carts, setCarts] = useState<SuspendedCart[]>([]);
@@ -843,7 +918,7 @@ export function SuspendedCartsDialog() {
                 onClick={() => void recall(cart.id)}
               >
                 <span>
-                  <span className="font-medium">{cart.label ?? 'Unlabelled hold'}</span>
+                  <span className="font-medium">{cart.label ?? 'Unnamed hold'}</span>
                   <span className="ml-2 text-label text-ink-muted">
                     {cart.customerName ?? 'Walk-in'} · {cart.lineCount} lines
                   </span>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { CheckField, Field, NumberField, PasswordField, SelectField, TextField } from '@/components/masters/browse-form';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { BrandingTab } from '@/components/layout/branding-settings';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
@@ -821,7 +822,7 @@ function TaxesTab({
                     {row.effectiveFrom}
                     {/* The current row is named, not merely emboldened — weight alone is the kind of
                         distinction that survives neither a glance nor a printout. */}
-                    {row.isCurrent ? <span className="pos-badge ml-2 text-accent-text">Current</span> : null}
+                    {row.isCurrent ? <StatusBadge tone="special" label="Current" className="ml-2" /> : null}
                   </td>
                   <td className="whitespace-nowrap px-4 py-2">{row.effectiveTo ?? '—'}</td>
                   <td className="pos-amount px-4 py-2 text-right">{row.tax1Enabled ? `${row.tax1Rate}%` : 'off'}</td>
@@ -1047,9 +1048,9 @@ function PrintersTab({
           icon={Printer}
           action={
             printer.isActive ? (
-              <span className="pos-badge text-positive">Active</span>
+              <StatusBadge tone="positive" label="Active" />
             ) : (
-              <span className="pos-badge text-ink-muted">Inactive</span>
+              <StatusBadge tone="neutral" label="Inactive" />
             )
           }
           footer={canWrite ? <SaveButton busy={busy} onClick={() => void run(() => mastersApi.settings.printer({ locationId, profile: printer }))} /> : null}
@@ -1244,9 +1245,9 @@ function HardwareTab({
           description="Line lengths differ by model: a PD3000 scrolls 45 characters on line 1 and holds 19 fixed on line 2."
           action={
             pole.isActive ? (
-              <span className="pos-badge text-positive">Active</span>
+              <StatusBadge tone="positive" label="Active" />
             ) : (
-              <span className="pos-badge text-ink-muted">Inactive</span>
+              <StatusBadge tone="neutral" label="Inactive" />
             )
           }
           footer={canWrite ? <SaveButton busy={busy} onClick={() => void run(() => mastersApi.settings.poleDisplay({ locationId, profile: pole }))} /> : null}
@@ -1702,11 +1703,11 @@ function StationsTab({
           }
           action={
             <>
-              {station.isActive ? null : <span className="pos-badge text-ink-muted">Retired</span>}
+              {station.isActive ? null : <StatusBadge tone="neutral" label="Retired" />}
               {station.agentOnline ? (
-                <span className="pos-badge text-positive">Agent online</span>
+                <StatusBadge tone="positive" label="Agent online" />
               ) : (
-                <span className="pos-badge text-warning">Agent offline</span>
+                <StatusBadge tone="warning" label="Agent offline" />
               )}
             </>
           }
@@ -1856,9 +1857,9 @@ function TendersTab({
           description="The accounting key must match the account name in the accounting system exactly."
           action={
             tender.isActive ? (
-              <span className="pos-badge text-positive">Active</span>
+              <StatusBadge tone="positive" label="Active" />
             ) : (
-              <span className="pos-badge text-ink-muted">Inactive</span>
+              <StatusBadge tone="neutral" label="Inactive" />
             )
           }
           footerNote={canWrite ? null : 'You do not have permission to change tenders.'}
@@ -1936,11 +1937,11 @@ function CurrenciesTab({
           }
           action={
             <>
-              {currency.isBaseCurrency ? <span className="pos-badge text-accent-text">Base currency</span> : null}
+              {currency.isBaseCurrency ? <StatusBadge tone="special" label="Base currency" /> : null}
               {currency.isActive ? (
-                <span className="pos-badge text-positive">Active</span>
+                <StatusBadge tone="positive" label="Active" />
               ) : (
-                <span className="pos-badge text-ink-muted">Inactive</span>
+                <StatusBadge tone="neutral" label="Inactive" />
               )}
             </>
           }
@@ -2147,7 +2148,7 @@ function PricingTab({
 
               {/* Off is said in words as well as drawn: a struck-through label alone is a distinction
                   a reader can miss, and this is the list that decides what a customer is charged. */}
-              {rule.enabled ? null : <span className="pos-badge text-ink-muted">Never consulted</span>}
+              {rule.enabled ? null : <StatusBadge tone="neutral" label="Never consulted" />}
 
               <label className="flex items-center gap-1.5 whitespace-nowrap text-label text-ink">
                 <input
@@ -2534,7 +2535,7 @@ function AccountSummary({ staff }: { staff: import('@/types/masters').StaffSetti
         <dd className="text-ink">
           {staff.email ?? <span className="text-ink-muted">No sign-in — this person cannot log in at all.</span>}
           {staff.email && !staff.emailConfirmed ? (
-            <span className="pos-badge ml-2 text-warning">Unconfirmed</span>
+            <StatusBadge tone="warning" label="Unconfirmed" className="ml-2" />
           ) : null}
         </dd>
 
@@ -2622,14 +2623,14 @@ function UsersTab({
           action={
             <>
               {staff.pinLocked ? (
-                <span className="pos-badge text-negative">PIN locked</span>
+                <StatusBadge tone="negative" label="PIN locked" />
               ) : staff.hasPin ? (
-                <span className="pos-badge text-positive">PIN set</span>
+                <StatusBadge tone="positive" label="PIN set" />
               ) : (
-                <span className="pos-badge text-warning">No PIN</span>
+                <StatusBadge tone="warning" label="No PIN" />
               )}
-              {staff.lockedOutUntil ? <span className="pos-badge text-negative">Locked out</span> : null}
-              {staff.isActive ? null : <span className="pos-badge text-ink-muted">Inactive</span>}
+              {staff.lockedOutUntil ? <StatusBadge tone="negative" label="Locked out" /> : null}
+              {staff.isActive ? null : <StatusBadge tone="neutral" label="Inactive" />}
             </>
           }
           footerNote={canWrite ? null : 'You do not have permission to change users.'}

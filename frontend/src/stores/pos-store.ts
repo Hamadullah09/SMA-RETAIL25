@@ -31,6 +31,7 @@ export type PosDialog =
   | 'drawer'
   | 'special'
   | 'find'
+  | 'suspend'
   | 'suspended'
   | 'cheatSheet'
   | 'unknownItem'

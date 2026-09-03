@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
-  CircleDot,
   Clock,
   Download,
   GraduationCap,
@@ -17,6 +16,7 @@ import {
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
 import { BrowseFormShell, FormSection } from '@/components/masters/browse-form';
 import { RecordPicker } from '@/components/masters/record-picker';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { toast } from '@/components/ui/toaster';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-config';
@@ -110,10 +110,11 @@ export default function StaffPage() {
         // Words and a glyph, not a dot: "since 09:14" tells a supervisor what a green light cannot.
         render: (r) =>
           r.isClockedIn && r.clockedInAt ? (
-            <span className="pos-badge text-positive">
-              <Clock className="h-4 w-4" aria-hidden />
-              since {new Date(r.clockedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
+            <StatusBadge
+              tone="positive"
+              icon={Clock}
+              label={`since ${new Date(r.clockedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+            />
           ) : (
             <span className="text-ink-faint">—</span>
           ),
@@ -124,15 +125,9 @@ export default function StaffPage() {
         width: 100,
         render: (r) =>
           r.isActive ? (
-            <span className="pos-badge text-ink-muted">
-              <CircleDot className="h-4 w-4" aria-hidden />
-              Yes
-            </span>
+            <StatusBadge tone="positive" label="Yes" />
           ) : (
-            <span className="pos-badge text-ink-faint">
-              <Minus className="h-4 w-4" aria-hidden />
-              Left
-            </span>
+            <StatusBadge tone="neutral" icon={Minus} label="Left" />
           ),
       },
     ],
@@ -374,7 +369,7 @@ function StaffPanel({
                     <td>
                       {rule.productName ?? rule.departmentName ?? 'Everything they sell'}
                       {!rule.isActive ? (
-                        <span className="ml-1.5 pos-badge text-ink-faint">Off</span>
+                        <StatusBadge tone="neutral" label="Off" className="ml-1.5" />
                       ) : null}
                     </td>
                     <td className={'tabular-nums'}>

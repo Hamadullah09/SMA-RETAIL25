@@ -163,12 +163,12 @@ export default function AccountingSyncPage() {
         action={
           preflight ? (
             outstanding === 0 ? (
-              <span className="pos-badge text-positive">
+              <span className="pos-badge text-positive-text">
                 <CheckCircle2 className="h-4 w-4" aria-hidden />
                 All ready
               </span>
             ) : (
-              <span className="pos-badge text-warning">
+              <span className="pos-badge text-warning-text">
                 <AlertTriangle className="h-4 w-4" aria-hidden />
                 {outstanding} need attention
               </span>
@@ -200,7 +200,7 @@ export default function AccountingSyncPage() {
                   <p className="mt-0.5 text-body text-ink-muted">{check.detail}</p>
                 </div>
                 <span
-                  className={cn('pos-badge shrink-0', check.satisfied ? 'text-positive' : 'text-warning')}
+                  className={cn('pos-badge shrink-0', check.satisfied ? 'text-positive-text' : 'text-warning-text')}
                 >
                   {check.satisfied ? 'Ready' : 'Not yet'}
                 </span>

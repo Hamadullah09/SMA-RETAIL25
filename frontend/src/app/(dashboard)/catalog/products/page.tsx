@@ -33,7 +33,7 @@ import {
   type ProductType,
 } from '@/types/masters';
 import { describeError } from '@/lib/errors';
-import { StockBadge } from '@/components/ui/status-badge';
+import { StatusBadge, StockBadge } from '@/components/ui/status-badge';
 import { ConfirmDialog, PromptDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
 /**
@@ -556,7 +556,7 @@ function ProductFormPanel({
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-body font-semibold">
           {productId ? `${form.stockCode} — ${form.name}` : 'New item'}
-          {form.isDeleted ? <span className="pos-badge ml-2 text-negative">Deleted</span> : null}
+          {form.isDeleted ? <StatusBadge tone="negative" label="Deleted" className="ml-2" /> : null}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>
           Close

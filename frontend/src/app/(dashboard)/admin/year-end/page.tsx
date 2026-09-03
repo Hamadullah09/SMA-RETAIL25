@@ -14,6 +14,7 @@ import {
   Undo2,
   type LucideIcon,
 } from 'lucide-react';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { toast } from '@/components/ui/toaster';
 import { useAuth } from '@/lib/auth-config';
 import { mastersApi } from '@/lib/masters-api';
@@ -261,12 +262,15 @@ export default function YearEndPage() {
                         {/* Words and a glyph rather than a colour: "closed" is the fact, and it needs
                             to read as one for anyone who cannot separate the two hues. */}
                         <td>
-                          <span className={cn('pos-badge', closed ? 'text-ink-muted' : 'text-positive')}>
-                            {closed ? <Lock className="h-4 w-4" aria-hidden /> : <LockOpen className="h-4 w-4" aria-hidden />}
-                            {closed
-                              ? `Closed${year.closedAt ? ` ${new Date(year.closedAt).toLocaleDateString()}` : ''}`
-                              : 'Open'}
-                          </span>
+                          <StatusBadge
+                            tone={closed ? 'neutral' : 'positive'}
+                            icon={closed ? Lock : LockOpen}
+                            label={
+                              closed
+                                ? `Closed${year.closedAt ? ` ${new Date(year.closedAt).toLocaleDateString()}` : ''}`
+                                : 'Open'
+                            }
+                          />
                         </td>
                         <td data-numeric>{closed ? year.archivedRows : '—'}</td>
                         <td data-numeric>
@@ -346,10 +350,7 @@ export default function YearEndPage() {
           title={`Dry run — ${preview.year}`}
           icon={FlaskConical}
           action={
-            <span className="pos-badge text-accent-text">
-              <FlaskConical className="h-4 w-4" aria-hidden />
-              Nothing has been written
-            </span>
+            <StatusBadge tone="special" icon={FlaskConical} label="Nothing has been written" />
           }
         >
           <div className="space-y-3 p-4">

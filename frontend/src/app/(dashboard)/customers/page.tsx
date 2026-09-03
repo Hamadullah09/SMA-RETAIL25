@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
+import { StatusBadge } from '@/components/ui/status-badge';
 import {
   BrowseFormShell,
   CheckField,
@@ -395,7 +396,7 @@ function CustomerFormPanel({
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-body font-semibold">
           {customerId ? `#${form.customerNumber} ${form.company || `${form.firstName} ${form.lastName}`}` : 'New customer'}
-          {form.isDeleted ? <span className="pos-badge ml-2 text-negative">Deleted</span> : null}
+          {form.isDeleted ? <StatusBadge tone="negative" label="Deleted" className="ml-2" /> : null}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>
           Close

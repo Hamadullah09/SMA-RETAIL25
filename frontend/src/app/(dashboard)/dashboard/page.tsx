@@ -331,7 +331,7 @@ export default function DashboardPage() {
                         </span>
                       </span>
 
-                      <span className="pos-badge shrink-0 whitespace-nowrap text-warning">
+                      <span className="pos-badge shrink-0 whitespace-nowrap text-warning-text">
                         short {short}
                       </span>
                     </li>

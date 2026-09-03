@@ -45,12 +45,12 @@ const ACTIONS: Array<{ value: AuditAction | ''; label: string }> = [
 const ACTION_STYLE: Record<AuditAction, { icon: LucideIcon; tone: string; label: string }> = {
   Created: { icon: FilePlus2, tone: 'text-ink-muted', label: 'Created' },
   Updated: { icon: FilePenLine, tone: 'text-ink-muted', label: 'Updated' },
-  Deleted: { icon: Trash2, tone: 'text-negative', label: 'Deleted' },
+  Deleted: { icon: Trash2, tone: 'text-negative-text', label: 'Deleted' },
   SignedIn: { icon: LogIn, tone: 'text-ink-muted', label: 'Signed in' },
-  SignInFailed: { icon: ShieldAlert, tone: 'text-warning', label: 'Sign-in failed' },
-  PermissionDenied: { icon: ShieldAlert, tone: 'text-warning', label: 'Permission denied' },
-  StepUpGranted: { icon: ShieldCheck, tone: 'text-positive', label: 'Step-up granted' },
-  StepUpDenied: { icon: KeyRound, tone: 'text-warning', label: 'Step-up denied' },
+  SignInFailed: { icon: ShieldAlert, tone: 'text-warning-text', label: 'Sign-in failed' },
+  PermissionDenied: { icon: ShieldAlert, tone: 'text-warning-text', label: 'Permission denied' },
+  StepUpGranted: { icon: ShieldCheck, tone: 'text-positive-text', label: 'Step-up granted' },
+  StepUpDenied: { icon: KeyRound, tone: 'text-warning-text', label: 'Step-up denied' },
 };
 
 /**

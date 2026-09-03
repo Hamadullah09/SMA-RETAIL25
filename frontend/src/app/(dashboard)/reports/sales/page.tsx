@@ -229,7 +229,7 @@ function SaleDetailPanel({
         <h2 className="text-body font-semibold">
           Sale {sale.transactionNumber}
           {sale.status !== 'Completed' ? (
-            <span className="pos-badge ml-2 text-negative">{sale.status}</span>
+            <span className="pos-badge ml-2 text-negative-text">{sale.status}</span>
           ) : null}
         </h2>
         <button type="button" className="pos-button" onClick={onClose}>

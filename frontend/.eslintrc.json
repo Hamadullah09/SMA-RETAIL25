@@ -27,6 +27,10 @@
         "message": "Raw Tailwind palette colour in a template literal. Use positive, warning, negative, live, accent, or a surface token."
       },
       {
+        "selector": "Literal[value=/pos-badge[^\"]*\\s(text-(positive|warning|negative|live|special))(\\s|$)/]",
+        "message": "A .pos-badge tints its own ground with 12% of currentColor, so the plain semantic hue ends up sitting on itself: measured, text-positive is 4.31:1 and text-warning 4.23:1, both under the 4.5:1 AA floor for 14px text. Use the -text variant (text-positive-text), or better, use <StatusBadge>, which carries the glyph as well."
+      },
+      {
         "selector": "Literal[value=/(^|\\s)shadow-(sm|md|lg|xl|2xl)(\\s|$)/]",
         "message": "Stock Tailwind shadow. Use shadow-raised, shadow-popover or shadow-overlay, which are defined per colour scheme \u2014 a black blur is invisible on a near-black ground."
       }

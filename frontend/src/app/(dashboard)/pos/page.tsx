@@ -32,6 +32,7 @@ import {
   LineDetailDialog,
   PaymentDialog,
   SpecialDialog,
+  SuspendDialog,
   SuspendedCartsDialog,
   UnknownItemDialog,
 } from '@/components/pos/dialogs';
@@ -357,6 +358,7 @@ export default function PosScreen() {
       {dialog === 'drawer' ? <DrawerDialog /> : null}
       {dialog === 'client' ? <ClientDialog /> : null}
       {dialog === 'find' ? <FindDialog /> : null}
+      {dialog === 'suspend' ? <SuspendDialog /> : null}
       {dialog === 'suspended' ? <SuspendedCartsDialog /> : null}
       {dialog === 'unknownItem' ? <UnknownItemDialog /> : null}
       {dialog === 'variantPicker' ? <VariantPickerDialog /> : null}

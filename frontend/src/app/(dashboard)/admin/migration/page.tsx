@@ -56,7 +56,7 @@ const stageStyle: Record<MigrationStage, { icon: LucideIcon; tone: string }> = {
   Staged: { icon: Inbox, tone: 'text-ink-muted' },
   Validated: { icon: ClipboardCheck, tone: 'text-accent-text' },
   DryRun: { icon: FlaskConical, tone: 'text-accent-text' },
-  Imported: { icon: CheckCircle2, tone: 'text-positive' },
+  Imported: { icon: CheckCircle2, tone: 'text-positive-text' },
   Cancelled: { icon: XCircle, tone: 'text-ink-muted' },
 };
 
@@ -497,11 +497,11 @@ function BatchPanel({
           icon={ListChecks}
           action={
             <span className="flex items-center gap-2">
-              <span className={cn('pos-badge', batch.blockingErrors > 0 ? 'text-negative' : 'text-ink-muted')}>
+              <span className={cn('pos-badge', batch.blockingErrors > 0 ? 'text-negative-text' : 'text-ink-muted')}>
                 <XCircle className="h-4 w-4" aria-hidden />
                 {batch.blockingErrors} to fix
               </span>
-              <span className={cn('pos-badge', batch.warnings > 0 ? 'text-warning' : 'text-ink-muted')}>
+              <span className={cn('pos-badge', batch.warnings > 0 ? 'text-warning-text' : 'text-ink-muted')}>
                 <AlertTriangle className="h-4 w-4" aria-hidden />
                 {batch.warnings} noted
               </span>
@@ -529,12 +529,12 @@ function BatchPanel({
                     {/* The word and a glyph, not a colour — a blocking error has to read as one. */}
                     <td>
                       {finding.severity === 'Blocking' ? (
-                        <span className="pos-badge text-negative">
+                        <span className="pos-badge text-negative-text">
                           <XCircle className="h-4 w-4" aria-hidden />
                           Must fix
                         </span>
                       ) : (
-                        <span className="pos-badge text-warning">
+                        <span className="pos-badge text-warning-text">
                           <AlertTriangle className="h-4 w-4" aria-hidden />
                           Noted
                         </span>
@@ -666,12 +666,12 @@ function BatchPanel({
                       {line.legacyReported === null ? (
                         <span className="text-ink-faint">Nothing to compare</span>
                       ) : line.matches ? (
-                        <span className="pos-badge text-positive">
+                        <span className="pos-badge text-positive-text">
                           <CheckCircle2 className="h-4 w-4" aria-hidden />
                           Agrees
                         </span>
                       ) : (
-                        <span className="pos-badge text-negative">
+                        <span className="pos-badge text-negative-text">
                           <XCircle className="h-4 w-4" aria-hidden />
                           Does not agree
                         </span>
