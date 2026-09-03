@@ -34,18 +34,17 @@ test.describe('the browser never holds a token', () => {
   test.skip(!CREDENTIALS.password, 'Set E2E_PASSWORD to run the sign-in end-to-end tests.');
 
   test('signs in and leaves nothing token-shaped in the browser', async ({ page, context }) => {
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Sign in' }).click();
-
-    // The identity provider's own page, served by the API rather than the app.
-    await page.waitForURL(/\/account\/login/);
+    // An ordinary page in this application. It used to be the identity provider's own, served by
+    // the API on a redirect — which is what the authorization-code flow required and what stopped
+    // that one screen from ever using the design system.
+    await page.goto('/sign-in');
     await page.getByLabel('Username or email').fill(CREDENTIALS.username);
     // exact, because the field's reveal button is labelled "Show password" and a substring match
     // finds both. Playwright's strict mode then refuses the fill rather than picking one.
     await page.getByLabel('Password', { exact: true }).fill(CREDENTIALS.password);
     await page.getByRole('button', { name: 'Sign in' }).click();
 
-    await page.waitForURL((url) => !url.pathname.startsWith('/account'));
+    await page.waitForURL((url) => url.pathname !== '/sign-in');
 
     // --- localStorage and sessionStorage --------------------------------------------------------
 
@@ -117,13 +116,11 @@ test.describe('the browser never holds a token', () => {
       }
     });
 
-    await page.goto('/');
-    await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL(/\/account\/login/);
+    await page.goto('/sign-in');
     await page.getByLabel('Username or email').fill(CREDENTIALS.username);
     await page.getByLabel('Password', { exact: true }).fill(CREDENTIALS.password);
     await page.getByRole('button', { name: 'Sign in' }).click();
-    await page.waitForURL((url) => !url.pathname.startsWith('/account'));
+    await page.waitForURL((url) => url.pathname !== '/sign-in');
     await page.waitForTimeout(1000);
 
     expect(offenders, 'no response reaching the browser may contain a token').toEqual([]);
@@ -174,9 +171,7 @@ test.describe('phase 1 exit criteria', () => {
 });
 
 async function signIn(page: import('@playwright/test').Page): Promise<void> {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Sign in' }).click();
-  await page.waitForURL(/\/account\/login/);
+  await page.goto('/sign-in');
   await page.getByLabel('Username or email').fill(CREDENTIALS.username);
   await page.getByLabel('Password', { exact: true }).fill(CREDENTIALS.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
@@ -185,5 +180,5 @@ async function signIn(page: import('@playwright/test').Page): Promise<void> {
   // the browser is holding, not about where the app lands — and the landing page moved from /pos to
   // /dashboard while this job could not run, so a named route pinned here was asserting a product
   // decision by accident and failing on it three tests at a time.
-  await page.waitForURL((url) => !url.pathname.startsWith('/account'));
+  await page.waitForURL((url) => url.pathname !== '/sign-in');
 }

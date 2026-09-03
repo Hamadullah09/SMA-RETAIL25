@@ -44,7 +44,7 @@ apiClient.interceptors.response.use(
     // send the user to sign in and bring them back to where they were.
     if (error.response?.status === 401 && typeof window !== 'undefined') {
       const returnTo = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.href = `/api/auth/login?returnTo=${returnTo}`;
+      window.location.href = `/sign-in?returnTo=${returnTo}`;
     }
 
     return Promise.reject(error);

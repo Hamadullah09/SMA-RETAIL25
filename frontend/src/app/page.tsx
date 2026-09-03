@@ -43,10 +43,16 @@ function LoginContent() {
   const [selfRegistration, setSelfRegistration] = useState<boolean | null>(null);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.replace('/dashboard');
-    }
-  }, [isAuthenticated, router]);
+    // Nothing to decide until the session check has answered; redirecting on an unknown state sends
+    // a signed-in person to the sign-in form for a moment on every cold load.
+    if (isLoading) return;
+
+    // Straight through, either way. This page used to ask for a click before handing over to an
+    // authorization server on another origin, and warned that the next screen would look different.
+    // Sign-in is an ordinary page in this application now, so the warning is untrue and the click is
+    // a second screen that says nothing the first one did not.
+    router.replace(isAuthenticated ? '/dashboard' : '/sign-in');
+  }, [isAuthenticated, isLoading, router]);
 
   useEffect(() => {
     let cancelled = false;

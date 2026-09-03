@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authorityUrl, refreshSession } from '@/lib/server/oidc';
+import { authorityUrl } from '@/lib/server/oidc';
+import { refreshSession } from '@/lib/server/auth-api';
 import { clearSession, readSession, writeSession } from '@/lib/server/session';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (session.expiresAt <= Date.now() && session.refreshToken) {
-    const refreshed = await refreshSession(session.refreshToken);
+    const refreshed = await refreshSession(session);
 
     if (!refreshed) {
       clearSession();

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { authorityUrl } from '@/lib/server/oidc';
-import { refreshSession } from '@/lib/server/oidc';
+import { refreshSession } from '@/lib/server/auth-api';
 import { clearSession, readSession, writeSession, type Session } from '@/lib/server/session';
 
 export const dynamic = 'force-dynamic';
@@ -74,7 +74,7 @@ async function handle(request: NextRequest, path: string[]): Promise<NextRespons
 async function tryRefresh(session: Session): Promise<Session | null> {
   if (!session.refreshToken) return null;
 
-  const refreshed = await refreshSession(session.refreshToken);
+  const refreshed = await refreshSession(session);
 
   if (refreshed) {
     await writeSession(refreshed);

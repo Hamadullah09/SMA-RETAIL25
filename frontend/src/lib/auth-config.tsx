@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback((returnTo?: string) => {
     const target = returnTo ?? window.location.pathname + window.location.search;
-    window.location.href = `/api/auth/login?returnTo=${encodeURIComponent(target)}`;
+    window.location.href = `/sign-in?returnTo=${encodeURIComponent(target)}`;
   }, []);
 
   const signOut = useCallback(async () => {

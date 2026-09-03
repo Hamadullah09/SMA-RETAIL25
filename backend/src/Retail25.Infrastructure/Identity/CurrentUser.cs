@@ -115,9 +115,20 @@ public sealed class CurrentUser : ICurrentUser
             return new HashSet<string>(StringComparer.Ordinal);
         }
 
+        // Both shapes: one packed claim from the staff token, or one claim per permission from the
+        // agent's OpenIddict token. Reading both is what let the token shrink without taking the
+        // till readers offline.
         var granted = new HashSet<string>(
             user.FindAll(PermissionClaim).Select(c => c.Value),
             StringComparer.Ordinal);
+
+        foreach (var packed in user.FindAll(AuthConstants.PackedPermissionsClaim))
+        {
+            foreach (var permission in packed.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                granted.Add(permission);
+            }
+        }
 
         if (granted.Count > 0)
         {

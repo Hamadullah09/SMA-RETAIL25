@@ -99,17 +99,14 @@ const KNOWN_OVERFLOW: Record<string, string[]> = {
 };
 
 async function signIn(page: Page): Promise<void> {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Sign in' }).click();
-
-  await page.waitForURL(/\/account\/login/);
+  await page.goto('/sign-in');
   await page.getByLabel('Username or email').fill(CREDENTIALS.username);
   // exact, because the reveal toggle beside the field is labelled "Show password" and
   // getByLabel matches substrings — without this the locator resolves to two elements.
   await page.getByLabel('Password', { exact: true }).fill(CREDENTIALS.password);
   await page.getByRole('button', { name: 'Sign in' }).click();
 
-  await page.waitForURL((url) => !url.pathname.startsWith('/account'));
+  await page.waitForURL((url) => url.pathname !== '/sign-in');
 }
 
 /**

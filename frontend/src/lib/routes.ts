@@ -99,20 +99,25 @@ export const ROUTES: readonly AppRoute[] = [
     helpTopic: 'sales',
   },
 
-  // The rail's "Inventory" row means the catalogue — what you sell. "Stock" means how many you
-  // have. They were the pair the two old lists disagreed about.
+  // "Products" and "Stock", not "Inventory" and "Stock".
+  //
+  // The rail called the catalogue "Inventory" while the route literally named /inventory was the
+  // stock levels — so the same word meant opposite screens depending on where you read it, and the
+  // command palette and the rail had each picked a different one. Naming them for what somebody
+  // actually wants — the things I sell, and how many I have — removes the ambiguous word rather
+  // than picking a winner for it.
   {
     href: '/catalog/products',
-    label: 'Inventory',
+    label: 'Products',
     icon: Package,
     section: 'Main',
     permission: 'catalog.read',
-    keywords: 'products items catalogue sku barcode price',
+    keywords: 'items catalogue sku barcode price product list',
     helpTopic: 'products',
   },
   {
     href: '/catalog/products',
-    label: 'Products',
+    label: 'All products',
     inRail: true,
     icon: Package,
     parent: '/catalog/products',
@@ -136,7 +141,7 @@ export const ROUTES: readonly AppRoute[] = [
     icon: Warehouse,
     section: 'Main',
     permission: 'catalog.read',
-    keywords: 'stock on hand levels quantity shortage reorder',
+    keywords: 'inventory stock on hand levels quantity shortage reorder',
     helpTopic: 'inventory',
   },
   {

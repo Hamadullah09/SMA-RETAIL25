@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using OpenIddict.Abstractions;
 using OpenIddict.Validation.AspNetCore;
 using Retail25.Application.Abstractions;
@@ -32,6 +33,22 @@ public static class AuthConstants
     public const string TerminalScope = "retail25.terminal";
 
     public const string PermissionClaim = "permission";
+
+    /// <summary>
+    /// Every permission in one space-delimited claim.
+    /// <para>
+    /// The same set as sixty-one <see cref="PermissionClaim"/> entries, at roughly half the bytes,
+    /// because the cost was never the names but sixty-one repetitions of the JSON around them. It
+    /// matters because the token has to survive being sealed into a browser cookie, and a cookie
+    /// over about 4KB is discarded silently — a sign-in that returns 200 and then behaves as though
+    /// nobody signed in.
+    /// </para>
+    /// <para>
+    /// Both forms are read. The till agent still authenticates through OpenIddict, which writes the
+    /// individual claims, so dropping support for those would have taken the readers offline.
+    /// </para>
+    /// </summary>
+    public const string PackedPermissionsClaim = "perms";
     public const string StaffIdClaim = "staff_id";
     public const string StationIdClaim = "station_id";
     public const string LocationIdClaim = "location_id";
@@ -206,6 +223,7 @@ public static class IdentityRegistration
             });
 
         AddShopperAuthentication(services, configuration, environment);
+        AddStaffAuthentication(services, configuration);
 
         // Every business controller carries a plain [Authorize], not [Authorize(AuthenticationSchemes
         // = ...)]. AddIdentity's own AddAuthentication call sets the default authenticate/challenge
@@ -216,7 +234,19 @@ public static class IdentityRegistration
         // interactive sign-in page and /connect/authorize's own cookie challenge are unaffected.
         services.AddAuthorization(options =>
         {
-            options.DefaultPolicy = new AuthorizationPolicyBuilder(OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
+            // Two schemes, for two kinds of caller.
+            //
+            // StaffJwt is how a person signs in now: the front end's back end posts a username and
+            // password to /auth/token and holds the returned token in its own encrypted cookie. The
+            // interactive redirect flow that used to serve people is gone, and so is the
+            // server-rendered login page that could never use the design system.
+            //
+            // OpenIddict remains for exactly one caller — the till agent's client_credentials grant,
+            // a machine with no human behind it. Taking that away in the same change would have put
+            // the tills' readers offline to save a dependency.
+            options.DefaultPolicy = new AuthorizationPolicyBuilder(
+                    StaffAuthentication.Scheme,
+                    OpenIddictValidationAspNetCoreDefaults.AuthenticationScheme)
                 .RequireAuthenticatedUser()
                 .Build();
 
@@ -312,6 +342,96 @@ public static class IdentityRegistration
         services.AddScoped<ICurrentShopper, CurrentShopper>();
         services.AddScoped<IShopperPasswordHasher, ShopperPasswordHasher>();
         services.AddScoped<IShopperTokenIssuer, ShopperTokenIssuer>();
+    }
+
+    /// <summary>
+    /// The scheme a signed-in member of staff authenticates with.
+    /// <para>
+    /// Self-contained: the permissions travel in the token, so authorising a request costs a
+    /// signature check rather than a database lookup. The cost of that is a permission revoked a
+    /// minute ago surviving until the token expires, which is why the access token is short and why
+    /// the refresh carries Identity's security stamp — see <see cref="StaffTokenIssuer"/>.
+    /// </para>
+    /// </summary>
+    private static void AddStaffAuthentication(IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<StaffTokenOptions>(configuration.GetSection(StaffTokenOptions.Section));
+        services.AddSingleton<StaffTokenIssuer>();
+
+        var signingKey = configuration[$"{StaffTokenOptions.Section}:SigningKey"] ?? string.Empty;
+
+        // A random key when none is configured, rather than a shipped constant. Every token this
+        // process issued stops validating when it restarts, which is a nuisance in development and
+        // exactly right everywhere else: a default key in source is a key every deployment shares,
+        // and anyone holding it could mint an administrator. StaffTokenIssuer refuses to start
+        // without a real one, so this branch only ever runs where nothing has tried to sign in yet.
+        var key = Encoding.UTF8.GetByteCount(signingKey) >= 32
+            ? new SymmetricSecurityKey(Encoding.UTF8.GetBytes(signingKey))
+            : new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(32));
+
+        var issuer = configuration[$"{StaffTokenOptions.Section}:Issuer"] ?? "retail25";
+        var audience = configuration[$"{StaffTokenOptions.Section}:Audience"] ?? "retail25.api";
+
+        services.AddAuthentication()
+            .AddJwtBearer(StaffAuthentication.Scheme, jwt =>
+            {
+                // Off, or the handler rewrites "sub" to the long ClaimTypes.NameIdentifier URI and
+                // renames the rest, and CurrentUser — which reads staff_id, location_id and
+                // permission by their short names — finds none of them.
+                jwt.MapInboundClaims = false;
+
+                jwt.TokenValidationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = issuer,
+                    ValidateAudience = true,
+                    ValidAudience = audience,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = key,
+                    ValidateLifetime = true,
+                    ClockSkew = TimeSpan.FromSeconds(30),
+
+                    // "role", not ClaimTypes.Role. The handler writes Identity's long-URI role
+                    // claim out as the short "role", and with MapInboundClaims off it stays short on
+                    // the way back in — so a RoleClaimType of ClaimTypes.Role finds nothing and
+                    // IsInRole answers false for everybody. That is not cosmetic: CurrentUser
+                    // refuses a customer account by asking IsInRole, and a guard that always says
+                    // "not a customer" is not a guard.
+                    RoleClaimType = "role",
+                    NameClaimType = "name",
+                };
+
+                jwt.Events = new JwtBearerEvents
+                {
+                    // Logged, because a token that fails here is otherwise invisible: the challenge
+                    // is issued by whichever scheme is the default, so the log names that one and
+                    // says nothing about why this handler refused. That cost an afternoon once.
+                    OnAuthenticationFailed = context =>
+                    {
+                        context.HttpContext.RequestServices
+                            .GetRequiredService<ILoggerFactory>()
+                            .CreateLogger(StaffAuthentication.Scheme)
+                            .LogInformation(context.Exception, "Staff token rejected.");
+
+                        return Task.CompletedTask;
+                    },
+
+                    OnTokenValidated = context =>
+                    {
+                        // A refresh token is signed by the same key as an access token. Without this
+                        // it would authenticate every request it was presented on, which would make
+                        // the fourteen-day token the real session length.
+                        var use = context.Principal?.FindFirst(StaffAuthentication.TokenUseClaim)?.Value;
+
+                        if (use != StaffAuthentication.AccessTokenUse)
+                        {
+                            context.Fail("This token cannot be used to authorise a request.");
+                        }
+
+                        return Task.CompletedTask;
+                    },
+                };
+            });
     }
 
     /// <summary>

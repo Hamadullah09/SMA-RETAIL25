@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { cookies } from 'next/headers';
+import { forStorage, withClaims } from './auth-api';
 import { EncryptJWT, jwtDecrypt } from 'jose';
 import { createHash } from 'node:crypto';
 
@@ -105,7 +106,11 @@ export async function readSession(): Promise<Session | null> {
   if (!cookie) return null;
 
   const session = await open<Session>(cookie);
-  return session?.accessToken ? session : null;
+
+  if (!session?.accessToken) return null;
+
+  // The permissions are not in the cookie — they are in the token inside it. See forStorage.
+  return withClaims(session);
 }
 
 export async function writeSession(session: Session): Promise<void> {
@@ -113,7 +118,7 @@ export async function writeSession(session: Session): Promise<void> {
   // lets a shift run without a re-login.
   const maxAge = 8 * 60 * 60;
 
-  cookies().set(SESSION_COOKIE, await seal(session, maxAge), {
+  cookies().set(SESSION_COOKIE, await seal(forStorage(session), maxAge), {
     ...COOKIE_BASE,
     secure: secure(),
     maxAge,
