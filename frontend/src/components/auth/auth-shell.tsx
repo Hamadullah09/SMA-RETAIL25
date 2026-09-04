@@ -12,6 +12,8 @@ import {
   Truck,
 } from 'lucide-react';
 import { SmaMark } from '@/components/layout/logo';
+import { TONE, type Tone } from '@/lib/tone';
+import { cn } from '@/lib/utils';
 
 /**
  * The frame every account screen sits in.
@@ -39,36 +41,58 @@ const FEATURES: ReadonlyArray<{
   icon: ComponentType<{ className?: string }>;
   term: string;
   detail: string;
+
+  /**
+   * The colour the application gives this area, so the first screen doubles as the legend.
+   *
+   * All six were drawn in the same indigo, which made a panel about six different things look like
+   * a panel about one. Wearing the real tones costs nothing and buys something specific: by the
+   * time somebody reaches the rail they have already seen that stock is amber and customers are
+   * violet, so half of it is learned before they arrive. It is the same argument the tones make
+   * everywhere -- a colour is only navigation once it has been the same in three places -- with
+   * this as the first of the three.
+   *
+   * `home` is the one tone deliberately missing: it belongs to the dashboard, which is not a
+   * capability to advertise but the place you land.
+   */
+  tone: Tone;
 }> = [
   {
     icon: ScanBarcode,
     term: 'Point of sale',
     detail: 'Scan, tender, hold and refund. Every action on a key, the drawer counted at close.',
+    tone: 'sell',
   },
   {
     icon: Boxes,
     term: 'Live stock',
     detail: 'One count across every store, kept as a ledger so it can always be explained.',
+    tone: 'stock',
   },
   {
     icon: Nfc,
     term: 'RFID tags',
     detail: 'Read a whole basket at the counter instead of scanning it item by item.',
+    // Catalogue blue: a tag is how an item is identified, so it belongs to the item.
+    tone: 'catalog',
   },
   {
     icon: Truck,
     term: 'Purchasing',
     detail: 'Suppliers, orders and receiving, with cost carried through to margin.',
+    tone: 'supply',
   },
   {
     icon: Receipt,
     term: 'Customer accounts',
     detail: 'Invoices, layaways, statements and what is owed, aged.',
+    tone: 'people',
   },
   {
     icon: BarChart3,
     term: 'Reporting',
     detail: 'Sales, margin and stock position, through to the year-end close.',
+    tone: 'money',
   },
 ];
 
@@ -86,18 +110,16 @@ export function AuthShell({
   return (
     <div className="grid min-h-screen bg-surface lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       {/* Removed from the document below `lg` rather than reordered: on a phone the form is the
-          whole screen, and a hero the thumb has to scroll past to reach it is a tax. */}
-      {/* Removed from the document below `lg` rather than reordered: on a phone the form is the
           whole screen, and a hero the thumb has to scroll past to reach it is a tax.
 
           Laid out top-down with the closing line pushed down by `mt-auto`, rather than the two
           halves being forced apart by `justify-between`. That split left a hand's width of nothing
           across the middle of the first screen anyone sees, which reads as a page that failed to
           finish loading. */}
-      <aside className="auth-hero relative hidden flex-col overflow-hidden border-r border-subtle p-10 lg:flex xl:p-14">
+      <aside className="auth-hero relative hidden flex-col overflow-hidden border-r border-subtle p-10 lg:flex short:p-8 xl:p-14">
         <BrandLockup />
 
-        <h2 className="mt-10 max-w-lg text-display font-semibold leading-tight tracking-tight text-ink xl:mt-12">
+        <h2 className="mt-10 max-w-lg text-display font-semibold leading-tight tracking-tight text-ink short:mt-7 xl:mt-12">
           Everything the shop runs on, in one system.
         </h2>
         <p className="mt-4 max-w-lg text-body-lg leading-relaxed text-ink-muted">
@@ -106,15 +128,36 @@ export function AuthShell({
           be reconciled at the end of the week.
         </p>
 
-        <ul className="mt-9 grid max-w-2xl gap-2.5 sm:grid-cols-2">
-          {FEATURES.map(({ icon: Icon, term, detail }) => (
+        <ul className="mt-8 grid max-w-2xl gap-2 short:mt-6 sm:grid-cols-2">
+          {FEATURES.map(({ icon: Icon, term, detail, tone }, index) => (
             <li
               key={term}
-              className="rounded-lg border border-subtle bg-panel/70 p-3.5 shadow-raised backdrop-blur-sm"
+              className={cn(
+                'rounded-lg border border-subtle bg-panel/70 p-3 shadow-raised backdrop-blur-sm',
+
+                /*
+                  Four on a short screen, six on a tall one.
+
+                  At 1366x768 -- the tills' own resolution, and doc 08's stated minimum -- all six
+                  came to 926px against a 768px viewport, so the last row and the closing line sat
+                  under the fold, visible only to somebody who thought to scroll a login page.
+                  Nobody scrolls a login page. Dropping a row is the honest fix: a feature nobody
+                  can see is not a shorter list, it is the same list with two entries that exist
+                  only in the markup.
+
+                  The two that go are the last two rather than a chosen pair, so the order stays the
+                  order and there is nothing to keep in step with the breakpoint.
+                */
+                index >= 4 && 'short:hidden',
+              )}
             >
               <span className="flex items-center gap-2">
                 <span
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-text"
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
+                    TONE[tone].soft,
+                    TONE[tone].text,
+                  )}
                   aria-hidden
                 >
                   <Icon className="h-5 w-5" />
@@ -130,7 +173,7 @@ export function AuthShell({
 
         {/* The one claim worth making on a sign-in page, because it is the one a shop owner asks
             about first and it is true: this runs on their hardware, not on someone else's. */}
-        <p className="mt-auto flex items-start gap-2 pt-10 text-caption leading-relaxed text-ink-muted">
+        <p className="mt-auto flex items-start gap-2 pt-8 text-caption leading-relaxed text-ink-muted short:pt-6">
           <Server className="mt-px h-5 w-5 shrink-0" aria-hidden />
           <span>
             Runs on your own server. The takings, the stock and the customer list stay in the shop.
@@ -238,11 +281,11 @@ export function AuthNotice({ tone, children }: { tone: 'error' | 'success'; chil
       role="alert"
       className={`mb-5 flex items-start gap-2.5 rounded border px-3.5 py-3 text-body leading-relaxed ${
         isError
-          ? 'border-negative/30 bg-negative/10 text-negative'
-          : 'border-positive/30 bg-positive/10 text-positive'
+          ? 'border-negative/30 bg-negative-soft text-negative-text'
+          : 'border-positive/30 bg-positive-soft text-positive-text'
       }`}
     >
-      <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+      <Icon className="mt-0.5 h-5 w-5 shrink-0" aria-hidden />
       <span>
         <span className="font-medium">{isError ? 'Not done. ' : 'Done. '}</span>
         {children}

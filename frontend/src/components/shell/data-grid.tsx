@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ErrorState, Skeleton } from '@/components/ui/states';
 import { describeError, isWorthRetrying } from '@/lib/errors';
+import { Button } from '@/components/ui/button';
 import { PromptDialog } from '@/components/ui/confirm-dialog';
 
 /**
@@ -256,15 +258,24 @@ export function DataGrid<TRow>({
       <div className="pos-panel-header">
         <span className="pos-panel-title">{sorted.length} rows</span>
 
-        <span className="pos-panel-header-action flex items-center gap-3">
+        {/*
+          Saved views, as things to press.
+
+          These were underlined words: a target of whatever the view happened to be named, which
+          for a view called "PO" is about eighteen pixels wide. They are the shortcut a buyer uses
+          twenty times a day, and they sat next to "Save view" looking exactly like it, so choosing
+          a view and creating one were the same gesture with the same appearance.
+        */}
+        <span className="pos-panel-header-action flex flex-wrap items-center gap-2">
           {views.map((view) => (
-            <button key={view.name} type="button" className="underline" onClick={() => applyView(view)}>
+            <Button key={view.name} variant="outline" size="sm" onClick={() => applyView(view)}>
               {view.name}
-            </button>
+            </Button>
           ))}
-          <button type="button" className="underline" onClick={() => setNamingView(true)}>
+          <Button variant="ghost" size="sm" onClick={() => setNamingView(true)}>
+            <Bookmark className="h-5 w-5 shrink-0" aria-hidden />
             Save view
-          </button>
+          </Button>
         </span>
       </div>
 
@@ -292,39 +303,39 @@ export function DataGrid<TRow>({
         scroller and stuck to its top, the same grid scrolls within its own box and the page does
         not move, which is what "wide content scrolls in its own container" means.
       */}
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-auto" role="rowgroup">
-        <div
-          role="row"
-          className="sticky top-0 z-sticky grid border-b border-subtle bg-panel-sunken text-label font-medium text-ink-muted"
-          style={{ gridTemplateColumns: visibleColumns.map((c) => `${c.width}px`).join(' '), minWidth: totalWidth }}
-        >
-          {visibleColumns.map((column) => {
-            const sorted_ = sortKey === column.key;
-
-            return (
-              <div
-                key={column.key}
-                role="columnheader"
-
-                // Announced rather than left to the arrow glyph, which a screen reader reads as
-                // "up arrow" or skips entirely.
-                aria-sort={sorted_ ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
-                className="min-w-0"
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleSort(column.key)}
-                  className={cn(
-                    'flex w-full items-center gap-1 px-2 py-1.5 transition-colors hover:text-ink',
-                    column.numeric ? 'justify-end' : 'justify-start',
-                  )}
-                >
-                  <span className="truncate">{column.header}</span>
-                  {sorted_ ? <span aria-hidden>{sortDirection === 'asc' ? '↑' : '↓'}</span> : null}
-                </button>
-              </div>
-            );
-          })}
+      <div ref={scrollRef} className="pos-scroll-hint min-h-0 flex-1 overflow-auto" role="rowgroup">
+        <div
+          role="row"
+          className="sticky top-0 z-sticky grid border-b border-subtle bg-panel-sunken text-label font-medium text-ink-muted"
+          style={{ gridTemplateColumns: visibleColumns.map((c) => `${c.width}px`).join(' '), minWidth: totalWidth }}
+        >
+          {visibleColumns.map((column, index) => {
+            const sorted_ = sortKey === column.key;
+
+            return (
+              <div
+                key={column.key}
+                role="columnheader"
+
+                // Announced rather than left to the arrow glyph, which a screen reader reads as
+                // "up arrow" or skips entirely.
+                aria-sort={sorted_ ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                className={cn('min-w-0', index === 0 && 'pos-grid-pin')}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleSort(column.key)}
+                  className={cn(
+                    'flex w-full items-center gap-1 px-2 py-1.5 transition-colors hover:text-ink',
+                    column.numeric ? 'justify-end' : 'justify-start',
+                  )}
+                >
+                  <span className="truncate">{column.header}</span>
+                  {sorted_ ? <span aria-hidden>{sortDirection === 'asc' ? '↑' : '↓'}</span> : null}
+                </button>
+              </div>
+            );
+          })}
         </div>
 
         {/*
@@ -373,7 +384,10 @@ export function DataGrid<TRow>({
                   }}
                   onKeyDown={(event) => onRowKeyDown(event, virtualRow.index, row)}
                   className={cn(
-                    'grid items-center border-b border-subtle text-body transition-colors hover:bg-panel-hover',
+                    // `bg-panel` is load-bearing rather than cosmetic: the pinned first cell
+                    // inherits its background from the row, and a transparent row would leave that
+                    // cell see-through with the columns it covers sliding underneath it.
+                    'grid items-center border-b border-subtle bg-panel text-body transition-colors hover:bg-panel-hover',
                     onRowActivate ? 'cursor-pointer' : 'cursor-default',
                     'focus-visible:relative focus-visible:z-10',
                     focusedKey === key && 'bg-panel-hover',
@@ -389,12 +403,18 @@ export function DataGrid<TRow>({
                     gridTemplateColumns: visibleColumns.map((c) => `${c.width}px`).join(' '),
                   }}
                 >
-                  {visibleColumns.map((column) => (
+                  {visibleColumns.map((column, index) => (
                     <div
                       key={column.key}
                       role="gridcell"
                       data-numeric={column.numeric ? '' : undefined}
-                      className={cn('truncate px-2', column.numeric && 'text-right')}
+                      className={cn(
+                        'truncate px-2',
+                        column.numeric && 'text-right',
+
+                        // The identity column travels with the reader. See .pos-grid-pin.
+                        index === 0 && 'pos-grid-pin',
+                      )}
                     >
                       {column.render(row)}
                     </div>

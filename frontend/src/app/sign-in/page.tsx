@@ -1,10 +1,11 @@
 'use client';
 
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { LogIn } from 'lucide-react';
 import { AuthField, AuthLink, AuthNotice, AuthShell } from '@/components/auth/auth-shell';
 import { PasswordInput } from '@/components/auth/password-input';
+import { selfRegistrationEnabled } from '@/lib/account-api';
 
 /**
  * Signing in.
@@ -30,6 +31,34 @@ function SignInForm() {
   const [password, setPassword] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  /**
+   * Whether to offer creating an account.
+   *
+   * There is a whole sign-up page, a BFF route and an API endpoint behind this, and nothing in the
+   * application linked to any of it — the only way to reach it was to type the URL. The link used
+   * to live on the old landing page, which asked the server whether self-registration was switched
+   * on before showing it; when that page was collapsed into a redirect the link went with it and
+   * was never re-added here. The sign-up page still links back to this one, so the round trip was
+   * one-sided.
+   *
+   * Starts false and appears when the server says yes, rather than the reverse. A link that shows
+   * for a moment and then vanishes is worse than one that arrives a moment late, and on a
+   * deployment with registration off — the default — it must never appear at all.
+   */
+  const [canRegister, setCanRegister] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void selfRegistrationEnabled().then((enabled) => {
+      if (!cancelled) setCanRegister(enabled);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -83,7 +112,20 @@ function SignInForm() {
     <AuthShell
       title="Sign in"
       lead="Use the account your manager set up for you."
-      footer={<AuthLink href="/forgot-password">Forgotten your password?</AuthLink>}
+      footer={
+        <>
+          <AuthLink href="/forgot-password">Forgotten your password?</AuthLink>
+
+          {canRegister ? (
+            <>
+              <span className="mx-2 text-ink-faint" aria-hidden>
+                ·
+              </span>
+              No account yet? <AuthLink href="/sign-up">Create one</AuthLink>
+            </>
+          ) : null}
+        </>
+      }
     >
       {problem ? <AuthNotice tone="error">{problem}</AuthNotice> : null}
 

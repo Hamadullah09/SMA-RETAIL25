@@ -1,5 +1,6 @@
 'use client';
 import { formatCurrency, recordIdFrom } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
@@ -161,9 +162,7 @@ export default function PurchasingPage() {
         <span className="flex items-center gap-3">
           <span>{rows.length} loaded{hasMore ? ' of more' : ''}</span>
           {hasMore ? (
-            <button type="button" className="underline" onClick={() => void load(true, cursor)} disabled={loading}>
-              Load more
-            </button>
+            <Button variant="outline" loading={loading} onClick={() => void load(true, cursor)}>Load more</Button>
           ) : null}
         </span>
       }
@@ -223,9 +222,7 @@ function GeneratePanel({
         title="Generate"
         hint="Blank creates an empty order for manual entry. Every other method fills it from the supplier's top-ranked products, compared against each one's own reorder settings."
         actions={
-          <button type="button" className="underline" disabled={busy} onClick={() => void generate()}>
-            Generate
-          </button>
+          <Button variant="default" loading={busy} onClick={() => void generate()}>Generate</Button>
         }
       >
         <Field label="Supplier">
@@ -351,9 +348,7 @@ function PurchaseOrderPanel({
         title="Lines"
         actions={
           isDraft && canPostOrder && order.lines.length > 0 ? (
-            <button type="button" className="underline" disabled={busy} onClick={() => void post()}>
-              Post order
-            </button>
+            <Button variant="default" loading={busy} onClick={() => void post()}>Post order</Button>
           ) : null
         }
       >
@@ -444,9 +439,7 @@ function LinesTable({
             <td className="py-1 text-right pos-amount">{currency(line.orderCost)}</td>
             {canEdit ? (
               <td className="py-1 text-right">
-                <button type="button" className="underline" disabled={busy} onClick={() => void remove(line.id)}>
-                  Remove
-                </button>
+                <Button variant="ghost" loading={busy} onClick={() => void remove(line.id)}>Remove</Button>
               </td>
             ) : null}
           </tr>
@@ -524,9 +517,7 @@ function AddLinePanel({
     <FormSection
       title="Add a line"
       actions={
-        <button type="button" className="underline" disabled={busy} onClick={() => void add()}>
-          Add
-        </button>
+        <Button variant="default" loading={busy} onClick={() => void add()}>Add</Button>
       }
     >
       <Field label="Item" hint={results.length > 0 ? undefined : 'Type a stock code or name.'}>
@@ -605,9 +596,7 @@ function ReceivePanel({ order, onReceived }: { order: PurchaseOrderDetail; onRec
       title="Receive shipment"
       hint="Freight is split across the lines you receive here, by their share of this receipt's cost."
       actions={
-        <button type="button" className="underline" disabled={busy} onClick={() => void receive()}>
-          Record receipt
-        </button>
+        <Button variant="default" loading={busy} onClick={() => void receive()}>Record receipt</Button>
       }
     >
       {outstanding.map((line) => (

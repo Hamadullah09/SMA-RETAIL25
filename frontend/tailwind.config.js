@@ -10,10 +10,21 @@
  * @type {import('tailwindcss').Config}
  */
 module.exports = {
+  /**
+   * Everything that can name a class.
+   *
+   * `src/lib` belongs here and was missing, which is a silent failure rather than a loud one:
+   * Tailwind generates only the classes it literally sees in a scanned file, so a class name held
+   * in a lib module -- a tone map, a tone-to-class lookup, a variant table -- was never generated
+   * and the element simply came out unstyled. Nothing errors, nothing warns; an icon is just grey,
+   * which reads as a design decision rather than a bug.
+   */
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/lib/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/stores/**/*.{js,ts,jsx,tsx,mdx}',
   ],
 
   theme: {
@@ -31,6 +42,19 @@ module.exports = {
       desk: '1280px',
       xl: '1280px',
       '2xl': '1536px',
+
+      /*
+        A screen that is short rather than narrow.
+
+        Every other breakpoint here is about width, which is the wrong axis for the one thing that
+        actually goes wrong on a till: 1366x768 is the shop's own resolution and doc 08's stated
+        minimum, and it is *wide* enough for anything while being 300px shorter than the laptop
+        these pages were laid out on. The sign-in hero came to 926px there, so the first screen
+        anybody sees scrolled, with a third of it under the fold.
+
+        Held as a raw query because Tailwind's screens are width-only by construction.
+      */
+      short: { raw: '(max-height: 850px)' },
     },
 
     extend: {
@@ -97,6 +121,31 @@ module.exports = {
         'negative-soft': 'oklch(var(--negative-soft) / <alpha-value>)',
         'live-soft': 'oklch(var(--live-soft) / <alpha-value>)',
         'special-soft': 'oklch(var(--special-soft) / <alpha-value>)',
+
+        /**
+         * Where you are, as opposed to how things are going.
+         *
+         * Registered as one nested `tone` object so the classes read `text-tone-stock` and
+         * `bg-tone-stock-soft` -- a prefix that greps, which matters because the rule governing
+         * these is positional: a domain tone belongs in navigation chrome and nowhere else. One
+         * search shows every place that rule could have been broken.
+         */
+        tone: {
+          'home': 'oklch(var(--tone-home) / <alpha-value>)',
+          'sell': 'oklch(var(--tone-sell) / <alpha-value>)',
+          'catalog': 'oklch(var(--tone-catalog) / <alpha-value>)',
+          'stock': 'oklch(var(--tone-stock) / <alpha-value>)',
+          'people': 'oklch(var(--tone-people) / <alpha-value>)',
+          'supply': 'oklch(var(--tone-supply) / <alpha-value>)',
+          'money': 'oklch(var(--tone-money) / <alpha-value>)',
+          'home-soft': 'oklch(var(--tone-home-soft) / <alpha-value>)',
+          'sell-soft': 'oklch(var(--tone-sell-soft) / <alpha-value>)',
+          'catalog-soft': 'oklch(var(--tone-catalog-soft) / <alpha-value>)',
+          'stock-soft': 'oklch(var(--tone-stock-soft) / <alpha-value>)',
+          'people-soft': 'oklch(var(--tone-people-soft) / <alpha-value>)',
+          'supply-soft': 'oklch(var(--tone-supply-soft) / <alpha-value>)',
+          'money-soft': 'oklch(var(--tone-money-soft) / <alpha-value>)',
+        },
       },
 
       /**

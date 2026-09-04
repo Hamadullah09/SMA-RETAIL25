@@ -27,6 +27,8 @@ function ResetPasswordForm() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [done, setDone] = useState(false);
+  // Held here because two siblings need it: the field reports it, the rule list reads it.
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const [problem, setProblem] = useState<AccountProblem | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -107,12 +109,18 @@ function ResetPasswordForm() {
             value={password}
             onChange={setPassword}
             autoComplete="new-password"
-            describedBy="password-rules"
+            describedBy={passwordFocused || password.length > 0 ? 'password-rules' : undefined}
             minLength={MIN_PASSWORD}
+            onFocusChange={setPasswordFocused}
             required
             autoFocus
           />
-          <PasswordRequirements id="password-rules" password={password} identity={identity} />
+          <PasswordRequirements
+            id="password-rules"
+            password={password}
+            identity={identity}
+            focused={passwordFocused}
+          />
         </AuthField>
 
         <AuthField id="confirm" label="New password again">

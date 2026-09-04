@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
 import { BrowseFormShell, FormSection, LiveBadge, TextField } from '@/components/masters/browse-form';
 import { toast } from '@/components/ui/toaster';
@@ -150,9 +151,7 @@ export default function SuppliersPage() {
             {rows.length} loaded{hasMore ? ' of more' : ''}
           </span>
           {hasMore ? (
-            <button type="button" className="underline" onClick={() => void load(true, cursor)} disabled={loading}>
-              Load more
-            </button>
+            <Button variant="outline" loading={loading} onClick={() => void load(true, cursor)}>Load more</Button>
           ) : null}
         </span>
       }
@@ -284,9 +283,7 @@ function SupplierFormPanel({
         hint={supplierId ? undefined : 'Leaving the number blank draws the next one from the store’s counter.'}
         actions={
           canWrite ? (
-            <button type="button" className="underline" disabled={busy} onClick={() => void save()}>
-              Save
-            </button>
+            <Button variant="default" loading={busy} onClick={() => void save()}>Save</Button>
           ) : null
         }
       >

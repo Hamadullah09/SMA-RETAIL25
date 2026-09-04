@@ -4,6 +4,8 @@ import Link from 'next/link';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { PageHeader } from '@/components/shell/page-header';
+import { toneClasses } from '@/lib/tone';
+import { cn } from '@/lib/utils';
 
 /** One destination on an index page. */
 export interface NavCardItem {
@@ -26,22 +28,33 @@ export interface NavCardItem {
 export function NavCard({ item }: { item: NavCardItem }) {
   const Icon = item.icon;
 
+  // The same colour this destination wears on the rail. A card and a rail row that name the same
+  // screen in two different colours teach that the colour is decoration.
+  const tone = toneClasses(item.href);
+
   return (
     <Link
       href={item.href}
       className="pos-panel group flex flex-col gap-1.5 p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-strong hover:shadow-popover"
     >
       <span className="flex items-center gap-2.5 text-body-lg font-semibold text-ink">
-        {/* An icon appears only when it is faster to parse than its label (doc 08). On an index of
-            ten destinations it is — you learn the shapes and stop reading.
+        {/* An icon appears only when it is faster to parse than its label. On an index of ten
+            destinations it is — you learn the shapes and stop reading.
 
-            On its own accent tile rather than loose beside the text: a 16px glyph next to 14px type
-            is a smudge, and the tile is what gives a grid of ten cards a rhythm to scan down. */}
+            On its own tile rather than loose beside the text: a glyph next to 14px type is a
+            smudge, and the tile is what gives a grid of ten cards a rhythm to scan down. The tile
+            carries the destination's own colour rather than the accent, so the card and the rail
+            row agree; a card that hovered into the accent said "this is the primary action" about
+            all ten of them at once. */}
         <span
           aria-hidden
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-text transition-colors group-hover:bg-accent group-hover:text-accent-foreground"
+          className={cn(
+            'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors duration-150',
+            tone.soft,
+            tone.text,
+          )}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-5 w-5" />
         </span>
         {item.title}
       </span>

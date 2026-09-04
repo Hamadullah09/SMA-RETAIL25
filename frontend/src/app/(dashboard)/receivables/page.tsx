@@ -1,5 +1,8 @@
 'use client';
 import { formatCurrency, recordIdFrom } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { ActionMenu } from '@/components/ui/action-menu';
+import { Award, Clock, CreditCard } from 'lucide-react';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
@@ -105,17 +108,44 @@ export default function ReceivablesPage() {
     <BrowseFormShell
       title="Receivables"
       toolbar={
-        <>
-          <button type="button" className="pos-button" onClick={() => void loadAging()}>
-            Aging report
-          </button>
-          <button type="button" className="pos-button" onClick={() => setView('giftCards')}>
-            Gift cards
-          </button>
-          <button type="button" className="pos-button" onClick={() => setView('loyalty')}>
-            Loyalty
-          </button>
-        </>
+        /*
+          Three sub-screens, named for what they show rather than for what they are called.
+
+          These were three identical outline buttons reading "Aging report", "Gift cards" and
+          "Loyalty" — trade vocabulary, in a row, with nothing saying what pressing one would do.
+          "Aging" in particular is an accounting term for "how overdue", and somebody running a shop
+          should not have to know it to find out who owes them money.
+
+          Unlike Products there is no primary action to protect here: a receivable is created by a
+          sale, not by this screen. So the menu is not here to demote anything — it is here because
+          a row has space for the sentence that a button does not.
+        */
+        <ActionMenu
+          label="Reports and tools"
+          items={[
+            {
+              key: 'aging',
+              label: 'Who owes what',
+              icon: Clock,
+              description: 'Every outstanding balance, grouped by how overdue it is.',
+              onSelect: () => void loadAging(),
+            },
+            {
+              key: 'giftCards',
+              label: 'Gift cards',
+              icon: CreditCard,
+              description: 'Look up a gift card, check its balance and see where it has been spent.',
+              onSelect: () => setView('giftCards'),
+            },
+            {
+              key: 'loyalty',
+              label: 'Reward points',
+              icon: Award,
+              description: 'Points balances by customer, and what they are worth.',
+              onSelect: () => setView('loyalty'),
+            },
+          ]}
+        />
       }
       filters={
         <>
@@ -168,9 +198,7 @@ export default function ReceivablesPage() {
         <span className="flex items-center gap-3">
           <span>{rows.length} loaded{hasMore ? ' of more' : ''}</span>
           {hasMore ? (
-            <button type="button" className="underline" onClick={() => void load(true, cursor)} disabled={loading}>
-              Load more
-            </button>
+            <Button variant="outline" loading={loading} onClick={() => void load(true, cursor)}>Load more</Button>
           ) : null}
         </span>
       }
@@ -280,9 +308,7 @@ function GiftCardsPanel({ onClose }: { onClose: () => void }) {
         title="Issue a gift card"
         hint="Leave the serial blank to generate one — used when the card is really just a line on the receipt."
         actions={
-          <button type="button" className="underline" disabled={busy} onClick={() => void issue()}>
-            Issue
-          </button>
+          <Button variant="default" loading={busy} onClick={() => void issue()}>Issue</Button>
         }
       >
         <NumberField label="Value" value={value} onChange={setValue} />
@@ -304,9 +330,7 @@ function GiftCardsPanel({ onClose }: { onClose: () => void }) {
       <FormSection
         title="Check a balance"
         actions={
-          <button type="button" className="underline" disabled={busy} onClick={() => void lookup()}>
-            Look up
-          </button>
+          <Button variant="outline" loading={busy} onClick={() => void lookup()}>Look up</Button>
         }
       >
         <Field label="Serial number">
@@ -414,9 +438,7 @@ function LoyaltyPanel({ locationId, onClose }: { locationId: number; onClose: ()
           title="Policy"
           hint="Points per dollar, minimum to redeem, and the reward it converts to (guide p.83–84)."
           actions={
-            <button type="button" className="underline" disabled={busy} onClick={() => void savePolicy()}>
-              Save
-            </button>
+            <Button variant="default" loading={busy} onClick={() => void savePolicy()}>Save</Button>
           }
         >
           <label className="flex items-center gap-1 text-label">
@@ -675,9 +697,7 @@ function StatementPanel({
           title="Take a payment"
           hint="Applied oldest invoice first, penalty before principal on each one."
           actions={
-            <button type="button" className="underline" disabled={busy} onClick={() => void takePayment()}>
-              Apply
-            </button>
+            <Button variant="default" loading={busy} onClick={() => void takePayment()}>Apply</Button>
           }
         >
           <NumberField label="Amount" value={amount} onChange={setAmount} />
@@ -778,9 +798,7 @@ function InvoiceRowView({
             </button>
           ) : null}
           {canRefund && invoice.status !== 'Void' ? (
-            <button type="button" className="underline" disabled={busy} onClick={onRefund}>
-              Refund
-            </button>
+            <Button variant="destructive" loading={busy} onClick={onRefund}>Refund</Button>
           ) : null}
         </td>
       ) : null}

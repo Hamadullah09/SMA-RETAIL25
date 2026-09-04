@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
 import { BrowseFormShell, Field, FormSection, NumberField, TextField, LiveBadge } from '@/components/masters/browse-form';
@@ -142,9 +143,7 @@ export default function InventoryPage() {
         <span className="flex items-center gap-3">
           <span>{rows.length} loaded{hasMore ? ' of more' : ''}</span>
           {hasMore ? (
-            <button type="button" className="underline" onClick={() => void load(true, cursor)} disabled={loading}>
-              Load more
-            </button>
+            <Button variant="outline" loading={loading} onClick={() => void load(true, cursor)}>Load more</Button>
           ) : null}
         </span>
       }
@@ -233,9 +232,7 @@ function StockActionsPanel({
           title="Receive stock"
           hint="Manual, item-by-item — for a shipment with no purchase order behind it. Use Purchasing to receive against a PO."
           actions={
-            <button type="button" className="underline" disabled={busy} onClick={() => void receive()}>
-              Receive
-            </button>
+            <Button variant="default" loading={busy} onClick={() => void receive()}>Receive</Button>
           }
         >
           <NumberField label="Quantity" value={receiveQty} onChange={setReceiveQty} step="1" />
@@ -248,9 +245,7 @@ function StockActionsPanel({
           title="Adjust on hand"
           hint="A signed correction — found stock, shrinkage, damage. Cost is not affected."
           actions={
-            <button type="button" className="underline" disabled={busy} onClick={() => void adjust()}>
-              Adjust
-            </button>
+            <Button variant="default" loading={busy} onClick={() => void adjust()}>Adjust</Button>
           }
         >
           <NumberField label="Quantity change" value={adjustDelta} onChange={setAdjustDelta} step="1" />

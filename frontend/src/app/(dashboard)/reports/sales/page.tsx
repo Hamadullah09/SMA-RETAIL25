@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
 import { BrowseFormShell, FormSection } from '@/components/masters/browse-form';
 import { toast } from '@/components/ui/toaster';
@@ -240,9 +241,7 @@ function SaleDetailPanel({
       <FormSection
         title="Summary"
         actions={
-          <button type="button" className="underline" disabled={busy} onClick={() => void reprint()}>
-            Reprint
-          </button>
+          <Button variant="outline" loading={busy} onClick={() => void reprint()}>Reprint</Button>
         }
       >
         <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-label">

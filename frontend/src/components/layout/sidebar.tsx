@@ -31,6 +31,7 @@ import { CompanyLogo } from '@/components/layout/branding';
 import { SmaMark } from '@/components/layout/logo';
 import { useAuth } from '@/lib/auth-config';
 import { useUIStore } from '@/stores/ui-store';
+import { toneClasses } from '@/lib/tone';
 import { cn } from '@/lib/utils';
 
 /**
@@ -190,6 +191,10 @@ export function Sidebar() {
                 const active =
                   (item.href === current && !(expanded && childActive)) || (!showLabels && childActive);
 
+                // Resolved from the href, so a screen added under an existing area is coloured
+                // without this file being touched.
+                const tone = toneClasses(item.href);
+
                 return (
                   <div key={item.href}>
                     <div className="relative">
@@ -202,7 +207,30 @@ export function Sidebar() {
                         className={cn('pos-nav-item', hasChildren && 'pr-9', !showLabels && 'justify-center px-0')}
                         title={!showLabels ? item.label : undefined}
                       >
-                        <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                        {/*
+                          The glyph on a tile in its area's colour.
+
+                          A 16px line icon beside 14px type is a smudge: eleven of them down a rail
+                          are eleven smudges, and somebody who opens this twice a week reads all
+                          eleven labels every time because nothing on the screen is a landmark. The
+                          tile gives the glyph a shape and the colour gives it an identity, so Stock
+                          is the amber one before it is the one that says "Stock".
+
+                          On the current row the tile goes white-on-fill instead. The row is already
+                          announcing itself in the accent, and a second colour inside it would be
+                          two claims on the same attention.
+                        */}
+                        <span
+                          aria-hidden
+                          className={cn(
+                            'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors duration-150',
+                            active
+                              ? 'bg-white/20 text-accent-foreground'
+                              : cn(tone.soft, tone.text),
+                          )}
+                        >
+                          <Icon className="h-5 w-5" />
+                        </span>
                         {showLabels ? <span className="truncate">{item.label}</span> : null}
                       </Link>
 

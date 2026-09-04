@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-config';
 import { cn } from '@/lib/utils';
@@ -31,6 +31,11 @@ import { PALETTE_ROUTES } from '@/lib/routes';
 const RECENTS_KEY = 'r25.palette.recent';
 const MAX_RECENTS = 6;
 
+/** An option's DOM id. A route id is a path, and a path is not a valid `id` on its own. */
+function optionId(id: string): string {
+  return `palette-${id.replace(/[^a-z0-9]+/gi, '-')}`;
+}
+
 export function CommandPalette() {
   const router = useRouter();
   const { can, signOut } = useAuth();
@@ -41,6 +46,7 @@ export function CommandPalette() {
   const [recents, setRecents] = useState<string[]>([]);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
 
   /**
    * Everything in the registry, plus the actions that are not places.
@@ -161,11 +167,26 @@ export function CommandPalette() {
         role="dialog"
         aria-modal="true"
         aria-label="Command palette"
-        className="pos-panel w-full max-w-lg shadow-lg"
+        className="pos-panel w-full max-w-lg shadow-overlay"
         onClick={(event) => event.stopPropagation()}
       >
+        {/*
+          A combobox, declared as one.
+
+          It was a bare text box next to an unlabelled list of buttons: a screen-reader user typing
+          into it heard nothing appear, nothing about how many things matched, and nothing about
+          which one Enter would open. The list is a listbox, its rows are options, and the input
+          points at the highlighted one -- which is also what makes the highlight mean something to
+          somebody who cannot see it.
+        */}
         <input
           ref={inputRef}
+          role="combobox"
+          aria-expanded="true"
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={results[highlighted] ? optionId(results[highlighted].id) : undefined}
+          aria-label="Search screens and actions"
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -191,24 +212,33 @@ export function CommandPalette() {
           className="w-full border-b border-subtle bg-transparent px-3 py-3 text-body outline-none"
         />
 
-        <ul className="max-h-80 overflow-y-auto py-1">
+        {/* Said out loud, once per change of query, for anyone who cannot see the list move. */}
+        <p aria-live="polite" className="sr-only">
+          {results.length === 0
+            ? 'Nothing matches.'
+            : `${results.length} result${results.length === 1 ? '' : 's'}. ${results[highlighted]?.label ?? ''} selected.`}
+        </p>
+
+        <ul id={listId} role="listbox" aria-label="Results" className="max-h-80 overflow-y-auto py-1">
           {results.length === 0 ? (
             <li className="px-3 py-6 text-center text-body text-ink-muted">Nothing matches.</li>
           ) : (
             results.map((command, index) => (
-              <li key={command.id}>
-                <button
-                  type="button"
-                  onMouseEnter={() => setHighlighted(index)}
-                  onClick={() => run(command)}
-                  className={cn(
-                    'flex w-full items-center justify-between px-3 py-2 text-left text-body',
-                    index === highlighted && 'bg-surface',
-                  )}
-                >
-                  <span>{command.label}</span>
-                  <span className="text-label text-ink-muted">{command.group}</span>
-                </button>
+              <li
+                key={command.id}
+                id={optionId(command.id)}
+                role="option"
+                aria-selected={index === highlighted}
+                onMouseEnter={() => setHighlighted(index)}
+                onClick={() => run(command)}
+                className={cn(
+                  'flex cursor-pointer items-center justify-between gap-3 px-3 text-body',
+                  index === highlighted ? 'bg-accent-soft text-accent-text' : 'hover:bg-panel-hover',
+                )}
+                style={{ minHeight: 'var(--control-height)' }}
+              >
+                <span>{command.label}</span>
+                <span className="text-label text-ink-muted">{command.group}</span>
               </li>
             ))
           )}

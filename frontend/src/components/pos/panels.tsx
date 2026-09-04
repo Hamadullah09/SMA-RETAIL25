@@ -128,7 +128,7 @@ export function StatusBar() {
         </span>
 
         {cart?.heldName ? (
-          <span className="pos-badge shrink-0 text-warning">Recalled: {cart.heldName}</span>
+          <span className="pos-badge shrink-0 text-warning-text">Recalled: {cart.heldName}</span>
         ) : null}
 
         {/*
@@ -394,14 +394,21 @@ export function CartList() {
                       <span className="pos-badge shrink-0 text-ink-muted">{SOURCE_LABELS[line.source]}</span>
                     ) : null}
                     {ORIGIN_LABELS[line.priceOrigin] ? (
-                      <span className="pos-badge shrink-0 text-positive">{ORIGIN_LABELS[line.priceOrigin]}</span>
-                    ) : null}
-                    {line.lineType !== 'Sale' ? (
-                      <span className="pos-badge shrink-0 text-negative">
-                        {line.lineType === 'Return' ? 'RETURN' : 'TRADE'}
-                      </span>
+                      <span className="pos-badge shrink-0 text-positive-text">{ORIGIN_LABELS[line.priceOrigin]}</span>
                     ) : null}
 
+                    {/*
+                      A return and a trade-in, spelled out.
+                      
+                      "TRADE" is the legacy abbreviation and it is not one anybody arrives already
+                      knowing; it sits beside "RETURN", which reads as a word, so the pair looked
+                      like one term shortened and one not. Both are now what they are.
+                    */}
+                    {line.lineType !== 'Sale' ? (
+                      <span className="pos-badge shrink-0 text-negative-text">
+                        {line.lineType === 'Return' ? 'Return' : 'Trade-in'}
+                      </span>
+                    ) : null}
                   </span>
 
                   {/*
@@ -440,19 +447,33 @@ export function CartList() {
 }
 
 /**
- * The empty sale — deliberately empty.
+ * The empty sale — one line, and deliberately not a page.
  *
- * This carried an icon, a heading, a sentence explaining the three ways an item can reach the
- * screen, and an F9 button. All of it was already on screen: F9 Find sits in the key bar a few
- * centimetres below, permanently, and the scan box has the caret. A cashier opening a till is not
- * reading a tutorial, and the same panel that shows the sale should not look like a different
- * screen when the sale is empty.
+ * This has been both extremes. It carried an icon, a heading, a sentence explaining the three ways
+ * an item can reach the screen, and an F9 button; all of that was rightly cut, because a cashier
+ * opening a till is not reading a tutorial and the same panel should not look like a different
+ * screen when the sale happens to be empty. F9 Find is in the key bar a few centimetres below,
+ * permanently, and the scan box already has the caret.
  *
- * Left as an empty region rather than deleted outright so the panel keeps its height and the
- * totals below it do not jump upward the moment the first item is scanned.
+ * Then it was nothing at all, which is the other failure: roughly five hundred pixels of white
+ * with no caption. Somebody who has used a till for years reads that as "ready". Somebody on their
+ * first shift, or the owner who came in to cover it, reads it as "not working" — and the one
+ * question they have is the one question the screen was not answering.
+ *
+ * So: one sentence, at the top of the region rather than floating in the middle of it, in the
+ * faint tone. It names the physical thing to do, which is the part that is not already on screen —
+ * the key bar says what F9 does, and nothing says "you may simply scan". It is a caption, not a
+ * heading, and it introduces no control that exists elsewhere.
+ *
+ * The region keeps `flex-1` either way, so the totals below do not jump upward when the first item
+ * lands.
  */
 function EmptySale() {
-  return <div className="min-h-0 flex-1" aria-hidden />;
+  return (
+    <div className="min-h-0 flex-1 px-4 pt-6">
+      <p className="text-body text-ink-faint">Scan an item to start the sale.</p>
+    </div>
+  );
 }
 
 /* ---------------------------------------------------------------------- region ② totals */
@@ -533,21 +554,41 @@ function Row({ label, value, tone }: { label: string; value: string; tone?: 'pos
 
 export function PaymentMatrix({ onPay }: { onPay: () => void }) {
   const { cart, busy, openDialog } = usePosStore();
+  const symbol = useCurrencySymbol();
   const canPay = Boolean(cart && cart.lines.length > 0 && !busy);
+
+  /*
+    The button says what it will charge.
+
+    "Pay" alone asks the cashier to carry the figure from the totals block above it, and the moment
+    that matters is the one where they are also handling money, a queue and a customer talking to
+    them. It is also the check that catches the wrong basket before the drawer opens rather than
+    after: the amount is on the control that commits it, so confirming and reading are one glance
+    instead of two.
+
+    Blank until there is something to charge, rather than "Pay 0.00" — a zero on a disabled button
+    is a figure to double-take at, and the button is disabled at exactly that moment anyway.
+  */
+  const payable = canPay ? money(cart!.totals?.grandTotal ?? 0, symbol) : null;
 
   return (
     <section className="p-2.5" aria-label="Payment">
       <button
         type="button"
-        className="pos-button-primary w-full text-body-lg"
-        style={{ minHeight: '3.25rem' }}
+        className="pos-button-primary w-full justify-between gap-3 px-4 text-body-lg"
+        style={{ minHeight: '3.75rem' }}
         disabled={!canPay}
         onClick={onPay}
       >
-        Pay
-        <span className="pos-fkey text-accent-foreground/80">
-          <kbd>F4</kbd>
+        <span className="flex items-center gap-1.5">
+          Pay
+          <span className="pos-fkey text-accent-foreground/80">
+            <kbd>F4</kbd>
+          </span>
         </span>
+
+        {/* Tabular, so the figure does not shuffle sideways as digits change under a scanner. */}
+        {payable ? <span className="pos-amount text-h3 font-semibold">{payable}</span> : null}
       </button>
 
       <div className="mt-1.5 grid grid-cols-2 gap-1.5">
@@ -657,6 +698,14 @@ export function SidePanel({ onPay }: { onPay: () => void }) {
  *
  * Full width, touch height, and the only field on the screen — so there is never a question about
  * where a wedge scanner's keystrokes are going.
+ *
+ * It is also drawn as the busiest thing on the till, which it had stopped being. At 44px with an
+ * 11px label it read as a form field on a screen of panels, and the one instruction a person who
+ * has never worked a till needs is "put the barcode here". It is 56px now, the label is set in the
+ * accent while the field holds focus, and the whole band tints — so "this is live and listening"
+ * is answered without anybody having to find the caret. That focus state earns its keep on a
+ * touchscreen, where tapping a dialog shut can leave focus somewhere else and the next scan goes
+ * nowhere with no visible reason.
  */
 export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> }) {
   const { scan, busy, error, clearError } = usePosStore();
@@ -664,7 +713,10 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
 
   return (
     <form
-      className="flex h-11 items-center gap-2 border-t border-subtle px-3"
+      className={cn(
+        'group flex h-14 items-center gap-2.5 border-t border-subtle px-3 transition-colors duration-150',
+        'focus-within:bg-accent-soft',
+      )}
       onSubmit={(event) => {
         event.preventDefault();
         const entry = value;
@@ -672,8 +724,11 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
         void scan(entry);
       }}
     >
-      <label htmlFor="pos-scan" className="flex shrink-0 items-center gap-1.5 text-label font-semibold uppercase tracking-wide text-ink-muted">
-        <ScanLine className="h-4 w-4" aria-hidden />
+      <label
+        htmlFor="pos-scan"
+        className="flex shrink-0 items-center gap-2 text-body font-semibold uppercase tracking-wide text-ink-muted transition-colors duration-150 group-focus-within:text-accent-text"
+      >
+        <ScanLine className="h-6 w-6" aria-hidden />
         Scan
       </label>
 
@@ -690,7 +745,7 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
           if (error) clearError();
         }}
         placeholder="Barcode, stock code, tag or serial"
-        className="h-full min-w-0 flex-1 bg-transparent text-body-lg text-ink outline-none placeholder:text-ink-faint"
+        className="h-full min-w-0 flex-1 bg-transparent text-h3 text-ink outline-none placeholder:text-body-lg placeholder:text-ink-faint"
         disabled={busy}
       />
 

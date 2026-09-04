@@ -21,6 +21,8 @@ const TEXT_COLOURS = [
   'positive-text', 'warning-text', 'negative-text', 'live-text', 'special-text',
   'positive-soft', 'warning-soft', 'negative-soft', 'live-soft', 'special-soft',
   'surface', 'panel', 'panel-hover', 'panel-sunken', 'subtle', 'strong', 'control',
+  'tone-home', 'tone-sell', 'tone-catalog', 'tone-stock', 'tone-people', 'tone-supply', 'tone-money',
+  'tone-home-soft', 'tone-sell-soft', 'tone-catalog-soft', 'tone-stock-soft', 'tone-people-soft', 'tone-supply-soft', 'tone-money-soft',
 ] as const;
 
 /**

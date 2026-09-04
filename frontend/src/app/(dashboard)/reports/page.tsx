@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-config';
 import { PageHeader } from '@/components/shell/page-header';
+import { NavCard } from '@/components/shell/nav-card';
 
 /**
  * The reports index.
@@ -151,22 +152,16 @@ export default function ReportsPage() {
 
           <div className="grid gap-3 md:grid-cols-2">
             {group.reports.map((report) => (
-              <Link
-                key={report.href}
-                href={report.href}
-                className="pos-panel group block p-5 transition-all duration-150 hover:-translate-y-0.5 hover:border-strong hover:shadow-popover"
-              >
-                <span className="mb-1.5 flex items-center gap-2.5 text-body-lg font-semibold text-ink">
-                  <span
-                    aria-hidden
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent-text transition-colors group-hover:bg-accent group-hover:text-accent-foreground"
-                  >
-                    <report.icon className="h-4 w-4" />
-                  </span>
-                  {report.title}
-                </span>
-                <span className="block text-body text-ink-muted">{report.description}</span>
-              </Link>
+              /*
+                The shared card, not a fourth copy of its markup.
+
+                This page had its own, and it had already drifted: an accent tile where the other
+                three indexes now carry the destination's own tone, so the nine reports were nine
+                identical indigo squares. Going through NavCard means a report card and an
+                Administration card are the same object, and each one is coloured for what it is
+                about rather than for the index it happens to sit on.
+              */
+              <NavCard key={report.href} item={{ ...report, key: report.href }} />
             ))}
           </div>
         </section>

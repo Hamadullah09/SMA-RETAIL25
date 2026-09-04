@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ChevronRight } from 'lucide-react';
 import { HelpButton } from '@/components/help/help-button';
-import { breadcrumbFor } from '@/lib/route-match';
+import { breadcrumbFor, matchRoute } from '@/lib/route-match';
+import { toneClasses } from '@/lib/tone';
+import { cn } from '@/lib/utils';
 
 /**
  * The top of every screen, in one place.
@@ -43,11 +45,40 @@ export function PageHeader({
   const pathname = usePathname();
   const trail = breadcrumb ? breadcrumbFor(pathname) : [];
 
+  /*
+    The area's mark, beside its title.
+
+    Both are resolved from the path rather than passed in, for the same reason the breadcrumb is:
+    a header that has to be told which area it is in is a header that will eventually be told
+    wrong, and a Stock page wearing the Customers colour is worse than no colour at all.
+
+    This is the third place the same pair appears — the rail row, the index card, and here — which
+    is the point. Colour only becomes navigation once it has been the same in three places; used
+    once it is decoration.
+  */
+  const route = matchRoute(pathname);
+  const AreaIcon = route?.icon;
+  const tone = toneClasses(pathname);
+
   return (
     <header
       className={`flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-subtle px-page py-panel ${className ?? ''}`}
     >
-      <div className="min-w-0">
+      <div className="flex min-w-0 items-start gap-3">
+        {AreaIcon ? (
+          <span
+            aria-hidden
+            className={cn(
+              'mt-0.5 hidden h-11 w-11 shrink-0 items-center justify-center rounded-lg sm:inline-flex',
+              tone.soft,
+              tone.text,
+            )}
+          >
+            <AreaIcon className="h-6 w-6" />
+          </span>
+        ) : null}
+
+        <div className="min-w-0">
         {/*
           Only drawn when there is somewhere above here to go. A breadcrumb whose only entry is the
           page you are already on tells you nothing and takes a line to do it.
@@ -71,6 +102,7 @@ export function PageHeader({
         <h1 className="text-h1 font-semibold">{title}</h1>
 
         {description ? <p className="mt-1 max-w-2xl text-body text-ink-muted">{description}</p> : null}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

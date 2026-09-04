@@ -1,5 +1,6 @@
 'use client';
 import { formatCurrency, recordIdFrom } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 import { useCallback, useEffect, useState } from 'react';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
@@ -266,9 +267,7 @@ function LineBuilder({
                 <td className="py-1 text-right pos-amount">{line.quantity}</td>
                 <td className="py-1 text-right pos-amount">{currency(line.unitPrice)}</td>
                 <td className="py-1 text-right">
-                  <button type="button" className="underline" onClick={() => onChange(lines.filter((_, i) => i !== index))}>
-                    Remove
-                  </button>
+                  <Button variant="ghost" onClick={() => onChange(lines.filter((_, i) => i !== index))}>Remove</Button>
                 </td>
               </tr>
             ))}
@@ -394,7 +393,7 @@ function NewCustomerOrderPanel({
       <FormSection title="Lines" hint="Reserved against stock the moment the order is placed.">
         <LineBuilder locationId={locationId} lines={lines} onChange={setLines} />
       </FormSection>
-      <FormSection title="Notes" actions={<button type="button" className="underline" disabled={busy} onClick={() => void create()}>Create order</button>}>
+      <FormSection title="Notes" actions={<Button variant="default" loading={busy} onClick={() => void create()}>Create order</Button>}>
         <Field label="Notes (optional)">
           <input
             className="w-full pos-input"
@@ -625,7 +624,7 @@ function NewLayawayPanel({ locationId, onClose, onCreated }: { locationId: numbe
       <FormSection
         title="Lines"
         hint="Reserved against stock until paid in full or cancelled."
-        actions={<button type="button" className="underline" disabled={busy} onClick={() => void create()}>Create layaway</button>}
+        actions={<Button variant="default" loading={busy} onClick={() => void create()}>Create layaway</Button>}
       >
         <LineBuilder locationId={locationId} lines={lines} onChange={setLines} />
       </FormSection>
@@ -755,7 +754,7 @@ function LayawayPanel({
 
       {canAct ? (
         <>
-          <FormSection title="Take a deposit" actions={<button type="button" className="underline" disabled={busy} onClick={() => void takePayment()}>Apply</button>}>
+          <FormSection title="Take a deposit" actions={<Button variant="default" loading={busy} onClick={() => void takePayment()}>Apply</Button>}>
             <NumberField label="Amount" value={amount} onChange={setAmount} />
             <Field label="Tender">
               <select
@@ -888,7 +887,7 @@ function NewPriceQuotePanel({ locationId, onClose, onCreated }: { locationId: nu
       <FormSection title="Customer">
         <CustomerPicker locationId={locationId} onPick={(c) => setCustomerId(c?.id ?? null)} />
       </FormSection>
-      <FormSection title="Lines" actions={<button type="button" className="underline" disabled={busy} onClick={() => void create()}>Create quote</button>}>
+      <FormSection title="Lines" actions={<Button variant="default" loading={busy} onClick={() => void create()}>Create quote</Button>}>
         <LineBuilder locationId={locationId} lines={lines} onChange={setLines} />
         <Field label="Expires on (optional)">
           <input

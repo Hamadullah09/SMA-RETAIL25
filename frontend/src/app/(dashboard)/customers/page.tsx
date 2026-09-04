@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { useQuery } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
 import { StatusBadge } from '@/components/ui/status-badge';
@@ -231,9 +232,7 @@ export default function CustomersPage() {
             {rows.length} loaded{hasMore ? ' of more' : ''}
           </span>
           {hasMore ? (
-            <button type="button" className="underline" onClick={() => void load(true, cursor)} disabled={loading}>
-              Load more
-            </button>
+            <Button variant="outline" loading={loading} onClick={() => void load(true, cursor)}>Load more</Button>
           ) : null}
         </span>
       }
@@ -386,9 +385,7 @@ function CustomerFormPanel({
 
   const saveButton = (sections: () => Record<string, unknown>) =>
     canWrite ? (
-      <button type="button" className="underline" disabled={busy} onClick={() => void save(sections())}>
-        Save
-      </button>
+      <Button variant="default" loading={busy} onClick={() => void save(sections())}>Save</Button>
     ) : null;
 
   return (

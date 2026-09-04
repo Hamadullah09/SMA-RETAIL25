@@ -385,9 +385,18 @@ export function PaymentDialog() {
 
   return (
     <Shell title="Payment" hint={`${copies} cop${copies === 1 ? 'y' : 'ies'} · F4 changes`} onClose={closeDialog}>
-      <div className="mb-3 flex items-baseline justify-between border-b border-subtle pb-2">
+      {/*
+        The figure, drawn exactly as the till behind this dialog draws it.
+
+        It was `text-2xl` — off the scale, so it would not move if the scale were ever re-pitched,
+        and two-thirds the size of the total sitting a few centimetres behind it on the same screen.
+        The point of a payment window is to confirm a number, and a number that shrinks between the
+        screen and the confirmation is one nobody can compare at a glance. `.pos-grand-total` is the
+        same class the totals panel uses, so the two cannot drift apart.
+      */}
+      <div className="mb-3 flex items-baseline justify-between gap-3 border-b border-subtle pb-2">
         <span className="text-body text-ink-muted">Amount due</span>
-        <span className="pos-amount text-2xl font-semibold">{money(due, symbol)}</span>
+        <span className="pos-grand-total text-ink">{money(due, symbol)}</span>
       </div>
 
       <div className="grid grid-cols-3 gap-2">
@@ -418,14 +427,16 @@ export function PaymentDialog() {
             aria-describedby={tenderError ? 'tender-error' : undefined}
             className={cn(
               'pos-amount w-32 bg-transparent text-right text-h3 outline-none',
-              tenderError && 'text-negative',
+              // The readable tone, not the fill tone: `--negative` measures about 4.3:1 on white,
+              // under AA, and this is the field somebody is being told they mistyped.
+              tenderError && 'text-negative-text',
             )}
           />
         </label>
       ) : null}
 
       {tenderError ? (
-        <p id="tender-error" role="alert" className="mt-2 text-body text-negative">
+        <p id="tender-error" role="alert" className="mt-2 text-body text-negative-text">
           {tenderError}
         </p>
       ) : null}
@@ -433,7 +444,7 @@ export function PaymentDialog() {
       {change > 0 ? (
         <div className="mt-2 flex justify-between text-body">
           <span className="text-ink-muted">Change</span>
-          <span className="pos-amount text-h3 font-semibold text-positive">
+          <span className="pos-amount text-h3 font-semibold text-positive-text">
             {money(change, symbol)}
           </span>
         </div>
@@ -441,7 +452,7 @@ export function PaymentDialog() {
 
       <button
         type="button"
-        className="pos-button-primary mt-4 w-full text-base"
+        className="pos-button-primary mt-4 w-full text-body-lg"
         disabled={busy || !canPay}
         onClick={() => void submit()}
       >

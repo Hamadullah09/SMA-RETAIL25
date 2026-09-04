@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { FormSection, TextField } from '@/components/masters/browse-form';
 import { toast } from '@/components/ui/toaster';
 import { mastersApi } from '@/lib/masters-api';
@@ -87,9 +88,7 @@ export function MatrixEditor({ productId, canWrite }: { productId: number; canWr
       hint="Values are comma-separated. Generating adds new combinations and retires removed ones — a variant that has been sold is never destroyed."
       actions={
         canWrite ? (
-          <button type="button" className="underline" disabled={busy} onClick={() => void generate()}>
-            {matrix ? 'Regenerate' : 'Generate'}
-          </button>
+          <Button variant="default" loading={busy} onClick={() => void generate()}>{matrix ? 'Regenerate' : 'Generate'}</Button>
         ) : null
       }
     >

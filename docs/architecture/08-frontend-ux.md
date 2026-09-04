@@ -2,22 +2,55 @@
 
 ## Design stance
 
-**Professional enterprise minimalism.** The reference points are Odoo POS's split-pane efficiency
-and a trading terminal's information density — not a marketing dashboard.
+**Legible before it is dense.** The people using this are retail staff, often older, often on a
+cheap panel at arm's length, often under pressure with somebody waiting — and mostly they did not
+choose this software, they were handed it. The reference point is a well-made kiosk: obvious,
+large, hard to get wrong. It is not a trading terminal, and it is not a marketing dashboard either.
+
+> **This section was rewritten, and the previous version is worth knowing about.** It read
+> *"professional enterprise minimalism — no gradients, colour is semantic never decorative, density
+> over air, grid row height 32px"*, with a trading terminal as the model. That produced a screen
+> that was uniformly grey, uniformly 14px, and navigable only by reading every label — fine for
+> somebody who lives in it eight hours a day, and measurably not fine for the owner who opens the
+> back office twice a week. The rules below are the deliberate replacement, not drift.
 
 Hard rules (these are review-blocking):
 
-- **No bento grids.** No card-in-card-in-card. Panels are delimited by a 1px border and whitespace.
-- **No gradients, no glow, no glassmorphism, no neon accents.** Flat Slate/Zinc surfaces.
-- **No decorative iconography.** An icon appears only when it is faster to parse than its label.
-- **Colour is semantic, never decorative.** Colour carries exactly four meanings: *success/committed*
-  (emerald 600), *warning/attention* (amber 500), *destructive/negative* (red 600), *live/streaming*
-  (sky 500). Everything else is neutral.
-- **Type is the hierarchy.** One family (Inter/system), four sizes, three weights. Tabular numerals
-  (`font-variant-numeric: tabular-nums`) for every quantity, price and total — non-negotiable for
-  scannable columns.
-- **Density over air.** Grid row height 32px (comfortable) / 28px (compact). The POS list shows
-  ≥ 12 lines without scrolling at 1366×768.
+- **No card-in-card-in-card.** Panels are delimited by a 1px border and whitespace. A panel does
+  not nest inside another panel.
+- **Colour carries two jobs, and they never share a surface.**
+  - *Semantic* — what is happening: `positive`, `warning`, `negative`, `live`, `special`. These
+    live in data, badges, statuses and totals.
+  - *Domain tone* — where you are: the seven `tone-*` hues in `lib/tone.ts`. These live in
+    navigation chrome only — a rail icon, the mark beside a page title, an index card's tile.
+
+  The separation is the whole safety property. Because a domain tone never appears in a row, a
+  badge or a total, amber-for-Stock and amber-for-warning are never read in the same context, and
+  red goes on meaning exactly one thing. Tint a table row by section and colour stops being an
+  alarm everywhere in the application; there is no partial version of that failure. Domain tones
+  are also held at lower chroma than the semantics, enforced by a test, so a real alarm still
+  out-shouts the furniture.
+- **Colour is never the only carrier.** Every semantic appears as hue *and* glyph *and* word — see
+  `StatusBadge`. Every domain tone sits beside a label. Nothing in the interface is lost by
+  somebody who cannot separate two hues.
+- **An icon appears when it is faster to parse than its label, or when it gives a label a
+  landmark.** The second clause is new. A glyph on a tinted tile beside a rail row is not
+  decoration: it is what lets an infrequent user go to *the amber one* instead of reading eleven
+  words, and it is the same tile on the rail, the index card and the page header so that it is
+  learned once.
+- **Type is the hierarchy.** One family (Onest), a named scale, three weights. Nothing below 14px.
+  Tabular numerals (`font-variant-numeric: tabular-nums`) for every quantity, price and total —
+  non-negotiable for scannable columns.
+- **Air where it buys comprehension, density where it buys throughput.** Controls are 48px and
+  touch targets never below 44px, because a till is a touchscreen and a mistap costs a transaction.
+  Grid rows are 48px. The POS list still shows ≥ 12 lines without scrolling at 1366×768 — that
+  budget is unchanged, and it is what stops this rule becoming an excuse for a spacious screen that
+  holds nothing.
+- **Gradients only on the primary action and the sign-in hero.** `--accent-grad` exists so the one
+  button that matters reads as raised. A gradient anywhere else is decoration and is refused.
+- **Every destination is written in plain language.** "Products" and "Stock", never "Inventory"
+  twice meaning two things; "Owed to you", not "Accounts receivable balance". The legacy guide's
+  vocabulary wins over the accounting vocabulary wherever they differ.
 
 ### Tokens
 
@@ -26,11 +59,19 @@ Every colour is a CSS custom property in `globals.css`, surfaced to Tailwind by 
 
 ```
 surface  panel  panel-hover  panel-sunken       the four grounds; panels never nest
-subtle  strong                                   the 1px borders that do the work cards would
+subtle  strong  control                          the borders that do the work cards would
 ink  ink-muted  ink-faint                        three text weights, no more
 accent  accent-strong  accent-soft  accent-text  one hue, four jobs
-positive · warning · negative · live             the only four meanings colour carries
+positive · warning · negative · live · special   what is happening — in data and badges
+tone-home · sell · catalog · stock ·             where you are — in navigation chrome only
+  people · supply · money
 ```
+
+Each semantic and each tone has a `-text` tone and a `-soft` tint alongside the base: the base is
+what you fill with, `-text` is the same colour at a lightness that can be *read*, and `-soft` is
+the ground the pair sits on. Holding one value for all three is what previously left badges at
+4.2:1 — a fill only has to be seen, but a word has to be read, and the two want different
+lightnesses.
 
 The accent tokens hold `L C H` and are consumed as `oklch(var(--accent) / <alpha-value>)`, which
 keeps the alpha slot free so `bg-accent/10` still works. `soft` is the tint an active nav item sits
@@ -41,8 +82,11 @@ Type is Onest for the interface and a mono face for anything that has to be read
 EPCs, stock codes, references. Sizes are a named scale (`caption` / `label` / `body` / `h3` …) with
 line height travelling with the size, so a heading never needs correcting at the call site.
 
-Dark mode is first-class: POS terminals sit under fluorescent light all day and staff prefer dark;
-back office defaults to light.
+There is one theme. A dark mode was built and then removed: two palettes meant every colour
+decision was made twice and verified twice, and the second one was where the contrast failures hid.
+This is a shop-floor system whose users are told which screen to look at, not a personal tool where
+a preference is worth a second palette. `contrast.test.ts` measures the shipped stylesheet, so the
+one palette that exists is checked rather than trusted.
 
 ---
 

@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { ActionMenu } from '@/components/ui/action-menu';
+import { FileText, Layers, Tags, Upload } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { DataGrid, type DataGridColumn } from '@/components/shell/data-grid';
 import {
@@ -182,46 +184,69 @@ export default function ProductsPage() {
         <>
           <LiveBadge connected={connected} hasEverConnected={hasEverConnected} />
 
-          {/* Both print the items currently listed, so the filters above are the selection. */}
-          <button
-            type="button"
-            className="pos-button"
-            disabled={rows.length === 0}
-            onClick={() => setPrinting(true)}
-          >
-            Print labels
-          </button>
-
-          {locationId ? (
-            <a
-              className="pos-button"
-              href={mastersApi.documents.catalogueUrl(locationId, {
-                departmentId: departmentId || undefined,
-                search: search || undefined,
-              })}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Price list (PDF)
-            </a>
-          ) : null}
-
           {/*
-            The importer had no screen at all, which meant it did not exist as far as anybody
-            running a shop was concerned. It belongs here, next to the items it creates, rather than
-            under Administration where nobody stocking a shop would look for it.
+            Four occasional actions, behind one button, so the one people came for is the one that
+            is filled. See ActionMenu: the sentences under each label are the reason this is an
+            improvement rather than a place to hide things.
           */}
-          {locationId && auth.can('inventory.commission_tags') ? (
-            <button type="button" className="pos-button" onClick={() => setImporting(true)}>
-              Import CSV
-            </button>
-          ) : null}
+          <ActionMenu
+            items={[
+              // Both of the first two print what is currently listed, so the filters above are the
+              // selection. That is worth saying out loud: it is the difference between a label run
+              // for one department and one for the whole catalogue.
+              {
+                key: 'labels',
+                label: 'Print labels',
+                icon: Tags,
+                description: 'A sheet of price labels for the items listed below.',
+                disabled: rows.length === 0,
+                disabledReason: 'Nothing is listed. Change the filters above to choose items.',
+                onSelect: () => setPrinting(true),
+              },
+              ...(locationId
+                ? [
+                    {
+                      key: 'pricelist',
+                      label: 'Price list (PDF)',
+                      icon: FileText,
+                      description: 'A printable price list of the items listed below. Opens in a new tab.',
+                      href: mastersApi.documents.catalogueUrl(locationId, {
+                        departmentId: departmentId || undefined,
+                        search: search || undefined,
+                      }),
+                    },
+                  ]
+                : []),
 
-          {auth.can('catalog.bulk_adjust') ? (
-            <Link className="pos-button" href="/catalog/bulk">
-              Batch changes
-            </Link>
-          ) : null}
+              /*
+                The importer had no screen at all, which meant it did not exist as far as anybody
+                running a shop was concerned. It belongs here, next to the items it creates, rather
+                than under Administration where nobody stocking a shop would look for it.
+              */
+              ...(locationId && auth.can('inventory.commission_tags')
+                ? [
+                    {
+                      key: 'import',
+                      label: 'Import from a spreadsheet',
+                      icon: Upload,
+                      description: 'Add or update many items at once from a CSV file.',
+                      onSelect: () => setImporting(true),
+                    },
+                  ]
+                : []),
+              ...(auth.can('catalog.bulk_adjust')
+                ? [
+                    {
+                      key: 'bulk',
+                      label: 'Batch changes',
+                      icon: Layers,
+                      description: 'Change prices or costs across many items in one go.',
+                      href: '/catalog/bulk',
+                    },
+                  ]
+                : []),
+            ]}
+          />
 
           {canWrite ? (
             <button type="button" className="pos-button-primary" onClick={() => setSelectedId(NEW_RECORD)}>
@@ -320,9 +345,7 @@ export default function ProductsPage() {
             {rows.length} loaded{hasMore ? ' of more' : ''}
           </span>
           {hasMore ? (
-            <button type="button" className="underline" onClick={() => void load(true, cursor)} disabled={loading}>
-              Load more
-            </button>
+            <Button variant="outline" loading={loading} onClick={() => void load(true, cursor)}>Load more</Button>
           ) : null}
         </span>
       }
@@ -546,9 +569,7 @@ function ProductFormPanel({
 
   const saveButton = (sections: () => Record<string, unknown>) =>
     canWrite ? (
-      <button type="button" className="underline" disabled={busy} onClick={() => void save(sections())}>
-        Save
-      </button>
+      <Button variant="default" loading={busy} onClick={() => void save(sections())}>Save</Button>
     ) : null;
 
   return (

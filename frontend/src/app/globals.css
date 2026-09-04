@@ -109,6 +109,40 @@
     --live-soft: 0.955 0.032 230;
     --special-soft: 0.955 0.032 300;
 
+    /* --- Domain tones -----------------------------------------------------------------------
+
+       Seven hues that say *where you are*, not *how things are going*.
+
+       This is what makes the application navigable by colour rather than by reading, which is the
+       whole point for somebody who does not use it daily: Stock is amber on every screen,
+       Customers is violet on every screen, and after a week you stop reading the rail and go to
+       the colour. Where every glyph is the same grey, that person re-reads eleven labels a day.
+
+       They are deliberately held apart from the four meanings above. A domain tone appears only in
+       navigation chrome -- a rail icon, the rule under a page title, an index card's tile -- and
+       never inside data, a badge or a status. So the amber of Stock and the amber of a warning
+       never share a surface, and red goes on meaning exactly one thing.
+
+       Chroma is 0.12 against the semantics' 0.13-0.17, so a real alarm still out-shouts the
+       furniture. Lightness matches the -text tokens above, which measure 5.8-6.0:1 on panel, so a
+       domain tone can be written in as words and not only used as a fill. */
+    --tone-home: 0.45 0.12 265;     /* Dashboard */
+    --tone-sell: 0.45 0.12 150;     /* the till, past sales, orders -- money coming in */
+    --tone-catalog: 0.45 0.12 225;  /* what we sell */
+    --tone-stock: 0.45 0.12 70;     /* what is on the shelf */
+    --tone-people: 0.45 0.12 300;   /* customers */
+    --tone-supply: 0.45 0.12 195;   /* suppliers and purchase orders -- money going out */
+    --tone-money: 0.45 0.12 340;    /* what is owed to us */
+
+    /* The tint each domain sits on: a rail icon's tile, an index card's chip, a header rule. */
+    --tone-home-soft: 0.955 0.032 265;
+    --tone-sell-soft: 0.955 0.032 150;
+    --tone-catalog-soft: 0.955 0.032 225;
+    --tone-stock-soft: 0.96 0.045 70;
+    --tone-people-soft: 0.955 0.032 300;
+    --tone-supply-soft: 0.955 0.032 195;
+    --tone-money-soft: 0.955 0.032 340;
+
     /* The edge of something you can operate.
 
        Distinct from --border, which divides. WCAG 1.4.11 asks 3:1 of a control's boundary against
@@ -519,15 +553,26 @@
   }
 
   /**
-   * The key is the thing a cashier is looking for; the word beside it is the reminder.
+   * The key is what a practised cashier hunts for; the word is what everybody else reads.
    *
-   * This was font-medium on the button, which weighted both the same and left the row reading as
-   * one undifferentiated string — "F4 Pay F5 Client F6 Delete" — at exactly the moment somebody is
-   * scanning it under pressure. The label drops to normal and the key below is emphasised, so the
-   * eye lands on the key first.
+   * Two corrections, in order. It was first font-medium on the button, which weighted key and word
+   * the same and left the row reading as one undifferentiated string — "F4 Pay F5 Client F6
+   * Delete" — at the moment somebody is scanning it under pressure. Dropping the label to normal
+   * and emphasising the key fixed that, and went one step too far: the label was also muted, so
+   * the *action word* became the faintest text on the till. On a touchscreen, where there is no F4
+   * to press, these eleven words are the only visible controls on the screen, and they were drawn
+   * as though disabled.
+   *
+   * So the label is full ink and the key is bold. The distinction the previous note wanted is
+   * carried by weight alone, which is enough to land on, and the word is legible to somebody who
+   * has never used a function key.
+   *
+   * The resting border matters for the same reason: without one these are words on a white panel,
+   * and nothing about them says they can be pressed. A cashier with a mouse or a finger has to
+   * discover that by trying.
    */
   .pos-keybar > button {
-    @apply flex flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-sm px-3 py-1.5 text-label font-normal text-ink-muted transition-colors duration-150;
+    @apply flex flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-sm border border-subtle px-3 py-1.5 text-label font-normal text-ink transition-colors duration-150;
     min-width: max-content;
     min-height: var(--control-height);
   }
@@ -545,7 +590,7 @@
   }
 
   .pos-keybar > button:hover:not(:disabled) {
-    @apply bg-panel-hover text-ink;
+    @apply border-strong bg-panel-hover text-ink;
   }
 
   .pos-keybar > button:disabled {
@@ -819,7 +864,7 @@
   /* A child of an expanded group. Indented past the parent's icon so the tree reads down the gutter
      rather than needing a rule drawn for it. */
   .pos-nav-child {
-    @apply pl-11 text-body font-normal;
+    @apply pl-14 text-body font-normal;
     min-height: var(--nav-child-height);
   }
 
@@ -835,6 +880,61 @@
    */
   .pos-cell-link {
     @apply font-medium text-accent-text underline-offset-2 hover:underline;
+  }
+
+  /**
+   * A horizontal scroller that says it can be scrolled.
+   *
+   * A wide grid scrolls inside its own panel, which is correct -- the page does not slide sideways
+   * to reveal a column. What it did not do is admit that it was scrolling. The last column simply
+   * stopped at the panel edge, and to anybody who has not learned that tables here scroll, the
+   * columns beyond it do not exist: the products grid hides "On order" that way at 1366px, which
+   * is the width of the tills.
+   *
+   * Two shadows, drawn only when there is something in that direction to reach. The mechanism is
+   * `background-attachment`: the two cover layers are `local`, so they travel with the content and
+   * slide out of the way as it scrolls, while the two shadow layers are `scroll` and stay pinned to
+   * the box. Where a cover sits over a shadow the shadow is hidden, which lands exactly on "the
+   * shadow appears when you are not already at that end" -- with no scroll listener, no state, and
+   * nothing to re-measure when a column is resized.
+   *
+   * The cover colour has to match the ground the scroller sits on or the trick shows as two pale
+   * bands, hence --panel rather than a generic white.
+   */
+  /**
+   * The leading column, frozen (doc 08 "pinned/frozen leading columns").
+   *
+   * Scrolling a wide grid sideways used to carry the stock code and the description off the left
+   * edge, which leaves rows of numbers belonging to nothing: the reader has to scroll back to find
+   * out which product the 24.9% margin was for, and then forward again. That is the legacy "split
+   * screen" feature, and it is the reason it existed.
+   *
+   * `background-color: inherit` rather than a named ground, because the cell has to keep whatever
+   * the *row* is currently painted — hover, focus, the settling flash. Naming `bg-panel` here would
+   * freeze one column out of every row-level state, so hovering a row would highlight all of it
+   * except the one column the cursor is nearest.
+   *
+   * The edge is a box-shadow rather than a border so it costs no width: a border would move every
+   * column right by a pixel and put the totals out of step with the header.
+   */
+  .pos-grid-pin {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: inherit;
+    box-shadow: 1px 0 0 0 rgb(var(--border));
+  }
+
+  .pos-scroll-hint {
+    background-image:
+      linear-gradient(to right, rgb(var(--panel)) 30%, rgb(var(--panel) / 0)),
+      linear-gradient(to left, rgb(var(--panel)) 30%, rgb(var(--panel) / 0)),
+      radial-gradient(farthest-side at 0 50%, rgb(15 18 30 / 0.16), rgb(15 18 30 / 0)),
+      radial-gradient(farthest-side at 100% 50%, rgb(15 18 30 / 0.16), rgb(15 18 30 / 0));
+    background-position: 0 0, 100% 0, 0 0, 100% 0;
+    background-repeat: no-repeat;
+    background-size: 44px 100%, 44px 100%, 16px 100%, 16px 100%;
+    background-attachment: local, local, scroll, scroll;
   }
 }
 

@@ -15,6 +15,49 @@ import { authorityUrl } from '@/lib/server/oidc';
 /** Only these three. An open proxy onto the identity provider is not what this is. */
 const ALLOWED = new Set(['register', 'forgot-password', 'reset-password']);
 
+/**
+ * Readable without a session, and only this one.
+ *
+ * Kept as a separate list from ALLOWED rather than a flag on it, because the two answer different
+ * questions: ALLOWED is what may be *done* anonymously, this is what may be *asked*. Sharing one
+ * set would mean a future addition to either silently joined the other.
+ */
+const ALLOWED_GET = new Set(['registration']);
+
+/**
+ * Whether this deployment accepts self sign-up.
+ *
+ * The sign-in page asks before offering to create an account. Self-registration is off by default
+ * on the API (`Auth:SelfRegistration:Enabled`), so a link shown unconditionally leads to a 403 —
+ * which is a dead end a new employee has no way to interpret, and is exactly what the API's own
+ * `registration` endpoint was added to prevent.
+ *
+ * Anonymous by necessity: the people who need the answer are the ones who cannot sign in. It
+ * discloses nothing a single POST to `register` would not.
+ *
+ * A deployment that cannot be reached answers "off". The alternative is showing the link on a
+ * network blip and sending somebody to a page that will refuse them.
+ */
+export async function GET(request: NextRequest, context: { params: Promise<{ action: string }> }) {
+  const { action } = await context.params;
+
+  if (!ALLOWED_GET.has(action)) {
+    return NextResponse.json({ title: 'not_found' }, { status: 404 });
+  }
+
+  try {
+    const upstream = await fetch(authorityUrl(`/api/v1/account/${action}`), { cache: 'no-store' });
+
+    if (!upstream.ok) return NextResponse.json({ enabled: false }, { status: 200 });
+
+    const body = (await upstream.json()) as { enabled?: unknown };
+
+    return NextResponse.json({ enabled: body.enabled === true }, { status: 200 });
+  } catch {
+    return NextResponse.json({ enabled: false }, { status: 200 });
+  }
+}
+
 export async function POST(request: NextRequest, context: { params: Promise<{ action: string }> }) {
   const { action } = await context.params;
 
