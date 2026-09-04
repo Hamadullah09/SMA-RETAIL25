@@ -126,6 +126,51 @@ jobs:
       - name: Restore our web.config
         run: cp backend/src/Retail25.Api/web.config artifacts/backend/web.config
 
+      # The staff token signing key, from a secret rather than from this repository.
+      #
+      # `Auth:Jwt:SigningKey` has no default and must not have one: a key in source is a key every
+      # deployment shares, and anyone holding it can mint a token for any member of staff with any
+      # permission. StaffTokenIssuer throws without it -- which is correct, and is what took
+      # sign-in down on the first deploy of the JWT flow: the host had never needed this setting
+      # before, so /auth/token answered 500 to every attempt.
+      #
+      # Injected into web.config here rather than set in the host's control panel, because the
+      # deploy overwrites web.config on every run and would erase a value set by hand.
+      - name: Inject the staff token signing key
+        env:
+          SIGNING_KEY: ${{ secrets.AUTH_JWT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SIGNING_KEY}" ]; then
+            echo "::error::AUTH_JWT_SIGNING_KEY is not set. The API cannot issue tokens without it"
+            echo "::error::and every sign-in will fail with a 500. Add it under Settings > Secrets."
+            exit 1
+          fi
+
+          if [ "${#SIGNING_KEY}" -lt 32 ]; then
+            echo "::error::AUTH_JWT_SIGNING_KEY is ${#SIGNING_KEY} characters; at least 32 are required."
+            exit 1
+          fi
+
+          python3 - "$SIGNING_KEY" <<'PY'
+          import sys, xml.sax.saxutils as x
+          key = x.quoteattr(sys.argv[1])
+          path = 'artifacts/backend/web.config'
+          with open(path, encoding='utf-8') as f:
+              content = f.read()
+          anchor = '        </environmentVariables>'
+          assert content.count(anchor) == 1, 'environmentVariables block not found exactly once'
+          line = '          <environmentVariable name="Auth__Jwt__SigningKey" value=%s />\n' % key
+          with open(path, 'w', encoding='utf-8') as f:
+              f.write(content.replace(anchor, line + anchor, 1))
+          PY
+
+          # Proven present, and never printed. A deploy that silently failed to inject it would
+          # take sign-in down again in exactly the way this step exists to prevent.
+          grep -q 'Auth__Jwt__SigningKey' artifacts/backend/web.config
+          echo "Signing key injected into web.config."
+
       - name: Prove the sub-application config is intact
         run: |
           set -euo pipefail

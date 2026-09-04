@@ -59,11 +59,34 @@ export async function signIn(username: string, password: string): Promise<SignIn
   }
 
   if (!response.ok) {
-    const body = await response.json().catch(() => null);
+    const body = (await response.json().catch(() => null)) as
+      | { message?: string; detail?: string }
+      | null;
+
+    /*
+      A server error is not a wrong password, and saying so cost a production outage.
+
+      Every non-2xx used to fall through to "That username or password is not right." The API
+      answers a genuine refusal with `message`, so that worked for the case it was written for --
+      but a 500 carries ProblemDetails, whose fields are `title` and `detail`, so the fallback
+      fired. On the first deploy of this flow the API had no signing key and answered 500 to every
+      attempt, and the screen told the administrator their own password was wrong. They retyped it,
+      which is exactly what the message asked for and could never have helped.
+
+      Status is the thing to branch on, because it is the thing the API is certain about. Anything
+      5xx is ours, not theirs.
+    */
+    if (response.status >= 500) {
+      return {
+        ok: false,
+        message:
+          'The server could not complete the sign-in. This is not your password — tell whoever looks after this system.',
+      };
+    }
 
     return {
       ok: false,
-      message: (body as { message?: string } | null)?.message ?? 'That username or password is not right.',
+      message: body?.message ?? body?.detail ?? 'That username or password is not right.',
     };
   }
 
