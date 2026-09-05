@@ -697,6 +697,51 @@
    * Applied from the cart's own contents rather than from a setting, so it follows the sale: the
    * column appears the moment a weighed item is rung and takes its space back when the sale ends.
    */
+  /**
+   * A panel header, inside the till.
+   *
+   * Five regions were five white panels titled in the same weight, so telling them apart meant
+   * reading three headings. The band gives each one a top edge that registers before any word does,
+   * which is what somebody glancing back after handling cash actually uses.
+   *
+   * Flat, not a gradient: doc 08 keeps gradients for the primary action and the sign-in hero, and a
+   * till with a gradient on every panel is a till where the Pay button has stopped being special.
+   */
+  .pos-layout .pos-panel-header {
+    background-color: var(--pos-header-tint);
+    border-bottom-color: rgb(var(--border));
+  }
+
+  /* The region's mark, in the palette's ink rather than in muted grey. */
+  .pos-layout .pos-panel-header svg {
+    color: var(--pos-header-ink);
+  }
+
+  /**
+   * The sale, marked as the hero.
+   *
+   * Five regions of equal weight is five regions somebody has to choose between. The cart is what
+   * the screen is for -- everything else on it exists to get a line into this list or to take money
+   * for what is already in it -- so it gets a solid edge and the others do not. One band, not five:
+   * a colour every panel carries is a colour that ranks nothing.
+   */
+  .pos-layout .pos-area-cart .pos-panel-header {
+    box-shadow: inset 0 3px 0 0 var(--pos-hero-edge);
+  }
+
+  /**
+   * The money, given the weight it is read at.
+   *
+   * The build-up sat on the panel's own white and the total on a 7% accent wash, which at a metre
+   * -- the distance a customer reads it from -- was not a block at all. The wash is stronger and
+   * the region is bounded, so the eye lands on the figure rather than arriving at it down a list.
+   */
+  .pos-layout .pos-totals-band {
+    background-color: oklch(var(--accent) / 0.11);
+    border-top: 1px solid oklch(var(--accent) / 0.22);
+    border-bottom: 1px solid oklch(var(--accent) / 0.22);
+  }
+
   .pos-cart-grid-no-weight {
     grid-template-columns:
       2.75rem
@@ -971,7 +1016,46 @@
  * The five POS regions (doc 08). One grid, so the cart never reflows when a dialog opens, and the
  * layout still shows twelve lines without scrolling at 1366x768.
  */
+/**
+ * The till's own palette.
+ *
+ * Scoped to `.pos-layout`, so nothing here reaches the back office. The till is a different room:
+ * one screen, no sidebar, looked at all day from a metre away by somebody whose hands are busy. It
+ * earns a look of its own, and the back office's calm document ground is not it.
+ *
+ * ## Why it is built on the accent and not on `sell`
+ *
+ * The rail calls this screen `sell`, which is hue 150 -- and `positive` is hue 160. Ten degrees
+ * apart. Tinting the till green would put a green region mark a few centimetres above a green
+ * discount figure, and the whole reason the semantics are worth anything is that green means
+ * exactly one thing when it appears in the data. The accent is indigo, is not a semantic, and can
+ * never be mistaken for one. So the palette is one hue at several strengths -- which is what a
+ * palette is -- rather than a second set of meanings.
+ *
+ * ## What it costs, stated plainly
+ *
+ * Every tint below is chrome: the ground behind the panels, and the band across the top of a panel
+ * header. None of it touches a row, a badge, a status or a figure, because those are where an alarm
+ * has to win. A red line in the cart is still the only red thing in the cart.
+ */
 .pos-layout {
+  /*
+    A deeper ground than the back office's.
+
+    `--surface` is overridden rather than a new token invented, so every `bg-surface` inside the
+    till follows without a single call site changing. At 242/243/248 the panels sat on almost the
+    same white they are made of and the screen read as one flat sheet; six points down and the five
+    regions separate on their own, before a border does any work.
+  */
+  --surface: 228 231 243;
+
+  /* The band across a panel header, and the ink on it. */
+  --pos-header-tint: oklch(0.945 0.035 265);
+  --pos-header-ink: oklch(0.42 0.14 265);
+
+  /* The sale's own band: the one region that is the point of the screen. */
+  --pos-hero-edge: oklch(var(--accent-fill));
+
   /* One row height, read by the header, the rows and the arithmetic in doc 08.
 
      Measured, because this comment twice described a value it no longer held. It began at 32px to

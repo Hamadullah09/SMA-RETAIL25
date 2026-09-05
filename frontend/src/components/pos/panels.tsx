@@ -615,11 +615,16 @@ export function TotalsPanel() {
 
       {/* Its own band, not another row in the list. The rule above it and the wash behind it are
           what stop the eye reading straight past it as the sixth line of an arithmetic. */}
-      <div
-        className="flex items-end justify-between gap-2 border-y border-subtle px-3 py-2.5"
-        style={{ backgroundColor: 'oklch(var(--accent) / 0.07)' }}
-      >
-        <dt className="flex flex-col text-label font-semibold uppercase tracking-wide text-ink-muted">
+      <div className="pos-totals-band flex items-end justify-between gap-2 px-3 py-3">
+        {/*
+          Full ink, not muted.
+
+          Strengthening the band behind it left "TOTAL" at 4.61:1 -- over the 4.5 floor, but with
+          almost nothing in hand, so the next person to deepen this wash would have broken it
+          without noticing. It is also the label of the largest figure on the till, and there was
+          never a reason for it to be the quiet half of that pair.
+        */}
+        <dt className="flex flex-col text-label font-semibold uppercase tracking-wide text-ink">
           Total
           {totals?.taxInclusive ? (
             <span className="text-caption font-normal normal-case tracking-normal">tax included</span>
