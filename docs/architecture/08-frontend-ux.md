@@ -43,9 +43,14 @@ Hard rules (these are review-blocking):
   non-negotiable for scannable columns.
 - **Air where it buys comprehension, density where it buys throughput.** Controls are 48px and
   touch targets never below 44px, because a till is a touchscreen and a mistap costs a transaction.
-  Grid rows are 48px. The POS list still shows ≥ 12 lines without scrolling at 1366×768 — that
-  budget is unchanged, and it is what stops this rule becoming an excuse for a spacious screen that
-  holds nothing.
+  Grid rows are 48px.
+
+  The POS list shows **10 lines** without scrolling at 1366×768, measured — not the 12 this document
+  promised for years. The budget was written when rows were 32px, survived the move to 38px and then
+  to 48px unchanged, and was simply false for the last of those: the list region is 512px, and
+  512 / 48 is ten. The trade is deliberate — a line you can hit with a finger beats an eleventh line
+  you can reach by scrolling — but it is a trade, and stating it as an unchanged budget hid the fact
+  that anything had been given up. Re-measure before quoting a number here.
 - **Gradients only on the primary action and the sign-in hero.** `--accent-grad` exists so the one
   button that matters reads as raised. A gradient anywhere else is decoration and is refused.
 - **Every destination is written in plain language.** "Products" and "Stock", never "Inventory"

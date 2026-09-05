@@ -572,21 +572,30 @@
    * discover that by trying.
    */
   .pos-keybar > button {
-    @apply flex flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-sm border border-subtle px-3 py-1.5 text-label font-normal text-ink transition-colors duration-150;
+    @apply flex flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-subtle bg-panel px-2.5 py-1.5 text-label font-medium text-ink transition-colors duration-150;
     min-width: max-content;
     min-height: var(--control-height);
   }
 
   /*
-   * Emphasised only inside the key bar; a <kbd> in running prose should not shout.
+   * The key itself, as a key.
    *
-   * Bold rather than semibold: this row is read from standing distance, at an angle, on a cheap
-   * panel, by somebody who already knows what the words say and is hunting for the key. Six hundred
-   * against a four-hundred label is a difference you have to look for; seven hundred is one you land
-   * on. The label stays normal — the contrast is the point, not the weight.
+   * This was bold text and nothing else, which reads as emphasis rather than as a thing on the
+   * keyboard: "F4 Pay" is one string with a heavy first word. Drawn as a physical cap -- a filled
+   * ground, a border and a bottom edge that suggests depth -- it becomes an object the eye finds
+   * without reading, which is the whole job of this row for somebody scanning it under pressure at
+   * arm's length.
+   *
+   * Sized in its own right rather than inheriting: the cap is what somebody is hunting for, so it
+   * is the part that must survive a cheap panel seen at an angle.
    */
   .pos-keybar > button .pos-kbd {
-    @apply font-bold text-ink;
+    @apply inline-flex min-w-[2.25rem] items-center justify-center rounded border border-strong bg-panel-sunken px-1.5 py-0.5 text-label font-bold text-ink;
+    box-shadow: inset 0 -1.5px 0 0 rgb(var(--border-strong));
+  }
+
+  .pos-keybar > button:hover:not(:disabled) .pos-kbd {
+    @apply border-control;
   }
 
   .pos-keybar > button:hover:not(:disabled) {
@@ -943,9 +952,17 @@
  * layout still shows twelve lines without scrolling at 1366x768.
  */
 .pos-layout {
-  /* One row height, read by the header, the rows and the arithmetic in doc 08. 38px is the smallest
-     row that still reads across a counter at arm's length; 32px was chosen to fit twelve lines, and
-     the layout below now fits fourteen at 38px, so the density argument no longer paid for it. */
+  /* One row height, read by the header, the rows and the arithmetic in doc 08.
+
+     Measured, because this comment twice described a value it no longer held. It began at 32px to
+     fit twelve lines, went to 38px on the argument that 32 could not be read across a counter, and
+     is now 48px so that a line can be hit with a finger -- but the note kept saying "fits fourteen
+     at 38px" the whole way, and doc 08 kept promising twelve lines on the strength of it.
+
+     At 1366x768 the list region measures 512px, so 48px rows show *ten* lines. That is the real
+     trade and it was made deliberately: a till is a touchscreen, a mistap costs a transaction, and
+     the eleventh line is one scroll away. Anybody moving this number should re-measure rather than
+     trust this paragraph -- which is exactly the mistake it is here to stop. */
   --pos-row-height: 3rem;
 
   display: grid;

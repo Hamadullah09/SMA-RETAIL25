@@ -124,13 +124,27 @@ export default function PosScreen() {
    * property of how that till is worked, and it survives a browser restart for the same reason the
    * station id does.
    */
-  const [gridOpen, setGridOpen] = useState(false);
+  const [gridOpen, setGridOpen] = useState(true);
 
-  // Closed unless this machine has been told otherwise. A till that mostly scans wants every pixel
-  // of the left column for the sale, and the picker is one key away — so the default is the one that
-  // costs a counter-service till a keystroke rather than the one that costs a scanning till its list.
+  /*
+    Open unless this machine has been told otherwise.
+
+    It used to default closed, on the argument that a till which mostly scans wants every pixel of
+    the left column and the picker is one key away. That is right for somebody who knows the picker
+    exists. For everybody else the till opened as an empty white list with no products anywhere on
+    it and no clue that Ctrl+G would produce some -- and "there is nothing to sell" is the wrong
+    first impression for the screen the whole system is named after.
+
+    The preference still wins where one has been set, so a scanning till that closes it once keeps
+    it closed. Only the default moved, and it moved towards the state that shows somebody what the
+    screen can do.
+  */
   useEffect(() => {
-    setGridOpen(window.localStorage.getItem('retail25.pos.grid-open') === 'true');
+    const remembered = window.localStorage.getItem('retail25.pos.grid-open');
+
+    // Absent means "never chosen", which is different from "chosen false". Reading it as a boolean
+    // would collapse the two and make the default unreachable.
+    if (remembered !== null) setGridOpen(remembered === 'true');
   }, []);
 
   const toggleGrid = () => {

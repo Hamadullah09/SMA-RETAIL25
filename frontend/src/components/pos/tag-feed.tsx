@@ -245,7 +245,23 @@ function ClearFeedButton({ onClear, disabled }: { onClear: () => void; disabled:
  */
 function ReaderRunControls({ statusReading }: { statusReading: boolean | null }) {
   const setReaderMode = usePosStore((state) => state.setReaderMode);
+  const peripherals = usePosStore((state) => state.peripherals);
   const [busy, setBusy] = useState(false);
+
+  /*
+    Nothing to start.
+
+    The button was disabled only while its own request was in flight, so on a till with no agent --
+    or with an agent whose reader is down -- it was fully pressable, sent a mode change to a reader
+    that is not there, and answered "Reading tags. Hold a tagged item near the antenna." Nothing
+    then happened, which is the worst of both: the screen said it worked and the hardware disagreed.
+    A cashier holding a tag against a dead antenna has no way to tell that from a tag that will not
+    read.
+
+    `peripherals` is null when no agent has ever reported, which is itself the answer: there is no
+    reader on this machine to start.
+  */
+  const reachable = peripherals?.readerOnline ?? false;
 
   // The reader's own status report is the truth when it has arrived; until then the button
   // remembers what it was last asked to do, so the label flips the moment it is pressed instead of
@@ -275,13 +291,21 @@ function ReaderRunControls({ statusReading }: { statusReading: boolean | null })
     <button
       type="button"
       onClick={() => void flip()}
-      disabled={busy}
-      title={reading ? 'Stop the reader' : 'Start reading tags'}
+      disabled={busy || !reachable}
+      title={
+        !reachable
+          ? 'No reader is connected to this till, so there is nothing to start.'
+          : reading
+            ? 'Stop the reader'
+            : 'Start reading tags'
+      }
       className={cn(
         'pos-chip',
-        reading
-          ? 'border-negative/40 bg-negative-soft text-negative-text hover:bg-negative/20'
-          : 'border-positive/40 bg-positive-soft text-positive-text hover:bg-positive/20',
+        !reachable
+          ? 'border-subtle text-ink-muted'
+          : reading
+            ? 'border-negative/40 bg-negative-soft text-negative-text hover:bg-negative/20'
+            : 'border-positive/40 bg-positive-soft text-positive-text hover:bg-positive/20',
       )}
     >
       {reading ? (

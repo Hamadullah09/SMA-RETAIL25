@@ -10,6 +10,7 @@ import {
   ScanLine,
   Server,
   TriangleAlert,
+  Unplug,
   User,
   X,
 } from 'lucide-react';
@@ -93,9 +94,49 @@ const SOURCE_LABELS: Partial<Record<CartLine['source'], string>> = {
 export function StatusBar() {
   const { policy, connected, hasConnected, readerOnline, peripherals, drawer, cart, lastSale } = usePosStore();
 
+  /*
+    Whether anything is going to answer for the hardware.
+
+    A station with no terminal agent never publishes a peripheral status at all -- the server only
+    broadcasts one when an agent reports -- so `peripherals` stays null forever. Read as "not yet
+    known" that produced three badges saying "checking" for the rest of the shift, which is a
+    promise the screen cannot keep: nothing is being checked and nothing ever will be.
+
+    Six seconds is long enough that a healthy agent has reported and short enough that nobody has
+    started a sale. After it, silence is an answer: there is no agent on this machine, so the
+    printer, the scale and the reader are not connected to this till.
+  */
+  const [waitedForAgent, setWaitedForAgent] = useState(false);
+
+  useEffect(() => {
+    if (peripherals !== null) {
+      setWaitedForAgent(false);
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => setWaitedForAgent(true), 6000);
+    return () => window.clearTimeout(timer);
+  }, [peripherals]);
+
+  // `undefined` while the answer may still arrive; `null` once we know none is coming.
+  const fromAgent = (value: boolean | undefined) =>
+    peripherals !== null ? value : waitedForAgent ? null : undefined;
+
   return (
-    <header className="flex items-center justify-between gap-3 px-2.5 py-1 text-label">
-      <div className="flex min-w-0 items-center gap-3 text-ink-muted">
+    /*
+      Wraps, rather than colliding.
+
+      Both halves of this row were `shrink-0` inside one non-wrapping flex, which is fine at 1366
+      and a pile-up at 390: on a phone the four peripheral badges, the station, the drawer and the
+      way back to the back office were drawn on top of each other as one illegible line. The till
+      is a counter screen, but it is opened on a phone often enough -- a manager checking a station,
+      somebody stocktaking -- that the first row of it should not be rubble.
+
+      `flex-wrap` and a `w-full` break before the badges: the badges take their own line rather than
+      squeezing the station name to nothing.
+    */
+    <header className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 px-2.5 py-1 text-label">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-ink-muted">
         {/*
           The way out. The till is the one screen with no sidebar — it takes the whole display on
           purpose — and without this the only route back to the back office is the browser's own
@@ -155,7 +196,10 @@ export function StatusBar() {
         ) : null}
       </div>
 
-      <div className="flex shrink-0 items-center gap-1" aria-label="Peripheral status">
+      <div
+        className="flex w-full shrink-0 flex-wrap items-center gap-1 sm:w-auto"
+        aria-label="Peripheral status"
+      >
         {/*
           The same three-way distinction the connection banner already makes: opening for the first
           time is not the same as having dropped. This badge used to read `connected`, which is
@@ -163,11 +207,11 @@ export function StatusBar() {
           second before it went green, to a cashier with a customer in front of them.
         */}
         <Health label="Server" icon={Server} ok={connected ? true : hasConnected ? false : undefined} />
-        {/* `peripherals` is null until the first status lands, and that is what these pass on —
-            "not yet known" rather than a fabricated `false`. */}
-        <Health label="RFID" icon={Radio} ok={peripherals === null ? undefined : readerOnline} />
-        <Health label="Printer" icon={Printer} ok={peripherals?.printerOnline} />
-        <Health label="Scale" icon={Scale} ok={peripherals?.scaleOnline} />
+        {/* Three answers, not two: `undefined` while a report may still arrive, `null` once we know
+            no agent is going to send one, and a boolean when one has. */}
+        <Health label="RFID" icon={Radio} ok={fromAgent(readerOnline)} />
+        <Health label="Printer" icon={Printer} ok={fromAgent(peripherals?.printerOnline)} />
+        <Health label="Scale" icon={Scale} ok={fromAgent(peripherals?.scaleOnline)} />
       </div>
     </header>
   );
@@ -193,17 +237,36 @@ function Health({
   icon: Icon,
 }: {
   label: string;
-  /** `undefined` until the first status arrives. Not the same as `false`. */
-  ok: boolean | undefined;
+  /**
+   * Four answers.
+   *
+   * `undefined` while a report may still arrive, `null` once we know no agent is going to send one,
+   * `false` when a device reported itself down, `true` when it reported itself up. The middle two
+   * are different facts and were being drawn as the same one: "checking" for a device nothing is
+   * checking said the till was still trying, so a station with no agent at all looked like a
+   * station mid-handshake, permanently.
+   */
+  ok: boolean | undefined | null;
   icon: typeof Server;
 }) {
-  const state = ok === undefined ? 'unknown' : ok ? 'up' : 'down';
-  const said = { up: `${label} online`, down: `${label} offline`, unknown: `${label} — checking` }[state];
+  const state = ok === undefined ? 'unknown' : ok === null ? 'absent' : ok ? 'up' : 'down';
+
+  const said = {
+    up: `${label} online`,
+    down: `${label} offline`,
+    absent: `${label} not connected to this till`,
+    unknown: `${label} — checking`,
+  }[state];
 
   return (
     <span className="pos-health" data-state={state} title={said}>
       {state === 'down' ? (
         <TriangleAlert className="h-5 w-5 shrink-0" aria-hidden />
+      ) : state === 'absent' ? (
+        // A plug that is not in anything. Not the alarm triangle: a shop that has never installed
+        // an agent has nothing wrong with it, and a permanent red warning on a working till is how
+        // you teach somebody to stop reading the row.
+        <Unplug className="h-5 w-5 shrink-0 opacity-70" aria-hidden />
       ) : (
         <Icon className={cn('h-5 w-5 shrink-0', state === 'up' ? 'opacity-70' : 'opacity-45')} aria-hidden />
       )}
@@ -214,7 +277,7 @@ function Health({
 
       {state === 'up' ? null : (
         <span aria-hidden className="opacity-80">
-          {state === 'down' ? 'offline' : 'checking'}
+          {state === 'down' ? 'offline' : state === 'absent' ? 'not connected' : 'checking'}
         </span>
       )}
     </span>
