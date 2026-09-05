@@ -686,18 +686,6 @@
   }
 
   /**
-   * The same grid, without the weight column.
-   *
-   * Weight is reserved on every sale and used on almost none: a shop that does not sell loose goods
-   * never fills it, and one that does fills it on a line or two out of ten. It was costing 4rem plus
-   * a gap out of the item name's width at all times -- and with the product picker open the whole
-   * cart column is 26rem, so that is most of the room the name has. "Columbia Polo Shirt" arrived
-   * as "Columbia...", which defeats the one thing the cart is for.
-   *
-   * Applied from the cart's own contents rather than from a setting, so it follows the sale: the
-   * column appears the moment a weighed item is rung and takes its space back when the sale ends.
-   */
-  /**
    * A panel header, inside the till.
    *
    * Five regions were five white panels titled in the same weight, so telling them apart meant
@@ -740,14 +728,6 @@
     background-color: oklch(var(--accent) / 0.11);
     border-top: 1px solid oklch(var(--accent) / 0.22);
     border-bottom: 1px solid oklch(var(--accent) / 0.22);
-  }
-
-  .pos-cart-grid-no-weight {
-    grid-template-columns:
-      2.75rem
-      minmax(0, 1fr)
-      minmax(4.5rem, max-content)
-      minmax(5.5rem, max-content);
   }
 
   .pos-cart-row {
@@ -1097,7 +1077,21 @@
  * pick a glance across the whole screen.
  */
 .pos-layout[data-grid='open'] {
-  grid-template-columns: minmax(0, 26rem) minmax(0, 1fr) 380px;
+  /*
+    The cart keeps 34rem with the picker open, not 26.
+
+    At 26rem the five columns left the item name about 110px, so "Columbia Polo Shirt" was drawn as
+    "Columbia..." and the sale stopped saying what was in it -- which is the one thing it is for.
+
+    34 is measured rather than chosen. Against a five-line sale of ordinary product names, 30rem
+    still truncated three of five, 32rem one of five, and 34rem none; the name track is 222px there.
+    The eight rem come out of the picker, which is a grid of tiles and degrades by fitting one fewer
+    per row -- it still has 400px. The cart does not degrade, it truncates.
+
+    A long enough name will still truncate, and that is the right fallback for the exception rather
+    than a shape the ordinary case has to live in.
+  */
+  grid-template-columns: minmax(0, 34rem) minmax(0, 1fr) 380px;
   grid-template-areas:
     'status status status'
     'cart   grid   side'

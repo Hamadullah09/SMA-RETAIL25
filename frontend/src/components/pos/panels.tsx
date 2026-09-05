@@ -399,15 +399,6 @@ export function CartList() {
     lines.find((line) => line.sequence === selectedLineSequence)?.sequence ??
     (lines.length > 0 ? lines[lines.length - 1].sequence : null);
 
-  /*
-    Whether this sale has anything weighed on it.
-
-    Drives the column away when nothing needs it. `lineWeight` rather than `unitWeight`: a catalogue
-    weight recorded against a product that is being sold by the each is not a weight the cashier has
-    to see, and using it would keep the column on a shop that merely records weights.
-  */
-  const showWeight = lines.some((line) => line.lineWeight > 0);
-
   const currentRef = useRef<HTMLLIElement>(null);
 
   // Line fifteen of a sale is below the fold, and a cashier cannot confirm a price they cannot see.
@@ -442,15 +433,20 @@ export function CartList() {
 
       <LiveFeed />
 
-      <div
-        className={cn(
-          'pos-cart-grid shrink-0 border-b border-subtle bg-panel-sunken py-1 pl-2 pr-3 text-caption font-semibold uppercase tracking-wide text-ink-muted',
-          !showWeight && 'pos-cart-grid-no-weight',
-        )}
-      >
+      {/*
+        Weight is always a column.
+
+        It was briefly conditional -- present only when a line in the cart had a weight -- to buy the
+        item name room it did not otherwise have. That solved the wrong half of the problem: a
+        column that appears and disappears between sales is a column whose position has to be
+        re-found every time, and on a counter that sells loose goods it is one of the figures being
+        checked against the scale. The cart column is wider instead, so the name has its room and
+        the header stays put.
+      */}
+      <div className="pos-cart-grid shrink-0 border-b border-subtle bg-panel-sunken py-1 pl-2 pr-3 text-caption font-semibold uppercase tracking-wide text-ink-muted">
         <span className="pl-[3px] text-center">Qty</span>
         <span>Item</span>
-        {showWeight ? <span className="text-right">Weight</span> : null}
+        <span className="text-right">Weight</span>
         <span className="text-right">Price</span>
         <span className="text-right">Ext</span>
       </div>
@@ -469,12 +465,7 @@ export function CartList() {
                   onClick={() => openDialog('lineDetail', line.sequence)}
                   data-current={current}
                   aria-current={current ? 'true' : undefined}
-                  className={cn(
-                    'pos-cart-row pos-cart-grid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
-                    // Header and row share one definition on purpose, so the modifier has to reach
-                    // both or the columns drift apart by exactly one track.
-                    !showWeight && 'pos-cart-grid-no-weight',
-                  )}
+                  className="pos-cart-row pos-cart-grid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
                 >
                   <span className="flex justify-center">
                     {line.quantity === 1 ? (
@@ -522,11 +513,9 @@ export function CartList() {
                     behalf. A column of blanks is also the honest signal that the catalogue has not
                     been weighed yet.
                   */}
-                  {showWeight ? (
-                    <span className="pos-amount text-right text-label text-ink-muted">
-                      {line.lineWeight > 0 ? quantity(line.lineWeight) : null}
-                    </span>
-                  ) : null}
+                  <span className="pos-amount text-right text-label text-ink-muted">
+                    {line.lineWeight > 0 ? quantity(line.lineWeight) : null}
+                  </span>
 
                   <span className="pos-amount pos-line-unit text-right text-label text-ink-muted">
                     {money(line.unitPrice, symbol)}
