@@ -685,6 +685,26 @@
     align-items: center;
   }
 
+  /**
+   * The same grid, without the weight column.
+   *
+   * Weight is reserved on every sale and used on almost none: a shop that does not sell loose goods
+   * never fills it, and one that does fills it on a line or two out of ten. It was costing 4rem plus
+   * a gap out of the item name's width at all times -- and with the product picker open the whole
+   * cart column is 26rem, so that is most of the room the name has. "Columbia Polo Shirt" arrived
+   * as "Columbia...", which defeats the one thing the cart is for.
+   *
+   * Applied from the cart's own contents rather than from a setting, so it follows the sale: the
+   * column appears the moment a weighed item is rung and takes its space back when the sale ends.
+   */
+  .pos-cart-grid-no-weight {
+    grid-template-columns:
+      2.75rem
+      minmax(0, 1fr)
+      minmax(4.5rem, max-content)
+      minmax(5.5rem, max-content);
+  }
+
   .pos-cart-row {
     @apply w-full border-l-[3px] border-transparent py-0 pl-2 pr-3 text-left text-body transition-colors duration-100;
     height: var(--pos-row-height);

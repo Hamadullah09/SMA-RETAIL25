@@ -141,7 +141,10 @@ export function TagFeed({ stationId, locationId }: { stationId: number; location
       aria-label="Tag reader"
     >
       <header className="pos-panel-header shrink-0">
-        <span>Tag reader</span>
+        <span className="flex items-center gap-2">
+          <Radio className="h-5 w-5 shrink-0 text-ink-muted" aria-hidden />
+          Tag reader
+        </span>
 
         {/*
           Stated in words, not as a coloured dot. A reader that has silently stopped looks exactly

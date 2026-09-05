@@ -8,6 +8,7 @@ import {
   Radio,
   Scale,
   ScanLine,
+  ShoppingCart,
   Server,
   TriangleAlert,
   Unplug,
@@ -398,6 +399,15 @@ export function CartList() {
     lines.find((line) => line.sequence === selectedLineSequence)?.sequence ??
     (lines.length > 0 ? lines[lines.length - 1].sequence : null);
 
+  /*
+    Whether this sale has anything weighed on it.
+
+    Drives the column away when nothing needs it. `lineWeight` rather than `unitWeight`: a catalogue
+    weight recorded against a product that is being sold by the each is not a weight the cashier has
+    to see, and using it would keep the column on a shop that merely records weights.
+  */
+  const showWeight = lines.some((line) => line.lineWeight > 0);
+
   const currentRef = useRef<HTMLLIElement>(null);
 
   // Line fifteen of a sale is below the fold, and a cashier cannot confirm a price they cannot see.
@@ -408,7 +418,23 @@ export function CartList() {
   return (
     <section className="pos-panel flex h-full min-h-0 flex-col overflow-hidden" aria-label="Sale lines">
       <div className="pos-panel-header shrink-0">
-        <span>Sale</span>
+        {/*
+          The region's mark.
+
+          Doc 08 says the till shows exactly five functional groups at rest, and it does -- but they
+          were five white panels titled in the same 16px semibold, so "five groups" was a fact about
+          the markup rather than something the screen said. A glyph per region gives each one a
+          shape, which is what lets somebody glance back after handling cash and land on the right
+          panel instead of re-reading three headings.
+
+          Muted rather than coloured: these mark a region, and the till's colour budget belongs to
+          the money and the alarms. A cart icon in green here would be the fourth green thing on a
+          screen where green already means "committed".
+        */}
+        <span className="flex items-center gap-2">
+          <ShoppingCart className="h-5 w-5 shrink-0 text-ink-muted" aria-hidden />
+          Sale
+        </span>
         <span className="tabular text-ink-muted">
           {lines.length === 0 ? 'empty' : `${itemCount} item${itemCount === 1 ? '' : 's'} · ${lines.length} lines`}
         </span>
@@ -416,10 +442,15 @@ export function CartList() {
 
       <LiveFeed />
 
-      <div className="pos-cart-grid shrink-0 border-b border-subtle bg-panel-sunken py-1 pl-2 pr-3 text-caption font-semibold uppercase tracking-wide text-ink-muted">
+      <div
+        className={cn(
+          'pos-cart-grid shrink-0 border-b border-subtle bg-panel-sunken py-1 pl-2 pr-3 text-caption font-semibold uppercase tracking-wide text-ink-muted',
+          !showWeight && 'pos-cart-grid-no-weight',
+        )}
+      >
         <span className="pl-[3px] text-center">Qty</span>
         <span>Item</span>
-        <span className="text-right">Weight</span>
+        {showWeight ? <span className="text-right">Weight</span> : null}
         <span className="text-right">Price</span>
         <span className="text-right">Ext</span>
       </div>
@@ -438,7 +469,12 @@ export function CartList() {
                   onClick={() => openDialog('lineDetail', line.sequence)}
                   data-current={current}
                   aria-current={current ? 'true' : undefined}
-                  className="pos-cart-row pos-cart-grid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+                  className={cn(
+                    'pos-cart-row pos-cart-grid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent',
+                    // Header and row share one definition on purpose, so the modifier has to reach
+                    // both or the columns drift apart by exactly one track.
+                    !showWeight && 'pos-cart-grid-no-weight',
+                  )}
                 >
                   <span className="flex justify-center">
                     {line.quantity === 1 ? (
@@ -486,9 +522,11 @@ export function CartList() {
                     behalf. A column of blanks is also the honest signal that the catalogue has not
                     been weighed yet.
                   */}
-                  <span className="pos-amount text-right text-label text-ink-muted">
-                    {line.lineWeight > 0 ? quantity(line.lineWeight) : null}
-                  </span>
+                  {showWeight ? (
+                    <span className="pos-amount text-right text-label text-ink-muted">
+                      {line.lineWeight > 0 ? quantity(line.lineWeight) : null}
+                    </span>
+                  ) : null}
 
                   <span className="pos-amount pos-line-unit text-right text-label text-ink-muted">
                     {money(line.unitPrice, symbol)}
@@ -682,7 +720,10 @@ export function CustomerPanel() {
   return (
     <section aria-label="Customer">
       <div className="pos-panel-header">
-        <span>Customer</span>
+        <span className="flex items-center gap-2">
+          <User className="h-5 w-5 shrink-0 text-ink-muted" aria-hidden />
+          Customer
+        </span>
         <button
           type="button"
           className="pos-fkey rounded-sm px-1 normal-case hover:bg-panel-hover hover:text-ink"
