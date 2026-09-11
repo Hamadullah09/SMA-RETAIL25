@@ -2,11 +2,20 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using Microsoft.Extensions.Logging;
+using Retail25.Devices.Rfid;
 
 namespace Retail25.TerminalAgent.Rfid;
 
 /// <summary>
-/// Finds the reader on whatever network this till is actually on.
+/// Finds readers on whatever network this till is actually on.
+///
+/// <para>
+/// Two jobs, deliberately in one place because they share a sweep. <see cref="FindAsync"/> re-finds
+/// a single configured reader that has moved, which is what a running session needs when its address
+/// stops answering. <see cref="DiscoverAsync"/> enumerates every reader on the network and asks each
+/// one what it is, which is what an administrator needs when a shop is being set up and nobody wants
+/// to type seven IP addresses.
+/// </para>
 ///
 /// <para>
 /// A reader's address is a fact about a shop's DHCP lease, not about the software, and writing one
@@ -45,7 +54,157 @@ public sealed class ReaderDiscovery
     /// </summary>
     private const int Parallelism = 48;
 
-    public ReaderDiscovery(ILogger<ReaderDiscovery> logger) => _logger = logger;
+    /// <summary>
+    /// How many candidates are asked the protocol question at once.
+    /// <para>
+    /// Far lower than <see cref="Parallelism"/> because these are conversations rather than knocks.
+    /// After the cheap sweep there are single digits of them on a real shop network, so a wide fan-out
+    /// would buy nothing and each one holds a socket open on hardware that allows exactly one client.
+    /// </para>
+    /// </summary>
+    private const int IdentifyParallelism = 8;
+
+    private readonly IReaderIdentityProbe _probe;
+
+    public ReaderDiscovery(ILogger<ReaderDiscovery> logger, IReaderIdentityProbe probe)
+    {
+        _logger = logger;
+        _probe = probe;
+    }
+
+    /// <summary>
+    /// Every reader on this till's own networks, identified rather than merely listening.
+    ///
+    /// <para>
+    /// Two phases, and the split is what makes this affordable. A /24 is 254 addresses, and asking
+    /// each one three protocol questions would take minutes. So the cheap knock runs first — a TCP
+    /// connect with a short timeout, wide open in parallel — and only the handful that answer are
+    /// then asked to prove what they are. On a shop network that is seven conversations instead of
+    /// seven hundred and sixty-two.
+    /// </para>
+    /// <para>
+    /// <paramref name="inUse"/> matters more than it looks. This reader family accepts exactly one
+    /// client at a time, so probing an address that a running session already holds cannot succeed —
+    /// and if it were treated as a failure, every rescan would report the readers that are working
+    /// as missing. They are skipped and reported from what the session already knows instead.
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyList<ReaderIdentity>> DiscoverAsync(
+        int port,
+        IReadOnlySet<string> inUse,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(inUse);
+
+        var candidates = LocalCandidates(port)
+            .Select(address => address.ToString())
+            .Where(address => !inUse.Contains(address))
+            .ToList();
+
+        if (candidates.Count == 0)
+        {
+            _logger.LogWarning("No IPv4 network this till is attached to could be searched on port {Port}", port);
+            return [];
+        }
+
+        var listening = await ListeningAsync(candidates, port, ct).ConfigureAwait(false);
+
+        _logger.LogInformation(
+            "Swept {Candidates} addresses on port {Port}: {Listening} answered, asking each whether it is a reader",
+            candidates.Count,
+            port,
+            listening.Count);
+
+        var identified = await IdentifyAsync(listening, port, ct).ConfigureAwait(false);
+
+        // Deduplicated on the reader's own identifier, because one physical reader can answer on two
+        // addresses — a unit with both interfaces up, or a stale ARP entry during a lease change.
+        // Falling back to the address where a unit reports no identifier keeps those separate, which
+        // is the safe direction: two rows an administrator can merge beat one reader silently
+        // swallowing another's antennas.
+        var distinct = identified
+            .GroupBy(reader => reader.SerialNumber ?? $"@{reader.Host}", StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+
+        _logger.LogInformation(
+            "Discovery found {Count} reader(s) on port {Port}: {Readers}",
+            distinct.Count,
+            port,
+            string.Join(", ", distinct.Select(r => $"{r.SerialNumber ?? "unidentified"}@{r.Host}")));
+
+        return distinct;
+    }
+
+    /// <summary>The addresses that accept a connection, all of them rather than the first.</summary>
+    private static async Task<IReadOnlyList<string>> ListeningAsync(
+        IReadOnlyList<string> candidates,
+        int port,
+        CancellationToken ct)
+    {
+        using var slots = new SemaphoreSlim(Parallelism);
+        var answered = new List<string>();
+
+        var probes = candidates.Select(async address =>
+        {
+            await slots.WaitAsync(ct).ConfigureAwait(false);
+
+            try
+            {
+                if (await AnswersAsync(address, port, ct).ConfigureAwait(false))
+                {
+                    lock (answered)
+                    {
+                        answered.Add(address);
+                    }
+                }
+            }
+            finally
+            {
+                slots.Release();
+            }
+        });
+
+        await Task.WhenAll(probes).ConfigureAwait(false);
+
+        return answered;
+    }
+
+    /// <summary>Asks each listening address the protocol question, keeping only what answers as a reader.</summary>
+    private async Task<IReadOnlyList<ReaderIdentity>> IdentifyAsync(
+        IReadOnlyList<string> listening,
+        int port,
+        CancellationToken ct)
+    {
+        using var slots = new SemaphoreSlim(IdentifyParallelism);
+        var found = new List<ReaderIdentity>();
+
+        var probes = listening.Select(async address =>
+        {
+            await slots.WaitAsync(ct).ConfigureAwait(false);
+
+            try
+            {
+                var identity = await _probe.ProbeAsync(address, port, ct).ConfigureAwait(false);
+
+                if (identity is not null)
+                {
+                    lock (found)
+                    {
+                        found.Add(identity);
+                    }
+                }
+            }
+            finally
+            {
+                slots.Release();
+            }
+        });
+
+        await Task.WhenAll(probes).ConfigureAwait(false);
+
+        return found;
+    }
 
     /// <summary>
     /// Returns an address listening on <paramref name="port"/>, or null if nothing is.

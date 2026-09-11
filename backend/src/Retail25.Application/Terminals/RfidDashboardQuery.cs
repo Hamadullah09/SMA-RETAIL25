@@ -72,7 +72,7 @@ public sealed class RfidDashboardHandler : IRequestHandler<GetRfidDashboardQuery
     /// dropping out whenever a heartbeat and a poll interleaved badly.
     /// </para>
     /// </summary>
-    private static readonly TimeSpan ReaderOfflineAfter = TimeSpan.FromSeconds(60);
+    public static readonly TimeSpan ReaderOfflineAfter = TimeSpan.FromSeconds(60);
 
     private readonly IApplicationDbContext _db;
     private readonly IDateTime _clock;

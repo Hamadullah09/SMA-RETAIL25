@@ -32,6 +32,52 @@ public sealed record ManagedReaderContract(
     ReaderProfileContract? Settings = null);
 
 /// <summary>
+/// One reader an agent found on its own network, as the hardware describes itself.
+///
+/// <para>
+/// The counterpart to <see cref="ManagedReaderContract"/> and deliberately a different shape.
+/// A managed reader is what the server has decided a machine should drive; a discovered one is what
+/// the machine can actually see. Conflating them would let a till invent its own configuration,
+/// which is exactly the direction this architecture does not allow: observations flow up,
+/// configuration flows down, and an administrator decides which discovered reader becomes a managed
+/// one.
+/// </para>
+/// <para>
+/// <see cref="SerialNumber"/> is the reader's own identifier where the protocol exposes one, and it
+/// is what makes a DHCP lease change a move rather than a new reader. Null where the unit will not
+/// report one — those are matched on address instead, which is weaker and is why the field exists
+/// separately rather than being folded into a single key.
+/// </para>
+/// </summary>
+public sealed record DiscoveredReaderContract(
+    string Host,
+    int Port,
+    string Protocol,
+    string? SerialNumber,
+    string? FirmwareVersion,
+    int AntennaCount,
+
+    /// <summary>
+    /// Whether the reader reported its antenna count or the agent fell back to the family default.
+    /// Carried so a screen can show a measured four differently from an assumed four, rather than
+    /// presenting a guess with the same confidence as a fact.
+    /// </summary>
+    bool AntennaCountReported);
+
+/// <summary>
+/// What one machine found when it last looked.
+/// <para>
+/// Sent after a sweep. The server records it so an administrator can see what is on the shop's
+/// network from a browser that is nowhere near that network — which is the whole reason discovery
+/// runs on the till rather than on the server.
+/// </para>
+/// </summary>
+public sealed record ReaderDiscoveryReport(
+    string DeviceKey,
+    DateTimeOffset CompletedAt,
+    IReadOnlyList<DiscoveredReaderContract> Readers);
+
+/// <summary>
 /// Everything one machine needs to do its job.
 /// <para>
 /// Replaces the assumption behind the per-station profile, which could only ever describe one till

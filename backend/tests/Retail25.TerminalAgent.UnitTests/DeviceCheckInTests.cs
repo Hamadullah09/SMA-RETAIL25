@@ -70,7 +70,9 @@ public sealed class DeviceCheckInTests
             new AgentRfid.ProfileStore(),
             new AgentRfid.TagBuffer(),
             options,
-            new AgentRfid.ReaderDiscovery(NullLogger<AgentRfid.ReaderDiscovery>.Instance),
+            new AgentRfid.ReaderDiscovery(
+                NullLogger<AgentRfid.ReaderDiscovery>.Instance,
+                new Rfid.FakeReaderIdentityProbe()),
             new AgentRfid.DeviceConfigurationStore(),
             NullLogger<AgentRfid.RfidReaderService>.Instance);
 

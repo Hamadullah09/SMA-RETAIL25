@@ -109,4 +109,18 @@ public sealed class RfidNotifier : IRfidNotifier
         => _hub.Clients
             .Group(RfidGroups.Station(stationId))
             .SendAsync("ReaderStatus", new { stationId, locationId, status }, ct);
+
+    /// <summary>
+    /// To the whole store, because a reader that has just been discovered belongs to no till yet.
+    /// <para>
+    /// This is the opposite audience to the two above and the reason it is safe to broadcast widely:
+    /// it carries no read, no EPC and no cart — only the fact that the reader list is no longer what
+    /// the watcher fetched. Every recipient still has to ask the permission-checked endpoint for the
+    /// rows, so a till in the group learns nothing from this but that it need not care.
+    /// </para>
+    /// </summary>
+    public Task TopologyChangedAsync(long locationId, string reason, CancellationToken ct = default)
+        => _hub.Clients
+            .Group(RfidGroups.Location(locationId))
+            .SendAsync("TopologyChanged", new { locationId, reason }, ct);
 }

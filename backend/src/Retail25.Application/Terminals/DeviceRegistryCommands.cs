@@ -62,11 +62,13 @@ public sealed class DeviceRegistryHandlers : IRequestHandler<ReportDeviceStatusC
 
     private readonly IApplicationDbContext _db;
     private readonly IDateTime _clock;
+    private readonly IRfidNotifier _notifier;
 
-    public DeviceRegistryHandlers(IApplicationDbContext db, IDateTime clock)
+    public DeviceRegistryHandlers(IApplicationDbContext db, IDateTime clock, IRfidNotifier notifier)
     {
         _db = db;
         _clock = clock;
+        _notifier = notifier;
     }
 
     public async Task<Result<DeviceStatusDto>> Handle(ReportDeviceStatusCommand request, CancellationToken ct)
@@ -97,6 +99,11 @@ public sealed class DeviceRegistryHandlers : IRequestHandler<ReportDeviceStatusC
             _db.Devices.Add(device);
         }
 
+        // Kept before it is overwritten, because whether a reader counted as connected a moment ago
+        // is measured against the heartbeat that was current then. Without it the comparison is
+        // against the beat being written now, which always says the reader was fine.
+        var previousHeartbeat = device.LastHeartbeat;
+
         device.Hostname = request.Hostname?.Trim();
         device.LocalIpAddresses = request.LocalIpAddresses?.Trim();
         device.OperatingSystem = request.OperatingSystem?.Trim();
@@ -105,7 +112,7 @@ public sealed class DeviceRegistryHandlers : IRequestHandler<ReportDeviceStatusC
 
         await _db.SaveChangesAsync(ct);
 
-        var managed = await ApplyReaderHealthAsync(request, device, ct);
+        var managed = await ApplyReaderHealthAsync(request, device, previousHeartbeat, ct);
 
         return Result.Success(new DeviceStatusDto(
             device.Id,
@@ -150,6 +157,20 @@ public sealed class DeviceRegistryHandlers : IRequestHandler<ReportDeviceStatusC
     }
 
     /// <summary>
+    /// Whether a sighting is recent enough, relative to the heartbeat it is compared against, to mean
+    /// the agent was holding the reader at that moment.
+    /// <para>
+    /// Relative rather than absolute on purpose. The agent stamps a sighting and a heartbeat in the
+    /// same check-in, so while it holds the reader the two are equal and the gap only grows once it
+    /// checks in without it. Measuring the sighting against the wall clock instead would report a
+    /// reader as connected for the whole staleness window after it had gone — which is exactly the
+    /// minute somebody spends at a till that has stopped reading.
+    /// </para>
+    /// </summary>
+    internal static bool Held(DateTimeOffset? lastSeen, DateTimeOffset? heartbeat)
+        => lastSeen is { } seen && heartbeat is { } beat && beat - seen < OfflineAfter;
+
+    /// <summary>
     /// Records where each reader is and whether the agent can currently reach it.
     /// <para>
     /// This is where a changed address stops mattering. The reader is found by its serial where the
@@ -160,6 +181,7 @@ public sealed class DeviceRegistryHandlers : IRequestHandler<ReportDeviceStatusC
     private async Task<int> ApplyReaderHealthAsync(
         ReportDeviceStatusCommand request,
         Device device,
+        DateTimeOffset? previousHeartbeat,
         CancellationToken ct)
     {
         if (request.Readers.Count == 0)
@@ -179,6 +201,7 @@ public sealed class DeviceRegistryHandlers : IRequestHandler<ReportDeviceStatusC
             .ToListAsync(ct);
 
         var managed = 0;
+        var changed = false;
 
         foreach (var report in request.Readers)
         {
@@ -209,6 +232,12 @@ public sealed class DeviceRegistryHandlers : IRequestHandler<ReportDeviceStatusC
                 reader.SerialNumber = reportedSerial;
             }
 
+            // Whether the topology screen was calling this reader connected before this check-in, by
+            // the same rule that screen uses: the driving agent's last heartbeat carried a sighting
+            // of it. Computed before LastSeen is written, so that the comparison below is between two
+            // different moments rather than against itself.
+            var wasConnected = Held(reader.LastSeen, previousHeartbeat);
+
             if (report.Connected)
             {
                 reader.LastSeen = _clock.Now;
@@ -219,10 +248,22 @@ public sealed class DeviceRegistryHandlers : IRequestHandler<ReportDeviceStatusC
                 }
             }
 
+            if (wasConnected != Held(reader.LastSeen, device.LastHeartbeat))
+            {
+                changed = true;
+            }
+
             managed++;
         }
 
         await _db.SaveChangesAsync(ct);
+
+        // One message for the check-in, however many readers flipped. A machine driving four readers
+        // that all come back after a switch reboot is one event to a watcher, not four.
+        if (changed)
+        {
+            await _notifier.TopologyChangedAsync(request.LocationId, "reader", ct);
+        }
 
         return managed;
     }

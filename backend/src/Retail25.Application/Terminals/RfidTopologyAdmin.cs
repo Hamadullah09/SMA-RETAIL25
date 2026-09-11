@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Common;
+using Retail25.Application.Rfid;
 using Retail25.Domain.Common;
 using Retail25.Domain.Terminals;
 
@@ -20,6 +21,42 @@ public sealed record DeviceRow(
 
 public sealed record AntennaRow(int AntennaNumber, long? StationId, string? StationCode, bool Enabled);
 
+/// <summary>
+/// Where one reader stands between "something answered on the network" and "tags are arriving".
+/// <para>
+/// Five states rather than a connected flag because they need five different responses, and a screen
+/// that showed two would send somebody to the wrong place. Each is derived from facts the system
+/// already records — an agent's heartbeat, a reader's last sighting, the enabled flag — so nothing
+/// here is a new column that could disagree with the old ones.
+/// </para>
+/// </summary>
+public enum ReaderState
+{
+    /// <summary>
+    /// Found by a sweep, but no machine has claimed it. It is on the network and reads nothing:
+    /// somebody has to assign its antennas before it means anything.
+    /// </summary>
+    Discovered = 0,
+
+    /// <summary>An agent is holding it and has said so recently. Tags will arrive.</summary>
+    Connected = 1,
+
+    /// <summary>
+    /// The machine that drives it has stopped checking in, so nothing can be said about the reader
+    /// itself. The fault is upstream of the reader and walking to the reader would waste the trip.
+    /// </summary>
+    Offline = 2,
+
+    /// <summary>
+    /// The machine is alive and reports that it cannot hold the reader. This is the state that means
+    /// go and look at the hardware: power, cable, switch port, or another client holding the socket.
+    /// </summary>
+    Error = 3,
+
+    /// <summary>Switched off by an administrator. Not a fault, and deliberately not counted as one.</summary>
+    Disabled = 4,
+}
+
 public sealed record ReaderRow(
     long Id,
     string ReaderKey,
@@ -33,10 +70,32 @@ public sealed record ReaderRow(
     string? DeviceKey,
     bool IsEnabled,
     DateTimeOffset? LastSeen,
-    IReadOnlyList<AntennaRow> Antennas);
+    IReadOnlyList<AntennaRow> Antennas,
+    ReaderState State,
+    bool DeviceOnline);
+
+/// <summary>
+/// How many readers are in each state, counted once on the server.
+/// <para>
+/// Counted here rather than in the browser so that every screen asking the question gets the same
+/// answer from the same rule. The count a shop actually asks for is <c>Connected</c> out of
+/// <c>Total</c>; the rest exist so the number that is missing can be explained without opening a
+/// second screen.
+/// </para>
+/// </summary>
+public sealed record ReaderStateSummary(
+    int Total,
+    int Connected,
+    int Offline,
+    int Error,
+    int Discovered,
+    int Disabled);
 
 /// <summary>The whole topology of a shop, for the screen that administers it.</summary>
-public sealed record RfidTopologyDto(IReadOnlyList<DeviceRow> Devices, IReadOnlyList<ReaderRow> Readers);
+public sealed record RfidTopologyDto(
+    IReadOnlyList<DeviceRow> Devices,
+    IReadOnlyList<ReaderRow> Readers,
+    ReaderStateSummary Summary);
 
 [RequiresPermission(PermissionKeys.Settings.Read)]
 public sealed record GetRfidTopologyQuery(long LocationId) : IRequest<Result<RfidTopologyDto>>;
@@ -86,11 +145,19 @@ public sealed class RfidTopologyAdminHandlers
 
     private readonly IApplicationDbContext _db;
     private readonly IDateTime _clock;
+    private readonly IRfidNotifier _notifier;
+    private readonly IReaderConnectionStatus _serverReaders;
 
-    public RfidTopologyAdminHandlers(IApplicationDbContext db, IDateTime clock)
+    public RfidTopologyAdminHandlers(
+        IApplicationDbContext db,
+        IDateTime clock,
+        IRfidNotifier notifier,
+        IReaderConnectionStatus serverReaders)
     {
         _db = db;
         _clock = clock;
+        _notifier = notifier;
+        _serverReaders = serverReaders;
     }
 
     public async Task<Result<RfidTopologyDto>> Handle(GetRfidTopologyQuery request, CancellationToken ct)
@@ -118,6 +185,10 @@ public sealed class RfidTopologyAdminHandlers
 
         var deviceKeys = devices.ToDictionary(d => d.Id, d => d.DeviceKey);
         var now = _clock.Now;
+
+        // Taken once, before the rows are built. It is a live in-memory view of this process's own
+        // sessions, and sampling it per reader would let the list describe two different moments.
+        var serverHeld = _serverReaders.Current;
 
         var deviceRows = devices
             .Select(d => new DeviceRow(
@@ -151,6 +222,13 @@ public sealed class RfidTopologyAdminHandlers
                     })
                     .ToList();
 
+                var driver = r.DeviceId is { } deviceId
+                    ? devices.FirstOrDefault(d => d.Id == deviceId)
+                    : null;
+
+                var driverOnline = driver?.IsOnline(now, DeviceRegistryHandlers.OfflineAfter) ?? false;
+                var heldByServer = ServerSessionFor(serverHeld, r);
+
                 return new ReaderRow(
                     r.Id,
                     r.ReaderKey,
@@ -164,11 +242,99 @@ public sealed class RfidTopologyAdminHandlers
                     r.DeviceId is { } id && deviceKeys.TryGetValue(id, out var key) ? key : null,
                     r.IsEnabled,
                     r.LastSeen,
-                    antennas);
+                    antennas,
+                    StateOf(r, driver, driverOnline, heldByServer),
+                    driverOnline);
             })
             .ToList();
 
-        return Result.Success(new RfidTopologyDto(deviceRows, readerRows));
+        var summary = new ReaderStateSummary(
+            readerRows.Count,
+            readerRows.Count(r => r.State == ReaderState.Connected),
+            readerRows.Count(r => r.State == ReaderState.Offline),
+            readerRows.Count(r => r.State == ReaderState.Error),
+            readerRows.Count(r => r.State == ReaderState.Discovered),
+            readerRows.Count(r => r.State == ReaderState.Disabled));
+
+        return Result.Success(new RfidTopologyDto(deviceRows, readerRows, summary));
+    }
+
+    /// <summary>
+    /// The session this server is holding to the same box, if it is holding one.
+    /// <para>
+    /// Matched on address rather than on identity, and that is the seam between the two halves of the
+    /// system rather than a shortcut. Server-held connections are driven from the reader
+    /// <em>profile</em> table, which predates serial numbers and has no field for one; the topology
+    /// table is keyed on the hardware's own identity. Host and port are the only fact both tables
+    /// hold, so they are what joins them until the profile table carries a serial.
+    /// </para>
+    /// </summary>
+    private static Retail25.Application.Rfid.ReaderConnectionState? ServerSessionFor(
+        ReaderConnectionSnapshot serverHeld,
+        RfidReader reader)
+    {
+        if (!serverHeld.ServerHosted)
+        {
+            return null;
+        }
+
+        var endpoint = $"{reader.Host}:{reader.Port}";
+
+        return serverHeld.Readers.FirstOrDefault(s =>
+            string.Equals(s.Endpoint, endpoint, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// The one rule that decides what a reader's light says.
+    /// <para>
+    /// Order matters and is the whole content of the method. Disabled outranks everything because a
+    /// reader somebody switched off is not a fault and must not be counted as one. A connection this
+    /// server is holding itself comes next, because it is first-hand knowledge: there is no heartbeat
+    /// to interpret and no staleness window to guess at, the socket is either open in this process or
+    /// it is not. Only then does the agent path apply, and there the question is which layer failed —
+    /// a silent machine hides the reader's state entirely, so that is <c>Offline</c>; a machine that
+    /// is talking and still not holding the reader has told us something specific, and that is
+    /// <c>Error</c>.
+    /// </para>
+    /// <para>
+    /// A reader nobody drives at all is <c>Discovered</c>: it answered a sweep, it is on the network,
+    /// and it reads nothing until an administrator points its antennas at tills. That is a state to
+    /// act on rather than a fault, and counting it as one would make a freshly installed reader look
+    /// broken.
+    /// </para>
+    /// </summary>
+    private static ReaderState StateOf(
+        RfidReader reader,
+        Device? driver,
+        bool driverOnline,
+        Retail25.Application.Rfid.ReaderConnectionState? heldByServer)
+    {
+        if (!reader.IsEnabled)
+        {
+            return ReaderState.Disabled;
+        }
+
+        if (heldByServer is { } session)
+        {
+            return session.Connected ? ReaderState.Connected : ReaderState.Error;
+        }
+
+        if (reader.DeviceId is null)
+        {
+            return ReaderState.Discovered;
+        }
+
+        if (!driverOnline)
+        {
+            return ReaderState.Offline;
+        }
+
+        // The same test the check-in itself uses to decide whether the state changed, called rather
+        // than restated: two copies of this rule would eventually disagree, and the symptom would be
+        // a screen that is pushed an update and then shows the state it already had.
+        return DeviceRegistryHandlers.Held(reader.LastSeen, driver?.LastHeartbeat)
+            ? ReaderState.Connected
+            : ReaderState.Error;
     }
 
     public async Task<Result<long>> Handle(SaveReaderCommand request, CancellationToken ct)
@@ -209,6 +375,8 @@ public sealed class RfidTopologyAdminHandlers
 
         await _db.SaveChangesAsync(ct);
 
+        await _notifier.TopologyChangedAsync(request.LocationId, "reader", ct);
+
         return Result.Success(reader.Id);
     }
 
@@ -242,6 +410,7 @@ public sealed class RfidTopologyAdminHandlers
             {
                 _db.ReaderAntennaAssignments.Remove(existing);
                 await _db.SaveChangesAsync(ct);
+                await _notifier.TopologyChangedAsync(reader.LocationId, "assignment", ct);
             }
 
             return Result.Success();
@@ -273,6 +442,11 @@ public sealed class RfidTopologyAdminHandlers
         }
 
         await _db.SaveChangesAsync(ct);
+
+        // Every screen watching this shop, not only the one that made the change. Two people
+        // commissioning an estate from two laptops is the ordinary case on an installation day, and
+        // the second one silently overwriting the first is what this prevents them from doing blind.
+        await _notifier.TopologyChangedAsync(reader.LocationId, "assignment", ct);
 
         return Result.Success();
     }

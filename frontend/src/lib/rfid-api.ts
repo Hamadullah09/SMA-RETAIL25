@@ -210,6 +210,27 @@ export const rfidApi = {
     }
   },
 
+  /**
+   * Asks the agent on this machine to sweep its own network for readers, now.
+   *
+   * Loopback rather than the server because only this machine can see the shop's LAN: a server at
+   * pos.sma-techno.net scanning 192.168.x.x would be scanning its own data centre. The agent looks,
+   * reports what it found through its own authenticated channel, and the server records it — so the
+   * browser learns the answer twice over, once here for an immediate count and once from the
+   * topology endpoint when it reloads.
+   *
+   * Null means the agent is not running on this machine, which is a normal state on an
+   * administrator's laptop and needs saying rather than throwing.
+   */
+  scan: async (): Promise<{ found: number } | null> => {
+    try {
+      const response = await fetch(`${AGENT}/discovery/scan`, { method: 'POST', cache: 'no-store' });
+      return response.ok ? ((await response.json()) as { found: number }) : null;
+    } catch {
+      return null;
+    }
+  },
+
   /** Re-pushes the saved profile into the device. Returns what the reader would not accept. */
   applyToDevice: async (): Promise<{ applied: boolean; refused: string[] } | null> => {
     try {

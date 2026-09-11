@@ -29,6 +29,29 @@ public sealed class RfidTopologyController : ControllerBase
     public async Task<IActionResult> Get([FromQuery][BindRequired] long locationId, CancellationToken ct)
         => (await _sender.Send(new GetRfidTopologyQuery(locationId), ct)).ToActionResult(this);
 
+    /// <summary>
+    /// Records what an agent found when it swept its own network.
+    ///
+    /// <para>
+    /// Posted by the till, not by a browser. The readers are on the shop's LAN and the server may be
+    /// anywhere — a hosted server scanning <c>192.168.x.x</c> would be scanning its own data centre —
+    /// so the machine that can see them does the looking and reports here.
+    /// </para>
+    /// <para>
+    /// Readers absent from the report are left untouched. One sweep proves presence, never absence:
+    /// a reader mid-reboot or already held open by this machine's own session answers nothing, and
+    /// unregistering it would throw away an administrator's antenna assignments over a missed ping.
+    /// </para>
+    /// </summary>
+    [HttpPost("discovered")]
+    public async Task<IActionResult> RecordDiscovery(
+        [FromBody] RecordDiscoveryRequest request,
+        CancellationToken ct)
+        => (await _sender.Send(new RecordReaderDiscoveryCommand(
+            request.LocationId,
+            request.DeviceKey,
+            request.Readers), ct)).ToActionResult(this);
+
     /// <summary>Registers a reader, or updates the one already carrying this key.</summary>
     [HttpPut("readers")]
     public async Task<IActionResult> SaveReader([FromBody] SaveReaderRequest request, CancellationToken ct)
@@ -115,6 +138,12 @@ public sealed record SaveReaderRequest(
     long? DeviceId = null);
 
 public sealed record AssignAntennaRequest(long? StationId, bool Enabled = true);
+
+/// <summary>What one machine saw on its network, as posted by its agent.</summary>
+public sealed record RecordDiscoveryRequest(
+    long LocationId,
+    string DeviceKey,
+    IReadOnlyList<Retail25.Contracts.Terminals.DiscoveredReaderContract> Readers);
 
 public sealed record BackfillRequest(long LocationId, bool DryRun = false);
 

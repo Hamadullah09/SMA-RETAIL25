@@ -125,6 +125,28 @@ internal static class LocalApiEndpoints
             });
         });
 
+        // Sweeps this machine's network now rather than waiting for the timer, and reports what it
+        // finds to the server.
+        //
+        // It has to be here rather than on the server because only this machine can see the shop's
+        // LAN. A browser on the settings page is on the same machine, so it can ask the agent to
+        // look; the server then learns the result through the agent's own authenticated channel.
+        // Nothing about the reader list is decided here — the sweep reports, the server records, and
+        // an administrator assigns.
+        //
+        // Returns what was found so the page can say "three readers" immediately, rather than
+        // refreshing into a list that the report may not have reached yet.
+        group.MapPost("/discovery/scan", async (ReaderDiscoveryService discovery, CancellationToken ct) =>
+        {
+            var found = await discovery.SweepAsync(ct);
+
+            return Results.Ok(new
+            {
+                found = found.Count,
+                readers = found,
+            });
+        });
+
         // The drawer is deliberately NOT exposed here for sales. A pop must be permission-checked and
         // must land in the drawer ledger, so the browser asks the server, which asks the agent.
 

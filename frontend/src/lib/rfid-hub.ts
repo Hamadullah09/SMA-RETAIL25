@@ -52,9 +52,16 @@ export interface RfidHubHandlers {
   onTagsObserved?: (tags: ObservedTag[], stationId: number) => void;
   onReaderStatus?: (status: RfidReaderStatus, stationId: number) => void;
   onConnectionChanged?: (connected: boolean) => void;
+  /**
+   * The set of readers, or the state of one of them, changed somewhere in this store.
+   *
+   * Carries no rows on purpose — the settings screen is permission-checked and reads its own view.
+   * This says "look again", and the reason says what moved: `discovery`, `reader` or `assignment`.
+   */
+  onTopologyChanged?: (reason: string) => void;
 }
 
-async function fetchHubTicket(stationId: number): Promise<string> {
+async function fetchHubTicket(stationId: number | null): Promise<string> {
   const response = await fetch('/api/auth/hub-ticket', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -79,7 +86,14 @@ export class RfidHub {
 
   private locationId: number | null = null;
 
-  async connect(stationId: number, locationId: number, handlers: RfidHubHandlers): Promise<void> {
+  /**
+   * A null station is the settings screen, and it is not a degraded case.
+   *
+   * A reader that has just been discovered belongs to no till — that is the entire point of the
+   * antenna model — so the screen that assigns it watches the store rather than a checkout. The
+   * ticket endpoint already accepts a null station; this is what lets a caller use it.
+   */
+  async connect(stationId: number | null, locationId: number, handlers: RfidHubHandlers): Promise<void> {
     this.handlers = handlers;
     this.stationId = stationId;
     this.locationId = locationId;
@@ -109,6 +123,10 @@ export class RfidHub {
 
     connection.on('ReaderStatus', (payload: { stationId: number; status: RfidReaderStatus }) =>
       this.handlers.onReaderStatus?.(payload.status, payload.stationId),
+    );
+
+    connection.on('TopologyChanged', (payload: { reason: string }) =>
+      this.handlers.onTopologyChanged?.(payload.reason),
     );
 
     connection.onreconnected(async () => {

@@ -1,8 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from '@/components/ui/toaster';
 import { apiClient } from '@/lib/api-client';
+import { rfidApi } from '@/lib/rfid-api';
+import { RfidHub } from '@/lib/rfid-hub';
+import { cn } from '@/lib/utils';
 import type { StationSettings as StationOption } from '@/types/masters';
 
 /**
@@ -24,6 +27,15 @@ interface AntennaRow {
   enabled: boolean;
 }
 
+/**
+ * Where a reader stands between "something answered on the network" and "tags are arriving".
+ *
+ * Five states rather than a connected light because they need five different responses: switch it
+ * on, assign its antennas, go and look at the PC, go and look at the reader, or nothing at all. The
+ * server decides which one applies — the same rule for every screen that asks.
+ */
+type ReaderState = 'Discovered' | 'Connected' | 'Offline' | 'Error' | 'Disabled';
+
 interface ReaderRow {
   id: number;
   readerKey: string;
@@ -38,6 +50,8 @@ interface ReaderRow {
   isEnabled: boolean;
   lastSeen: string | null;
   antennas: AntennaRow[];
+  state: ReaderState;
+  deviceOnline: boolean;
 }
 
 interface DeviceRow {
@@ -52,10 +66,60 @@ interface DeviceRow {
   readerCount: number;
 }
 
+interface ReaderStateSummary {
+  total: number;
+  connected: number;
+  offline: number;
+  error: number;
+  discovered: number;
+  disabled: number;
+}
+
 interface Topology {
   devices: DeviceRow[];
   readers: ReaderRow[];
+
+  /**
+   * Optional only because a browser can outlive a deployment: a page loaded against the previous
+   * API and left open will fetch from it until it is reloaded, and a missing count should hide a
+   * line rather than blank the screen an installer is working in.
+   */
+  summary?: ReaderStateSummary;
 }
+
+/**
+ * What each state means to the person reading it, in the words they would use.
+ *
+ * The hint is the instruction, not a definition of the word: somebody looking at a red row wants to
+ * know where to walk, and "Offline" on its own does not say whether that is the PC or the reader.
+ */
+const STATE_LABELS: Record<ReaderState, { label: string; hint: string; tone: string }> = {
+  Connected: {
+    label: 'Connected',
+    hint: 'Held by its machine. Tags read here.',
+    tone: 'text-positive-text',
+  },
+  Discovered: {
+    label: 'Discovered',
+    hint: 'Found on the network. Assign its antennas below to put it to work.',
+    tone: 'text-accent-text',
+  },
+  Error: {
+    label: 'Not answering',
+    hint: 'Its machine is running and cannot reach the reader. Check power, cable and switch port.',
+    tone: 'text-negative-text',
+  },
+  Offline: {
+    label: 'Machine offline',
+    hint: 'The PC driving this reader has stopped checking in. Nothing can be said about the reader itself.',
+    tone: 'text-warning-text',
+  },
+  Disabled: {
+    label: 'Switched off',
+    hint: 'Taken out of service deliberately.',
+    tone: 'text-ink-muted',
+  },
+};
 
 // Stations come from the settings payload the page already holds rather than from a fetch of their
 // own: there is no stations endpoint, and adding one to avoid passing a prop would be a round trip
@@ -71,6 +135,8 @@ export function RfidTopologyTab({
 }) {
   const [topology, setTopology] = useState<Topology | null>(null);
   const [busy, setBusy] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<string | null>(null);
   const [nothingToBringAcross, setNothingToBringAcross] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -88,6 +154,43 @@ export function RfidTopologyTab({
   useEffect(() => {
     void load();
   }, [load]);
+
+  /**
+   * Live updates, so a reader plugged in on the shop floor appears here without anybody pressing
+   * anything.
+   *
+   * Watches the store rather than a till: a reader that has just been discovered belongs to no
+   * station yet, which is the entire reason this screen exists. The push carries no rows — it says
+   * the list has moved, and the rows are then fetched through the endpoint that is already
+   * permission-checked.
+   *
+   * Failing to connect is not worth a toast. The page works without it; it just stops updating on
+   * its own, and an administrator on a laptop with a flaky VPN does not need a red box for that.
+   */
+  const loadRef = useRef(load);
+  loadRef.current = load;
+
+  useEffect(() => {
+    if (!locationId) return undefined;
+
+    const hub = new RfidHub();
+    let live = true;
+
+    void hub
+      .connect(null, locationId, {
+        onTopologyChanged: () => {
+          if (live) void loadRef.current();
+        },
+      })
+      .catch(() => {
+        // Nothing to say. The screen still loads and the refresh button still works.
+      });
+
+    return () => {
+      live = false;
+      void hub.disconnect();
+    };
+  }, [locationId]);
 
   const assign = async (reader: ReaderRow, antenna: number, stationId: number | null) => {
     setBusy(true);
@@ -108,6 +211,46 @@ export function RfidTopologyTab({
       });
     } finally {
       setBusy(false);
+    }
+  };
+
+  /**
+   * Asks the agent on *this* machine to sweep *its* network now.
+   *
+   * The scan cannot be run from the server, and saying so plainly is most of what this button does.
+   * The readers are on the shop's own LAN behind its router; a server at pos.sma-techno.net has no
+   * route to 192.168.x.x and would be scanning its own neighbours if it tried. So the browser asks
+   * the agent installed beside it, the agent reports its findings to the server over its own
+   * authenticated channel, and this screen reloads to show what was recorded.
+   */
+  const scan = async () => {
+    setScanning(true);
+    setScanResult(null);
+
+    try {
+      const result = await rfidApi.scan();
+
+      if (result === null) {
+        setScanResult(
+          'No terminal agent is answering on this machine, so there is nothing here that can see the '
+          + 'shop network. Run the scan from a till that has the agent installed, or add the reader '
+          + 'by hand if you know its address.',
+        );
+
+        return;
+      }
+
+      setScanResult(
+        result.found === 0
+          ? 'The sweep finished and found no readers that were not already connected. Readers in use '
+            + 'are skipped deliberately — this family of reader accepts one client at a time, and '
+            + 'probing a reader mid-sale would take it away from the till.'
+          : `Found ${result.found} reader(s). Any that were new are listed below.`,
+      );
+
+      await load();
+    } finally {
+      setScanning(false);
     }
   };
 
@@ -162,26 +305,70 @@ export function RfidTopologyTab({
 
   return (
     <section className="flex flex-col gap-4">
-      <header>
-        <h2 className="text-heading">RFID topology</h2>
-        <p className="text-sm text-ink-muted">
-          Which machine drives which reader, and which till each antenna watches. One reader with four
-          antennas can serve four separate tills — the antenna is what decides where a tag read
-          lands, not the reader.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <h2 className="text-heading">RFID topology</h2>
+          <p className="text-caption text-ink-muted">
+            Which machine drives which reader, and which till each antenna watches. One reader with four
+            antennas can serve four separate tills — the antenna is what decides where a tag read
+            lands, not the reader.
+          </p>
+        </div>
+
+        {canWrite ? (
+          <button type="button" className="pos-button" disabled={scanning} onClick={() => void scan()}>
+            {scanning ? 'Scanning…' : 'Scan for readers'}
+          </button>
+        ) : null}
       </header>
 
+      {scanResult ? (
+        <p className="rounded-md border border-subtle bg-panel-sunken p-2 text-caption text-ink-muted">{scanResult}</p>
+      ) : null}
+
       {topology === null ? (
-        <p className="text-sm text-ink-muted">Loading…</p>
+        <p className="text-caption text-ink-muted">Loading…</p>
       ) : (
         <>
+          {/* The count a shop actually asks for, and then the ones that explain the difference.
+              Counted on the server so two screens cannot answer it differently. */}
+          {topology.summary && topology.summary.total > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-body font-semibold">
+                {topology.summary.connected} of {topology.summary.total} reader
+                {topology.summary.total === 1 ? '' : 's'} connected
+              </span>
+
+              {(['Error', 'Offline', 'Discovered', 'Disabled'] as const)
+                .map((state) => ({
+                  state,
+                  count: {
+                    Error: topology.summary?.error ?? 0,
+                    Offline: topology.summary?.offline ?? 0,
+                    Discovered: topology.summary?.discovered ?? 0,
+                    Disabled: topology.summary?.disabled ?? 0,
+                  }[state],
+                }))
+                .filter((entry) => entry.count > 0)
+                .map((entry) => (
+                  <span
+                    key={entry.state}
+                    title={STATE_LABELS[entry.state].hint}
+                    className={cn('pos-badge tabular-nums', STATE_LABELS[entry.state].tone)}
+                  >
+                    {entry.count} {STATE_LABELS[entry.state].label.toLowerCase()}
+                  </span>
+                ))}
+            </div>
+          ) : null}
+
           {/* Machines. Liveness is a property of the machine, so it is stated once here rather than
               repeated against every station it happens to serve. */}
           <div>
             <h3 className="text-body font-semibold">Machines</h3>
 
             {topology.devices.length === 0 ? (
-              <p className="mt-1 text-sm text-ink-muted">
+              <p className="mt-1 text-caption text-ink-muted">
                 None yet. A machine registers itself the first time its agent checks in.
               </p>
             ) : (
@@ -217,7 +404,7 @@ export function RfidTopologyTab({
           {/* The count is stated because an unassigned antenna reads nothing and says nothing at the
               till — it is the most common commissioning mistake and the hardest to spot from a list. */}
           {unassigned.length > 0 ? (
-            <p className="rounded-md border border-subtle bg-panel-sunken p-2 text-xs text-ink-muted">
+            <p className="rounded-md border border-subtle bg-panel-sunken p-2 text-caption text-ink-muted">
               {unassigned.length} antenna(s) have no till assigned and will read nothing:{' '}
               {unassigned.slice(0, 8).join(', ')}
               {unassigned.length > 8 ? '…' : ''}
@@ -229,9 +416,10 @@ export function RfidTopologyTab({
 
             {topology.readers.length === 0 ? (
               <div className="mt-1 flex flex-col gap-2">
-                <p className="text-sm text-ink-muted">
-                  No readers registered. If this shop already had a reader configured under Hardware,
-                  bring it across — it keeps working exactly as it does now, on antenna 1.
+                <p className="text-caption text-ink-muted">
+                  No readers registered. Scan for readers above if a till on this network has the agent
+                  installed. If this shop already had a reader configured under Hardware, bring it
+                  across instead — it keeps working exactly as it does now, on antenna 1.
                 </p>
 
                 {canWrite ? (
@@ -243,7 +431,7 @@ export function RfidTopologyTab({
                     </div>
 
                     {nothingToBringAcross ? (
-                      <p className="rounded-md border border-subtle bg-panel-sunken p-2 text-xs text-ink-muted">
+                      <p className="rounded-md border border-subtle bg-panel-sunken p-2 text-caption text-ink-muted">
                         {nothingToBringAcross}
                       </p>
                     ) : null}
@@ -255,13 +443,29 @@ export function RfidTopologyTab({
                 {topology.readers.map((reader) => (
                   <div key={reader.id} className="rounded-md border border-subtle p-3">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="font-semibold">{reader.readerKey}</span>
-                      <span className="text-xs text-ink-muted">
+                      <span className="flex items-center gap-2">
+                        <span className="font-semibold">{reader.readerKey}</span>
+                        {STATE_LABELS[reader.state] ? (
+                          <span
+                            title={STATE_LABELS[reader.state].hint}
+                            className={cn('pos-badge', STATE_LABELS[reader.state].tone)}
+                          >
+                            {STATE_LABELS[reader.state].label}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span className="text-caption text-ink-muted">
                         {reader.protocol} · {reader.host}:{reader.port}
                         {reader.serialNumber ? ` · serial ${reader.serialNumber}` : ' · no serial reported'}
                         {reader.deviceKey ? ` · driven by ${reader.deviceKey}` : ' · not assigned to a machine'}
                       </span>
                     </div>
+
+                    {/* Said once, under the reader it applies to. A state on its own tells somebody
+                        that a reader is down; this tells them which end of the shop to walk to. */}
+                    {reader.state !== 'Connected' && STATE_LABELS[reader.state] ? (
+                      <p className="mt-1 text-caption text-ink-muted">{STATE_LABELS[reader.state].hint}</p>
+                    ) : null}
 
                     <table className="pos-table mt-2">
                       <thead>

@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Retail25.Devices.Rfid;
 using Retail25.TerminalAgent;
 using Retail25.TerminalAgent.LocalApi;
 using Retail25.TerminalAgent.Peripherals;
@@ -69,6 +70,11 @@ builder.Services.AddSingleton<IDeviceFactory>(provider => new DeviceFactory(
 
 builder.Services.AddSingleton<PeripheralCoordinator>();
 
+// Asks a candidate address whether it is a reader, by speaking the protocol to it. Separate from
+// discovery so a sweep can be tested without hardware, and so the one place that decides "this is a
+// reader" is the one place that knows how to ask.
+builder.Services.AddSingleton<IReaderIdentityProbe, ReaderIdentityProbe>();
+
 // Finds the reader when it is not where the profile says. A shop's reader address is a DHCP lease,
 // not a property of the software.
 builder.Services.AddSingleton<ReaderDiscovery>();
@@ -78,6 +84,11 @@ builder.Services.AddSingleton<ReaderDiscovery>();
 builder.Services.AddSingleton<RfidReaderService>();
 builder.Services.AddHostedService(provider => provider.GetRequiredService<RfidReaderService>());
 builder.Services.AddHostedService<TagFlushService>();
+
+// Sweeps this machine's own network for readers and reports them. A singleton as well as a hosted
+// service so the loopback API can offer "scan now" instead of making somebody wait for the timer.
+builder.Services.AddSingleton<ReaderDiscoveryService>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<ReaderDiscoveryService>());
 builder.Services.AddHostedService<HeartbeatService>();
 builder.Services.AddHostedService<ProfileRefreshService>();
 builder.Services.AddHostedService<AgentStartupService>();

@@ -18,6 +18,26 @@ public interface IRfidNotifier
 
     /// <summary>Reader health, so a screen can say "not reading" rather than showing a still list.</summary>
     Task ReaderStatusAsync(long locationId, long stationId, RfidReaderStatus status, CancellationToken ct = default);
+
+    /// <summary>
+    /// The set of readers, or the state of one of them, has changed.
+    /// <para>
+    /// Carries no payload beyond the reason on purpose. The topology screen is permission-checked and
+    /// reads its own view; pushing the rows down this channel would mean two shapes of the same data
+    /// and a hub that has to decide what a watcher is allowed to see. This says "look again", and the
+    /// watcher looks through the endpoint that already answers that question properly.
+    /// </para>
+    /// <para>
+    /// Sent to the location rather than a station because a reader being discovered belongs to no
+    /// till — that is the entire point of the antenna model — and the audience is an administrator's
+    /// settings page, not a checkout.
+    /// </para>
+    /// </summary>
+    /// <param name="reason">
+    /// What moved: <c>discovery</c>, <c>reader</c> or <c>assignment</c>. Shown to nobody; it exists so
+    /// a watcher can choose how loudly to react and so a log says why a refresh happened.
+    /// </param>
+    Task TopologyChangedAsync(long locationId, string reason, CancellationToken ct = default);
 }
 
 /// <summary>

@@ -87,6 +87,44 @@ public sealed class AgentOptions
     public bool DisablePeripherals { get; set; }
 
     /// <summary>
+    /// Whether this machine sweeps its own network looking for readers.
+    ///
+    /// <para>
+    /// On by default, because the alternative is an administrator typing an IP address for every
+    /// reader in the shop and typing them again when the router reboots. A sweep runs on a slow
+    /// clock and skips readers that are already in use, so the cost is a few hundred short
+    /// connections every quarter of an hour.
+    /// </para>
+    /// <para>
+    /// Worth turning off on a machine that shares a network with something that treats connection
+    /// attempts as an intrusion, or where the readers are deliberately pinned to fixed addresses and
+    /// nothing should be looking for others. Readers already registered keep working either way —
+    /// this governs finding new ones, not driving known ones.
+    /// </para>
+    /// </summary>
+    public bool DiscoverReaders { get; set; } = true;
+
+    /// <summary>
+    /// Extra ports a sweep should try, beyond the ones the shop's own readers are already known to
+    /// use.
+    ///
+    /// <para>
+    /// A machine that has been told about its readers sweeps the ports those readers answer on, and
+    /// needs nothing here. This is for the machine that has been told nothing yet — the first agent
+    /// in a new shop, where the whole point is that nobody has typed an address. Without a starting
+    /// guess the first sweep would search the placeholder port the agent ships with and find nothing,
+    /// on exactly the installation where discovery is supposed to do the work.
+    /// </para>
+    /// <para>
+    /// The defaults are the two this estate actually uses: 4001 is the serial-to-Ethernet bridge the
+    /// UHF readers sit behind, 5084 is the registered LLRP port. Both are a starting guess and
+    /// nothing more — a sweep still proves what answered by speaking the protocol to it, so a wrong
+    /// port costs a connect attempt rather than a wrong reader.
+    /// </para>
+    /// </summary>
+    public IList<int> DiscoveryPorts { get; } = [4001, 5084];
+
+    /// <summary>
     /// The configured station id as a number, or 0 when it is missing or not a number.
     /// <para>
     /// Zero rather than throwing: a till whose configuration file has a typo should log that it is
