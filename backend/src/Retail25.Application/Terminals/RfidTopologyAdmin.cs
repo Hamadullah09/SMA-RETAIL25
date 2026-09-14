@@ -243,7 +243,7 @@ public sealed class RfidTopologyAdminHandlers
                     r.IsEnabled,
                     r.LastSeen,
                     antennas,
-                    StateOf(r, driver, driverOnline, heldByServer),
+                    StateOf(r, driver, driverOnline, heldByServer, mapped.Exists(a => a.IsEnabled)),
                     driverOnline);
             })
             .ToList();
@@ -307,7 +307,8 @@ public sealed class RfidTopologyAdminHandlers
         RfidReader reader,
         Device? driver,
         bool driverOnline,
-        Retail25.Application.Rfid.ReaderConnectionState? heldByServer)
+        Retail25.Application.Rfid.ReaderConnectionState? heldByServer,
+        bool hasAntennaInService)
     {
         if (!reader.IsEnabled)
         {
@@ -319,7 +320,18 @@ public sealed class RfidTopologyAdminHandlers
             return session.Connected ? ReaderState.Connected : ReaderState.Error;
         }
 
-        if (reader.DeviceId is null)
+        // Nobody has pointed an antenna at a till yet, so nothing drives it and nothing should.
+        //
+        // This has to be tested before the agent questions below, and testing it after them was a
+        // bug that reached a live shop: a reader that had just been discovered showed "Not answering
+        // - check power, cable and switch port" about hardware that was answering perfectly, because
+        // an unassigned reader is one an agent correctly declines to open a session to.
+        //
+        // It also made Discovered unreachable. That state keyed on the reader having no machine,
+        // and discovery stamps the machine on the row the moment it registers one — so the state
+        // meant for "found, waiting to be commissioned" could never be the answer for a reader that
+        // had just been found.
+        if (!hasAntennaInService || reader.DeviceId is null)
         {
             return ReaderState.Discovered;
         }

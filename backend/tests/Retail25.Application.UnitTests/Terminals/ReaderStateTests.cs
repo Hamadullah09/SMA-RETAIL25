@@ -67,11 +67,17 @@ public sealed class ReaderStateTests
     /// How long ago the machine last reported holding the reader. Equal to <paramref name="beatAgo"/>
     /// means it held it at that check-in; larger means it has checked in since without it.
     /// </param>
+    /// <param name="commissioned">
+    /// Whether an antenna has been pointed at a till. False is the state a reader arrives in, and it
+    /// outranks every liveness question below it: nothing drives a reader that routes nowhere, so
+    /// asking whether the agent is holding it would report a fault about working hardware.
+    /// </param>
     private static async Task<RfidReader> ReaderDrivenByAgentAsync(
         ApplicationDbContext db,
         TimeSpan beatAgo,
         TimeSpan? seenAgo,
-        string key = "RFID-001")
+        string key = "RFID-001",
+        bool commissioned = true)
     {
         var device = Device.Create(LocationId, $"PC-{key}", "Counter PC").Value;
         device.LastHeartbeat = Now - beatAgo;
@@ -84,6 +90,17 @@ public sealed class ReaderStateTests
         reader.LastSeen = seenAgo is { } ago ? Now - ago : null;
         db.RfidReaders.Add(reader);
         await db.SaveChangesAsync();
+
+        if (commissioned)
+        {
+            var station = Station.Create(LocationId, $"{db.Stations.Count() + 1:000}", $"Till for {key}").Value;
+            db.Stations.Add(station);
+            await db.SaveChangesAsync();
+
+            db.ReaderAntennaAssignments.Add(
+                ReaderAntennaAssignment.Create(reader.Id, 1, station.Id).Value);
+            await db.SaveChangesAsync();
+        }
 
         return reader;
     }
@@ -203,6 +220,49 @@ public sealed class ReaderStateTests
     /// The other deployment. No agent exists anywhere, and the API on the shop's own network holds
     /// the socket itself — so the screen must not report every reader in the building as offline.
     /// </summary>
+    /// <summary>
+    /// The state a freshly discovered reader is actually in, and the one that reached a live shop
+    /// wearing the wrong label.
+    /// <para>
+    /// Discovery stamps the driving machine on the row as it registers it, so "has no machine" can
+    /// never be what marks a new reader out. What marks it out is that no antenna points at a till
+    /// yet — which is also why no agent opens a session to it, and why asking whether one is holding
+    /// it produces a fault report about hardware that is answering perfectly.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_registered_reader_with_no_antenna_assigned_is_discovered_not_broken()
+    {
+        var harness = await HarnessAsync();
+
+        await ReaderDrivenByAgentAsync(
+            harness.Db,
+            beatAgo: TimeSpan.FromSeconds(2),
+            seenAgo: null,
+            commissioned: false);
+
+        (await SingleRowAsync(harness)).State.Should().Be(
+            ReaderState.Discovered,
+            "it was found and registered; it is waiting for somebody to point an antenna at a till");
+    }
+
+    /// <summary>
+    /// And the moment an antenna is assigned, the liveness questions start applying again.
+    /// </summary>
+    [Fact]
+    public async Task Assigning_an_antenna_puts_the_reader_back_under_the_liveness_rules()
+    {
+        var harness = await HarnessAsync();
+
+        await ReaderDrivenByAgentAsync(
+            harness.Db,
+            beatAgo: TimeSpan.FromSeconds(2),
+            seenAgo: TimeSpan.FromSeconds(2),
+            commissioned: true);
+
+        (await SingleRowAsync(harness)).State.Should().Be(ReaderState.Connected);
+    }
+
     [Fact]
     public async Task A_reader_this_server_is_holding_itself_is_connected_with_no_agent()
     {
