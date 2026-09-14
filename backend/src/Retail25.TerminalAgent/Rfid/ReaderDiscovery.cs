@@ -107,7 +107,10 @@ public sealed class ReaderDiscovery
             return [];
         }
 
-        var listening = await ListeningAsync(candidates, port, ct).ConfigureAwait(false);
+        var listening = await ListeningAsync(
+            [.. candidates.Select(address => address.ToString())],
+            port,
+            ct).ConfigureAwait(false);
 
         _logger.LogInformation(
             "Swept {Candidates} addresses on port {Port}: {Listening} answered, asking each whether it is a reader",
@@ -233,18 +236,48 @@ public sealed class ReaderDiscovery
             port,
             candidates.Count);
 
-        var found = await FirstAnswerAsync(candidates, port, ct).ConfigureAwait(false);
+        // Every address that answers, and then proof from each in turn - not the first open port.
+        //
+        // Taking the first thing that accepted a connection is what this method used to do, and on a
+        // till with one reader it was harmless: a wrong guess failed the handshake, the session ended
+        // and the search ran again. With two readers it is destructive. A shop had a reader at .178
+        // and a serial bridge at .179 whose reader board was dead; the bridge accepted every
+        // connection instantly. When .178 was momentarily busy, this method handed .179 back as
+        // "the reader", the session reported it as the address it had found, and the server wrote it
+        // into the row. One reader had taken the other's identity, both then fought over one socket,
+        // and neither worked until somebody repaired the database by hand.
+        //
+        // So an address is only adopted once it has answered a firmware query. Everything else here
+        // is unchanged: the configured address is still tried first and still on a cheap knock,
+        // because that is an address somebody already believes.
+        var listening = await ListeningAsync(
+            [.. candidates.Select(a => a.ToString())],
+            port,
+            ct).ConfigureAwait(false);
 
-        if (found is not null)
+        _logger.LogInformation(
+            "{Count} address(es) answered on port {Port}; asking each whether it is a reader",
+            listening.Count,
+            port);
+
+        foreach (var candidate in listening)
         {
-            _logger.LogInformation("Found something listening on {Host}:{Port}; trying it as the reader", found, port);
-        }
-        else
-        {
-            _logger.LogWarning("Nothing on this till's networks is listening on port {Port}", port);
+            if (await _probe.ProbeAsync(candidate, port, ct).ConfigureAwait(false) is not null)
+            {
+                _logger.LogInformation("{Host}:{Port} identified itself as a reader", candidate, port);
+                return candidate;
+            }
+
+            _logger.LogDebug(
+                "{Host}:{Port} accepted a connection but is not a reader; not adopting it",
+                candidate,
+                port);
         }
 
-        return found;
+        _logger.LogWarning(
+            "Nothing on this till's networks answered the reader protocol on port {Port}", port);
+
+        return null;
     }
 
     /// <summary>

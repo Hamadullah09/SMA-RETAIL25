@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Common;
 using Retail25.Domain.Common;
@@ -63,12 +64,18 @@ public sealed class DeviceRegistryHandlers : IRequestHandler<ReportDeviceStatusC
     private readonly IApplicationDbContext _db;
     private readonly IDateTime _clock;
     private readonly IRfidNotifier _notifier;
+    private readonly ILogger<DeviceRegistryHandlers> _logger;
 
-    public DeviceRegistryHandlers(IApplicationDbContext db, IDateTime clock, IRfidNotifier notifier)
+    public DeviceRegistryHandlers(
+        IApplicationDbContext db,
+        IDateTime clock,
+        IRfidNotifier notifier,
+        ILogger<DeviceRegistryHandlers> logger)
     {
         _db = db;
         _clock = clock;
         _notifier = notifier;
+        _logger = logger;
     }
 
     public async Task<Result<DeviceStatusDto>> Handle(ReportDeviceStatusCommand request, CancellationToken ct)
@@ -244,7 +251,46 @@ public sealed class DeviceRegistryHandlers : IRequestHandler<ReportDeviceStatusC
 
                 if (report.Host is { } host && host.Length > 0 && IsWorthLearning(host))
                 {
-                    reader.MoveTo(host, report.Port ?? reader.Port);
+                    var port = report.Port ?? reader.Port;
+
+                    // Never onto an address another reader already occupies.
+                    //
+                    // This is the database refusing to record something physically impossible: one
+                    // socket, two readers. A shop hit it — a till that could not reach its reader
+                    // fell back to searching, adopted the first address that accepted a connection,
+                    // and reported that as where it had found itself. The address belonged to
+                    // another reader. Both rows ended up on it, both sessions then fought over the
+                    // one socket, and neither worked again until somebody edited the row by hand.
+                    //
+                    // The agent has been fixed not to wander like that, but the fix that matters is
+                    // here: this is the layer that persists, and a wrong address written once
+                    // outlives every restart. Refusing costs nothing when the report is honest —
+                    // the reader is already at that address — and stops a self-inflicted outage when
+                    // it is not.
+                    var taken = await _db.RfidReaders.AnyAsync(
+                        r => r.LocationId == request.LocationId
+                             && r.Id != reader.Id
+                             && r.Host == host
+                             && r.Port == port,
+                        ct);
+
+                    if (taken)
+                    {
+                        _logger.LogWarning(
+                            "{DeviceKey} reported reader {ReaderKey} at {Host}:{Port}, but another reader "
+                            + "is already recorded there. Keeping {Existing}:{ExistingPort} — two readers "
+                            + "cannot share one socket.",
+                            device.DeviceKey,
+                            reader.ReaderKey,
+                            host,
+                            port,
+                            reader.Host,
+                            reader.Port);
+                    }
+                    else
+                    {
+                        reader.MoveTo(host, port);
+                    }
                 }
             }
 

@@ -39,6 +39,28 @@ internal sealed class FakeReaderIdentityProbe : IReaderIdentityProbe
         return this;
     }
 
+    /// <summary>
+    /// Treats anything that answers the port as a reader.
+    /// <para>
+    /// For the tests that are about <em>which interfaces get searched</em> rather than about
+    /// identification: they start a plain socket and need the sweep to accept it, so the protocol
+    /// question has to answer yes for every address.
+    /// </para>
+    /// </summary>
+    public FakeReaderIdentityProbe EverythingIsAReader()
+    {
+        Default = new ReaderIdentity(
+            Host: string.Empty,
+            Port: 0,
+            Protocol: ReaderProtocol.UhfSerial,
+            SerialNumber: null,
+            FirmwareVersion: "8.2",
+            AntennaCount: 4,
+            AntennaCountReported: false);
+
+        return this;
+    }
+
     /// <summary>An address that accepts a connection but is not a reader — a printer, a bridge, a scale.</summary>
     public FakeReaderIdentityProbe NotAReader(string host)
     {

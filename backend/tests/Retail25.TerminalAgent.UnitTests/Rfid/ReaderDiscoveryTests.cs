@@ -55,8 +55,11 @@ public sealed class ReaderDiscoveryTests
         }
     }
 
+    /// <summary>
+    /// A reader that has moved is re-found — but only once it has said what it is.
+    /// </summary>
     [Fact]
-    public async Task A_listener_on_this_machine_is_found_when_the_configured_address_is_wrong()
+    public async Task A_reader_on_this_machine_is_found_when_the_configured_address_is_wrong()
     {
         var listener = Listening(out var port);
 
@@ -65,7 +68,8 @@ public sealed class ReaderDiscoveryTests
             // 192.0.2.0/24 is TEST-NET-1 (RFC 5737): reserved for documentation and guaranteed not to
             // be routable, so this stands in for a stale DHCP lease without depending on the address
             // being free on whatever network the test happens to run on.
-            var found = await Discovery().FindAsync("192.0.2.1", port, CancellationToken.None);
+            var found = await Discovery(new FakeReaderIdentityProbe().EverythingIsAReader())
+                .FindAsync("192.0.2.1", port, CancellationToken.None);
 
             var searchable = LocalAddresses()
                 .Where(address => address != "127.0.0.1" && !address.StartsWith("169.254", StringComparison.Ordinal))
@@ -81,6 +85,40 @@ public sealed class ReaderDiscoveryTests
 
             found.Should().NotBe("192.0.2.1", "the unreachable configured address must not be handed back as if it answered");
             searchable.Should().Contain(found!, "the only listener on this port is the one this test started");
+        }
+        finally
+        {
+            listener.Stop();
+        }
+    }
+
+    /// <summary>
+    /// The rule this method used to break, and the outage it caused.
+    ///
+    /// <para>
+    /// Re-finding a moved reader used to adopt the first address that accepted a TCP connection. On a
+    /// till with one reader that was survivable — a wrong guess failed the handshake and the search
+    /// ran again. With two it was not: a shop had a reader on one address and a serial bridge with a
+    /// dead board on another, and the dead bridge accepted every connection instantly. The moment the
+    /// real reader was briefly busy, its session adopted the bridge's address, reported it as where
+    /// it had found itself, and the server wrote it into the row. One reader had taken the other's
+    /// identity, both then fought over a single socket, and neither read a tag again until the
+    /// database was edited by hand.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_listener_that_is_not_a_reader_is_never_adopted()
+    {
+        var listener = Listening(out var port);
+
+        try
+        {
+            // The probe refuses everything, which is exactly what a bridge with nothing behind it
+            // does: the socket opens, the firmware query goes out, and nothing comes back.
+            var found = await Discovery().FindAsync("192.0.2.1", port, CancellationToken.None);
+
+            found.Should().BeNull(
+                "an open port is not a reader, and adopting one lets a session steal another reader's address");
         }
         finally
         {

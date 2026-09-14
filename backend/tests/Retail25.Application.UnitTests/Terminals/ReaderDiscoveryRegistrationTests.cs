@@ -1,5 +1,6 @@
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Retail25.Application.Abstractions;
 using Retail25.Application.Terminals;
@@ -243,6 +244,61 @@ public sealed class ReaderDiscoveryRegistrationTests
 
         result.Value.Added.Should().Be(0);
         (await db.RfidReaders.CountAsync()).Should().Be(1);
+    }
+
+    /// <summary>
+    /// Two readers may never be recorded on one address, however confidently a till reports it.
+    /// <para>
+    /// One socket, two readers, is physically impossible — and a shop reached it. A till that could
+    /// not reach its reader fell back to searching, adopted the first address that accepted a
+    /// connection, and reported that as where it had found itself. The address belonged to another
+    /// reader. Both rows landed on it, both sessions fought over the one socket, and neither read a
+    /// tag again until somebody edited the database.
+    /// </para>
+    /// <para>
+    /// The agent no longer wanders like that, but this is the layer that persists: a wrong address
+    /// written once outlives every restart, so it is refused here as well.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_reader_is_not_moved_onto_an_address_another_reader_already_holds()
+    {
+        var (db, handler, _) = await HarnessAsync();
+
+        await handler.Handle(
+            Report(Sighting("192.168.0.178", "AAA"), Sighting("192.168.0.179", "BBB")),
+            CancellationToken.None);
+
+        var clock = Substitute.For<IDateTime>();
+        clock.Now.Returns(DateTimeOffset.UtcNow);
+
+        var registry = new DeviceRegistryHandlers(
+            db,
+            clock,
+            Substitute.For<IRfidNotifier>(),
+            NullLogger<DeviceRegistryHandlers>.Instance);
+
+        var keys = await db.RfidReaders.OrderBy(r => r.ReaderKey).Select(r => r.ReaderKey).ToListAsync();
+
+        // The second reader claims it found itself at the first one's address.
+        await registry.Handle(
+            new ReportDeviceStatusCommand(
+                LocationId,
+                DeviceKey,
+                "PC",
+                null,
+                null,
+                "0.1",
+                [new ReaderHealthReport(keys[1], null, Connected: true, "192.168.0.178", 4001)]),
+            CancellationToken.None);
+
+        var readers = await db.RfidReaders.OrderBy(r => r.ReaderKey).ToListAsync();
+
+        readers[1].Host.Should().Be(
+            "192.168.0.179",
+            "the address was already taken, so the claim is refused rather than written");
+
+        readers.Select(r => r.Host).Should().OnlyHaveUniqueItems();
     }
 
     [Fact]
