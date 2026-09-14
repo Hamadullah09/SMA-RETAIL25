@@ -40,7 +40,27 @@ public sealed record ReaderDiscoveryOutcome(
 /// connection state, which knows the difference.
 /// </para>
 /// </summary>
-[RequiresPermission(PermissionKeys.Terminals.Register)]
+/// <remarks>
+/// <para>
+/// <c>terminals.operate</c> rather than <c>terminals.register</c>, and the distinction is the whole
+/// security argument. Register is what a human needs to commission a reader profile — it also guards
+/// rewriting one, so granting it to every till in the estate to let them report a sweep would hand
+/// each of them the ability to edit the others' hardware settings. Operate is what a device already
+/// holds to report about itself, and this is a device reporting about itself.
+/// </para>
+/// <para>
+/// The precedent is <see cref="ReportDeviceStatusCommand"/>, which carries the same permission and
+/// creates a <c>Device</c> row on first contact. Creating an <c>RfidReader</c> row is the same act at
+/// the same trust level, and it is deliberately inert: a discovered reader arrives with no antenna
+/// assignments, so it routes nothing anywhere until an administrator points one at a till. The worst
+/// a compromised agent achieves is a row in a list somebody has to act on.
+/// </para>
+/// <para>
+/// Found the hard way: the live till swept correctly, identified its reader, and was refused 403 by
+/// this endpoint every fifteen minutes, logging a warning nobody was reading.
+/// </para>
+/// </remarks>
+[RequiresPermission(PermissionKeys.Terminals.Operate)]
 public sealed record RecordReaderDiscoveryCommand(
     long LocationId,
     string DeviceKey,
