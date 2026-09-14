@@ -1,4 +1,4 @@
-﻿using System.Net.Sockets;
+using System.Net.Sockets;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging;
 using Retail25.Contracts.Terminals;
@@ -87,13 +87,35 @@ public sealed class UhfSerialRfidReader : IRfidReader
 
     public string Description { get; private set; } = "UHF Serial";
 
-    public bool IsConnected => _connection?.IsOpen == true;
+    /// <summary>Set once the device has answered a firmware query. See <see cref="IsConnected"/>.</summary>
+    private bool _proved;
+
+    /// <summary>
+    /// Whether this reader is holding a session it has actually proved.
+    /// <para>
+    /// An open connection is not enough, and the paragraph below <see cref="ProveItIsAReaderAsync"/>
+    /// explains why at length — yet this property went on meaning "the socket is open", which left a
+    /// window between opening one and finding out what was on the end of it. Everything asking "is
+    /// the reader up" answers from here, and a heartbeat landing in that window reports a device that
+    /// is about to be rejected as a working reader.
+    /// </para>
+    /// <para>
+    /// A shop saw it: a bridge whose reader board is dead accepts every connection instantly, so its
+    /// session opened, was refused by the firmware query a second later, and retried — forever. Every
+    /// few beats a check-in caught the open moment, and the settings screen showed that reader as
+    /// Connected with a fresh timestamp while it had never answered a single frame.
+    /// </para>
+    /// </summary>
+    public bool IsConnected => _connection?.IsOpen == true && _proved;
 
     public async Task ConnectAsync(ReaderProfileContract profile, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(profile);
 
         _profile = profile;
+
+        // Cleared before anything opens, so a reconnect cannot inherit the previous session's proof.
+        _proved = false;
 
         // A socket or a COM port, decided by what the profile's Host looks like. The same reader
         // speaks the same frames either way; only the lead differs, which is why everything below
@@ -115,6 +137,9 @@ public sealed class UhfSerialRfidReader : IRfidReader
         _pump = Task.Run(() => PumpAsync(_lifetimeCts.Token), CancellationToken.None);
 
         await ProveItIsAReaderAsync(ct);
+
+        // Only now. Everything above this line is a device that has not yet said what it is.
+        _proved = true;
 
         _logger.LogInformation(
             "Connected to {Reader}, inventorying antennas {Antennas}",
@@ -230,6 +255,8 @@ public sealed class UhfSerialRfidReader : IRfidReader
     /// </summary>
     private async Task TearDownAsync()
     {
+        _proved = false;
+
         if (_lifetimeCts is not null)
         {
             await _lifetimeCts.CancelAsync();
