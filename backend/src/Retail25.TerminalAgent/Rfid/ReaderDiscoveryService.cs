@@ -160,7 +160,21 @@ public sealed class ReaderDiscoveryService : BackgroundService
 
         if (readers.Count > 0)
         {
-            await ReportAsync(readers, ct).ConfigureAwait(false);
+            try
+            {
+                await ReportAsync(readers, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                // The sweep is the expensive half and it has already succeeded. Losing its result
+                // because the server happened to be unreachable would turn a working scan into an
+                // error on the one screen somebody opens when the network is misbehaving — and the
+                // next sweep reports these readers again anyway.
+                _logger.LogWarning(
+                    ex,
+                    "Found {Count} reader(s) but could not report them; they will be reported again on the next sweep",
+                    readers.Count);
+            }
         }
 
         return readers;

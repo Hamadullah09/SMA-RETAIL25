@@ -357,6 +357,10 @@ curl -s -X POST http://127.0.0.1:8478/discovery/scan
   four, and never lets a fallback narrow a known count.
 - **A reader may report no serial number.** Those are identified by address, which is weaker, and is
   recorded in the model rather than hidden.
+- **An identifier of all `0xFF` or all `0x00` is not a serial number.** It is the unwritten value of
+  a field nobody has programmed, and a live unit answers exactly that:
+  `A0 0F 10 68 FF FF FF FF FF FF FF FF FF FF FF FF E5`. It is refused, because a shop's readers all
+  leave the factory together and a shared fake serial is worse than no serial — see §12.
 - **Discovery sweeps every IPv4 network the machine is attached to**, excluding link-local
   `169.254.x`. On a machine with both a wired shop LAN and Wi-Fi that is two /24s.
 
@@ -368,16 +372,41 @@ query. The API's own reader session reported the same thing independently
 (`opened but did not answer a firmware query, so it is not a reader`). That is the intended
 behaviour and it is exactly the case the brief asks for — an open port is not a reader.
 
-**Not verified on real hardware:** a *positive* identification, because the reader was silent
-throughout. The serial number, firmware string and antenna count paths are covered by unit tests and
-use the same `UhfSerialCodec` framing that the working reader session uses, but they have not been
-seen against a powered, idle D2184. §13 is the procedure for confirming that.
+**Positive identification verified on real hardware, 14 September 2026.** With two readers on a
+TP-Link 8-port switch, a sweep answered:
+
+```
+Swept 508 addresses on port 4001: 2 answered, asking each whether it is a reader
+Discovery found 1 reader(s) on port 4001: unidentified@192.168.0.178
+```
+
+```json
+{"found":1,"readers":[{"host":"192.168.0.178","port":4001,"protocol":"UhfSerial",
+ "serialNumber":null,"firmwareVersion":"6.9","antennaCount":4,"antennaCountReported":false}]}
+```
+
+Both halves in one sweep: the reader at `.178` proved itself and reported firmware 6.9, while the
+bridge at `.179` answered TCP and was refused because nothing behind it spoke the protocol. The
+antenna count is flagged as an assumption because that unit answers a single shared power byte.
+
+Two defects surfaced only because real hardware was involved, and both are fixed:
+
+1. The unit answers a **blank identifier** — twelve bytes of `0xFF`. That was being formatted as the
+   serial `FFFFFFFFFFFFFFFFFFFFFFFF`. Since every reader in a shop is blank on the same day, they
+   would all have shared one identity: the sweep would have deduplicated them into a single device,
+   and registration would have read the second as the first one changing address and handed it the
+   first one's antenna assignments.
+2. A sweep whose findings could not be reported **threw**, so the manual scan returned HTTP 500 and
+   discarded a successful sweep — on exactly the screen somebody opens when the network is unwell.
 
 ---
 
 ## 12. Known limitations
 
-1. **The positive identification path is untested against live hardware.** See above.
+1. **Readers that report no serial are identified by address alone.** Unprogrammed units are the
+   normal case out of the box (§11), so this is the path most new shops take, not an edge case. Two
+   such readers stay distinct only while they hold distinct addresses — which is exactly what a
+   duplicate factory IP takes away. Programme the identifier, or assign fixed addresses.
 2. **Server-held readers are matched to topology rows by `host:port`.** The server-hosted path drives
    the older `ReaderProfile` table, which has no serial number column; host and port are the only
    fact both tables hold. Two readers behind one NAT address would be indistinguishable. Agent-held

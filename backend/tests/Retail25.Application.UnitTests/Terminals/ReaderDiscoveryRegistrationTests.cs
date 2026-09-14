@@ -203,6 +203,48 @@ public sealed class ReaderDiscoveryRegistrationTests
         (await db.RfidReaders.SingleAsync()).AntennaCount.Should().Be(8);
     }
 
+    /// <summary>
+    /// Two readers that report no serial at all must stay two readers.
+    /// <para>
+    /// This is the shape a new shop actually arrives in. Readers leave the factory with the identifier
+    /// field unwritten, so a pair of them reports nothing rather than something unique, and identity
+    /// falls back to the address. Collapsing them would list one reader where two are screwed to the
+    /// wall, and route one box's reads to the other box's till.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Two_readers_with_no_serial_at_different_addresses_are_two_readers()
+    {
+        var (db, handler, _) = await HarnessAsync();
+
+        var result = await handler.Handle(
+            Report(Sighting("192.168.0.178", null), Sighting("192.168.0.179", null)),
+            CancellationToken.None);
+
+        result.Value.Added.Should().Be(2);
+
+        var readers = await db.RfidReaders.ToListAsync();
+        readers.Should().HaveCount(2);
+        readers.Select(r => r.Host).Should().BeEquivalentTo(["192.168.0.178", "192.168.0.179"]);
+        readers.Select(r => r.ReaderKey).Should().OnlyHaveUniqueItems();
+    }
+
+    /// <summary>
+    /// The other half: a reader with no serial is still followed by address, because that is the only
+    /// identity it has. A second sighting at the same place is the same reader, not a new one.
+    /// </summary>
+    [Fact]
+    public async Task A_reader_with_no_serial_is_recognised_again_at_the_same_address()
+    {
+        var (db, handler, _) = await HarnessAsync();
+
+        await handler.Handle(Report(Sighting("192.168.0.178", null)), CancellationToken.None);
+        var result = await handler.Handle(Report(Sighting("192.168.0.178", null)), CancellationToken.None);
+
+        result.Value.Added.Should().Be(0);
+        (await db.RfidReaders.CountAsync()).Should().Be(1);
+    }
+
     [Fact]
     public async Task Findings_from_a_machine_nobody_registered_are_refused()
     {

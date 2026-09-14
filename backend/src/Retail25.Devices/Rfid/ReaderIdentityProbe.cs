@@ -183,10 +183,31 @@ public sealed class ReaderIdentityProbe : IReaderIdentityProbe
     /// compare against. Trailing zero padding is dropped: the field is fixed width on the wire and
     /// shorter identifiers are zero-filled, so keeping them would make one reader look like two if a
     /// firmware revision ever changed the padding.
+    /// <para>
+    /// An identifier that is entirely <c>0xFF</c> or entirely <c>0x00</c> is refused, and that refusal
+    /// is the most important line in this file. Those are the unwritten values of an identifier field
+    /// nobody has programmed, not a serial number — a reader fresh from the factory answers twelve
+    /// bytes of <c>FF</c>, and a shop's readers are all fresh from the factory at the same time.
+    /// </para>
+    /// <para>
+    /// Accepting it is worse than having no serial at all, because everything downstream trusts a
+    /// serial over an address. Two blank readers would share one identity: the sweep would dedupe them
+    /// into a single device, and registration would read the second as the first one having changed
+    /// address and hand it the first one's antenna assignments. A shop would end up with one reader
+    /// listed, two installed, and reads from the wrong box arriving at a till. Reporting no serial
+    /// falls back to identifying by address — weaker, documented, and honest.
+    /// </para>
     /// </summary>
-    private static string? FormatIdentifier(byte[]? identifier)
+    internal static string? FormatIdentifier(byte[]? identifier)
     {
         if (identifier is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        // Verified against a live D2184-family unit on 14 September 2026, which answered
+        // A0 0F 10 68 FF×12 E5 — a full-width identifier field that has never been written.
+        if (identifier.All(b => b == 0xFF) || identifier.All(b => b == 0x00))
         {
             return null;
         }
