@@ -405,11 +405,38 @@ public sealed class RfidReaderService : BackgroundService
         }
     }
 
-    /// <summary>The reader this control targets, or the only one when a caller did not say.</summary>
+    /// <summary>
+    /// The reader this control targets, or the most useful one when a caller did not say.
+    /// <para>
+    /// A connected session is preferred over merely the first one, and that preference is the whole
+    /// method. <c>FirstOrDefault</c> on a dictionary keyed by reader id returns the lowest id — the
+    /// reader registered longest ago — which on a machine driving several is the least likely to be
+    /// the one somebody is asking about, and is exactly the one still retrying if it has failed.
+    /// </para>
+    /// <para>
+    /// It cost an afternoon on a live shop. Two readers, the older one dead and reconnecting on a
+    /// loop, the newer one holding a good session and inventorying: every diagnostics call answered
+    /// "no reader is connected to this station" while the status endpoint beside it reported the
+    /// reader online, because one reads this dictionary and the other reads the sessions. The screen
+    /// contradicted itself and neither half was lying.
+    /// </para>
+    /// <para>
+    /// Still a single answer to a question that now has several, which is a narrower fix than the
+    /// problem deserves: a machine driving four readers has four sets of diagnostics and this returns
+    /// one. Reporting per reader means changing the contract and the screen that reads it.
+    /// </para>
+    /// </summary>
     private ReaderSession? SessionFor(long? readerId = null)
-        => readerId is { } id
-            ? _sessions.TryGetValue(id, out var found) ? found.Session : null
-            : _sessions.Values.FirstOrDefault()?.Session;
+    {
+        if (readerId is { } id)
+        {
+            return _sessions.TryGetValue(id, out var found) ? found.Session : null;
+        }
+
+        var connected = _sessions.Values.FirstOrDefault(s => s.Session.IsConnected);
+
+        return (connected ?? _sessions.Values.FirstOrDefault())?.Session;
+    }
 
     /// <summary>
     /// What the attached reader reports about itself. Answers even with no reader connected, so a
