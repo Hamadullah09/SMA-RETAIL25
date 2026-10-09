@@ -41,3 +41,11 @@ BenchmarkDotNet.Artifacts/
 # place an IIS pool identity can reliably write. Committing either would publish a credential or a
 # copy of the shop's data.
 App_Data/
+
+# LaTeX build detritus
+docs/software-stack/*.log
+docs/software-stack/*.aux
+docs/software-stack/*.toc
+docs/software-stack/*.lof
+docs/software-stack/*.lot
+docs/software-stack/*.out
