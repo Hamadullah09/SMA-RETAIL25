@@ -49,3 +49,28 @@ docs/software-stack/*.toc
 docs/software-stack/*.lof
 docs/software-stack/*.lot
 docs/software-stack/*.out
+
+# Files that have been sitting loose in the working tree, named here before somebody
+# types `git add -A` into a public repository.
+#
+# SignUpCredientials.txt is one line holding the live administrator's e-mail and
+# password in clear text. It is ignored rather than tidied away because deleting it
+# does not help: the next person to write it down recreates it under the same name.
+# The password itself still has to be changed -- an ignore rule stops it being
+# published, it does not unpublish anything.
+SignUpCredientials.txt
+*Credientials*.txt
+*Credentials*.txt
+
+# Packaged agent builds. Thirty-five megabytes of compiled output that the deploy
+# pipeline does not consume -- the terminal agent is installed on a till by hand -- so
+# committing them bloats every clone for no gain.
+retail25-agent.zip
+till-installer-kit.zip
+
+# Runtime output from a local API run, and the file that parks the site during a
+# deploy. Both are per-run state, not source.
+api-run.log
+api-stdout.log
+api-stderr.log
+app_offline.htm
