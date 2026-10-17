@@ -3,9 +3,13 @@
 Standing up a working database on a machine that has never run this system, using nothing but this
 repository. Written for someone who did not build it.
 
-**No data is copied from anyone's shop.** There is no database dump in this repository and there
-should never be one — §7 explains why. What you get instead is the real schema, the configuration a
-till cannot run without, and a catalogue of invented merchandise.
+**No shop's data is copied by this procedure.** What you get is the real schema, the configuration
+a till cannot run without, and a catalogue of invented merchandise.
+
+If you want a database that already has things in it, there is a sanitised sample at
+[`docs/sample-data/`](../sample-data/README.md) — a real database with every person taken out of
+it. §7 explains the difference between that and a raw backup, and why only one of the two belongs
+in a repository.
 
 ---
 
@@ -174,20 +178,27 @@ current file was made, with `ScriptData` off so no row could be included.
 
 ---
 
-## 7. Why there is no database dump in this repository
+## 7. Why there is no raw backup in this repository
 
-Because a dump of a working shop carries customer names and addresses, accounts-receivable balances,
+A backup of a working shop carries customer names and addresses, accounts-receivable balances,
 staff accounts and their password hashes — and git keeps it for ever. Deleting the file in a later
 commit removes it from the working tree and not from the history, so the exposure outlives the
-mistake by exactly as long as the repository does.
+mistake by exactly as long as the repository does. A private repository changes who is exposed, not
+whether: everyone with access, now and in future, gets the lot.
 
-A private repository changes who is exposed, not whether. Everyone with access to the repository,
-now and in future, gets the lot.
+The sanitised sample in [`docs/sample-data/`](../sample-data/README.md) is a different thing, and
+the difference is not one of degree. It is a copy that had every person removed from it before it
+was ever written to a file — names, addresses, phone numbers, e-mail, PINs, tokens, keys, the audit
+log — by a script committed beside it, so you can check rather than trust. What survives is
+merchandise, stock, tags, prices and sales: the part that makes the system worth looking at and
+identifies nobody.
 
-If someone needs realistic volumes for a demonstration, seed the demo catalogue and sell against it.
-If someone needs *this shop's* data to reproduce a bug, send them the one table, sanitised, outside
-version control — and delete it when the bug is closed.
+So: hand out the sanitised sample freely. Never commit a `.bak`.
 
-The reference machine makes the point by itself: of 170 products in its database, 136 are seeded
-demo rows and the remaining 34 were added by hand during hardware testing, alongside four real user
-accounts. There is no clean line through that database, which is exactly why you do not publish one.
+If someone needs *this shop's* real data to reproduce a bug, send them the one table they need,
+outside version control, and delete it when the bug is closed.
+
+The reference machine shows why you cannot shortcut this by eye: of 170 products in its database,
+136 are seeded demo rows and the other 34 were added during hardware testing, alongside four real
+user accounts and a real customer. There is no clean line through it that a person would reliably
+draw twice — which is the whole argument for a script that draws it the same way every time.
