@@ -1,0 +1,167 @@
+{
+ "file": "scalars.dbf",
+ "header": {
+  "version": 3,
+  "last_update": [
+   26,
+   10,
+   24
+  ],
+  "record_count": 8,
+  "header_length": 225,
+  "record_length": 45,
+  "table_flags": 0,
+  "code_page": 3
+ },
+ "fields": [
+  {
+   "name": "NAME",
+   "type": "C",
+   "length": 12,
+   "decimals": 0
+  },
+  {
+   "name": "PRICE",
+   "type": "N",
+   "length": 9,
+   "decimals": 2
+  },
+  {
+   "name": "QTY",
+   "type": "N",
+   "length": 6,
+   "decimals": 0
+  },
+  {
+   "name": "RATE",
+   "type": "F",
+   "length": 8,
+   "decimals": 3
+  },
+  {
+   "name": "SOLD",
+   "type": "D",
+   "length": 8,
+   "decimals": 0
+  },
+  {
+   "name": "TAXABLE",
+   "type": "L",
+   "length": 1,
+   "decimals": 0
+  }
+ ],
+ "memo_block_size": null,
+ "records_present": 8,
+ "truncated": false,
+ "records": [
+  {
+   "n": 1,
+   "deleted": false,
+   "values": {
+    "NAME": "Plain item  ",
+    "PRICE": "12.5",
+    "QTY": "3",
+    "RATE": "0.125",
+    "SOLD": "2026-10-24",
+    "TAXABLE": true
+   }
+  },
+  {
+   "n": 2,
+   "deleted": false,
+   "values": {
+    "NAME": "Caf\u00e9 \u20ac\u201cq\u201d   ",
+    "PRICE": "-4.05",
+    "QTY": "-17",
+    "RATE": "-0.5",
+    "SOLD": "2024-02-29",
+    "TAXABLE": false
+   }
+  },
+  {
+   "n": 3,
+   "deleted": false,
+   "values": {
+    "NAME": "            ",
+    "PRICE": null,
+    "QTY": null,
+    "RATE": null,
+    "SOLD": null,
+    "TAXABLE": null
+   }
+  },
+  {
+   "n": 4,
+   "deleted": false,
+   "values": {
+    "NAME": "Zeros       ",
+    "PRICE": "0",
+    "QTY": "0",
+    "RATE": "0.5",
+    "SOLD": null,
+    "TAXABLE": null
+   }
+  },
+  {
+   "n": 5,
+   "deleted": false,
+   "values": {
+    "NAME": "Bad values  ",
+    "PRICE": {
+     "invalid": "      12a"
+    },
+    "QTY": {
+     "invalid": "   1 2"
+    },
+    "RATE": {
+     "invalid": "     1e5"
+    },
+    "SOLD": {
+     "invalid": "20261340"
+    },
+    "TAXABLE": {
+     "invalid": "X"
+    }
+   }
+  },
+  {
+   "n": 6,
+   "deleted": false,
+   "values": {
+    "NAME": "Und\u0081ef\u009d     ",
+    "PRICE": "7.1",
+    "QTY": "7",
+    "RATE": "3",
+    "SOLD": {
+     "invalid": "2026 10 "
+    },
+    "TAXABLE": true
+   }
+  },
+  {
+   "n": 7,
+   "deleted": true,
+   "values": {
+    "NAME": "Deleted row ",
+    "PRICE": "1",
+    "QTY": "1",
+    "RATE": "1",
+    "SOLD": "2020-01-01",
+    "TAXABLE": false
+   }
+  },
+  {
+   "n": 8,
+   "deleted": false,
+   "values": {
+    "NAME": "Nul\u0000inside  ",
+    "PRICE": "99999.99",
+    "QTY": "999999",
+    "RATE": "9999.999",
+    "SOLD": "1999-12-31",
+    "TAXABLE": true
+   }
+  }
+ ]
+}

@@ -1,0 +1,31 @@
+diff --git a/src/Runtime/XSharp.Rdd/DbfCdx/Tag/CdxTagLock.prg b/src/Runtime/XSharp.Rdd/DbfCdx/Tag/CdxTagLock.prg
+index 91fcc399..df5c4f32 100644
+--- a/src/Runtime/XSharp.Rdd/DbfCdx/Tag/CdxTagLock.prg
++++ b/src/Runtime/XSharp.Rdd/DbfCdx/Tag/CdxTagLock.prg
+@@ -34,14 +34,24 @@ BEGIN NAMESPACE XSharp.RDD.CDX
+         // Methods for NTX Locking
+         INTERNAL METHOD Slock AS LOGIC
+             var result := SELF:_bag:SLock()
+-            SELF:Header:UpdateWhenNeeded()
++            SELF:_RefreshFromHeader()
+             RETURN result
+ 
+         INTERNAL METHOD Xlock AS LOGIC
+             var result := SELF:_bag:XLock()
+-            SELF:Header:UpdateWhenNeeded()
++            SELF:_RefreshFromHeader()
+             RETURN result
+ 
++        // Local patch (Retail Plus spike): another process may have split this tag and moved its root page.
++        // UpdateWhenNeeded() re-reads the tag header, but the tag kept navigating from its cached _rootPage.
++        PRIVATE METHOD _RefreshFromHeader() AS VOID
++            SELF:Header:UpdateWhenNeeded()
++            IF SELF:_rootPage != SELF:Header:RootPage
++                SELF:_rootPage := SELF:Header:RootPage
++                SELF:ClearStack()
++            ENDIF
++            RETURN
++
+         INTERNAL METHOD UnLock AS LOGIC
+             SELF:_bag:UnLock()
+             RETURN TRUE

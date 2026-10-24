@@ -1,0 +1,11 @@
+<Project>
+  <!-- Settings shared by every project in the solution. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <Company>Retail Plus rewrite</Company>
+    <Product>Retail Plus</Product>
+  </PropertyGroup>
+</Project>

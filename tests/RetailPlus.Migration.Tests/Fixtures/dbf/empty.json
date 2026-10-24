@@ -1,0 +1,28 @@
+{
+ "file": "empty.dbf",
+ "header": {
+  "version": 3,
+  "last_update": [
+   26,
+   10,
+   24
+  ],
+  "record_count": 0,
+  "header_length": 65,
+  "record_length": 16,
+  "table_flags": 0,
+  "code_page": 3
+ },
+ "fields": [
+  {
+   "name": "DEPT",
+   "type": "C",
+   "length": 15,
+   "decimals": 0
+  }
+ ],
+ "memo_block_size": null,
+ "records_present": 0,
+ "truncated": false,
+ "records": []
+}

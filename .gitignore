@@ -1,0 +1,17 @@
+# Build output
+bin/
+obj/
+artifacts/
+TestResults/
+*.user
+.vs/
+.idea/
+__pycache__/
+*.pyc
+
+# Vendor files: the original installer and manual are reference material, not part of this repo
+/Retail52.exe
+/Retail Plus 50.pdf
+
+# Copies of Retail Plus data folders used by spikes and parity tests (contain the vendor's program and sample data)
+/spike-data/

@@ -1,0 +1,129 @@
+{
+ "file": "memo64.dbf",
+ "header": {
+  "version": 245,
+  "last_update": [
+   26,
+   10,
+   24
+  ],
+  "record_count": 6,
+  "header_length": 161,
+  "record_length": 637,
+  "table_flags": 1,
+  "code_page": 3
+ },
+ "fields": [
+  {
+   "name": "PLU",
+   "type": "C",
+   "length": 16,
+   "decimals": 0
+  },
+  {
+   "name": "WEEKLY",
+   "type": "C",
+   "length": 600,
+   "decimals": 0
+  },
+  {
+   "name": "NOTES",
+   "type": "M",
+   "length": 10,
+   "decimals": 0
+  },
+  {
+   "name": "MATRIX",
+   "type": "M",
+   "length": 10,
+   "decimals": 0
+  }
+ ],
+ "memo_block_size": 64,
+ "records_present": 6,
+ "truncated": false,
+ "records": [
+  {
+   "n": 1,
+   "deleted": false,
+   "values": {
+    "PLU": "T100            ",
+    "WEEKLY": "1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00,1.00                                                                                                                                                                                                                                                                                                                                           ",
+    "NOTES": {
+     "type": 1,
+     "text": "Soft cotton shirt.\r\nSecond line.\r\n"
+    },
+    "MATRIX": {
+     "type": 1,
+     "text": "Colour,Size,Fit,|Navy,M,Slim,4.00|Grey,L,Classic,6.00"
+    }
+   }
+  },
+  {
+   "n": 2,
+   "deleted": false,
+   "values": {
+    "PLU": "T200            ",
+    "WEEKLY": "                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ",
+    "NOTES": {
+     "type": 1,
+     "text": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\r\nyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy"
+    },
+    "MATRIX": null
+   }
+  },
+  {
+   "n": 3,
+   "deleted": false,
+   "values": {
+    "PLU": "T300            ",
+    "WEEKLY": "0.00,1.00\u0000\u0000\u0000,2.00                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       ",
+    "NOTES": null,
+    "MATRIX": {
+     "type": 0,
+     "text": "Caf\u00e9 \u20ac"
+    }
+   }
+  },
+  {
+   "n": 4,
+   "deleted": false,
+   "values": {
+    "PLU": "BAD1            ",
+    "WEEKLY": "                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ",
+    "NOTES": {
+     "invalid": "block 9999 past end of memo file"
+    },
+    "MATRIX": {
+     "invalid": "bad block pointer 12x"
+    }
+   }
+  },
+  {
+   "n": 5,
+   "deleted": true,
+   "values": {
+    "PLU": "DEL             ",
+    "WEEKLY": "deleted                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ",
+    "NOTES": {
+     "type": 1,
+     "text": "memo of a deleted record"
+    },
+    "MATRIX": null
+   }
+  },
+  {
+   "n": 6,
+   "deleted": false,
+   "values": {
+    "PLU": "EMPTY           ",
+    "WEEKLY": "                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ",
+    "NOTES": {
+     "type": 1,
+     "text": ""
+    },
+    "MATRIX": null
+   }
+  }
+ ]
+}

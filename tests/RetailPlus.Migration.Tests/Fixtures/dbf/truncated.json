@@ -1,0 +1,51 @@
+{
+ "file": "truncated.dbf",
+ "header": {
+  "version": 3,
+  "last_update": [
+   26,
+   10,
+   24
+  ],
+  "record_count": 5,
+  "header_length": 97,
+  "record_length": 15,
+  "table_flags": 0,
+  "code_page": 3
+ },
+ "fields": [
+  {
+   "name": "ID",
+   "type": "N",
+   "length": 4,
+   "decimals": 0
+  },
+  {
+   "name": "NAME",
+   "type": "C",
+   "length": 10,
+   "decimals": 0
+  }
+ ],
+ "memo_block_size": null,
+ "records_present": 2,
+ "truncated": true,
+ "records": [
+  {
+   "n": 1,
+   "deleted": false,
+   "values": {
+    "ID": "1",
+    "NAME": "row 1     "
+   }
+  },
+  {
+   "n": 2,
+   "deleted": false,
+   "values": {
+    "ID": "2",
+    "NAME": "row 2     "
+   }
+  }
+ ]
+}

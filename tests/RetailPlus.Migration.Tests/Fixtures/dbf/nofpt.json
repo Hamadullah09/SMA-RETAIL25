@@ -1,0 +1,53 @@
+{
+ "file": "nofpt.dbf",
+ "header": {
+  "version": 245,
+  "last_update": [
+   11,
+   7,
+   20
+  ],
+  "record_count": 2,
+  "header_length": 97,
+  "record_length": 17,
+  "table_flags": 0,
+  "code_page": 0
+ },
+ "fields": [
+  {
+   "name": "NAME",
+   "type": "C",
+   "length": 6,
+   "decimals": 0
+  },
+  {
+   "name": "NOTES",
+   "type": "M",
+   "length": 10,
+   "decimals": 0
+  }
+ ],
+ "memo_block_size": null,
+ "records_present": 2,
+ "truncated": false,
+ "records": [
+  {
+   "n": 1,
+   "deleted": false,
+   "values": {
+    "NAME": "lost  ",
+    "NOTES": {
+     "invalid": "no memo file"
+    }
+   }
+  },
+  {
+   "n": 2,
+   "deleted": false,
+   "values": {
+    "NAME": "none  ",
+    "NOTES": null
+   }
+  }
+ ]
+}

@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Two ways to build:
+      default                          X# 2.24 runtime from NuGet (.NET Framework 4.6 DLLs), for net10.0-windows and net48
+      -p:XSharpRuntimeDir=<folder>     locally built X# runtime DLLs (XSharp.Core, XSharp.RT, XSharp.Rdd, XSharp.MacroCompiler) for net10.0-windows
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFrameworks Condition="'$(XSharpRuntimeDir)' == ''">net10.0-windows;net48</TargetFrameworks>
+    <TargetFramework Condition="'$(XSharpRuntimeDir)' != ''">net10.0-windows</TargetFramework>
+    <DefineConstants Condition="'$(XSharpRuntimeDir)' != ''">$(DefineConstants);XSHARP3</DefineConstants>
+    <XSharpRuntimeLabel Condition="'$(XSharpRuntimeDir)' != ''">$([System.IO.Path]::GetFileName('$(XSharpRuntimeDir.TrimEnd(`\`))'))</XSharpRuntimeLabel>
+    <BaseOutputPath Condition="'$(XSharpRuntimeDir)' != ''">bin\$(XSharpRuntimeLabel)\</BaseOutputPath>
+    <BaseIntermediateOutputPath Condition="'$(XSharpRuntimeDir)' != ''">obj\$(XSharpRuntimeLabel)\</BaseIntermediateOutputPath>
+    <!-- Both build variants keep their output under this folder; never compile generated files from the other one. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**</DefaultItemExcludes>
+    <NoWarn>$(NoWarn);NU1701</NoWarn>
+    <AnalysisLevel>latest-minimum</AnalysisLevel>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(XSharpRuntimeDir)' == ''">
+    <PackageReference Include="XSharp.Core" Version="2.24.0.2" />
+    <PackageReference Include="XSharp.RT" Version="2.24.0.2" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(XSharpRuntimeDir)' != ''">
+    <Reference Include="XSharp.Core" HintPath="$(XSharpRuntimeDir)\XSharp.Core.dll" />
+    <Reference Include="XSharp.RT" HintPath="$(XSharpRuntimeDir)\XSharp.RT.dll" />
+    <Reference Include="XSharp.Rdd" HintPath="$(XSharpRuntimeDir)\XSharp.Rdd.dll" />
+    <Reference Include="XSharp.MacroCompiler" HintPath="$(XSharpRuntimeDir)\XSharp.MacroCompiler.dll" />
+  </ItemGroup>
+
+</Project>

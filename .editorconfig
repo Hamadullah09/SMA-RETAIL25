@@ -1,0 +1,9 @@
+root = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+
+# EF Core migrations are generated; don't run style and quality analyzers on them.
+[src/RetailPlus.Data/Migrations/*.cs]
+generated_code = true

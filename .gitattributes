@@ -1,0 +1,12 @@
+* text=auto
+
+# Shell scripts run in Git Bash; CRLF would break them.
+*.sh text eol=lf
+
+# Patches for X# sources (CRLF files): keep them byte for byte.
+*.patch -text
+
+# Test fixtures are binary database files.
+*.dbf binary
+*.fpt binary
+*.cdx binary

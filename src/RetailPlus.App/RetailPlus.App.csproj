@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\RetailPlus.Core\RetailPlus.Core.csproj" />
+    <ProjectReference Include="..\RetailPlus.Data\RetailPlus.Data.csproj" />
+    <ProjectReference Include="..\RetailPlus.Settings\RetailPlus.Settings.csproj" />
+    <ProjectReference Include="..\RetailPlus.Devices\RetailPlus.Devices.csproj" />
+    <ProjectReference Include="..\RetailPlus.Reports\RetailPlus.Reports.csproj" />
+    <ProjectReference Include="..\RetailPlus.Integrations\RetailPlus.Integrations.csproj" />
+    <ProjectReference Include="..\RetailPlus.Migration\RetailPlus.Migration.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,57 @@
+{
+ "file": "memo32.dbf",
+ "header": {
+  "version": 245,
+  "last_update": [
+   4,
+   10,
+   30
+  ],
+  "record_count": 2,
+  "header_length": 97,
+  "record_length": 15,
+  "table_flags": 0,
+  "code_page": 3
+ },
+ "fields": [
+  {
+   "name": "CODE",
+   "type": "C",
+   "length": 4,
+   "decimals": 0
+  },
+  {
+   "name": "SUPLIST",
+   "type": "M",
+   "length": 10,
+   "decimals": 0
+  }
+ ],
+ "memo_block_size": 32,
+ "records_present": 2,
+ "truncated": false,
+ "records": [
+  {
+   "n": 1,
+   "deleted": false,
+   "values": {
+    "CODE": "A1  ",
+    "SUPLIST": {
+     "type": 1,
+     "text": "|ACME OUTDOOR SUPPLY,AX100,12.500,6.00|"
+    }
+   }
+  },
+  {
+   "n": 2,
+   "deleted": false,
+   "values": {
+    "CODE": "A2  ",
+    "SUPLIST": {
+     "type": 1,
+     "text": "NORTHWIND TRADERS,NW-77,8.250,1|NORTHWIND TRADERS,NW-77,8.250,1|NORTHWIND TRADERS,NW-77,8.250,1|"
+    }
+   }
+  }
+ ]
+}

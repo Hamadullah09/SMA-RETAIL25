@@ -1,0 +1,22 @@
+diff --git a/src/Runtime/XSharp.Core/Types/SharedFileStream.prg b/src/Runtime/XSharp.Core/Types/SharedFileStream.prg
+index ec1e66c2..289e40eb 100644
+--- a/src/Runtime/XSharp.Core/Types/SharedFileStream.prg
++++ b/src/Runtime/XSharp.Core/Types/SharedFileStream.prg
+@@ -34,6 +34,17 @@ BEGIN NAMESPACE XSharp.IO
+             FError(nErr) 
+             THROW IOException{i"Error moving file pointer from {origin} to {offset}"}
+             
++        // Local patch (Retail Plus spike): .NET 6+ no longer routes the Position setter through the virtual Seek(),
++        // so ReadFile/WriteFile above would use a stale OS file pointer. Keep Position on the same OS pointer.
++        PUBLIC OVERRIDE PROPERTY Position AS INT64
++            GET
++                RETURN SELF:Seek(0, SeekOrigin.Current)
++            END GET
++            SET
++                SELF:Seek(VALUE, SeekOrigin.Begin)
++            END SET
++        END PROPERTY
++
+         /// <include file="XSharp.Core.Docs.xml" path="doc/XsWin32FileStream.SetLength/*" />
+         PUBLIC OVERRIDE METHOD SetLength(length AS INT64 ) AS VOID
+             // warning: does not restore original file pos
