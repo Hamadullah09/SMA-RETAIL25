@@ -549,7 +549,7 @@
    * truncates. `flex: 1 1 auto` still spreads the slack, so the buttons stay wide targets.
    */
   .pos-keybar {
-    @apply flex flex-wrap gap-1;
+    @apply flex flex-wrap gap-1.5;
   }
 
   /**
@@ -571,10 +571,87 @@
    * and nothing about them says they can be pressed. A cashier with a mouse or a finger has to
    * discover that by trying.
    */
+  /*
+   * Then a shop asked for the row to be large and colourful, for staff who are new or older, and
+   * that request outranks the density argument above: a till nobody can work is not saved by the
+   * half a line of sale it gives back. The word is body-large and semibold, the key is 68px tall,
+   * and each key sits on the tint of its family (see `data-tone` below). The key cap moved under
+   * the word, which keeps every button about as narrow as its word, so the row still fits on one
+   * line at 1366px.
+   */
   .pos-keybar > button {
-    @apply flex flex-auto items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-subtle bg-panel px-2.5 py-1.5 text-label font-medium text-ink transition-colors duration-150;
+    /* Each tone overrides these three. The default is the neutral family. */
+    --key-hue: 0.55 0.02 265;
+    --key-text: 0.34 0.02 265;
+    --key-soft: 0.97 0.005 265;
+
+    @apply flex flex-auto flex-col items-center justify-center gap-1 whitespace-nowrap rounded-lg border-2 px-3 py-1.5 text-body-lg font-semibold transition-colors duration-150;
     min-width: max-content;
-    min-height: var(--control-height);
+    min-height: 4.25rem;
+    background-color: oklch(var(--key-soft));
+    border-color: oklch(var(--key-hue) / 0.45);
+    color: oklch(var(--key-text));
+  }
+
+  .pos-keybar > button .pos-key-word {
+    @apply flex items-center gap-2;
+  }
+
+  .pos-keybar > button .pos-key-word svg {
+    @apply h-6 w-6 shrink-0;
+  }
+
+  .pos-keybar > button:focus-visible {
+    outline: 3px solid oklch(var(--key-hue));
+    outline-offset: 2px;
+  }
+
+  /* The families. Each -text tone is the one already measured to clear AA on its own -soft tint. */
+  .pos-keybar > button[data-tone='customer'],
+  .pos-keybar > button[data-tone='find'] {
+    --key-hue: var(--accent);
+    --key-text: var(--accent-text);
+    --key-soft: var(--accent-soft);
+  }
+
+  .pos-keybar > button[data-tone='remove'] {
+    --key-hue: var(--negative);
+    --key-text: var(--negative-text);
+    --key-soft: var(--negative-soft);
+  }
+
+  .pos-keybar > button[data-tone='print'] {
+    --key-hue: var(--special);
+    --key-text: var(--special-text);
+    --key-soft: var(--special-soft);
+  }
+
+  .pos-keybar > button[data-tone='returns'] {
+    --key-hue: var(--warning);
+    --key-text: var(--warning-text);
+    --key-soft: var(--warning-soft);
+  }
+
+  .pos-keybar > button[data-tone='drawer'] {
+    --key-hue: var(--positive);
+    --key-text: var(--positive-text);
+    --key-soft: var(--positive-soft);
+  }
+
+  .pos-keybar > button[data-tone='help'] {
+    --key-hue: var(--live);
+    --key-text: var(--live-text);
+    --key-soft: var(--live-soft);
+  }
+
+  /* Pay is the one solid key, and the widest: the thing every sale ends with. White on the -text
+     green, which is darker than the fill green precisely so white clears AA on it. */
+  .pos-keybar > button[data-tone='pay'] {
+    --key-hue: var(--positive-text);
+    flex-grow: 2;
+    background-color: oklch(var(--positive-text));
+    border-color: oklch(var(--positive-text));
+    color: rgb(255 255 255);
   }
 
   /*
@@ -590,20 +667,46 @@
    * is the part that must survive a cheap panel seen at an angle.
    */
   .pos-keybar > button .pos-kbd {
-    @apply inline-flex min-w-[2.25rem] items-center justify-center rounded border border-strong bg-panel-sunken px-1.5 py-0.5 text-label font-bold text-ink;
-    box-shadow: inset 0 -1.5px 0 0 rgb(var(--border-strong));
+    @apply inline-flex min-w-[2.5rem] items-center justify-center rounded bg-panel px-1.5 py-0 font-sans text-label font-bold text-ink;
+    border: 1px solid oklch(var(--key-hue) / 0.55);
+    box-shadow: inset 0 -1.5px 0 0 oklch(var(--key-hue) / 0.4);
   }
 
-  .pos-keybar > button:hover:not(:disabled) .pos-kbd {
-    @apply border-control;
+  .pos-keybar > button[data-tone='pay'] .pos-kbd {
+    color: oklch(var(--positive-text));
+    border-color: rgb(255 255 255);
   }
 
   .pos-keybar > button:hover:not(:disabled) {
-    @apply border-strong bg-panel-hover text-ink;
+    background-color: oklch(var(--key-hue) / 0.16);
+    border-color: oklch(var(--key-hue) / 0.85);
   }
 
+  .pos-keybar > button[data-tone='pay']:hover:not(:disabled) {
+    background-color: oklch(0.38 0.13 160);
+    border-color: oklch(0.38 0.13 160);
+  }
+
+  /* Grey as well as faded. A coloured key that is merely paler still looks like a key to press; the
+     colour going out of it is what says "not now". */
   .pos-keybar > button:disabled {
-    @apply cursor-not-allowed opacity-35;
+    cursor: not-allowed;
+    opacity: var(--disabled-opacity);
+    filter: grayscale(1);
+  }
+
+  /* Short screens give back some height, but keep every word and every colour. Still stacked: laid
+     side by side the keys are twice as wide, and at 1280px the row broke onto a second line, which
+     cost more height than it saved. */
+  @media (max-height: 740px) {
+    .pos-keybar > button {
+      @apply gap-0.5 px-2.5 py-1;
+      min-height: 3.5rem;
+    }
+
+    .pos-keybar > button .pos-key-word svg {
+      @apply h-5 w-5;
+    }
   }
 
   /**

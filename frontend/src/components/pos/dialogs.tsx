@@ -8,8 +8,11 @@ import { money, useCurrencySymbol } from '@/components/pos/panels';
 import { useAuth } from '@/lib/auth-config';
 import { parseTenderInput } from '@/lib/tender-input';
 import type { ProductVariant, SerializedUnit, SuspendedCart, TenderType } from '@/types/pos';
-import { X } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Download, Printer, ReceiptText, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { downloadPdf, printPdf } from '@/lib/print';
+import { toast } from '@/components/ui/toaster';
+import { describeError } from '@/lib/errors';
 
 /**
  * Every dialog pushes the `dialog` hotkey scope, so the sale screen's F-keys stop firing while one
@@ -22,19 +25,34 @@ function Shell({
   onClose,
   children,
   wide,
+  yieldsToScanner,
+  closeHint = 'Press Esc, or tap outside, to cancel.',
 }: {
   title: string;
   hint?: string;
   onClose: () => void;
   children: ReactNode;
   wide?: boolean;
+  /**
+   * A dialog that steps aside when the scanner starts typing, rather than holding the keyboard.
+   * Only for a dialog with nothing to type into, where a scan can mean only "next sale" — see the
+   * scan box, which reads this.
+   */
+  yieldsToScanner?: boolean;
+  closeHint?: string;
 }) {
   useHotkeyScope('dialog');
   useHotkey('Escape', onClose, { scope: 'dialog', label: 'Close', hidden: true });
   useHotkey('F12', onClose, { scope: 'dialog', label: 'F12 Cancel' });
 
   const panelRef = useRef<HTMLDivElement>(null);
-  const returnFocusTo = useRef<HTMLElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  // Read while rendering, before anything inside has mounted. By the time an effect runs, a field
+  // with autoFocus already holds focus, and that field is what would have been remembered.
+  const [returnFocusTo] = useState<HTMLElement | null>(() =>
+    typeof document === 'undefined' ? null : (document.activeElement as HTMLElement | null),
+  );
 
   /**
    * Focus goes into the dialog and comes back out again.
@@ -42,20 +60,36 @@ function Shell({
    * Neither happened. Opening one left focus on the button behind it, so a keyboard user tabbed
    * through the sale underneath while the dialog covered it, and closing one dropped focus to the
    * body — which on this screen means the scan box stops receiving the next barcode.
+   *
+   * Into the body, and only when nothing inside has claimed it. The first focusable element in the
+   * panel is the header's close button, added later, and this used to take it — pulling focus out
+   * of the payment window's Tendered field the instant it autofocused. The cashier's digits then went
+   * nowhere and their Enter pressed Close.
+   *
+   * Enabled controls only. While the payment window's tenders load, its one button is a disabled
+   * Take; focusing that silently fails, which left focus on the scan box *behind* the dialog — so a
+   * quick cashier's "100" landed in the scan box. With nothing enabled the panel itself takes focus.
    */
   useEffect(() => {
-    returnFocusTo.current = document.activeElement as HTMLElement | null;
+    const panel = panelRef.current;
 
-    const first = panelRef.current?.querySelector<HTMLElement>(
-      'input:not([type="hidden"]), select, textarea, button, [tabindex]:not([tabindex="-1"])',
-    );
+    if (panel && !panel.contains(document.activeElement)) {
+      const first = bodyRef.current?.querySelector<HTMLElement>(
+        'input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
 
-    (first ?? panelRef.current)?.focus();
+      (first ?? panel).focus();
+    }
 
     return () => {
-      returnFocusTo.current?.focus?.();
+      // A real close has already taken the panel out of the document by now. React's development
+      // re-run of every effect has not, and handing focus back then pulled it out of the dialog
+      // while the dialog stayed open — into the scan box behind it.
+      if (panel?.isConnected) return;
+
+      returnFocusTo?.focus?.();
     };
-  }, []);
+  }, [returnFocusTo]);
 
   /**
    * Tab is kept inside.
@@ -101,6 +135,7 @@ function Shell({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        data-yields-to-scanner={yieldsToScanner ? 'true' : undefined}
         tabIndex={-1}
         onKeyDown={onKeyDown}
         className={cn('pos-panel w-full shadow-overlay', wide ? 'max-w-3xl' : 'max-w-md')}
@@ -123,12 +158,12 @@ function Shell({
           </span>
         </div>
 
-        <div className="p-3">{children}</div>
+        <div ref={bodyRef} className="p-3">
+          {children}
+        </div>
 
         {/* Said out loud, because both ways out are otherwise things you have to already know. */}
-        <p className="border-t border-subtle px-3 py-2 text-caption text-ink-muted">
-          Press Esc, or tap outside, to cancel.
-        </p>
+        <p className="border-t border-subtle px-3 py-2 text-caption text-ink-muted">{closeHint}</p>
       </div>
     </div>
   );
@@ -334,12 +369,43 @@ function TaxToggle({
 
 /* ------------------------------------------------------------------------ payment window */
 
+/**
+ * The tender list from the last time it was asked for.
+ *
+ * The payment window fetched it on every open and drew nothing until it arrived, so for the first
+ * tenth of a second or so there was no Tendered field to type into. Starting from the last answer
+ * puts the field on screen, focused, the moment F4 is pressed; the fetch still runs on every open,
+ * so a tender an administrator changes is picked up on the next one.
+ */
+let tenderTypesSeen: TenderType[] | null = null;
+
+function activeTenders(list: TenderType[]): TenderType[] {
+  return list.filter((t) => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
+/** Warms {@link tenderTypesSeen} when the till starts, so even the first sale's window opens ready. */
+export function prefetchTenderTypes(): void {
+  posApi
+    .tenderTypes()
+    .then((list) => {
+      tenderTypesSeen = activeTenders(list);
+    })
+    .catch(() => {
+      // The payment window asks again when it opens, and reports nothing to pay with if that fails too.
+    });
+}
+
 export function PaymentDialog() {
-  const { cart, policy, closeDialog, complete, busy } = usePosStore();
-  const [tenders, setTenders] = useState<TenderType[]>([]);
-  const [selected, setSelected] = useState<TenderType | null>(null);
+  const { cart, policy, closeDialog, complete, busy, error } = usePosStore();
+  const [tenders, setTenders] = useState<TenderType[]>(() => tenderTypesSeen ?? []);
+  const [selected, setSelected] = useState<TenderType | null>(() =>
+    tenderTypesSeen
+      ? (tenderTypesSeen.find((t) => t.id === policy?.defaultTenderTypeId) ?? tenderTypesSeen[0] ?? null)
+      : null,
+  );
   const [tendered, setTendered] = useState('');
   const [copies, setCopies] = useState(1);
+  const [attempted, setAttempted] = useState(false);
 
   const due = cart?.totals.grandTotal ?? 0;
   const symbol = useCurrencySymbol();
@@ -348,11 +414,23 @@ export function PaymentDialog() {
     posApi
       .tenderTypes()
       .then((list) => {
-        const active = list.filter((t) => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+        const active = activeTenders(list);
+        tenderTypesSeen = active;
         setTenders(active);
-        setSelected(active.find((t) => t.id === policy?.defaultTenderTypeId) ?? active[0] ?? null);
+
+        // Keep the cashier's choice if they have already made one and it still exists; a refreshed
+        // list arriving must not snap the selection back to the default under their finger.
+        setSelected(
+          (current) =>
+            active.find((t) => t.id === current?.id) ??
+            active.find((t) => t.id === policy?.defaultTenderTypeId) ??
+            active[0] ??
+            null,
+        );
       })
-      .catch(() => setTenders([]));
+      .catch(() => {
+        if (!tenderTypesSeen) setTenders([]);
+      });
   }, [policy?.defaultTenderTypeId]);
 
   // Inside this window F4 means Copies, not Pay — the legacy contract at guide p.8.
@@ -373,15 +451,19 @@ export function PaymentDialog() {
   const submit = async () => {
     if (!selected || !canPay || amount === null) return;
 
-    const ok = await complete([
-      {
-        tenderTypeId: selected.id,
-        amount: due,
-        amountTendered: selected.roundsToMinimumTender ? amount : due,
-      },
-    ]);
+    setAttempted(true);
 
-    if (ok) closeDialog();
+    // On success the store moves straight to the sale-complete screen; closing here would close that.
+    await complete(
+      [
+        {
+          tenderTypeId: selected.id,
+          amount: due,
+          amountTendered: selected.roundsToMinimumTender ? amount : due,
+        },
+      ],
+      { copies },
+    );
   };
 
   return (
@@ -451,6 +533,18 @@ export function PaymentDialog() {
         </div>
       ) : null}
 
+      {/*
+        Why the payment was refused, here where the cashier is looking. It was reported only in the
+        scan bar, behind this window and under its shade, so "Open a drawer before taking cash" read
+        as a Take button that did nothing. Only after a press here: an error left over from a scan
+        before the window opened is not this window's to repeat.
+      */}
+      {attempted && error && !busy ? (
+        <p role="alert" className="mt-3 rounded-md bg-negative-soft px-3 py-2 text-body font-semibold text-negative-text">
+          {error.message}
+        </p>
+      ) : null}
+
       <button
         type="button"
         className="pos-button-primary mt-4 w-full text-body-lg"
@@ -460,6 +554,248 @@ export function PaymentDialog() {
         {busy ? 'Saving…' : `Take ${money(due, symbol)}`}
       </button>
     </Shell>
+  );
+}
+
+/* ------------------------------------------------------------------------ sale complete */
+
+/**
+ * What the till shows the moment a sale is paid: the receipt, and what to do with it.
+ *
+ * Paying used to close straight onto an empty sale. The change owed survived as a small line in the
+ * status bar, and getting a receipt on paper or keeping a copy meant knowing that Ctrl+P and F7
+ * existed. A shop asked for the obvious thing — pay, then print or save — so this is the screen
+ * after Pay.
+ *
+ * Built for somebody on their first day, or whose eyesight is not what it was: one large figure
+ * (the change to hand over), large buttons that say in words what they do, and the next customer one
+ * press away. It never holds the queue up. A till printer has already printed the receipt by the
+ * time this appears, Esc or Enter moves on, and scanning the next item closes it by itself.
+ */
+export function SaleCompleteDialog() {
+  const { lastSale, stationId, peripherals, closeDialog } = usePosStore();
+  const symbol = useCurrencySymbol();
+
+  const [pdf, setPdf] = useState<Blob | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
+  const [working, setWorking] = useState<'print' | 'save' | 'till' | null>(null);
+
+  const transactionId = lastSale?.transactionId;
+
+  useEffect(() => {
+    if (!transactionId) return undefined;
+
+    let cancelled = false;
+    let url: string | null = null;
+
+    posApi
+      .receiptPdf(transactionId)
+      .then((blob) => {
+        if (cancelled) return;
+
+        setPdf(blob);
+
+        // Drawn only where the browser shows a PDF itself. Where it does not, an embedded PDF is
+        // downloaded instead, and a file landing in Downloads after every sale is worse than no
+        // preview at all.
+        if (navigator.pdfViewerEnabled) {
+          url = URL.createObjectURL(blob);
+          setPreviewUrl(url);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [transactionId]);
+
+  // The copy already fetched for the preview, or a fresh one if that fetch failed or is still out.
+  const receipt = async (): Promise<Blob> => pdf ?? posApi.receiptPdf(transactionId!);
+
+  const print = async () => {
+    if (!transactionId || working) return;
+    setWorking('print');
+
+    try {
+      const outcome = await printPdf(await receipt());
+
+      if (outcome === 'blocked') {
+        toast({
+          title: 'Pop-up blocked',
+          description: 'Allow pop-ups for this site to print the receipt.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({ title: 'Could not print the receipt', description: describeError(error), variant: 'destructive' });
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  const save = async () => {
+    if (!lastSale || working) return;
+    setWorking('save');
+
+    try {
+      downloadPdf(await receipt(), `receipt-${lastSale.transactionNumber}.pdf`);
+      toast({ variant: 'success', title: 'Receipt saved', description: 'Look in your Downloads folder.' });
+    } catch (error) {
+      toast({ title: 'Could not save the receipt', description: describeError(error), variant: 'destructive' });
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  // Only offered where an agent reports a printer: without one there is nothing to send it to, and a
+  // button that cannot work is one more thing to get wrong.
+  const hasTillPrinter = Boolean(stationId) && peripherals !== null;
+
+  const printOnTill = async () => {
+    if (!stationId || !hasTillPrinter || working) return;
+    setWorking('till');
+
+    try {
+      await posApi.reprintLast(stationId);
+      toast({ variant: 'success', title: 'Sent to the till printer' });
+    } catch (error) {
+      toast({ title: 'Could not print', description: describeError(error), variant: 'destructive' });
+    } finally {
+      setWorking(null);
+    }
+  };
+
+  // Ctrl+P and F7 are the keys the sale screen already uses for these two, so they mean the same here.
+  useHotkey('Ctrl+P', () => void print(), { scope: 'dialog', label: 'Ctrl+P Print receipt' });
+  useHotkey('Ctrl+S', () => void save(), { scope: 'dialog', label: 'Ctrl+S Save receipt' });
+  useHotkey('F7', () => void printOnTill(), { scope: 'dialog', label: 'F7 Till printer', disabled: !hasTillPrinter });
+
+  if (!lastSale) return null;
+
+  const change = lastSale.changeGiven;
+
+  return (
+    <Shell
+      title="Sale complete"
+      hint={`Receipt #${lastSale.transactionNumber}`}
+      onClose={closeDialog}
+      wide
+      yieldsToScanner
+      closeHint="Scan the next item, or press Esc, to start the next sale."
+    >
+      <div className={cn('grid gap-4', previewUrl && 'md:grid-cols-[minmax(0,1fr)_19rem]')}>
+        {previewUrl ? (
+          <iframe
+            src={`${previewUrl}#toolbar=0&navpanes=0`}
+            title={`Receipt ${lastSale.transactionNumber}`}
+            className="h-[28rem] w-full rounded-md border border-subtle bg-white"
+          />
+        ) : null}
+
+        <div className="flex flex-col gap-3">
+          {/* The one thing the cashier must act on before anything else: money back to the customer. */}
+          <div role="status" className="rounded-lg bg-positive-soft px-4 py-4 text-center">
+            <CheckCircle2 className="mx-auto h-10 w-10 text-positive-text" aria-hidden />
+            <p className="mt-1 text-h3 font-semibold text-positive-text">Paid {money(lastSale.total, symbol)}</p>
+
+            {change > 0 ? (
+              <>
+                <p className="mt-3 text-body-lg text-ink">Give the customer</p>
+                <p className="pos-grand-total mt-1 text-positive-text">{money(change, symbol)}</p>
+                <p className="mt-1 text-body-lg text-ink">change</p>
+              </>
+            ) : (
+              <p className="mt-2 text-body-lg text-ink">No change to give</p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="pos-button-primary h-16 w-full justify-between px-5 text-body-lg"
+            onClick={closeDialog}
+            autoFocus
+          >
+            <span className="flex items-center gap-3">
+              <ArrowRight className="h-7 w-7" aria-hidden />
+              Next customer
+            </span>
+            <kbd className="pos-kbd">Enter</kbd>
+          </button>
+
+          <ReceiptAction
+            icon={<Printer className="h-7 w-7" aria-hidden />}
+            label={working === 'print' ? 'Printing…' : 'Print receipt'}
+            keys="Ctrl+P"
+            onSelect={() => void print()}
+            disabled={working !== null}
+          />
+
+          <ReceiptAction
+            icon={<Download className="h-7 w-7" aria-hidden />}
+            label={working === 'save' ? 'Saving…' : 'Save as PDF'}
+            keys="Ctrl+S"
+            onSelect={() => void save()}
+            disabled={working !== null}
+          />
+
+          {hasTillPrinter ? (
+            <ReceiptAction
+              icon={<ReceiptText className="h-7 w-7" aria-hidden />}
+              label={
+                working === 'till'
+                  ? 'Sending…'
+                  : peripherals?.printerOnline
+                    ? 'Another copy on the till printer'
+                    : 'Till printer is offline'
+              }
+              keys="F7"
+              onSelect={() => void printOnTill()}
+              disabled={working !== null || !peripherals?.printerOnline}
+            />
+          ) : null}
+
+          {previewFailed ? (
+            <p role="alert" className="text-body text-ink-muted">
+              The receipt could not be shown here. Print and Save will try again.
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </Shell>
+  );
+}
+
+function ReceiptAction({
+  icon,
+  label,
+  keys,
+  onSelect,
+  disabled,
+}: {
+  icon: ReactNode;
+  label: string;
+  keys: string;
+  onSelect: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      className="pos-button h-16 w-full justify-between px-5 text-body-lg"
+      onClick={onSelect}
+      disabled={disabled}
+    >
+      <span className="flex items-center gap-3">
+        {icon}
+        {label}
+      </span>
+      <kbd className="pos-kbd">{keys}</kbd>
+    </button>
   );
 }
 
@@ -655,21 +991,48 @@ export function DrawerDialog() {
   const [mode, setMode] = useState<null | 'float' | 'payIn' | 'payOut' | 'close'>(null);
   const [value, setValue] = useState('');
   const [reason, setReason] = useState('');
+  const [failure, setFailure] = useState<string | null>(null);
   const symbol = useCurrencySymbol();
 
+  const choose = (next: typeof mode) => {
+    setFailure(null);
+    setMode(next);
+  };
+
+  /**
+   * Says what went wrong, and stays put so it can be corrected.
+   *
+   * This was try/finally with no catch. A refusal — opening a float on a drawer that was already
+   * open, a pay-out with no reason — reset the form and was thrown away as an unhandled rejection,
+   * so the cashier saw the window simply go back to the menu, with nothing done and nothing said.
+   * The amount went through `Number()` too, which reads a blank field as zero and passes `abc` on
+   * as NaN; it is parsed the way the payment window parses cash now.
+   */
   const run = async () => {
     if (!stationId) return;
-    const amount = Number(value);
+
+    const parsed = parseTenderInput(value, 0);
+
+    if (!parsed.ok || parsed.amount === null) {
+      setFailure(parsed.ok ? 'Enter an amount.' : parsed.message);
+      return;
+    }
+
+    const amount = parsed.amount;
 
     try {
       if (mode === 'float') await posApi.drawer.open(stationId, amount);
       if (mode === 'payIn') await posApi.drawer.payIn(stationId, amount, reason);
       if (mode === 'payOut') await posApi.drawer.payOut(stationId, amount, reason);
       if (mode === 'close') await posApi.drawer.close(stationId, amount);
-    } finally {
+
+      setFailure(null);
       setMode(null);
       setValue('');
       setReason('');
+    } catch (error) {
+      setFailure(describeError(error));
+    } finally {
       await refreshDrawer();
     }
   };
@@ -678,7 +1041,7 @@ export function DrawerDialog() {
     const needsReason = mode === 'payIn' || mode === 'payOut';
 
     return (
-      <Shell title={{ float: 'Opening float', payIn: 'Pay in', payOut: 'Pay out', close: 'Close drawer' }[mode]} onClose={() => setMode(null)}>
+      <Shell title={{ float: 'Opening float', payIn: 'Pay in', payOut: 'Pay out', close: 'Close drawer' }[mode]} onClose={() => choose(null)}>
         <form
           className="space-y-3"
           onSubmit={(event) => {
@@ -711,6 +1074,12 @@ export function DrawerDialog() {
             </label>
           ) : null}
 
+          {failure ? (
+            <p role="alert" className="rounded-md bg-negative-soft px-3 py-2 text-body font-semibold text-negative-text">
+              {failure}
+            </p>
+          ) : null}
+
           <button type="submit" className="pos-button-primary w-full text-body">Confirm</button>
         </form>
       </Shell>
@@ -721,16 +1090,24 @@ export function DrawerDialog() {
     <Shell title="Drawer" onClose={closeDialog} wide>
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <MenuButton hotkey="F4" label="Opening float" onSelect={() => setMode('float')} disabled={drawer?.status === 'Open'} />
-          <MenuButton hotkey="F5" label="Pay in" onSelect={() => setMode('payIn')} disabled={drawer?.status !== 'Open'} />
-          <MenuButton hotkey="F6" label="Pay out" onSelect={() => setMode('payOut')} disabled={drawer?.status !== 'Open'} />
+          <MenuButton hotkey="F4" label="Opening float" onSelect={() => choose('float')} disabled={drawer?.status === 'Open'} />
+          <MenuButton hotkey="F5" label="Pay in" onSelect={() => choose('payIn')} disabled={drawer?.status !== 'Open'} />
+          <MenuButton hotkey="F6" label="Pay out" onSelect={() => choose('payOut')} disabled={drawer?.status !== 'Open'} />
           <MenuButton
             hotkey="F7"
             label="Pop drawer (no sale)"
             disabled={drawer?.status !== 'Open'}
-            onSelect={() => stationId && void posApi.drawer.pop(stationId).then(refreshDrawer)}
+            onSelect={() =>
+              stationId &&
+              void posApi.drawer
+                .pop(stationId)
+                .then(refreshDrawer)
+                .catch((error: unknown) =>
+                  toast({ title: 'The drawer did not open', description: describeError(error), variant: 'destructive' }),
+                )
+            }
           />
-          <MenuButton hotkey="F8" label="Close drawer" onSelect={() => setMode('close')} disabled={drawer?.status !== 'Open'} />
+          <MenuButton hotkey="F8" label="Close drawer" onSelect={() => choose('close')} disabled={drawer?.status !== 'Open'} />
         </div>
 
         <dl className="space-y-1 text-body">

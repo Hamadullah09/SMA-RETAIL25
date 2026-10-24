@@ -31,12 +31,27 @@ import {
   FindDialog,
   LineDetailDialog,
   PaymentDialog,
+  prefetchTenderTypes,
+  SaleCompleteDialog,
   SpecialDialog,
   SuspendDialog,
   SuspendedCartsDialog,
   UnknownItemDialog,
 } from '@/components/pos/dialogs';
 import { describeError } from '@/lib/errors';
+import {
+  Banknote,
+  CircleHelp,
+  Ellipsis,
+  LayoutGrid,
+  Printer,
+  ReceiptText,
+  RotateCcw,
+  Search,
+  Trash2,
+  UserRound,
+  Wallet,
+} from 'lucide-react';
 
 /**
  * The point of sale (doc 08).
@@ -164,7 +179,10 @@ export default function PosScreen() {
 
       // The screen may have been left while the agent was being asked. Starting a till that is no
       // longer on screen would join a cart nothing is watching and never leave it.
-      if (!cancelled) await initialise(station, LOCATION_ID);
+      if (!cancelled) {
+        await initialise(station, LOCATION_ID);
+        prefetchTenderTypes();
+      }
     })();
 
     return () => {
@@ -218,7 +236,7 @@ export default function PosScreen() {
 
   useHotkey('F4', () => hasLines && openDialog('payment'), { label: 'Pay', group: 'Sale', disabled: !hasLines });
   useHotkey('F5', () => openDialog('client'), { label: 'Client menu', group: 'Sale' });
-  useHotkey('F6', () => void removeLastLine(), { label: 'Delete last line', group: 'Sale', disabled: !hasLines });
+  useHotkey('F6', () => void removeLastLine(), { label: 'Remove last item', group: 'Sale', disabled: !hasLines });
   /**
    * Printing says whether it printed.
    *
@@ -339,18 +357,95 @@ export default function PosScreen() {
       </div>
 
       <div className="pos-area-keys">
+        {/*
+          In keyboard order, F4 to F11, so the row reads the same as the keys under the cashier's
+          fingers; the two view keys follow. "Delete" became "Remove last", because that is what it
+          does — on its own the word reads as "delete the sale" to somebody new.
+        */}
         <FunctionKeyBar
           keys={[
-            { key: 'Ctrl+G', label: gridOpen ? 'Hide items' : 'Show items', onSelect: toggleGrid },
-            { key: 'F4', label: 'Pay', onSelect: () => openDialog('payment'), disabled: !hasLines },
-            { key: 'F5', label: 'Client', onSelect: () => openDialog('client') },
-            { key: 'F6', label: 'Delete', onSelect: () => void removeLastLine(), disabled: !hasLines },
-            { key: 'F7', label: 'Reprint', onSelect: () => void reprint() },
-            { key: 'Ctrl+P', label: 'Print', onSelect: () => void printReceipt(), disabled: !lastSale },
-            { key: 'F8', label: 'Credits', onSelect: () => openDialog('credits'), disabled: !cart },
-            { key: 'F9', label: 'Find', onSelect: () => openDialog('find') },
-            { key: 'F10', label: 'Drawer', onSelect: () => openDialog('drawer') },
-            { key: 'F11', label: 'More', onSelect: () => openDialog('special') },
+            {
+              key: 'F4',
+              label: 'Pay',
+              icon: Banknote,
+              tone: 'pay',
+              description: hasLines ? 'Take payment for this sale' : 'Add an item to the sale first',
+              onSelect: () => openDialog('payment'),
+              disabled: !hasLines,
+            },
+            {
+              key: 'F5',
+              label: 'Client',
+              icon: UserRound,
+              tone: 'customer',
+              description: 'Choose the customer for this sale',
+              onSelect: () => openDialog('client'),
+            },
+            {
+              key: 'F6',
+              label: 'Remove last',
+              icon: Trash2,
+              tone: 'remove',
+              description: 'Take the last item off the sale',
+              onSelect: () => void removeLastLine(),
+              disabled: !hasLines,
+            },
+            {
+              key: 'F7',
+              label: 'Reprint',
+              icon: ReceiptText,
+              tone: 'print',
+              description: 'Print the last receipt again on the till printer',
+              onSelect: () => void reprint(),
+            },
+            {
+              key: 'Ctrl+P',
+              label: 'Print',
+              icon: Printer,
+              tone: 'print',
+              description: 'Print the last receipt on any printer, or save it as a PDF',
+              onSelect: () => void printReceipt(),
+              disabled: !lastSale,
+            },
+            {
+              key: 'F8',
+              label: 'Credits',
+              icon: RotateCcw,
+              tone: 'returns',
+              description: 'Returns, discounts, coupons and rewards',
+              onSelect: () => openDialog('credits'),
+              disabled: !cart,
+            },
+            {
+              key: 'F9',
+              label: 'Find',
+              icon: Search,
+              tone: 'find',
+              description: 'Look an item up by name',
+              onSelect: () => openDialog('find'),
+            },
+            {
+              key: 'F10',
+              label: 'Drawer',
+              icon: Wallet,
+              tone: 'drawer',
+              description: 'Opening float, pay in or out, open or close the drawer',
+              onSelect: () => openDialog('drawer'),
+            },
+            {
+              key: 'F11',
+              label: 'More',
+              icon: Ellipsis,
+              description: 'Hold or recall a sale, unknown items, clear the sale and more',
+              onSelect: () => openDialog('special'),
+            },
+            {
+              key: 'Ctrl+G',
+              label: gridOpen ? 'Hide items' : 'Show items',
+              icon: LayoutGrid,
+              description: gridOpen ? 'Hide the product pictures' : 'Show the product pictures',
+              onSelect: toggleGrid,
+            },
             /*
               Last, and the only entry here that is not about the sale.
               
@@ -360,13 +455,21 @@ export default function PosScreen() {
               tears down the RFID connection and drops the cart, so a link here would mean the price
               of asking a question was the customer's basket.
             */
-            { key: 'Ctrl+H', label: 'Help', onSelect: () => help.open() },
+            {
+              key: 'Ctrl+H',
+              label: 'Help',
+              icon: CircleHelp,
+              tone: 'help',
+              description: 'How to use this screen',
+              onSelect: () => help.open(),
+            },
           ]}
         />
       </div>
 
       {dialog === 'lineDetail' ? <LineDetailDialog /> : null}
       {dialog === 'payment' ? <PaymentDialog /> : null}
+      {dialog === 'saleComplete' ? <SaleCompleteDialog /> : null}
       {dialog === 'credits' ? <CreditsDialog /> : null}
       {dialog === 'special' ? <SpecialDialog /> : null}
       {dialog === 'drawer' ? <DrawerDialog /> : null}

@@ -64,7 +64,10 @@ function shouldIgnore(event: KeyboardEvent): boolean {
   if (!target) return false;
 
   const isFunctionKey = /^F\d{1,2}$/.test(event.key);
-  if (isFunctionKey || event.ctrlKey || event.metaKey) return false;
+
+  // Escape types nothing, so a field has no claim on it. Ignoring it in fields meant a till dialog
+  // whose amount box held focus could not be closed from the keyboard at all.
+  if (isFunctionKey || event.key === 'Escape' || event.ctrlKey || event.metaKey) return false;
 
   const tag = target.tagName;
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;

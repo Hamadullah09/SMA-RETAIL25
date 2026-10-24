@@ -38,6 +38,7 @@ export type PosDialog =
   | 'variantPicker'
   | 'serialPicker'
   | 'staffSwitch'
+  | 'saleComplete'
   | 'supervisorApproval';
 
 /** A step-up request raised after a command answered 428 (doc 07 §Step-up). */
@@ -110,7 +111,8 @@ interface PosState {
   activeStaff: ActiveStaff | null;
   busy: boolean;
   error: { code: string; message: string } | null;
-  lastSale: { transactionId: number; transactionNumber: number; changeGiven: number } | null;
+  /** The sale just finished, for the sale-complete screen and the reprint keys. `total` is what was charged. */
+  lastSale: { transactionId: number; transactionNumber: number; changeGiven: number; total: number } | null;
 
   initialise: (stationId: number, locationId: number) => Promise<void>;
   teardown: () => Promise<void>;
@@ -162,7 +164,13 @@ interface PosState {
   setCustomer: (customerId: number | null) => Promise<void>;
   suspend: (label?: string) => Promise<void>;
   recall: (cartId: number) => Promise<void>;
-  complete: (tenders: TenderRequest[]) => Promise<boolean>;
+  /**
+   * Takes payment and moves the till to the sale-complete screen.
+   *
+   * `copies` is how many receipts the till printer produces. The payment window has let the cashier
+   * choose it with F4 all along and never sent it, so it was always one.
+   */
+  complete: (tenders: TenderRequest[], options?: { copies?: number }) => Promise<boolean>;
   refreshDrawer: () => Promise<void>;
 
   openDialog: (dialog: PosDialog, sequence?: number | null) => void;
@@ -735,23 +743,26 @@ export const usePosStore = create<PosState>((set, get) => ({
     }
   },
 
-  complete: async (tenders) => {
+  complete: async (tenders, options) => {
     const cart = get().cart;
     if (!cart) return false;
 
     set({ busy: true, error: null });
 
     try {
-      const result = await posApi.complete(cart.id, tenders);
+      const result = await posApi.complete(cart.id, tenders, { copies: options?.copies });
 
       await posHub.leaveCart(cart.id);
       set({
         cart: null,
-        dialog: null,
+        // Straight to the receipt: print it, save it, or move on. It used to close onto an empty
+        // sale with the change owed already gone from the screen.
+        dialog: 'saleComplete',
         lastSale: {
           transactionId: result.transactionId,
           transactionNumber: result.transactionNumber,
           changeGiven: result.changeGiven,
+          total: cart.totals.grandTotal,
         },
       });
 

@@ -14,6 +14,7 @@ import {
   Unplug,
   User,
   X,
+  type LucideIcon,
 } from 'lucide-react';
 import { usePosStore } from '@/stores/pos-store';
 import type { CartLine, PriceOrigin } from '@/types/pos';
@@ -829,7 +830,7 @@ export function SidePanel({ onPay }: { onPay: () => void }) {
  * nowhere with no visible reason.
  */
 export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> }) {
-  const { scan, busy, error, clearError } = usePosStore();
+  const { scan, busy, error, clearError, closeDialog } = usePosStore();
   const [value, setValue] = useState('');
 
   /*
@@ -850,6 +851,11 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
     or Cmd (the shortcut bar's territory), and everything while a dialog is open, which owns the
     keyboard until it closes. Space only joins once a code has begun, because on its own it is how a
     focused button is pressed.
+
+    The one dialog that does not own the keyboard is the sale-complete screen. It has nothing to type
+    into, so a scan while it shows can only be the next customer's first item: the screen closes and
+    the code goes where it was meant to, rather than the cashier having to dismiss a receipt before
+    every sale.
   */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -861,10 +867,13 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
       if (!input) return;
 
       if (event.target instanceof HTMLElement && isTypingSurface(event.target)) return;
-      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+
+      const dialog = document.querySelector<HTMLElement>('[role="dialog"][aria-modal="true"]');
+      if (dialog && dialog.dataset.yieldsToScanner !== 'true') return;
       if (event.key === ' ' && input.value === '') return;
 
       event.preventDefault();
+      if (dialog) closeDialog();
       setValue((current) => current + event.key);
       if (error) clearError();
       input.focus();
@@ -872,7 +881,7 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
 
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [inputRef, error, clearError]);
+  }, [inputRef, error, clearError, closeDialog]);
 
   return (
     <form
@@ -946,29 +955,73 @@ function isTypingSurface(element: HTMLElement): boolean {
 
 /* --------------------------------------------------------------------- the F-key strip */
 
+/**
+ * The colour family a key belongs to. Named for what the keys do, not for the colour, so the
+ * palette can move without every call site being re-read.
+ */
+export type KeyTone = 'pay' | 'customer' | 'remove' | 'print' | 'returns' | 'find' | 'drawer' | 'help' | 'plain';
+
 export interface FunctionKey {
   key: string;
   label: string;
   onSelect: () => void;
   disabled?: boolean;
+  icon?: LucideIcon;
+  tone?: KeyTone;
+  /** What the key does, as a sentence: the tooltip, and what a screen reader says. */
+  description?: string;
 }
 
+/**
+ * The row of keys along the bottom of the till.
+ *
+ * Asked for by a shop in so many words: larger, colourful, and usable by somebody who has never
+ * worked a till or whose eyesight is going. It was a strip of small grey chips — "F4 Pay" in 15px
+ * on white, every key the same — which is a legend for somebody who already knows the keyboard, not
+ * a set of buttons for anybody else.
+ *
+ * Each key is now a button you could hit with a thumb: a picture, the word in large type, and the
+ * keyboard key beneath it as the smaller, secondary thing. Keys are coloured by family — paying is
+ * the one solid green, taking something off is red, printing is purple, returns amber, the drawer
+ * green — so the screen can be learned by colour and position as well as by reading. Colour is never
+ * the only cue: every key also carries its picture and its word.
+ */
 export function FunctionKeyBar({ keys }: { keys: FunctionKey[] }) {
   return (
-    <nav className="pos-panel pos-keybar p-1" aria-label="Function keys">
-      {keys.map((entry) => (
-        <button key={entry.key} type="button" onClick={entry.onSelect} disabled={entry.disabled}>
-          {/*
-            The weight lives in `.pos-keybar > button .pos-kbd`, not here. A utility class on this
-            element loses to that selector on specificity and is silently ignored — which is exactly
-            what happened when the weight was first set here and appeared to change nothing.
-          */}
-          <kbd className="pos-kbd shrink-0">{entry.key}</kbd>
-          {/* Not truncated. The bar sizes itself to these words now — a key bar whose whole job is
-              to say what a key does has failed the moment it says "Sho…". */}
-          <span>{entry.label}</span>
-        </button>
-      ))}
+    <nav className="pos-panel pos-keybar p-1.5" aria-label="Function keys">
+      {keys.map((entry) => {
+        const Icon = entry.icon;
+
+        // Leads with the label, so the tooltip and the button can never seem to name two things.
+        const tooltip = entry.description
+          ? `${entry.label}: ${entry.description} (${entry.key})`
+          : `${entry.label} (${entry.key})`;
+
+        return (
+          <button
+            key={entry.key}
+            type="button"
+            onClick={entry.onSelect}
+            disabled={entry.disabled}
+            data-tone={entry.tone ?? 'plain'}
+            title={tooltip}
+            aria-keyshortcuts={entry.key.replace(/^Ctrl\+/, 'Control+')}
+          >
+            {/* Not truncated. The bar sizes itself to these words — a key bar whose whole job is to
+                say what a key does has failed the moment it says "Sho…". */}
+            <span className="pos-key-word">
+              {Icon ? <Icon aria-hidden /> : null}
+              <span>{entry.label}</span>
+            </span>
+            {/*
+              The look lives in `.pos-keybar > button .pos-kbd`, not here. A utility class on this
+              element loses to that selector on specificity and is silently ignored — which is exactly
+              what happened when the weight was first set here and appeared to change nothing.
+            */}
+            <kbd className="pos-kbd shrink-0">{entry.key}</kbd>
+          </button>
+        );
+      })}
     </nav>
   );
 }
