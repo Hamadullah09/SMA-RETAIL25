@@ -170,7 +170,10 @@ public static class PermissionKeys
         new Dictionary<int, IReadOnlyList<string>>
         {
             [0] = [Pos.Sell, Catalog.Read, Customer.Read, Staff.TimeClock],
-            [1] = [Pos.Sell, Pos.Suspend, Pos.Recall, Catalog.Read, Customer.Read, Drawer.Read, Staff.TimeClock],
+            // Reprint added at the shop's request, departing from the legacy level 1 (guide p.82): a
+            // cashier can open a customer's old invoice, and a customer asking for a copy should not
+            // need a supervisor fetched to print it.
+            [1] = [Pos.Sell, Pos.Suspend, Pos.Recall, Pos.Reprint, Catalog.Read, Customer.Read, Drawer.Read, Staff.TimeClock],
             [2] =
             [
                 Pos.Sell, Pos.Suspend, Pos.Recall, Pos.UnknownItem, Pos.Reprint, Pos.Return,
