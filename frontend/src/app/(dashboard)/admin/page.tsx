@@ -10,6 +10,7 @@ import {
   ScrollText,
   Settings,
   Shield,
+  ShieldCheck,
   Users,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-config';
@@ -87,8 +88,16 @@ const groups: AdminGroup[] = [
         key: 'users',
         href: '/admin/settings?tab=Users',
         title: 'Users and access',
-        description: 'Staff codes, access levels and PIN state. Authorisation is by permission; the level is only a preset.',
+        description: 'Staff codes, roles, PINs and passwords. Each person’s role decides what they may do.',
         icon: Users,
+        permission: 'users.manage',
+      },
+      {
+        key: 'roles',
+        href: '/admin/roles',
+        title: 'Roles and permissions',
+        description: 'Make roles and choose exactly what each may do — sell, discount, void, clear a sale, manage stock.',
+        icon: ShieldCheck,
         permission: 'users.manage',
       },
       {

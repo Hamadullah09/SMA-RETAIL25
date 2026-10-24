@@ -96,6 +96,8 @@ import type {
   CreateStaffBody,
   TimeClockEntry,
   TimeClockState,
+  RoleDetail,
+  PermissionEntry,
 } from '@/types/masters';
 
 /**
@@ -817,6 +819,22 @@ export const mastersApi = {
   },
 
   /** The accounting link (doc 09 §1) — what to post, whether it can be posted, and what happened. */
+  /** Roles and what each may do. Every call needs users.manage. */
+  roles: {
+    list: () => call<RoleDetail[]>(() => apiClient.get('/roles')),
+    permissions: () => call<PermissionEntry[]>(() => apiClient.get('/roles/permissions')),
+    create: (body: { name: string; description: string | null; copyFromRoleId: number | null }) =>
+      call<RoleDetail>(() => apiClient.post('/roles', body)),
+    update: (roleId: number, body: { name: string; description: string | null }) =>
+      call<RoleDetail>(() => apiClient.put(`/roles/${roleId}`, body)),
+    setPermissions: (roleId: number, permissions: string[]) =>
+      call<RoleDetail>(() => apiClient.put(`/roles/${roleId}/permissions`, { permissions })),
+    remove: (roleId: number) => call<void>(() => apiClient.delete(`/roles/${roleId}`)),
+    /** Moves a member of staff into a role — which is what decides what they may do. */
+    assign: (staffId: number, roleId: number) =>
+      call<void>(() => apiClient.put(`/roles/members/${staffId}`, { roleId })),
+  },
+
   accounting: {
     preflight: (locationId: number) =>
       call<PreflightReport>(() => apiClient.get(`/sync/accounting/preflight?${query({ locationId })}`)),

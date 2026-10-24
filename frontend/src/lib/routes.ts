@@ -259,6 +259,7 @@ export const ROUTES: readonly AppRoute[] = [
   },
   { href: '/admin/settings', label: 'Setup', icon: Settings, parent: '/admin', permission: 'settings.read', keywords: 'taxes pos printers hardware users stations tenders numbering departments categories groupings', helpTopic: 'settings' },
   { href: '/admin/staff', label: 'Staff', icon: Users, parent: '/admin', permission: 'staff.read', keywords: 'time clock hours commission payroll colleagues', helpTopic: 'staff' },
+  { href: '/admin/roles', label: 'Roles and permissions', icon: Users, parent: '/admin', permission: 'users.manage', keywords: 'role permission access manager supervisor cashier allow deny who can', helpTopic: 'settings' },
   { href: '/admin/audit', label: 'Audit log', icon: FileText, parent: '/admin', permission: 'audit.read', keywords: 'history who changed what', helpTopic: 'audit' },
   { href: '/admin/rfid', label: 'RFID readers', icon: Boxes, parent: '/admin', permission: 'terminals.read', keywords: 'reader antenna power frequency region tags epc uhf hardware', helpTopic: 'rfid' },
   { href: '/admin/rfid-health', label: 'RFID health', icon: Boxes, parent: '/admin', keywords: 'reader status diagnostics signal antenna', helpTopic: 'rfid' },

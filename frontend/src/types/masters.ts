@@ -1327,6 +1327,28 @@ export interface AssignableRole {
   description: string | null;
 }
 
+/** A role and everything it may do, as the role editor shows it. */
+export interface RoleDetail {
+  id: number;
+  name: string;
+  description: string | null;
+  /** Legacy 0–4 for the five built-in roles; null for one an administrator made. */
+  legacyLevel: number | null;
+  /** Built-in roles keep their names and cannot be deleted; what they may do is editable. */
+  isBuiltIn: boolean;
+  memberCount: number;
+  permissions: string[];
+}
+
+/** One permission a role could be given. */
+export interface PermissionEntry {
+  key: string;
+  description: string;
+  group: string;
+  /** Voids, overrides, user management — the ones worth a second look before ticking. */
+  isSensitive: boolean;
+}
+
 export interface CreateStaffBody {
   email: string;
   firstName: string;

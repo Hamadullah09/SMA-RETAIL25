@@ -261,6 +261,7 @@ public static class IdentityRegistration
 
         services.AddScoped<IPinHasher, Argon2PinHasher>();
         services.AddScoped<IUserProvisioner, UserProvisioner>();
+        services.AddScoped<IRoleAdministration, RoleAdministration>();
         services.AddScoped<IPermissionResolver, PermissionResolver>();
 
         // The default IMemoryCache is also consumed by OpenIddict's internal scope/application/token

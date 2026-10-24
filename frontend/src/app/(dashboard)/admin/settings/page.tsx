@@ -2512,6 +2512,57 @@ function ResetPassword({ staffId, onDone }: { staffId: number; onDone: () => voi
 }
 
 /**
+ * Which role somebody is in — the thing that actually decides what they may do.
+ *
+ * There was no way to change it. A colleague got a role when they were created and kept it; the
+ * "Access level" below changes a number on the staff profile and left the role, and every permission
+ * with it, exactly where it was. Roles themselves are edited on the Roles and permissions screen.
+ */
+function StaffRole({
+  staff,
+  roles,
+  onDone,
+}: {
+  staff: import('@/types/masters').StaffSettings;
+  roles: import('@/types/masters').RoleDetail[];
+  onDone: () => void | Promise<void>;
+}) {
+  const { busy, run } = useSaver(onDone);
+  const current = roles.find((role) => staff.roles?.includes(role.name)) ?? null;
+  const [choice, setChoice] = useState<number | ''>(current?.id ?? '');
+
+  useEffect(() => setChoice(current?.id ?? ''), [current?.id]);
+
+  if (!staff.email) return null;
+
+  return (
+    <FieldGroup title="Role">
+      <SelectField<number>
+        label="Role"
+        value={choice}
+        options={[
+          ...(current ? [] : [{ value: '' as const, label: 'No role yet' }]),
+          ...roles.map((role) => ({
+            value: role.id,
+            label: role.isBuiltIn ? role.name : `${role.name} (custom)`,
+          })),
+        ]}
+        onChange={setChoice}
+        hint="Decides what this person may do. It reaches them within 15 minutes, or when they next sign in."
+      />
+      {choice !== '' && choice !== current?.id ? (
+        <SaveButton
+          busy={busy}
+          variant="secondary"
+          label="Change role"
+          onClick={() => void run(() => mastersApi.roles.assign(staff.id, choice), 'Role changed')}
+        />
+      ) : null}
+    </FieldGroup>
+  );
+}
+
+/**
  * The till PIN, which this screen could show and never set.
  *
  * The server has always been able to set one; nothing on any screen asked it to, so a colleague
@@ -2637,6 +2688,19 @@ function UsersTab({
 
   useEffect(() => setDrafts(rows), [rows]);
 
+  const [roles, setRoles] = useState<import('@/types/masters').RoleDetail[]>([]);
+
+  // Loaded only for somebody who can change users; the list needs users.manage. Reloaded with the
+  // rows, so a role change shows the moment it is saved.
+  useEffect(() => {
+    if (!canWrite) return;
+
+    mastersApi.roles
+      .list()
+      .then(setRoles)
+      .catch(() => setRoles([]));
+  }, [canWrite, rows]);
+
   const patch = (id: number, changes: Partial<import('@/types/masters').StaffSettings>) =>
     setDrafts((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
 
@@ -2716,11 +2780,12 @@ function UsersTab({
               options={LEVEL_LABELS.map((label, level) => ({ value: String(level), label }))}
               onChange={(v) => patch(staff.id, { accessLevel: Number(v) || 0 })}
               disabled={!canWrite}
-              hint="A preset for the permission set. Authorisation is always by permission, never by level."
+              hint="Level 0 is training mode: nothing this person rings up is recorded. What they may do is decided by their role, above; choosing a built-in role sets this to match."
             />
             <CheckField label="Active" checked={staff.isActive} onChange={(v) => patch(staff.id, { isActive: v })} disabled={!canWrite} />
           </FieldGroup>
 
+          {canWrite && roles.length > 0 ? <StaffRole staff={staff} roles={roles} onDone={onSaved} /> : null}
           {canWrite ? <ResetPassword staffId={staff.id} onDone={onSaved} /> : null}
           {canWrite ? <SetTillPin staffId={staff.id} hasPin={staff.hasPin} onDone={onSaved} /> : null}
           {canWrite ? <RevokeAccess staff={staff} onDone={onSaved} /> : null}
