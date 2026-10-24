@@ -54,7 +54,8 @@ public sealed class DocumentsController : ControllerBase
             request.Stock,
             BarcodeFirst: false,
             request.ShowBarcode,
-            request.SkipLabels));
+            request.SkipLabels,
+            request.Symbology));
 
         return result.IsSuccess
             ? Pdf(result.Value, "price-tags.pdf")
@@ -72,7 +73,8 @@ public sealed class DocumentsController : ControllerBase
             request.Stock,
             BarcodeFirst: true,
             request.ShowBarcode,
-            request.SkipLabels));
+            request.SkipLabels,
+            request.Symbology));
 
         return result.IsSuccess
             ? Pdf(result.Value, "barcode-labels.pdf")
@@ -86,10 +88,11 @@ public sealed class DocumentsController : ControllerBase
         long productId,
         [FromQuery][BindRequired] long locationId,
         [FromQuery] LabelStock stock = LabelStock.Avery5160,
-        [FromQuery] int copies = 1)
+        [FromQuery] int copies = 1,
+        [FromQuery] LabelSymbology symbology = LabelSymbology.Auto)
     {
         var result = await _sender.Send(new PrintPriceTagsQuery(
-            locationId, [new LabelRequestLine(productId, copies)], stock));
+            locationId, [new LabelRequestLine(productId, copies)], stock, Symbology: symbology));
 
         return result.IsSuccess
             ? Pdf(result.Value, "price-tag.pdf")
@@ -159,4 +162,5 @@ public sealed record PrintLabelsRequest(
     IReadOnlyList<LabelRequestLine> Lines,
     LabelStock Stock = LabelStock.Avery5160,
     bool ShowBarcode = true,
-    int SkipLabels = 0);
+    int SkipLabels = 0,
+    LabelSymbology Symbology = LabelSymbology.Auto);

@@ -24,7 +24,8 @@ public sealed record PrintPriceTagsQuery(
     LabelStock Stock = LabelStock.Avery5160,
     bool BarcodeFirst = false,
     bool ShowBarcode = true,
-    int SkipLabels = 0) : IRequest<Result<byte[]>>;
+    int SkipLabels = 0,
+    LabelSymbology Symbology = LabelSymbology.Auto) : IRequest<Result<byte[]>>;
 
 /// <summary>A statement envelope for one customer, laid out for a #10 window.</summary>
 [RequiresPermission(PermissionKeys.Ar.Read)]
@@ -127,7 +128,7 @@ public sealed class DocumentHandlers
             return Result.Failure<byte[]>(NothingToPrint);
         }
 
-        var sheet = new LabelSheetRequest(request.Stock, lines, request.ShowBarcode, request.SkipLabels);
+        var sheet = new LabelSheetRequest(request.Stock, lines, request.ShowBarcode, request.SkipLabels, request.Symbology);
 
         return Result.Success(request.BarcodeFirst
             ? _labels.RenderBarcodeLabels(sheet)

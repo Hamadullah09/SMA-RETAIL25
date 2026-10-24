@@ -67,6 +67,14 @@ public sealed class CatalogController : ControllerBase
     public async Task<IActionResult> Delete(long id, CancellationToken ct)
         => (await _sender.Send(new DeleteProductCommand(id), ct)).ToActionResult(this);
 
+    /// <summary>
+    /// Gives the chosen items — or, with none chosen, every item in the location — an in-store UPC-A
+    /// where they have no barcode. Items that already have one are left alone.
+    /// </summary>
+    [HttpPost("products/in-store-upcs")]
+    public async Task<IActionResult> AssignInStoreUpcs([FromBody] AssignInStoreUpcsCommand command, CancellationToken ct)
+        => (await _sender.Send(command, ct)).ToActionResult(this);
+
     [HttpPost("products/{id:long}/restore")]
     public async Task<IActionResult> Restore(long id, CancellationToken ct)
         => (await _sender.Send(new RestoreProductCommand(id), ct)).ToActionResult(this);

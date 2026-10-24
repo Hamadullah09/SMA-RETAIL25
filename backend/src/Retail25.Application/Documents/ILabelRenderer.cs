@@ -35,6 +35,25 @@ public static class LabelStockNames
     };
 }
 
+/// <summary>
+/// Which barcode a label carries.
+/// <para>
+/// Chosen per print run rather than fixed, because a shop moving to UPC-A has stock in both states
+/// for a while, and a shelf of Code 39 tags still in use must stay reprintable.
+/// </para>
+/// </summary>
+public enum LabelSymbology
+{
+    /// <summary>UPC-A for an item that has a valid one; Code 39 of its barcode or stock code otherwise.</summary>
+    Auto = 0,
+
+    /// <summary>UPC-A only. An item without a valid UPC-A prints without a barcode rather than with another kind.</summary>
+    UpcA = 1,
+
+    /// <summary>Code 39 throughout, as the legacy system printed (guide App. L).</summary>
+    Code39 = 2,
+}
+
 /// <summary>One label's worth of an item.</summary>
 /// <param name="EpcToEncode">
 /// The tag to program, when the label stock carries an RFID inlay and the printer can encode it.
@@ -57,7 +76,8 @@ public sealed record LabelSheetRequest(
     IReadOnlyList<LabelLine> Lines,
     bool ShowBarcode = true,
     /// <summary>Labels already used on a part-used sheet, so printing resumes rather than wasting them.</summary>
-    int SkipLabels = 0);
+    int SkipLabels = 0,
+    LabelSymbology Symbology = LabelSymbology.Auto);
 
 public sealed record LabelLine(PriceTag Tag, int Copies = 1);
 

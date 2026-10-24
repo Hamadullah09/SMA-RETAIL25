@@ -35,6 +35,7 @@ import {
   type ProductType,
 } from '@/types/masters';
 import { describeError } from '@/lib/errors';
+import { isUpcA, labelBarcodeKind } from '@/lib/upc';
 import { StatusBadge, StockBadge } from '@/components/ui/status-badge';
 import { ConfirmDialog, PromptDialog, useConfirm } from '@/components/ui/confirm-dialog';
 
@@ -336,6 +337,7 @@ export default function ProductsPage() {
             canDelete={canDelete}
             onClose={() => setSelectedId(null)}
             onSaved={() => void load(false, null)}
+            onCreated={(id) => setSelectedId(id)}
           />
         ) : null
       }
@@ -451,6 +453,7 @@ function ProductFormPanel({
   canDelete,
   onClose,
   onSaved,
+  onCreated,
 }: {
   productId: number | null;
   locationId: number;
@@ -460,6 +463,8 @@ function ProductFormPanel({
   canDelete: boolean;
   onClose: () => void;
   onSaved: () => void;
+  /** The new item's id, so the panel becomes that item rather than staying a blank "new" form. */
+  onCreated: (id: number) => void;
 }) {
   const confirmer = useConfirm();
   const [form, setForm] = useState<ProductForm>(emptyForm);
@@ -503,6 +508,10 @@ function ProductFormPanel({
       setForm(saved);
       onSaved();
       toast({ title: productId ? 'Saved' : 'Item created' });
+
+      // The panel stayed in "new" mode after a create, so a second Save tried to create the item
+      // again and was refused as a duplicate code. It now reopens as the item just made.
+      if (!productId) onCreated(saved.id);
     } catch (error) {
       toast({ title: 'Not saved', description: describeError(error), variant: 'destructive' });
     } finally {
@@ -567,6 +576,32 @@ function ProductFormPanel({
 
   const disabled = !canWrite || busy;
 
+  const giveUpcA = async () => {
+    if (!productId) return;
+    setBusy(true);
+
+    try {
+      const result = await mastersApi.products.assignInStoreUpcs(locationId, [productId]);
+      const given = result.assigned.find((entry) => entry.productId === productId);
+
+      if (given) {
+        patch({ upc: given.upc });
+        onSaved();
+        toast({ variant: 'success', title: `UPC-A ${given.upc}`, description: 'Its labels print as UPC-A from now on.' });
+      } else {
+        toast({
+          title: 'No number given',
+          description: 'It already has a barcode, or its number is in use by another item.',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({ title: 'Could not give a UPC-A number', description: describeError(error), variant: 'destructive' });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const saveButton = (sections: () => Record<string, unknown>) =>
     canWrite ? (
       <Button variant="default" loading={busy} onClick={() => void save(sections())}>Save</Button>
@@ -607,7 +642,26 @@ function ProductFormPanel({
           disabled={disabled}
           hint="A matrix or kit item is given its grid or components on its own screen."
         />
-        <TextField label="Barcode (UPC)" value={form.upc ?? ''} onChange={(v) => patch({ upc: v })} disabled={disabled} />
+        <TextField
+          label="Barcode (UPC)"
+          value={form.upc ?? ''}
+          onChange={(v) => patch({ upc: v })}
+          disabled={disabled}
+          hint={barcodeHint(form.upc, form.stockCode)}
+        />
+        {/*
+          The shop's own goods mostly have no UPC — their stock codes carry letters, which UPC-A
+          cannot — so this gives one from the shop's own range. Only for an item already saved: the
+          number is built from its id, and only when it has no barcode, so nothing printed on a
+          supplier's packaging is ever replaced.
+        */}
+        {productId && !form.upc?.trim() && canWrite ? (
+          <div className="flex items-end">
+            <button type="button" className="pos-button" disabled={busy} onClick={() => void giveUpcA()}>
+              Give it a UPC-A number
+            </button>
+          </div>
+        ) : null}
         <SelectField
           label="Department"
           value={form.departmentId ?? ''}
@@ -1161,4 +1215,17 @@ function ProductFormPanel({
       />
     </div>
   );
+}
+
+/** What the item's labels will carry, said where the barcode is typed. */
+function barcodeHint(upc: string | null | undefined, stockCode: string): string {
+  if (!upc?.trim()) {
+    return labelBarcodeKind(null, stockCode) === 'code39'
+      ? 'None yet. Labels print the stock code as Code 39 until it has a UPC-A.'
+      : 'None yet, and the stock code cannot be printed as a barcode. Give it a UPC-A number.';
+  }
+
+  return isUpcA(upc)
+    ? 'A valid UPC-A. Labels print it as UPC-A.'
+    : 'Not a UPC-A (12 digits ending in the right check digit). Labels print it as Code 39.';
 }

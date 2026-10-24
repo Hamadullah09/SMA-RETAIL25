@@ -74,7 +74,7 @@ public sealed class QuestPdfLabelRenderer : ILabelRenderer
                                                 return;
                                             }
 
-                                            DrawLabel(cell, tag, layout, request.ShowBarcode, barcodeFirst);
+                                            DrawLabel(cell, tag, layout, request.ShowBarcode, barcodeFirst, request.Symbology);
                                         });
                                 }
                             });
@@ -121,18 +121,19 @@ public sealed class QuestPdfLabelRenderer : ILabelRenderer
         return cells;
     }
 
-    private static void DrawLabel(IContainer cell, PriceTag tag, LabelLayout layout, bool showBarcode, bool barcodeFirst)
+    private static void DrawLabel(
+        IContainer cell,
+        PriceTag tag,
+        LabelLayout layout,
+        bool showBarcode,
+        bool barcodeFirst,
+        LabelSymbology symbology)
     {
         var big = layout.LabelHeight >= 2f;
 
         // An unencodable code prints as a tag without a barcode rather than as a barcode that will
         // not scan — a shelf tag with no barcode is a minor inconvenience, a bad one is a queue.
-        BarcodePattern? barcode = null;
-
-        if (showBarcode && Code39Renderer.TryEncode(tag.Barcode ?? tag.StockCode, out var pattern))
-        {
-            barcode = pattern;
-        }
+        var barcode = showBarcode ? LabelBarcodes.For(tag, symbology) : null;
 
         cell.Column(column =>
         {

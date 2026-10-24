@@ -118,8 +118,16 @@ public sealed class IdentifierResolver
 
     private async Task<Result<ResolvedItem>> ResolveCodeAsync(string code, long locationId, CancellationToken ct)
     {
+        // The twelve-digit UPC-A and its thirteen-digit EAN-13 form are one barcode, and scanners send
+        // either depending on how they were set up. Without this a product rang at one till and was
+        // "not found" at the next. Empty when the code is neither shape, so it never matches.
+        var alternate = UpcA.AlternateForm(code) ?? string.Empty;
+
         var product = await _db.Products
-            .FirstOrDefaultAsync(p => p.LocationId == locationId && !p.IsDeleted && (p.StockCode == code || p.Upc == code), ct);
+            .FirstOrDefaultAsync(
+                p => p.LocationId == locationId && !p.IsDeleted &&
+                     (p.StockCode == code || p.Upc == code || (alternate != string.Empty && p.Upc == alternate)),
+                ct);
 
         if (product is not null)
         {
@@ -132,13 +140,17 @@ public sealed class IdentifierResolver
                 return Result.Failure<ResolvedItem>(ambiguity.With("productId", product.Id));
             }
 
-            var source = product.Upc == code ? LineSource.Barcode : LineSource.StockCode;
+            var byBarcode = product.Upc == code || (alternate != string.Empty && product.Upc == alternate);
+            var source = byBarcode ? LineSource.Barcode : LineSource.StockCode;
             return Result.Success(new ResolvedItem(product, null, null, source, null));
         }
 
         // A matrix item is usually scanned at the variant, not the parent (guide p.39–40).
         var variant = await _db.ProductVariants
-            .FirstOrDefaultAsync(v => v.IsActive && (v.VariantCode == code || v.Upc == code), ct);
+            .FirstOrDefaultAsync(
+                v => v.IsActive &&
+                     (v.VariantCode == code || v.Upc == code || (alternate != string.Empty && v.Upc == alternate)),
+                ct);
 
         if (variant is not null)
         {
