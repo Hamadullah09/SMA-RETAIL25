@@ -384,6 +384,27 @@ if (builder.Configuration.GetValue<bool>("Database:AutoMigrate"))
     await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().EnsureAgentClientAsync();
 }
 
+// The permission catalogue, outside the seed block for the same reason.
+//
+// Permissions are defined in code and administered as rows, and production neither seeds nor migrates
+// itself, so a permission added in code never became a row there. A command that newly required one
+// would then be refused to everyone — administrators included — because nobody can hold a permission
+// that does not exist. Only new permissions are written, and only their preset grants; nothing an
+// administrator has changed is touched. A failure is logged loudly rather than stopping the site: the
+// catalogue that is already there still authorises everything it did yesterday.
+{
+    using var scope = app.Services.CreateScope();
+
+    try
+    {
+        await scope.ServiceProvider.GetRequiredService<IdentitySeeder>().EnsurePermissionCatalogueAsync();
+    }
+    catch (Exception ex) when (ex is DbUpdateException or InvalidOperationException or Microsoft.Data.SqlClient.SqlException)
+    {
+        app.Logger.LogError(ex, "Could not bring the permission catalogue up to date; permissions new in this release are not yet grantable");
+    }
+}
+
 // --- Middleware pipeline ---
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<ExceptionHandlingMiddleware>();

@@ -68,6 +68,70 @@ public sealed class IdentitySeeder
     }
 
     /// <summary>
+    /// Brings the permission catalogue up to date with the code, in every environment.
+    /// <para>
+    /// Run at every start, outside the seed switch, for the same reason as the agent's client:
+    /// production never seeds, and its migrations are applied by hand. A permission added in code
+    /// therefore reached no live database at all — and a command that newly required it was refused
+    /// to everybody, administrators included, because nobody could hold a permission that did not
+    /// exist. Clearing a sale was about to become exactly that.
+    /// </para>
+    /// <para>
+    /// It writes only what is new: rows for permissions the catalogue lacks, and those permissions'
+    /// preset grants to the roles mapped to legacy levels. Everything an administrator has decided —
+    /// a grant removed, a role renamed, a role created — is left as it is. Roles are matched by legacy
+    /// level, not by name, because names are editable and levels are what the presets are defined
+    /// against.
+    /// </para>
+    /// <para>
+    /// Safe if two workers start together: both tables carry unique indexes, so the slower writer
+    /// fails on a duplicate rather than creating one, and a duplicate means the work is already done.
+    /// </para>
+    /// </summary>
+    public async Task EnsurePermissionCatalogueAsync(CancellationToken ct = default)
+    {
+        IReadOnlySet<string> introduced;
+
+        try
+        {
+            introduced = await SeedPermissionsAsync(ct);
+        }
+        catch (DbUpdateException ex) when (IsDuplicateKey(ex))
+        {
+            _db.ChangeTracker.Clear();
+            return;
+        }
+
+        if (introduced.Count == 0)
+        {
+            return;
+        }
+
+        var mapped = await _roles.Roles.Where(r => r.LegacyLevel != null).ToListAsync(ct);
+
+        foreach (var role in mapped)
+        {
+            if (!PermissionKeys.LegacyLevelPresets.TryGetValue(role.LegacyLevel!.Value, out var preset))
+            {
+                continue;
+            }
+
+            try
+            {
+                await GrantAsync(role, preset.Where(introduced.Contains).ToList(), ct);
+            }
+            catch (DbUpdateException ex) when (IsDuplicateKey(ex))
+            {
+                _db.ChangeTracker.Clear();
+            }
+        }
+    }
+
+    /// <summary>SQL Server's two unique-violation errors: 2601 for an index, 2627 for a constraint.</summary>
+    private static bool IsDuplicateKey(DbUpdateException ex)
+        => ex.InnerException is Microsoft.Data.SqlClient.SqlException { Number: 2601 or 2627 };
+
+    /// <summary>
     /// Writes any permission constant that has no row yet, so the catalogue is administrable.
     /// </summary>
     /// <returns>The permissions this run introduced — the only ones an existing role may be given.</returns>
