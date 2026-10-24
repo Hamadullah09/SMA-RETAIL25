@@ -20,7 +20,7 @@ import { usePosStore } from '@/stores/pos-store';
 import type { CartLine, PriceOrigin } from '@/types/pos';
 import { cn } from '@/lib/utils';
 import { connectionCopy } from '@/lib/connection-state';
-import { groupCartLines } from '@/lib/cart-grouping';
+import { epcLabels, groupCartLines } from '@/lib/cart-grouping';
 
 /**
  * Money is formatted once, here, and always with tabular figures.
@@ -511,17 +511,16 @@ export function CartList() {
                   </span>
 
                   {/*
-                    Which tags make up a row of several, by the end of each EPC — the part that tells
-                    two shirts apart. The whole code is on hover, and on the receipt.
+                    Which tags make up a row of several, by the part of each EPC that differs. The
+                    whole code is on hover, on the receipt, and on the invoice.
+
+                    One line, never wrapping. Every row of the sale is the same fixed height, so a
+                    tag list that wrapped spilled over the row below and the two read as one — which
+                    is what a shop saw with six blouses on one row. A few tags and a count of the
+                    rest fit; the line-detail window lists them all.
                   */}
                   {row.epcs.length > 1 ? (
-                    <span className="mt-0.5 flex flex-wrap gap-1" aria-label={`${row.epcs.length} tags`}>
-                      {row.epcs.map((epc) => (
-                        <span key={epc} title={epc} className="rounded bg-panel-sunken px-1.5 font-mono text-caption text-ink-muted">
-                          …{epc.slice(-6)}
-                        </span>
-                      ))}
-                    </span>
+                    <EpcStrip epcs={row.epcs} />
                   ) : null}
                   </span>
 
@@ -557,6 +556,29 @@ export function CartList() {
         </ol>
       )}
     </section>
+  );
+}
+
+/** How many tags a sale row names before it counts the rest. */
+const EPC_STRIP_SHOWN = 3;
+
+function EpcStrip({ epcs }: { epcs: string[] }) {
+  const labels = epcLabels(epcs);
+  const hidden = epcs.length - EPC_STRIP_SHOWN;
+
+  return (
+    <span
+      className="flex min-w-0 flex-nowrap items-center gap-1 overflow-hidden whitespace-nowrap"
+      aria-label={`${epcs.length} tags`}
+      title={epcs.join('\n')}
+    >
+      {labels.slice(0, EPC_STRIP_SHOWN).map((label, index) => (
+        <span key={epcs[index]} className="shrink-0 rounded bg-panel-sunken px-1.5 font-mono text-caption leading-4 text-ink-muted">
+          {label}
+        </span>
+      ))}
+      {hidden > 0 ? <span className="shrink-0 text-caption leading-4 text-ink-muted">+{hidden} more</span> : null}
+    </span>
   );
 }
 

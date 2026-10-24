@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupCartLines, quantityInSale } from './cart-grouping';
+import { epcLabels, groupCartLines, quantityInSale } from './cart-grouping';
 import type { Cart, CartLine } from '@/types/pos';
 
 let sequence = 0;
@@ -81,6 +81,24 @@ describe('groupCartLines', () => {
 
     expect(rows.map((row) => row.first.stockCode)).toEqual(['SHIRT01', 'MUG01']);
     expect(rows[0].quantity).toBe(2);
+  });
+});
+
+describe('epcLabels', () => {
+  it('cuts each label from where the tags stop agreeing, not from the end', () => {
+    // The shop's case: every tag ends the same way, so the last six characters told nothing apart.
+    const labels = epcLabels(['E2801100000A16B630D', 'E2801100000B26B630D', 'E2801100000C36B630D']);
+
+    expect(labels).toEqual(['…A1…', '…B2…', '…C3…']);
+    expect(new Set(labels).size).toBe(3);
+  });
+
+  it('shows the serial when it is at the end, as standard EPCs put it', () => {
+    expect(epcLabels(['3034257BF400B7800004CB2F', '3034257BF400B7800004CB30'])).toEqual(['…2F', '…30']);
+  });
+
+  it('shows the end of a lone tag', () => {
+    expect(epcLabels(['3034257BF400B7800004CB2F'])).toEqual(['…04CB2F']);
   });
 });
 

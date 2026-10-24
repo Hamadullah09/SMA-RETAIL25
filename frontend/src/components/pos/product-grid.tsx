@@ -64,12 +64,14 @@ function ShelfStock({ item }: { item: PosGridItem }) {
   if (left > 0) return null;
 
   if (inSale > 0) {
+    // Short enough for a tile. The first wording ("None left · all in this sale") was cut off at
+    // "None left · all i" on a till's tile, which said neither thing; the sentence is on hover.
+    const over = left < 0;
+
     return (
-      <StatusBadge
-        tone="warning"
-        icon={ShoppingCart}
-        label={left < 0 ? 'More in this sale than in stock' : 'None left · all in this sale'}
-      />
+      <span title={over ? 'More of this item is in the sale than is in stock' : 'None left on the shelf: all of it is in this sale'}>
+        <StatusBadge tone="warning" icon={ShoppingCart} label={over ? 'Not enough' : 'All in sale'} />
+      </span>
     );
   }
 

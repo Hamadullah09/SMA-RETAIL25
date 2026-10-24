@@ -15,6 +15,48 @@ export function quantityInSale(cart: Cart | null, productId: number): number {
     .reduce((sum, line) => sum + line.quantity, 0);
 }
 
+/** How many characters of an EPC a chip on the till shows. */
+const EPC_LABEL_LENGTH = 6;
+
+/**
+ * A short label for each tag that actually tells them apart.
+ *
+ * The till showed the last six characters of each EPC, on the assumption that the serial sits at
+ * the end. On a shop's real tags it did not: six units of one blouse all read "…6B630D", because
+ * their EPCs share the same ending and differ further in. So the labels are cut from where the
+ * group's EPCs stop agreeing — after the characters they all share at the start and before the
+ * characters they all share at the end.
+ */
+export function epcLabels(epcs: readonly string[]): string[] {
+  if (epcs.length < 2) return epcs.map((epc) => `…${epc.slice(-EPC_LABEL_LENGTH)}`);
+
+  const shortest = Math.min(...epcs.map((epc) => epc.length));
+
+  let prefix = 0;
+  while (prefix < shortest && epcs.every((epc) => epc[prefix] === epcs[0][prefix])) prefix++;
+
+  let suffix = 0;
+  while (
+    suffix < shortest - prefix &&
+    epcs.every((epc) => epc[epc.length - 1 - suffix] === epcs[0][epcs[0].length - 1 - suffix])
+  ) {
+    suffix++;
+  }
+
+  return epcs.map((epc) => {
+    const differing = epc.slice(prefix, epc.length - suffix);
+
+    // Identical tags (which the server refuses anyway) have nothing that differs; show the end.
+    if (differing.length === 0) return `…${epc.slice(-EPC_LABEL_LENGTH)}`;
+
+    const shown = differing.slice(0, EPC_LABEL_LENGTH);
+    const before = prefix > 0 ? '…' : '';
+    const after = prefix + shown.length < epc.length ? '…' : '';
+
+    return `${before}${shown}${after}`;
+  });
+}
+
 /** One row of the sale as the cashier sees it: possibly several tagged units of the same item. */
 export interface GroupedLine {
   /** Stable across renders, for React. */
