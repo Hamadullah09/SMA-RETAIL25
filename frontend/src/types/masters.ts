@@ -861,6 +861,46 @@ export interface SaleDetail {
   voidReason: string | null;
 }
 
+// --- A customer's own sales ------------------------------------------------------------------------
+
+/** Which of a customer's sales to list: everything, what stands, or what was cancelled. */
+export type CustomerSaleFilter = 'All' | 'Completed' | 'Voided';
+
+export interface CustomerSaleRow {
+  id: number;
+  transactionNumber: number;
+  completedAt: string;
+  businessDate: string;
+  stationCode: string;
+  staffName: string;
+  itemCount: number;
+  grandTotal: number;
+  /** The tenders, joined: "Cash", "Cash + Debit". */
+  paidWith: string;
+  status: TransactionStatus;
+  isRefund: boolean;
+}
+
+export interface CustomerSalesPage {
+  rows: CustomerSaleRow[];
+  totalCount: number;
+  /** Net of refunds, across every match rather than this page, and never counting a voided sale. */
+  totalSpent: number;
+  hasMore: boolean;
+}
+
+export interface CustomerSalesFilters {
+  /** ISO dates, inclusive, on the shop's trading day. */
+  from?: string;
+  to?: string;
+  number?: number;
+  /** A stock code, part of a name, or a tag's EPC. */
+  item?: string;
+  show?: CustomerSaleFilter;
+  skip?: number;
+  take?: number;
+}
+
 // --- Audit log (doc 07 §Audit) -------------------------------------------------------------------
 
 export type AuditAction =
@@ -1159,6 +1199,12 @@ export interface LabelRequestLine {
   copies: number;
 }
 
+/**
+ * Which barcode a label carries. Auto is UPC-A where the item has a valid one and Code 39 of its
+ * barcode or stock code otherwise, so every label gets something a scanner reads.
+ */
+export type LabelSymbology = 'Auto' | 'UpcA' | 'Code39';
+
 export interface PrintLabelsRequest {
   locationId: number;
   lines: LabelRequestLine[];
@@ -1166,6 +1212,21 @@ export interface PrintLabelsRequest {
   showBarcode: boolean;
   /** Labels already peeled off a part-used sheet, so printing resumes rather than wasting them. */
   skipLabels: number;
+  symbology?: LabelSymbology;
+}
+
+export interface AssignedUpc {
+  productId: number;
+  stockCode: string;
+  upc: string;
+}
+
+export interface AssignedUpcs {
+  assigned: AssignedUpc[];
+  /** Asked about, but already carrying a barcode, and left exactly as they were. */
+  alreadyHadOne: number;
+  /** Could not be given their number because another item already carries it. */
+  skipped: number;
 }
 
 /* ---------------------------------------------------------------------------------------------

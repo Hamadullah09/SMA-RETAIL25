@@ -90,4 +90,24 @@ public sealed class CustomersController : ControllerBase
     [HttpPost("{id:long}/restore")]
     public async Task<IActionResult> Restore(long id, CancellationToken ct)
         => (await _sender.Send(new RestoreCustomerCommand(id), ct)).ToActionResult(this);
+
+    /// <summary>The customer's own sales, newest first, filterable. Cashiers can read this.</summary>
+    [HttpGet("{id:long}/sales")]
+    public async Task<IActionResult> Sales(
+        long id,
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null,
+        [FromQuery] long? number = null,
+        [FromQuery] string? item = null,
+        [FromQuery] CustomerSaleFilter show = CustomerSaleFilter.All,
+        [FromQuery] int skip = 0,
+        [FromQuery] int take = 50,
+        CancellationToken ct = default)
+        => (await _sender.Send(new CustomerSalesQuery(id, from, to, number, item, show, skip, take), ct))
+            .ToActionResult(this);
+
+    /// <summary>One of the customer's sales in full: the invoice, for the screen.</summary>
+    [HttpGet("{id:long}/sales/{transactionId:long}")]
+    public async Task<IActionResult> Sale(long id, long transactionId, CancellationToken ct)
+        => (await _sender.Send(new GetCustomerSaleQuery(id, transactionId), ct)).ToActionResult(this);
 }

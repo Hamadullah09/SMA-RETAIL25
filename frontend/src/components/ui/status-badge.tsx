@@ -141,6 +141,8 @@ const STATUS_VOCABULARY: Record<string, { label: string; tone: StatusTone; icon?
   Completed_Sale: { label: 'Completed', tone: 'positive' },
   Suspended: { label: 'Held', tone: 'special' },
   Refunded: { label: 'Refunded', tone: 'warning' },
+  Voided: { label: 'Voided', tone: 'negative', icon: Ban },
+  Reversal: { label: 'Reversal', tone: 'neutral' },
 };
 
 /** Renders a domain status by its enum name. */

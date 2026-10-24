@@ -97,6 +97,7 @@ public static class ResultExtensions
         "epc.unknown" => StatusCodes.Status404NotFound,
         "product.not_found" => StatusCodes.Status404NotFound,
         "customer.not_found" => StatusCodes.Status404NotFound,
+        "customer.sale_not_found" => StatusCodes.Status404NotFound,
         "sale.not_found" => StatusCodes.Status404NotFound,
         "station.not_found" => StatusCodes.Status404NotFound,
         "cart.line_not_found" => StatusCodes.Status404NotFound,

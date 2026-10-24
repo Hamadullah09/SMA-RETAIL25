@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-config';
 import { Sidebar, Header } from '@/components/layout/sidebar';
@@ -23,10 +23,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const locationId = auth.user?.locationId;
   const currency = useCurrency();
 
+  /*
+    Whether the currency has been settled one way or the other: loaded, refused, or too slow to wait
+    for. The page is held until then.
+
+    The page below is keyed on the currency code, and the code arriving remounted it. The note on
+    that key said this happens "before anyone has typed anything", which is only true on a fast
+    connection: the lookup is a round trip after sign-in, and anybody who clicked or typed in that
+    time lost it — a customer opened on the customer screen closed itself a second later. Holding
+    the page means the one remount happens before there is a page to lose.
+  */
+  const [currencySettled, setCurrencySettled] = useState(false);
+
   useEffect(() => {
-    if (!locationId) return;
+    if (auth.isLoading) return undefined;
+
+    if (!locationId) {
+      setCurrencySettled(true);
+      return undefined;
+    }
 
     let cancelled = false;
+
+    // Never held for long. A slow lookup costs the symbol, not the screen; if it lands after this,
+    // the key below remounts once, as it always did.
+    const giveUp = window.setTimeout(() => setCurrencySettled(true), 4000);
 
     void mastersApi.settings
       .get(locationId)
@@ -38,12 +59,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       })
       .catch(() => {
         // Nothing to say to the user: the symbol is missing, not the money.
+      })
+      .finally(() => {
+        if (cancelled) return;
+        window.clearTimeout(giveUp);
+        setCurrencySettled(true);
       });
 
     return () => {
       cancelled = true;
+      window.clearTimeout(giveUp);
     };
-  }, [locationId]);
+  }, [locationId, auth.isLoading]);
 
   useEffect(() => {
     if (!auth.isLoading && !auth.isAuthenticated) {
@@ -51,7 +78,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, [auth.isLoading, auth.isAuthenticated, router]);
 
-  if (auth.isLoading) {
+  // The till is not held: it takes its symbol from the station's policy, not from this key.
+  const holdForCurrency = !currencySettled && !pathname?.startsWith('/pos');
+
+  if (auth.isLoading || (auth.isAuthenticated && holdForCurrency)) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <p className="text-ink-muted">Loading…</p>
@@ -126,8 +156,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               Most of them format money by calling a function, not by reading a hook, so nothing
               tells them the symbol has arrived — the dashboard rendered its takings as a bare
               "54.83" and stayed that way, while a page opened later showed ₨54.83. Changing the key
-              from "" to "PKR" remounts the subtree exactly once, on load, before anyone has typed
-              anything into it.
+              from "" to "PKR" remounts the subtree — which is why the page is held above until the
+              currency has settled, so that remount happens before anyone can have used the page.
             */}
             <main id="main" tabIndex={-1} key={currency.code}>
               {children}

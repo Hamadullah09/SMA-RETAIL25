@@ -23,6 +23,7 @@ import { formatCurrency } from '@/lib/utils';
 import type { Address, ContactDetails, CustomerForm, CustomerRow, CustomerSort } from '@/types/masters';
 import { describeError } from '@/lib/errors';
 import { ConfirmDialog, useConfirm } from '@/components/ui/confirm-dialog';
+import { CustomerSales } from '@/components/customers/customer-sales';
 
 /**
  * The id a form holds while it is creating rather than editing.
@@ -223,6 +224,7 @@ export default function CustomersPage() {
             canDelete={canDelete}
             onClose={() => setSelectedId(null)}
             onSaved={() => void load(false, null)}
+            onCreated={(id) => setSelectedId(id)}
           />
         ) : null
       }
@@ -276,6 +278,7 @@ function CustomerFormPanel({
   canDelete,
   onClose,
   onSaved,
+  onCreated,
 }: {
   customerId: number | null;
   locationId: number;
@@ -283,10 +286,16 @@ function CustomerFormPanel({
   canDelete: boolean;
   onClose: () => void;
   onSaved: () => void;
+  /** The new customer's id, so the panel becomes theirs rather than staying a blank "new" form. */
+  onCreated: (id: number) => void;
 }) {
   const confirmer = useConfirm();
   const [form, setForm] = useState<CustomerForm>(emptyCustomer);
   const [busy, setBusy] = useState(false);
+
+  // Opening a customer shows what they bought first: a shop asked for exactly that, and it is what a
+  // cashier — who can read this screen but not edit it — most often comes here for.
+  const [view, setView] = useState<'sales' | 'details'>(customerId ? 'sales' : 'details');
 
   useEffect(() => {
     if (!customerId) {
@@ -344,6 +353,10 @@ function CustomerFormPanel({
       setForm(saved);
       onSaved();
       toast({ title: customerId ? 'Saved' : 'Customer created' });
+
+      // The panel stayed in "new" mode after a create, so a second press of Save created the same
+      // customer again. It now reopens as the customer just made.
+      if (!customerId) onCreated(saved.id);
     } catch (error) {
       toast({ title: 'Not saved', description: describeError(error), variant: 'destructive' });
     } finally {
@@ -400,123 +413,153 @@ function CustomerFormPanel({
         </button>
       </div>
 
-      <FormSection
-        title="Identity"
-        hint="The customer number is issued by the store's counter and is not editable."
-        actions={saveButton(() => ({ identity: identity() }))}
-      >
-        <TextField label="First name" value={form.firstName} onChange={(v) => patch({ firstName: v })} disabled={disabled} autoFocus />
-        <TextField label="Last name" value={form.lastName} onChange={(v) => patch({ lastName: v })} disabled={disabled} />
-        <TextField
-          label="Company"
-          value={form.company ?? ''}
-          onChange={(v) => patch({ company: v })}
-          disabled={disabled}
-          hint="When set, this is the name the browse and the receipt show."
-        />
-        <TextField label="Title" value={form.title ?? ''} onChange={(v) => patch({ title: v })} disabled={disabled} />
-        <TextField
-          label="Client type"
-          value={form.clientType ?? ''}
-          onChange={(v) => patch({ clientType: v })}
-          disabled={disabled}
-          hint="Free text; it becomes a filter on the browse."
-        />
-        <TextField label="Notes" value={form.notes ?? ''} onChange={(v) => patch({ notes: v })} disabled={disabled} />
-      </FormSection>
-
-      <FormSection title="Address and contact" actions={saveButton(() => ({ addresses: addresses() }))}>
-        <TextField
-          label="Billing line 1"
-          value={form.billingAddress.line1 ?? ''}
-          onChange={(v) => address('billingAddress', { line1: v })}
-          disabled={disabled}
-        />
-        <TextField
-          label="Billing line 2"
-          value={form.billingAddress.line2 ?? ''}
-          onChange={(v) => address('billingAddress', { line2: v })}
-          disabled={disabled}
-        />
-        <TextField
-          label="City"
-          value={form.billingAddress.city ?? ''}
-          onChange={(v) => address('billingAddress', { city: v })}
-          disabled={disabled}
-        />
-        <TextField
-          label="State / province"
-          value={form.billingAddress.stateOrProvince ?? ''}
-          onChange={(v) => address('billingAddress', { stateOrProvince: v })}
-          disabled={disabled}
-        />
-        <TextField
-          label="Postcode"
-          value={form.billingAddress.postalCode ?? ''}
-          onChange={(v) => address('billingAddress', { postalCode: v })}
-          disabled={disabled}
-        />
-        <TextField
-          label="Ship-to line 1"
-          value={form.shipToAddress.line1 ?? ''}
-          onChange={(v) => address('shipToAddress', { line1: v })}
-          disabled={disabled}
-          hint="Leave blank to ship to the billing address."
-        />
-        <TextField
-          label="Ship-to city"
-          value={form.shipToAddress.city ?? ''}
-          onChange={(v) => address('shipToAddress', { city: v })}
-          disabled={disabled}
-        />
-        <TextField label="Phone" value={form.contact.phone ?? ''} onChange={(v) => contact({ phone: v })} disabled={disabled} />
-        <TextField label="Mobile" value={form.contact.mobile ?? ''} onChange={(v) => contact({ mobile: v })} disabled={disabled} />
-        <TextField label="Email" value={form.contact.email ?? ''} onChange={(v) => contact({ email: v })} disabled={disabled} />
-      </FormSection>
-
-      <FormSection
-        title="Account and pricing"
-        hint="These follow the customer onto every sale: attaching them reprices the whole basket."
-        actions={saveButton(() => ({ account: account() }))}
-      >
-        <NumberField
-          label="Credit limit"
-          value={form.creditLimit}
-          onChange={(v) => patch({ creditLimit: v })}
-          disabled={disabled}
-          hint="Zero means unlimited, as in the legacy system."
-        />
-        <NumberField
-          label="Usual discount %"
-          value={form.usualDiscountPct}
-          onChange={(v) => patch({ usualDiscountPct: v })}
-          disabled={disabled}
-        />
-        <SelectField
-          label="Price level"
-          value={String(form.priceLevel)}
-          options={[1, 2, 3, 4].map((level) => ({ value: String(level), label: `Level ${level}` }))}
-          onChange={(v) => patch({ priceLevel: Number(v) || 1 })}
-          disabled={disabled}
-        />
-        <CheckField label="Exempt from tax 1" checked={form.exemptTax1} onChange={(v) => patch({ exemptTax1: v })} disabled={disabled} />
-        <CheckField label="Exempt from tax 2" checked={form.exemptTax2} onChange={(v) => patch({ exemptTax2: v })} disabled={disabled} />
-
-        {customerId ? (
-          <p className="text-label text-ink-muted">
-            Balance {formatCurrency(form.balanceDue)} · {form.rewardPoints} reward points — both derived from the ledgers
-            and not editable here.
-          </p>
-        ) : null}
-      </FormSection>
-
-      {canDelete && customerId ? (
-        <div className="mb-6">
-          <button type="button" className="pos-button text-negative" onClick={askRemove} disabled={busy}>
-            Delete
-          </button>
+      {customerId ? (
+        <div role="tablist" aria-label="Customer" className="mb-3 flex gap-1 border-b border-subtle">
+          {(
+            [
+              ['sales', 'Sales history'],
+              ['details', 'Details'],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={view === key}
+              onClick={() => setView(key)}
+              className={
+                view === key
+                  ? '-mb-px border-b-2 border-accent px-4 py-2 text-body font-semibold text-accent-text'
+                  : '-mb-px border-b-2 border-transparent px-4 py-2 text-body text-ink-muted hover:text-ink'
+              }
+            >
+              {label}
+            </button>
+          ))}
         </div>
       ) : null}
+
+      {customerId && view === 'sales' ? <CustomerSales key={customerId} customerId={customerId} /> : null}
+
+      <div hidden={Boolean(customerId) && view !== 'details'}>
+        <FormSection
+          title="Identity"
+          hint="The customer number is issued by the store's counter and is not editable."
+          actions={saveButton(() => ({ identity: identity() }))}
+        >
+          <TextField label="First name" value={form.firstName} onChange={(v) => patch({ firstName: v })} disabled={disabled} autoFocus />
+          <TextField label="Last name" value={form.lastName} onChange={(v) => patch({ lastName: v })} disabled={disabled} />
+          <TextField
+            label="Company"
+            value={form.company ?? ''}
+            onChange={(v) => patch({ company: v })}
+            disabled={disabled}
+            hint="When set, this is the name the browse and the receipt show."
+          />
+          <TextField label="Title" value={form.title ?? ''} onChange={(v) => patch({ title: v })} disabled={disabled} />
+          <TextField
+            label="Client type"
+            value={form.clientType ?? ''}
+            onChange={(v) => patch({ clientType: v })}
+            disabled={disabled}
+            hint="Free text; it becomes a filter on the browse."
+          />
+          <TextField label="Notes" value={form.notes ?? ''} onChange={(v) => patch({ notes: v })} disabled={disabled} />
+        </FormSection>
+
+        <FormSection title="Address and contact" actions={saveButton(() => ({ addresses: addresses() }))}>
+          <TextField
+            label="Billing line 1"
+            value={form.billingAddress.line1 ?? ''}
+            onChange={(v) => address('billingAddress', { line1: v })}
+            disabled={disabled}
+          />
+          <TextField
+            label="Billing line 2"
+            value={form.billingAddress.line2 ?? ''}
+            onChange={(v) => address('billingAddress', { line2: v })}
+            disabled={disabled}
+          />
+          <TextField
+            label="City"
+            value={form.billingAddress.city ?? ''}
+            onChange={(v) => address('billingAddress', { city: v })}
+            disabled={disabled}
+          />
+          <TextField
+            label="State / province"
+            value={form.billingAddress.stateOrProvince ?? ''}
+            onChange={(v) => address('billingAddress', { stateOrProvince: v })}
+            disabled={disabled}
+          />
+          <TextField
+            label="Postcode"
+            value={form.billingAddress.postalCode ?? ''}
+            onChange={(v) => address('billingAddress', { postalCode: v })}
+            disabled={disabled}
+          />
+          <TextField
+            label="Ship-to line 1"
+            value={form.shipToAddress.line1 ?? ''}
+            onChange={(v) => address('shipToAddress', { line1: v })}
+            disabled={disabled}
+            hint="Leave blank to ship to the billing address."
+          />
+          <TextField
+            label="Ship-to city"
+            value={form.shipToAddress.city ?? ''}
+            onChange={(v) => address('shipToAddress', { city: v })}
+            disabled={disabled}
+          />
+          <TextField label="Phone" value={form.contact.phone ?? ''} onChange={(v) => contact({ phone: v })} disabled={disabled} />
+          <TextField label="Mobile" value={form.contact.mobile ?? ''} onChange={(v) => contact({ mobile: v })} disabled={disabled} />
+          <TextField label="Email" value={form.contact.email ?? ''} onChange={(v) => contact({ email: v })} disabled={disabled} />
+        </FormSection>
+
+        <FormSection
+          title="Account and pricing"
+          hint="These follow the customer onto every sale: attaching them reprices the whole basket."
+          actions={saveButton(() => ({ account: account() }))}
+        >
+          <NumberField
+            label="Credit limit"
+            value={form.creditLimit}
+            onChange={(v) => patch({ creditLimit: v })}
+            disabled={disabled}
+            hint="Zero means unlimited, as in the legacy system."
+          />
+          <NumberField
+            label="Usual discount %"
+            value={form.usualDiscountPct}
+            onChange={(v) => patch({ usualDiscountPct: v })}
+            disabled={disabled}
+          />
+          <SelectField
+            label="Price level"
+            value={String(form.priceLevel)}
+            options={[1, 2, 3, 4].map((level) => ({ value: String(level), label: `Level ${level}` }))}
+            onChange={(v) => patch({ priceLevel: Number(v) || 1 })}
+            disabled={disabled}
+          />
+          <CheckField label="Exempt from tax 1" checked={form.exemptTax1} onChange={(v) => patch({ exemptTax1: v })} disabled={disabled} />
+          <CheckField label="Exempt from tax 2" checked={form.exemptTax2} onChange={(v) => patch({ exemptTax2: v })} disabled={disabled} />
+
+          {customerId ? (
+            <p className="text-label text-ink-muted">
+              Balance {formatCurrency(form.balanceDue)} · {form.rewardPoints} reward points — both derived from the ledgers
+              and not editable here.
+            </p>
+          ) : null}
+        </FormSection>
+
+        {canDelete && customerId ? (
+          <div className="mb-6">
+            <button type="button" className="pos-button text-negative" onClick={askRemove} disabled={busy}>
+              Delete
+            </button>
+          </div>
+        ) : null}
+      </div>
 
       <ConfirmDialog
         request={confirmer.request}

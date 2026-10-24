@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -78,6 +79,17 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
   const [bindings, setBindings] = useState<HotkeyBinding[]>([]);
   const [scopeStack, setScopeStack] = useState<HotkeyScope[]>(['pos']);
 
+  /*
+    The stack as it is this instant, for the key listener.
+
+    The listener used to read the state above, which only reaches it after a re-render and an effect.
+    A dialog closing leaves the screen at once, but its scope lingered for a frame or more after — and
+    on a close that follows a server reply, until after the next paint. A function key pressed in that
+    gap was matched against the dialog's scope and dropped: pick a customer, press F9 to find an item,
+    and nothing happened. The ref is changed in the same breath as the scope is pushed or popped.
+  */
+  const scopeRef = useRef<HotkeyScope[]>(['pos']);
+
   const activeScope = scopeStack[scopeStack.length - 1] ?? 'pos';
 
   const register = useCallback((binding: HotkeyBinding) => {
@@ -91,15 +103,19 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const pushScope = useCallback((scope: HotkeyScope) => {
-    setScopeStack((stack) => [...stack, scope]);
+    scopeRef.current = [...scopeRef.current, scope];
+    setScopeStack(scopeRef.current);
 
     // Pop the last occurrence rather than every match: two stacked dialogs of the same scope must
     // each release exactly the entry they pushed.
-    return () =>
-      setScopeStack((stack) => {
-        const index = stack.lastIndexOf(scope);
-        return index < 0 ? stack : [...stack.slice(0, index), ...stack.slice(index + 1)];
-      });
+    return () => {
+      const stack = scopeRef.current;
+      const index = stack.lastIndexOf(scope);
+      if (index < 0) return;
+
+      scopeRef.current = [...stack.slice(0, index), ...stack.slice(index + 1)];
+      setScopeStack(scopeRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -107,7 +123,8 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
       if (shouldIgnore(event)) return;
 
       const combo = comboFrom(event);
-      const current = scopeStack[scopeStack.length - 1] ?? 'pos';
+      const stack = scopeRef.current;
+      const current = stack[stack.length - 1] ?? 'pos';
 
       const match = bindingsRef.current.find(
         (b) => !b.disabled && b.combo === combo && (b.scope === current || b.scope === 'global'),
@@ -124,7 +141,7 @@ export function HotkeyProvider({ children }: { children: ReactNode }) {
 
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
-  }, [scopeStack]);
+  }, []);
 
   const value = useMemo<HotkeyRegistry>(
     () => ({ register, pushScope, activeScope, bindings }),
@@ -167,11 +184,19 @@ export function useHotkey(
   );
 }
 
-/** Pushes a scope while a dialog is open, so the dialog's keys win over the sale screen's. */
+/** Layout effects run with the DOM change itself; on the server there is no DOM to wait for. */
+const useCommitEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+/**
+ * Pushes a scope while a dialog is open, so the dialog's keys win over the sale screen's.
+ *
+ * Pushed and popped as the dialog enters and leaves the page, not an effect later, so the keys
+ * belong to whatever is on screen at the moment they are pressed.
+ */
 export function useHotkeyScope(scope: HotkeyScope, active = true) {
   const { pushScope } = useRegistry();
 
-  useEffect(() => {
+  useCommitEffect(() => {
     if (!active) return undefined;
     return pushScope(scope);
   }, [pushScope, scope, active]);

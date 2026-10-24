@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { downloadPdf, printPdf } from '@/lib/print';
 import { toast } from '@/components/ui/toaster';
 import { describeError } from '@/lib/errors';
+import { CustomerSales } from '@/components/customers/customer-sales';
 
 /**
  * Every dialog pushes the `dialog` hotkey scope, so the sale screen's F-keys stop firing while one
@@ -1615,10 +1616,18 @@ export function SerialPickerDialog() {
 }
 
 /** F5 Client (guide p.9). Attaching a customer reprices the whole sale, including lines already rung. */
+/**
+ * F5: attach a customer, or look up what they have bought before.
+ *
+ * The purchases view is the customer screen's own history, opened here so a cashier can answer
+ * "what did I buy last time?" without leaving the sale — and without the back office, which a till
+ * may not even be signed in to. It needs only `customer.read`, which every till role holds.
+ */
 export function ClientDialog() {
   const { closeDialog, setCustomer, locationId, cart } = usePosStore();
   const [term, setTerm] = useState('');
   const [results, setResults] = useState<Array<{ id: number; customerNumber: number; fullName: string }>>([]);
+  const [history, setHistory] = useState<{ id: number; name: string } | null>(null);
 
   useEffect(() => {
     if (term.length < 2 || !locationId) {
@@ -1636,8 +1645,26 @@ export function ClientDialog() {
     return () => clearTimeout(timer);
   }, [term, locationId]);
 
+  if (history) {
+    return (
+      // Keyed, so each view is its own dialog to the focus handling: switching views remounts the
+      // shell and focus moves into the new one instead of staying on a button that has gone.
+      <Shell
+        key="purchases"
+        title={`Purchases · ${history.name}`}
+        onClose={() => setHistory(null)}
+        closeHint="Press Esc to go back to the customer search."
+        wide
+      >
+        <div className="max-h-[70vh] overflow-y-auto pr-1">
+          <CustomerSales customerId={history.id} />
+        </div>
+      </Shell>
+    );
+  }
+
   return (
-    <Shell title="Client" hint="Attaching reprices the whole sale" onClose={closeDialog} wide>
+    <Shell key="search" title="Client" hint="Attaching reprices the whole sale" onClose={closeDialog} wide>
       <input
         value={term}
         onChange={(event) => setTerm(event.target.value)}
@@ -1648,27 +1675,48 @@ export function ClientDialog() {
 
       <ul className="max-h-72 overflow-y-auto">
         {results.map((customer) => (
-          <li key={String(customer.id)}>
+          <li key={String(customer.id)} className="flex items-stretch gap-1">
             <button
               type="button"
-              className="flex w-full items-center justify-between px-1 py-1.5 text-left text-body hover:bg-panel-hover"
+              className="flex min-w-0 flex-1 items-center justify-between px-1 py-1.5 text-left text-body hover:bg-panel-hover"
               onClick={() => void setCustomer(customer.id)}
             >
               <span>{customer.fullName}</span>
               <span className="tabular text-label text-ink-muted">#{customer.customerNumber}</span>
+            </button>
+
+            <button
+              type="button"
+              className="pos-button shrink-0 px-3 text-label"
+              onClick={() => setHistory({ id: customer.id, name: customer.fullName })}
+              aria-label={`Purchases of ${customer.fullName}`}
+            >
+              <ReceiptText className="h-4 w-4" aria-hidden />
+              Purchases
             </button>
           </li>
         ))}
       </ul>
 
       {cart?.customer ? (
-        <button
-          type="button"
-          className="pos-button mt-3 w-full text-body"
-          onClick={() => void setCustomer(null)}
-        >
-          Remove {cart.customer.name} from this sale
-        </button>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <button
+            type="button"
+            className="pos-button flex-1 text-body"
+            onClick={() => setHistory({ id: cart.customer!.id, name: cart.customer!.name })}
+          >
+            <ReceiptText className="h-5 w-5" aria-hidden />
+            {cart.customer.name}&apos;s purchases
+          </button>
+
+          <button
+            type="button"
+            className="pos-button flex-1 text-body"
+            onClick={() => void setCustomer(null)}
+          >
+            Remove {cart.customer.name} from this sale
+          </button>
+        </div>
       ) : null}
     </Shell>
   );

@@ -7,6 +7,8 @@ import type {
   CursorPage,
   CustomerForm,
   CustomerRow,
+  CustomerSalesFilters,
+  CustomerSalesPage,
   CustomerSort,
   DeletedEntityKind,
   DeletedRow,
@@ -65,6 +67,7 @@ import type {
   LabelStock,
   LabelStockOption,
   PrintLabelsRequest,
+  AssignedUpcs,
   BulkAdjustMethod,
   BulkFilter,
   BulkPricePreview,
@@ -277,6 +280,10 @@ export const mastersApi = {
 
     get: (id: number) => call<ProductForm>(() => apiClient.get(`/catalog/products/${id}`)),
 
+    /** An in-store UPC-A for each chosen item that has no barcode; with none chosen, every such item. */
+    assignInStoreUpcs: (locationId: number, productIds?: number[]) =>
+      call<AssignedUpcs>(() => apiClient.post('/catalog/products/in-store-upcs', { locationId, productIds })),
+
     create: (body: unknown) => call<ProductForm>(() => apiClient.post('/catalog/products', body)),
 
     update: (id: number, body: unknown) => call<ProductForm>(() => apiClient.put(`/catalog/products/${id}`, body)),
@@ -323,6 +330,14 @@ export const mastersApi = {
     remove: (id: number) => call<void>(() => apiClient.delete(`/customers/${id}`)),
 
     restore: (id: number) => call<void>(() => apiClient.post(`/customers/${id}/restore`)),
+
+    /** The customer's own sales, newest first. Needs only customer.read, so cashiers can use it. */
+    sales: (id: number, filters: CustomerSalesFilters = {}) =>
+      call<CustomerSalesPage>(() => apiClient.get(`/customers/${id}/sales?${query({ ...filters })}`)),
+
+    /** One of the customer's sales in full — the invoice, for the screen. */
+    sale: (id: number, transactionId: number) =>
+      call<SaleDetail>(() => apiClient.get(`/customers/${id}/sales/${transactionId}`)),
   },
 
   suppliers: {
