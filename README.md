@@ -11,16 +11,44 @@ A clean-room rewrite of the Retail Plus 5.2 point-of-sale system on .NET 10 and 
 
 | Folder | Contents |
 |---|---|
-| `src/RetailPlus.Core` | Domain model (`Model/`) and, later, the business rules. No I/O |
-| `src/RetailPlus.Data` | EF Core 10 on SQL Server: `RetailPlusDbContext`, entity configuration, migrations, sequences |
-| `src/RetailPlus.Migration` | The one-time import. So far: the read-only DBF/FPT reader (`Dbf/`) |
-| `src/` (others) | `Settings`, `Devices`, `Reports`, `Integrations`, `App` (WPF): empty skeletons |
-| `tests/RetailPlus.Data.Tests` | Integration tests on a throwaway LocalDB database |
-| `tests/RetailPlus.Migration.Tests` | Reader tests: synthetic fixtures with golden JSON, plus a live comparison with the Python oracle on real data |
-| `tests/` (others) | `Core.Tests`, `Parity` (placeholders) |
+| `src/RetailPlus.Core` | Domain model (`Model/`) and business rules (`Rules/`: pricing, taxes, cash rounding, bonus points, late charges, reordering, random-weight barcodes). No I/O |
+| `src/RetailPlus.Data` | EF Core 10 on SQL Server: `RetailPlusDbContext`, configuration, migrations, sequences, and the application services (`Services/`: setup, inventory, clients/suppliers, sales, drawer, A/R, purchasing, backup) |
+| `src/RetailPlus.Migration` | The one-time import: DBF/FPT reader (`Dbf/`), memo codecs (`Codecs/`), importer with verification and report (`Import/`) |
+| `src/RetailPlus.Import` | Command-line importer |
+| `src/RetailPlus.Reports` | Report queries, CSV/HTML output, receipt / statement / drawer report text |
+| `src/RetailPlus.Devices` | Receipt printer (raw ESC/POS through Windows), cash drawer, pole display, scale |
+| `src/RetailPlus.Settings` | Per-station settings (`station.json`) |
+| `src/RetailPlus.Integrations` | CSV import and export of inventory and clients |
+| `src/RetailPlus.App` | The WPF desktop app |
+| `tests/RetailPlus.Core.Tests` | Business rule tests |
+| `tests/RetailPlus.Data.Tests` | Schema and service integration tests on a throwaway LocalDB database |
+| `tests/RetailPlus.Migration.Tests` | Reader, codec and importer tests: synthetic fixtures, plus live runs on real data when present |
+| `tests/RetailPlus.Parity` | Placeholder for old-vs-new comparison runs |
 | `tools/dbf/` | Read-only Python tools, including the reader's test oracle |
 | `spikes/` | Phase 0 experiments (X# runtime). Not in `RetailPlus.sln`; build them directly if needed |
 | `spike-data/` | Local copies of Retail Plus data (git-ignored; contains the vendor's program and sample data) |
+
+## Run the desktop app
+
+```
+dotnet run --project src/RetailPlus.App
+```
+
+On first start the app creates (or upgrades) its database, by default `RetailPlus_App` on `(localdb)\MSSQLLocalDB`, and seeds a store, the `POS` location, tender types and station 1. Station settings live in `%LOCALAPPDATA%\RetailPlus\station.json` (Setup › This station); `--localdb <name>`, `--station <n>` and `--config <file>` override them. When the database has users, the app asks for a login; users imported from Retail Plus choose a new password on their first login, because the old passwords are not carried over.
+
+Screens: Point of Sale, Sales Journal, Inventory, Clients, Suppliers, Invoices & A/R, Purchase Orders, Orders & RMAs, Reports, Tools (import, backup, restore, rebuild, recurring billing, year end) and Setup.
+
+Automated checks: `--smoke` opens every screen, runs every report and rings up a sale, then exits 0 on success; `--screenshot-tour <folder>` saves a PNG of each screen. Both write to `%LOCALAPPDATA%\RetailPlus\retailplus-check.log`.
+
+## Import a store's Retail Plus data
+
+From the app: Tools › Import from Retail Plus 5. From the command line:
+
+```
+dotnet run --project src/RetailPlus.Import -- --source <data folder> --localdb RetailPlus_App [--ini <Plus50.INI>] [--force]
+```
+
+The import runs in one transaction, checks control totals (record counts, stock, balances) against the source, and writes `report.md` and `report.json`.
 
 ## Build and test
 

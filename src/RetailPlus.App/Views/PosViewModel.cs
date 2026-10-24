@@ -1,0 +1,491 @@
+using System.Collections.ObjectModel;
+using System.Globalization;
+using CommunityToolkit.Mvvm.ComponentModel;
+using RetailPlus.App.Dialogs;
+using RetailPlus.App.Infrastructure;
+using RetailPlus.Core.Model;
+using RetailPlus.Core.Rules;
+using RetailPlus.Data.Services;
+using RetailPlus.Devices;
+using RetailPlus.Reports;
+
+namespace RetailPlus.App.Views;
+
+/// <summary>The sale being rung up on the Point of Sale screen.</summary>
+public sealed partial class PosViewModel : ObservableObject
+{
+    public ObservableCollection<SaleDraftLine> Lines { get; } = [];
+    public ObservableCollection<FastKey> FastKeys { get; } = [];
+
+    private SaleDraft _draft = new();
+    private Sale? _lastSale;
+
+    [ObservableProperty] private string _codeText = "";
+    [ObservableProperty] private string _clientText = "No client (cash sale)";
+    [ObservableProperty] private string _clientDetail = "";
+    [ObservableProperty] private string _subtotalText = "0.00";
+    [ObservableProperty] private string _discountText = "0.00";
+    [ObservableProperty] private string _tax1Text = "0.00";
+    [ObservableProperty] private string _tax2Text = "0.00";
+    [ObservableProperty] private string _tax1Label = "Tax 1";
+    [ObservableProperty] private string _tax2Label = "Tax 2";
+    [ObservableProperty] private string _totalText = "0.00";
+    [ObservableProperty] private string _message = "Scan or type a stock code and press Enter. Type 3*CODE to sell 3.";
+    [ObservableProperty] private bool _returnMode;
+    [ObservableProperty] private bool _hasClient;
+    [ObservableProperty] private bool _canReward;
+    [ObservableProperty] private string _modeText = "";
+    [ObservableProperty] private SaleDraftLine? _selectedLine;
+
+    private static CultureInfo C => CultureInfo.CurrentCulture;
+    private static SessionInfo Session => AppServices.Session;
+    private static StoreSettings Settings => AppServices.Settings;
+
+    public SaleDraft Draft => _draft;
+
+    public async Task LoadAsync()
+    {
+        FastKeys.Clear();
+        foreach (var k in await AppServices.Setup.GetFastKeysAsync(0)) FastKeys.Add(k);
+        Tax1Label = Settings.Tax1Name ?? "Tax 1";
+        Tax2Label = Settings.Tax2Name ?? "Tax 2";
+        ModeText = Session.IsTrainee ? "TRAINING MODE — sales are not saved" : "";
+        Recalculate();
+    }
+
+    public void Recalculate()
+    {
+        _draft.Lines = Lines.ToList();
+        var totals = _draft.Calculate(_draft.EffectiveTax(Settings));
+        SubtotalText = totals.Subtotal.ToString("N2", C);
+        DiscountText = totals.SubtotalDiscount.ToString("N2", C);
+        Tax1Text = totals.Tax1.ToString("N2", C);
+        Tax2Text = totals.Tax2.ToString("N2", C);
+        TotalText = totals.Total.ToString("N2", C);
+        CanReward = _draft.ClientId is not null && _clientPoints is decimal p && BonusPoints.QualifiesForReward(Settings, p - _draft.PointsRedeemed, _draft.SubtotalDiscountPercent > 0) && _draft.PointsRedeemed == 0;
+        AppServices.Pole(Lines.LastOrDefault()?.Description ?? "", $"TOTAL {TotalText}");
+    }
+
+    public decimal Total => _draft.Calculate(_draft.EffectiveTax(Settings)).Total;
+
+    // Adding items -----------------------------------------------------------------------------------------------
+
+    public async Task EnterCodeAsync()
+    {
+        var text = CodeText.Trim();
+        CodeText = "";
+        if (text.Length == 0) return;
+        decimal qty = 1;
+        int star = text.IndexOf('*', StringComparison.Ordinal);
+        if (star > 0 && decimal.TryParse(text[..star], NumberStyles.Number, C, out var q))
+        {
+            qty = q;
+            text = text[(star + 1)..].Trim();
+        }
+        await AddCodeAsync(text, qty);
+    }
+
+    public async Task AddCodeAsync(string code, decimal qty = 1)
+    {
+        var (item, variant) = await AppServices.Inventory.FindByCodeAsync(Session.LocationId, code);
+        decimal? embeddedPrice = null;
+        if (item is null && Settings.ScanRandomWeightBarcodes && RandomWeightBarcode.TryParse(code, out var itemCode, out var price))
+        {
+            (item, variant) = await AppServices.Inventory.FindByCodeAsync(Session.LocationId, itemCode);
+            embeddedPrice = price;
+        }
+        if (item is null)
+        {
+            Message = $"No item has the code {code}.";
+            System.Media.SystemSounds.Beep.Play();
+            return;
+        }
+        if (embeddedPrice is decimal ep) qty = RandomWeightBarcode.Quantity(ep, item.Price1);
+        await AddItemAsync(item, variant, qty);
+    }
+
+    public async Task AddItemAsync(Item item, ItemVariant? variant, decimal qty)
+    {
+        if (item.ItemType == ItemType.Matrix && variant is null && item.Variants.Count > 0)
+        {
+            var options = item.Variants.OrderBy(v => v.Ordinal).Select(v => $"{v.Value1} {v.Value2} {v.Value3}".Trim() + $"   (on hand {v.OnHand.ToString("0.###", C)})").ToList();
+            int pick = Ui.Choose($"Which {item.Name}?", options, "Matrix item");
+            if (pick < 0) return;
+            variant = item.Variants.OrderBy(v => v.Ordinal).ElementAt(pick);
+        }
+        string? serial = null;
+        if (item.ItemType == ItemType.Serialized)
+        {
+            var inStock = item.Serials.Where(s => s.Status is null || s.Status.StartsWith("IN", StringComparison.OrdinalIgnoreCase)).Select(s => s.SerialNumber).ToList();
+            if (inStock.Count > 0 && !ReturnMode)
+            {
+                int pick = Ui.Choose($"Serial number of {item.Name}:", inStock, "Serial number");
+                if (pick < 0) return;
+                serial = inStock[pick];
+            }
+            else serial = Ui.Prompt($"Serial number of {item.Name}:", "Serial number");
+            qty = 1;
+        }
+        if (item.ReadScale)
+        {
+            decimal? weight = null;
+            if (!string.IsNullOrWhiteSpace(AppServices.Config.ScalePort))
+            {
+                try { weight = new SerialScale(AppServices.Config.ScalePort!).ReadWeight(); } catch (Exception ex) { Message = "Scale: " + ex.Message; }
+            }
+            weight ??= Ui.PromptDecimal($"Weight of {item.Name}:", "Scale");
+            if (weight is null) return;
+            qty = weight.Value;
+        }
+
+        var line = new SaleDraftLine
+        {
+            Kind = ReturnMode ? SaleLineKind.Return : SaleLineKind.Sale,
+            ItemId = item.Id, ItemType = item.ItemType, Plu = item.Plu, Description = item.Name, Quantity = ReturnMode ? -Math.Abs(qty) : qty,
+            Taxable1 = item.Taxable1, Taxable2 = item.Taxable2, Department = item.Department?.Name,
+            UnitCost = item.AverageCost > 0 ? item.AverageCost : item.LastCost, VariantId = variant?.Id,
+            VariantText = variant is null ? null : $"{variant.Value1} {variant.Value2} {variant.Value3}".Trim(), SerialNumber = serial,
+            SupplierName = item.Supplier?.Company, CommissionPercent = item.Commission, ThcWeight = item.ThcWeight,
+        };
+        _itemCache[item.Id] = item;
+        Price(line);
+        if (line.UnitPrice == 0 && item.ItemType is ItemType.GiftCard or ItemType.NonStock or ItemType.Service or ItemType.Standard)
+        {
+            var p = Ui.PromptDecimal($"Price of {item.Name}:", "Price");
+            if (p is null) return;
+            if (item.ItemType == ItemType.GiftCard && Settings.GiftCardMaximum > 0 && p > Settings.GiftCardMaximum)
+            {
+                Ui.Error($"A gift card can be at most {Settings.GiftCardMaximum.ToString("N2", C)}.");
+                return;
+            }
+            line.UnitPrice = p.Value;
+            line.AutoPriced = false;
+        }
+        if (ReturnMode)
+        {
+            line.Restock = Ui.Confirm($"Put {item.Name} back into stock?", "Return");
+            ReturnMode = false;
+        }
+        Lines.Add(line);
+        SelectedLine = line;
+        Message = !string.IsNullOrWhiteSpace(item.PosMessage) ? item.PosMessage! : $"{item.Name} — {line.LineTotal.ToString("N2", C)}" + (line.PriceExplanation is { } why && why != "regular price" ? $" ({why})" : "")
+            + (item.OnHand - qty < 0 && SalesService.IsStocked(item.ItemType) ? "   ⚠ stock goes below zero" : "");
+        Recalculate();
+        if (!string.IsNullOrWhiteSpace(item.TagAlongCode) && line.Kind == SaleLineKind.Sale)
+            await AddCodeAsync(item.TagAlongCode!, qty);
+    }
+
+    private readonly Dictionary<int, Item> _itemCache = [];
+
+    private void Price(SaleDraftLine line)
+    {
+        if (!line.AutoPriced || line.ItemId is not int id || !_itemCache.TryGetValue(id, out var item)) return;
+        var r = PricingEngine.Price(item, line.Quantity, DateOnly.FromDateTime(DateTime.Today), _draft.ClientPriceLevel, _draft.ClientDiscountPercent);
+        line.UnitPrice = r.UnitPrice;
+        line.DiscountAmount = r.DiscountAmount;
+        line.PriceExplanation = r.Explanation;
+    }
+
+    private void Reprice()
+    {
+        foreach (var l in Lines) Price(l);
+        RefreshLines();
+    }
+
+    private void RefreshLines()
+    {
+        var selected = SelectedLine;
+        var copy = Lines.ToList();
+        Lines.Clear();
+        foreach (var l in copy) Lines.Add(l);
+        SelectedLine = selected;
+        Recalculate();
+    }
+
+    public void AddOpenItem(string description, decimal price, bool taxable1, bool taxable2, SaleLineKind kind = SaleLineKind.Sale)
+    {
+        var line = new SaleDraftLine
+        {
+            Kind = kind, Description = description, Quantity = kind == SaleLineKind.Sale ? 1 : -1, UnitPrice = price, Taxable1 = taxable1, Taxable2 = taxable2, AutoPriced = false,
+            ItemType = ItemType.NonStock,
+        };
+        if (ReturnMode) { line.Kind = SaleLineKind.Return; line.Quantity = -1; ReturnMode = false; }
+        Lines.Add(line);
+        SelectedLine = line;
+        Recalculate();
+    }
+
+    public async Task FastKeyAsync(FastKey key)
+    {
+        if (key.IsCategory)
+        {
+            var subs = await AppServices.Setup.GetFastKeysAsync(key.KeyNumber);
+            if (subs.Count == 0) { Message = $"No keys under {key.Name}."; return; }
+            int pick = Ui.Choose(key.Name ?? "Choose", subs.Select(s => s.Name ?? s.Plu ?? "").ToList(), "Fast keys");
+            if (pick < 0) return;
+            key = subs[pick];
+        }
+        if (!string.IsNullOrWhiteSpace(key.Plu)) { await AddCodeAsync(key.Plu!); return; }
+        decimal price = key.FixedPrice;
+        if (price == 0)
+        {
+            var p = Ui.PromptDecimal($"Amount for {key.Name}:", "Fast key");
+            if (p is null) return;
+            price = p.Value;
+        }
+        AddOpenItem(key.Name ?? "Item", price, key.Taxable1, key.Taxable2, key.IsCredit ? SaleLineKind.Credit : SaleLineKind.Sale);
+    }
+
+    // Line changes --------------------------------------------------------------------------------------------
+
+    private bool MayDiscount()
+    {
+        if (Settings.StaffMayDiscount || AppServices.Can(3)) return true;
+        Ui.Error("Only a supervisor can give discounts at this station.");
+        return false;
+    }
+
+    public void ChangeQuantity()
+    {
+        if (SelectedLine is not { } line) return;
+        var q = Ui.PromptDecimal($"Quantity of {line.Description}:", "Quantity", line.Quantity);
+        if (q is null || q == 0) return;
+        if (line.SerialNumber is not null && Math.Abs(q.Value) != 1) { Ui.Error("A serialized item is sold one at a time."); return; }
+        line.Quantity = line.Kind == SaleLineKind.Return ? -Math.Abs(q.Value) : q.Value;
+        Price(line);
+        RefreshLines();
+    }
+
+    public void ChangePrice()
+    {
+        if (SelectedLine is not { } line || !MayDiscount()) return;
+        var p = Ui.PromptDecimal($"Price of {line.Description}:", "Price", line.UnitPrice);
+        if (p is null) return;
+        line.UnitPrice = p.Value;
+        line.AutoPriced = false;
+        line.DiscountAmount = 0;
+        RefreshLines();
+    }
+
+    public void LineDiscount()
+    {
+        if (SelectedLine is not { } line || !MayDiscount()) return;
+        var p = Ui.PromptDecimal($"Discount on {line.Description} in percent (e.g. 10):", "Line discount");
+        if (p is null) return;
+        line.AutoPriced = false;
+        line.DiscountAmount = Money.Round(line.UnitPrice * line.Quantity * p.Value / 100m);
+        RefreshLines();
+    }
+
+    public void SubtotalDiscount()
+    {
+        if (Lines.Count == 0 || !MayDiscount()) return;
+        var p = Ui.PromptDecimal("Discount on the whole sale in percent:", "Subtotal discount", _draft.SubtotalDiscountPercent);
+        if (p is null) return;
+        if (p < 0 || p > 100) { Ui.Error("Enter 0 to 100."); return; }
+        _draft.SubtotalDiscountPercent = p.Value;
+        Recalculate();
+    }
+
+    public async Task RemoveLineAsync()
+    {
+        if (SelectedLine is not { } line) return;
+        if (Settings.SupervisorForVoids && !await LoginWindow.SupervisorApprovesAsync("Removing a line")) return;
+        Lines.Remove(line);
+        SelectedLine = Lines.LastOrDefault();
+        Recalculate();
+    }
+
+    public async Task ClearSaleAsync(bool ask = true)
+    {
+        if (ask && Lines.Count > 0)
+        {
+            if (!Ui.Confirm("Cancel this whole sale?")) return;
+            if (Settings.SupervisorForVoids && !await LoginWindow.SupervisorApprovesAsync("Cancelling a sale")) return;
+        }
+        Lines.Clear();
+        _draft = new SaleDraft();
+        _itemCache.Clear();
+        _clientPoints = null;
+        ClientText = "No client (cash sale)";
+        ClientDetail = "";
+        HasClient = false;
+        ReturnMode = false;
+        Recalculate();
+    }
+
+    // Client -------------------------------------------------------------------------------------------------
+
+    private decimal? _clientPoints;
+
+    public async Task SetClientAsync(int clientId)
+    {
+        var c = await AppServices.Parties.GetClientAsync(clientId);
+        if (c is null) return;
+        _draft.ClientId = c.Id;
+        _draft.ClientName = !string.IsNullOrWhiteSpace(c.Company) ? c.Company : $"{c.FirstName} {c.LastName}".Trim();
+        _draft.CustomerNumber = c.Number;
+        _draft.ClientPriceLevel = c.PriceLevel;
+        _draft.ClientDiscountPercent = c.UsualDiscountPercent;
+        _draft.ExemptTax1 = c.ExemptTax1;
+        _draft.ExemptTax2 = c.ExemptTax2;
+        _clientPoints = c.Points;
+        HasClient = true;
+        ClientText = $"{_draft.ClientName}  #{c.Number}";
+        var parts = new List<string>();
+        if (c.Balance != 0) parts.Add($"Balance {c.Balance.ToString("N2", C)}" + (c.CreditLimit > 0 ? $" of {c.CreditLimit.ToString("N2", C)}" : ""));
+        if (Settings.BonusPointsEnabled) parts.Add($"Points {c.Points.ToString("0.##", C)}");
+        if (c.PriceLevel >= 2) parts.Add($"Price level {c.PriceLevel}");
+        if (c.UsualDiscountPercent > 0) parts.Add($"Discount {c.UsualDiscountPercent.ToString("0.##", C)}%");
+        if (c.ExemptTax1 || c.ExemptTax2) parts.Add("Tax exempt");
+        ClientDetail = string.Join(" · ", parts);
+        Reprice();
+    }
+
+    public void ClearClient()
+    {
+        _draft.ClientId = null; _draft.ClientName = null; _draft.CustomerNumber = null; _draft.ClientPriceLevel = 0; _draft.ClientDiscountPercent = 0;
+        _draft.ExemptTax1 = false; _draft.ExemptTax2 = false; _draft.PointsRedeemed = 0; _clientPoints = null;
+        HasClient = false;
+        ClientText = "No client (cash sale)";
+        ClientDetail = "";
+        Reprice();
+    }
+
+    public void TakeReward()
+    {
+        if (!CanReward) return;
+        var subtotal = Lines.Where(l => l.Kind == SaleLineKind.Sale).Sum(l => l.LineTotal);
+        var reward = BonusPoints.RewardAmount(Settings, subtotal);
+        if (reward <= 0) return;
+        _draft.PointsRedeemed = Settings.PointsRequired;
+        Lines.Add(new SaleDraftLine { Kind = SaleLineKind.Coupon, Description = "Bonus points reward", Quantity = 1, UnitPrice = -reward, Taxable1 = true, Taxable2 = true, AutoPriced = false, ItemType = ItemType.NonStock });
+        Recalculate();
+    }
+
+    // Finishing --------------------------------------------------------------------------------------------------
+
+    public async Task<bool> PayAsync(bool layaway = false)
+    {
+        if (Lines.Count == 0) return false;
+        if (layaway && _draft.ClientId is null) { Ui.Error("Select the client for the layaway first."); return false; }
+        Recalculate();
+        _draft.IsLayaway = layaway;
+        _draft.Staff = Session.UserName;
+        var tenders = await AppServices.Setup.GetTenderTypesAsync();
+        var pay = new PayWindow(Total, tenders, Settings.MinimumTender, _draft.ClientId is not null, layaway);
+        if (pay.ShowDialog() != true) { _draft.IsLayaway = false; return false; }
+        return await PostAsync(pay.Tenders);
+    }
+
+    /// <summary>Saves the sale with the given payments, prints the receipt and opens the drawer.</summary>
+    public async Task<bool> PostAsync(IReadOnlyList<TenderEntry> tenders)
+    {
+        Sale? sale = null;
+        bool ok = await Ui.Try(async () => sale = await AppServices.Sales.PostSaleAsync(_draft, tenders, Session));
+        if (!ok || sale is null) return false;
+        _lastSale = sale;
+        var change = tenders.Sum(t => t.Change);
+        var kinds = await AppServices.Setup.GetTenderTypesAsync(false);
+        bool open = tenders.Any(t => kinds.FirstOrDefault(k => k.Name == t.TenderType)?.OpensDrawer ?? t.Kind == TenderKind.Cash);
+        await PrintReceiptAsync(sale, open);
+        await ClearSaleAsync(ask: false);
+        Message = (Session.IsTrainee ? "Training sale (not saved). " : $"Sale {sale.InvoiceNumber} saved. ") + (change > 0 ? $"CHANGE {change.ToString("N2", C)}" : "");
+        AppServices.Pole($"TOTAL {sale.Total.ToString("N2", C)}", change > 0 ? $"CHANGE {change.ToString("N2", C)}" : "THANK YOU");
+        return true;
+    }
+
+    private async Task PrintReceiptAsync(Sale sale, bool openDrawer)
+    {
+        try
+        {
+            var header = await AppServices.Setup.GetTextAsync(DocumentTextKind.InvoiceHeader);
+            var footer = await AppServices.Setup.GetTextAsync(DocumentTextKind.InvoiceFooter);
+            var text = ReceiptFormatter.Sale(sale, Settings, header, footer, AppServices.Config.ReceiptWidth, reprint: Session.IsTrainee ? "*** TRAINING ***" : null);
+            bool print = AppServices.Config.PrintReceipts && (!AppServices.Config.AskBeforePrinting || Ui.Confirm("Print a receipt?"));
+            if (print) AppServices.Printer.Print(text, openDrawer && AppServices.Config.DrawerOnPrinter);
+            else if (openDrawer) OpenDrawer();
+        }
+        catch (Exception ex)
+        {
+            Message = "The receipt could not be printed: " + ex.Message;
+            Log.Write(ex.ToString());
+        }
+    }
+
+    public static void OpenDrawer()
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(AppServices.Config.DrawerSerialPort)) new SerialCashDrawer(AppServices.Config.DrawerSerialPort!).Open();
+            else if (AppServices.Config.DrawerOnPrinter) AppServices.Printer.OpenDrawer();
+        }
+        catch (Exception ex)
+        {
+            Log.Write("Drawer: " + ex.Message);
+        }
+    }
+
+    public async Task ReprintLastAsync()
+    {
+        if (_lastSale is null) { Message = "No sale yet on this screen. Use the Sales Journal to reprint older sales."; return; }
+        var header = await AppServices.Setup.GetTextAsync(DocumentTextKind.InvoiceHeader);
+        var footer = await AppServices.Setup.GetTextAsync(DocumentTextKind.InvoiceFooter);
+        new TextPreviewWindow($"Invoice {_lastSale.InvoiceNumber}", ReceiptFormatter.Sale(_lastSale, Settings, header, footer, AppServices.Config.ReceiptWidth, reprint: "COPY")).ShowDialog();
+    }
+
+    public async Task SuspendAsync()
+    {
+        if (Lines.Count == 0) return;
+        var label = Ui.Prompt("A name for this sale (to find it again):", "Suspend", _draft.ClientName ?? "");
+        if (label is null) return;
+        _draft.Lines = Lines.ToList();
+        await AppServices.Sales.SuspendAsync(_draft, label, Session.StationNumber);
+        await ClearSaleAsync(ask: false);
+        Message = $"Sale \"{label}\" suspended.";
+    }
+
+    public async Task RecallAsync()
+    {
+        var list = await AppServices.Sales.ListSuspendedAsync();
+        if (list.Count == 0) { Message = "There are no suspended sales."; return; }
+        int pick = Ui.Choose("Recall which sale?", list.Select(s => $"{s.Label}   ({s.SuspendedAt:g}, station {s.StationNumber})").ToList(), "Recall");
+        if (pick < 0) return;
+        if (Lines.Count > 0) await SuspendAsync();
+        var draft = await AppServices.Sales.RecallAsync(list[pick].Id);
+        if (draft is null) { Message = "That sale was already recalled at another station."; return; }
+        await LoadDraftAsync(draft);
+    }
+
+    public async Task LoadDraftAsync(SaleDraft draft)
+    {
+        await ClearSaleAsync(ask: false);
+        var lines = draft.Lines;
+        _draft = draft;
+        foreach (var l in lines)
+        {
+            if (l.ItemId is int id && await AppServices.Inventory.GetAsync(id) is { } item) _itemCache[id] = item;
+            Lines.Add(l);
+        }
+        if (draft.ClientId is int cid)
+        {
+            var keep = (draft.SubtotalDiscountPercent, draft.PointsRedeemed);
+            await SetClientAsync(cid);
+            (_draft.SubtotalDiscountPercent, _draft.PointsRedeemed) = keep;
+        }
+        Recalculate();
+    }
+
+    public async Task SaveQuoteAsync()
+    {
+        if (Lines.Count == 0) return;
+        if (_draft.ClientId is null) { Ui.Error("Select the client for the quote first."); return; }
+        _draft.Lines = Lines.ToList();
+        Invoice? quote = null;
+        if (await Ui.Try(async () => quote = await AppServices.Invoices.SaveQuoteAsync(_draft, Session)) && quote is not null)
+        {
+            await ClearSaleAsync(ask: false);
+            Message = $"Quote {quote.InvoiceNumber} saved. Load it again from Invoices & A/R.";
+        }
+    }
+}

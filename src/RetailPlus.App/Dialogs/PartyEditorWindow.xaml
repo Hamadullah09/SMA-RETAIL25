@@ -1,0 +1,116 @@
+<Window x:Class="RetailPlus.App.Dialogs.PartyEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Client" Width="960" Height="680" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Window.Resources>
+        <Style TargetType="DockPanel">
+            <Setter Property="Margin" Value="0,0,0,7" />
+        </Style>
+        <Style x:Key="L" TargetType="TextBlock">
+            <Setter Property="Width" Value="140" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+        </Style>
+    </Window.Resources>
+    <DockPanel Margin="16">
+        <TextBlock x:Name="HeaderText" DockPanel.Dock="Top" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,10" />
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Save" Style="{StaticResource AccentButton}" IsDefault="True" Click="Save_Click" />
+            <Button Content="Cancel" IsCancel="True" MinWidth="90" />
+        </StackPanel>
+        <TabControl>
+            <TabItem Header="Contact">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="30" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <DockPanel><TextBlock Text="Title" Style="{StaticResource L}" /><TextBox Text="{Binding Title}" MaxLength="10" /></DockPanel>
+                        <DockPanel><TextBlock Text="First name" Style="{StaticResource L}" /><TextBox Text="{Binding FirstName}" MaxLength="12" /></DockPanel>
+                        <DockPanel><TextBlock Text="Last name" Style="{StaticResource L}" /><TextBox Text="{Binding LastName}" MaxLength="16" /></DockPanel>
+                        <DockPanel><TextBlock Text="Company" Style="{StaticResource L}" /><TextBox Text="{Binding Company}" MaxLength="30" /></DockPanel>
+                        <DockPanel><TextBlock Text="Address" Style="{StaticResource L}" /><TextBox Text="{Binding Address1}" MaxLength="30" /></DockPanel>
+                        <DockPanel><TextBlock Text="" Style="{StaticResource L}" /><TextBox Text="{Binding Address2}" MaxLength="30" /></DockPanel>
+                        <DockPanel><TextBlock Text="City" Style="{StaticResource L}" /><TextBox Text="{Binding City}" MaxLength="20" /></DockPanel>
+                        <DockPanel><TextBlock Text="State / province" Style="{StaticResource L}" /><TextBox Text="{Binding State}" MaxLength="10" /></DockPanel>
+                        <DockPanel><TextBlock Text="Zip / postal code" Style="{StaticResource L}" /><TextBox Text="{Binding Zip}" MaxLength="10" /></DockPanel>
+                        <DockPanel><TextBlock Text="Country" Style="{StaticResource L}" /><TextBox Text="{Binding Country}" MaxLength="20" /></DockPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <DockPanel><TextBlock Text="Work phone" Style="{StaticResource L}" /><TextBox Text="{Binding Extension}" Width="60" DockPanel.Dock="Right" Margin="6,0,0,0" ToolTip="Extension" /><TextBox Text="{Binding WorkPhone}" MaxLength="16" /></DockPanel>
+                        <DockPanel><TextBlock Text="Mobile / home" Style="{StaticResource L}" /><TextBox Text="{Binding HomePhone}" MaxLength="16" /></DockPanel>
+                        <DockPanel><TextBlock Text="Fax" Style="{StaticResource L}" /><TextBox Text="{Binding Fax}" MaxLength="16" /></DockPanel>
+                        <DockPanel><TextBlock Text="E-mail" Style="{StaticResource L}" /><TextBox Text="{Binding Email}" MaxLength="100" /></DockPanel>
+                        <DockPanel><TextBlock Text="Web site" Style="{StaticResource L}" /><TextBox Text="{Binding Website}" MaxLength="100" /></DockPanel>
+                        <DockPanel><TextBlock x:Name="NumberLabel" Text="Customer number" Style="{StaticResource L}" /><TextBox Text="{Binding Number}" MaxLength="11" ToolTip="Leave empty to get the next number" /></DockPanel>
+                        <DockPanel><TextBlock Text="Account number" Style="{StaticResource L}" /><TextBox Text="{Binding AccountNumber}" MaxLength="10" /></DockPanel>
+                        <DockPanel><TextBlock Text="Type" Style="{StaticResource L}" /><TextBox Text="{Binding Type}" MaxLength="15" /></DockPanel>
+                        <DockPanel><TextBlock Text="Last mailed" Style="{StaticResource L}" /><DatePicker SelectedDate="{Binding LastMailed, Converter={StaticResource DateOnly}}" /></DockPanel>
+                        <DockPanel x:Name="BirthdayRow"><TextBlock Text="Birthday" Style="{StaticResource L}" /><DatePicker SelectedDate="{Binding Birthday, Converter={StaticResource DateOnly}}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Flagged" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding IsFlagged}" /></DockPanel>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+            <TabItem x:Name="AccountTab" Header="Account">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="30" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <DockPanel><TextBlock Text="Balance owing" Style="{StaticResource L}" /><TextBlock Text="{Binding Balance, StringFormat=N2}" FontWeight="SemiBold" VerticalAlignment="Center" /></DockPanel>
+                        <DockPanel><TextBlock Text="Credit limit" Style="{StaticResource L}" /><TextBox Text="{Binding CreditLimit}" ToolTip="0 = no limit" /></DockPanel>
+                        <DockPanel><TextBlock Text="Usual discount %" Style="{StaticResource L}" /><TextBox Text="{Binding UsualDiscountPercent}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Price level" Style="{StaticResource L}" /><ComboBox x:Name="PriceLevelBox" SelectedItem="{Binding PriceLevel}" /></DockPanel>
+                        <DockPanel><TextBlock x:Name="Exempt1Label" Text="Tax 1" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding ExemptTax1}" Content="Exempt" /></DockPanel>
+                        <DockPanel><TextBlock x:Name="Exempt2Label" Text="Tax 2" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding ExemptTax2}" Content="Exempt" /></DockPanel>
+                        <DockPanel><TextBlock Text="Bonus points" Style="{StaticResource L}" /><TextBox Text="{Binding Points}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Last purchase" Style="{StaticResource L}" /><TextBlock Text="{Binding LastPurchase}" VerticalAlignment="Center" /></DockPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Recurring billing" Style="{StaticResource SectionTitle}" />
+                        <DockPanel><TextBlock Text="Active" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding RecurringActive}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Item or service code" Style="{StaticResource L}" /><TextBox Text="{Binding RecurringItemCode}" MaxLength="16" CharacterCasing="Upper" /></DockPanel>
+                        <DockPanel><TextBlock Text="Bill every" Style="{StaticResource L}" /><ComboBox x:Name="UnitBox" Width="110" DockPanel.Dock="Right" Margin="6,0,0,0" Text="{Binding RecurringUnit}" IsEditable="False" /><TextBox Text="{Binding RecurringEvery}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Next billing" Style="{StaticResource L}" /><DatePicker SelectedDate="{Binding RecurringNextBilling, Converter={StaticResource DateOnly}}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Number of billings" Style="{StaticResource L}" /><TextBox Text="{Binding RecurringMaxBillings}" ToolTip="0 = no end" /></DockPanel>
+                        <DockPanel><TextBlock Text="Billed so far" Style="{StaticResource L}" /><TextBlock Text="{Binding RecurringTimesBilled}" VerticalAlignment="Center" /></DockPanel>
+                        <DockPanel><TextBlock Text="Last billed" Style="{StaticResource L}" /><TextBlock Text="{Binding RecurringLastBilled}" VerticalAlignment="Center" /></DockPanel>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Ship to &amp; notes">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300" />
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Ship-to address" Foreground="{StaticResource Muted}" />
+                        <TextBox Text="{Binding ShipTo}" AcceptsReturn="True" TextWrapping="Wrap" />
+                    </DockPanel>
+                    <DockPanel Grid.Column="2">
+                        <TextBlock DockPanel.Dock="Top" Text="Notes" Foreground="{StaticResource Muted}" />
+                        <TextBox Text="{Binding Notes}" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" />
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+            <TabItem x:Name="HistoryTab" Header="Purchases">
+                <DataGrid x:Name="HistoryGrid" Margin="12" Style="{StaticResource Grid}">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Sale" Binding="{Binding SaleId}" Width="70" />
+                        <DataGridTextColumn Header="Stock code" Binding="{Binding Plu}" Width="130" />
+                        <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*" />
+                        <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat=0.###}" Width="70" />
+                        <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat=N2}" Width="90" />
+                        <DataGridTextColumn Header="Total" Binding="{Binding LineTotal, StringFormat=N2}" Width="90" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

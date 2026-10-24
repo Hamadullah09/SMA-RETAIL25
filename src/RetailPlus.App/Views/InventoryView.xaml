@@ -1,0 +1,47 @@
+<UserControl x:Class="RetailPlus.App.Views.InventoryView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <DockPanel>
+        <DockPanel DockPanel.Dock="Top">
+            <TextBlock x:Name="CountText" DockPanel.Dock="Right" Foreground="{StaticResource Muted}" VerticalAlignment="Center" />
+            <TextBlock Text="Inventory" Style="{StaticResource PageTitle}" />
+        </DockPanel>
+        <WrapPanel DockPanel.Dock="Top" Style="{StaticResource Toolbar}">
+            <TextBox x:Name="SearchBox" Width="280" Margin="0,0,8,6" TextChanged="Search_TextChanged" ToolTip="Search by stock code, name, supplier code or brand" />
+            <ComboBox x:Name="FieldBox" Width="150" Margin="0,0,8,6" SelectionChanged="Field_SelectionChanged" />
+            <CheckBox x:Name="FlaggedBox" Content="Flagged only" Margin="0,0,12,6" Click="Filter_Click" />
+            <CheckBox x:Name="DeletedBox" Content="Show deleted" Margin="0,0,12,6" Click="Filter_Click" />
+            <ComboBox x:Name="LocationBox" Width="120" Margin="0,0,8,6" DisplayMemberPath="Code" SelectionChanged="Location_SelectionChanged" ToolTip="Location" />
+        </WrapPanel>
+        <WrapPanel DockPanel.Dock="Top" Style="{StaticResource Toolbar}">
+            <Button Content="New item" Style="{StaticResource AccentButton}" Click="New_Click" />
+            <Button Content="Edit" Style="{StaticResource ToolButton}" Click="Edit_Click" />
+            <Button Content="Duplicate" Style="{StaticResource ToolButton}" Click="Duplicate_Click" />
+            <Button Content="Delete" Style="{StaticResource ToolButton}" Click="Delete_Click" />
+            <Button Content="Undelete" Style="{StaticResource ToolButton}" Click="Restore_Click" />
+            <Button Content="Adjust stock" Style="{StaticResource ToolButton}" Click="Adjust_Click" />
+            <Button Content="Flag / unflag" Style="{StaticResource ToolButton}" Click="Flag_Click" />
+            <Button Content="Clear flags" Style="{StaticResource ToolButton}" Click="ClearFlags_Click" />
+            <Button Content="Change prices…" Style="{StaticResource ToolButton}" Click="ChangePrices_Click" />
+            <Button Content="Copy to location…" Style="{StaticResource ToolButton}" Click="Copy_Click" />
+            <Button Content="Export CSV" Style="{StaticResource ToolButton}" Click="Export_Click" />
+            <Button Content="Import CSV" Style="{StaticResource ToolButton}" Click="Import_Click" />
+        </WrapPanel>
+        <DataGrid x:Name="ItemsGrid" Style="{StaticResource Grid}" MouseDoubleClick="Edit_Click">
+            <DataGrid.Columns>
+                <DataGridCheckBoxColumn Header="⚑" Binding="{Binding IsFlagged}" Width="34" />
+                <DataGridTextColumn Header="Stock code" Binding="{Binding Plu}" Width="130" />
+                <DataGridTextColumn Header="Description" Binding="{Binding Name}" Width="*" />
+                <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="60" />
+                <DataGridTextColumn Header="Department" Binding="{Binding Department}" Width="100" />
+                <DataGridTextColumn Header="Supplier" Binding="{Binding Supplier}" Width="120" />
+                <DataGridTextColumn Header="Type" Binding="{Binding ItemType}" Width="75" />
+                <DataGridTextColumn Header="On hand" Binding="{Binding OnHand, StringFormat=0.###}" Width="70" ElementStyle="{StaticResource Right}" />
+                <DataGridTextColumn Header="On order" Binding="{Binding OnOrder, StringFormat=0.###}" Width="70" ElementStyle="{StaticResource Right}" />
+                <DataGridTextColumn Header="Cost" Binding="{Binding Cost, StringFormat=N2}" Width="80" ElementStyle="{StaticResource Right}" />
+                <DataGridTextColumn Header="Price" Binding="{Binding Price1, StringFormat=N2}" Width="80" ElementStyle="{StaticResource Right}" />
+                <DataGridCheckBoxColumn Header="Del." Binding="{Binding IsDeleted}" Width="45" />
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</UserControl>

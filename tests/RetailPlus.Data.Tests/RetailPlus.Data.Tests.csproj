@@ -19,6 +19,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\RetailPlus.Data\RetailPlus.Data.csproj" />
+    <ProjectReference Include="..\..\src\RetailPlus.Reports\RetailPlus.Reports.csproj" />
+    <ProjectReference Include="..\..\src\RetailPlus.Integrations\RetailPlus.Integrations.csproj" />
   </ItemGroup>
 
 </Project>

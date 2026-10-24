@@ -1,0 +1,217 @@
+<Window x:Class="RetailPlus.App.Dialogs.ItemEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Item" Width="980" Height="720" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Window.Resources>
+        <Style TargetType="DockPanel">
+            <Setter Property="Margin" Value="0,0,0,7" />
+        </Style>
+        <Style x:Key="L" TargetType="TextBlock">
+            <Setter Property="Width" Value="150" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+        </Style>
+    </Window.Resources>
+    <DockPanel Margin="16">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+            <TextBlock x:Name="HeaderText" FontSize="20" FontWeight="SemiBold" />
+        </DockPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,10,0,0">
+            <Button Content="Save" Style="{StaticResource AccentButton}" IsDefault="True" Click="Save_Click" />
+            <Button Content="Cancel" IsCancel="True" MinWidth="90" />
+        </StackPanel>
+        <TabControl x:Name="Tabs">
+            <TabItem Header="Detail">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="30" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <DockPanel><TextBlock Text="Stock code" Style="{StaticResource L}" /><TextBox Text="{Binding Plu}" MaxLength="16" CharacterCasing="Upper" x:Name="PluBox" /></DockPanel>
+                        <DockPanel><TextBlock Text="Description" Style="{StaticResource L}" /><TextBox Text="{Binding Name}" MaxLength="30" /></DockPanel>
+                        <DockPanel><TextBlock Text="Item type" Style="{StaticResource L}" /><ComboBox x:Name="TypeBox" SelectedItem="{Binding ItemType}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Department" Style="{StaticResource L}" /><ComboBox x:Name="DeptBox" IsEditable="True" /></DockPanel>
+                        <DockPanel><TextBlock Text="Category" Style="{StaticResource L}" /><ComboBox x:Name="CatBox" IsEditable="True" /></DockPanel>
+                        <DockPanel><TextBlock Text="Brand" Style="{StaticResource L}" /><TextBox Text="{Binding Brand}" MaxLength="16" /></DockPanel>
+                        <DockPanel><TextBlock Text="Size" Style="{StaticResource L}" /><TextBox Text="{Binding Size}" MaxLength="6" /></DockPanel>
+                        <DockPanel><TextBlock Text="Items per package" Style="{StaticResource L}" /><TextBox Text="{Binding PackQuantity}" /></DockPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <DockPanel><TextBlock Text="Supplier" Style="{StaticResource L}" /><ComboBox x:Name="SupplierBox" IsEditable="True" /></DockPanel>
+                        <DockPanel><TextBlock Text="Supplier's code" Style="{StaticResource L}" /><TextBox Text="{Binding SupplierCode}" MaxLength="16" /></DockPanel>
+                        <DockPanel><TextBlock Text="Bin location" Style="{StaticResource L}" /><TextBox Text="{Binding BinLocation}" MaxLength="25" /></DockPanel>
+                        <DockPanel><TextBlock x:Name="Tax1Label" Text="Tax 1" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding Taxable1}" Content="Taxable" /></DockPanel>
+                        <DockPanel><TextBlock x:Name="Tax2Label" Text="Tax 2" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding Taxable2}" Content="Taxable" /></DockPanel>
+                        <DockPanel><TextBlock Text="Weigh on scale" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding ReadScale}" Content="Always read the scale" /></DockPanel>
+                        <DockPanel><TextBlock Text="Flagged" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding IsFlagged}" /></DockPanel>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Pricing">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="30" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <DockPanel><TextBlock Text="Last cost" Style="{StaticResource L}" /><TextBox Text="{Binding LastCost}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Average cost" Style="{StaticResource L}" /><TextBox Text="{Binding AverageCost}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Price 1 (regular)" Style="{StaticResource L}" /><Button DockPanel.Dock="Right" Content="Suggest…" Margin="6,0,0,0" Click="Suggest_Click" /><TextBox Text="{Binding Price1}" FontWeight="SemiBold" /></DockPanel>
+                        <DockPanel><TextBlock Text="Price 2" Style="{StaticResource L}" /><TextBox Text="{Binding Price2}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Price 3" Style="{StaticResource L}" /><TextBox Text="{Binding Price3}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Price 4" Style="{StaticResource L}" /><TextBox Text="{Binding Price4}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Gross margin %" Style="{StaticResource L}" /><TextBlock x:Name="MarginText" VerticalAlignment="Center" /></DockPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Price break points" Style="{StaticResource SectionTitle}" />
+                        <DockPanel><TextBlock Text="Price 2 from qty" Style="{StaticResource L}" /><TextBox Text="{Binding BreakQuantity1}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Price 3 from qty" Style="{StaticResource L}" /><TextBox Text="{Binding BreakQuantity2}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Price 4 from qty" Style="{StaticResource L}" /><TextBox Text="{Binding BreakQuantity3}" /></DockPanel>
+                        <TextBlock Text="Sale pricing" Style="{StaticResource SectionTitle}" />
+                        <DockPanel><TextBlock Text="Discount %" Style="{StaticResource L}" /><TextBox Text="{Binding SalePrice}" /></DockPanel>
+                        <DockPanel><TextBlock Text="From" Style="{StaticResource L}" /><DatePicker SelectedDate="{Binding SaleStart, Converter={StaticResource DateOnly}}" /></DockPanel>
+                        <DockPanel><TextBlock Text="To" Style="{StaticResource L}" /><DatePicker SelectedDate="{Binding SaleEnd, Converter={StaticResource DateOnly}}" /></DockPanel>
+                        <TextBlock Text="Bonus pricing" Style="{StaticResource SectionTitle}" />
+                        <DockPanel><CheckBox Content="Buy" IsChecked="{Binding BonusPricing}" Width="150" /><TextBox Text="{Binding BonusBuyQuantity}" Width="60" /><TextBlock Text="  get  " VerticalAlignment="Center" /><TextBox Text="{Binding BonusGetQuantity}" Width="60" HorizontalAlignment="Left" /><TextBlock Text="  free" VerticalAlignment="Center" /></DockPanel>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Stock">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="30" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <DockPanel><TextBlock Text="On hand" Style="{StaticResource L}" /><TextBox x:Name="OnHandBox" Text="{Binding OnHand}" ToolTip="Use Adjust stock on the Inventory screen to keep a record of changes" /></DockPanel>
+                        <DockPanel><TextBlock Text="Base stock" Style="{StaticResource L}" /><TextBox Text="{Binding BaseStock}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Reorder point" Style="{StaticResource L}" /><TextBox Text="{Binding ReorderPoint}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Reorder quantity" Style="{StaticResource L}" /><TextBox Text="{Binding ReorderQuantity}" /></DockPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <DockPanel><TextBlock Text="On order" Style="{StaticResource L}" /><TextBlock Text="{Binding OnOrder, StringFormat=0.###}" VerticalAlignment="Center" /></DockPanel>
+                        <DockPanel><TextBlock Text="On customer orders" Style="{StaticResource L}" /><TextBlock Text="{Binding CustomerOrdered, StringFormat=0.###}" VerticalAlignment="Center" /></DockPanel>
+                        <DockPanel><TextBlock Text="Last ordered" Style="{StaticResource L}" /><TextBlock Text="{Binding LastOrderDate}" VerticalAlignment="Center" /></DockPanel>
+                        <DockPanel><TextBlock Text="Last received" Style="{StaticResource L}" /><TextBlock VerticalAlignment="Center"><Run Text="{Binding LastReceivedDate, Mode=OneWay}" /><Run Text="  qty " /><Run Text="{Binding LastReceivedQuantity, Mode=OneWay, StringFormat=0.###}" /></TextBlock></DockPanel>
+                        <DockPanel><TextBlock Text="On hand at year end" Style="{StaticResource L}" /><TextBlock Text="{Binding OnHandBeforeYearEnd, StringFormat=0.###}" VerticalAlignment="Center" /></DockPanel>
+                        <DockPanel><TextBlock Text="Last updated" Style="{StaticResource L}" /><TextBlock Text="{Binding LastUpdated}" VerticalAlignment="Center" /></DockPanel>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Special">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="30" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <DockPanel><TextBlock Text="Substitute item" Style="{StaticResource L}" /><TextBox Text="{Binding SubstituteCode}" MaxLength="16" CharacterCasing="Upper" /></DockPanel>
+                        <DockPanel><TextBlock Text="Tag-along item" Style="{StaticResource L}" /><TextBox Text="{Binding TagAlongCode}" MaxLength="16" CharacterCasing="Upper" /></DockPanel>
+                        <DockPanel><TextBlock Text="Parent (case) item" Style="{StaticResource L}" /><TextBox Text="{Binding ParentCode}" MaxLength="16" CharacterCasing="Upper" /></DockPanel>
+                        <DockPanel><TextBlock Text="Shipping weight" Style="{StaticResource L}" /><TextBox Text="{Binding ShipWeight}" /></DockPanel>
+                        <DockPanel><TextBlock Text="THC (grams)" Style="{StaticResource L}" /><TextBox Text="{Binding ThcWeight}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Commission %" Style="{StaticResource L}" /><TextBox Text="{Binding Commission}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Max. commission" Style="{StaticResource L}" /><TextBox Text="{Binding MaxCommission}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Photo file" Style="{StaticResource L}" /><TextBox Text="{Binding PhotoPath}" MaxLength="260" /></DockPanel>
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Message on the POS screen" Foreground="{StaticResource Muted}" />
+                        <TextBox Text="{Binding PosMessage}" Height="56" TextWrapping="Wrap" AcceptsReturn="True" Margin="0,2,0,8" />
+                        <TextBlock Text="Message on the invoice" Foreground="{StaticResource Muted}" />
+                        <TextBox Text="{Binding InvoiceMessage}" Height="56" TextWrapping="Wrap" AcceptsReturn="True" Margin="0,2,0,8" />
+                        <TextBlock Text="Notes" Foreground="{StaticResource Muted}" />
+                        <TextBox Text="{Binding Notes}" Height="110" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto" Margin="0,2,0,0" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Suppliers">
+                <DockPanel Margin="12">
+                    <TextBlock DockPanel.Dock="Top" Text="Suppliers in order of preference. The first one is used for purchase orders." Foreground="{StaticResource Muted}" Margin="0,0,0,8" />
+                    <DataGrid x:Name="SuppliersGrid" AutoGenerateColumns="False" CanUserAddRows="True" HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Supplier" Binding="{Binding SupplierName}" Width="*" />
+                            <DataGridTextColumn Header="Their code" Binding="{Binding SupplierStockCode}" Width="160" />
+                            <DataGridTextColumn Header="Cost" Binding="{Binding Cost}" Width="100" />
+                            <DataGridTextColumn Header="Case qty" Binding="{Binding CaseQuantity}" Width="100" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="Matrix">
+                <DockPanel Margin="12">
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Text="Column headings" VerticalAlignment="Center" Margin="0,0,10,0" Foreground="{StaticResource Muted}" />
+                        <TextBox x:Name="Heading1" Width="140" Margin="0,0,6,0" />
+                        <TextBox x:Name="Heading2" Width="140" Margin="0,0,6,0" />
+                        <TextBox x:Name="Heading3" Width="140" Margin="0,0,6,0" />
+                    </StackPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="One line per colour / size / style. Give a line its own scannable code to sell it by scanning. The item's on hand is the sum of the lines." Foreground="{StaticResource Muted}" Margin="0,0,0,8" TextWrapping="Wrap" />
+                    <DataGrid x:Name="VariantsGrid" AutoGenerateColumns="False" CanUserAddRows="True" HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn x:Name="V1Col" Header="Value 1" Binding="{Binding Value1}" Width="*" />
+                            <DataGridTextColumn x:Name="V2Col" Header="Value 2" Binding="{Binding Value2}" Width="*" />
+                            <DataGridTextColumn x:Name="V3Col" Header="Value 3" Binding="{Binding Value3}" Width="*" />
+                            <DataGridTextColumn Header="Code" Binding="{Binding Code}" Width="150" />
+                            <DataGridTextColumn Header="On hand" Binding="{Binding OnHand}" Width="100" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="Kit">
+                <DockPanel Margin="12">
+                    <TextBlock DockPanel.Dock="Top" Text="Selling a kit takes its components out of stock." Foreground="{StaticResource Muted}" Margin="0,0,0,8" />
+                    <DataGrid x:Name="KitGrid" AutoGenerateColumns="False" CanUserAddRows="True" HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Component stock code" Binding="{Binding ComponentPlu}" Width="200" />
+                            <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*" />
+                            <DataGridTextColumn Header="Quantity" Binding="{Binding Quantity}" Width="100" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="Serial numbers">
+                <DataGrid x:Name="SerialsGrid" Margin="12" AutoGenerateColumns="False" CanUserAddRows="True" HeadersVisibility="Column">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Serial number" Binding="{Binding SerialNumber}" Width="*" />
+                        <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="160" />
+                        <DataGridTextColumn Header="Date" Binding="{Binding StatusDate}" Width="140" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="Sales history">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <DockPanel>
+                        <TextBlock x:Name="ThisYearTitle" DockPanel.Dock="Top" Style="{StaticResource SectionTitle}" />
+                        <DataGrid x:Name="ThisYearGrid" Style="{StaticResource Grid}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Month" Binding="{Binding Period}" Width="80" />
+                                <DataGridTextColumn Header="Units" Binding="{Binding Units, StringFormat=0.###}" Width="*" />
+                                <DataGridTextColumn Header="Sales" Binding="{Binding Gross, StringFormat=N2}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                    <DockPanel Grid.Column="2">
+                        <TextBlock x:Name="LastYearTitle" DockPanel.Dock="Top" Style="{StaticResource SectionTitle}" />
+                        <DataGrid x:Name="LastYearGrid" Style="{StaticResource Grid}">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="Month" Binding="{Binding Period}" Width="80" />
+                                <DataGridTextColumn Header="Units" Binding="{Binding Units, StringFormat=0.###}" Width="*" />
+                                <DataGridTextColumn Header="Sales" Binding="{Binding Gross, StringFormat=N2}" Width="*" />
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

@@ -3,6 +3,8 @@
 Draft 1, 2026-10-24. Inputs: the Retail Plus 5.2 user guide (`Retail Plus 50.pdf`, 104 pages), the files inside `Retail52.exe`, and the copy installed at `C:\Retail Plus 52`. The data side is specified in [DATA_FORMATS.md](DATA_FORMATS.md).
 
 > **Status (2026-10-24):** Phase 0 is done. No DBF engine is safe with several writers ([spike report](spikes/phase0-rdd-spike.md)), so the decision is a **one-time migration per store at cutover**. The new app runs on SQL Server Express, and a DBF importer brings each store's Retail Plus data across once. Design: [DATA_LAYER_PLAN.md](DATA_LAYER_PLAN.md). This plan has been updated to match.
+>
+> **Update (2026-10-24, later):** a first complete build of the app exists: business rules, all schema (sales, drawer, A/R, purchasing, RMAs), application services, the DBF importer with verification, reports, devices, CSV exchange and a WPF desktop app with every main screen. 100 automated tests pass, and the app's own smoke check rings up a sale end to end. What remains is parity work against the manual (section 4), real-hardware testing, the installer, and the open questions in section 8.
 
 ## 1. Goal and ground rules
 

@@ -1,0 +1,131 @@
+<UserControl x:Class="RetailPlus.App.Views.PosView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition />
+            <ColumnDefinition Width="340" />
+        </Grid.ColumnDefinitions>
+
+        <Grid Margin="0,0,16,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Find item (F3)" Margin="8,0,0,0" Click="Find_Click" />
+                <Button DockPanel.Dock="Right" Content="Open item" Margin="8,0,0,0" Click="OpenItem_Click" />
+                <TextBox x:Name="CodeBox" FontSize="20" Text="{Binding CodeText, UpdateSourceTrigger=PropertyChanged}" KeyDown="CodeBox_KeyDown" />
+            </DockPanel>
+
+            <Border Grid.Row="1" Background="{StaticResource Panel}" CornerRadius="6" Padding="12,8" Margin="0,10,0,10">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                        <Button Content="Reward" Margin="6,0,0,0" Click="Reward_Click" Visibility="{Binding CanReward, Converter={StaticResource BoolToVis}}" />
+                        <Button Content="Client (F4)" Margin="6,0,0,0" Click="Client_Click" />
+                        <Button Content="Clear client" Margin="6,0,0,0" Click="ClearClient_Click" Visibility="{Binding HasClient, Converter={StaticResource BoolToVis}}" />
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ClientText}" FontWeight="SemiBold" FontSize="14" />
+                        <TextBlock Text="{Binding ClientDetail}" Foreground="{StaticResource Muted}" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <DataGrid x:Name="LinesGrid" Grid.Row="2" Style="{StaticResource Grid}" ItemsSource="{Binding Lines}" SelectedItem="{Binding SelectedLine}"
+                      SelectionMode="Single" FontSize="14">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Code" Binding="{Binding Plu}" Width="95" />
+                    <DataGridTextColumn Header="Description" Binding="{Binding Description}" Width="*" />
+                    <DataGridTextColumn Header="Option" Binding="{Binding VariantText}" Width="80" />
+                    <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat=0.###}" Width="55" ElementStyle="{StaticResource Right}" />
+                    <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat=N2}" Width="75" ElementStyle="{StaticResource Right}" />
+                    <DataGridTextColumn Header="Disc." Binding="{Binding DiscountAmount, StringFormat=N2}" Width="65" ElementStyle="{StaticResource Right}" />
+                    <DataGridTextColumn Header="Total" Binding="{Binding LineTotal, StringFormat=N2}" Width="85" ElementStyle="{StaticResource Right}" />
+                    <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="65" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <ItemsControl Grid.Row="3" ItemsSource="{Binding FastKeys}" Margin="0,10,0,0">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <UniformGrid Columns="6" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Button Content="{Binding Name}" Style="{StaticResource PosButton}" Click="FastKey_Click" Tag="{Binding}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border Grid.Row="4" Margin="0,10,0,0" Padding="12,8" CornerRadius="6" Background="#FFF8E1">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding ModeText}" Foreground="{StaticResource Danger}" FontWeight="SemiBold" />
+                    <TextBlock Text="{Binding Message}" FontSize="14" TextWrapping="Wrap" />
+                </DockPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+            <Border Background="{StaticResource NavBackground}" CornerRadius="8" Padding="18,14">
+                <Grid TextElement.Foreground="White">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="Subtotal" Foreground="#9CA3AF" />
+                    <TextBlock Grid.Column="1" Text="{Binding SubtotalText}" />
+                    <TextBlock Grid.Row="1" Text="Discount" Foreground="#9CA3AF" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding DiscountText}" />
+                    <TextBlock Grid.Row="2" Text="{Binding Tax1Label}" Foreground="#9CA3AF" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Tax1Text}" />
+                    <TextBlock Grid.Row="3" Text="{Binding Tax2Label}" Foreground="#9CA3AF" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding Tax2Text}" />
+                    <TextBlock Grid.Row="4" Text="TOTAL" FontSize="18" VerticalAlignment="Bottom" Margin="0,8,0,0" />
+                    <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding TotalText}" FontSize="38" FontWeight="Bold" Margin="0,4,0,0" />
+                </Grid>
+            </Border>
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,10,0,0">
+                <StackPanel>
+                    <Button Content="PAY  (F12)" Style="{StaticResource AccentButton}" FontSize="20" Padding="10,16" Margin="3,0,3,6" HorizontalAlignment="Stretch" Click="Pay_Click" />
+                    <UniformGrid Columns="2">
+                        <Button Content="Quantity (F5)" Style="{StaticResource PosButton}" Click="Qty_Click" />
+                        <Button Content="Price (F6)" Style="{StaticResource PosButton}" Click="Price_Click" />
+                        <Button Content="Line discount %" Style="{StaticResource PosButton}" Click="LineDiscount_Click" />
+                        <Button Content="Sale discount %" Style="{StaticResource PosButton}" Click="SubtotalDiscount_Click" />
+                        <Button Content="Remove line (Del)" Style="{StaticResource PosButton}" Click="Remove_Click" />
+                        <ToggleButton Content="Return / refund" Margin="3" Padding="6,10" IsChecked="{Binding ReturnMode}" />
+                        <Button Content="Suspend" Style="{StaticResource PosButton}" Click="Suspend_Click" />
+                        <Button Content="Recall" Style="{StaticResource PosButton}" Click="Recall_Click" />
+                        <Button Content="Save as quote" Style="{StaticResource PosButton}" Click="Quote_Click" />
+                        <Button Content="Layaway" Style="{StaticResource PosButton}" Click="Layaway_Click" />
+                        <Button Content="No sale" Style="{StaticResource PosButton}" Click="NoSale_Click" />
+                        <Button Content="Reprint last" Style="{StaticResource PosButton}" Click="Reprint_Click" />
+                        <Button Content="Pay in" Style="{StaticResource PosButton}" Click="PayIn_Click" />
+                        <Button Content="Pay out" Style="{StaticResource PosButton}" Click="PayOut_Click" />
+                        <Button Content="Opening float" Style="{StaticResource PosButton}" Click="Float_Click" />
+                        <Button Content="X report" Style="{StaticResource PosButton}" Click="XReport_Click" />
+                        <Button Content="End of day" Style="{StaticResource PosButton}" Click="EndOfDay_Click" />
+                        <Button Content="Cancel sale" Style="{StaticResource PosButton}" Click="Clear_Click" />
+                    </UniformGrid>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
+    </Grid>
+</UserControl>

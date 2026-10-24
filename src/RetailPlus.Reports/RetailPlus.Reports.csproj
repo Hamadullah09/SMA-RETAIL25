@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RetailPlus.Core\RetailPlus.Core.csproj" />
+    <ProjectReference Include="..\RetailPlus.Data\RetailPlus.Data.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

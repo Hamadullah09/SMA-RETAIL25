@@ -5,6 +5,10 @@
     <ProjectReference Include="..\RetailPlus.Core\RetailPlus.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="RetailPlus.Migration.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>

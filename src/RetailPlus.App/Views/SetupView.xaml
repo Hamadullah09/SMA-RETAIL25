@@ -1,0 +1,223 @@
+<UserControl x:Class="RetailPlus.App.Views.SetupView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <Style TargetType="DockPanel">
+            <Setter Property="Margin" Value="0,0,0,7" />
+        </Style>
+        <Style x:Key="L" TargetType="TextBlock">
+            <Setter Property="Width" Value="190" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+        </Style>
+    </UserControl.Resources>
+    <DockPanel>
+        <DockPanel DockPanel.Dock="Top">
+            <Button DockPanel.Dock="Right" Content="Save settings" Style="{StaticResource AccentButton}" Click="Save_Click" />
+            <TextBlock Text="Setup" Style="{StaticResource PageTitle}" />
+        </DockPanel>
+        <TabControl x:Name="Tabs">
+            <TabItem Header="Business">
+                <StackPanel Margin="12" MaxWidth="640" HorizontalAlignment="Left">
+                    <DockPanel><TextBlock Text="Business name" Style="{StaticResource L}" /><TextBox Text="{Binding CompanyName}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Address" Style="{StaticResource L}" /><TextBox Text="{Binding Address1}" /></DockPanel>
+                    <DockPanel><TextBlock Text="" Style="{StaticResource L}" /><TextBox Text="{Binding Address2}" /></DockPanel>
+                    <DockPanel><TextBlock Text="City" Style="{StaticResource L}" /><TextBox Text="{Binding City}" /></DockPanel>
+                    <DockPanel><TextBlock Text="State / province" Style="{StaticResource L}" /><TextBox Text="{Binding State}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Zip / postal code" Style="{StaticResource L}" /><TextBox Text="{Binding Zip}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Country" Style="{StaticResource L}" /><TextBox Text="{Binding Country}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Phone" Style="{StaticResource L}" /><TextBox Text="{Binding Phone}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Fax" Style="{StaticResource L}" /><TextBox Text="{Binding Fax}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Dates" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding UseUkDateFormat}" Content="Day before month (dd/mm/yyyy)" /></DockPanel>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Taxes">
+                <StackPanel Margin="12" MaxWidth="640" HorizontalAlignment="Left">
+                    <DockPanel><TextBlock Text="Tax 1 name" Style="{StaticResource L}" /><TextBox Text="{Binding Tax1Name}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Tax 1 rate %" Style="{StaticResource L}" /><TextBox Text="{Binding Tax1Rate}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Tax 2 name" Style="{StaticResource L}" /><TextBox Text="{Binding Tax2Name}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Tax 2 rate %" Style="{StaticResource L}" /><TextBox Text="{Binding Tax2Rate}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Compound" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding Tax2Compound}" Content="Tax 1 is included when calculating Tax 2" /></DockPanel>
+                    <DockPanel><TextBlock Text="Tax-inclusive prices" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding TaxInclusive}" Content="Prices already include the taxes (VAT / GST style)" /></DockPanel>
+                    <DockPanel><TextBlock Text="Tax registration number" Style="{StaticResource L}" /><TextBox Text="{Binding TaxRegistrationNumber}" /></DockPanel>
+                    <TextBlock Text="Out-of-state tax configurations (up to 12)" Style="{StaticResource SectionTitle}" />
+                    <DataGrid x:Name="TaxGrid" AutoGenerateColumns="False" CanUserAddRows="True" HeadersVisibility="Column" Height="220">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                            <DataGridTextColumn Header="Tax 1 name" Binding="{Binding Tax1Name}" Width="110" />
+                            <DataGridTextColumn Header="Tax 1 %" Binding="{Binding Tax1Rate}" Width="80" />
+                            <DataGridTextColumn Header="Tax 2 name" Binding="{Binding Tax2Name}" Width="110" />
+                            <DataGridTextColumn Header="Tax 2 %" Binding="{Binding Tax2Rate}" Width="80" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="POS &amp; security">
+                <StackPanel Margin="12" MaxWidth="700" HorizontalAlignment="Left">
+                    <CheckBox IsChecked="{Binding StaffMayDiscount}" Content="Staff below supervisor level may give discounts and change prices" Margin="0,0,0,8" />
+                    <CheckBox IsChecked="{Binding SupervisorForVoids}" Content="Ask for a supervisor password to void sales and remove lines" Margin="0,0,0,8" />
+                    <CheckBox IsChecked="{Binding TrackStaffSales}" Content="Track sales by staff member" Margin="0,0,0,8" />
+                    <CheckBox IsChecked="{Binding CarryOverCityStateZip}" Content="New clients get the store's city, state and zip" Margin="0,0,0,8" />
+                    <CheckBox IsChecked="{Binding ScanRandomWeightBarcodes}" Content="Read random-weight barcodes from deli scales (2-ABBBB-C-DDDD-E)" Margin="0,0,0,8" />
+                    <CheckBox IsChecked="{Binding UseRmaOnReturns}" Content="Use RMAs on returns" Margin="0,0,0,8" />
+                    <DockPanel><TextBlock Text="Cash discount %" Style="{StaticResource L}" /><TextBox Text="{Binding CashDiscountPercent}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><TextBlock Text="Minimum tender (cash rounding)" Style="{StaticResource L}" /><TextBox Text="{Binding MinimumTender}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><TextBlock Text="Gift card maximum" Style="{StaticResource L}" /><TextBox Text="{Binding GiftCardMaximum}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><CheckBox IsChecked="{Binding LimitThc}" Content="Limit THC per sale to (grams)" Width="250" /><TextBox Text="{Binding ThcLimit}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Options">
+                <StackPanel Margin="12" MaxWidth="700" HorizontalAlignment="Left">
+                    <TextBlock Text="Bonus points" Style="{StaticResource SectionTitle}" />
+                    <CheckBox IsChecked="{Binding BonusPointsEnabled}" Content="Give clients bonus points" Margin="0,0,0,8" />
+                    <CheckBox IsChecked="{Binding PrintPointsOnSlips}" Content="Print points on receipts" Margin="0,0,0,8" />
+                    <DockPanel><TextBlock Text="Points per dollar" Style="{StaticResource L}" /><TextBox Text="{Binding PointsPerDollar}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><TextBlock Text="Points needed for a reward" Style="{StaticResource L}" /><TextBox Text="{Binding PointsRequired}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><CheckBox IsChecked="{Binding PercentDiscountReward}" Content="Reward is a discount of (%)" Width="250" /><TextBox Text="{Binding RewardPercent}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><CheckBox IsChecked="{Binding FixedDiscountReward}" Content="Reward is (up to) an amount of" Width="250" /><TextBox Text="{Binding RewardAmount}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    <TextBlock Text="Overdue accounts" Style="{StaticResource SectionTitle}" />
+                    <DockPanel><TextBlock Text="Interest per month %" Style="{StaticResource L}" /><TextBox Text="{Binding InterestRatePerMonth}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><TextBlock Text="Grace period (days)" Style="{StaticResource L}" /><TextBox Text="{Binding GracePeriodDays}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Users">
+                <DockPanel Margin="12">
+                    <WrapPanel DockPanel.Dock="Top" Style="{StaticResource Toolbar}">
+                        <Button Content="Add user" Style="{StaticResource AccentButton}" Click="AddUser_Click" />
+                        <Button Content="Change level" Style="{StaticResource ToolButton}" Click="UserLevel_Click" />
+                        <Button Content="Set password" Style="{StaticResource ToolButton}" Click="UserPassword_Click" />
+                        <Button Content="Delete user" Style="{StaticResource ToolButton}" Click="DeleteUser_Click" />
+                    </WrapPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Foreground="{StaticResource Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Text="Levels: 0 trainee (sales are not saved), 1 sales only, 2 add and change records, 3 supervisor, 4 administrator. When there are no users the program starts without a login." />
+                    <DataGrid x:Name="UsersGrid" Style="{StaticResource Grid}" SelectionMode="Single">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="User" Binding="{Binding UserName}" Width="*" />
+                            <DataGridTextColumn Header="Level" Binding="{Binding AccessLevel}" Width="80" />
+                            <DataGridCheckBoxColumn Header="Must set password" Binding="{Binding MustChangePassword}" Width="150" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="Payments">
+                <DockPanel Margin="12">
+                    <TextBlock DockPanel.Dock="Top" Foreground="{StaticResource Muted}" Margin="0,0,0,8" Text="Tender types offered on the Pay window, in this order." />
+                    <DataGrid x:Name="TendersGrid" AutoGenerateColumns="False" CanUserAddRows="True" HeadersVisibility="Column" MaxWidth="760" HorizontalAlignment="Left">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" />
+                            <DataGridComboBoxColumn x:Name="KindColumn" Header="Kind" SelectedItemBinding="{Binding Kind}" Width="140" />
+                            <DataGridTextColumn Header="Order" Binding="{Binding SortOrder}" Width="80" />
+                            <DataGridCheckBoxColumn Header="Opens drawer" Binding="{Binding OpensDrawer}" Width="120" />
+                            <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="80" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="Lists">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Top" Text="Departments" Style="{StaticResource SectionTitle}" />
+                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Content="Add" Style="{StaticResource ToolButton}" Click="AddDept_Click" />
+                            <Button Content="Delete" Style="{StaticResource ToolButton}" Click="DeleteDept_Click" />
+                        </StackPanel>
+                        <ListBox x:Name="DeptList" />
+                    </DockPanel>
+                    <DockPanel Grid.Column="2">
+                        <TextBlock DockPanel.Dock="Top" Text="Categories" Style="{StaticResource SectionTitle}" />
+                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Content="Add" Style="{StaticResource ToolButton}" Click="AddCat_Click" />
+                            <Button Content="Delete" Style="{StaticResource ToolButton}" Click="DeleteCat_Click" />
+                        </StackPanel>
+                        <ListBox x:Name="CatList" />
+                    </DockPanel>
+                    <DockPanel Grid.Column="4">
+                        <TextBlock DockPanel.Dock="Top" Text="Locations" Style="{StaticResource SectionTitle}" />
+                        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Margin="0,8,0,0">
+                            <Button Content="Add location" Style="{StaticResource ToolButton}" Click="AddLocation_Click" />
+                        </StackPanel>
+                        <ListBox x:Name="LocationList" />
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Texts">
+                <Grid Margin="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition />
+                        <RowDefinition />
+                    </Grid.RowDefinitions>
+                    <DockPanel Margin="0,0,0,12">
+                        <TextBlock DockPanel.Dock="Top" Text="Receipt / invoice header" Style="{StaticResource SectionTitle}" />
+                        <TextBox x:Name="HeaderBox" AcceptsReturn="True" FontFamily="Consolas" />
+                    </DockPanel>
+                    <DockPanel Grid.Column="2" Margin="0,0,0,12">
+                        <TextBlock DockPanel.Dock="Top" Text="Receipt / invoice footer" Style="{StaticResource SectionTitle}" />
+                        <TextBox x:Name="FooterBox" AcceptsReturn="True" FontFamily="Consolas" />
+                    </DockPanel>
+                    <DockPanel Grid.Row="1">
+                        <TextBlock DockPanel.Dock="Top" Text="Purchase order header" Style="{StaticResource SectionTitle}" />
+                        <TextBox x:Name="PoHeaderBox" AcceptsReturn="True" FontFamily="Consolas" />
+                    </DockPanel>
+                    <DockPanel Grid.Row="1" Grid.Column="2">
+                        <TextBlock DockPanel.Dock="Top" Text="Return address (envelopes)" Style="{StaticResource SectionTitle}" />
+                        <TextBox x:Name="ReturnBox" AcceptsReturn="True" FontFamily="Consolas" />
+                    </DockPanel>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Fast keys">
+                <DockPanel Margin="12">
+                    <TextBlock DockPanel.Dock="Top" Foreground="{StaticResource Muted}" Margin="0,0,0,8" TextWrapping="Wrap"
+                               Text="Panel 0 holds the keys on the POS screen. A key with a stock code sells that item; a key without one sells its name at the fixed price (or asks for the price). A category key opens panel N, where N is its key number." />
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Text="Panel" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <ComboBox x:Name="PanelBox" Width="90" SelectionChanged="Panel_SelectionChanged" />
+                    </StackPanel>
+                    <DataGrid x:Name="KeysGrid" AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Key" Binding="{Binding KeyNumber}" IsReadOnly="True" Width="60" />
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                            <DataGridTextColumn Header="Stock code" Binding="{Binding Plu}" Width="140" />
+                            <DataGridTextColumn Header="Fixed price" Binding="{Binding FixedPrice}" Width="100" />
+                            <DataGridCheckBoxColumn Header="Tax 1" Binding="{Binding Taxable1}" Width="60" />
+                            <DataGridCheckBoxColumn Header="Tax 2" Binding="{Binding Taxable2}" Width="60" />
+                            <DataGridCheckBoxColumn Header="Credit" Binding="{Binding IsCredit}" Width="60" />
+                            <DataGridCheckBoxColumn Header="Category" Binding="{Binding IsCategory}" Width="80" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="This station">
+                <StackPanel x:Name="StationPanel" Margin="12" MaxWidth="720" HorizontalAlignment="Left">
+                    <TextBlock Foreground="{StaticResource Muted}" Margin="0,0,0,10" TextWrapping="Wrap" x:Name="StationFile" />
+                    <DockPanel><TextBlock Text="Station number" Style="{StaticResource L}" /><TextBox Text="{Binding StationNumber}" Width="100" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><TextBlock Text="Location code" Style="{StaticResource L}" /><TextBox Text="{Binding LocationCode}" Width="100" HorizontalAlignment="Left" CharacterCasing="Upper" /></DockPanel>
+                    <DockPanel><TextBlock Text="SQL Server connection" Style="{StaticResource L}" /><TextBox Text="{Binding ConnectionString}" ToolTip="Empty = LocalDB on this computer" /></DockPanel>
+                    <DockPanel><TextBlock Text="LocalDB database" Style="{StaticResource L}" /><TextBox Text="{Binding LocalDbDatabase}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Receipt printer" Style="{StaticResource L}" /><ComboBox x:Name="PrinterBox" IsEditable="True" Text="{Binding ReceiptPrinter}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Receipt width (characters)" Style="{StaticResource L}" /><TextBox Text="{Binding ReceiptWidth}" Width="100" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><TextBlock Text="" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding PrintReceipts}" Content="Print a receipt after each sale" /></DockPanel>
+                    <DockPanel><TextBlock Text="" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding AskBeforePrinting}" Content="Ask before printing" /></DockPanel>
+                    <DockPanel><TextBlock Text="" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding DrawerOnPrinter}" Content="Cash drawer is connected to the receipt printer" /></DockPanel>
+                    <DockPanel><TextBlock Text="Drawer serial port" Style="{StaticResource L}" /><TextBox Text="{Binding DrawerSerialPort}" Width="100" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><TextBlock Text="Pole display port" Style="{StaticResource L}" /><TextBox Text="{Binding PoleDisplayPort}" Width="100" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><TextBlock Text="Scale port" Style="{StaticResource L}" /><TextBox Text="{Binding ScalePort}" Width="100" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><TextBlock Text="Receipts folder (no printer)" Style="{StaticResource L}" /><TextBox Text="{Binding ReceiptFolder}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Backup folder" Style="{StaticResource L}" /><TextBox Text="{Binding BackupFolder}" /></DockPanel>
+                    <Button Content="Test receipt printer" HorizontalAlignment="Left" Margin="0,8,0,0" Click="TestPrinter_Click" />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</UserControl>

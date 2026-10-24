@@ -190,12 +190,12 @@ SQL Server Express has no scheduler, so the app keeps the original's behaviour i
 
 | Step | Deliverable | Effort | Status (2026-10-24) |
 |---|---|---|---|
-| 1 | Projects: `RetailPlus.Data` (EF Core, SQL Server), `RetailPlus.Migration` (reader + importer + CLI); `RetailPlus.Data.Dbf` is retired | 1 day | Done (CLI still to add) |
-| 2 | Schema for all modules, first migration, LocalDB-backed integration test setup | 1.5 weeks | Started: migration `InitialCreate` covers inventory, clients, suppliers, store and station settings, users, document texts, sequences and the import trace; 11 integration tests pass. Sales, drawer, A/R, purchasing and RMA tables come next |
+| 1 | Projects: `RetailPlus.Data` (EF Core, SQL Server), `RetailPlus.Migration` (reader + importer + CLI); `RetailPlus.Data.Dbf` is retired | 1 day | Done, including the `RetailPlus.Import` CLI |
+| 2 | Schema for all modules, first migration, LocalDB-backed integration test setup | 1.5 weeks | Done: `InitialCreate` plus `SalesReceivablesPurchasing` (sales, payments, drawer sessions, suspended sales, customer orders, RMAs, tender types, tax configurations, FX rates, fast keys, staff periods, stock adjustments, invoices, purchase orders); 25 integration tests pass |
 | 3 | DBF/FPT reader with oracle tests against `tools/dbf` | 3 days | Done: 18 tests; matches the oracle on 6 synthetic fixtures and on 44 real tables (1,504 records) |
-| 4 | Importer stages for the tables already known (inventory, clients, suppliers, sales log, drawer, back orders, RMA, POs, settings, users) + verification + report | 2 weeks | |
+| 4 | Importer stages for the tables already known (inventory, clients, suppliers, sales log, drawer, back orders, RMA, POs, settings, users) + verification + report | 2 weeks | Done: one transaction, control totals, Markdown/JSON report; the sample data imports with all totals matching |
 | 5 | Remaining formats once real data is available (open question 5) | 1 week | |
-| 6 | Backup/restore/rebuild, sequences, settings API | 3 days | Sequences done |
+| 6 | Backup/restore/rebuild, sequences, settings API | 3 days | Done (`BackupService`, `SetupService`) |
 | 7 | Installer pieces: SQL Server Express silent install, database creation, firewall, `station.json` | 1 week (can move to the deployment phase) | |
 
 Schema notes from step 2: the recurring charge sits as columns on `Client` (one per client) instead of a separate table; `FastKey` waits until the key-numbering scheme in `FASTKEYS.DBF` is understood; SETUP fields whose meaning the manual doesn't make clear are kept as `StoreSettingExtra` rows under their original names.

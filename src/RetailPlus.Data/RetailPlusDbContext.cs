@@ -36,6 +36,26 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
     public DbSet<StationSetting> StationSettings => Set<StationSetting>();
     public DbSet<DocumentText> DocumentTexts => Set<DocumentText>();
     public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
+    public DbSet<Sale> Sales => Set<Sale>();
+    public DbSet<SaleLine> SaleLines => Set<SaleLine>();
+    public DbSet<SalePayment> SalePayments => Set<SalePayment>();
+    public DbSet<DrawerSession> DrawerSessions => Set<DrawerSession>();
+    public DbSet<DrawerSessionTender> DrawerSessionTenders => Set<DrawerSessionTender>();
+    public DbSet<DrawerMovement> DrawerMovements => Set<DrawerMovement>();
+    public DbSet<SuspendedSale> SuspendedSales => Set<SuspendedSale>();
+    public DbSet<CustomerOrder> CustomerOrders => Set<CustomerOrder>();
+    public DbSet<Rma> Rmas => Set<Rma>();
+    public DbSet<TenderType> TenderTypes => Set<TenderType>();
+    public DbSet<TaxConfiguration> TaxConfigurations => Set<TaxConfiguration>();
+    public DbSet<FxRate> FxRates => Set<FxRate>();
+    public DbSet<FastKey> FastKeys => Set<FastKey>();
+    public DbSet<StaffPeriod> StaffPeriods => Set<StaffPeriod>();
+    public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
+    public DbSet<InvoicePayment> InvoicePayments => Set<InvoicePayment>();
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
+    public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportSourceRow> ImportSourceRows => Set<ImportSourceRow>();
 
