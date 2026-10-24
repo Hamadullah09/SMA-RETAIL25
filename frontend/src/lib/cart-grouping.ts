@@ -1,4 +1,19 @@
-import type { CartLine } from '@/types/pos';
+import type { Cart, CartLine } from '@/types/pos';
+
+/**
+ * How many of a product the open sale is already taking off the shelf.
+ *
+ * Stock on hand only falls when a sale completes, so a product with one left still showed one left
+ * while that one was sitting in the customer's basket — and the next customer was told it was there.
+ * Returns and trade-ins put stock back rather than taking it, so they are not counted.
+ */
+export function quantityInSale(cart: Cart | null, productId: number): number {
+  if (!cart) return 0;
+
+  return cart.lines
+    .filter((line) => line.productId === productId && line.lineType === 'Sale')
+    .reduce((sum, line) => sum + line.quantity, 0);
+}
 
 /** One row of the sale as the cashier sees it: possibly several tagged units of the same item. */
 export interface GroupedLine {

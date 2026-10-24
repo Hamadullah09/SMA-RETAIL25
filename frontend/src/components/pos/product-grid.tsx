@@ -13,7 +13,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePosStore } from '@/stores/pos-store';
 import { posApi } from '@/lib/pos-api';
-import { StockBadge } from '@/components/ui/status-badge';
+import { StatusBadge, StockBadge } from '@/components/ui/status-badge';
+import { quantityInSale } from '@/lib/cart-grouping';
+import { ShoppingCart } from 'lucide-react';
 import type { PosGridGroup, PosGridItem, PosGridPage } from '@/types/pos';
 import { cn } from '@/lib/utils';
 import { money } from '@/components/pos/panels';
@@ -43,6 +45,36 @@ const PAGE_SIZE = 60;
 
 /** Long enough that typing a word is one request, short enough to feel like filtering. */
 const SEARCH_DEBOUNCE_MS = 200;
+
+/**
+ * What is left on the shelf, as far as this till can tell.
+ *
+ * Stock on hand only falls when a sale completes, so the last shirt showed as available while it was
+ * sitting in the basket being rung up — and the cashier offered it to the next customer. What is
+ * already in this sale is now taken off before anything is drawn.
+ *
+ * Still only the exception is drawn, for the reason given at the tiles. "All in this sale" is kept
+ * apart from "Out of stock" because they call for different answers: one means the shelf is empty, the
+ * other means the item is right there on the counter.
+ */
+function ShelfStock({ item }: { item: PosGridItem }) {
+  const inSale = usePosStore((state) => quantityInSale(state.cart, item.id));
+  const left = item.onHand - inSale;
+
+  if (left > 0) return null;
+
+  if (inSale > 0) {
+    return (
+      <StatusBadge
+        tone="warning"
+        icon={ShoppingCart}
+        label={left < 0 ? 'More in this sale than in stock' : 'None left · all in this sale'}
+      />
+    );
+  }
+
+  return <StockBadge onHand={item.onHand} />;
+}
 
 export function ProductGrid() {
   const { locationId, scan, busy } = usePosStore();
@@ -356,7 +388,7 @@ function TileView({
                     would be forty labels nobody reads, and the one that matters would be among
                     them. Its own line, because the words do not fit beside a price at this size and
                     a truncated stock warning is worse than no warning. */}
-                {item.onHand <= 0 ? <StockBadge onHand={item.onHand} /> : null}
+                <ShelfStock item={item} />
               </span>
             </span>
           </button>
@@ -414,7 +446,7 @@ function ListView({
             <span data-testid="product-name" className="min-w-0 flex-1 truncate text-body text-ink">
               {item.name}
             </span>
-            {item.onHand <= 0 ? <StockBadge onHand={item.onHand} /> : null}
+            <ShelfStock item={item} />
             <span className="w-20 shrink-0 text-right text-body font-medium tabular-nums text-ink">
               {money(item.regularPrice)}
             </span>

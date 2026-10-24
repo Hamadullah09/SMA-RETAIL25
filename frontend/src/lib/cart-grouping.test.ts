@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { groupCartLines } from './cart-grouping';
-import type { CartLine } from '@/types/pos';
+import { groupCartLines, quantityInSale } from './cart-grouping';
+import type { Cart, CartLine } from '@/types/pos';
 
 let sequence = 0;
 
@@ -81,5 +81,21 @@ describe('groupCartLines', () => {
 
     expect(rows.map((row) => row.first.stockCode)).toEqual(['SHIRT01', 'MUG01']);
     expect(rows[0].quantity).toBe(2);
+  });
+});
+
+describe('quantityInSale', () => {
+  const cart = (lines: CartLine[]) => ({ lines }) as unknown as Cart;
+
+  it('counts what the open sale is taking for that product', () => {
+    expect(quantityInSale(cart([line({ productId: 7 }), line({ productId: 7, quantity: 2 }), line({ productId: 8 })]), 7)).toBe(3);
+  });
+
+  it('does not count returns, which put stock back', () => {
+    expect(quantityInSale(cart([line({ productId: 7 }), line({ productId: 7, lineType: 'Return' })]), 7)).toBe(1);
+  });
+
+  it('is nothing when there is no sale open', () => {
+    expect(quantityInSale(null, 7)).toBe(0);
   });
 });
