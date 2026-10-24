@@ -65,8 +65,7 @@ public sealed class AuthApiFixture : WebApplicationFactory<Program>, IAsyncLifet
     // No WithDatabase/WithUsername: the SQL Server image ships a fixed `sa` login and creates no
     // user database, so the fixture's own database is created below like any other server's.
     private readonly MsSqlContainer? _sqlServer = ExternalSqlServer is null
-        ? new MsSqlBuilder()
-            .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+        ? new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest")
             .Build()
         : null;
 
@@ -77,7 +76,7 @@ public sealed class AuthApiFixture : WebApplicationFactory<Program>, IAsyncLifet
     /// red tests that said nothing about the code.
     /// </summary>
     private readonly RedisContainer? _redis = ExternalRedis is null && DockerProbe.IsAvailable
-        ? new RedisBuilder().WithImage("redis:7-alpine").Build()
+        ? new RedisBuilder("redis:7-alpine").Build()
         : null;
 
     private string _sqlConnection = string.Empty;

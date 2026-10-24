@@ -34,8 +34,7 @@ public sealed class SqlServerFixture : IAsyncLifetime
         Environment.GetEnvironmentVariable("RETAIL25_TEST_SQL_CONNECTION");
 
     private readonly MsSqlContainer? _container = ExternalConnectionString is null
-        ? new MsSqlBuilder()
-            .WithImage("mcr.microsoft.com/mssql/server:2022-latest")
+        ? new MsSqlBuilder("mcr.microsoft.com/mssql/server:2022-latest")
             .Build()
         : null;
 
