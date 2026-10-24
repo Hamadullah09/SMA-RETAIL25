@@ -214,6 +214,7 @@ public static class EscPosRenderer
         if (format == ReceiptFormat.PackingSlip)
         {
             slip.AppendLine(Pair(Truncate(line.Description, columns - 10), quantity, columns));
+            AppendTags(slip, line, columns);
             return;
         }
 
@@ -237,6 +238,38 @@ public static class EscPosRenderer
         if (!string.IsNullOrWhiteSpace(line.Note))
         {
             slip.AppendLine("      " + Truncate(line.Note!, columns - 6));
+        }
+
+        AppendTags(slip, line, columns);
+    }
+
+    /// <summary>
+    /// The tags behind a line that stands for several tagged units, one per row beneath it.
+    /// <para>
+    /// A 24-character EPC does not fit a 20-column roll alongside its indent. What tells two tags of
+    /// the same item apart is the end — the serial part — so the end is what is kept, and the cut is
+    /// marked rather than silently made.
+    /// </para>
+    /// </summary>
+    private static void AppendTags(StringBuilder slip, ReceiptLine line, int columns)
+    {
+        if (line.Epcs is not { Count: > 0 } epcs)
+        {
+            return;
+        }
+
+        const string Indent = "    ";
+        var room = Math.Max(8, columns - Indent.Length);
+
+        foreach (var epc in epcs)
+        {
+            // Labelled where it fits, so a customer reading the slip knows what the code is; on a
+            // narrow roll the code itself matters more than the word.
+            var shown = epc.Length + 4 <= room ? "EPC " + epc
+                : epc.Length <= room ? epc
+                : "~" + epc[^(room - 1)..];
+
+            slip.AppendLine(Indent + shown);
         }
     }
 

@@ -16,6 +16,13 @@ public enum ReceiptFormat
     PackingSlip = 3,
 }
 
+/// <param name="Epcs">
+/// The tags behind this line, when it stands for several tagged units of one item. Each tagged unit
+/// is its own sale line underneath — that is what lets one of them be returned on its own — but three
+/// of the same shirt print as one line with a quantity of three and the three tags beneath it.
+/// Optional, and last, so an agent built before it existed reads a document without it and simply
+/// prints no tags.
+/// </param>
 public sealed record ReceiptLine(
     string StockCode,
     string Description,
@@ -26,7 +33,8 @@ public sealed record ReceiptLine(
     string? Note,
     bool Tax1Applies,
     bool Tax2Applies,
-    bool IsCredit);
+    bool IsCredit,
+    IReadOnlyList<string>? Epcs = null);
 
 public sealed record ReceiptAdjustment(string Label, decimal Amount);
 

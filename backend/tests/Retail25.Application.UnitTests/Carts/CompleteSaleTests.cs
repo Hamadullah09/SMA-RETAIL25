@@ -289,6 +289,98 @@ public sealed class CompleteSaleTests
         document.IsReprint.Should().BeTrue();
     }
 
+    /// <summary>
+    /// Three of a shirt is one line on the receipt, not three.
+    /// <para>
+    /// Each tagged unit stays its own sale line underneath — that is what lets one of them be
+    /// returned on its own — but a customer handed a receipt listing the same shirt three times reads
+    /// it as three different things.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Tagged_units_of_one_item_print_as_one_line_with_their_tags()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        var shirt = await harness.AddProductAsync("SHIRT01", "Oxford shirt", 20.00m);
+        await harness.AddProductAsync("MUG01", "Enamel mug", 6.50m);
+
+        string[] tags = ["30AAAAAAAAAAAAAAAAAAAA01", "30AAAAAAAAAAAAAAAAAAAA02", "30AAAAAAAAAAAAAAAAAAAA03"];
+        foreach (var epc in tags)
+        {
+            await harness.AddTaggedUnitAsync(shirt, epc);
+        }
+
+        var cart = await harness.OpenCartAsync();
+        var total = await RingAllAsync(fixture, cart.Id, [.. tags, "MUG01"]);
+
+        var sale = await fixture.CompleteAsync(cart.Id, [fixture.Cash(total, total)]);
+        sale.IsSuccess.Should().BeTrue(sale.IsFailure ? sale.Error.Code : null);
+
+        var document = await new ReceiptBuilder(harness.Db).BuildAsync(sale.Value.TransactionId, ReceiptFormat.Slip40, isReprint: false, default);
+
+        document!.Lines.Should().HaveCount(2);
+
+        var shirts = document.Lines.Single(l => l.StockCode == "SHIRT01");
+        shirts.Quantity.Should().Be(3m);
+        shirts.UnitPrice.Should().Be(20.00m);
+        shirts.ExtendedNet.Should().Be(60.00m);
+        shirts.Epcs.Should().Equal(tags);
+
+        document.Lines.Single(l => l.StockCode == "MUG01").Epcs.Should().BeNull("an untagged item has no tags to list");
+
+        // Presentation only: the money is the money that was frozen with the sale, and every unit is
+        // still its own line, so any one of them can be returned.
+        document.Subtotal.Should().Be(66.50m);
+        (await harness.Db.SaleLines.CountAsync(l => l.TransactionId == sale.Value.TransactionId)).Should().Be(4);
+    }
+
+    /// <summary>
+    /// Anything the customer would see as different keeps its own line. One shirt sold at a
+    /// manager's price is not "three shirts at 20".
+    /// </summary>
+    [Fact]
+    public async Task A_tagged_unit_at_a_different_price_keeps_its_own_line()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var fixture = await SaleFixture.CreateAsync(harness);
+
+        var shirt = await harness.AddProductAsync("SHIRT01", "Oxford shirt", 20.00m);
+        string[] tags = ["30BBBBBBBBBBBBBBBBBBBB01", "30BBBBBBBBBBBBBBBBBBBB02"];
+        foreach (var epc in tags)
+        {
+            await harness.AddTaggedUnitAsync(shirt, epc);
+        }
+
+        var cart = await harness.OpenCartAsync();
+        (await fixture.Add.Handle(new AddCartLineByIdentifierCommand(cart.Id, tags[0]), default)).IsSuccess.Should().BeTrue();
+        var last = await fixture.Add.Handle(new AddCartLineByIdentifierCommand(cart.Id, tags[1], ManualPrice: 15.00m), default);
+        last.IsSuccess.Should().BeTrue(last.IsFailure ? last.Error.Code : null);
+
+        var total = last.Value.Totals.GrandTotal;
+        var sale = await fixture.CompleteAsync(cart.Id, [fixture.Cash(total, total)]);
+        var document = await new ReceiptBuilder(harness.Db).BuildAsync(sale.Value.TransactionId, ReceiptFormat.Slip40, isReprint: false, default);
+
+        document!.Lines.Should().HaveCount(2);
+        document.Lines.Select(l => l.UnitPrice).Should().BeEquivalentTo([20.00m, 15.00m]);
+        document.Lines.Should().OnlyContain(l => l.Quantity == 1m && l.Epcs!.Count == 1);
+    }
+
+    private static async Task<decimal> RingAllAsync(SaleFixture fixture, long cartId, IReadOnlyList<string> identifiers)
+    {
+        decimal total = 0m;
+
+        foreach (var identifier in identifiers)
+        {
+            var added = await fixture.Add.Handle(new AddCartLineByIdentifierCommand(cartId, identifier), default);
+            added.IsSuccess.Should().BeTrue(added.IsFailure ? added.Error.Code : null);
+            total = added.Value.Totals.GrandTotal;
+        }
+
+        return total;
+    }
+
     /// <summary>A packing slip carries no money (guide p.12).</summary>
     [Fact]
     public async Task A_packing_slip_omits_prices()

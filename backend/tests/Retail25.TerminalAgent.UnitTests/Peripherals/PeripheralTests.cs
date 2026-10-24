@@ -145,6 +145,44 @@ public sealed class EscPosRendererTests
         DrawerRepeat: 1,
         OpenDrawerOnPrint: false);
 
+    /// <summary>Three of a shirt print as one line with its three tags beneath, on the till's own printer too.</summary>
+    [Fact]
+    public void A_line_standing_for_several_tagged_units_lists_their_tags()
+    {
+        string[] tags = ["30AAAAAAAAAAAAAAAAAAAA01", "30AAAAAAAAAAAAAAAAAAAA02", "30AAAAAAAAAAAAAAAAAAAA03"];
+        var document = Document() with
+        {
+            Lines = [new ReceiptLine("SHIRT01", "Oxford shirt", 3m, 20.00m, 60.00m, null, null, true, true, false, tags)],
+        };
+
+        var slip = EscPosRenderer.RenderText(document, 40);
+
+        slip.Should().Contain("Oxford shirt");
+        foreach (var epc in tags)
+        {
+            slip.Should().Contain("EPC " + epc);
+        }
+    }
+
+    /// <summary>
+    /// A 20-column roll cannot fit a whole EPC; the end, which tells two tags of one item apart, is
+    /// what survives.
+    /// </summary>
+    [Fact]
+    public void On_a_narrow_roll_a_tag_keeps_its_distinguishing_end()
+    {
+        var document = Document() with
+        {
+            Lines = [new ReceiptLine("SHIRT01", "Oxford shirt", 2m, 20.00m, 40.00m, null, null, true, true, false,
+                ["30AAAAAAAAAAAAAAAAAAAA01", "30AAAAAAAAAAAAAAAAAAAA02"])],
+        };
+
+        var slip = EscPosRenderer.RenderText(document, 20);
+
+        slip.Should().Contain("AAAA01").And.Contain("AAAA02");
+        slip.Split('\n').Should().OnlyContain(line => line.TrimEnd('\r').Length <= 20);
+    }
+
     private static ReceiptDocument Document() => new(
         TestIds.Next(),
         1042,

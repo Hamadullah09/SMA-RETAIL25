@@ -93,17 +93,7 @@ public sealed class ReceiptBuilder
             customer?.FullName,
             customer?.BillingAddress.ToLines(),
             transaction.CompletedAt,
-            lines.Select(l => new ReceiptLine(
-                l.StockCodeSnapshot ?? string.Empty,
-                l.NameSnapshot ?? string.Empty,
-                l.Quantity,
-                showMoney ? l.UnitPrice : 0m,
-                showMoney ? l.ExtendedNet : 0m,
-                DescribeOrigin(l.PriceOrigin),
-                l.Note,
-                l.Tax1Applies,
-                l.Tax2Applies,
-                l.LineType != LineType.Sale)).ToList(),
+            GroupLines(lines, showMoney),
             showMoney ? adjustments.Select(a => new ReceiptAdjustment(a.Label, a.Amount)).ToList() : [],
             showMoney ? transaction.Subtotal : 0m,
             showMoney ? transaction.DiscountTotal : 0m,
@@ -133,6 +123,68 @@ public sealed class ReceiptBuilder
             hasCardTender && (policy?.PrintCreditCardSignatureLine ?? true),
             transaction.IsTraining);
     }
+
+    /// <summary>
+    /// One receipt line per thing bought, not one per tag read.
+    /// <para>
+    /// Each tagged unit is its own sale line, deliberately: it is what lets one of three identical
+    /// shirts be returned on its own, and what puts the right tag back into stock when it is. But a
+    /// customer who bought three of a shirt was handed a receipt listing the shirt three times, which
+    /// reads as three different things and invites the question of which one they were charged for.
+    /// Tagged units of the same item at the same price now print as one line with the quantity and
+    /// the tags beneath it.
+    /// </para>
+    /// <para>
+    /// Only tagged units are gathered. Untagged items already merge into one line in the cart, and
+    /// the lines that stay separate do so for a reason — two weighed packs of the same cheese are two
+    /// packs, and the customer is entitled to see each weight. Nothing that makes two lines different
+    /// to the customer is folded away: price, discount, price level, tax and line type are all part
+    /// of what has to match. The totals are untouched, because they were never computed from these
+    /// lines but frozen with the sale.
+    /// </para>
+    /// </summary>
+    private static List<ReceiptLine> GroupLines(IReadOnlyList<SaleLine> lines, bool showMoney)
+        => lines
+            .GroupBy(l => string.IsNullOrWhiteSpace(l.Epc)
+                ? new LineKey(l.Sequence, 0, null, null, null, 0m, 0m, false, false, default, default, null)
+                : new LineKey(-1, l.ProductId, l.VariantId, l.StockCodeSnapshot, l.NameSnapshot, l.UnitPrice, l.DiscountPct, l.Tax1Applies, l.Tax2Applies, l.LineType, l.PriceOrigin, l.Note))
+            .Select(group =>
+            {
+                var first = group.First();
+                var epcs = group.Select(l => l.Epc).Where(e => !string.IsNullOrWhiteSpace(e)).Select(e => e!).ToList();
+
+                return new ReceiptLine(
+                    first.StockCodeSnapshot ?? string.Empty,
+                    first.NameSnapshot ?? string.Empty,
+                    group.Sum(l => l.Quantity),
+                    showMoney ? first.UnitPrice : 0m,
+                    showMoney ? group.Sum(l => l.ExtendedNet) : 0m,
+                    DescribeOrigin(first.PriceOrigin),
+                    first.Note,
+                    first.Tax1Applies,
+                    first.Tax2Applies,
+                    first.LineType != LineType.Sale,
+                    epcs.Count > 0 ? epcs : null);
+            })
+            .ToList();
+
+    /// <summary>
+    /// What two sale lines must share to print as one. An untagged line carries its own sequence, so
+    /// it never matches anything but itself.
+    /// </summary>
+    private readonly record struct LineKey(
+        int UntaggedSequence,
+        long ProductId,
+        long? VariantId,
+        string? StockCode,
+        string? Name,
+        decimal UnitPrice,
+        decimal DiscountPct,
+        bool Tax1Applies,
+        bool Tax2Applies,
+        LineType LineType,
+        PriceOrigin PriceOrigin,
+        string? Note);
 
     /// <summary>
     /// A short badge explaining a non-regular price. Printing it is how a customer can see that the

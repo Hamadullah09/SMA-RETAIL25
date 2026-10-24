@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type RefObject } from 'react';
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import Link from 'next/link';
 import {
   ChevronLeft,
@@ -19,6 +19,7 @@ import { usePosStore } from '@/stores/pos-store';
 import type { CartLine, PriceOrigin } from '@/types/pos';
 import { cn } from '@/lib/utils';
 import { connectionCopy } from '@/lib/connection-state';
+import { groupCartLines } from '@/lib/cart-grouping';
 
 /**
  * Money is formatted once, here, and always with tabular figures.
@@ -401,6 +402,9 @@ export function CartList() {
 
   const currentRef = useRef<HTMLLIElement>(null);
 
+  // Tagged units of one item drawn as one row, as the receipt prints them. See groupCartLines.
+  const rows = useMemo(() => groupCartLines(cart?.lines ?? []), [cart?.lines]);
+
   // Line fifteen of a sale is below the fold, and a cashier cannot confirm a price they cannot see.
   useEffect(() => {
     currentRef.current?.scrollIntoView({ block: 'nearest' });
@@ -427,7 +431,7 @@ export function CartList() {
           Sale
         </span>
         <span className="tabular text-ink-muted">
-          {lines.length === 0 ? 'empty' : `${itemCount} item${itemCount === 1 ? '' : 's'} · ${lines.length} lines`}
+          {lines.length === 0 ? 'empty' : `${itemCount} item${itemCount === 1 ? '' : 's'} · ${rows.length} line${rows.length === 1 ? '' : 's'}`}
         </span>
       </div>
 
@@ -455,26 +459,30 @@ export function CartList() {
         <EmptySale />
       ) : (
         <ol className="min-h-0 flex-1 overflow-y-auto">
-          {lines.map((line) => {
-            const current = line.sequence === currentSequence;
+          {rows.map((row) => {
+            const line = row.first;
+            const current = row.lines.some((member) => member.sequence === currentSequence);
 
             return (
-              <li key={line.sequence} ref={current ? currentRef : undefined} className="border-b border-subtle/60">
+              <li key={row.key} ref={current ? currentRef : undefined} className="border-b border-subtle/60">
                 <button
                   type="button"
-                  onClick={() => openDialog('lineDetail', line.sequence)}
+                  // The unit added last, for a row of several: tapping a row of three shirts to take
+                  // one off should take off the one just read, not the first of the morning.
+                  onClick={() => openDialog('lineDetail', row.last.sequence)}
                   data-current={current}
                   aria-current={current ? 'true' : undefined}
                   className="pos-cart-row pos-cart-grid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
                 >
                   <span className="flex justify-center">
-                    {line.quantity === 1 ? (
+                    {row.quantity === 1 ? (
                       <span className="pos-amount text-ink-muted">1</span>
                     ) : (
-                      <span className="pos-qty-chip text-ink">{quantity(line.quantity)}</span>
+                      <span className="pos-qty-chip text-ink">{quantity(row.quantity)}</span>
                     )}
                   </span>
 
+                  <span className="flex min-w-0 flex-col justify-center">
                   <span className="flex min-w-0 items-center gap-1.5">
                     <span className="truncate text-body-lg text-ink">{line.name}</span>
                     {line.variantLabel ? (
@@ -502,6 +510,21 @@ export function CartList() {
                   </span>
 
                   {/*
+                    Which tags make up a row of several, by the end of each EPC — the part that tells
+                    two shirts apart. The whole code is on hover, and on the receipt.
+                  */}
+                  {row.epcs.length > 1 ? (
+                    <span className="mt-0.5 flex flex-wrap gap-1" aria-label={`${row.epcs.length} tags`}>
+                      {row.epcs.map((epc) => (
+                        <span key={epc} title={epc} className="rounded bg-panel-sunken px-1.5 font-mono text-caption text-ink-muted">
+                          …{epc.slice(-6)}
+                        </span>
+                      ))}
+                    </span>
+                  ) : null}
+                  </span>
+
+                  {/*
                     What this line weighs, in its own column beside the money.
 
                     No unit is printed, because the catalogue does not store one — the product form
@@ -514,7 +537,7 @@ export function CartList() {
                     been weighed yet.
                   */}
                   <span className="pos-amount text-right text-label text-ink-muted">
-                    {line.lineWeight > 0 ? quantity(line.lineWeight) : null}
+                    {row.lineWeight > 0 ? quantity(row.lineWeight) : null}
                   </span>
 
                   <span className="pos-amount pos-line-unit text-right text-label text-ink-muted">
@@ -524,7 +547,7 @@ export function CartList() {
                   {/* The figure the customer is being charged for this line: full ink, semibold,
                       and the only thing in the row heavier than the item's own name. */}
                   <span className="pos-amount text-right text-body-lg font-semibold text-ink">
-                    {money(line.extendedNet, symbol)}
+                    {money(row.extendedNet, symbol)}
                   </span>
                 </button>
               </li>

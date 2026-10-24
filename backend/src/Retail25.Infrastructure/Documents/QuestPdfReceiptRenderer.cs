@@ -191,6 +191,14 @@ public static class QuestPdfReceiptRenderer
             {
                 Line($"    {line.Note}");
             }
+
+            // The tags behind a line that stands for several tagged units: one line for the shirt,
+            // and beneath it which three shirts. Printed on a packing slip too — the tags are what
+            // the goods are checked against, and they carry no price.
+            foreach (var epc in line.Epcs ?? [])
+            {
+                Line($"    EPC {epc}");
+            }
         }
 
         if (!showMoney)
