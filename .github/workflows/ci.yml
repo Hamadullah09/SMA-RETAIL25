@@ -134,6 +134,12 @@ jobs:
       # pictures, a live-updating inventory list — and a fresh seed creates a location, a station and
       # no products at all, so they were asserting against an empty screen.
       Demo__SeedCatalogue: 'true'
+      # The suite drives the whole application as one user from one address, signing in for every
+      # test — far past what the production limits allow a single caller, which is the point of them.
+      # Raised here only; the defaults in Program.cs are what ships. Run locally, the suite tripped the
+      # 300-a-minute lookup limit within three minutes.
+      RateLimits__AuthPerMinute: '1000'
+      RateLimits__LookupPerMinute: '100000'
       E2E_USERNAME: admin@retail25.local
       E2E_PASSWORD: ${{ secrets.E2E_ADMIN_PASSWORD || 'Ci-Password-1234!' }}
       API_URL: http://localhost:5000
@@ -171,11 +177,17 @@ jobs:
       # Two throwaway keys rather than switching the job to Development. They exist for the length of
       # one run and protect nothing, and generating them keeps the job exercising the code path that
       # actually ships instead of a fallback that is refused everywhere it matters.
+      # The staff-token key as well. The API refuses to issue a token without one (StaffTokenIssuer),
+      # and this job never set it, so every sign-in returned 500: each of the 121 signed-in tests
+      # waited out its 30 seconds on the sign-in page, then did it again on retry, and the job ran
+      # for two hours to report one cause 121 times. Generated per run, like the PEM keys, so it is
+      # never a value anyone could reuse.
       - name: Generate throwaway token-signing keys
         run: |
           mkdir -p ci-keys
           openssl genrsa -out ci-keys/signing.pem 2048
           openssl genrsa -out ci-keys/encryption.pem 2048
+          echo "Auth__Jwt__SigningKey=$(openssl rand -base64 48 | tr -d '\n')" >> "$GITHUB_ENV"
 
       # The API's own output is kept, because the previous version of this step threw it away. With
       # the connection string broken the job reported "API failed to become healthy" and nothing

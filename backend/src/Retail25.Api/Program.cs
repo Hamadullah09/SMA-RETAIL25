@@ -283,6 +283,14 @@ builder.Services.AddAntiforgery(options =>
 // single shared window would make the limit a ceiling on the whole shop rather than on the one
 // misbehaving caller: at 300 requests a minute shared, thirty tills starve each other long before
 // any of them is abusive.
+// The limits are configuration, with these as the defaults (permits per caller per minute). A shop
+// whose tills share one sign-in shares one "lookup" budget between them, and the end-to-end suite
+// drives the whole application as a single user from a single address — both are reasons to change a
+// number, neither is a reason to edit code.
+var authPermits = builder.Configuration.GetValue("RateLimits:AuthPerMinute", 20);
+var pinPermits = builder.Configuration.GetValue("RateLimits:PinPerMinute", 10);
+var lookupPermits = builder.Configuration.GetValue("RateLimits:LookupPerMinute", 300);
+
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -302,9 +310,9 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0,
             });
 
-    options.AddPolicy("auth", http => PerCaller(http, "auth", 20));
-    options.AddPolicy("pin", http => PerCaller(http, "pin", 10));
-    options.AddPolicy("lookup", http => PerCaller(http, "lookup", 300));
+    options.AddPolicy("auth", http => PerCaller(http, "auth", authPermits));
+    options.AddPolicy("pin", http => PerCaller(http, "pin", pinPermits));
+    options.AddPolicy("lookup", http => PerCaller(http, "lookup", lookupPermits));
 });
 
 // A year, and every subdomain, which is what preload lists and every hardening baseline ask for.
