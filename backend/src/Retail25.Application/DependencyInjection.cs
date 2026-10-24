@@ -34,6 +34,11 @@ public static class DependencyInjection
 
         services.AddScoped<PosContextLoader>();
         services.AddScoped<CartPricingService>();
+
+        // Singleton, unlike everything around it: the lock has to be the same object for a tag batch
+        // arriving from the agent and a barcode arriving from the browser, which are different
+        // requests with different scopes. A scoped lock would serialise nothing.
+        services.AddSingleton<CartLocks>();
         services.AddScoped<CartWorkflow>();
         services.AddScoped<CartOpener>();
         services.AddScoped<Shoppers.Services.ShopperSessionFactory>();

@@ -664,7 +664,8 @@ public sealed class CompleteSaleTests
                 harness.Debouncer,
                 new ReceiptBuilder(harness.Db),
                 harness.CurrentUser,
-                harness.Clock);
+                harness.Clock,
+                harness.Locks);
 
             if (openDrawer)
             {

@@ -38,6 +38,7 @@ public sealed class SuspendCartHandler
     private readonly IPosNotifier _notifier;
     private readonly ICurrentUser _currentUser;
     private readonly IDateTime _clock;
+    private readonly CartLocks _locks;
 
     public SuspendCartHandler(
         ICartStore store,
@@ -46,7 +47,8 @@ public sealed class SuspendCartHandler
         CartPricingService pricing,
         IPosNotifier notifier,
         ICurrentUser currentUser,
-        IDateTime clock)
+        IDateTime clock,
+        CartLocks locks)
     {
         _store = store;
         _db = db;
@@ -55,10 +57,15 @@ public sealed class SuspendCartHandler
         _notifier = notifier;
         _currentUser = currentUser;
         _clock = clock;
+        _locks = locks;
     }
 
     public async Task<Result<SuspendedCartDto>> Handle(SuspendCartCommand request, CancellationToken ct)
     {
+        // Same reason as completing a sale: suspending removes the active cart, and a tag batch saved
+        // into it in the meantime would be lost along with it.
+        using var held = await _locks.AcquireAsync(request.CartId, ct);
+
         var snapshot = await _store.GetAsync(request.CartId, ct);
         if (snapshot is null)
         {

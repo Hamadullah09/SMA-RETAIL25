@@ -38,7 +38,7 @@ internal sealed class PosTestHarness : IDisposable
 
         ContextLoader = new PosContextLoader(db, Clock);
         Pricing = new CartPricingService(db);
-        Workflow = new CartWorkflow(CartStore, ContextLoader, Pricing, Notifier, Clock);
+        Workflow = new CartWorkflow(CartStore, ContextLoader, Pricing, Notifier, Clock, Locks);
         Resolver = new IdentifierResolver(db);
         LineFactory = new CartLineFactory(db, CurrentUser, Debouncer, Notifier);
 
@@ -70,6 +70,12 @@ internal sealed class PosTestHarness : IDisposable
     public CartPricingService Pricing { get; }
 
     public CartWorkflow Workflow { get; }
+
+    /// <summary>
+    /// One instance per harness, shared by every handler built from it — as the singleton is shared in
+    /// the running API. Handlers given separate instances would each serialise only against themselves.
+    /// </summary>
+    public CartLocks Locks { get; } = new();
 
     public IdentifierResolver Resolver { get; }
 

@@ -20,19 +20,22 @@ public sealed class CartWorkflow
     private readonly CartPricingService _pricing;
     private readonly IPosNotifier _notifier;
     private readonly IDateTime _clock;
+    private readonly CartLocks _locks;
 
     public CartWorkflow(
         ICartStore store,
         PosContextLoader contextLoader,
         CartPricingService pricing,
         IPosNotifier notifier,
-        IDateTime clock)
+        IDateTime clock,
+        CartLocks locks)
     {
         _store = store;
         _contextLoader = contextLoader;
         _pricing = pricing;
         _notifier = notifier;
         _clock = clock;
+        _locks = locks;
     }
 
     public IDateTime Clock => _clock;
@@ -67,6 +70,11 @@ public sealed class CartWorkflow
         bool requireActive = true)
     {
         ArgumentNullException.ThrowIfNull(mutate);
+
+        // Held from the read to the broadcast. Releasing it after the save but before the broadcast
+        // would let a second writer's push overtake this one's, and the till keeps whichever revision
+        // it saw first.
+        using var held = await _locks.AcquireAsync(cartId, ct);
 
         var snapshot = await _store.GetAsync(cartId, ct);
         if (snapshot is null)

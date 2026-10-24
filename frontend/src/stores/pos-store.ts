@@ -117,6 +117,11 @@ interface PosState {
 
   ensureCart: () => Promise<Cart | null>;
   scan: (identifier: string) => Promise<void>;
+  /**
+   * One scan, without waiting its turn. Internal to `scan`, which queues: calling this directly from
+   * a control would let two scans race for the same cart, which is the thing the queue exists to stop.
+   */
+  scanOnce: (identifier: string) => Promise<void>;
   addVariant: (variantId: number, quantity?: number) => Promise<void>;
   addUnit: (unitId: number) => Promise<void>;
   setReaderMode: (mode: 'Off' | 'OnDemand' | 'Continuous') => Promise<void>;
@@ -162,6 +167,34 @@ function describe(error: unknown): { code: string; message: string } {
 
   return { code: 'unexpected', message: error instanceof Error ? error.message : 'Something went wrong.' };
 }
+
+/**
+ * The cart to keep: the one the server just sent, unless the screen already holds a later revision
+ * of the same cart.
+ *
+ * A running reader and a barcode scanner change one cart from two directions, and their answers do
+ * not arrive in the order they were made. A tag batch is pushed over the hub; a barcode comes back as
+ * the HTTP response to the scan; whichever lands second used to win outright, so a response describing
+ * revision 6 could replace a push that had already shown revision 7 — and the line added in 7 vanished
+ * from the screen while staying on the server's copy, to be charged at payment for an item the cashier
+ * never saw. The tag push already checked revisions. Everything else now does too.
+ *
+ * A different cart id is always taken: that is a new sale, not a stale copy of this one.
+ */
+function adopt(current: Cart | null, incoming: Cart): Cart {
+  if (!current || current.id !== incoming.id) return incoming;
+  return incoming.revision >= current.revision ? incoming : current;
+}
+
+/**
+ * Scans run one at a time, in the order they were made.
+ *
+ * The scan box used to be disabled while a scan was in flight. A disabled input drops focus, and a
+ * barcode scanner types into whatever has focus — so the second of two quick scans landed nowhere,
+ * with nothing on screen to say it had been lost. The box now stays live and scans queue here instead:
+ * each one starts after the last has finished, sees the cart the last one opened, and none is dropped.
+ */
+let scanChain: Promise<void> = Promise.resolve();
 
 export const usePosStore = create<PosState>((set, get) => ({
   stationId: null,
@@ -214,7 +247,7 @@ export const usePosStore = create<PosState>((set, get) => ({
     }
 
     await posHub.connect(stationId, locationId, {
-      onCartUpdated: (cart) => set({ cart }),
+      onCartUpdated: (cart) => set({ cart: adopt(get().cart, cart) }),
       onTotalsChanged: (totals) => {
         const cart = get().cart;
         if (cart) set({ cart: { ...cart, totals } });
@@ -290,7 +323,8 @@ export const usePosStore = create<PosState>((set, get) => ({
       },
       onResyncRequired: async ({ cartId }) => {
         try {
-          set({ cart: await posApi.getCart(cartId) });
+          const updated = await posApi.getCart(cartId);
+          set((state) => ({ cart: adopt(state.cart, updated) }));
         } catch {
           /* the next mutation will return authoritative state anyway */
         }
@@ -323,13 +357,30 @@ export const usePosStore = create<PosState>((set, get) => ({
     const trimmed = identifier.trim();
     if (!trimmed) return;
 
+    // Join the queue behind any scan still in flight. See `scanChain`.
+    const previous = scanChain;
+    let finished!: () => void;
+    scanChain = new Promise<void>((resolve) => {
+      finished = resolve;
+    });
+    await previous;
+
+    try {
+      await get().scanOnce(trimmed);
+    } finally {
+      finished();
+    }
+  },
+
+  scanOnce: async (trimmed: string) => {
     const cart = await get().ensureCart();
     if (!cart) return;
 
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.addLine(cart.id, { identifier: trimmed }) });
+      const updated = await posApi.addLine(cart.id, { identifier: trimmed });
+      set({ cart: adopt(get().cart, updated) });
     } catch (error) {
       // A matrix parent or a serialized item is a question, not a failure. The server says which
       // kind of question it is, and the right picker opens rather than the cashier seeing an error
@@ -361,11 +412,8 @@ export const usePosStore = create<PosState>((set, get) => ({
     set({ busy: true, error: null });
 
     try {
-      set({
-        cart: await posApi.addVariantLine(cart.id, variantId, quantity),
-        dialog: null,
-        pendingSelection: null,
-      });
+      const updated = await posApi.addVariantLine(cart.id, variantId, quantity);
+      set((state) => ({ cart: adopt(state.cart, updated), dialog: null, pendingSelection: null }));
     } catch (error) {
       set({ error: describe(error) });
     } finally {
@@ -380,7 +428,8 @@ export const usePosStore = create<PosState>((set, get) => ({
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.addUnitLine(cart.id, unitId), dialog: null, pendingSelection: null });
+      const updated = await posApi.addUnitLine(cart.id, unitId);
+      set((state) => ({ cart: adopt(state.cart, updated), dialog: null, pendingSelection: null }));
     } catch (error) {
       set({ error: describe(error) });
     } finally {
@@ -491,7 +540,8 @@ export const usePosStore = create<PosState>((set, get) => ({
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.updateLine(cart.id, sequence, body) });
+      const updated = await posApi.updateLine(cart.id, sequence, body);
+      set((state) => ({ cart: adopt(state.cart, updated) }));
     } catch (error) {
       set({ error: describe(error) });
     } finally {
@@ -506,7 +556,8 @@ export const usePosStore = create<PosState>((set, get) => ({
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.removeLine(cart.id, sequence) });
+      const updated = await posApi.removeLine(cart.id, sequence);
+      set((state) => ({ cart: adopt(state.cart, updated) }));
     } catch (error) {
       set({ error: describe(error) });
     } finally {
@@ -528,7 +579,8 @@ export const usePosStore = create<PosState>((set, get) => ({
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.clearLines(cart.id) });
+      const updated = await posApi.clearLines(cart.id);
+      set((state) => ({ cart: adopt(state.cart, updated) }));
     } catch (error) {
       set({ error: describe(error) });
     } finally {
@@ -543,7 +595,8 @@ export const usePosStore = create<PosState>((set, get) => ({
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.addAdjustment(cart.id, body), dialog: null });
+      const updated = await posApi.addAdjustment(cart.id, body);
+      set((state) => ({ cart: adopt(state.cart, updated), dialog: null }));
     } catch (error) {
       set({ error: describe(error) });
     } finally {
@@ -558,7 +611,8 @@ export const usePosStore = create<PosState>((set, get) => ({
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.addUnknownItem(cart.id, { description, unitPrice, quantity }), dialog: null });
+      const updated = await posApi.addUnknownItem(cart.id, { description, unitPrice, quantity });
+      set((state) => ({ cart: adopt(state.cart, updated), dialog: null }));
     } catch (error) {
       set({ error: describe(error) });
     } finally {
@@ -573,7 +627,8 @@ export const usePosStore = create<PosState>((set, get) => ({
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.setTaxOverride(cart.id, tax1, tax2), dialog: null });
+      const updated = await posApi.setTaxOverride(cart.id, tax1, tax2);
+      set((state) => ({ cart: adopt(state.cart, updated), dialog: null }));
     } catch (error) {
       set({ error: describe(error) });
     } finally {
@@ -588,7 +643,8 @@ export const usePosStore = create<PosState>((set, get) => ({
     set({ busy: true, error: null });
 
     try {
-      set({ cart: await posApi.setCustomer(cart.id, customerId), dialog: null });
+      const updated = await posApi.setCustomer(cart.id, customerId);
+      set((state) => ({ cart: adopt(state.cart, updated), dialog: null }));
     } catch (error) {
       set({ error: describe(error) });
     } finally {

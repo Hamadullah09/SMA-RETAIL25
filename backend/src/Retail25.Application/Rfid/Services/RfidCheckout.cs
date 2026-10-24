@@ -38,6 +38,7 @@ public sealed class RfidCheckout
     private readonly ITagDebouncer _debouncer;
     private readonly IPosNotifier _notifier;
     private readonly IDateTime _clock;
+    private readonly CartLocks _locks;
 
     public RfidCheckout(
         ICartStore store,
@@ -48,7 +49,8 @@ public sealed class RfidCheckout
         CartLineFactory lineFactory,
         ITagDebouncer debouncer,
         IPosNotifier notifier,
-        IDateTime clock)
+        IDateTime clock,
+        CartLocks locks)
     {
         _store = store;
         _db = db;
@@ -59,6 +61,7 @@ public sealed class RfidCheckout
         _debouncer = debouncer;
         _notifier = notifier;
         _clock = clock;
+        _locks = locks;
     }
 
     /// <param name="attested">
@@ -83,6 +86,11 @@ public sealed class RfidCheckout
         CancellationToken ct,
         bool attested = false)
     {
+        // This is the writer that made the lock necessary. It holds its copy of the cart across a
+        // claim, a database lookup and a line build for every tag in the batch, and a barcode scanned
+        // at the same till during that window was being saved and then overwritten by this one.
+        using var held = await _locks.AcquireAsync(cartId, ct);
+
         var snapshot = await _store.GetAsync(cartId, ct);
         if (snapshot is null || !snapshot.Cart.IsActive)
         {

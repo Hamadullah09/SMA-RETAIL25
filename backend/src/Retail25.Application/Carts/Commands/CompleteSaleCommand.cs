@@ -85,6 +85,7 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
     private readonly ReceiptBuilder _receipts;
     private readonly ICurrentUser _currentUser;
     private readonly IDateTime _clock;
+    private readonly CartLocks _locks;
 
     public CompleteSaleHandler(
         ICartStore store,
@@ -98,7 +99,8 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         ITagDebouncer debouncer,
         ReceiptBuilder receipts,
         ICurrentUser currentUser,
-        IDateTime clock)
+        IDateTime clock,
+        CartLocks locks)
     {
         _store = store;
         _db = db;
@@ -112,10 +114,17 @@ public sealed class CompleteSaleHandler : IRequestHandler<CompleteSaleCommand, R
         _receipts = receipts;
         _currentUser = currentUser;
         _clock = clock;
+        _locks = locks;
     }
 
     public async Task<Result<CompleteSaleResult>> Handle(CompleteSaleCommand request, CancellationToken ct)
     {
+        // Taken before anything is read, and first thing in the handler so no database work happens
+        // while queued for it. Without it a tag batch landing mid-payment is saved into a cart this
+        // handler is about to delete: the line never reaches the sale, but its unit is left marked
+        // as in a cart that no longer exists.
+        using var held = await _locks.AcquireAsync(request.CartId, ct);
+
         var snapshot = await _store.GetAsync(request.CartId, ct);
         if (snapshot is null || !snapshot.Cart.IsActive)
         {

@@ -252,7 +252,8 @@ public sealed class BulkReadTests
             harness.LineFactory,
             harness.Debouncer,
             harness.Notifier,
-            harness.Clock));
+            harness.Clock,
+            harness.Locks));
 
     private static async Task<List<string>> CommissionAsync(PosTestHarness harness, Product product, int count)
     {

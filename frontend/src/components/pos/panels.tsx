@@ -809,6 +809,48 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
   const { scan, busy, error, clearError } = usePosStore();
   const [value, setValue] = useState('');
 
+  /*
+    A barcode scanner is a keyboard. It types the code and presses Enter into whatever has focus,
+    and on this screen that was very often not this box.
+
+    Focus only came back here when a dialog closed. Pressing anything else -- the reader's Start,
+    Clear or Sound, a line in the sale, a product tile, a key in the bar -- left focus on that
+    button. The next scan's digits went into the button and vanished, and its Enter pressed the
+    button: on the reader's Start/Stop, every barcode toggled the reader. That is how a shop came to
+    report that the reader worked and the barcode did not. They were never separate faults.
+
+    So any printable key that arrives outside a field is caught here and brought in, wherever focus
+    happens to be. The first character is placed by hand, because moving focus mid-keystroke does not
+    reliably carry that keystroke with it; everything after it, including the Enter, lands natively.
+
+    Left alone: keys aimed at a real field (a dialog's amount box, a search), anything with Ctrl, Alt
+    or Cmd (the shortcut bar's territory), and everything while a dialog is open, which owns the
+    keyboard until it closes. Space only joins once a code has begun, because on its own it is how a
+    focused button is pressed.
+  */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing) return;
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key.length !== 1) return;
+
+      const input = inputRef.current;
+      if (!input) return;
+
+      if (event.target instanceof HTMLElement && isTypingSurface(event.target)) return;
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      if (event.key === ' ' && input.value === '') return;
+
+      event.preventDefault();
+      setValue((current) => current + event.key);
+      if (error) clearError();
+      input.focus();
+    };
+
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [inputRef, error, clearError]);
+
   return (
     <form
       className={cn(
@@ -844,7 +886,9 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
         }}
         placeholder="Barcode, stock code, tag or serial"
         className="h-full min-w-0 flex-1 bg-transparent text-h3 text-ink outline-none placeholder:text-body-lg placeholder:text-ink-faint"
-        disabled={busy}
+        // Never disabled. A disabled input gives up focus, so the scan after this one had nowhere to
+        // land; scans queue in the store instead (see `scanChain`). Busy is still announced.
+        aria-busy={busy}
       />
 
       {/*
@@ -864,6 +908,17 @@ export function ScanBox({ inputRef }: { inputRef: RefObject<HTMLInputElement> })
       ) : null}
     </form>
   );
+}
+
+/** Input types that take no typed text, so a keystroke aimed at one is not aimed at a field. */
+const NON_TEXT_INPUTS = new Set(['button', 'submit', 'reset', 'checkbox', 'radio', 'range', 'color', 'file', 'image']);
+
+/** Whether a keystroke landing on this element is somebody typing into a field on purpose. */
+function isTypingSurface(element: HTMLElement): boolean {
+  if (element.isContentEditable) return true;
+  if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) return true;
+  if (element instanceof HTMLInputElement) return !NON_TEXT_INPUTS.has(element.type);
+  return false;
 }
 
 /* --------------------------------------------------------------------- the F-key strip */
