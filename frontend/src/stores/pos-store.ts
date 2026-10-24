@@ -141,10 +141,21 @@ interface PosState {
   switchStaff: (staffCode: string, pin: string) => Promise<void>;
   requestApproval: (permission: string, action: string, context?: string) => Promise<PendingApproval | null>;
   approveWithPin: (staffCode: string, pin: string) => Promise<void>;
+  /**
+   * What to do once the manager approves: the refused action, run again carrying the approval.
+   * Cleared when the approval prompt is dismissed, so a later approval cannot fire an old action.
+   */
+  pendingRetry: ((approvalId: number) => Promise<void>) | null;
+  /**
+   * Turns a "needs a manager" refusal into the approval prompt, and arranges for `retry` to run with
+   * the approval once one is given. True when it took the error on; false means it was some other
+   * failure and the caller should report it.
+   */
+  askManager: (error: unknown, context: string, retry: (approvalId: number) => Promise<void>) => Promise<boolean>;
   updateLine: (sequence: number, body: Parameters<typeof posApi.updateLine>[2]) => Promise<void>;
   removeLine: (sequence: number) => Promise<void>;
   removeLastLine: () => Promise<void>;
-  clearLines: () => Promise<void>;
+  clearLines: (approvalId?: number) => Promise<void>;
   addAdjustment: (body: Parameters<typeof posApi.addAdjustment>[1]) => Promise<void>;
   addUnknownItem: (description: string, unitPrice: number, quantity: number) => Promise<void>;
   setTaxOverride: (tax1: boolean | null, tax2: boolean | null) => Promise<void>;
@@ -214,6 +225,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   selectedLineSequence: null,
   pendingSelection: null,
   pendingApproval: null,
+  pendingRetry: null,
   activeStaff: null,
   busy: false,
   error: null,
@@ -522,15 +534,44 @@ export const usePosStore = create<PosState>((set, get) => ({
     try {
       await posApi.approveWithPin(pending.id, staffCode, pin);
 
-      // The grant now exists but is unspent; the caller retries the command carrying its id, and the
-      // command consumes it. Keeping it here rather than auto-retrying means one approval can never
-      // silently authorise something the cashier did not just attempt.
-      set({ dialog: null });
+      // The grant now exists but is unspent. The action that was refused runs again carrying it, and
+      // the server spends it there — on that command and that permission only, so one approval can
+      // still never authorise anything the cashier did not just attempt.
+      //
+      // This used to stop at closing the prompt and leave the retry to "the caller". There was no
+      // caller: nothing on the till ever raised an approval, so a manager could type their PIN and
+      // the refused action would simply not happen.
+      const retry = get().pendingRetry;
+      set({ dialog: null, pendingApproval: null, pendingRetry: null });
+
+      if (retry) await retry(pending.id);
     } catch (error) {
       set({ error: describe(error) });
     } finally {
       set({ busy: false });
     }
+  },
+
+  askManager: async (error, context, retry) => {
+    if (!(error instanceof PosApiError) || !error.needsSupervisor) return false;
+
+    // Asked of the server, not kept here: the refusal names the permission and the command it
+    // refused, so the till needs no list of which action needs whose approval.
+    const args = error.problem.arguments ?? {};
+    const permission = typeof args.permission === 'string' ? args.permission : null;
+    const action = typeof args.action === 'string' ? args.action : null;
+
+    if (!permission || !action) return false;
+
+    const pending = await get().requestApproval(permission, action, context);
+    if (!pending) return true;
+
+    // An expired or already-spent approval comes back as a fresh refusal with its own reason. Showing
+    // it in the new prompt tells the manager why they are being asked twice.
+    if (error.code.startsWith('approval.')) set({ error: describe(error) });
+
+    set({ pendingRetry: retry });
+    return true;
   },
 
   updateLine: async (sequence, body) => {
@@ -572,16 +613,24 @@ export const usePosStore = create<PosState>((set, get) => ({
     if (last) await get().removeLine(last.sequence);
   },
 
-  clearLines: async () => {
+  clearLines: async (approvalId) => {
     const cart = get().cart;
     if (!cart) return;
 
     set({ busy: true, error: null });
 
     try {
-      const updated = await posApi.clearLines(cart.id);
+      const updated = await posApi.clearLines(cart.id, approvalId);
       set((state) => ({ cart: adopt(state.cart, updated) }));
     } catch (error) {
+      const lines = cart.lines.length;
+      const total = cart.totals.grandTotal;
+
+      // What the manager is shown before they type their PIN: what is about to be thrown away.
+      const context = `Clear the sale — ${lines} line${lines === 1 ? '' : 's'}, ${total.toFixed(2)}`;
+
+      if (await get().askManager(error, context, (id) => get().clearLines(id))) return;
+
       set({ error: describe(error) });
     } finally {
       set({ busy: false });
@@ -741,7 +790,9 @@ export const usePosStore = create<PosState>((set, get) => ({
 
   openDialog: (dialog, sequence = null) =>
     set({ dialog, selectedLineSequence: sequence ?? get().selectedLineSequence }),
-  closeDialog: () => set({ dialog: null, pendingSelection: null }),
+  // The retry goes with the prompt. A manager approving a request the cashier had already walked away
+  // from must not suddenly clear a sale that has since moved on.
+  closeDialog: () => set({ dialog: null, pendingSelection: null, pendingRetry: null }),
   clearError: () => set({ error: null }),
   dismissTag: (epc) => set((state) => ({ rejectedTags: state.rejectedTags.filter((t) => t.epc !== epc) })),
 }));

@@ -110,7 +110,14 @@ export const posApi = {
   removeLine: (cartId: number, lineId: number) =>
     call<Cart>(() => apiClient.delete(`/carts/${cartId}/lines/${lineId}`)),
 
-  clearLines: (cartId: number) => call<Cart>(() => apiClient.delete(`/carts/${cartId}/lines`)),
+  /**
+   * Empties the sale. A cashier without pos.clear_sale is answered 428; the retry carries the
+   * manager's approval as `approvalId`.
+   */
+  clearLines: (cartId: number, approvalId?: number) =>
+    call<Cart>(() =>
+      apiClient.delete(`/carts/${cartId}/lines`, { params: approvalId ? { approvalId } : undefined }),
+    ),
 
   addAdjustment: (
     cartId: number,

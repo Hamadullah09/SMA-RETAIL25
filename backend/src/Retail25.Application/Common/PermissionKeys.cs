@@ -25,6 +25,13 @@ public static class PermissionKeys
         public const string Reprint = "pos.reprint";
         public const string SelectPriceLevel = "pos.select_price_level";
         public const string Return = "pos.return";
+
+        /// <summary>
+        /// Emptying an open sale in one go. Managers hold it; anyone else needs a manager to approve,
+        /// because it throws away the whole basket at once and leaves nothing in the sales log to say
+        /// it was ever rung up.
+        /// </summary>
+        public const string ClearSale = "pos.clear_sale";
     }
 
     public static class Drawer
@@ -140,7 +147,7 @@ public static class PermissionKeys
     public static IReadOnlyList<string> All { get; } =
     [
         Pos.Sell, Pos.Discount, Pos.PriceOverride, Pos.TaxOverride, Pos.VoidSale,
-        Pos.Suspend, Pos.Recall, Pos.UnknownItem, Pos.Reprint, Pos.SelectPriceLevel, Pos.Return,
+        Pos.Suspend, Pos.Recall, Pos.UnknownItem, Pos.Reprint, Pos.SelectPriceLevel, Pos.Return, Pos.ClearSale,
         Drawer.OpenFloat, Drawer.PayIn, Drawer.PayOut, Drawer.Pop, Drawer.Close, Drawer.Read,
         Catalog.Read, Catalog.Write, Catalog.Delete, Catalog.BulkAdjust,
         Inventory.Adjust, Inventory.Receive, Inventory.Transfer, Inventory.Count, Inventory.YearEnd, Inventory.CommissionTags,
@@ -173,7 +180,7 @@ public static class PermissionKeys
             [3] =
             [
                 Pos.Sell, Pos.Discount, Pos.PriceOverride, Pos.TaxOverride, Pos.VoidSale, Pos.Suspend,
-                Pos.Recall, Pos.UnknownItem, Pos.Reprint, Pos.SelectPriceLevel, Pos.Return,
+                Pos.Recall, Pos.UnknownItem, Pos.Reprint, Pos.SelectPriceLevel, Pos.Return, Pos.ClearSale,
                 Catalog.Read, Catalog.Write, Customer.Read, Customer.Write,
                 Inventory.Adjust, Inventory.Receive, Inventory.CommissionTags,
                 Drawer.Read, Drawer.OpenFloat, Drawer.PayIn, Drawer.PayOut, Drawer.Pop, Drawer.Close,

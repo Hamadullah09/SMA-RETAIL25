@@ -2,8 +2,11 @@ using FluentAssertions;
 using MediatR;
 using NSubstitute;
 using Retail25.Application.Abstractions;
+using Retail25.Application.Auth;
 using Retail25.Application.Behaviors;
+using Retail25.Application.Carts.Commands;
 using Retail25.Application.Common;
+using Retail25.Application.UnitTests.Carts;
 using Retail25.Domain.Common;
 using Retail25.Domain.Security;
 using Xunit;
@@ -25,7 +28,7 @@ public sealed class AuthorizationBehaviorTests
 
     [RequiresPermission(PermissionKeys.Pos.VoidSale)]
     [SupportsSupervisorApproval]
-    private sealed record StepUpCommand : IRequest<Result>;
+    private sealed record StepUpCommand(long? ApprovalId = null) : IRequest<Result>, ISupervisorApprovable;
 
     private sealed record OpenCommand : IRequest<Result>;
 
@@ -67,10 +70,12 @@ public sealed class AuthorizationBehaviorTests
 
     /// <summary>
     /// A step-up-able refusal is marked so the API can answer 428 rather than 403 — "fetch a
-    /// supervisor" instead of "you cannot do this", which is a materially different instruction.
+    /// supervisor" instead of "you cannot do this", which is a materially different instruction. It
+    /// also names the command, so the till raises the approval for exactly this without keeping its
+    /// own copy of every command's name.
     /// </summary>
     [Fact]
-    public async Task A_step_up_able_command_says_so_when_it_refuses()
+    public async Task A_step_up_able_command_says_so_and_names_itself_when_it_refuses()
     {
         var behavior = BuildFor<StepUpCommand>([]);
 
@@ -78,6 +83,127 @@ public sealed class AuthorizationBehaviorTests
 
         var exception = await act.Should().ThrowAsync<PermissionDeniedException>();
         exception.Which.SupportsSupervisorApproval.Should().BeTrue();
+        exception.Which.Action.Should().Be(nameof(StepUpCommand));
+    }
+
+    /// <summary>
+    /// The retry carrying a supervisor's grant reaches the handler.
+    /// <para>
+    /// It never used to. This behaviour refused anyone without the permission, on the first attempt
+    /// and on the retry alike, and the grant was left for the handler to spend — the handler that the
+    /// refusal had just stopped from running. A cashier could be approved and still never void.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_retry_carrying_a_grant_runs_and_records_who_approved_it()
+    {
+        var supervisor = TestIds.Next();
+        var grants = Substitute.For<IStepUpGrants>();
+        grants.SpendAsync(Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success(supervisor));
+
+        var stepUp = new StepUpContext();
+        var behavior = BuildFor<StepUpCommand>([PermissionKeys.Pos.Sell], grants, stepUp);
+        var ran = false;
+
+        await behavior.Handle(new StepUpCommand(ApprovalId: 42), Next(() => ran = true), default);
+
+        ran.Should().BeTrue();
+        stepUp.ApprovedByStaffId.Should().Be(supervisor);
+    }
+
+    /// <summary>
+    /// Spent against what was actually refused — this command, and the permission it needed — never
+    /// against whatever the till claimed when it raised the request.
+    /// </summary>
+    [Fact]
+    public async Task A_grant_is_spent_against_the_command_and_permission_being_refused()
+    {
+        var grants = Substitute.For<IStepUpGrants>();
+        grants.SpendAsync(Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Success(TestIds.Next()));
+
+        var behavior = BuildFor<StepUpCommand>([], grants);
+
+        await behavior.Handle(new StepUpCommand(ApprovalId: 7), Next(() => { }), default);
+
+        await grants.Received(1).SpendAsync(7, nameof(StepUpCommand), PermissionKeys.Pos.VoidSale, Arg.Any<CancellationToken>());
+    }
+
+    /// <summary>
+    /// A grant that cannot be used is refused in its own words, and still as a step-up: an expired
+    /// approval needs a fresh one, not a different person at the till.
+    /// </summary>
+    [Fact]
+    public async Task A_grant_that_cannot_be_spent_is_refused_with_its_reason()
+    {
+        var grants = Substitute.For<IStepUpGrants>();
+        grants.SpendAsync(Arg.Any<long>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Result.Failure<long>(SupervisorApproval.Expired));
+
+        var behavior = BuildFor<StepUpCommand>([], grants);
+        var ran = false;
+
+        var act = async () => await behavior.Handle(new StepUpCommand(ApprovalId: 9), Next(() => ran = true), default);
+
+        var exception = await act.Should().ThrowAsync<PermissionDeniedException>();
+        exception.Which.Reason!.Code.Should().Be("approval.expired");
+        exception.Which.SupportsSupervisorApproval.Should().BeTrue();
+        ran.Should().BeFalse();
+    }
+
+    /// <summary>Somebody who holds the permission spends nobody's approval, even if one is attached.</summary>
+    [Fact]
+    public async Task A_holder_of_the_permission_never_spends_a_grant()
+    {
+        var grants = Substitute.For<IStepUpGrants>();
+        var behavior = BuildFor<StepUpCommand>([PermissionKeys.Pos.VoidSale], grants);
+
+        await behavior.Handle(new StepUpCommand(ApprovalId: 3), Next(() => { }), default);
+
+        await grants.DidNotReceiveWithAnyArgs().SpendAsync(default, default!, default!, default);
+    }
+
+    /// <summary>A grant on a command that does not support step-up is ignored, not honoured.</summary>
+    [Fact]
+    public async Task A_command_that_does_not_support_step_up_cannot_be_unlocked_by_one()
+    {
+        var grants = Substitute.For<IStepUpGrants>();
+        var behavior = BuildFor<GuardedCommand>([], grants);
+
+        var act = async () => await behavior.Handle(new GuardedCommand(), Next(() => { }), default);
+
+        await act.Should().ThrowAsync<PermissionDeniedException>();
+        await grants.DidNotReceiveWithAnyArgs().SpendAsync(default, default!, default!, default);
+    }
+
+    /// <summary>
+    /// Clearing a sale is a manager's call: a clerk is answered "fetch a manager", not "no".
+    /// </summary>
+    [Fact]
+    public async Task Clearing_a_sale_asks_a_clerk_for_a_manager()
+    {
+        var clerk = PermissionKeys.LegacyLevelPresets[2];
+        var behavior = BuildFor<ClearCartCommand>(clerk);
+
+        var act = async () => await behavior.Handle(new ClearCartCommand(CartId: 1), Next(() => { }), default);
+
+        var exception = await act.Should().ThrowAsync<PermissionDeniedException>();
+        exception.Which.Permission.Should().Be(PermissionKeys.Pos.ClearSale);
+        exception.Which.SupportsSupervisorApproval.Should().BeTrue();
+        exception.Which.Action.Should().Be(nameof(ClearCartCommand));
+    }
+
+    [Fact]
+    public void Supervisors_and_administrators_clear_sales_and_nobody_below_does()
+    {
+        PermissionKeys.LegacyLevelPresets[3].Should().Contain(PermissionKeys.Pos.ClearSale);
+        PermissionKeys.LegacyLevelPresets[4].Should().Contain(PermissionKeys.Pos.ClearSale);
+
+        foreach (var level in new[] { 0, 1, 2 })
+        {
+            PermissionKeys.LegacyLevelPresets[level].Should().NotContain(PermissionKeys.Pos.ClearSale);
+        }
     }
 
     /// <summary>
@@ -127,11 +253,21 @@ public sealed class AuthorizationBehaviorTests
         => PermissionKeys.LegacyLevelPresets[4].Should().BeEquivalentTo(PermissionKeys.All);
 
     private static AuthorizationBehavior<OpenCommand, Result> Build(IReadOnlyList<string> granted)
-        => new(CurrentUser(granted));
+        => new(CurrentUser(granted), Substitute.For<IStepUpGrants>(), new StepUpContext());
 
-    private static AuthorizationBehavior<TRequest, Result> BuildFor<TRequest>(IReadOnlyList<string> granted)
+    private static AuthorizationBehavior<TRequest, TResponse> BuildFor<TRequest, TResponse>(
+        IReadOnlyList<string> granted,
+        IStepUpGrants? grants = null,
+        StepUpContext? stepUp = null)
         where TRequest : notnull
-        => new(CurrentUser(granted));
+        => new(CurrentUser(granted), grants ?? Substitute.For<IStepUpGrants>(), stepUp ?? new StepUpContext());
+
+    private static AuthorizationBehavior<TRequest, Result> BuildFor<TRequest>(
+        IReadOnlyList<string> granted,
+        IStepUpGrants? grants = null,
+        StepUpContext? stepUp = null)
+        where TRequest : notnull
+        => BuildFor<TRequest, Result>(granted, grants, stepUp);
 
     private static ICurrentUser CurrentUser(IReadOnlyList<string> granted)
     {
@@ -168,16 +304,18 @@ public sealed class SupervisorApprovalTests
     private static readonly long Cashier = TestIds.Next();
     private static readonly long Supervisor = TestIds.Next();
 
+    private const string Void = PermissionKeys.Pos.VoidSale;
+
     [Fact]
     public void An_approved_grant_can_be_spent_once()
     {
         var approval = Request();
 
         approval.Approve(Supervisor, Now).IsSuccess.Should().BeTrue();
-        approval.Consume(nameof(VoidAction), Now).IsSuccess.Should().BeTrue();
+        approval.Consume(nameof(VoidAction), Void, Now).IsSuccess.Should().BeTrue();
 
         // The second attempt fails, so one approval cannot void a second sale.
-        approval.Consume(nameof(VoidAction), Now).IsFailure.Should().BeTrue();
+        approval.Consume(nameof(VoidAction), Void, Now).IsFailure.Should().BeTrue();
         approval.Status.Should().Be(ApprovalStatus.Consumed);
     }
 
@@ -186,7 +324,7 @@ public sealed class SupervisorApprovalTests
     public void A_supervisor_cannot_approve_their_own_request()
     {
         var approval = SupervisorApproval.Request(
-            PermissionKeys.Pos.VoidSale, nameof(VoidAction), null, Supervisor, TestIds.Next(), TestIds.Next(), Now);
+            Void, nameof(VoidAction), null, Supervisor, TestIds.Next(), TestIds.Next(), Now);
 
         var result = approval.Approve(Supervisor, Now);
 
@@ -201,7 +339,7 @@ public sealed class SupervisorApprovalTests
         var approval = Request();
         approval.Approve(Supervisor, Now);
 
-        var result = approval.Consume(nameof(VoidAction), Now.Add(SupervisorApproval.Lifetime).AddSeconds(1));
+        var result = approval.Consume(nameof(VoidAction), Void, Now.Add(SupervisorApproval.Lifetime).AddSeconds(1));
 
         result.IsFailure.Should().BeTrue();
         result.Error.Code.Should().Be("approval.expired");
@@ -214,10 +352,29 @@ public sealed class SupervisorApprovalTests
         var approval = Request();
         approval.Approve(Supervisor, Now);
 
-        var result = approval.Consume("SomeOtherCommand", Now);
+        var result = approval.Consume("SomeOtherCommand", Void, Now);
 
         result.IsFailure.Should().BeTrue();
         result.Error.Code.Should().Be("approval.wrong_action");
+    }
+
+    /// <summary>
+    /// The cheap-grant attack. The till chooses both the permission and the action when it raises a
+    /// request, and the approver is only asked whether they hold that permission. Raised as
+    /// "pos.sell, for a void", any cashier could approve it — every cashier holds pos.sell — and the
+    /// grant would then unlock the void. It must not.
+    /// </summary>
+    [Fact]
+    public void A_grant_approved_for_a_lesser_permission_does_not_unlock_a_greater_one()
+    {
+        var approval = SupervisorApproval.Request(
+            PermissionKeys.Pos.Sell, nameof(VoidAction), "Void sale #1042", Cashier, TestIds.Next(), TestIds.Next(), Now);
+        approval.Approve(TestIds.Next(), Now);
+
+        var result = approval.Consume(nameof(VoidAction), Void, Now);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Code.Should().Be("approval.wrong_permission");
     }
 
     [Fact]
@@ -232,7 +389,7 @@ public sealed class SupervisorApprovalTests
 
     [Fact]
     public void An_unapproved_request_cannot_be_spent()
-        => Request().Consume(nameof(VoidAction), Now).IsFailure.Should().BeTrue();
+        => Request().Consume(nameof(VoidAction), Void, Now).IsFailure.Should().BeTrue();
 
     [Fact]
     public void A_request_expires_two_minutes_after_it_is_raised()
@@ -244,7 +401,7 @@ public sealed class SupervisorApprovalTests
     }
 
     private static SupervisorApproval Request() => SupervisorApproval.Request(
-        PermissionKeys.Pos.VoidSale,
+        Void,
         nameof(VoidAction),
         "Void sale #1042",
         Cashier,
@@ -253,4 +410,54 @@ public sealed class SupervisorApprovalTests
         Now);
 
     private sealed record VoidAction;
+}
+
+/// <summary>Spending a grant against the database: who may, and what is left behind.</summary>
+public sealed class StepUpGrantTests
+{
+    [Fact]
+    public async Task The_cashier_who_asked_can_spend_it_and_learns_who_approved()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var supervisor = TestIds.Next();
+        var approval = await ApprovedAsync(harness, requestedBy: harness.CurrentUser.StaffId!.Value, supervisor);
+
+        var spent = await Grants(harness).SpendAsync(approval.Id, "ClearCartCommand", PermissionKeys.Pos.ClearSale, default);
+
+        spent.IsSuccess.Should().BeTrue();
+        spent.Value.Should().Be(supervisor);
+        (await harness.Db.SupervisorApprovals.FindAsync(approval.Id))!.Status.Should().Be(ApprovalStatus.Consumed);
+    }
+
+    /// <summary>
+    /// A grant belongs to whoever asked for it. Otherwise an approved request is a token any colleague
+    /// at any till can pick up and spend in its two minutes.
+    /// </summary>
+    [Fact]
+    public async Task Somebody_else_cannot_spend_a_grant_they_did_not_ask_for()
+    {
+        using var harness = await PosTestHarness.CreateAsync();
+        var approval = await ApprovedAsync(harness, requestedBy: TestIds.Next(), supervisor: TestIds.Next());
+
+        var spent = await Grants(harness).SpendAsync(approval.Id, "ClearCartCommand", PermissionKeys.Pos.ClearSale, default);
+
+        spent.IsFailure.Should().BeTrue();
+        spent.Error.Code.Should().Be("approval.not_yours");
+        (await harness.Db.SupervisorApprovals.FindAsync(approval.Id))!.Status.Should().Be(ApprovalStatus.Approved, "an attempt by the wrong person must not use it up");
+    }
+
+    private static StepUpGrants Grants(PosTestHarness harness)
+        => new(harness.Db, harness.CurrentUser, Substitute.For<IAuditWriter>(), harness.Clock);
+
+    private static async Task<SupervisorApproval> ApprovedAsync(PosTestHarness harness, long requestedBy, long supervisor)
+    {
+        var approval = SupervisorApproval.Request(
+            PermissionKeys.Pos.ClearSale, "ClearCartCommand", "Clear sale", requestedBy, harness.Station.Id, harness.Location.Id, harness.Clock.Now);
+
+        approval.Approve(supervisor, harness.Clock.Now).IsSuccess.Should().BeTrue();
+
+        harness.Db.SupervisorApprovals.Add(approval);
+        await harness.Db.SaveChangesAsync();
+        return approval;
+    }
 }

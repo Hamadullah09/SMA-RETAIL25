@@ -31,6 +31,7 @@ public sealed class SupervisorApproval : Entity
     public static readonly Error Expired = new("approval.expired", "That approval request has expired. Ask again.");
     public static readonly Error AlreadyUsed = new("approval.already_used", "That approval has already been used.");
     public static readonly Error WrongAction = new("approval.wrong_action", "That approval was granted for a different action.");
+    public static readonly Error WrongPermission = new("approval.wrong_permission", "That approval does not cover what is being attempted.");
     public static readonly Error SelfApproval = new("approval.self_approval", "A supervisor cannot approve their own request.");
 
     /// <summary>Two minutes: long enough to fetch someone, short enough that a granted override cannot be banked.</summary>
@@ -134,8 +135,17 @@ public sealed class SupervisorApproval : Entity
     /// <summary>
     /// Spends the grant. Single-use by construction: the second attempt fails, so a cashier cannot
     /// void one sale on an approval and then quietly void another.
+    /// <para>
+    /// The permission is checked as well as the action, and that is not belt and braces. Both are
+    /// chosen by whoever raises the request, and the approver is only asked whether they hold
+    /// <see cref="Permission"/>. A grant raised as "pos.sell, for a void" could therefore be approved
+    /// by any cashier — every cashier holds pos.sell — and then spent on the void. Checking the action
+    /// alone stops a grant moving between commands; only checking the permission stops it being
+    /// obtained cheaply in the first place.
+    /// </para>
     /// </summary>
-    public Result Consume(string action, DateTimeOffset now)
+    /// <param name="permission">The permission the attempted command actually needs.</param>
+    public Result Consume(string action, string permission, DateTimeOffset now)
     {
         if (Status == ApprovalStatus.Consumed)
         {
@@ -156,6 +166,11 @@ public sealed class SupervisorApproval : Entity
         if (!string.Equals(Action, action, StringComparison.Ordinal))
         {
             return Result.Failure(WrongAction.With("granted", Action).With("attempted", action));
+        }
+
+        if (!string.Equals(Permission, permission, StringComparison.Ordinal))
+        {
+            return Result.Failure(WrongPermission.With("granted", Permission).With("required", permission));
         }
 
         Status = ApprovalStatus.Consumed;

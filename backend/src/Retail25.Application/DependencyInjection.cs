@@ -32,6 +32,12 @@ public static class DependencyInjection
 
         services.AddValidatorsFromAssembly(assembly);
 
+        // Scoped, and the scope is the point: the behaviour writes who approved this request and the
+        // handler for the same request reads it. A singleton would leak one request's approver into
+        // another's.
+        services.AddScoped<Auth.StepUpContext>();
+        services.AddScoped<Auth.IStepUpGrants, Auth.StepUpGrants>();
+
         services.AddScoped<PosContextLoader>();
         services.AddScoped<CartPricingService>();
 

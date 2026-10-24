@@ -54,9 +54,15 @@ public sealed class ExceptionHandlingMiddleware
                 ? StatusCodes.Status428PreconditionRequired
                 : StatusCodes.Status403Forbidden;
 
-            var code = ex.SupportsSupervisorApproval ? "sale.requires_supervisor" : "permission.denied";
+            // A grant that was offered and could not be used says why in its own words — expired,
+            // already spent, raised by someone else — rather than repeating the generic refusal, so
+            // the cashier knows whether to ask again or to go and find out what happened.
+            var code = ex.Reason?.Code
+                ?? (ex.SupportsSupervisorApproval ? "sale.requires_supervisor" : "permission.denied");
 
-            await WriteAsync(context, status, code, ex.Message, new { permission = ex.Permission });
+            // Permission and action together are exactly what a till needs to raise the approval for
+            // this refusal, so it never has to keep its own list of which command needs what.
+            await WriteAsync(context, status, code, ex.Message, new { permission = ex.Permission, action = ex.Action });
         }
         catch (Exception ex)
         {

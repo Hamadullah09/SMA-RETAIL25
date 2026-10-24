@@ -762,7 +762,17 @@ export const mastersApi = {
      */
     deactivate: (staffId: number) => call<void>(() => apiClient.delete(`/staff/${staffId}`)),
 
-    reactivate: (staffId: number) => call<void>(() => apiClient.post(`/staff//reactivate`)),
+    // The id was missing from this path -- `/staff//reactivate` -- so reactivating anybody posted to
+    // a route that does not exist, and a member of staff deactivated by mistake could not be brought
+    // back from this screen.
+    reactivate: (staffId: number) => call<void>(() => apiClient.post(`/staff/${staffId}/reactivate`)),
+
+    /**
+     * Sets or replaces somebody's till PIN. The PIN is what a manager types to approve something at a
+     * till -- clearing a sale, voiding one -- so a manager without one cannot approve anything.
+     */
+    setPin: (staffId: number, pin: string) =>
+      call<void>(() => apiClient.post(`/staff/${staffId}/pin`, { pin })),
 
     /** Removes them outright. Refused by the server for anybody who has already worked. */
     remove: (staffId: number) => call<void>(() => apiClient.delete(`/staff/${staffId}/permanent`)),

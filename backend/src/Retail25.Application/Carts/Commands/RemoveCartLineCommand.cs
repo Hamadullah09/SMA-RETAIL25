@@ -21,9 +21,26 @@ namespace Retail25.Application.Carts.Commands;
 [RequiresPermission(PermissionKeys.Pos.Sell)]
 public sealed record RemoveCartLineCommand(long CartId, int Sequence) : IRequest<Result<CartDto>>;
 
-/// <summary>Empties the cart without abandoning it, so the cashier keeps the same sale open.</summary>
+/// <summary>
+/// Empties the cart without abandoning it, so the cashier keeps the same sale open.
+/// <para>
+/// A manager's decision. Clearing throws away the whole basket in one go and leaves nothing in the
+/// sales log to say it was ever rung up, which is exactly the shape of a sale that was taken in cash
+/// and never recorded. A manager holding pos.clear_sale just does it; anyone else is answered 428 and
+/// the till asks for a manager's code, whose grant comes back on the retry as
+/// <paramref name="ApprovalId"/>.
+/// </para>
+/// <para>
+/// Deleting lines one at a time is unchanged and needs no manager. That is the everyday correction —
+/// a mis-scan, a customer changing their mind about one item — and each deletion is one line, not a
+/// whole sale vanishing.
+/// </para>
+/// </summary>
 [RequiresPermission(PermissionKeys.Pos.Sell)]
-public sealed record ClearCartCommand(long CartId) : IRequest<Result<CartDto>>;
+[RequiresPermission(PermissionKeys.Pos.ClearSale)]
+[SupportsSupervisorApproval]
+public sealed record ClearCartCommand(long CartId, long? ApprovalId = null)
+    : IRequest<Result<CartDto>>, Auth.ISupervisorApprovable;
 
 public sealed class RemoveCartLineHandler
     : IRequestHandler<RemoveCartLineCommand, Result<CartDto>>,

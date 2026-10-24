@@ -104,7 +104,7 @@ public sealed class SalesController : ControllerBase
         }
 
         var result = await _sender.Send(new VoidSaleCommand(
-            transactionId, idempotencyKey, request?.Reason, request?.ApprovedByStaffId));
+            transactionId, idempotencyKey, request?.Reason, request?.ApprovedByStaffId, request?.ApprovalId));
 
         return result.ToActionResult(this);
     }
@@ -136,7 +136,11 @@ public sealed class SalesController : ControllerBase
             request?.SendToPrinter ?? true))).ToActionResult(this);
 }
 
-public sealed record VoidSaleRequest(string? Reason = null, long? ApprovedByStaffId = null);
+/// <param name="ApprovalId">
+/// A supervisor's grant for this void, on the retry after a 428. It was accepted by the command and
+/// never by this endpoint, so a void needing a supervisor could not be completed over HTTP at all.
+/// </param>
+public sealed record VoidSaleRequest(string? Reason = null, long? ApprovedByStaffId = null, long? ApprovalId = null);
 
 public sealed record RefundRequest(
     IReadOnlyList<RefundLineRequest> Lines,

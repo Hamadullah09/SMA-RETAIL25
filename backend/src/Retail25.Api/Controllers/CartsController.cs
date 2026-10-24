@@ -100,9 +100,13 @@ public sealed class CartsController : ControllerBase
     public async Task<IActionResult> RemoveLine(long cartId, int sequence)
         => (await _sender.Send(new RemoveCartLineCommand(cartId, sequence))).ToActionResult(this);
 
+    /// <param name="approvalId">
+    /// A manager's grant, on the retry after the first attempt answered 428. A query parameter rather
+    /// than a body because DELETE bodies are dropped by enough proxies to make one unreliable.
+    /// </param>
     [HttpDelete("{cartId:long}/lines")]
-    public async Task<IActionResult> Clear(long cartId)
-        => (await _sender.Send(new ClearCartCommand(cartId))).ToActionResult(this);
+    public async Task<IActionResult> Clear(long cartId, [FromQuery] long? approvalId = null)
+        => (await _sender.Send(new ClearCartCommand(cartId, approvalId))).ToActionResult(this);
 
     /// <summary>The Credits menu (guide p.7).</summary>
     [HttpPost("{cartId:long}/adjustments")]

@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Retail25.Application.Abstractions;
+using Retail25.Application.Auth;
 using Retail25.Application.Behaviors;
 using Retail25.Application.Common;
 using Retail25.Domain.Catalog;
@@ -34,7 +35,7 @@ public sealed record VoidSaleCommand(
     string IdempotencyKey,
     string? Reason = null,
     long? ApprovedByStaffId = null,
-    long? ApprovalId = null) : IRequest<Result<VoidSaleResult>>, IIdempotentCommand;
+    long? ApprovalId = null) : IRequest<Result<VoidSaleResult>>, IIdempotentCommand, ISupervisorApprovable;
 
 public sealed class VoidSaleHandler : IRequestHandler<VoidSaleCommand, Result<VoidSaleResult>>
 {
@@ -46,19 +47,22 @@ public sealed class VoidSaleHandler : IRequestHandler<VoidSaleCommand, Result<Vo
     private readonly IPosNotifier _notifier;
     private readonly ICurrentUser _currentUser;
     private readonly IDateTime _clock;
+    private readonly StepUpContext _stepUp;
 
     public VoidSaleHandler(
         IApplicationDbContext db,
         ISequenceGenerator sequences,
         IPosNotifier notifier,
         ICurrentUser currentUser,
-        IDateTime clock)
+        IDateTime clock,
+        StepUpContext stepUp)
     {
         _db = db;
         _sequences = sequences;
         _notifier = notifier;
         _currentUser = currentUser;
         _clock = clock;
+        _stepUp = stepUp;
     }
 
     public async Task<Result<VoidSaleResult>> Handle(VoidSaleCommand request, CancellationToken ct)
@@ -73,25 +77,17 @@ public sealed class VoidSaleHandler : IRequestHandler<VoidSaleCommand, Result<Vo
         var policy = await _db.PosPolicies.AsNoTracking().FirstOrDefaultAsync(p => p.LocationId == original.LocationId, ct);
         var approver = request.ApprovedByStaffId ?? _currentUser.StaffId;
 
-        if (policy?.RequireSupervisorToVoid == true)
+        // By the time this runs the void is already allowed: the authorisation behaviour let it through
+        // either because the current user holds pos.void_sale, or because it spent a supervisor's grant
+        // for exactly that on their behalf. What is left is naming the person who allowed it.
+        if (_stepUp.ApprovedByStaffId is { } supervisor)
         {
-            // A cashier who already holds the permission needs no override; anyone else needs a
-            // grant, and the grant is spent here so it cannot void a second sale.
-            if (!_currentUser.HasPermission(PermissionKeys.Pos.VoidSale) || request.ApprovalId is not null)
-            {
-                var stepUp = await ConsumeApprovalAsync(request.ApprovalId, ct);
-                if (stepUp.IsFailure)
-                {
-                    return Result.Failure<VoidSaleResult>(stepUp.Error);
-                }
+            approver = supervisor;
+        }
 
-                approver = stepUp.Value;
-            }
-
-            if (approver is null)
-            {
-                return Result.Failure<VoidSaleResult>(RequiresSupervisor);
-            }
+        if (policy?.RequireSupervisorToVoid == true && approver is null)
+        {
+            return Result.Failure<VoidSaleResult>(RequiresSupervisor);
         }
 
         var reversal = new SalesTransaction
@@ -165,33 +161,6 @@ public sealed class VoidSaleHandler : IRequestHandler<VoidSaleCommand, Result<Vo
         await _notifier.CartUpdatedAsync(original.LocationId, reversal.Id, new { reversal.Id, reversal.TransactionNumber }, 0, ct);
 
         return Result.Success(new VoidSaleResult(reversal.Id, reversal.TransactionNumber, original.GrandTotal));
-    }
-
-    /// <summary>
-    /// Spends a supervisor grant, returning who gave it. The grant is checked against this exact
-    /// action, so an approval obtained for something else cannot unlock a void.
-    /// </summary>
-    private async Task<Result<long?>> ConsumeApprovalAsync(long? approvalId, CancellationToken ct)
-    {
-        if (approvalId is not { } id)
-        {
-            return Result.Failure<long?>(RequiresSupervisor);
-        }
-
-        var approval = await _db.SupervisorApprovals.FirstOrDefaultAsync(a => a.Id == id, ct);
-        if (approval is null)
-        {
-            return Result.Failure<long?>(RequiresSupervisor.With("approvalId", id));
-        }
-
-        var consumed = approval.Consume(nameof(VoidSaleCommand), _clock.Now);
-        if (consumed.IsFailure)
-        {
-            return Result.Failure<long?>(consumed.Error);
-        }
-
-        await _db.SaveChangesAsync(ct);
-        return Result.Success<long?>(approval.ApprovedByStaffId);
     }
 
     private async Task<long?> CurrentDrawerSessionIdAsync(long stationId, CancellationToken ct)

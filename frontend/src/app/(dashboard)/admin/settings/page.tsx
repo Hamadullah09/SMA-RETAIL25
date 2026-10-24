@@ -2512,6 +2512,51 @@ function ResetPassword({ staffId, onDone }: { staffId: number; onDone: () => voi
 }
 
 /**
+ * The till PIN, which this screen could show and never set.
+ *
+ * The server has always been able to set one; nothing on any screen asked it to, so a colleague
+ * created without a PIN could never get one. That mattered little while a PIN only switched who a sale
+ * was rung by. It matters now: a manager's staff code and PIN are what approve clearing a sale at a
+ * till, and a manager with no PIN can approve nothing.
+ *
+ * Replaced, never shown — like the password above, it is stored hashed and cannot be read back.
+ */
+function SetTillPin({
+  staffId,
+  hasPin,
+  onDone,
+}: {
+  staffId: number;
+  hasPin: boolean;
+  onDone: () => void | Promise<void>;
+}) {
+  const { busy, run } = useSaver(onDone);
+  const [pin, setPin] = useState('');
+
+  return (
+    <FieldGroup title="Till PIN">
+      <PasswordField
+        label={hasPin ? 'Replace the PIN' : 'Set a PIN'}
+        value={pin}
+        onChange={(value) => setPin(value.replace(/\D/g, ''))}
+        hint="Digits only, at least four. A manager's PIN is what approves clearing a sale at a till."
+      />
+      <SaveButton
+        busy={busy}
+        variant="secondary"
+        label={hasPin ? 'Replace PIN' : 'Set PIN'}
+        onClick={() =>
+          void run(async () => {
+            await mastersApi.staff.setPin(staffId, pin);
+            setPin('');
+          }, 'PIN set')
+        }
+      />
+    </FieldGroup>
+  );
+}
+
+/**
  * The sign-in behind a member of staff, read-only.
  *
  * Everything here is state rather than a secret, and that is the design rather than an oversight.
@@ -2618,7 +2663,7 @@ function UsersTab({
               ? 'PIN locked after too many wrong attempts. A supervisor can unlock it from the till.'
               : staff.hasPin
                 ? 'A PIN is set. It is stored hashed and can never be read back.'
-                : 'No PIN set — this person cannot fast-switch at a till.'
+                : 'No PIN set — this person cannot fast-switch at a till, or approve anything there as a manager.'
           }
           action={
             <>
@@ -2677,6 +2722,7 @@ function UsersTab({
           </FieldGroup>
 
           {canWrite ? <ResetPassword staffId={staff.id} onDone={onSaved} /> : null}
+          {canWrite ? <SetTillPin staffId={staff.id} hasPin={staff.hasPin} onDone={onSaved} /> : null}
           {canWrite ? <RevokeAccess staff={staff} onDone={onSaved} /> : null}
         </SettingsSection>
       ))}

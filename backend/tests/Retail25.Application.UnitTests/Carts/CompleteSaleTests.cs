@@ -2,6 +2,7 @@ using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
 using Retail25.Application.Abstractions;
+using Retail25.Application.Auth;
 using Retail25.Application.Carts.Commands;
 using Retail25.Application.Drawer;
 using Retail25.Contracts.Terminals;
@@ -185,7 +186,7 @@ public sealed class CompleteSaleTests
         var sale = await fixture.CompleteAsync(cart.Id, [fixture.Cash(55.99m, 55.99m)]);
 
         var voidHandler = new VoidSaleHandler(
-            harness.Db, fixture.Sequences, harness.Notifier, harness.CurrentUser, harness.Clock);
+            harness.Db, fixture.Sequences, harness.Notifier, harness.CurrentUser, harness.Clock, new StepUpContext());
 
         var voided = await voidHandler.Handle(
             new VoidSaleCommand(sale.Value.TransactionId, Guid.NewGuid().ToString(), "Customer changed their mind"),

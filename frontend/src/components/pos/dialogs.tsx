@@ -5,6 +5,7 @@ import { usePosStore } from '@/stores/pos-store';
 import { posApi } from '@/lib/pos-api';
 import { useAllHotkeyBindings, useHotkey, useHotkeyBindings, useHotkeyScope } from '@/lib/hotkeys';
 import { money, useCurrencySymbol } from '@/components/pos/panels';
+import { useAuth } from '@/lib/auth-config';
 import { parseTenderInput } from '@/lib/tender-input';
 import type { ProductVariant, SerializedUnit, SuspendedCart, TenderType } from '@/types/pos';
 import { X } from 'lucide-react';
@@ -552,6 +553,10 @@ export function SpecialDialog() {
   const { cart, closeDialog, setTaxOverride, openDialog, policy, clearLines } = usePosStore();
   const [confirmingClear, setConfirmingClear] = useState(false);
 
+  // Only to word the question honestly. The server decides; this just avoids telling a cashier
+  // the sale will clear when what happens next is a manager being asked.
+  const canClearAlone = useAuth().can('pos.clear_sale');
+
   const lineCount = cart?.lines.length ?? 0;
 
   return (
@@ -597,6 +602,12 @@ export function SpecialDialog() {
             <p className="mt-1 text-body text-ink-muted">
               The sale stays open and empty. Nothing is recorded and no stock moves.
             </p>
+
+            {canClearAlone ? null : (
+              <p className="mt-2 text-body font-semibold text-ink">
+                A manager has to approve this. They will be asked for their staff code and PIN.
+              </p>
+            )}
 
             <div className="mt-3 flex gap-2">
               <button type="button" className="pos-button" onClick={() => setConfirmingClear(false)}>
@@ -1020,50 +1031,70 @@ export function SupervisorApprovalDialog() {
   if (!pendingApproval) return null;
 
   return (
-    <Shell title="Supervisor approval" hint={pendingApproval.context ?? undefined} onClose={closeDialog}>
-      <p className="mb-3 text-body text-ink-muted">
-        This needs a supervisor. Enter a PIN here, or ask one to approve from any till.
+    <Shell title="Manager approval" onClose={closeDialog}>
+      {/*
+        What is being approved, first and largest. The manager is being asked to vouch for something
+        with their own PIN; they should read what it is before they type it, not find it in a hint
+        in the corner of the header.
+      */}
+      {pendingApproval.context ? (
+        <p className="mb-3 rounded-md border border-warning/40 bg-warning-soft px-3 py-2 text-body-lg font-semibold text-ink">
+          {pendingApproval.context}
+        </p>
+      ) : null}
+
+      <p className="mb-4 text-body-lg text-ink">
+        A manager needs to approve this. Manager: enter your staff code and PIN.
       </p>
 
       <form
-        className="space-y-3"
+        className="space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
           void approveWithPin(staffCode, pin);
         }}
       >
-        <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
-          <span className="text-body text-ink-muted">Supervisor code</span>
+        <label className="block">
+          <span className="mb-1 block text-body font-semibold text-ink">Manager&apos;s staff code</span>
           <input
             value={staffCode}
             onChange={(event) => setStaffCode(event.target.value.toUpperCase())}
             autoFocus
             autoComplete="off"
-            className="w-32 bg-transparent text-right uppercase outline-none"
+            className="h-14 w-full rounded-md border border-strong bg-panel px-3 text-h3 uppercase text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/30"
           />
         </label>
 
-        <label className="flex items-center justify-between gap-3 border-b border-subtle pb-1">
-          <span className="text-body text-ink-muted">PIN</span>
+        <label className="block">
+          <span className="mb-1 block text-body font-semibold text-ink">PIN</span>
           <input
             value={pin}
-            onChange={(event) => setPin(event.target.value)}
+            onChange={(event) => setPin(event.target.value.replace(/\D/g, ''))}
             type="password"
             inputMode="numeric"
             autoComplete="off"
-            className="pos-amount w-32 bg-transparent text-right text-h3 outline-none"
+            className="pos-amount h-14 w-full rounded-md border border-strong bg-panel px-3 text-h3 tracking-[0.4em] text-ink outline-none focus:border-accent focus:ring-2 focus:ring-accent/30"
           />
         </label>
 
         {error ? (
-          <p className="text-body text-negative" role="alert">
+          <p className="rounded-md bg-negative-soft px-3 py-2 text-body-lg font-semibold text-negative-text" role="alert">
             {error.message}
           </p>
         ) : null}
 
-        <button type="submit" className="pos-button-primary w-full text-body" disabled={busy}>
-          Approve
-        </button>
+        <div className="flex gap-2">
+          <button type="button" className="pos-button h-14 flex-1 text-body-lg" onClick={closeDialog}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="pos-button-primary h-14 flex-[2] text-body-lg"
+            disabled={busy || staffCode.trim() === '' || pin.length < 4}
+          >
+            Approve
+          </button>
+        </div>
       </form>
     </Shell>
   );

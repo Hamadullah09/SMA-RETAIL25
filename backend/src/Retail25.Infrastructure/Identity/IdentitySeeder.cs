@@ -59,21 +59,24 @@ public sealed class IdentitySeeder
 
     public async Task SeedAsync(CancellationToken ct = default)
     {
-        await SeedPermissionsAsync(ct);
-        await SeedRolesAsync(ct);
+        var introduced = await SeedPermissionsAsync(ct);
+        await SeedRolesAsync(introduced, ct);
         await SeedScopesAsync(ct);
         await SeedClientsAsync(ct);
         await SeedAdministratorAsync(ct);
         await SeedCashierAsync(ct);
     }
 
-    /// <summary>Writes any permission constant that has no row yet, so the catalogue is administrable.</summary>
-    private async Task SeedPermissionsAsync(CancellationToken ct)
+    /// <summary>
+    /// Writes any permission constant that has no row yet, so the catalogue is administrable.
+    /// </summary>
+    /// <returns>The permissions this run introduced — the only ones an existing role may be given.</returns>
+    private async Task<IReadOnlySet<string>> SeedPermissionsAsync(CancellationToken ct)
     {
         var existing = await _db.Permissions.Select(p => p.Key).ToListAsync(ct);
         var known = new HashSet<string>(existing, StringComparer.Ordinal);
 
-        var added = 0;
+        var introduced = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var key in PermissionKeys.All)
         {
@@ -83,47 +86,72 @@ public sealed class IdentitySeeder
             }
 
             _db.Permissions.Add(Permission.Create(key, Describe(key), GroupOf(key), IsSensitive(key)));
-            added++;
+            introduced.Add(key);
         }
 
-        if (added > 0)
+        if (introduced.Count > 0)
         {
             await _db.SaveChangesAsync(ct);
-            _logger.LogInformation("Seeded {Count} permissions", added);
+            _logger.LogInformation("Seeded {Count} permissions", introduced.Count);
         }
+
+        return introduced;
     }
 
-    private async Task SeedRolesAsync(CancellationToken ct)
+    /// <summary>
+    /// Creates the legacy roles that are missing, with their full preset, and gives roles that already
+    /// existed only the permissions that are new this run.
+    /// <para>
+    /// It used to top every existing role up to its full preset on every start. The class comment
+    /// promised the opposite — that an administrator who removed a permission would not find it back
+    /// tomorrow — and the code did exactly that: a grant taken away from Supervisor was simply missing
+    /// from the preset on the next start, so it was added again. Harmless while nobody could edit a
+    /// role; with a role editor, every revocation would quietly undo itself whenever the service
+    /// restarted.
+    /// </para>
+    /// <para>
+    /// A permission that did not exist before this run is the one case where the preset still applies
+    /// to an existing role: nobody can have decided to withhold something that was not there to decide
+    /// about, and without it a new capability would reach no existing shop at all.
+    /// </para>
+    /// </summary>
+    private async Task SeedRolesAsync(IReadOnlySet<string> introduced, CancellationToken ct)
     {
         foreach (var (level, name, description) in LegacyRoles)
         {
             var role = await _roles.FindByNameAsync(name);
 
-            if (role is null)
-            {
-                role = new ApplicationRole
-                {
-                    Name = name,
-                    NormalizedName = name.ToUpperInvariant(),
-                    LegacyLevel = level,
-                    Description = description,
-                };
+            var preset = PermissionKeys.LegacyLevelPresets[level];
 
-                var created = await _roles.CreateAsync(role);
-                if (!created.Succeeded)
-                {
-                    _logger.LogError("Could not create role {Role}: {Errors}", name, Join(created));
-                    continue;
-                }
+            if (role is not null)
+            {
+                await GrantAsync(role, preset.Where(introduced.Contains).ToList(), ct);
+                continue;
             }
 
-            await GrantAsync(role, PermissionKeys.LegacyLevelPresets[level], ct);
+            role = new ApplicationRole
+            {
+                Name = name,
+                NormalizedName = name.ToUpperInvariant(),
+                LegacyLevel = level,
+                Description = description,
+            };
+
+            var created = await _roles.CreateAsync(role);
+            if (!created.Succeeded)
+            {
+                _logger.LogError("Could not create role {Role}: {Errors}", name, Join(created));
+                continue;
+            }
+
+            await GrantAsync(role, preset, ct);
         }
     }
 
     /// <summary>
-    /// Adds the preset's grants that are missing. Never removes: an administrator who took a
-    /// permission away from a role should not find it restored by the next restart.
+    /// Adds whichever of <paramref name="permissions"/> the role does not already hold. Never removes.
+    /// Which permissions to offer is the caller's decision — see <see cref="SeedRolesAsync"/> for why
+    /// an existing role is only ever offered new ones.
     /// </summary>
     private async Task GrantAsync(ApplicationRole role, IReadOnlyList<string> permissions, CancellationToken ct)
     {
@@ -474,6 +502,7 @@ public sealed class IdentitySeeder
     /// <summary>Permissions that move money, destroy data or change who can do what.</summary>
     private static bool IsSensitive(string key) => key is
         PermissionKeys.Pos.VoidSale or
+        PermissionKeys.Pos.ClearSale or
         PermissionKeys.Pos.PriceOverride or
         PermissionKeys.Pos.TaxOverride or
         PermissionKeys.Catalog.Delete or
