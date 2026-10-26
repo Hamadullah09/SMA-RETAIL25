@@ -57,6 +57,11 @@ Everything can be done from the keyboard, and every button shows its key (F12 pa
 Ctrl+1 … Ctrl+0 for the screens; Enter and Esc on OK and Cancel). Ctrl+Shift+K lists them; F1, F2 and F3 are
 left to Windows.
 
+Inventory CSV files (*Import CSV*, *Export CSV*, *CSV template*) use Retail Plus's INVENTORY columns with the RFID
+ones: EPC (one row per tagged piece, so an item with three tags is three rows with the same PLU), PWEIGHT and TOLRANCE
+("90 GRAM", "2 GRAM"), SSTATUS (0 in stock, 1 sold) and RECEIPT#, followed by BARCODE, BRAND and SUPPCODE. Items can
+have a picture (kept in the database, at most 800 pixels a side), shown in the item editor and at the POS.
+
 ## RFID
 
 Tagged items ring up by themselves at the POS, alongside barcodes. Readers (D2184, TCP/IP or serial), their four

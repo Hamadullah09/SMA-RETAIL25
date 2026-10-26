@@ -123,12 +123,31 @@
                 </Border.Style>
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Right" Text="{Binding ModeText}" Foreground="{StaticResource Danger}" FontWeight="SemiBold" Margin="12,0,0,0" />
+                    <!-- The picture of the item just rung up (or the chosen line). -->
+                    <Border DockPanel.Dock="Left" Width="56" Height="56" CornerRadius="10" Background="White" Padding="3" Margin="0,-8,12,-8"
+                            BorderBrush="{StaticResource Line}" BorderThickness="1">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding LinePicture}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <Image Source="{Binding LinePicture}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Border>
                     <TextBlock DockPanel.Dock="Left" Margin="0,0,12,0" VerticalAlignment="Center">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock" BasedOn="{StaticResource Icon}">
                                 <Setter Property="Text" Value="&#xE946;" />
+                                <Setter Property="Visibility" Value="Collapsed" />
                                 <Style.Triggers>
+                                    <DataTrigger Binding="{Binding LinePicture}" Value="{x:Null}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
                                     <DataTrigger Binding="{Binding MessageIsAlert}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
                                         <Setter Property="Text" Value="&#xE7BA;" />
                                         <Setter Property="Foreground" Value="{StaticResource Danger}" />
                                         <Setter Property="FontSize" Value="22" />

@@ -60,6 +60,7 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
     public DbSet<RfidReader> RfidReaders => Set<RfidReader>();
     public DbSet<RfidAntenna> RfidAntennas => Set<RfidAntenna>();
     public DbSet<ItemTag> ItemTags => Set<ItemTag>();
+    public DbSet<ItemPicture> ItemPictures => Set<ItemPicture>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportSourceRow> ImportSourceRows => Set<ImportSourceRow>();
 

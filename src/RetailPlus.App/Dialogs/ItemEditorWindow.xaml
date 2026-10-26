@@ -1,7 +1,7 @@
 <Window x:Class="RetailPlus.App.Dialogs.ItemEditorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Item" Width="1200" Height="880" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+        Title="Item" Width="1400" Height="880" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
     <Window.Resources>
         <Style TargetType="DockPanel">
             <Setter Property="Margin" Value="0,0,0,7" />
@@ -27,6 +27,8 @@
                         <ColumnDefinition />
                         <ColumnDefinition Width="30" />
                         <ColumnDefinition />
+                        <ColumnDefinition Width="26" />
+                        <ColumnDefinition Width="250" />
                     </Grid.ColumnDefinitions>
                     <StackPanel>
                         <DockPanel><TextBlock Text="Stock code" Style="{StaticResource L}" /><TextBox Text="{Binding Plu}" MaxLength="16" CharacterCasing="Upper" x:Name="PluBox" /></DockPanel>
@@ -49,6 +51,12 @@
                                       Text="{Binding WeightUnit, UpdateSourceTrigger=LostFocus}" ToolTip="g, kg, ml, L, oz or lb" />
                             <TextBox Text="{Binding Weight, StringFormat=0.###}" ToolTip="Net weight or volume of one piece" />
                         </DockPanel>
+                        <DockPanel>
+                            <TextBlock Text="Weight tolerance" Style="{StaticResource L}" />
+                            <ComboBox x:Name="ToleranceUnitBox" DockPanel.Dock="Right" Width="110" Margin="8,0,0,0" IsEditable="True"
+                                      Text="{Binding WeightToleranceUnit, UpdateSourceTrigger=LostFocus}" ToolTip="mg or g" />
+                            <TextBox Text="{Binding WeightTolerance, StringFormat=0.###}" ToolTip="How much more or less a piece may weigh" />
+                        </DockPanel>
                         <DockPanel><TextBlock Text="Items per package" Style="{StaticResource L}" /><TextBox Text="{Binding PackQuantity}" /></DockPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="2">
@@ -64,6 +72,21 @@
                             <Button DockPanel.Dock="Right" Content="See tags" Style="{StaticResource ToolButton}" Click="SeeTags_Click" Margin="8,0,0,0" />
                             <TextBlock x:Name="TagSummary" VerticalAlignment="Center" FontWeight="SemiBold" TextWrapping="Wrap" Text="Save the item, then add its tags" />
                         </DockPanel>
+                    </StackPanel>
+                    <!-- The product's picture: choose a file, paste one, or drop one on the box. -->
+                    <StackPanel Grid.Column="4">
+                        <TextBlock Text="Picture" Foreground="{StaticResource Muted}" Margin="0,0,0,6" />
+                        <Border Width="250" Height="250" CornerRadius="16" Background="White" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                                AllowDrop="True" Drop="Picture_Drop" DragOver="Picture_DragOver" ToolTip="Drop a picture file here">
+                            <Grid>
+                                <Image x:Name="PictureImage" Stretch="Uniform" Margin="10" RenderOptions.BitmapScalingMode="HighQuality" />
+                                <TextBlock x:Name="NoPicture" TextAlignment="Center" VerticalAlignment="Center" Foreground="{StaticResource Muted}" FontSize="15"
+                                           Text="No picture yet.&#10;Choose one, paste one,&#10;or drop one here." />
+                            </Grid>
+                        </Border>
+                        <Button x:Name="ChoosePictureButton" Content="Choose picture" Margin="0,10,0,0" HorizontalAlignment="Stretch" Click="ChoosePicture_Click" />
+                        <Button x:Name="PastePictureButton" Content="Paste picture" Margin="0,8,0,0" HorizontalAlignment="Stretch" Click="PastePicture_Click" />
+                        <Button x:Name="RemovePictureButton" Content="Remove picture" Margin="0,8,0,0" HorizontalAlignment="Stretch" Click="RemovePicture_Click" />
                     </StackPanel>
                 </Grid>
             </TabItem>

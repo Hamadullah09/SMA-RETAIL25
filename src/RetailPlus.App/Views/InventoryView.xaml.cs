@@ -194,17 +194,47 @@ public partial class InventoryView : UserControl, IRefreshable
     {
         var file = Ui.SaveFile($"inventory-{AppServices.Session.LocationCode}.csv", "CSV file|*.csv");
         if (file is null) return;
-        await Ui.Try(async () => { await File.WriteAllTextAsync(file, await AppServices.Csv.ExportItemsAsync(LocationId)); Ui.Info("Exported to " + file); });
+        // With a byte order mark, so Excel shows names with accents and symbols correctly.
+        await Ui.Try(async () => { await File.WriteAllTextAsync(file, await AppServices.Csv.ExportItemsAsync(LocationId), new System.Text.UTF8Encoding(true)); Ui.Info("Exported to " + file); });
+    }
+
+    /// <summary>Saves the CSV template (every column, example rows and a notes row that the import skips) and offers to open it.</summary>
+    private void Template_Click(object sender, RoutedEventArgs e) => SaveTemplate();
+
+    private static void SaveTemplate()
+    {
+        var file = Ui.SaveFile("inventory-template.csv", "CSV file|*.csv");
+        if (file is null) return;
+        try
+        {
+            File.WriteAllText(file, Integrations.CsvExchange.ItemTemplate(), new System.Text.UTF8Encoding(true));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            Ui.Error("The template could not be saved: " + ex.Message);
+            return;
+        }
+        if (Ui.Confirm($"Template saved to\n{file}\n\nThe columns are Retail Plus's inventory columns. One row per tagged piece: an item with 3 tags is "
+                       + "3 rows with the same PLU, each with its EPC; an item without tags is one row with no EPC. A new item needs PLU and PROD; "
+                       + "leave other columns empty or delete them (a file with just PLU and UNITPRICE1 changes prices only). "
+                       + "SSTATUS is 0 in stock or 1 sold, RECEIPT# the receipt it was sold on. The EXAMPLE rows and the notes row "
+                       + "are never imported: replace them with your items.\n\nOpen the template now?", "CSV template"))
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(file) { UseShellExecute = true });
     }
 
     private async void Import_Click(object sender, RoutedEventArgs e)
     {
+        int how = Ui.Choose("Import items from a CSV file. Its first row names the columns (the template shows them all).",
+            ["Choose the CSV file to import", "Save the CSV template first"], "Import CSV");
+        if (how < 0) return;
+        if (how == 1) { SaveTemplate(); return; }
         var file = Ui.OpenFile("CSV file|*.csv|All files|*.*");
         if (file is null) return;
         await Ui.Try(async () =>
         {
             var result = await AppServices.Csv.ImportItemsAsync(LocationId, await File.ReadAllTextAsync(file));
-            Ui.Info($"{result.Added} added, {result.Updated} updated, {result.Skipped} skipped." + (result.Problems.Count > 0 ? "\n\n" + string.Join("\n", result.Problems.Take(15)) : ""));
+            Ui.Info($"{result.Added} item(s) added, {result.Updated} updated, {result.Skipped} row(s) skipped; {result.Tags} RFID tag(s) (EPC) registered."
+                    + (result.Problems.Count > 0 ? "\n\n" + string.Join("\n", result.Problems.Take(15)) + (result.Problems.Count > 15 ? $"\n… and {result.Problems.Count - 15} more" : "") : ""));
             await RefreshAsync();
         });
     }

@@ -94,6 +94,7 @@ public static class SmokeCheck
 
         try
         {
+            failures.AddRange(await PictureCheckAsync(main));
             failures.AddRange(await TaggedStockCheckAsync(main));
             failures.AddRange(await RfidCheckAsync(main));
         }
@@ -105,6 +106,41 @@ public static class SmokeCheck
         foreach (var f in failures) Log.Write("FAIL " + f);
         Log.Write(failures.Count == 0 ? "Smoke check passed" : $"Smoke check failed ({failures.Count})");
         return failures.Count == 0 ? 0 : 5;
+    }
+
+    /// <summary>
+    /// Item pictures: a large picture is made 800 pixels wide, kept on the first item, and shown at the POS when that item
+    /// is rung up.
+    /// </summary>
+    private static async Task<List<string>> PictureCheckAsync(MainWindow main)
+    {
+        var failures = new List<string>();
+        var first = (await AppServices.Inventory.SearchAsync(AppServices.Session.LocationId, null, take: 1)).Single();
+        var visual = new System.Windows.Media.DrawingVisual();
+        using (var dc = visual.RenderOpen())
+        {
+            dc.DrawRectangle(System.Windows.Media.Brushes.Gold, null, new System.Windows.Rect(0, 0, 1600, 1000));
+            dc.DrawEllipse(System.Windows.Media.Brushes.DarkOrange, null, new System.Windows.Point(800, 500), 380, 380);
+        }
+        var big = new System.Windows.Media.Imaging.RenderTargetBitmap(1600, 1000, 96, 96, System.Windows.Media.PixelFormats.Pbgra32);
+        big.Render(visual);
+        var jpeg = Pictures.Encode(big);
+        var back = (System.Windows.Media.Imaging.BitmapSource)Pictures.ToImage(jpeg)!;
+        if (back.PixelWidth != 800 || back.PixelHeight != 500) failures.Add($"a 1600 x 1000 picture was kept at {back.PixelWidth} x {back.PixelHeight}, expected 800 x 500");
+        await AppServices.Inventory.SetPictureAsync(first.Id, jpeg);
+
+        main.Navigate("pos");
+        await MainWindow.Settle();
+        var pos = main.GetView<PosView>() ?? throw new InvalidOperationException("POS screen did not open");
+        pos.Vm.StopRfid();
+        await pos.Vm.ClearSaleAsync(ask: false);
+        await pos.Vm.AddCodeAsync(first.Plu);
+        for (int i = 0; i < 30 && pos.Vm.LinePicture is null; i++) await Task.Delay(100);
+        bool shown = pos.Vm.LinePicture is not null;
+        if (!shown) failures.Add($"the POS did not show the picture of {first.Plu}");
+        await pos.Vm.ClearSaleAsync(ask: false);
+        Log.Write($"Item picture: {jpeg.Length / 1024} KB on {first.Plu}, shown at the POS: {shown}");
+        return failures;
     }
 
     /// <summary>
@@ -141,6 +177,8 @@ public static class SmokeCheck
             if (line is null || line.Quantity != 2 || line.Epcs.Count != 2)
                 failures.Add($"2 pieces read by RFID, then the barcode: quantity {line?.Quantity}, {line?.Epcs.Count} tag(s); expected 2 and 2 (the scan refused)");
             if (!pos.Vm.MessageIsAlert) failures.Add($"the refused scan was not shown as a red alert: {pos.Vm.Message}");
+            await Task.Delay(3600);
+            if (pos.Vm.MessageIsAlert) failures.Add("the red alert was still showing after 3 seconds");
 
             await pos.Vm.ClearSaleAsync(ask: false);
             await pos.Vm.AddCodeAsync(barcode);

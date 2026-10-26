@@ -32,6 +32,15 @@ internal sealed class CategoryConfiguration : IEntityTypeConfiguration<Category>
     }
 }
 
+internal sealed class ItemPictureConfiguration : IEntityTypeConfiguration<ItemPicture>
+{
+    public void Configure(EntityTypeBuilder<ItemPicture> e)
+    {
+        e.HasKey(x => x.ItemId);
+        e.HasOne<Item>().WithOne().HasForeignKey<ItemPicture>(x => x.ItemId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
 {
     public void Configure(EntityTypeBuilder<Item> e)
@@ -43,6 +52,7 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
         e.Property(x => x.Brand).HasMaxLength(16);
         e.Property(x => x.Size).HasMaxLength(6);
         e.Property(x => x.WeightUnit).HasMaxLength(4);
+        e.Property(x => x.WeightToleranceUnit).HasMaxLength(4);
         e.Property(x => x.SupplierCode).HasMaxLength(16);
         e.Property(x => x.BinLocation).HasMaxLength(25);
         e.Property(x => x.SubstituteCode).HasMaxLength(16);
@@ -65,6 +75,7 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
         e.Property(x => x.ShipWeight).Quantity();
         e.Property(x => x.ThcWeight).Quantity();
         e.Property(x => x.Weight).Quantity();
+        e.Property(x => x.WeightTolerance).Quantity();
         e.Property(x => x.LastCost).UnitCost();
         e.Property(x => x.AverageCost).UnitCost();
         e.Property(x => x.MarginPercent).Rate();

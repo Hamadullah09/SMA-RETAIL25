@@ -1058,6 +1058,14 @@ namespace RetailPlus.Data.Migrations
                         .HasPrecision(12, 3)
                         .HasColumnType("decimal(12,3)");
 
+                    b.Property<decimal>("WeightTolerance")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<string>("WeightToleranceUnit")
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)");
+
                     b.Property<string>("WeightUnit")
                         .HasMaxLength(4)
                         .HasColumnType("nvarchar(4)");
@@ -1154,6 +1162,24 @@ namespace RetailPlus.Data.Migrations
                         {
                             t.HasCheckConstraint("CK_ItemPeriodSales_Period", "([Kind] = 1 AND [Period] BETWEEN 1 AND 12) OR ([Kind] = 2 AND [Period] BETWEEN 1 AND 54)");
                         });
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.ItemPicture", b =>
+                {
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.HasKey("ItemId");
+
+                    b.ToTable("ItemPictures");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.ItemSerial", b =>
@@ -2883,6 +2909,15 @@ namespace RetailPlus.Data.Migrations
                     b.HasOne("RetailPlus.Core.Model.Item", null)
                         .WithMany("PeriodSales")
                         .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.ItemPicture", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Item", null)
+                        .WithOne()
+                        .HasForeignKey("RetailPlus.Core.Model.ItemPicture", "ItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

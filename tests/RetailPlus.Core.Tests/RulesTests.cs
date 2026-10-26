@@ -280,3 +280,23 @@ public class UpcTests
         Assert.Equal(["0036000291452", "036000291452"], Upc.Forms("0036000291452"));
     }
 }
+
+public class WeightsTests
+{
+    [Fact]
+    public void Weights_are_read_and_written_with_their_unit()
+    {
+        Assert.True(Weights.TryParse("90 GRAM", out var value, out var unit));
+        Assert.Equal((90m, "g"), (value, unit));
+        Assert.True(Weights.TryParse("500 MILIGRAM", out value, out unit));
+        Assert.Equal((500m, "mg"), (value, unit));
+        Assert.True(Weights.TryParse("1.5KG", out value, out unit));
+        Assert.Equal((1.5m, "kg"), (value, unit));
+        Assert.True(Weights.TryParse("90", out value, out unit));
+        Assert.Null(unit);
+        Assert.False(Weights.TryParse("90 stones", out _, out _));
+        Assert.Equal("90 GRAM", Weights.Format(90, "g"));
+        Assert.Equal("500 MILIGRAM", Weights.Format(500, "mg"));
+        Assert.Equal("", Weights.Format(0, "g"));
+    }
+}

@@ -109,6 +109,32 @@ public sealed class InventoryService(DataContext data)
         return (item, null);
     }
 
+    /// <summary>The item's picture (a JPEG), or null when it has none.</summary>
+    public async Task<byte[]?> GetPictureAsync(int itemId)
+    {
+        await using var db = data.Create();
+        return await db.ItemPictures.Where(p => p.ItemId == itemId).Select(p => p.Data).FirstOrDefaultAsync();
+    }
+
+    /// <summary>Stores the item's picture (null removes it). Pictures are kept small: at most 2 MB.</summary>
+    public async Task SetPictureAsync(int itemId, byte[]? picture)
+    {
+        if (picture is { Length: > 2 * 1024 * 1024 }) throw new BusinessRuleException("The picture is too large (more than 2 MB).");
+        await using var db = data.Create();
+        var row = await db.ItemPictures.SingleOrDefaultAsync(p => p.ItemId == itemId);
+        if (picture is null)
+        {
+            if (row is not null) db.ItemPictures.Remove(row);
+        }
+        else
+        {
+            if (row is null) db.ItemPictures.Add(row = new ItemPicture { ItemId = itemId });
+            row.Data = picture;
+            row.UpdatedAt = DateTime.Now;
+        }
+        await db.SaveChangesAsync();
+    }
+
     /// <summary>The next free in-store UPC-A (number system 4), counting on from the highest one in use.</summary>
     public async Task<string> NewInStoreBarcodeAsync()
     {

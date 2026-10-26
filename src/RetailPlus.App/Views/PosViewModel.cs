@@ -32,6 +32,8 @@ public sealed partial class PosViewModel : ObservableObject
     [ObservableProperty] private string _tax2Label = "Tax 2";
     [ObservableProperty] private string _totalText = "0.00";
     [ObservableProperty] private string _message = "Ready for the next customer. Scan an item, or type its code and press Enter.";
+    /// <summary>The picture of the item on the chosen line (normally the one just rung up), shown beside the message.</summary>
+    [ObservableProperty] private System.Windows.Media.ImageSource? _linePicture;
     /// <summary>The message is a problem the cashier must see (red), not information (yellow).</summary>
     [ObservableProperty] private bool _messageIsAlert;
     [ObservableProperty] private bool _returnMode;
@@ -210,15 +212,73 @@ public sealed partial class PosViewModel : ObservableObject
     }
 
     private readonly Dictionary<int, Item> _itemCache = [];
+    private readonly Dictionary<int, System.Windows.Media.ImageSource?> _pictures = [];
 
-    // Any new message is information again until Alert says otherwise.
-    partial void OnMessageChanged(string value) => MessageIsAlert = false;
+    partial void OnSelectedLineChanged(SaleDraftLine? value) => _ = ShowLinePictureAsync(value);
 
-    /// <summary>Shows a problem in red: a refused scan, an unknown code or tag, a failed printout.</summary>
+    private async Task ShowLinePictureAsync(SaleDraftLine? line)
+    {
+        if (line?.ItemId is not int id) { LinePicture = null; return; }
+        if (!_pictures.TryGetValue(id, out var picture))
+        {
+            try
+            {
+                picture = Pictures.ToImage(await AppServices.Inventory.GetPictureAsync(id)) ?? Pictures.FromPhotoPath(_itemCache.GetValueOrDefault(id)?.PhotoPath);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                Log.Write("Item picture: " + ex.Message);
+                picture = null;
+            }
+            _pictures[id] = picture;
+        }
+        if (ReferenceEquals(SelectedLine, line)) LinePicture = picture;
+    }
+
+    /// <summary>How long a red alert stays before the message bar goes back to what it said.</summary>
+    private static readonly TimeSpan AlertTime = TimeSpan.FromSeconds(3);
+    private System.Windows.Threading.DispatcherTimer? _alertTimer;
+    private bool _alerting;
+    private string _infoMessage = "Ready for the next customer. Scan an item, or type its code and press Enter.";
+
+    // Any new message is information again (and ends a showing alert) until Alert says otherwise.
+    partial void OnMessageChanged(string value)
+    {
+        if (_alerting) return;
+        _alertTimer?.Stop();
+        MessageIsAlert = false;
+        _infoMessage = value;
+    }
+
+    /// <summary>
+    /// Shows a problem in red for three seconds (a refused scan, an unknown code or tag, a failed printout), then the
+    /// message bar shows its last information again.
+    /// </summary>
     public void Alert(string text)
     {
-        Message = text;
+        _alerting = true;
+        try
+        {
+            Message = text;
+        }
+        finally
+        {
+            _alerting = false;
+        }
         MessageIsAlert = true;
+        if (_alertTimer is null)
+        {
+            _alertTimer = new System.Windows.Threading.DispatcherTimer { Interval = AlertTime };
+            _alertTimer.Tick += (_, _) =>
+            {
+                _alertTimer.Stop();
+                if (!MessageIsAlert) return;
+                Message = _infoMessage;
+                MessageIsAlert = false;
+            };
+        }
+        _alertTimer.Stop();
+        _alertTimer.Start();
     }
 
     /// <summary>
@@ -381,6 +441,7 @@ public sealed partial class PosViewModel : ObservableObject
         Lines.Clear();
         _draft = new SaleDraft();
         _itemCache.Clear();
+        _pictures.Clear();
         _tagCache.Clear();
         _rfidIgnored.Clear();
         _clientPoints = null;

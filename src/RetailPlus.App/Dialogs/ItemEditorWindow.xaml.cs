@@ -15,6 +15,9 @@ public partial class ItemEditorWindow : Window
     private readonly ObservableCollection<ItemVariant> _variants;
     private readonly ObservableCollection<KitComponent> _kit;
     private readonly ObservableCollection<ItemSerial> _serials;
+    /// <summary>The picture to store when the item is saved, and whether it was changed here.</summary>
+    private byte[]? _picture;
+    private bool _pictureChanged;
 
     public ItemEditorWindow(Item item)
     {
@@ -25,7 +28,8 @@ public partial class ItemEditorWindow : Window
         HeaderText.Text = item.Id == 0 ? "New item" : $"{item.Plu} — {item.Name}";
         Title = item.Id == 0 ? "New item" : $"Item {item.Plu}";
         TypeBox.ItemsSource = Enum.GetValues<ItemType>();
-        WeightUnitBox.ItemsSource = new[] { "g", "kg", "ml", "L", "oz", "lb" };
+        WeightUnitBox.ItemsSource = Weights.Units;
+        ToleranceUnitBox.ItemsSource = Weights.ToleranceUnits;
         Tax1Label.Text = AppServices.Settings.Tax1Name ?? "Tax 1";
         Tax2Label.Text = AppServices.Settings.Tax2Name ?? "Tax 2";
         OnHandBox.IsEnabled = item.Id == 0;
@@ -44,6 +48,11 @@ public partial class ItemEditorWindow : Window
         if (Heading1.Text.Length > 0) V1Col.Header = Heading1.Text;
         if (Heading2.Text.Length > 0) V2Col.Header = Heading2.Text;
         if (Heading3.Text.Length > 0) V3Col.Header = Heading3.Text;
+        Look.SetIcon(ChoosePictureButton, "\uEB9F");
+        Look.SetIcon(PastePictureButton, "\uE77F");
+        Look.SetIcon(RemovePictureButton, "\uE74D");
+        Look.SetShortcut(ChoosePictureButton, "Ctrl+I");
+        ShowPicture(Pictures.FromPhotoPath(item.PhotoPath));
         Loaded += async (_, _) => await Ui.Try(LoadListsAsync);
         UpdateMargin();
         Tabs.SelectionChanged += (_, _) => UpdateMargin();
@@ -66,7 +75,70 @@ public partial class ItemEditorWindow : Window
             ThisYearGrid.ItemsSource = await AppServices.Inventory.GetPeriodSalesAsync(_item.Id, year, SalesPeriodKind.Month);
             LastYearGrid.ItemsSource = await AppServices.Inventory.GetPeriodSalesAsync(_item.Id, year - 1, SalesPeriodKind.Month);
             await LoadTagsAsync();
+            _picture = await AppServices.Inventory.GetPictureAsync(_item.Id);
+            if (_picture is not null) ShowPicture(Pictures.ToImage(_picture));
         }
+    }
+
+    private void ShowPicture(System.Windows.Media.ImageSource? image)
+    {
+        PictureImage.Source = image;
+        NoPicture.Visibility = image is null ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Makes the picture small enough to keep (see <see cref="Pictures"/>) and shows it; stored on Save.</summary>
+    private void UsePicture(Func<byte[]> make)
+    {
+        try
+        {
+            _picture = make();
+            _pictureChanged = true;
+            ShowPicture(Pictures.ToImage(_picture));
+        }
+        catch (Exception ex) when (ex is System.IO.IOException or NotSupportedException or ArgumentException or InvalidOperationException
+                                       or UnauthorizedAccessException or System.Runtime.InteropServices.COMException)
+        {
+            Ui.Error("That picture could not be read: " + ex.Message);
+        }
+    }
+
+    private static readonly string[] PictureFiles = [".jpg", ".jpeg", ".png", ".bmp", ".gif", ".tif", ".tiff"];
+
+    private void ChoosePicture_Click(object sender, RoutedEventArgs e)
+    {
+        var file = Ui.OpenFile("Pictures|*.jpg;*.jpeg;*.png;*.bmp;*.gif;*.tif;*.tiff|All files|*.*");
+        if (file is not null) UsePicture(() => Pictures.FromFile(file));
+    }
+
+    private void PastePicture_Click(object sender, RoutedEventArgs e)
+    {
+        if (Clipboard.ContainsImage() && Clipboard.GetImage() is { } image) UsePicture(() => Pictures.Encode(image));
+        else if (Clipboard.ContainsFileDropList() && Clipboard.GetFileDropList().Cast<string>().FirstOrDefault(IsPictureFile) is { } file)
+            UsePicture(() => Pictures.FromFile(file));
+        else Ui.Info("Copy a picture first (from a web page, a photo program or a folder), then press Paste picture.");
+    }
+
+    private static bool IsPictureFile(string path) => PictureFiles.Contains(System.IO.Path.GetExtension(path).ToLowerInvariant());
+
+    private void Picture_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Any(IsPictureFile) ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void Picture_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.FirstOrDefault(IsPictureFile) is { } file)
+            UsePicture(() => Pictures.FromFile(file));
+    }
+
+    private void RemovePicture_Click(object sender, RoutedEventArgs e)
+    {
+        if (PictureImage.Source is null || !Ui.Confirm("Remove this item's picture?")) return;
+        _picture = null;
+        _pictureChanged = true;
+        _item.PhotoPath = null;
+        ShowPicture(null);
     }
 
     private async Task LoadTagsAsync()
@@ -180,7 +252,8 @@ public partial class ItemEditorWindow : Window
         _item.KitComponents = [.. _kit];
         _item.Serials = [.. _serials];
         _item.MatrixColumns = new[] { Heading1.Text, Heading2.Text, Heading3.Text }.Select((h, i) => new ItemMatrixColumn { Ordinal = i + 1, Heading = h }).ToList();
-        if (await Ui.Try(() => AppServices.Inventory.SaveAsync(_item, DeptBox.Text, CatBox.Text, SupplierBox.Text)))
-            DialogResult = true;
+        if (!await Ui.Try(() => AppServices.Inventory.SaveAsync(_item, DeptBox.Text, CatBox.Text, SupplierBox.Text))) return;
+        if (_pictureChanged && !await Ui.Try(() => AppServices.Inventory.SetPictureAsync(_item.Id, _picture))) return;
+        DialogResult = true;
     }
 }

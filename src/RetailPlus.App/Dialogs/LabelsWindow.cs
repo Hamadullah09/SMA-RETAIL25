@@ -60,9 +60,9 @@ public sealed record LabelLayout(string Name, double WidthMm, double HeightMm, i
 }
 
 /// <summary>
-/// Print labels: barcode labels for all the inventory's items (or only those chosen in the list), as many of each as
-/// asked, on A4 sheets of 30 or 24 or on a label printer; printed, or saved as a PDF. Items without a barcode get an
-/// in-store UPC-A first.
+/// Print labels: barcode labels for all the inventory's items, the flagged ones or those chosen in the list, as many of
+/// each as asked, on A4 sheets of 30 or 24 or on a label printer; printed, or saved as a PDF. Items without a barcode
+/// get an in-store UPC-A first.
 /// </summary>
 public sealed class LabelsWindow : Window
 {
@@ -86,7 +86,12 @@ public sealed class LabelsWindow : Window
         Height = Math.Min(900, SystemParameters.WorkArea.Height - 40);
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ShowInTaskbar = false;
-        var scopes = new List<(string Text, IReadOnlyList<ItemRow> Rows)> { ($"All items in the inventory ({all.Count})", all) };
+        var flagged = all.Where(r => r.IsFlagged).ToList();
+        var scopes = new List<(string Text, IReadOnlyList<ItemRow> Rows)>
+        {
+            ($"All items in the inventory ({all.Count})", all),
+            (flagged.Count == 0 ? "Flagged items (none flagged yet: Ctrl+G in Inventory)" : $"Flagged items ({flagged.Count})", flagged),
+        };
         if (chosen is { Count: > 0 } && chosen.Count < all.Count) scopes.Add(($"Only the {chosen.Count} chosen in the list", chosen));
         _scope.ItemsSource = scopes.Select(s => s.Text).ToList();
         _scope.SelectionChanged += (_, _) => Load(scopes[Math.Max(0, _scope.SelectedIndex)].Rows);
@@ -191,8 +196,10 @@ public sealed class LabelsWindow : Window
         int missing = _lines.Count(l => l.Barcode is null && l.Copies > 0);
         var layout = Layout;
         string pages = layout.IsSheet ? $" on {Math.Ceiling(labels / (double)(layout.Columns * layout.Rows)):0} A4 page(s), {layout.Columns * layout.Rows} a page" : "";
-        _summary.Text = $"{labels:N0} label(s) for {_lines.Count(l => l.Copies > 0)} item(s){pages}. Change the number in the Labels column."
-                        + (missing > 0 ? $"\n{missing} item(s) have no barcode yet: they get an in-store UPC-A when you print." : "");
+        _summary.Text = _lines.Count == 0
+            ? "No items here. To label a group of items, flag them in Inventory (Flag / unflag, Ctrl+G), then choose Flagged items."
+            : $"{labels:N0} label(s) for {_lines.Count(l => l.Copies > 0)} item(s){pages}. Change the number in the Labels column."
+              + (missing > 0 ? $"\n{missing} item(s) have no barcode yet: they get an in-store UPC-A when you print." : "");
         ShowSample();
     }
 

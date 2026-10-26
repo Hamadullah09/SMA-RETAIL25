@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using RetailPlus.Core.Model;
 using RetailPlus.Core.Rules;
@@ -157,6 +158,30 @@ public sealed class ServiceTests(LocalDbFixture db) : IClassFixture<LocalDbFixtu
     }
 
     [SkippableFact]
+    public async Task Purchase_order_of_flagged_items_leaves_the_others_out()
+    {
+        var (_, location) = await SetUpAsync();
+        var flagged = await ItemAsync(location.Id, "PF1", 10m, 1);
+        var other = await ItemAsync(location.Id, "PF2", 10m, 1);
+        await using (var ctx = db.CreateContext())
+        {
+            foreach (var i in await ctx.Items.Where(x => x.Id == flagged.Id || x.Id == other.Id).ToListAsync())
+            {
+                i.ReorderPoint = 5;
+                i.ReorderQuantity = 12;
+            }
+            await ctx.SaveChangesAsync();
+        }
+        await new InventoryService(Data).SetFlagAsync([flagged.Id], true);
+
+        var purchasing = new PurchasingService(Data);
+        var all = await purchasing.CreateAsync(location.Id, OrderMethod.ReorderPoints, "Everything");
+        Assert.Equal(2, all.Lines.Count);
+        var po = await purchasing.CreateAsync(location.Id, OrderMethod.ReorderPoints, "Flagged items", flaggedOnly: true);
+        Assert.Equal(flagged.Id, Assert.Single(po.Lines).ItemId);
+    }
+
+    [SkippableFact]
     public async Task Purchase_order_post_and_receive_update_stock_and_cost()
     {
         var (_, location) = await SetUpAsync();
@@ -246,6 +271,97 @@ public sealed class ServiceTests(LocalDbFixture db) : IClassFixture<LocalDbFixtu
         Assert.Equal(1, result.Skipped);
         var row = (await new InventoryService(Data).SearchAsync(location.Id, "C1", ItemSearchField.Plu)).Single();
         Assert.Equal(12.5m, row.Price1);
+    }
+
+    [SkippableFact]
+    public async Task Csv_template_has_every_column_and_its_examples_are_never_imported()
+    {
+        var (_, location) = await SetUpAsync();
+        var template = CsvExchange.ItemTemplate();
+        var rows = Csv.Parse(template);
+        Assert.Equal(CsvExchange.ItemColumns, rows[0]);
+        Assert.Equal(["PROD", "PLU", "EPC", "DEPT", "BSIZE", "PWEIGHT", "TOLRANCE"], rows[0].Take(7));
+        Assert.Equal(["SSTATUS", "RECEIPT#", "BARCODE", "BRAND", "SUPPCODE"], rows[0].TakeLast(5));
+        Assert.All(rows.Skip(1), r => Assert.Equal(CsvExchange.ItemColumns.Length, r.Length));
+
+        var csv = new CsvExchange(Data);
+        var result = await csv.ImportItemsAsync(location.Id, template);
+        Assert.Equal(0, result.Added);
+        Assert.Equal(3, result.Skipped);   // three example rows; the notes row is not an item
+        Assert.Equal(0, result.Tags);
+
+        // The template filled in (with tag codes of our own): two items, the chocolate's two pieces, one of them sold.
+        string stamp = Random.Shared.Next(0x1000000).ToString("X6", CultureInfo.InvariantCulture);
+        var filled = template.Replace("EXAMPLE-", "TPL-", StringComparison.Ordinal)
+            .Replace("E28011700000000000000001", "E2801170000000" + stamp + "0001", StringComparison.Ordinal)
+            .Replace("E28011700000000000000002", "E2801170000000" + stamp + "0002", StringComparison.Ordinal);
+        result = await csv.ImportItemsAsync(location.Id, filled);
+        Assert.Equal(2, result.Added);
+        Assert.Equal(2, result.Tags);
+        var cola = (await new InventoryService(Data).FindByCodeAsync(location.Id, Upc.InStore(99_999))).Item;
+        Assert.Equal("TPL-2", cola?.Plu);
+        Assert.Equal(1.5m, cola!.Weight);
+        Assert.Equal("L", cola.WeightUnit);
+        var chocolate = (await new InventoryService(Data).FindByCodeAsync(location.Id, "TPL-1")).Item!;
+        Assert.Equal((90m, "g", 2m, "g"), (chocolate.Weight, chocolate.WeightUnit, chocolate.WeightTolerance, chocolate.WeightToleranceUnit));
+        var tags = await new RfidService(Data).GetTagsAsync(chocolate.Id);
+        Assert.Equal([ItemTagStatus.InStock, ItemTagStatus.Sold], tags.OrderBy(t => t.Epc).Select(t => t.Status));
+        Assert.Equal(1005, tags.Single(t => t.Status == ItemTagStatus.Sold).SoldOnInvoice);
+
+        // A wrong check digit, or a barcode already on another item, is refused.
+        result = await csv.ImportItemsAsync(location.Id, $"PLU,PROD,BARCODE\nTPL-3,Bad digit,036000291453\nTPL-4,Taken,{Upc.InStore(99_999)}\n");
+        Assert.Equal(2, result.Skipped);
+        Assert.Equal(0, result.Added);
+    }
+
+    [SkippableFact]
+    public async Task Inventory_file_rows_are_pieces_of_an_item_and_export_writes_one_row_per_tag()
+    {
+        var (_, location) = await SetUpAsync();
+        string stamp = Random.Shared.Next(0x1000000).ToString("X6", CultureInfo.InvariantCulture);
+        string Epc(int n) => "E2801E60200" + stamp + n.ToString("X7", CultureInfo.InvariantCulture);
+        var file = "PROD,PLU,EPC,DEPT,PWEIGHT,TOLRANCE,UNITPRICE1,ONHAND,ITEMTYPE,TX1,TX2,SUPPLIER,LASTUPD,SSTATUS,RECEIPT#\n"
+                   + $"COTTON SHIRT,PCS-1,{Epc(1)},CLOTHING,250 GRAM,5 GRAM,30,3,STANDARD,T,F,Hill Traders,7/6/2024,0,\n"
+                   + $"COTTON SHIRT,PCS-1,{Epc(2)},CLOTHING,250 GRAM,5 GRAM,30,3,STANDARD,T,F,Hill Traders,7/6/2024,1,1007\n"
+                   + $",PCS-1,{Epc(3)},,,,,,,,,,,0,\n"
+                   + $"OTHER NAME,PCS-1,{Epc(4)},,,,,,,,,,,0,\n"
+                   + ",,EPC,,DROPDOWN,,,,,,,,,SSTATUS,\n";
+        var csv = new CsvExchange(Data);
+        var result = await csv.ImportItemsAsync(location.Id, file);
+        Assert.Equal(1, result.Added);
+        Assert.Equal(3, result.Tags);
+        Assert.Equal(1, result.Skipped);   // the row that gives PCS-1 another name
+        var item = (await new InventoryService(Data).FindByCodeAsync(location.Id, "PCS-1")).Item!;
+        Assert.Equal(("COTTON SHIRT", 3m, 250m, "g", 5m), (item.Name, item.OnHand, item.Weight, item.WeightUnit, item.WeightTolerance));
+        Assert.Equal(new DateOnly(2024, 7, 6), item.LastUpdated);
+        Assert.Equal("Hill Traders", item.Supplier?.Company);
+        var tags = await new RfidService(Data).GetTagsAsync(item.Id);
+        Assert.Equal(3, tags.Count);
+        Assert.Equal(1007, tags.Single(t => t.Epc == Epc(2)).SoldOnInvoice);
+
+        var exported = Csv.Parse(await csv.ExportItemsAsync(location.Id));
+        int epc = Array.IndexOf(exported[0], "EPC"), status = Array.IndexOf(exported[0], "SSTATUS"), receipt = Array.IndexOf(exported[0], "RECEIPT#");
+        var rows = exported.Skip(1).Where(r => r[1] == "PCS-1").ToList();
+        Assert.Equal(3, rows.Count);
+        Assert.Equal(["0", "1", "0"], rows.OrderBy(r => r[epc]).Select(r => r[status]));
+        Assert.Equal("1007", rows.Single(r => r[epc] == Epc(2))[receipt]);
+        Assert.All(rows, r => Assert.Equal("250 GRAM", r[Array.IndexOf(exported[0], "PWEIGHT")]));
+    }
+
+    [SkippableFact]
+    public async Task Item_picture_is_stored_replaced_and_removed()
+    {
+        var (_, location) = await SetUpAsync();
+        var item = await ItemAsync(location.Id, "PIC1", 5m, 1);
+        var inventory = new InventoryService(Data);
+        Assert.Null(await inventory.GetPictureAsync(item.Id));
+        await inventory.SetPictureAsync(item.Id, [1, 2, 3]);
+        Assert.Equal([1, 2, 3], await inventory.GetPictureAsync(item.Id));
+        await inventory.SetPictureAsync(item.Id, [4]);
+        Assert.Equal([4], await inventory.GetPictureAsync(item.Id));
+        await inventory.SetPictureAsync(item.Id, null);
+        Assert.Null(await inventory.GetPictureAsync(item.Id));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => inventory.SetPictureAsync(item.Id, new byte[3 * 1024 * 1024]));
     }
 
     [SkippableFact]

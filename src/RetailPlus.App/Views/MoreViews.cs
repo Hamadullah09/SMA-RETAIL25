@@ -96,8 +96,18 @@ public sealed class PurchaseOrdersView : UserControl, IRefreshable
         int m = Ui.Choose("How many to order?", names, "New purchase order");
         if (m < 0) return;
         string? supplier = null;
+        bool flaggedOnly = false;
         if (methods[m] != OrderMethod.Blank)
         {
+            int flagged = (await AppServices.Inventory.SearchAsync(AppServices.Session.LocationId, null, flaggedOnly: true, take: 100_000)).Count;
+            int which = Ui.Choose("Which items?", ["All items", flagged == 0 ? "Flagged items only (none flagged yet)" : $"Flagged items only ({flagged})"], "New purchase order");
+            if (which < 0) return;
+            flaggedOnly = which == 1;
+            if (flaggedOnly && flagged == 0)
+            {
+                Ui.Info("No items are flagged. Flag the items to order in Inventory (Flag / unflag, Ctrl+G), then make the order.");
+                return;
+            }
             var suppliers = await AppServices.Parties.GetSupplierNamesAsync();
             var options = new List<string> { "All suppliers" };
             options.AddRange(suppliers);
@@ -105,14 +115,15 @@ public sealed class PurchaseOrdersView : UserControl, IRefreshable
             if (s < 0) return;
             supplier = s == 0 ? null : suppliers[s - 1];
         }
-        var description = Ui.Prompt("Description:", "New purchase order", supplier ?? names[m]);
+        var description = Ui.Prompt("Description:", "New purchase order", supplier ?? (flaggedOnly ? "Flagged items" : names[m]));
         if (description is null) return;
         await Ui.Try(async () =>
         {
-            var po = await AppServices.Purchasing.CreateAsync(AppServices.Session.LocationId, methods[m], description, supplier);
+            var po = await AppServices.Purchasing.CreateAsync(AppServices.Session.LocationId, methods[m], description, supplier, flaggedOnly: flaggedOnly);
             await RefreshAsync();
             _list.SelectedItem = ((IEnumerable<PurchaseOrderRow>)_list.ItemsSource).FirstOrDefault(r => r.Id == po.Id);
-            if (po.Lines.Count == 0 && methods[m] != OrderMethod.Blank) Ui.Info("No items need ordering by that method.");
+            if (po.Lines.Count == 0 && methods[m] != OrderMethod.Blank)
+                Ui.Info(flaggedOnly ? "None of the flagged items need ordering by that method. Try Reorder points, or add them with Add item." : "No items need ordering by that method.");
         });
     }
 

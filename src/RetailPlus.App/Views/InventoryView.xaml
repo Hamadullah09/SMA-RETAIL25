@@ -30,6 +30,8 @@
             <Button Content="Copy to location…" Style="{StaticResource ToolButton}" infra:Look.Shortcut="Ctrl+M" Click="Copy_Click" />
             <Button Content="Export CSV" Style="{StaticResource ToolButton}" infra:Look.Shortcut="Ctrl+E" Click="Export_Click" />
             <Button Content="Import CSV" Style="{StaticResource ToolButton}" infra:Look.Shortcut="Ctrl+I" Click="Import_Click" />
+            <Button Content="CSV template…" Style="{StaticResource ToolButton}" infra:Look.Icon="&#xE9F9;" infra:Look.Shortcut="Ctrl+T"
+                    ToolTip="Save a CSV file with every column the import reads and two examples, to fill in (in Excel)" Click="Template_Click" />
         </WrapPanel>
         <DataGrid x:Name="ItemsGrid" Style="{StaticResource Grid}" MouseDoubleClick="Edit_Click" PreviewKeyDown="Grid_PreviewKeyDown">
             <DataGrid.Columns>

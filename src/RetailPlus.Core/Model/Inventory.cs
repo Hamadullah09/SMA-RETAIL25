@@ -63,10 +63,14 @@ public class Item : ISoftDeletable, IFlaggable, IVersioned
     public string? Size { get; set; }
     /// <summary>Items per package [PKG].</summary>
     public int PackQuantity { get; set; }
-    /// <summary>Net weight (or volume) of one unit, in <see cref="WeightUnit"/>: 90 g, 1.5 L.</summary>
+    /// <summary>Net weight (or volume) of one unit, in <see cref="WeightUnit"/>: 90 g, 1.5 L [PWEIGHT].</summary>
     public decimal Weight { get; set; }
-    /// <summary>g, kg, ml, L, oz or lb.</summary>
+    /// <summary>mg, g, kg, ml, L, oz or lb (see <see cref="Rules.Weights"/>).</summary>
     public string? WeightUnit { get; set; }
+    /// <summary>How far a piece may weigh more or less than <see cref="Weight"/>, in <see cref="WeightToleranceUnit"/> [TOLRANCE].</summary>
+    public decimal WeightTolerance { get; set; }
+    /// <summary>mg or g.</summary>
+    public string? WeightToleranceUnit { get; set; }
     /// <summary>Supplier shown on the item; the original stores the name [SUPPLIER].</summary>
     public int? SupplierId { get; set; }
     public Supplier? Supplier { get; set; }
@@ -226,6 +230,17 @@ public class KitComponent
     public Item? ComponentItem { get; set; }
     public string? Description { get; set; }
     public decimal Quantity { get; set; }
+}
+
+/// <summary>
+/// The product's picture, kept in the database so every station shows it without a shared folder. The app stores a
+/// JPEG of at most 800 pixels a side. (Pictures imported from Retail Plus stay a file path in <see cref="Item.PhotoPath"/>.)
+/// </summary>
+public class ItemPicture
+{
+    public int ItemId { get; set; }
+    public byte[] Data { get; set; } = [];
+    public DateTime UpdatedAt { get; set; }
 }
 
 /// <summary>A serial number of a serialized item [SERNO memo].</summary>
