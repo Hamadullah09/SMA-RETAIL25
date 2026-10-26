@@ -85,6 +85,7 @@ public static class SmokeCheck
         try
         {
             failures.AddRange(BarcodeDrawingCheck());
+            failures.AddRange(LabelPdfCheck());
         }
         catch (Exception ex)
         {
@@ -116,7 +117,7 @@ public static class SmokeCheck
         var ean13 = "896101400001" + Epc.CheckDigit("896101400001");
         foreach (var (code, format) in new[] { (Upc.InStore(1001), ZXing.BarcodeFormat.UPC_A), (ean13, ZXing.BarcodeFormat.EAN_13) })
         {
-            var label = Dialogs.LabelCard.Create("Smoke label", "SMOKE-1", code, 450m, Dialogs.LabelLayout.All[0], options);
+            var label = Dialogs.LabelCard.Create("Smoke label", "SMOKE-1", code, 450m, Dialogs.LabelLayout.OneLabel, options);
             var read = Decode(label);
             if (read?.Text != code || read.BarcodeFormat != format) failures.Add($"label barcode {code} read back as {read?.Text ?? "nothing"} ({read?.BarcodeFormat})");
         }
@@ -124,6 +125,39 @@ public static class SmokeCheck
         var fromReceipt = Decode(receipt);
         if (fromReceipt?.Text != "1005") failures.Add($"receipt barcode read back as {fromReceipt?.Text ?? "nothing"}");
         Log.Write($"Barcodes drawn and read back: UPC-A, EAN-13, receipt Code 128 ({failures.Count} problem(s))");
+        return failures;
+    }
+
+    /// <summary>
+    /// Labels on A4 sheets of 30 saved as a PDF: 31 labels make two pages, a barcode on the sheet scans, and every entry
+    /// of the PDF's cross-reference table points at its object.
+    /// </summary>
+    private static List<string> LabelPdfCheck()
+    {
+        var failures = new List<string>();
+        var code = Upc.InStore(1001);
+        var layout = Dialogs.LabelLayout.All.First(l => l.Columns * l.Rows == 30);
+        var options = new Dialogs.LabelOptions(true, true, "Rs", "SMOKE");
+        var pages = Dialogs.LabelSheet.Pages(Enumerable.Repeat(("Smoke label", "SMOKE-1", code, 450m), 31), layout, options, cutLines: true);
+        if (pages.Count != 2) failures.Add($"31 labels on sheets of 30 gave {pages.Count} page(s)");
+        var read = Decode(pages[0]);
+        if (read?.Text != code) failures.Add($"a barcode on the sheet of 30 read back as {read?.Text ?? "nothing"}");
+
+        using var pdf = new System.IO.MemoryStream();
+        PdfPages.Write(pdf, pages, new System.Windows.Size(layout.PageWidth, layout.PageHeight), "Smoke labels");
+        var text = System.Text.Encoding.Latin1.GetString(pdf.ToArray());
+        if (!text.StartsWith("%PDF-1.4", StringComparison.Ordinal) || !text.TrimEnd().EndsWith("%%EOF", StringComparison.Ordinal) || !text.Contains("/Count 2", StringComparison.Ordinal))
+            failures.Add("the label PDF is not a two-page PDF");
+        int xref = int.Parse(text[(text.LastIndexOf("startxref", StringComparison.Ordinal) + 10)..].Split('\n')[0], System.Globalization.CultureInfo.InvariantCulture);
+        var table = text[xref..].Split('\n');
+        int size = int.Parse(table[1].Split(' ')[1], System.Globalization.CultureInfo.InvariantCulture);
+        for (int id = 1; id < size; id++)
+        {
+            var entry = table[2 + id];
+            int at = int.Parse(entry[..10], System.Globalization.CultureInfo.InvariantCulture);
+            if (entry[17] == 'n' && !text[at..].StartsWith($"{id} 0 obj", StringComparison.Ordinal)) failures.Add($"label PDF object {id} is not where its cross-reference entry says");
+        }
+        Log.Write($"Label PDF: {pages.Count} pages of 30, {pdf.Length / 1024} KB, {size - 1} objects");
         return failures;
     }
 

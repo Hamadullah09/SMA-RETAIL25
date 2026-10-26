@@ -247,16 +247,26 @@ public partial class MainWindow : Window
         await Shoot("receipt", async () => new ReceiptWindow(await ReceiptWindow.ForSaleAsync(SampleSale(), "COPY"), "Invoice 1005"));
         await Shoot("labels", async () =>
         {
-            var rows = (await AppServices.Inventory.SearchAsync(AppServices.Session.LocationId, null, take: 8)).Where(r => !r.IsDeleted).ToList();
-            return new LabelsWindow(rows);
+            var rows = (await AppServices.Inventory.SearchAsync(AppServices.Session.LocationId, null)).Where(r => !r.IsDeleted).ToList();
+            return new LabelsWindow(rows, rows.Take(3).ToList());
         });
         try
         {
             var row = (await AppServices.Inventory.SearchAsync(AppServices.Session.LocationId, null, take: 1)).FirstOrDefault();
             var options = new LabelOptions(true, true, "Rs", string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? Brand.Name : AppServices.Settings.CompanyName!);
-            var label = LabelCard.Create(row?.Name ?? "Sample item", row?.Plu ?? "SAMPLE", row?.Barcode ?? Core.Rules.Upc.InStore(1001), row?.Price1 ?? 450m, LabelLayout.All[0], options);
+            var label = LabelCard.Create(row?.Name ?? "Sample item", row?.Plu ?? "SAMPLE", row?.Barcode ?? Core.Rules.Upc.InStore(1001), row?.Price1 ?? 450m, LabelLayout.OneLabel, options);
             SaveElement(label, Path.Combine(folder, "dlg-label.png"), 4);
-            Log.Write("Screenshot dialog label ok");
+            // Every item's label on A4 sheets of 30, as the Save as PDF button writes them, and the first page as a picture.
+            var items = (await AppServices.Inventory.SearchAsync(AppServices.Session.LocationId, null)).Where(r => !r.IsDeleted && r.Barcode is not null).ToList();
+            var sheet = LabelLayout.All.First(l => l.Columns * l.Rows == 30);
+            var pages = LabelSheet.Pages(items.Select(r => (r.Name, r.Plu, r.Barcode!, r.Price1)), sheet, options, cutLines: true);
+            if (pages.Count > 0)
+            {
+                PdfPages.Save(Path.Combine(folder, "labels-a4-30.pdf"), pages, new Size(sheet.PageWidth, sheet.PageHeight), "Barcode labels");
+                SaveElement(LabelSheet.Pages(items.Take(30).Select(r => (r.Name, r.Plu, r.Barcode!, r.Price1)), sheet, options, cutLines: true)[0],
+                    Path.Combine(folder, "labels-a4-30-page1.png"), 1.5);
+            }
+            Log.Write($"Screenshot dialog label ok; label PDF of {items.Count} items on {pages.Count} page(s)");
         }
         catch (Exception ex)
         {

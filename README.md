@@ -50,8 +50,8 @@ an in-store UPC-A: number system 4, the shop's own number and the check digit (*
 automatically when its labels are printed). A USB barcode scanner works as a keyboard: at the POS whatever is scanned
 or typed goes into the code box, wherever the focus is, so scanning and RFID work at the same time; the same item
 scanned twice is one line with quantity 2, and an RFID tag read for a piece already scanned joins that piece.
-*Inventory › Print labels* prints barcode labels (item, price, UPC-A) on a label printer (50 × 30 or 38 × 25 mm) or
-on A4 sheets of 24.
+*Inventory › Print labels* prints barcode labels (item, price, UPC-A) for all items or the chosen ones, on A4 sheets
+of 30 (3 × 10) or 24, or on a label printer (50 × 30 or 38 × 25 mm), and saves them as a PDF.
 
 Everything can be done from the keyboard, and every button shows its key (F12 pay, F5 quantity, Ctrl+P print,
 Ctrl+1 … Ctrl+0 for the screens; Enter and Esc on OK and Cancel). F1 lists them.

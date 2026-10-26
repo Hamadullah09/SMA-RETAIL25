@@ -42,10 +42,11 @@ public partial class InventoryView : UserControl, IRefreshable
 
     private async void Labels_Click(object sender, RoutedEventArgs e)
     {
-        var rows = ItemsGrid.SelectedItems.OfType<ItemRow>().ToList();
-        if (rows.Count == 0) rows = (ItemsGrid.ItemsSource as IEnumerable<ItemRow>)?.ToList() ?? [];
-        if (rows.Count == 0) { Ui.Info("There are no items to print labels for."); return; }
-        new LabelsWindow(rows.Where(r => !r.IsDeleted).ToList()) { Owner = Window.GetWindow(this) }.ShowDialog();
+        var chosen = ItemsGrid.SelectedItems.OfType<ItemRow>().Where(r => !r.IsDeleted).ToList();
+        List<ItemRow> all = [];
+        if (!await Ui.Try(async () => all = (await AppServices.Inventory.SearchAsync(LocationId, null, take: 100_000)).Where(r => !r.IsDeleted).ToList())) return;
+        if (all.Count == 0) { Ui.Info("There are no items to print labels for."); return; }
+        new LabelsWindow(all, chosen) { Owner = Window.GetWindow(this) }.ShowDialog();
         await Ui.Try(RefreshAsync);
     }
 
