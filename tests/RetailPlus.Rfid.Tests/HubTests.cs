@@ -125,6 +125,23 @@ public class HubTests
     }
 
     [Fact]
+    public async Task Reader_buzzer_follows_its_setting_from_the_first_connection()
+    {
+        var readers = new List<RfidReader> { Reader(1, (1, 4)) };
+        await using var hub = new RfidHub(_ => Task.FromResult<IReadOnlyList<RfidReader>>(readers));
+        await hub.StartAsync();
+        await Task.Delay(400);
+        var device = (SimulatedRfidDevice)hub.DeviceOf(1)!;
+        Assert.Equal(RfidBeeperMode.Quiet, device.Beeper);   // the simulated reader starts out beeping at every tag
+
+        readers[0] = Reader(1, (1, 4));
+        readers[0].BeeperMode = RfidBeeperMode.AfterInventory;
+        await hub.ReloadAsync();
+        await Collect(hub, 4, TimeSpan.FromMilliseconds(500));
+        Assert.Equal(RfidBeeperMode.AfterInventory, device.Beeper);
+    }
+
+    [Fact]
     public async Task Admin_commands_run_between_inventory_rounds()
     {
         var readers = new List<RfidReader> { Reader(1, (1, 1)) };

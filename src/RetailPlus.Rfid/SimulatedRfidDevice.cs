@@ -101,4 +101,13 @@ public sealed class SimulatedRfidDevice : IRfidDevice
 
     public Task PingAsync(CancellationToken cancellationToken) =>
         IsConnected && !Offline ? Task.CompletedTask : throw new RfidException("The reader is not connected.");
+
+    /// <summary>The buzzer mode last set; a new reader beeps at every tag, as the D2184 does out of the box.</summary>
+    public RfidBeeperMode Beeper { get; private set; } = RfidBeeperMode.EveryTag;
+
+    public Task SetBeeperAsync(RfidBeeperMode mode, CancellationToken cancellationToken)
+    {
+        Beeper = mode;
+        return Task.CompletedTask;
+    }
 }

@@ -17,7 +17,7 @@
         </WrapPanel>
         <WrapPanel DockPanel.Dock="Top" Style="{StaticResource Toolbar}">
             <Button Content="New item" Style="{StaticResource AccentButton}" infra:Look.Shortcut="Ctrl+N" Click="New_Click" />
-            <Button Content="Edit" Style="{StaticResource ToolButton}" infra:Look.Shortcut="F2" ToolTip="Or press Enter on the list" Click="Edit_Click" />
+            <Button Content="Edit" Style="{StaticResource ToolButton}" infra:Look.Shortcut="Ctrl+O" ToolTip="Or press Enter on the list" Click="Edit_Click" />
             <Button Content="Print labels…" Style="{StaticResource DarkButton}" infra:Look.Icon="&#xE8A1;" infra:Look.Shortcut="Ctrl+P"
                     ToolTip="Barcode labels for the chosen items (all shown items when none is chosen)" Click="Labels_Click" />
             <Button Content="Duplicate" Style="{StaticResource ToolButton}" infra:Look.Shortcut="Ctrl+D" Click="Duplicate_Click" />

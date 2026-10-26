@@ -46,9 +46,9 @@ internal static class Layout
         var t = text.ToUpperInvariant();
         (string Start, string Key)[] map =
         [
-            ("NEW", "Ctrl+N"), ("EDIT", "F2"), ("VIEW", "F2"), ("OPEN", "F2"), ("DELETE", "Del"), ("UNDELETE", "Ctrl+U"),
+            ("NEW", "Ctrl+N"), ("EDIT", "Ctrl+O"), ("VIEW", "Ctrl+O"), ("OPEN", "Ctrl+O"), ("DELETE", "Del"), ("UNDELETE", "Ctrl+U"),
             ("PRINT", "Ctrl+P"), ("SAVE", "Ctrl+S"), ("EXPORT", "Ctrl+E"), ("IMPORT", "Ctrl+I"), ("SHOW", "F5"), ("RUN", "F5"),
-            ("REFRESH", "F5"), ("FIND", "F3"), ("TAKE PAYMENT", "F12"), ("FLAG", "Ctrl+G"),
+            ("REFRESH", "F5"), ("FIND", "Ctrl+F"), ("TAKE PAYMENT", "F12"), ("FLAG", "Ctrl+G"),
         ];
         foreach (var (start, key) in map)
             if (t.StartsWith(start, StringComparison.Ordinal)) return key;

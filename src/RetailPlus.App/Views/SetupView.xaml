@@ -222,6 +222,7 @@
                     <DockPanel><TextBlock Text="RFID hub key" Style="{StaticResource L}" /><PasswordBox x:Name="HubKeyBox" ToolTip="Only when the hub was started with --apikey" /></DockPanel>
                     <DockPanel><TextBlock Text="Readers owned (hub name)" Style="{StaticResource L}" /><TextBox Text="{Binding RfidHubKey}" Width="200" HorizontalAlignment="Left" /></DockPanel>
                     <DockPanel><TextBlock Text="" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding RfidAutoAdd}" Content="Add tagged items to the sale as soon as an antenna reads them" /></DockPanel>
+                    <DockPanel><TextBlock Text="" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding RfidBeep}" Content="Beep once for each tag rung up (the reader itself stays quiet)" /></DockPanel>
                 </StackPanel>
             </TabItem>
         </TabControl>

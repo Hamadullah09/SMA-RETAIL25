@@ -28,6 +28,9 @@ reader's four antenna ports are given to POS stations by an administrator.
 * **Connected from the moment the program opens.** The app starts RFID before the login window: every reader is
   connected straight away and kept connected (a keep-alive every 30 seconds notices a pulled cable; a lost reader is
   reconnected by itself, 1 s back-off doubling to 30 s). The header shows an RFID chip (green: connected).
+* **Quiet readers, one beep per piece.** Each connection sets the reader's own buzzer from its setting (Quiet by
+  default; out of the box a D2184 beeps at every tag on the antenna, every round). The POS beeps once for each tag
+  it rings up instead (*Setup › This station*), and warns when the computer's sound is muted.
 * **Ways to run**, in *Setup › This station › RFID*:
   * **Automatic** (the default): if the shop has an RFID hub for all stations (*RFID readers › Hub for all
     stations…*), the station uses it; otherwise the app connects to the readers itself. On the first start with no

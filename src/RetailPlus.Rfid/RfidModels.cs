@@ -67,6 +67,9 @@ public interface IRfidDevice : IAsyncDisposable
 
     /// <summary>A cheap command that proves the link still works (keep-alive while no one is reading).</summary>
     Task PingAsync(CancellationToken cancellationToken);
+
+    /// <summary>Sets the reader's own buzzer (normally quiet: the POS beeps itself for each new tag).</summary>
+    Task SetBeeperAsync(RfidBeeperMode mode, CancellationToken cancellationToken);
 }
 
 /// <summary>A tag read routed to the POS station its antenna is assigned to.</summary>

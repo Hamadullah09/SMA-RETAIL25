@@ -61,6 +61,8 @@ public sealed class StationConfig
     public string RfidHubKey { get; set; } = "main";
     /// <summary>Tags read by this station's antennas are added to the sale without pressing anything.</summary>
     public bool RfidAutoAdd { get; set; } = true;
+    /// <summary>The POS beeps once for each tag it rings up (the readers' own buzzers stay quiet).</summary>
+    public bool RfidBeep { get; set; } = true;
 
     /// <summary>Ask for a user name and password when the program starts.</summary>
     public bool RequireLogin { get; set; }

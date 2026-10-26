@@ -143,6 +143,7 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
                     await ConnectAsync(w, cancellationToken);
                     backoff = TimeSpan.FromSeconds(1);
                 }
+                await FollowBeeperAsync(w, cancellationToken);
                 w.State = "Reading";
                 var result = await w.Device.InventoryAsync(active, w.Settings.DwellRounds, tag => OnTag(w, tag), cancellationToken);
                 Interlocked.Increment(ref w.Rounds);
@@ -226,6 +227,8 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
         await w.Device.ConnectAsync(cancellationToken);
         w.LastActivity = DateTime.UtcNow;
         w.LastError = null;
+        w.Beeper = null;   // a reader that was switched off may have its own buzzer setting again
+        await FollowBeeperAsync(w, cancellationToken);
         if (w.Firmware is null)
         {
             try
@@ -347,8 +350,30 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
     public Task WriteGpioAsync(int readerId, int gpio, bool high, CancellationToken cancellationToken = default) =>
         OnReaderAsync(readerId, async (d, _) => { await d.WriteGpioAsync(gpio, high, cancellationToken); return 0; }, cancellationToken);
 
+    /// <summary>
+    /// The reader's own buzzer follows its setting, sent on every connection and whenever the setting changes. Readers
+    /// beep at every tag on the antenna each round out of the box; the setting is normally Quiet and the POS beeps once
+    /// per new tag instead.
+    /// </summary>
+    private static async Task FollowBeeperAsync(Worker w, CancellationToken cancellationToken)
+    {
+        var mode = w.Settings.BeeperMode;
+        if (w.Beeper == mode) return;
+        try
+        {
+            await w.Device.SetBeeperAsync(mode, cancellationToken);
+        }
+        catch (RfidException)
+        {
+            // A reader that refuses keeps its buzzer as it is; it still reads tags.
+        }
+        w.Beeper = mode;
+    }
+
     private sealed class Worker(RfidReader settings, IRfidDevice device, CancellationTokenSource cancellation)
     {
+        /// <summary>The buzzer mode last sent to the reader since it connected.</summary>
+        public RfidBeeperMode? Beeper;
         public volatile RfidReader Settings = settings;
         public IRfidDevice Device { get; } = device;
         public CancellationTokenSource Cancellation { get; } = cancellation;

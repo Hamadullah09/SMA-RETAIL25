@@ -231,6 +231,9 @@ public sealed class D2184Device(RfidReader settings) : IRfidDevice
         return reply.Data[0];
     }
 
+    public Task SetBeeperAsync(RfidBeeperMode mode, CancellationToken cancellationToken) =>
+        ExpectSuccessAsync(D2184Command.SetBeeperMode, [(byte)mode], cancellationToken);
+
     public async Task PingAsync(CancellationToken cancellationToken)
     {
         var reply = await AskAsync(D2184Command.GetFirmwareVersion, cancellationToken);

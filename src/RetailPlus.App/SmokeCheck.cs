@@ -94,6 +94,7 @@ public static class SmokeCheck
 
         try
         {
+            failures.AddRange(await TaggedStockCheckAsync(main));
             failures.AddRange(await RfidCheckAsync(main));
         }
         catch (Exception ex)
@@ -104,6 +105,57 @@ public static class SmokeCheck
         foreach (var f in failures) Log.Write("FAIL " + f);
         Log.Write(failures.Count == 0 ? "Smoke check passed" : $"Smoke check failed ({failures.Count})");
         return failures.Count == 0 ? 0 : 5;
+    }
+
+    /// <summary>
+    /// A tagged item cannot be sold beyond its pieces in stock: with both pieces read by RFID, its barcode scanned again
+    /// adds nothing; scanned first, a piece is joined by its tag instead of counted twice.
+    /// </summary>
+    private static async Task<List<string>> TaggedStockCheckAsync(MainWindow main)
+    {
+        var failures = new List<string>();
+        Log.Write("Speakers: " + (Sounds.IsSilenced() ? "muted or turned down, tag beeps cannot be heard" : "on"));
+        string stamp = DateTime.Now.ToString("HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
+        var item = await AppServices.Inventory.SaveAsync(new Item
+        {
+            LocationId = AppServices.Session.LocationId, Plu = "SMK-P" + stamp, Name = "Smoke tagged pieces", Price1 = 3m, OnHand = 2,
+        }, "SMOKE", null, null);
+        await AppServices.Inventory.AssignInStoreBarcodesAsync([item.Id]);
+        var barcode = (await AppServices.Inventory.GetAsync(item.Id))!.Barcode!;
+        string epc1 = "E2801171" + stamp + "00001", epc2 = "E2801171" + stamp + "00002";
+        await AppServices.RfidData.RegisterTagAsync(epc1, item.Id);
+        await AppServices.RfidData.RegisterTagAsync(epc2, item.Id);
+
+        main.Navigate("pos");
+        await MainWindow.Settle();
+        var pos = main.GetView<PosView>() ?? throw new InvalidOperationException("POS screen did not open");
+        pos.Vm.StopRfid();
+        try
+        {
+            Rfid.RfidTagEvent Read(string epc) => new(epc, AppServices.Session.StationNumber, 0, "smoke", 1, -40, DateTime.Now);
+            await pos.Vm.ClearSaleAsync(ask: false);
+            await pos.Vm.OnTagAsync(Read(epc1));
+            await pos.Vm.OnTagAsync(Read(epc2));
+            await pos.Vm.AddCodeAsync(barcode);
+            var line = pos.Vm.Lines.SingleOrDefault(l => l.ItemId == item.Id);
+            if (line is null || line.Quantity != 2 || line.Epcs.Count != 2)
+                failures.Add($"2 pieces read by RFID, then the barcode: quantity {line?.Quantity}, {line?.Epcs.Count} tag(s); expected 2 and 2 (the scan refused)");
+            if (!pos.Vm.MessageIsAlert) failures.Add($"the refused scan was not shown as a red alert: {pos.Vm.Message}");
+
+            await pos.Vm.ClearSaleAsync(ask: false);
+            await pos.Vm.AddCodeAsync(barcode);
+            await pos.Vm.OnTagAsync(Read(epc1));
+            line = pos.Vm.Lines.SingleOrDefault(l => l.ItemId == item.Id);
+            if (line is null || line.Quantity != 1 || line.Epcs.Count != 1)
+                failures.Add($"a piece scanned, then its tag read: quantity {line?.Quantity}, {line?.Epcs.Count} tag(s); expected 1 and 1");
+            Log.Write($"Tagged stock: a scan beyond the 2 pieces in stock is refused ({pos.Vm.Message})");
+        }
+        finally
+        {
+            await pos.Vm.ClearSaleAsync(ask: false);
+            await AppServices.Inventory.DeleteAsync(item.Id);
+        }
+        return failures;
     }
 
     /// <summary>

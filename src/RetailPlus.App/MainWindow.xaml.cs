@@ -170,9 +170,10 @@ public partial class MainWindow : Window
         "Point of Sale:\n" +
         "Just scan or type: the code goes into the code box. Enter adds the item.\n" +
         "3*CODE:  sell 3 of an item\n" +
-        "F2 item without code,  F3 find,  F4 client,  F5 quantity,  F6 price,  F7/F8 discounts,\n" +
+        "Ctrl+F find,  Ctrl+M item without code,  F4 client,  F5 quantity,  F6 price,  F7/F8 discounts,\n" +
         "F9 return,  Del remove line,  F12 pay,  Esc cancel the sale\n\n" +
-        "Pay window:  type the amount, then F1 … F8 for the kind of payment (Enter = cash).", "Keyboard keys");
+        "Pay window:  type the amount, then F4 … F12 for the kind of payment (Enter = cash).\n\n" +
+        "F1, F2 and F3 are left to Windows.", "Keyboard keys");
 
     private void SwitchUser_Click(object sender, RoutedEventArgs e)
     {

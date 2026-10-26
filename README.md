@@ -54,7 +54,8 @@ scanned twice is one line with quantity 2, and an RFID tag read for a piece alre
 of 30 (3 × 10) or 24, or on a label printer (50 × 30 or 38 × 25 mm), and saves them as a PDF.
 
 Everything can be done from the keyboard, and every button shows its key (F12 pay, F5 quantity, Ctrl+P print,
-Ctrl+1 … Ctrl+0 for the screens; Enter and Esc on OK and Cancel). F1 lists them.
+Ctrl+1 … Ctrl+0 for the screens; Enter and Esc on OK and Cancel). Ctrl+Shift+K lists them; F1, F2 and F3 are
+left to Windows.
 
 ## RFID
 

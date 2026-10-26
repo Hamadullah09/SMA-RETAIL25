@@ -32,6 +32,8 @@ public sealed partial class PosViewModel : ObservableObject
     [ObservableProperty] private string _tax2Label = "Tax 2";
     [ObservableProperty] private string _totalText = "0.00";
     [ObservableProperty] private string _message = "Ready for the next customer. Scan an item, or type its code and press Enter.";
+    /// <summary>The message is a problem the cashier must see (red), not information (yellow).</summary>
+    [ObservableProperty] private bool _messageIsAlert;
     [ObservableProperty] private bool _returnMode;
     [ObservableProperty] private bool _hasClient;
     [ObservableProperty] private bool _canReward;
@@ -97,7 +99,7 @@ public sealed partial class PosViewModel : ObservableObject
         }
         if (item is null)
         {
-            Message = $"No item has the code {code}.";
+            Alert($"No item has the code {code}.");
             System.Media.SystemSounds.Beep.Play();
             return;
         }
@@ -113,6 +115,13 @@ public sealed partial class PosViewModel : ObservableObject
             int pick = Ui.Choose($"Which {item.Name}?", options, "Matrix item");
             if (pick < 0) return;
             variant = item.Variants.OrderBy(v => v.Ordinal).ElementAt(pick);
+        }
+        // A tagged item's pieces in stock are known exactly, so a scan cannot ring up more of them than there are.
+        if (epc is null && !ReturnMode && await TaggedPiecesAsync(item) is { } pieces && qty > pieces.Left)
+        {
+            Alert(NoMorePieces(item, pieces) + " The scan was not added.");
+            System.Media.SystemSounds.Beep.Play();
+            return;
         }
         string? serial = null;
         if (item.ItemType == ItemType.Serialized && epc is not null)
@@ -138,7 +147,7 @@ public sealed partial class PosViewModel : ObservableObject
             decimal? weight = null;
             if (!string.IsNullOrWhiteSpace(AppServices.Config.ScalePort))
             {
-                try { weight = new SerialScale(AppServices.Config.ScalePort!).ReadWeight(); } catch (Exception ex) { Message = "Scale: " + ex.Message; }
+                try { weight = new SerialScale(AppServices.Config.ScalePort!).ReadWeight(); } catch (Exception ex) { Alert("Scale: " + ex.Message); }
             }
             weight ??= Ui.PromptDecimal($"Weight of {item.Name}:", "Scale");
             if (weight is null) return;
@@ -201,6 +210,34 @@ public sealed partial class PosViewModel : ObservableObject
     }
 
     private readonly Dictionary<int, Item> _itemCache = [];
+
+    // Any new message is information again until Alert says otherwise.
+    partial void OnMessageChanged(string value) => MessageIsAlert = false;
+
+    /// <summary>Shows a problem in red: a refused scan, an unknown code or tag, a failed printout.</summary>
+    public void Alert(string text)
+    {
+        Message = text;
+        MessageIsAlert = true;
+    }
+
+    /// <summary>
+    /// For an item whose pieces carry RFID tags: the pieces in stock (tags in stock, or the stock count if higher) and
+    /// how many of them are not on this sale yet. Null for items without tags, which may go below zero with a warning.
+    /// </summary>
+    private async Task<(decimal InStock, decimal Left)?> TaggedPiecesAsync(Item item)
+    {
+        if (!SalesService.IsStocked(item.ItemType)) return null;
+        int tagged = await AppServices.RfidData.CountTagsAsync(item.Id, ItemTagStatus.InStock);
+        if (tagged == 0) return null;
+        decimal inStock = Math.Max(tagged, item.OnHand);
+        decimal onSale = Lines.Where(l => l.ItemId == item.Id && l.Kind == SaleLineKind.Sale).Sum(l => l.Quantity);
+        return (inStock, inStock - onSale);
+    }
+
+    private static string NoMorePieces(Item item, (decimal InStock, decimal Left) pieces) => pieces.Left <= 0
+        ? $"{item.Name}: all {pieces.InStock.ToString("0.###", C)} in stock are already on this sale (read by RFID or scanned)."
+        : $"{item.Name}: only {pieces.Left.ToString("0.###", C)} more in stock; the other {(pieces.InStock - pieces.Left).ToString("0.###", C)} are already on this sale.";
 
     private void Price(SaleDraftLine line)
     {
@@ -270,12 +307,18 @@ public sealed partial class PosViewModel : ObservableObject
         return false;
     }
 
-    public void ChangeQuantity()
+    public async Task ChangeQuantityAsync()
     {
         if (SelectedLine is not { } line) return;
         var q = Ui.PromptDecimal($"Quantity of {line.Description}:", "Quantity", line.Quantity);
         if (q is null || q == 0) return;
         if (line.SerialNumber is not null && Math.Abs(q.Value) != 1) { Ui.Error("A serialized item is sold one at a time."); return; }
+        if (line.Kind == SaleLineKind.Sale && q > line.Quantity && line.ItemId is int itemId && _itemCache.TryGetValue(itemId, out var item)
+            && await TaggedPiecesAsync(item) is { } pieces && q - line.Quantity > pieces.Left)
+        {
+            Ui.Error(NoMorePieces(item, pieces) + $" This line can have at most {(line.Quantity + pieces.Left).ToString("0.###", C)}.");
+            return;
+        }
         line.Quantity = line.Kind == SaleLineKind.Return ? -Math.Abs(q.Value) : q.Value;
         // Fewer pieces than tags: the tags taken off are not rung up again while they lie on the antenna.
         while (line.Epcs.Count > Math.Abs(line.Quantity))
@@ -443,7 +486,7 @@ public sealed partial class PosViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            Message = "The receipt could not be printed: " + ex.Message;
+            Alert("The receipt could not be printed: " + ex.Message);
             Log.Write(ex.ToString());
         }
     }
@@ -604,13 +647,13 @@ public sealed partial class PosViewModel : ObservableObject
         if (Lines.Any(l => l.Epcs.Contains(tag.Epc))) return;
         if (found is null)
         {
-            if (_rfidNotices.Add(tag.Epc)) Message = $"Unknown RFID tag {tag.Epc}. Give it to an item in Inventory (item > RFID tags).";
+            if (_rfidNotices.Add(tag.Epc)) Alert($"Unknown RFID tag {tag.Epc}. Give it to an item in Inventory (item > RFID tags).");
             return;
         }
         if (found.Tag is { Status: ItemTagStatus.Sold } sold && !ReturnMode)
         {
             if (_rfidNotices.Add(tag.Epc))
-                Message = $"{found.Item.Name}: this tag was already sold on {sold.SoldAt:g} (invoice {sold.SoldOnInvoice}). Use Return / refund to take it back.";
+                Alert($"{found.Item.Name}: this tag was already sold on {sold.SoldAt:g} (invoice {sold.SoldOnInvoice}). Use Return / refund to take it back.");
             return;
         }
         // A piece already rung up by its barcode: the tag joins that piece instead of adding another one.
@@ -621,8 +664,10 @@ public sealed partial class PosViewModel : ObservableObject
             scanned.Epcs.Add(tag.Epc);
             Message = $"{found.Item.Name}: the RFID tag belongs to the piece already scanned by barcode.";
             RefreshLines();
+            Sounds.TagRead();
             return;
         }
         await AddItemAsync(found.Item, found.Variant, 1, tag.Epc, found.Tag?.SerialNumber);
+        if (Lines.Any(l => l.Epcs.Contains(tag.Epc))) Sounds.TagRead();
     }
 }

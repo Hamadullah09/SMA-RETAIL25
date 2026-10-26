@@ -19,9 +19,9 @@
 
             <!-- Scan / type box. -->
             <DockPanel>
-                <Button DockPanel.Dock="Right" Content="Find item" infra:Look.Icon="&#xE721;" infra:Look.Shortcut="F3" Style="{StaticResource AccentButton}" Margin="10,0,0,0" MinHeight="62" FontSize="19"
+                <Button DockPanel.Dock="Right" Content="Find item" infra:Look.Icon="&#xE721;" infra:Look.Shortcut="Ctrl+F" Style="{StaticResource AccentButton}" Margin="10,0,0,0" MinHeight="62" FontSize="19"
                         ToolTip="Search the inventory by name" Click="Find_Click" />
-                <Button DockPanel.Dock="Right" Content="Item without code" infra:Look.Icon="&#xE710;" infra:Look.Shortcut="F2" Margin="10,0,0,0" MinHeight="62"
+                <Button DockPanel.Dock="Right" Content="Item without code" infra:Look.Icon="&#xE710;" infra:Look.Shortcut="Ctrl+M" Margin="10,0,0,0" MinHeight="62"
                         ToolTip="Sell something that is not in the inventory" Click="OpenItem_Click" />
                 <Grid>
                     <TextBox x:Name="CodeBox" FontSize="22" MinHeight="62" Padding="50,10,12,10" Text="{Binding CodeText, UpdateSourceTrigger=PropertyChanged}" KeyDown="CodeBox_KeyDown" />
@@ -106,12 +106,49 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <!-- Messages for the cashier. -->
-            <Border Grid.Row="4" Margin="0,10,0,0" Padding="16,12" CornerRadius="20" Background="{StaticResource SunLight}">
+            <!-- Messages for the cashier: yellow for information, red for a problem (MessageIsAlert). -->
+            <Border Grid.Row="4" Margin="0,10,0,0" Padding="16,12" CornerRadius="20">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{StaticResource SunLight}" />
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MessageIsAlert}" Value="True">
+                                <Setter Property="Background" Value="{StaticResource DangerLight}" />
+                                <Setter Property="BorderBrush" Value="{StaticResource Danger}" />
+                                <Setter Property="BorderThickness" Value="2" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Right" Text="{Binding ModeText}" Foreground="{StaticResource Danger}" FontWeight="SemiBold" Margin="12,0,0,0" />
-                    <TextBlock DockPanel.Dock="Left" Text="&#xE946;" Style="{StaticResource Icon}" Margin="0,0,12,0" />
-                    <TextBlock Text="{Binding Message}" FontSize="18" TextWrapping="Wrap" />
+                    <TextBlock DockPanel.Dock="Left" Margin="0,0,12,0" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock" BasedOn="{StaticResource Icon}">
+                                <Setter Property="Text" Value="&#xE946;" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding MessageIsAlert}" Value="True">
+                                        <Setter Property="Text" Value="&#xE7BA;" />
+                                        <Setter Property="Foreground" Value="{StaticResource Danger}" />
+                                        <Setter Property="FontSize" Value="22" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Text="{Binding Message}" FontSize="18" TextWrapping="Wrap">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding MessageIsAlert}" Value="True">
+                                        <Setter Property="Foreground" Value="{StaticResource Danger}" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </DockPanel>
             </Border>
         </Grid>

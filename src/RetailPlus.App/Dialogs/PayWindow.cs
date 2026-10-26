@@ -58,11 +58,13 @@ public sealed class PayWindow : Window
         root.Children.Add(_status);
         root.Children.Add(new TextBlock { Text = "Then touch how they paid (or press its key; Enter = cash):", FontSize = 18, Margin = new Thickness(4, 16, 0, 6) });
         var keys = new WrapPanel();
+        // F1-F3 belong to Windows (help, rename, search) and F10 to the window menu, so payments use the others.
+        string[] tenderKeys = ["F4", "F5", "F6", "F7", "F8", "F9", "F11", "F12"];
         int key = 0;
         foreach (var t in tenderTypes)
         {
             var b = new Button { Content = t.Name, MinWidth = 150, MinHeight = 76, Margin = new Thickness(0, 0, 10, 10), Tag = t, FontSize = 18 };
-            if (++key <= 8) Infrastructure.Look.SetShortcut(b, "F" + key.ToString(CultureInfo.InvariantCulture));
+            if (key < tenderKeys.Length) Infrastructure.Look.SetShortcut(b, tenderKeys[key++]);
             b.Style = (Style)Application.Current.FindResource(t.Kind == TenderKind.Cash ? "AccentButton" : "ToolButton");
             b.Margin = new Thickness(0, 0, 10, 10);
             Infrastructure.Look.SetCornerRadius(b, new CornerRadius(20));
@@ -85,7 +87,7 @@ public sealed class PayWindow : Window
         root.Children.Add(list);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) };
         var clear = new Button { Content = "Undo last payment", MinHeight = 60, Margin = new Thickness(0, 0, 10, 0) };
-        Infrastructure.Look.SetShortcut(clear, "F9");
+        Infrastructure.Look.SetShortcut(clear, "Ctrl+U");
         Infrastructure.Look.SetIcon(clear, "");
         clear.Click += (_, _) => { if (_tenders.Count > 0) _tenders.RemoveAt(_tenders.Count - 1); Update(); };
         _finish.Style = (Style)Application.Current.FindResource("DarkButton");

@@ -28,6 +28,9 @@ public partial class PosView : UserControl, IRefreshable
             if (IsVisible)
             {
                 Vm.StartRfid();
+                if (AppServices.Config.RfidBeep && AppServices.Rfid is not null && Sounds.IsSilenced())
+                    Vm.Alert("The computer's sound is off (muted), so you will not hear a beep for each RFID tag. "
+                             + "Turn it on with the speaker icon at the bottom right of the screen.");
                 Dispatcher.BeginInvoke(() => CodeBox.Focus());
             }
             else Vm.StopRfid();
@@ -110,7 +113,7 @@ public partial class PosView : UserControl, IRefreshable
 
     private async void Pay_Click(object sender, RoutedEventArgs e) { await Vm.PayAsync(); CodeBox.Focus(); }
     private async void Layaway_Click(object sender, RoutedEventArgs e) { await Vm.PayAsync(layaway: true); CodeBox.Focus(); }
-    private void Qty_Click(object sender, RoutedEventArgs e) { Vm.ChangeQuantity(); CodeBox.Focus(); }
+    private async void Qty_Click(object sender, RoutedEventArgs e) { await Ui.Try(Vm.ChangeQuantityAsync); CodeBox.Focus(); }
     private void Price_Click(object sender, RoutedEventArgs e) { Vm.ChangePrice(); CodeBox.Focus(); }
     private void LineDiscount_Click(object sender, RoutedEventArgs e) { Vm.LineDiscount(); CodeBox.Focus(); }
     private void SubtotalDiscount_Click(object sender, RoutedEventArgs e) { Vm.SubtotalDiscount(); CodeBox.Focus(); }

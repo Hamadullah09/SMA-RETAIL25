@@ -27,7 +27,7 @@
                 <Border x:Name="TrainingBadge" Background="{StaticResource DangerLight}" CornerRadius="22" Padding="16,8" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="Collapsed">
                     <TextBlock Text="Training mode" Foreground="{StaticResource Danger}" FontWeight="SemiBold" />
                 </Border>
-                <Button Content="Keys" infra:Look.Icon="&#xE765;" infra:Look.Shortcut="F1" ToolTip="Help: keyboard keys" Margin="0,0,10,0" MinHeight="52" Click="Help_Click" />
+                <Button Content="Keys" infra:Look.Icon="&#xE765;" infra:Look.Shortcut="Ctrl+Shift+K" ToolTip="Help: keyboard keys" Margin="0,0,10,0" MinHeight="52" Click="Help_Click" />
                 <Button Style="{StaticResource RoundButton}" Content="&#xE713;" ToolTip="Setup (Ctrl+Shift+S)" Margin="0,0,10,0" Click="Settings_Click" x:Name="SettingsButton" />
                 <Border Background="{StaticResource CardSolid}" CornerRadius="28" Padding="6,6,18,6" BorderBrush="{StaticResource Line}" BorderThickness="1">
                     <StackPanel Orientation="Horizontal">
@@ -66,7 +66,7 @@
             <Border Style="{StaticResource CardBorder}" Padding="12,14">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Bottom" x:Name="ShortcutHint" Foreground="{StaticResource Muted}" FontSize="13" TextWrapping="Wrap" Margin="10,8,10,0"
-                               Text="Keys are shown on every button. F1 lists them all." />
+                               Text="Keys are shown on every button. Ctrl+Shift+K lists them all." />
                     <ListBox x:Name="Nav" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource NavItem}"
                              SelectionChanged="Nav_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemTemplate>
