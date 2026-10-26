@@ -18,7 +18,16 @@ public partial class PosView : UserControl, IRefreshable
         InitializeComponent();
         DataContext = Vm;
         PreviewKeyDown += OnKey;
-        IsVisibleChanged += (_, _) => { if (IsVisible) Dispatcher.BeginInvoke(() => CodeBox.Focus()); };
+        IsVisibleChanged += (_, _) =>
+        {
+            if (IsVisible)
+            {
+                Vm.StartRfid();
+                Dispatcher.BeginInvoke(() => CodeBox.Focus());
+            }
+            else Vm.StopRfid();
+        };
+        AppServices.RfidChanged += () => Dispatcher.BeginInvoke(() => { if (IsVisible) Vm.StartRfid(); else Vm.StopRfid(); });
     }
 
     public async Task RefreshAsync()
@@ -79,6 +88,7 @@ public partial class PosView : UserControl, IRefreshable
     }
 
     private void ClearClient_Click(object sender, RoutedEventArgs e) { Vm.ClearClient(); CodeBox.Focus(); }
+    private void Rfid_Click(object sender, RoutedEventArgs e) { Vm.ToggleRfid(); CodeBox.Focus(); }
     private void Reward_Click(object sender, RoutedEventArgs e) { Vm.TakeReward(); CodeBox.Focus(); }
 
     private async void FastKey_Click(object sender, RoutedEventArgs e)

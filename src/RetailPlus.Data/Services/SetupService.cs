@@ -75,6 +75,12 @@ public sealed class SetupService(DataContext data)
         return location;
     }
 
+    public async Task<List<Station>> GetStationsAsync()
+    {
+        await using var db = data.Create();
+        return await db.Stations.AsNoTracking().OrderBy(s => s.Number).ToListAsync();
+    }
+
     public async Task<Dictionary<string, string>> GetStationSettingsAsync(int stationNumber)
     {
         await using var db = data.Create();

@@ -61,6 +61,7 @@ public partial class App : Application
             }
         }
 
+        await AppServices.StartRfidAsync();
         var users = await AppServices.Setup.GetUsersAsync();
         if (users.Count > 0 && !AppServices.Unattended)
         {
@@ -90,6 +91,18 @@ public partial class App : Application
             int code = await SmokeCheck.RunAsync(main);
             Shutdown(code);
         }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        try
+        {
+            AppServices.StopRfidAsync().Wait(TimeSpan.FromSeconds(3));
+        }
+        catch (AggregateException)
+        {
+        }
+        base.OnExit(e);
     }
 
     private void OnUnhandled(object sender, DispatcherUnhandledExceptionEventArgs e)

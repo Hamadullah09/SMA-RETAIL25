@@ -18,6 +18,13 @@ public partial class SetupView : UserControl, IRefreshable
     {
         InitializeComponent();
         Layout.AddIcons(this);
+        RfidModeBox.ItemsSource = new[]
+        {
+            new StationModeChoice(Settings.RfidMode.Off, "Off: no RFID at this station"),
+            new StationModeChoice(Settings.RfidMode.ThisComputer, "This computer connects to the readers"),
+            new StationModeChoice(Settings.RfidMode.Hub, "Use the RFID hub on another computer"),
+        };
+        HubKeyBox.Password = AppServices.Config.RfidHubApiKey ?? "";
         KindColumn.ItemsSource = Enum.GetValues<TenderKind>();
         PanelBox.ItemsSource = Enumerable.Range(0, 26).ToList();
         PrinterBox.ItemsSource = InstalledPrinters();
@@ -82,13 +89,21 @@ public partial class SetupView : UserControl, IRefreshable
             await AppServices.Setup.SetTextAsync(DocumentTextKind.ReturnAddress, ReturnBox.Text);
             foreach (var k in _keys.Where(k => k.Id != 0 || !string.IsNullOrWhiteSpace(k.Name) || !string.IsNullOrWhiteSpace(k.Plu)))
                 await AppServices.Setup.SaveFastKeyAsync(k);
+            AppServices.Config.RfidHubApiKey = string.IsNullOrEmpty(HubKeyBox.Password) ? null : HubKeyBox.Password;
             AppServices.Config.Save();
+            await AppServices.StartRfidAsync();
             await AppServices.RefreshSettingsAsync();
             (Window.GetWindow(this) as MainWindow)?.RefreshChrome();
             await RefreshAsync();
             Ui.Info("Settings saved.");
         });
     }
+
+    /// <summary>A choice of the RFID mode drop-down.</summary>
+    public sealed record StationModeChoice(Settings.RfidMode Value, string Text);
+
+    /// <summary>Opens the "This station" tab (from the RFID screen).</summary>
+    public void ShowStationTab() => Tabs.SelectedIndex = Tabs.Items.Count - 1;
 
     private UserAccount? CurrentUser => UsersGrid.SelectedItem as UserAccount;
 

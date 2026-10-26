@@ -1,0 +1,108 @@
+<UserControl x:Class="RetailPlus.App.Views.RfidView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:infra="clr-namespace:RetailPlus.App.Infrastructure">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel>
+            <Border DockPanel.Dock="Right" Background="{StaticResource CardSolid}" CornerRadius="24" Padding="16,8" VerticalAlignment="Center" BorderBrush="{StaticResource Line}" BorderThickness="1">
+                <StackPanel Orientation="Horizontal">
+                    <Ellipse x:Name="ModeDot" Width="12" Height="12" Margin="0,0,10,0" />
+                    <TextBlock x:Name="ModeText" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
+            <TextBlock Text="RFID readers" Style="{StaticResource PageTitle}" />
+        </DockPanel>
+
+        <WrapPanel Grid.Row="1" Style="{StaticResource Toolbar}">
+            <Button Content="Add reader" infra:Look.Icon="&#xE710;" Style="{StaticResource AccentButton}" Click="Add_Click" />
+            <Button Content="Edit reader" infra:Look.Icon="&#xE70F;" Style="{StaticResource ToolButton}" Click="Edit_Click" />
+            <Button Content="Delete" infra:Look.Icon="&#xE74D;" Style="{StaticResource ToolButton}" Click="Delete_Click" />
+            <Button Content="Send settings to reader" infra:Look.Icon="&#xE898;" Style="{StaticResource DarkButton}" Click="Apply_Click" />
+            <Button Content="Read from reader" infra:Look.Icon="&#xE896;" Style="{StaticResource ToolButton}" Click="Info_Click" />
+            <Button Content="Restart reader" infra:Look.Icon="&#xE777;" Style="{StaticResource ToolButton}" Click="Reset_Click" />
+            <Button Content="Station RFID settings" infra:Look.Icon="&#xE713;" Style="{StaticResource ToolButton}" Click="Station_Click" />
+        </WrapPanel>
+
+        <DataGrid x:Name="ReadersGrid" Grid.Row="2" Style="{StaticResource Grid}" SelectionMode="Single" MouseDoubleClick="Edit_Click" Margin="0,0,0,16">
+            <DataGrid.Columns>
+                <DataGridTemplateColumn Header="" Width="40">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Ellipse Width="14" Height="14" Fill="{Binding StatusBrush}" ToolTip="{Binding State}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Reader" Binding="{Binding Name}" Width="180" />
+                <DataGridTextColumn Header="Where" Binding="{Binding Location}" Width="160" />
+                <DataGridTextColumn Header="Address" Binding="{Binding Endpoint}" Width="190" />
+                <DataGridTextColumn Header="Status" Binding="{Binding State}" Width="120" />
+                <DataGridTextColumn Header="Antennas reading" Binding="{Binding ActiveAntennas}" Width="150" />
+                <DataGridTextColumn Header="Tags read" Binding="{Binding TagsRead, StringFormat=N0}" Width="110" />
+                <DataGridTextColumn Header="Last tag" Binding="{Binding LastTag}" Width="135" />
+                <DataGridTextColumn Header="Firmware" Binding="{Binding Firmware}" Width="100" />
+                <DataGridTextColumn Header="Problem" Binding="{Binding Problem}" Width="*" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="3*" />
+                <ColumnDefinition Width="16" />
+                <ColumnDefinition Width="2*" />
+            </Grid.ColumnDefinitions>
+            <Border Style="{StaticResource CardBorder}" Padding="16,12">
+                <DockPanel>
+                    <DockPanel DockPanel.Dock="Top" Margin="4,0,0,8">
+                        <Button DockPanel.Dock="Right" Content="Save assignments" infra:Look.Icon="&#xE74E;" Style="{StaticResource AccentButton}" Margin="0" Click="SaveAssignments_Click" />
+                        <StackPanel>
+                            <TextBlock Text="Antennas and stations" Style="{StaticResource SectionTitle}" Margin="0" />
+                            <TextBlock Text="Choose the POS station each antenna rings up for. One station can use several antennas." Foreground="{StaticResource Muted}" FontSize="15" />
+                        </StackPanel>
+                    </DockPanel>
+                    <DataGrid x:Name="AntennaGrid" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" SelectionUnit="FullRow">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Reader" Binding="{Binding ReaderName}" IsReadOnly="True" Width="150" />
+                            <DataGridTextColumn Header="Port" Binding="{Binding Port}" IsReadOnly="True" Width="60" />
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+                            <DataGridCheckBoxColumn Header="On" Binding="{Binding IsEnabled}" Width="60" />
+                            <DataGridTextColumn Header="Power dBm" Binding="{Binding PowerDbm}" Width="110" />
+                            <DataGridComboBoxColumn x:Name="PurposeColumn" Header="Used for" SelectedValueBinding="{Binding Purpose}" SelectedValuePath="Value" DisplayMemberPath="Text" Width="170" />
+                            <DataGridComboBoxColumn x:Name="StationColumn" Header="Station" SelectedValueBinding="{Binding Station}" SelectedValuePath="Value" DisplayMemberPath="Text" Width="150" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
+            </Border>
+            <Border Grid.Column="2" Style="{StaticResource DarkCard}" Padding="18,14">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Live tag monitor" FontFamily="{StaticResource DisplayFont}" FontSize="20" />
+                    <TextBlock DockPanel.Dock="Top" Text="Watch what a station's antennas read, to test placement and power." Foreground="#B9B5AC" FontSize="15" Margin="0,2,0,10" TextWrapping="Wrap" />
+                    <StackPanel DockPanel.Dock="Top" Orientation="Horizontal" Margin="0,0,0,10">
+                        <ComboBox x:Name="MonitorStation" Width="170" DisplayMemberPath="Text" SelectedValuePath="Value" Margin="0,0,10,0" />
+                        <Button x:Name="MonitorButton" Content="Start" infra:Look.Icon="&#xE768;" Style="{StaticResource AccentButton}" Margin="0" Click="Monitor_Click" />
+                    </StackPanel>
+                    <ListBox x:Name="MonitorList" Background="#333333" FontFamily="Consolas" FontSize="15">
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Foreground" Value="White" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <ContentPresenter Margin="6,3" />
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -16,12 +16,15 @@ SMA RETAIL, by SMA Technology: a clean-room rewrite of the Retail Plus 5.2 point
 | `src/RetailPlus.Migration` | The one-time import: DBF/FPT reader (`Dbf/`), memo codecs (`Codecs/`), importer with verification and report (`Import/`) |
 | `src/RetailPlus.Import` | Command-line importer |
 | `src/RetailPlus.Reports` | Report queries, CSV/HTML output, receipt / statement / drawer report text |
+| `src/RetailPlus.Rfid` | UHF RFID: D2184 protocol driver (`D2184/`), simulated reader, the RFID hub (antenna-to-station routing) and its HTTP client |
+| `src/RetailPlus.RfidHub` | `SmaRetail.RfidHub`: the RFID hub as a service for many readers and stations |
 | `src/RetailPlus.Devices` | Receipt printer (raw ESC/POS through Windows), cash drawer, pole display, scale |
 | `src/RetailPlus.Settings` | Per-station settings (`station.json`) |
 | `src/RetailPlus.Integrations` | CSV import and export of inventory and clients |
 | `src/RetailPlus.App` | The WPF desktop app |
 | `tests/RetailPlus.Core.Tests` | Business rule tests |
 | `tests/RetailPlus.Data.Tests` | Schema and service integration tests on a throwaway LocalDB database |
+| `tests/RetailPlus.Rfid.Tests` | Protocol, driver (against a fake reader on a socket), hub routing with 63 simulated readers, hub client |
 | `tests/RetailPlus.Migration.Tests` | Reader, codec and importer tests: synthetic fixtures, plus live runs on real data when present |
 | `tests/RetailPlus.Parity` | Placeholder for old-vs-new comparison runs |
 | `tools/dbf/` | Read-only Python tools, including the reader's test oracle |
@@ -39,6 +42,19 @@ On first start the app creates (or upgrades) its database, by default `RetailPlu
 Screens: Point of Sale, Sales Journal, Inventory, Clients, Suppliers, Invoices & A/R, Purchase Orders, Orders & RMAs, Reports, Tools (import, backup, restore, rebuild, recurring billing, year end) and Setup.
 
 Automated checks: `--smoke` opens every screen, runs every report and rings up a sale, then exits 0 on success; `--screenshot-tour <folder>` saves a PNG of each screen. Both write to `%LOCALAPPDATA%\RetailPlus\retailplus-check.log`.
+
+## RFID
+
+Tagged items ring up by themselves at the POS, alongside barcodes. Readers (D2184, TCP/IP or serial), their four
+antennas and the station each antenna serves are set up in *RFID readers*; a site with many readers on an Ethernet
+switch runs the RFID hub service on one PC:
+
+```
+dotnet run --project src/RetailPlus.RfidHub -- --localdb RetailPlus_App
+```
+
+and every station points at it in *Setup › This station › RFID*. Design, installation and capacity:
+[docs/RFID.md](docs/RFID.md).
 
 ## Import a store's Retail Plus data
 

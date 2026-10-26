@@ -3,6 +3,7 @@ using RetailPlus.Data.Services;
 using RetailPlus.Devices;
 using RetailPlus.Integrations;
 using RetailPlus.Reports;
+using RetailPlus.Rfid;
 using RetailPlus.Settings;
 
 namespace RetailPlus.App.Infrastructure;
@@ -26,6 +27,15 @@ public static class AppServices
     public static BackupService Backup { get; private set; } = null!;
     public static ReportService Reports { get; private set; } = null!;
     public static CsvExchange Csv { get; private set; } = null!;
+    public static RfidService RfidData { get; private set; } = null!;
+
+    /// <summary>The RFID readers as this station reaches them (null when RFID is off at this station).</summary>
+    public static IRfidControl? Rfid { get; private set; }
+
+    /// <summary>Raised after RFID was started, stopped or switched to another hub.</summary>
+    public static event Action? RfidChanged;
+
+    private static RfidHub? _localHub;
 
     /// <summary>True when the program was started for an automated check (no printing, no message boxes).</summary>
     public static bool Unattended { get; set; }
@@ -44,6 +54,7 @@ public static class AppServices
         Backup = new BackupService(Data);
         Reports = new ReportService(Data);
         Csv = new CsvExchange(Data);
+        RfidData = new RfidService(Data);
         Session.StationNumber = config.StationNumber;
     }
 
@@ -58,6 +69,51 @@ public static class AppServices
             Session.LocationCode = location.Code;
         }
     }
+
+    /// <summary>Connects to the RFID readers as the station settings say (this computer, a hub, or not at all).</summary>
+    public static async Task StartRfidAsync()
+    {
+        await StopRfidAsync();
+        try
+        {
+            switch (Config.RfidMode)
+            {
+                case RfidMode.ThisComputer:
+                    var key = Config.RfidHubKey;
+                    _localHub = new RfidHub(async ct => await RfidData.GetReadersAsync(key, ct)) { Log = m => Log.Write("RFID " + m) };
+                    await _localHub.StartAsync();
+                    Rfid = _localHub;
+                    break;
+                case RfidMode.Hub when !string.IsNullOrWhiteSpace(Config.RfidHubUrl):
+                    Rfid = new RfidHubClient(Config.RfidHubUrl!, Config.RfidHubApiKey);
+                    break;
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Write("RFID could not start: " + ex.Message);
+            Rfid = null;
+        }
+        RfidChanged?.Invoke();
+    }
+
+    public static async Task StopRfidAsync()
+    {
+        if (_localHub is not null)
+        {
+            await _localHub.DisposeAsync();
+            _localHub = null;
+        }
+        (Rfid as IDisposable)?.Dispose();
+        Rfid = null;
+    }
+
+    public static string RfidModeText => Config.RfidMode switch
+    {
+        RfidMode.ThisComputer => "This computer talks to the readers",
+        RfidMode.Hub => $"RFID hub at {Config.RfidHubUrl}",
+        _ => "RFID is off at this station",
+    };
 
     public static IReceiptPrinter Printer =>
         Unattended || string.IsNullOrWhiteSpace(Config.ReceiptPrinter)

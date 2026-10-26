@@ -83,7 +83,7 @@ public sealed class SalesService(DataContext data)
                 Quantity = l.Quantity, UnitPrice = l.UnitPrice, DiscountAmount = l.DiscountAmount, LineTotal = l.Kind == SaleLineKind.Text ? 0 : l.LineTotal,
                 Cogs = Money.Round(l.UnitCost * l.Quantity), Department = l.Department, Taxable1 = l.Taxable1, Taxable2 = l.Taxable2,
                 Tax1 = lineTax.Item1, Tax2 = lineTax.Item2, SerialNumber = l.SerialNumber, VariantId = l.VariantId, SupplierName = l.SupplierName,
-                Commission = Money.Round(l.LineTotal * l.CommissionPercent / 100m), Restock = l.Restock,
+                Commission = Money.Round(l.LineTotal * l.CommissionPercent / 100m), Restock = l.Restock, Epc = l.Epc,
             });
         }
         sale.Cogs = sale.Lines.Sum(l => l.Cogs);
@@ -108,6 +108,7 @@ public sealed class SalesService(DataContext data)
         await db.SaveChangesAsync();
 
         await ApplyStockAndStatisticsAsync(db, sale, +1, now);
+        await UpdateTagsAsync(db, sale, +1);
 
         if (client is not null)
         {
@@ -186,6 +187,22 @@ public sealed class SalesService(DataContext data)
         }
     }
 
+    /// <summary>RFID tags of sold lines become Sold, of returned lines In stock; <paramref name="sign"/> -1 undoes a sale.</summary>
+    private static async Task UpdateTagsAsync(RetailPlusDbContext db, Sale sale, int sign)
+    {
+        var sold = sale.Lines.Where(l => l.Epc != null && l.Kind == SaleLineKind.Sale).Select(l => l.Epc!).ToList();
+        var returned = sale.Lines.Where(l => l.Epc != null && l.Kind == SaleLineKind.Return).Select(l => l.Epc!).ToList();
+        if (sign < 0) (sold, returned) = (returned, sold);
+        var at = sale.SoldAt;
+        long invoice = sale.InvoiceNumber;
+        if (sold.Count > 0)
+            await db.ItemTags.Where(t => sold.Contains(t.Epc)).ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.Status, ItemTagStatus.Sold).SetProperty(t => t.SoldAt, at).SetProperty(t => t.SoldOnInvoice, invoice));
+        if (returned.Count > 0)
+            await db.ItemTags.Where(t => returned.Contains(t.Epc)).ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.Status, ItemTagStatus.InStock).SetProperty(t => t.SoldAt, (DateTime?)null).SetProperty(t => t.SoldOnInvoice, (long?)null));
+    }
+
     private static async Task AddPeriodAsync(RetailPlusDbContext db, int itemId, int year, SalesPeriodKind kind, int period, decimal units, decimal gross)
     {
         int n = await db.ItemPeriodSales.Where(p => p.ItemId == itemId && p.Year == year && p.Kind == kind && p.Period == period)
@@ -226,6 +243,7 @@ public sealed class SalesService(DataContext data)
         var sale = await db.Sales.Include(s => s.Lines).Include(s => s.Payments).SingleAsync(s => s.Id == saleId);
         if (sale.Status == SaleStatus.Voided) throw new BusinessRuleException("This sale is already voided.");
         await ApplyStockAndStatisticsAsync(db, sale, -1, sale.SoldAt);
+        await UpdateTagsAsync(db, sale, -1);
 
         var kinds = await db.TenderTypes.AsNoTracking().ToDictionaryAsync(t => t.Name, t => t.Kind);
         var tenders = sale.Payments.Select(p => new TenderEntry(p.TenderType, kinds.GetValueOrDefault(p.TenderType, TenderKind.Other), p.Amount, p.Tendered)).ToList();

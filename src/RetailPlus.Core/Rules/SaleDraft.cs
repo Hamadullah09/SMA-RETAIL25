@@ -30,6 +30,8 @@ public sealed class SaleDraftLine
     public bool AutoPriced { get; set; } = true;
     public string? PriceExplanation { get; set; }
     public decimal ThcWeight { get; set; }
+    /// <summary>The RFID tag the line was read from, if any.</summary>
+    public string? Epc { get; set; }
 
     public decimal LineTotal => Money.Round(UnitPrice * Quantity - DiscountAmount);
 }

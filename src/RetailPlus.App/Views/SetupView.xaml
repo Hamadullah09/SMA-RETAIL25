@@ -216,6 +216,12 @@
                     <DockPanel><TextBlock Text="Receipts folder (no printer)" Style="{StaticResource L}" /><TextBox Text="{Binding ReceiptFolder}" /></DockPanel>
                     <DockPanel><TextBlock Text="Backup folder" Style="{StaticResource L}" /><TextBox Text="{Binding BackupFolder}" /></DockPanel>
                     <Button Content="Test receipt printer" HorizontalAlignment="Left" Margin="0,8,0,0" Click="TestPrinter_Click" />
+                    <TextBlock Text="RFID" Style="{StaticResource SectionTitle}" Margin="0,18,0,8" />
+                    <DockPanel><TextBlock Text="How this station reaches the readers" Style="{StaticResource L}" /><ComboBox x:Name="RfidModeBox" SelectedValue="{Binding RfidMode}" SelectedValuePath="Value" DisplayMemberPath="Text" /></DockPanel>
+                    <DockPanel><TextBlock Text="RFID hub address" Style="{StaticResource L}" /><TextBox Text="{Binding RfidHubUrl}" ToolTip="For example http://192.168.0.10:5280 (the PC running the SMA RETAIL RFID hub)" /></DockPanel>
+                    <DockPanel><TextBlock Text="RFID hub key" Style="{StaticResource L}" /><PasswordBox x:Name="HubKeyBox" ToolTip="Only when the hub was started with --apikey" /></DockPanel>
+                    <DockPanel><TextBlock Text="Readers owned (hub name)" Style="{StaticResource L}" /><TextBox Text="{Binding RfidHubKey}" Width="200" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><TextBlock Text="" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding RfidAutoAdd}" Content="Add tagged items to the sale as soon as an antenna reads them" /></DockPanel>
                 </StackPanel>
             </TabItem>
         </TabControl>

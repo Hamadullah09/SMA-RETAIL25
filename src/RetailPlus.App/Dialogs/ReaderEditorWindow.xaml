@@ -1,0 +1,162 @@
+<Window x:Class="RetailPlus.App.Dialogs.ReaderEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:infra="clr-namespace:RetailPlus.App.Infrastructure"
+        Title="RFID reader" Width="1180" Height="860" WindowStartupLocation="CenterOwner" ShowInTaskbar="False">
+    <Window.Resources>
+        <Style TargetType="DockPanel">
+            <Setter Property="Margin" Value="0,0,0,9" />
+        </Style>
+        <Style x:Key="L" TargetType="TextBlock">
+            <Setter Property="Width" Value="210" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource Muted}" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+    </Window.Resources>
+    <DockPanel Margin="18">
+        <DockPanel DockPanel.Dock="Top" Margin="0,0,0,12">
+            <TextBlock x:Name="HeaderText" FontFamily="{StaticResource DisplayFont}" FontSize="28" />
+        </DockPanel>
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Save" infra:Look.Icon="&#xE74E;" Style="{StaticResource ToolButton}" MinWidth="150" MinHeight="54" Click="Save_Click" />
+            <Button Content="Save and send to reader" infra:Look.Icon="&#xE898;" Style="{StaticResource AccentButton}" MinHeight="54" IsDefault="True" Click="SaveApply_Click" />
+            <Button Content="Cancel" infra:Look.Icon="&#xE711;" IsCancel="True" MinWidth="150" MinHeight="54" />
+        </StackPanel>
+        <TabControl x:Name="Tabs">
+            <TabItem Header="Connection">
+                <StackPanel Margin="14" MaxWidth="760" HorizontalAlignment="Left">
+                    <DockPanel><TextBlock Text="Reader name" Style="{StaticResource L}" /><TextBox Text="{Binding Name}" MaxLength="40" /></DockPanel>
+                    <DockPanel><TextBlock Text="Where it is" Style="{StaticResource L}" /><TextBox Text="{Binding Location}" MaxLength="60" /></DockPanel>
+                    <DockPanel><TextBlock Text="In use" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding IsEnabled}" Content="Read with this reader" /></DockPanel>
+                    <DockPanel>
+                        <TextBlock Text="Connection" Style="{StaticResource L}" />
+                        <RadioButton x:Name="TcpRadio" Content="TCP/IP (network)" GroupName="t" Margin="0,0,24,0" Checked="Transport_Changed" />
+                        <RadioButton x:Name="SerialRadio" Content="RS-232 / RS-485 (serial port)" GroupName="t" Checked="Transport_Changed" />
+                    </DockPanel>
+                    <StackPanel x:Name="TcpPanel">
+                        <DockPanel><TextBlock Text="Reader IP address" Style="{StaticResource L}" /><TextBox Text="{Binding Host}" MaxLength="100" /></DockPanel>
+                        <DockPanel><TextBlock Text="Port" Style="{StaticResource L}" /><TextBox Text="{Binding Port}" Width="140" HorizontalAlignment="Left" /></DockPanel>
+                    </StackPanel>
+                    <StackPanel x:Name="SerialPanel">
+                        <DockPanel><TextBlock Text="Serial port" Style="{StaticResource L}" /><ComboBox x:Name="PortBox" IsEditable="True" Text="{Binding SerialPort}" Width="200" HorizontalAlignment="Left" /></DockPanel>
+                        <DockPanel><TextBlock Text="Baud rate" Style="{StaticResource L}" /><ComboBox x:Name="BaudBox" SelectedItem="{Binding BaudRate}" Width="200" HorizontalAlignment="Left" /></DockPanel>
+                    </StackPanel>
+                    <DockPanel><TextBlock Text="RS-485 address (hex)" Style="{StaticResource L}" /><TextBox x:Name="AddressBox" Width="140" HorizontalAlignment="Left" MaxLength="2" CharacterCasing="Upper" /></DockPanel>
+                    <DockPanel><TextBlock Text="Hub" Style="{StaticResource L}" /><TextBox Text="{Binding HubKey}" Width="200" HorizontalAlignment="Left" MaxLength="20" /></DockPanel>
+                    <DockPanel><TextBlock Text="Notes" Style="{StaticResource L}" VerticalAlignment="Top" Margin="0,10,0,0" /><TextBox Text="{Binding Notes}" AcceptsReturn="True" TextWrapping="Wrap" Height="80" MaxLength="500" VerticalContentAlignment="Top" /></DockPanel>
+                    <TextBlock Style="{StaticResource Hint}" Text="Every reader on the network needs its own IP address (set it once with the vendor's tool). FF is the address every reader answers. The hub name lets a large shop share its readers between several RFID hub PCs; keep 'main' otherwise." />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Antennas">
+                <DockPanel Margin="14">
+                    <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" Text="Each of the 4 antenna ports can ring up for one POS station. Lower the power if an antenna reads items that are not on its counter." />
+                    <ItemsControl x:Name="AntennaList">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Style="{StaticResource CardBorder}" Background="{StaticResource Cream}" Margin="0,0,0,10" Padding="16,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="80" />
+                                            <ColumnDefinition Width="230" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="190" />
+                                            <ColumnDefinition Width="190" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Title}" FontFamily="{StaticResource DisplayFont}" FontSize="20" VerticalAlignment="Center" />
+                                        <CheckBox Grid.Column="1" IsChecked="{Binding IsEnabled}" Content="On" />
+                                        <TextBox Grid.Column="2" Text="{Binding Name}" Margin="0,0,12,0" MaxLength="40" ToolTip="Name, e.g. Counter 1" />
+                                        <DockPanel Grid.Column="3" Margin="0,0,12,0" VerticalAlignment="Center">
+                                            <TextBlock DockPanel.Dock="Right" Text="{Binding PowerText}" Width="80" TextAlignment="Right" FontWeight="SemiBold" />
+                                            <Slider Minimum="0" Maximum="33" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding PowerDbm}" ToolTip="Transmit power" />
+                                        </DockPanel>
+                                        <ComboBox Grid.Column="4" ItemsSource="{Binding Purposes}" SelectedValuePath="Value" DisplayMemberPath="Text" SelectedValue="{Binding Purpose}" Margin="0,0,12,0" />
+                                        <ComboBox Grid.Column="5" ItemsSource="{Binding Stations}" SelectedValuePath="Value" DisplayMemberPath="Text" SelectedValue="{Binding Station}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="Radio">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="14">
+                        <TextBlock Text="Frequency" Style="{StaticResource SectionTitle}" Margin="0,0,0,8" />
+                        <DockPanel>
+                            <TextBlock Text="Region" Style="{StaticResource L}" />
+                            <RadioButton x:Name="FccRadio" Content="FCC (902–928 MHz)" GroupName="r" Margin="0,0,20,0" Checked="Region_Changed" />
+                            <RadioButton x:Name="EtsiRadio" Content="ETSI (865–868 MHz)" GroupName="r" Margin="0,0,20,0" Checked="Region_Changed" />
+                            <RadioButton x:Name="ChnRadio" Content="CHN (920–925 MHz)" GroupName="r" Margin="0,0,20,0" Checked="Region_Changed" />
+                            <RadioButton x:Name="CustomRadio" Content="Custom" GroupName="r" Checked="Region_Changed" />
+                        </DockPanel>
+                        <DockPanel x:Name="RangePanel">
+                            <TextBlock Text="From – to" Style="{StaticResource L}" />
+                            <ComboBox x:Name="StartBox" Width="180" DisplayMemberPath="Text" SelectedValuePath="Value" SelectedValue="{Binding StartFrequency}" />
+                            <TextBlock Text="  –  " VerticalAlignment="Center" />
+                            <ComboBox x:Name="EndBox" Width="180" DisplayMemberPath="Text" SelectedValuePath="Value" SelectedValue="{Binding EndFrequency}" HorizontalAlignment="Left" />
+                        </DockPanel>
+                        <StackPanel x:Name="CustomPanel">
+                            <DockPanel><TextBlock Text="Start frequency (kHz)" Style="{StaticResource L}" /><TextBox Text="{Binding CustomStartKHz}" Width="180" HorizontalAlignment="Left" /></DockPanel>
+                            <DockPanel><TextBlock Text="Channel spacing (× 10 kHz)" Style="{StaticResource L}" /><TextBox Text="{Binding CustomSpacing}" Width="180" HorizontalAlignment="Left" /></DockPanel>
+                            <DockPanel><TextBlock Text="Number of channels" Style="{StaticResource L}" /><TextBox Text="{Binding CustomChannels}" Width="180" HorizontalAlignment="Left" /></DockPanel>
+                        </StackPanel>
+                        <TextBlock Text="Radio link" Style="{StaticResource SectionTitle}" Margin="0,10,0,8" />
+                        <StackPanel x:Name="ProfilePanel" Margin="210,0,0,10">
+                            <RadioButton Content="Profile 0 — Tari 25 µs, FM0 40 kHz" GroupName="p" Tag="0" Margin="0,0,0,6" Checked="Profile_Checked" />
+                            <RadioButton Content="Profile 1 — Tari 25 µs, Miller 4 250 kHz (recommended)" GroupName="p" Tag="1" Margin="0,0,0,6" Checked="Profile_Checked" />
+                            <RadioButton Content="Profile 2 — Tari 25 µs, Miller 4 300 kHz" GroupName="p" Tag="2" Margin="0,0,0,6" Checked="Profile_Checked" />
+                            <RadioButton Content="Profile 3 — Tari 6.25 µs, FM0 400 kHz" GroupName="p" Tag="3" Checked="Profile_Checked" />
+                        </StackPanel>
+                        <DockPanel><TextBlock Text="Buzzer" Style="{StaticResource L}" /><ComboBox x:Name="BeeperBox" SelectedItem="{Binding BeeperMode}" Width="260" HorizontalAlignment="Left" /></DockPanel>
+                        <DockPanel><TextBlock Text="DRM (dense reader mode)" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding DrmEnabled}" Content="Open — use when many readers are close together" /></DockPanel>
+                        <DockPanel><TextBlock Text="Antenna detection (dB)" Style="{StaticResource L}" /><TextBox Text="{Binding AntennaDetectorDb}" Width="120" HorizontalAlignment="Left" ToolTip="0 = off. Stops reading on a port whose return loss is worse than this." /></DockPanel>
+                        <DockPanel><TextBlock Text="Impinj Monza fast TID" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding FastTid}" Content="Open (only for Monza tags that support it)" /></DockPanel>
+                        <TextBlock Text="Reading at the counter" Style="{StaticResource SectionTitle}" Margin="0,10,0,8" />
+                        <DockPanel>
+                            <TextBlock Text="Ignore tags weaker than" Style="{StaticResource L}" />
+                            <TextBlock DockPanel.Dock="Right" x:Name="RssiText" Width="90" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <Slider x:Name="RssiSlider" Minimum="-100" Maximum="-30" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding RssiThresholdDbm}" MaxWidth="420" HorizontalAlignment="Left" Width="420" />
+                        </DockPanel>
+                        <DockPanel><TextBlock Text="Report the same tag again after (s)" Style="{StaticResource L}" /><TextBox Text="{Binding DedupSeconds}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                        <DockPanel><TextBlock Text="Rounds per antenna" Style="{StaticResource L}" /><TextBox Text="{Binding DwellRounds}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Device">
+                <Grid Margin="14">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="420" />
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Style="{StaticResource Hint}" Text="These talk to the reader now (save the reader first). They go through this station's RFID connection." />
+                        <Button Content="Read settings from reader" infra:Look.Icon="&#xE896;" Style="{StaticResource DarkButton}" HorizontalAlignment="Left" Click="ReadInfo_Click" />
+                        <TextBlock Text="Antenna return loss" Style="{StaticResource SectionTitle}" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <ComboBox x:Name="RlAntenna" Width="140" Margin="0,0,8,0" />
+                            <ComboBox x:Name="RlFrequency" Width="160" DisplayMemberPath="Text" SelectedValuePath="Value" Margin="0,0,8,0" />
+                            <Button Content="Measure" infra:Look.Icon="&#xE9D2;" Style="{StaticResource ToolButton}" Margin="0" Click="ReturnLoss_Click" />
+                        </StackPanel>
+                        <TextBlock Text="Outputs" Style="{StaticResource SectionTitle}" />
+                        <WrapPanel>
+                            <Button Content="GPIO 3 high" Style="{StaticResource ToolButton}" Tag="3,1" Click="Gpio_Click" />
+                            <Button Content="GPIO 3 low" Style="{StaticResource ToolButton}" Tag="3,0" Click="Gpio_Click" />
+                            <Button Content="GPIO 4 high" Style="{StaticResource ToolButton}" Tag="4,1" Click="Gpio_Click" />
+                            <Button Content="GPIO 4 low" Style="{StaticResource ToolButton}" Tag="4,0" Click="Gpio_Click" />
+                        </WrapPanel>
+                        <Button Content="Restart reader" infra:Look.Icon="&#xE777;" Style="{StaticResource DangerButton}" HorizontalAlignment="Left" Margin="0,14,0,0" Click="Reset_Click" />
+                    </StackPanel>
+                    <TextBox x:Name="DeviceText" Grid.Column="2" IsReadOnly="True" FontFamily="Consolas" FontSize="16" VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" />
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

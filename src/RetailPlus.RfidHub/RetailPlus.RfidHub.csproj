@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\RetailPlus.Data\RetailPlus.Data.csproj" />
+    <ProjectReference Include="..\RetailPlus.Rfid\RetailPlus.Rfid.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.13" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>SmaRetail.RfidHub</AssemblyName>
+    <RootNamespace>RetailPlus.RfidHub</RootNamespace>
+  </PropertyGroup>
+
+</Project>

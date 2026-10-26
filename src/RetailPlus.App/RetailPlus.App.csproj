@@ -8,6 +8,7 @@
     <ProjectReference Include="..\RetailPlus.Reports\RetailPlus.Reports.csproj" />
     <ProjectReference Include="..\RetailPlus.Integrations\RetailPlus.Integrations.csproj" />
     <ProjectReference Include="..\RetailPlus.Migration\RetailPlus.Migration.csproj" />
+    <ProjectReference Include="..\RetailPlus.Rfid\RetailPlus.Rfid.csproj" />
   </ItemGroup>
 
   <ItemGroup>

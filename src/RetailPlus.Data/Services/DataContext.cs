@@ -1,13 +1,27 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace RetailPlus.Data.Services;
 
-/// <summary>Creates a short-lived DbContext per operation, which is how the desktop app and the services use EF.</summary>
-public sealed class DataContext(string connectionString)
+/// <summary>
+/// Hands out a short-lived DbContext per operation, which is how the desktop app, the RFID hub and the services use
+/// EF. The contexts come from a pool (reset and reused rather than built each time) and the SQL connections from
+/// SqlClient's connection pool, so a busy hub or many stations do not pay set-up costs on every query.
+/// </summary>
+public sealed class DataContext
 {
-    public string ConnectionString { get; } = connectionString;
+    private readonly PooledDbContextFactory<RetailPlusDbContext> _pool;
 
-    public RetailPlusDbContext Create() => RetailPlusDb.CreateContext(ConnectionString);
+    public DataContext(string connectionString)
+    {
+        ConnectionString = connectionString;
+        var options = RetailPlusDb.Configure(new DbContextOptionsBuilder<RetailPlusDbContext>(), connectionString).Options;
+        _pool = new PooledDbContextFactory<RetailPlusDbContext>(options, poolSize: 256);
+    }
+
+    public string ConnectionString { get; }
+
+    public RetailPlusDbContext Create() => _pool.CreateDbContext();
 
     /// <summary>Applies pending migrations (creating the database if needed).</summary>
     public async Task MigrateAsync(CancellationToken cancellationToken = default)

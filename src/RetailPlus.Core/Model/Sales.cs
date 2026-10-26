@@ -86,6 +86,8 @@ public class SaleLine
     public decimal Commission { get; set; }
     /// <summary>For returns: put the item back into stock.</summary>
     public bool Restock { get; set; }
+    /// <summary>The RFID tag this line was rung up from, when it came from an antenna.</summary>
+    public string? Epc { get; set; }
 }
 
 /// <summary>A payment on a sale; split tender gives two rows.</summary>

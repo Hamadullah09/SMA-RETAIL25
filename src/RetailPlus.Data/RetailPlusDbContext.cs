@@ -56,6 +56,9 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
     public DbSet<InvoicePayment> InvoicePayments => Set<InvoicePayment>();
     public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
     public DbSet<PurchaseOrderLine> PurchaseOrderLines => Set<PurchaseOrderLine>();
+    public DbSet<RfidReader> RfidReaders => Set<RfidReader>();
+    public DbSet<RfidAntenna> RfidAntennas => Set<RfidAntenna>();
+    public DbSet<ItemTag> ItemTags => Set<ItemTag>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportSourceRow> ImportSourceRows => Set<ImportSourceRow>();
 

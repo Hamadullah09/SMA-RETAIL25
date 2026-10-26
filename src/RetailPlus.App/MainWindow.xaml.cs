@@ -36,6 +36,7 @@ public partial class MainWindow : Window
         new("po", "Purchase Orders", "", 2, () => new PurchaseOrdersView()),
         new("orders", "Orders & RMAs", "", 1, () => new CustomerOrdersView()),
         new("reports", "Reports", "", 2, () => new ReportsView()),
+        new("rfid", "RFID readers", "\uE704", 3, () => new RfidView()),
         new("tools", "Tools", "", 3, () => new ToolsView()),
         new("setup", "Setup", "", 3, () => new SetupView()),
     ];
@@ -193,6 +194,20 @@ public partial class MainWindow : Window
             return new ItemEditorWindow(item);
         });
         await Shoot("login", () => Task.FromResult<Window>(new LoginWindow()));
+        await Shoot("reader", async () =>
+        {
+            var reader = (await AppServices.RfidData.GetReadersAsync()).FirstOrDefault() ?? Data.Services.RfidService.NewReader("Reader 1");
+            var w = new ReaderEditorWindow(reader);
+            w.Loaded += (_, _) => w.Tabs.SelectedIndex = 1;
+            return w;
+        });
+        await Shoot("reader-radio", async () =>
+        {
+            var reader = (await AppServices.RfidData.GetReadersAsync()).FirstOrDefault() ?? Data.Services.RfidService.NewReader("Reader 1");
+            var w = new ReaderEditorWindow(reader);
+            w.Loaded += (_, _) => w.Tabs.SelectedIndex = 2;
+            return w;
+        });
         return failures;
     }
 

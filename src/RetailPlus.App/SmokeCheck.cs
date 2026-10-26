@@ -62,8 +62,76 @@ public static class SmokeCheck
             failures.Add("POS sale: " + ex);
         }
 
+        try
+        {
+            failures.AddRange(await RfidCheckAsync(main));
+        }
+        catch (Exception ex)
+        {
+            failures.Add("RFID: " + ex);
+        }
+
         foreach (var f in failures) Log.Write("FAIL " + f);
         Log.Write(failures.Count == 0 ? "Smoke check passed" : $"Smoke check failed ({failures.Count})");
         return failures.Count == 0 ? 0 : 5;
+    }
+
+    /// <summary>
+    /// RFID end to end: a simulated reader whose antenna 1 serves this station "sees" a registered tag; the POS must
+    /// ring the item up by itself, and paying must mark the tag sold.
+    /// </summary>
+    private static async Task<List<string>> RfidCheckAsync(MainWindow main)
+    {
+        var failures = new List<string>();
+        int station = AppServices.Session.StationNumber;
+        const string code = "SMOKE-RFID";
+        var (item, _) = await AppServices.Inventory.FindByCodeAsync(AppServices.Session.LocationId, code);
+        item ??= await AppServices.Inventory.SaveAsync(new Item
+        {
+            LocationId = AppServices.Session.LocationId, Plu = code, Name = "Smoke RFID item", Price1 = 5m, LastCost = 2m, AverageCost = 2m, OnHand = 50,
+        }, "SMOKE", null, null);
+        string epc = "E2801170000" + DateTime.Now.ToString("HHmmssfff", System.Globalization.CultureInfo.InvariantCulture) + "00";
+        await AppServices.RfidData.RegisterTagAsync(epc, item.Id);
+
+        var reader = Data.Services.RfidService.NewReader("Smoke sim " + DateTime.Now.ToString("HHmmssfff", System.Globalization.CultureInfo.InvariantCulture));
+        reader.Host = "sim";
+        reader.Notes = $"1:{epc}";
+        reader.Antennas[0].StationNumber = station;
+        reader.Antennas[0].IsEnabled = true;
+        reader = await AppServices.RfidData.SaveReaderAsync(reader);
+
+        var mode = AppServices.Config.RfidMode;
+        AppServices.Config.RfidMode = Settings.RfidMode.ThisComputer;
+        AppServices.Config.RfidAutoAdd = true;
+        try
+        {
+            await AppServices.StartRfidAsync();
+            main.Navigate("pos");
+            await MainWindow.Settle();
+            var pos = main.GetView<PosView>() ?? throw new InvalidOperationException("POS screen did not open");
+            pos.Vm.StartRfid();
+            var until = DateTime.Now.AddSeconds(10);
+            while (DateTime.Now < until && pos.Vm.Lines.All(l => l.Epc != epc)) await Task.Delay(200);
+            if (pos.Vm.Lines.All(l => l.Epc != epc))
+            {
+                failures.Add($"RFID tag was not rung up at station {station} (RFID text: {pos.Vm.RfidText}; message: {pos.Vm.Message})");
+                return failures;
+            }
+            Log.Write($"RFID tag {epc} rung up by antenna 1 ({pos.Vm.RfidText})");
+            var cash = Money.RoundToMinimumTender(pos.Vm.Total, AppServices.Settings.MinimumTender);
+            if (!await pos.Vm.PostAsync([new TenderEntry("Cash", TenderKind.Cash, cash, cash)])) failures.Add("RFID sale was not saved");
+            var tag = (await AppServices.RfidData.GetTagsAsync(item.Id)).FirstOrDefault(t => t.Epc == epc);
+            if (tag?.Status != ItemTagStatus.Sold) failures.Add($"tag status after the sale is {tag?.Status}, expected Sold");
+            await Task.Delay(1500);
+            if (pos.Vm.Lines.Any(l => l.Epc == epc)) failures.Add("a sold tag still on the antenna was rung up again");
+            Log.Write("RFID check done: tag sold, not added twice");
+        }
+        finally
+        {
+            await AppServices.RfidData.DeleteReaderAsync(reader.Id);
+            AppServices.Config.RfidMode = mode;
+            await AppServices.StartRfidAsync();
+        }
+        return failures;
     }
 }

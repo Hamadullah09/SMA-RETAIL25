@@ -8,6 +8,7 @@ using RetailPlus.Core.Rules;
 using RetailPlus.Data.Services;
 using RetailPlus.Devices;
 using RetailPlus.Reports;
+using RetailPlus.Rfid;
 
 namespace RetailPlus.App.Views;
 
@@ -104,7 +105,7 @@ public sealed partial class PosViewModel : ObservableObject
         await AddItemAsync(item, variant, qty);
     }
 
-    public async Task AddItemAsync(Item item, ItemVariant? variant, decimal qty)
+    public async Task AddItemAsync(Item item, ItemVariant? variant, decimal qty, string? epc = null, string? tagSerial = null)
     {
         if (item.ItemType == ItemType.Matrix && variant is null && item.Variants.Count > 0)
         {
@@ -114,7 +115,13 @@ public sealed partial class PosViewModel : ObservableObject
             variant = item.Variants.OrderBy(v => v.Ordinal).ElementAt(pick);
         }
         string? serial = null;
-        if (item.ItemType == ItemType.Serialized)
+        if (item.ItemType == ItemType.Serialized && epc is not null)
+        {
+            // A tagged piece: its serial number comes from the tag registration, if any.
+            serial = tagSerial;
+            qty = 1;
+        }
+        else if (item.ItemType == ItemType.Serialized)
         {
             var inStock = item.Serials.Where(s => s.Status is null || s.Status.StartsWith("IN", StringComparison.OrdinalIgnoreCase)).Select(s => s.SerialNumber).ToList();
             if (inStock.Count > 0 && !ReturnMode)
@@ -145,7 +152,7 @@ public sealed partial class PosViewModel : ObservableObject
             Taxable1 = item.Taxable1, Taxable2 = item.Taxable2, Department = item.Department?.Name,
             UnitCost = item.AverageCost > 0 ? item.AverageCost : item.LastCost, VariantId = variant?.Id,
             VariantText = variant is null ? null : $"{variant.Value1} {variant.Value2} {variant.Value3}".Trim(), SerialNumber = serial,
-            SupplierName = item.Supplier?.Company, CommissionPercent = item.Commission, ThcWeight = item.ThcWeight,
+            SupplierName = item.Supplier?.Company, CommissionPercent = item.Commission, ThcWeight = item.ThcWeight, Epc = epc,
         };
         _itemCache[item.Id] = item;
         Price(line);
@@ -292,6 +299,7 @@ public sealed partial class PosViewModel : ObservableObject
         if (SelectedLine is not { } line) return;
         if (Settings.SupervisorForVoids && !await LoginWindow.SupervisorApprovesAsync("Removing a line")) return;
         Lines.Remove(line);
+        if (line.Epc is not null) _rfidIgnored.Add(line.Epc);
         SelectedLine = Lines.LastOrDefault();
         Recalculate();
     }
@@ -306,6 +314,8 @@ public sealed partial class PosViewModel : ObservableObject
         Lines.Clear();
         _draft = new SaleDraft();
         _itemCache.Clear();
+        _tagCache.Clear();
+        _rfidIgnored.Clear();
         _clientPoints = null;
         ClientText = "Walk-in customer";
         ClientDetail = "";
@@ -385,6 +395,7 @@ public sealed partial class PosViewModel : ObservableObject
         bool ok = await Ui.Try(async () => sale = await AppServices.Sales.PostSaleAsync(_draft, tenders, Session));
         if (!ok || sale is null) return false;
         _lastSale = sale;
+        foreach (var l in sale.Lines.Where(l => l.Epc is not null)) _recentlySold[l.Epc!] = DateTime.Now;
         var change = tenders.Sum(t => t.Change);
         var kinds = await AppServices.Setup.GetTenderTypesAsync(false);
         bool open = tenders.Any(t => kinds.FirstOrDefault(k => k.Name == t.TenderType)?.OpensDrawer ?? t.Kind == TenderKind.Cash);
@@ -487,5 +498,99 @@ public sealed partial class PosViewModel : ObservableObject
             await ClearSaleAsync(ask: false);
             Message = $"Quote {quote.InvoiceNumber} saved. Load it again from Invoices & A/R.";
         }
+    }
+
+    // RFID ---------------------------------------------------------------------------------------------------------
+
+    [ObservableProperty] private string _rfidText = "";
+    [ObservableProperty] private bool _rfidVisible;
+    [ObservableProperty] private System.Windows.Media.Brush _rfidBrush = System.Windows.Media.Brushes.Gray;
+
+    private CancellationTokenSource? _rfidCts;
+    private bool _rfidPaused;
+    private readonly Dictionary<string, TagLookup?> _tagCache = [];
+    private readonly HashSet<string> _rfidIgnored = [];
+    private readonly HashSet<string> _rfidNotices = [];
+    private readonly Dictionary<string, DateTime> _recentlySold = [];
+
+    /// <summary>Starts listening to this station's antennas (while the POS screen is shown).</summary>
+    public void StartRfid()
+    {
+        StopRfid();
+        if (AppServices.Rfid is not { } rfid)
+        {
+            RfidVisible = false;
+            return;
+        }
+        RfidVisible = true;
+        if (_rfidPaused || !AppServices.Config.RfidAutoAdd)
+        {
+            RfidText = _rfidPaused ? "RFID paused" : "RFID auto-add off";
+            RfidBrush = Look.Brush("Stone");
+            return;
+        }
+        _rfidCts = new CancellationTokenSource();
+        _ = ListenAsync(rfid, _rfidCts.Token);
+    }
+
+    public void StopRfid()
+    {
+        _rfidCts?.Cancel();
+        _rfidCts?.Dispose();
+        _rfidCts = null;
+    }
+
+    /// <summary>The RFID pill: pause or resume reading at this counter.</summary>
+    public void ToggleRfid()
+    {
+        _rfidPaused = !_rfidPaused;
+        StartRfid();
+    }
+
+    private async Task ListenAsync(IRfidControl rfid, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var antennas = await AppServices.RfidData.GetAntennasAsync(Session.StationNumber);
+            int n = antennas.Count(a => a.IsEnabled && a.Purpose == RfidAntennaPurpose.PointOfSale);
+            RfidText = n == 0 ? "RFID: no antenna for this counter" : $"RFID on · {n} antenna{(n == 1 ? "" : "s")}";
+            RfidBrush = n == 0 ? Look.Brush("Sun") : Look.Brush("Ok");
+            await foreach (var tag in rfid.ListenAsync(Session.StationNumber, cancellationToken))
+                await OnTagAsync(tag);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            RfidText = "RFID offline";
+            RfidBrush = Look.Brush("Danger");
+            Log.Write("RFID at POS: " + ex.Message);
+        }
+    }
+
+    /// <summary>A tag read at this counter: add its item once, unless it was just sold or taken off this sale.</summary>
+    public async Task OnTagAsync(RfidTagEvent tag)
+    {
+        if (Lines.Any(l => l.Epc == tag.Epc) || _rfidIgnored.Contains(tag.Epc)) return;
+        if (!ReturnMode && _recentlySold.TryGetValue(tag.Epc, out var soldAt) && DateTime.Now - soldAt < TimeSpan.FromMinutes(10)) return;
+        if (!_tagCache.TryGetValue(tag.Epc, out var found))
+        {
+            found = await AppServices.RfidData.ResolveAsync(Session.LocationId, tag.Epc);
+            _tagCache[tag.Epc] = found;
+        }
+        if (Lines.Any(l => l.Epc == tag.Epc)) return;
+        if (found is null)
+        {
+            if (_rfidNotices.Add(tag.Epc)) Message = $"Unknown RFID tag {tag.Epc}. Give it to an item in Inventory (item > RFID tags).";
+            return;
+        }
+        if (found.Tag is { Status: ItemTagStatus.Sold } sold && !ReturnMode)
+        {
+            if (_rfidNotices.Add(tag.Epc))
+                Message = $"{found.Item.Name}: this tag was already sold on {sold.SoldAt:g} (invoice {sold.SoldOnInvoice}). Use Return / refund to take it back.";
+            return;
+        }
+        await AddItemAsync(found.Item, found.Variant, 1, tag.Epc, found.Tag?.SerialNumber);
     }
 }

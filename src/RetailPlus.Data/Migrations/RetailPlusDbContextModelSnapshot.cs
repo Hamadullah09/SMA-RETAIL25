@@ -1215,6 +1215,56 @@ namespace RetailPlus.Data.Migrations
                     b.ToTable("ItemSuppliers");
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.ItemTag", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Epc")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("RegisteredAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("SoldAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<long?>("SoldOnInvoice")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<int?>("VariantId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Epc")
+                        .IsUnique();
+
+                    b.HasIndex("ItemId", "Status");
+
+                    b.ToTable("ItemTags");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.ItemVariant", b =>
                 {
                     b.Property<int>("Id")
@@ -1471,6 +1521,171 @@ namespace RetailPlus.Data.Migrations
                     b.HasIndex("PurchaseOrderId", "Plu");
 
                     b.ToTable("PurchaseOrderLines");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.RfidAntenna", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PowerDbm")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int>("ReaderId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("StationNumber")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StationNumber");
+
+                    b.HasIndex("ReaderId", "Port")
+                        .IsUnique();
+
+                    b.ToTable("RfidAntennas");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.RfidReader", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Address")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AntennaDetectorDb")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BaudRate")
+                        .HasColumnType("int");
+
+                    b.Property<string>("BeeperMode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int>("CustomChannels")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CustomSpacing")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CustomStartKHz")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DedupSeconds")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("DrmEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("DwellRounds")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EndFrequency")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("FastTid")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("FirmwareVersion")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Host")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("HubKey")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LinkProfile")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("Port")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Region")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<int>("RssiThresholdDbm")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SerialPort")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<DateTime?>("SettingsAppliedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<int>("StartFrequency")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Transport")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HubKey");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("RfidReaders");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.Rma", b =>
@@ -1741,6 +1956,11 @@ namespace RetailPlus.Data.Migrations
                     b.Property<decimal>("DiscountAmount")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
+
+                    b.Property<string>("Epc")
+                        .HasMaxLength(128)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(128)");
 
                     b.Property<int?>("ItemId")
                         .HasColumnType("int");
@@ -2655,6 +2875,15 @@ namespace RetailPlus.Data.Migrations
                     b.Navigation("Supplier");
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.ItemTag", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.ItemVariant", b =>
                 {
                     b.HasOne("RetailPlus.Core.Model.Item", null)
@@ -2695,6 +2924,15 @@ namespace RetailPlus.Data.Migrations
                     b.HasOne("RetailPlus.Core.Model.PurchaseOrder", null)
                         .WithMany("Lines")
                         .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.RfidAntenna", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.RfidReader", null)
+                        .WithMany("Antennas")
+                        .HasForeignKey("ReaderId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -2793,6 +3031,11 @@ namespace RetailPlus.Data.Migrations
             modelBuilder.Entity("RetailPlus.Core.Model.PurchaseOrder", b =>
                 {
                     b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.RfidReader", b =>
+                {
+                    b.Navigation("Antennas");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.Sale", b =>

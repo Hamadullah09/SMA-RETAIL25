@@ -64,7 +64,77 @@ public partial class ItemEditorWindow : Window
             LastYearTitle.Text = $"{year - 1} by month";
             ThisYearGrid.ItemsSource = await AppServices.Inventory.GetPeriodSalesAsync(_item.Id, year, SalesPeriodKind.Month);
             LastYearGrid.ItemsSource = await AppServices.Inventory.GetPeriodSalesAsync(_item.Id, year - 1, SalesPeriodKind.Month);
+            await LoadTagsAsync();
         }
+    }
+
+    private async Task LoadTagsAsync() => TagsGrid.ItemsSource = await AppServices.RfidData.GetTagsAsync(_item.Id);
+
+    private bool SavedFirst()
+    {
+        if (_item.Id != 0) return true;
+        Ui.Info("Save the item first, then add its RFID tags.");
+        return false;
+    }
+
+    private async void AddTag_Click(object sender, RoutedEventArgs e)
+    {
+        if (!SavedFirst()) return;
+        var code = Ui.Prompt("Tag code (EPC) in hexadecimal, as printed on the tag or shown by the reader:", "Add RFID tag");
+        if (string.IsNullOrWhiteSpace(code)) return;
+        await Ui.Try(async () =>
+        {
+            await AppServices.RfidData.RegisterTagAsync(code, _item.Id);
+            await LoadTagsAsync();
+        });
+    }
+
+    private async void RemoveTag_Click(object sender, RoutedEventArgs e)
+    {
+        if (TagsGrid.SelectedItem is not ItemTag tag || !Ui.Confirm($"Remove tag {tag.Epc} from this item?")) return;
+        await Ui.Try(async () =>
+        {
+            await AppServices.RfidData.RemoveTagAsync(tag.Id);
+            await LoadTagsAsync();
+        });
+    }
+
+    /// <summary>Listens to this station's antennas for ten seconds and gives every new tag it sees to this item.</summary>
+    private async void ReadTags_Click(object sender, RoutedEventArgs e)
+    {
+        if (!SavedFirst()) return;
+        if (AppServices.Rfid is not { } rfid)
+        {
+            Ui.Error("RFID is off at this station. Turn it on in Setup > This station, and give this station an antenna in RFID readers.");
+            return;
+        }
+        if (!Ui.Confirm("Put only the tagged pieces of this item on the antenna of this counter, then press Yes. Reading takes 10 seconds.", "Read tags")) return;
+        int added = 0, other = 0;
+        var seen = new HashSet<string>();
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        TagsHint.Text = "Reading... keep the items on the antenna.";
+        try
+        {
+            await foreach (var tag in rfid.ListenAsync(AppServices.Session.StationNumber, cts.Token))
+            {
+                if (!seen.Add(tag.Epc)) continue;
+                try
+                {
+                    await AppServices.RfidData.RegisterTagAsync(tag.Epc, _item.Id);
+                    added++;
+                }
+                catch (Data.Services.BusinessRuleException)
+                {
+                    other++;
+                }
+                TagsHint.Text = $"Reading... {added} tag(s) added" + (other > 0 ? $", {other} belong to other items" : "");
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        TagsHint.Text = $"{added} tag(s) added" + (other > 0 ? $"; {other} tag(s) already belong to other items and were left alone." : ".");
+        await Ui.Try(LoadTagsAsync);
     }
 
     private void UpdateMargin()

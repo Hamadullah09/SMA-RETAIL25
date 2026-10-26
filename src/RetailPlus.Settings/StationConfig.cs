@@ -4,13 +4,29 @@ using RetailPlus.Data;
 
 namespace RetailPlus.Settings;
 
+/// <summary>How this station reaches the RFID readers.</summary>
+public enum RfidMode
+{
+    /// <summary>No RFID at this station.</summary>
+    Off,
+    /// <summary>This PC connects to the readers itself (a single PC, or the PC the readers are wired to).</summary>
+    ThisComputer,
+    /// <summary>An RFID hub service on another PC owns the readers; this station listens to it.</summary>
+    Hub,
+}
+
 /// <summary>
 /// The workstation's own settings (what Plus50.INI held per station): which database, which station and location,
 /// and the devices attached. Kept in a JSON file; everything shared lives in the database.
 /// </summary>
 public sealed class StationConfig
 {
-    private static readonly JsonSerializerOptions Options = new() { WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+    private static readonly JsonSerializerOptions Options = new()
+    {
+        WriteIndented = true,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        Converters = { new JsonStringEnumConverter() },
+    };
 
     /// <summary>Full connection string; when empty, <see cref="LocalDbDatabase"/> on LocalDB is used.</summary>
     public string? ConnectionString { get; set; }
@@ -32,6 +48,15 @@ public sealed class StationConfig
     public string? BackupFolder { get; set; }
     public string? ExportFolder { get; set; }
     public string? PhotoFolder { get; set; }
+    public RfidMode RfidMode { get; set; } = RfidMode.Off;
+    /// <summary>Address of the RFID hub service, e.g. http://192.168.0.10:5280.</summary>
+    public string? RfidHubUrl { get; set; }
+    public string? RfidHubApiKey { get; set; }
+    /// <summary>When this computer talks to the readers itself: which readers (by hub key) it owns.</summary>
+    public string RfidHubKey { get; set; } = "main";
+    /// <summary>Tags read by this station's antennas are added to the sale without pressing anything.</summary>
+    public bool RfidAutoAdd { get; set; } = true;
+
     /// <summary>Ask for a user name and password when the program starts.</summary>
     public bool RequireLogin { get; set; }
 
