@@ -26,8 +26,9 @@ reader's four antenna ports are given to POS stations by an administrator.
 * **Antenna → station.** Each antenna port has a station number. The hub reads an antenna only while that station's
   POS screen is open (someone is listening), so idle counters do not transmit.
 * **Connected from the moment the program opens.** The app starts RFID before the login window: every reader is
-  connected straight away and kept connected (a keep-alive every 30 seconds notices a pulled cable; a lost reader is
-  reconnected by itself, 1 s back-off doubling to 30 s). The header shows an RFID chip (green: connected).
+  connected straight away and kept connected: a keep-alive every 5 seconds notices a pulled cable, and a lost reader is
+  tried again every 1 to 5 seconds, at once when Windows reports a network change (a cable plugged back in), so it is
+  back by itself within seconds. The header shows an RFID chip (green: connected).
 * **Quiet readers, one beep per piece.** Each connection sets the reader's own buzzer from its setting (Quiet by
   default; out of the box a D2184 beeps at every tag on the antenna, every round). The POS beeps once for each tag
   it rings up instead (*Setup › This station*), and warns when the computer's sound is muted.
@@ -124,7 +125,7 @@ browser dashboard, another system).
 * The hub uses asynchronous sockets: 63 readers are 63 sockets and a handful of threads, not 63 threads. The test
   suite runs 63 simulated readers × 4 antennas routed to 252 stations at once.
 * Each listener has a bounded queue (1,000 reads, oldest dropped), so a slow station never slows the readers.
-* An offline reader is retried with back-off (1 s doubling to 30 s) without affecting the others; its problem shows
+* An offline reader is retried with back-off (1 s doubling to 5 s) without affecting the others; its problem shows
   in *RFID readers*.
 * The same tag is reported to a station at most once per *Report the same tag again after* seconds (default 5).
 * Larger sites split readers across several hubs with the reader's *Hub* name; each hub serves only its own readers.

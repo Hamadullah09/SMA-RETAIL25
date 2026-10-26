@@ -142,6 +142,37 @@ public class HubTests
     }
 
     [Fact]
+    public async Task A_pulled_cable_is_noticed_while_idle_and_a_network_change_reconnects_at_once()
+    {
+        var readers = new List<RfidReader> { Reader(1, (1, 9)) };
+        await using var hub = new RfidHub(_ => Task.FromResult<IReadOnlyList<RfidReader>>(readers));
+        await hub.StartAsync();
+        await Task.Delay(500);
+        var device = (SimulatedRfidDevice)hub.DeviceOf(1)!;
+        Assert.True((await hub.GetStatusAsync()).Single().Connected);
+
+        device.Offline = true;   // cable pulled while no POS screen is open: the keep-alive notices
+        var until = DateTime.UtcNow.AddSeconds(9);
+        while (DateTime.UtcNow < until && (await hub.GetStatusAsync()).Single().Connected) await Task.Delay(200);
+        Assert.False((await hub.GetStatusAsync()).Single().Connected);
+        await Task.Delay(2500);   // a few failed attempts, so the next one is seconds away
+
+        device.Offline = false;   // plugged back in; Windows reports the network change
+        hub.RetryOfflineNow();
+        until = DateTime.UtcNow.AddSeconds(1.5);
+        while (DateTime.UtcNow < until && !(await hub.GetStatusAsync()).Single().Connected) await Task.Delay(100);
+        Assert.True((await hub.GetStatusAsync()).Single().Connected);
+    }
+
+    [Fact]
+    public void Attempts_to_reach_an_offline_reader_are_at_most_five_seconds_apart()
+    {
+        Assert.Equal(TimeSpan.FromSeconds(2), RfidHub.Longer(TimeSpan.FromSeconds(1)));
+        Assert.Equal(TimeSpan.FromSeconds(5), RfidHub.Longer(TimeSpan.FromSeconds(4)));
+        Assert.Equal(TimeSpan.FromSeconds(5), RfidHub.Longer(TimeSpan.FromSeconds(5)));
+    }
+
+    [Fact]
     public async Task Admin_commands_run_between_inventory_rounds()
     {
         var readers = new List<RfidReader> { Reader(1, (1, 1)) };

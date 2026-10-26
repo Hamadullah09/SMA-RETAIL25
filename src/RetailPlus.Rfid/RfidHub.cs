@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Net.NetworkInformation;
 using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 using RetailPlus.Core.Model;
@@ -43,11 +44,15 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
         _stopping = new CancellationTokenSource();
+        NetworkChange.NetworkAddressChanged += OnNetworkChanged;
+        NetworkChange.NetworkAvailabilityChanged += OnNetworkAvailabilityChanged;
         return ReloadAsync(cancellationToken);
     }
 
     public async Task StopAsync()
     {
+        NetworkChange.NetworkAddressChanged -= OnNetworkChanged;
+        NetworkChange.NetworkAvailabilityChanged -= OnNetworkAvailabilityChanged;
         await _stopping.CancelAsync();
         await Task.WhenAll(_workers.Values.Select(w => w.StopAsync()));
         _workers.Clear();
@@ -90,6 +95,7 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
                 _workers[reader.Id] = StartWorker(reader);
             }
             _disabled = readers.Where(r => !r.IsEnabled).ToList();
+            RetryOfflineNow();   // a Refresh also tries offline readers straight away
             WakeAll();
         }
         finally
@@ -166,13 +172,14 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
                 w.Busy.Release();
                 try
                 {
-                    await Task.Delay(backoff, cancellationToken);
+                    // Waits for the back-off, or less when a network change or Refresh wakes the reader.
+                    await w.Wake.WaitAsync(backoff, cancellationToken);
                 }
                 catch (OperationCanceledException)
                 {
                     break;
                 }
-                backoff = TimeSpan.FromSeconds(Math.Min(30, backoff.TotalSeconds * 2));
+                backoff = Longer(backoff);
                 continue;
             }
             w.Busy.Release();
@@ -180,7 +187,30 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
         try { await w.Device.DisconnectAsync(); } catch (Exception) { }
     }
 
-    private static readonly TimeSpan KeepAliveInterval = TimeSpan.FromSeconds(30);
+    /// <summary>How often an idle reader is asked whether it is still there (a cheap command), so a pulled cable is noticed.</summary>
+    private static readonly TimeSpan KeepAliveInterval = TimeSpan.FromSeconds(5);
+
+    /// <summary>The longest wait between attempts to reach an offline reader, so it is back within seconds of being plugged in.</summary>
+    private static readonly TimeSpan MaxBackoff = TimeSpan.FromSeconds(5);
+
+    internal static TimeSpan Longer(TimeSpan backoff) => TimeSpan.FromSeconds(Math.Min(MaxBackoff.TotalSeconds, backoff.TotalSeconds * 2));
+
+    private void OnNetworkChanged(object? sender, EventArgs e) => RetryOfflineNow();
+    private void OnNetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e) => RetryOfflineNow();
+
+    /// <summary>
+    /// Every offline reader tries to connect again at once instead of at its next attempt: called when Windows reports a
+    /// network change (a cable to a reader plugged back in), and by the screens' Refresh.
+    /// </summary>
+    public void RetryOfflineNow()
+    {
+        foreach (var w in _workers.Values)
+        {
+            if (w.Device.IsConnected) continue;
+            w.NextConnectAttempt = DateTime.MinValue;
+            w.WakeUp();
+        }
+    }
 
     /// <summary>Connects an idle reader (with back-off) or pings it when it has been quiet; returns the next back-off.</summary>
     private async Task<TimeSpan> KeepConnectedAsync(Worker w, TimeSpan backoff, CancellationToken cancellationToken)
@@ -214,7 +244,7 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
             Log?.Invoke($"Reader {w.Settings.Name} ({w.Settings.Endpoint}): {ex.Message}");
             try { await w.Device.DisconnectAsync(); } catch (Exception) { }
             w.NextConnectAttempt = DateTime.UtcNow + backoff;
-            return TimeSpan.FromSeconds(Math.Min(30, backoff.TotalSeconds * 2));
+            return Longer(backoff);
         }
         finally
         {
@@ -268,7 +298,7 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
     private void WakeAll()
     {
         foreach (var w in _workers.Values)
-            if (w.Wake.CurrentCount == 0) w.Wake.Release();
+            w.WakeUp();
     }
 
     public async IAsyncEnumerable<RfidTagEvent> ListenAsync(int stationNumber, [EnumeratorCancellation] CancellationToken cancellationToken)
@@ -378,6 +408,18 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
         public IRfidDevice Device { get; } = device;
         public CancellationTokenSource Cancellation { get; } = cancellation;
         public SemaphoreSlim Wake { get; } = new(0, 1);
+
+        /// <summary>Ends the reader loop's current wait (configuration reloaded, network changed).</summary>
+        public void WakeUp()
+        {
+            try
+            {
+                if (Wake.CurrentCount == 0) Wake.Release();
+            }
+            catch (SemaphoreFullException)
+            {
+            }
+        }
         /// <summary>Held during an inventory round or an administrator command, so the two never overlap.</summary>
         public SemaphoreSlim Busy { get; } = new(1, 1);
         public Task? Loop { get; set; }
