@@ -28,7 +28,7 @@ public partial class DashboardView : UserControl, IRefreshable
         Subtitle.Text = d.CustomersToday == 0
             ? "Nothing sold yet today. Everything you need is one click away."
             : $"{d.CustomersToday} customer{(d.CustomersToday == 1 ? "" : "s")} so far today" + Compare(d.SalesToday, d.SalesYesterday);
-        StatSales.Text = d.SalesToday.ToString("N0", C);
+        StatSales.Text = d.SalesToday.ToString("N2", C);
         StatCustomers.Text = d.CustomersToday.ToString(C);
         StatItems.Text = d.ItemCount.ToString("N0", C);
         BigInitials.Text = string.Concat(s.UserName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => char.ToUpperInvariant(w[0])));

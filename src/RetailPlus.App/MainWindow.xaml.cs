@@ -73,7 +73,7 @@ public partial class MainWindow : Window
         SettingsButton.Visibility = AppServices.Can(3) ? Visibility.Visible : Visibility.Collapsed;
         StationText.Text = $"Station {s.StationNumber:000}  ·  Location {s.LocationCode}";
         DatabaseText.Text = $"Database {AppServices.Data.DatabaseName}";
-        Title = $"Retail Plus — {AppServices.Settings.CompanyName}";
+        Title = string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? Brand.Name : $"{Brand.Name} — {AppServices.Settings.CompanyName}";
         var selected = (Nav.SelectedItem as NavEntry)?.Key;
         Nav.ItemsSource = AllEntries.Where(e => AppServices.Can(e.MinimumLevel)).ToList();
         _views.Clear();

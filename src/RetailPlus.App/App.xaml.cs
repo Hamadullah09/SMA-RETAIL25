@@ -101,7 +101,7 @@ public partial class App : Application
             Shutdown(3);
             return;
         }
-        MessageBox.Show("An unexpected error occurred:\n\n" + e.Exception.Message + "\n\nDetails were written to " + Log.FilePath, "Retail Plus",
+        MessageBox.Show("An unexpected error occurred:\n\n" + e.Exception.Message + "\n\nDetails were written to " + Log.FilePath, Brand.Name,
             MessageBoxButton.OK, MessageBoxImage.Error);
         e.Handled = true;
     }

@@ -1,6 +1,6 @@
-# Retail Plus rewrite
+# SMA RETAIL
 
-A clean-room rewrite of the Retail Plus 5.2 point-of-sale system on .NET 10 and SQL Server Express. Each store's Retail Plus data is imported once at cutover.
+SMA RETAIL, by SMA Technology: a clean-room rewrite of the Retail Plus 5.2 point-of-sale system on .NET 10 and SQL Server Express. Each store's Retail Plus data is imported once at cutover.
 
 - Plan: [docs/REWRITE_PLAN.md](docs/REWRITE_PLAN.md)
 - Data layer: [docs/DATA_LAYER_PLAN.md](docs/DATA_LAYER_PLAN.md)

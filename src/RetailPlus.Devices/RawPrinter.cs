@@ -35,7 +35,7 @@ public static partial class RawPrinter
     [DllImport("winspool.drv", SetLastError = true)]
     private static extern bool WritePrinter(IntPtr handle, byte[] bytes, int count, out int written);
 
-    public static void Send(string printerName, byte[] bytes, string documentName = "Retail Plus receipt")
+    public static void Send(string printerName, byte[] bytes, string documentName = "SMA RETAIL receipt")
     {
         if (!OpenPrinter(printerName, out var handle, IntPtr.Zero)) throw new Win32Exception(Marshal.GetLastWin32Error(), $"Cannot open printer {printerName}.");
         try

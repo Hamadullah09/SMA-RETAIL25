@@ -16,19 +16,19 @@ public static class Ui
 {
     public static Window? Owner => Application.Current?.Windows.OfType<Window>().FirstOrDefault(w => w.IsActive) ?? Application.Current?.MainWindow;
 
-    public static void Info(string message, string title = "Retail Plus")
+    public static void Info(string message, string title = Brand.Name)
     {
         if (AppServices.Unattended) { Log.Write("INFO " + message); return; }
         new MessageWindow(title, message, MessageKind.Info).ShowDialog();
     }
 
-    public static void Error(string message, string title = "Retail Plus")
+    public static void Error(string message, string title = Brand.Name)
     {
         if (AppServices.Unattended) { Log.Write("ERROR " + message); return; }
         new MessageWindow(title, message, MessageKind.Warning).ShowDialog();
     }
 
-    public static bool Confirm(string message, string title = "Retail Plus")
+    public static bool Confirm(string message, string title = Brand.Name)
     {
         if (AppServices.Unattended) return true;
         return new MessageWindow(title, message, MessageKind.Question).ShowDialog() == true;
@@ -57,7 +57,7 @@ public static class Ui
     }
 
     /// <summary>A one-line input box. Returns null when cancelled.</summary>
-    public static string? Prompt(string question, string title = "Retail Plus", string initial = "", bool password = false)
+    public static string? Prompt(string question, string title = Brand.Name, string initial = "", bool password = false)
     {
         var win = new Window
         {
@@ -87,7 +87,7 @@ public static class Ui
         return input is PasswordBox pb ? pb.Password : ((TextBox)input).Text;
     }
 
-    public static decimal? PromptDecimal(string question, string title = "Retail Plus", decimal? initial = null)
+    public static decimal? PromptDecimal(string question, string title = Brand.Name, decimal? initial = null)
     {
         while (true)
         {
@@ -99,7 +99,7 @@ public static class Ui
     }
 
     /// <summary>Picks one entry from a list. Returns the index or -1.</summary>
-    public static int Choose(string question, IReadOnlyList<string> options, string title = "Retail Plus")
+    public static int Choose(string question, IReadOnlyList<string> options, string title = Brand.Name)
     {
         var win = new Window
         {

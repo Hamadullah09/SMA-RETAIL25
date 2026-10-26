@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
-    <Company>Retail Plus rewrite</Company>
-    <Product>Retail Plus</Product>
+    <Company>SMA Technology</Company>
+    <Product>SMA RETAIL</Product>
   </PropertyGroup>
 </Project>

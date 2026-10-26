@@ -14,11 +14,17 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Resource Include="Assets\sma-mark.png" />
+    <Resource Include="Assets\sma.ico" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <UseWPF>true</UseWPF>
     <AssemblyName>RetailPlus</AssemblyName>
+    <ApplicationIcon>Assets\sma.ico</ApplicationIcon>
     <!-- UI code: event handlers and data-bound types are public by WPF convention; async void is the event pattern. -->
     <NoWarn>$(NoWarn);CA1001;CA1515;CA2007;CA1031;CA1305;CA1307;CA1309;CA1310;CA1311;CA1304;CA1863;CA1822</NoWarn>
   </PropertyGroup>

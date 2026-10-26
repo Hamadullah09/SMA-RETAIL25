@@ -18,11 +18,14 @@ public sealed class SplashWindow : Window
         ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         Width = 420;
-        Height = 160;
+        Height = 200;
         ShowInTaskbar = true;
-        Title = "Retail Plus";
+        Title = Brand.Name;
         var panel = new StackPanel { Margin = new Thickness(28), VerticalAlignment = VerticalAlignment.Center };
-        panel.Children.Add(new TextBlock { Text = "Retail Plus", FontSize = 26, FontWeight = FontWeights.Bold, Foreground = (Brush)Application.Current.FindResource("Brand") });
+        var head = new StackPanel { Orientation = Orientation.Horizontal };
+        head.Children.Add(new Image { Source = Brand.Mark, Width = 64, Height = 64, Margin = new Thickness(0, 0, 12, 0) });
+        head.Children.Add(new TextBlock { Text = Brand.Name, FontSize = 30, FontWeight = FontWeights.Bold, FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), VerticalAlignment = VerticalAlignment.Center });
+        panel.Children.Add(head);
         panel.Children.Add(_status);
         panel.Children.Add(new ProgressBar { IsIndeterminate = true, Height = 4, Margin = new Thickness(0, 12, 0, 0) });
         Content = new Border { BorderBrush = Brushes.LightGray, BorderThickness = new Thickness(1), Child = panel, Background = Brushes.White };
@@ -44,7 +47,7 @@ public sealed class DatabaseWindow : Window
     public DatabaseWindow(StationConfig config, string error)
     {
         Config = config;
-        Title = "Retail Plus — database";
+        Title = Brand.Name + " — database";
         Width = 640;
         SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
@@ -90,14 +93,18 @@ public sealed class LoginWindow : Window
 
     public LoginWindow()
     {
-        Title = "Retail Plus — log in";
+        Title = Brand.Name + " — log in";
         Width = 540;
         SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         ResizeMode = ResizeMode.NoResize;
         var p = new StackPanel { Margin = new Thickness(36, 30, 36, 28) };
-        var brand = new Border { BorderBrush = Look.Brush("Charcoal"), BorderThickness = new Thickness(1.5), CornerRadius = new CornerRadius(30), Padding = new Thickness(24, 8, 24, 8), HorizontalAlignment = HorizontalAlignment.Left };
-        brand.Child = new TextBlock { Text = "Retail Plus", FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 28 };
+        var brand = new StackPanel { Orientation = Orientation.Horizontal };
+        brand.Children.Add(new Image { Source = Brand.Mark, Width = 96, Height = 96, Margin = new Thickness(0, 0, 14, 0) });
+        var names = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+        names.Children.Add(new TextBlock { Text = Brand.Name, FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 34, FontWeight = FontWeights.Bold });
+        names.Children.Add(new TextBlock { Text = "by " + Brand.Company, Foreground = Look.Brush("Muted"), FontSize = 16 });
+        brand.Children.Add(names);
         p.Children.Add(brand);
         p.Children.Add(new TextBlock { Text = string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? "Welcome" : "Welcome to " + AppServices.Settings.CompanyName,
             FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 26, Margin = new Thickness(0, 22, 0, 4) });
