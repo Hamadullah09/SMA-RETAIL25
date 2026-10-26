@@ -7,7 +7,8 @@
             <TextBlock Text="Inventory" Style="{StaticResource PageTitle}" />
         </DockPanel>
         <WrapPanel DockPanel.Dock="Top" Style="{StaticResource Toolbar}">
-            <TextBox x:Name="SearchBox" Width="280" Margin="0,0,8,6" TextChanged="Search_TextChanged" ToolTip="Search by stock code, name, supplier code or brand" />
+            <TextBlock Text="Search" Style="{StaticResource FieldLabel}" />
+            <TextBox x:Name="SearchBox" Width="340" Margin="0,0,12,6" TextChanged="Search_TextChanged" ToolTip="Search by stock code, name, supplier code or brand" />
             <ComboBox x:Name="FieldBox" Width="150" Margin="0,0,8,6" SelectionChanged="Field_SelectionChanged" />
             <CheckBox x:Name="FlaggedBox" Content="Flagged only" Margin="0,0,12,6" Click="Filter_Click" />
             <CheckBox x:Name="DeletedBox" Content="Show deleted" Margin="0,0,12,6" Click="Filter_Click" />
@@ -29,18 +30,18 @@
         </WrapPanel>
         <DataGrid x:Name="ItemsGrid" Style="{StaticResource Grid}" MouseDoubleClick="Edit_Click">
             <DataGrid.Columns>
-                <DataGridCheckBoxColumn Header="⚑" Binding="{Binding IsFlagged}" Width="34" />
-                <DataGridTextColumn Header="Stock code" Binding="{Binding Plu}" Width="130" />
+                <DataGridCheckBoxColumn Header="Flag" Binding="{Binding IsFlagged}" Width="62" />
+                <DataGridTextColumn Header="Stock code" Binding="{Binding Plu}" Width="140" />
                 <DataGridTextColumn Header="Description" Binding="{Binding Name}" Width="*" />
-                <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="60" />
-                <DataGridTextColumn Header="Department" Binding="{Binding Department}" Width="100" />
-                <DataGridTextColumn Header="Supplier" Binding="{Binding Supplier}" Width="120" />
-                <DataGridTextColumn Header="Type" Binding="{Binding ItemType}" Width="75" />
-                <DataGridTextColumn Header="On hand" Binding="{Binding OnHand, StringFormat=0.###}" Width="70" ElementStyle="{StaticResource Right}" />
-                <DataGridTextColumn Header="On order" Binding="{Binding OnOrder, StringFormat=0.###}" Width="70" ElementStyle="{StaticResource Right}" />
-                <DataGridTextColumn Header="Cost" Binding="{Binding Cost, StringFormat=N2}" Width="80" ElementStyle="{StaticResource Right}" />
-                <DataGridTextColumn Header="Price" Binding="{Binding Price1, StringFormat=N2}" Width="80" ElementStyle="{StaticResource Right}" />
-                <DataGridCheckBoxColumn Header="Del." Binding="{Binding IsDeleted}" Width="45" />
+                <DataGridTextColumn Header="Size" Binding="{Binding Size}" Width="75" />
+                <DataGridTextColumn Header="Department" Binding="{Binding Department}" Width="135" />
+                <DataGridTextColumn Header="Supplier" Binding="{Binding Supplier}" Width="150" />
+                <DataGridTextColumn Header="Type" Binding="{Binding ItemType}" Width="110" />
+                <DataGridTextColumn Header="On hand" Binding="{Binding OnHand, StringFormat=0.###}" Width="100" ElementStyle="{StaticResource Right}" />
+                <DataGridTextColumn Header="On order" Binding="{Binding OnOrder, StringFormat=0.###}" Width="100" ElementStyle="{StaticResource Right}" />
+                <DataGridTextColumn Header="Cost" Binding="{Binding Cost, StringFormat=N2}" Width="95" ElementStyle="{StaticResource Right}" />
+                <DataGridTextColumn Header="Price" Binding="{Binding Price1, StringFormat=N2}" Width="95" ElementStyle="{StaticResource Right}" />
+                <DataGridCheckBoxColumn Header="Deleted" Binding="{Binding IsDeleted}" Width="90" />
             </DataGrid.Columns>
         </DataGrid>
     </DockPanel>

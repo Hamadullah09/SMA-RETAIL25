@@ -12,6 +12,7 @@ public partial class PartyEditorWindow : Window
     public PartyEditorWindow(Party party)
     {
         InitializeComponent();
+        Views.Layout.AddIcons(this);
         _party = party;
         DataContext = party;
         bool isClient = party is Client;

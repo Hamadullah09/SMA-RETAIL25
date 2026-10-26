@@ -19,19 +19,19 @@ public static class Ui
     public static void Info(string message, string title = "Retail Plus")
     {
         if (AppServices.Unattended) { Log.Write("INFO " + message); return; }
-        MessageBox.Show(Owner!, message, title, MessageBoxButton.OK, MessageBoxImage.Information);
+        new MessageWindow(title, message, MessageKind.Info).ShowDialog();
     }
 
     public static void Error(string message, string title = "Retail Plus")
     {
         if (AppServices.Unattended) { Log.Write("ERROR " + message); return; }
-        MessageBox.Show(Owner!, message, title, MessageBoxButton.OK, MessageBoxImage.Warning);
+        new MessageWindow(title, message, MessageKind.Warning).ShowDialog();
     }
 
     public static bool Confirm(string message, string title = "Retail Plus")
     {
         if (AppServices.Unattended) return true;
-        return MessageBox.Show(Owner!, message, title, MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes;
+        return new MessageWindow(title, message, MessageKind.Question).ShowDialog() == true;
     }
 
     /// <summary>Runs an operation and turns the errors a user can act on into messages.</summary>
@@ -62,15 +62,17 @@ public static class Ui
         var win = new Window
         {
             Title = title, Owner = Owner, WindowStartupLocation = WindowStartupLocation.CenterOwner, SizeToContent = SizeToContent.WidthAndHeight,
-            ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false, MinWidth = 380,
+            ResizeMode = ResizeMode.NoResize, ShowInTaskbar = false, MinWidth = 520,
         };
-        var panel = new StackPanel { Margin = new Thickness(16) };
-        panel.Children.Add(new TextBlock { Text = question, Margin = new Thickness(0, 0, 0, 8), TextWrapping = TextWrapping.Wrap, MaxWidth = 420 });
-        Control input = password ? new PasswordBox() : new TextBox { Text = initial };
+        var panel = new StackPanel { Margin = new Thickness(28, 24, 28, 22) };
+        panel.Children.Add(new TextBlock { Text = title, FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 24, Margin = new Thickness(0, 0, 0, 10) });
+        panel.Children.Add(new TextBlock { Text = question, Margin = new Thickness(0, 0, 0, 12), TextWrapping = TextWrapping.Wrap, MaxWidth = 560, FontSize = 18 });
+        Control input = password ? new PasswordBox { FontSize = 20, MinHeight = 52 } : new TextBox { Text = initial, FontSize = 20, MinHeight = 52 };
         panel.Children.Add(input);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
-        var ok = new Button { Content = "OK", IsDefault = true, MinWidth = 80, Margin = new Thickness(0, 0, 8, 0), Style = (Style)Application.Current.FindResource("AccentButton") };
-        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 80 };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 20, 0, 0) };
+        var ok = new Button { Content = "OK", IsDefault = true, MinWidth = 130, MinHeight = 54, Margin = new Thickness(0, 0, 10, 0), Style = (Style)Application.Current.FindResource("AccentButton") };
+        Look.SetIcon(ok, "");
+        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 130, MinHeight = 54 };
         ok.Click += (_, _) => win.DialogResult = true;
         buttons.Children.Add(ok);
         buttons.Children.Add(cancel);
@@ -101,22 +103,23 @@ public static class Ui
     {
         var win = new Window
         {
-            Title = title, Owner = Owner, WindowStartupLocation = WindowStartupLocation.CenterOwner, Width = 460, Height = 420, ShowInTaskbar = false,
+            Title = title, Owner = Owner, WindowStartupLocation = WindowStartupLocation.CenterOwner, Width = 600, Height = 560, ShowInTaskbar = false,
         };
-        var grid = new Grid { Margin = new Thickness(16) };
+        var grid = new Grid { Margin = new Thickness(24, 20, 24, 20) };
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
         grid.RowDefinitions.Add(new RowDefinition());
         grid.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        grid.Children.Add(new TextBlock { Text = question, Margin = new Thickness(0, 0, 0, 8) });
-        var list = new ListBox { ItemsSource = options, SelectedIndex = options.Count > 0 ? 0 : -1 };
+        grid.Children.Add(new TextBlock { Text = question, Margin = new Thickness(0, 0, 0, 12), FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 22, TextWrapping = TextWrapping.Wrap });
+        var list = new ListBox { ItemsSource = options, SelectedIndex = options.Count > 0 ? 0 : -1, FontSize = 19, Background = (Brush)Application.Current.FindResource("Card") };
         Grid.SetRow(list, 1);
         grid.Children.Add(list);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
-        var ok = new Button { Content = "OK", IsDefault = true, MinWidth = 80, Margin = new Thickness(0, 0, 8, 0), Style = (Style)Application.Current.FindResource("AccentButton") };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 16, 0, 0) };
+        var ok = new Button { Content = "Choose", IsDefault = true, MinWidth = 130, MinHeight = 54, Margin = new Thickness(0, 0, 10, 0), Style = (Style)Application.Current.FindResource("AccentButton") };
+        Look.SetIcon(ok, "");
         ok.Click += (_, _) => win.DialogResult = list.SelectedIndex >= 0;
         list.MouseDoubleClick += (_, _) => win.DialogResult = list.SelectedIndex >= 0;
         buttons.Children.Add(ok);
-        buttons.Children.Add(new Button { Content = "Cancel", IsCancel = true, MinWidth = 80 });
+        buttons.Children.Add(new Button { Content = "Cancel", IsCancel = true, MinWidth = 130, MinHeight = 54 });
         Grid.SetRow(buttons, 2);
         grid.Children.Add(buttons);
         win.Content = grid;

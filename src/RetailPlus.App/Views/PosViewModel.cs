@@ -21,7 +21,7 @@ public sealed partial class PosViewModel : ObservableObject
     private Sale? _lastSale;
 
     [ObservableProperty] private string _codeText = "";
-    [ObservableProperty] private string _clientText = "No client (cash sale)";
+    [ObservableProperty] private string _clientText = "Walk-in customer";
     [ObservableProperty] private string _clientDetail = "";
     [ObservableProperty] private string _subtotalText = "0.00";
     [ObservableProperty] private string _discountText = "0.00";
@@ -30,7 +30,7 @@ public sealed partial class PosViewModel : ObservableObject
     [ObservableProperty] private string _tax1Label = "Tax 1";
     [ObservableProperty] private string _tax2Label = "Tax 2";
     [ObservableProperty] private string _totalText = "0.00";
-    [ObservableProperty] private string _message = "Scan or type a stock code and press Enter. Type 3*CODE to sell 3.";
+    [ObservableProperty] private string _message = "Ready for the next customer. Scan an item, or type its code and press Enter.";
     [ObservableProperty] private bool _returnMode;
     [ObservableProperty] private bool _hasClient;
     [ObservableProperty] private bool _canReward;
@@ -307,7 +307,7 @@ public sealed partial class PosViewModel : ObservableObject
         _draft = new SaleDraft();
         _itemCache.Clear();
         _clientPoints = null;
-        ClientText = "No client (cash sale)";
+        ClientText = "Walk-in customer";
         ClientDetail = "";
         HasClient = false;
         ReturnMode = false;
@@ -347,7 +347,7 @@ public sealed partial class PosViewModel : ObservableObject
         _draft.ClientId = null; _draft.ClientName = null; _draft.CustomerNumber = null; _draft.ClientPriceLevel = 0; _draft.ClientDiscountPercent = 0;
         _draft.ExemptTax1 = false; _draft.ExemptTax2 = false; _draft.PointsRedeemed = 0; _clientPoints = null;
         HasClient = false;
-        ClientText = "No client (cash sale)";
+        ClientText = "Walk-in customer";
         ClientDetail = "";
         Reprice();
     }

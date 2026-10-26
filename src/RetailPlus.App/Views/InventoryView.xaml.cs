@@ -17,6 +17,7 @@ public partial class InventoryView : UserControl, IRefreshable
     public InventoryView()
     {
         InitializeComponent();
+        Layout.AddIcons(this);
         FieldBox.ItemsSource = Enum.GetValues<ItemSearchField>();
         FieldBox.SelectedIndex = 0;
         _searchTimer.Tick += async (_, _) => { _searchTimer.Stop(); await Ui.Try(RefreshAsync); };

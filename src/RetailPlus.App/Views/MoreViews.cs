@@ -32,19 +32,19 @@ public sealed class PurchaseOrdersView : UserControl, IRefreshable
 
     public PurchaseOrdersView()
     {
-        _list.Width = 340;
+        _list.Width = 500;
         _list.SelectionMode = DataGridSelectionMode.Single;
         void Ro(string h, string p, double w, string? f = null) => _lines.Columns.Add(new DataGridTextColumn { Header = h, Binding = new System.Windows.Data.Binding(p) { StringFormat = f }, Width = w < 0 ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(w), IsReadOnly = true });
         void Rw(string h, string p, double w) => _lines.Columns.Add(new DataGridTextColumn { Header = h, Binding = new System.Windows.Data.Binding(p) { UpdateSourceTrigger = System.Windows.Data.UpdateSourceTrigger.LostFocus }, Width = w });
-        Ro("Stock code", nameof(PurchaseOrderLine.Plu), 90);
-        Ro("Description", nameof(PurchaseOrderLine.Description), 190);
-        Ro("Supplier", nameof(PurchaseOrderLine.SupplierName), 110);
-        Ro("On hand", nameof(PurchaseOrderLine.OnHandAtOrder), 65, "0.###");
-        Rw("Case", nameof(PurchaseOrderLine.CaseQuantity), 55);
-        Rw("Order", nameof(PurchaseOrderLine.OrderQuantity), 60);
-        Rw("Cost", nameof(PurchaseOrderLine.CostEach), 70);
-        Ro("Line cost", nameof(PurchaseOrderLine.OrderCost), 80, "N2");
-        Rw("Received", nameof(PurchaseOrderLine.QuantityReceived), 70);
+        Ro("Stock code", nameof(PurchaseOrderLine.Plu), 130);
+        Ro("Description", nameof(PurchaseOrderLine.Description), -1);
+        Ro("Supplier", nameof(PurchaseOrderLine.SupplierName), 140);
+        Ro("On hand", nameof(PurchaseOrderLine.OnHandAtOrder), 100, "0.###");
+        Rw("Case qty", nameof(PurchaseOrderLine.CaseQuantity), 95);
+        Rw("Order qty", nameof(PurchaseOrderLine.OrderQuantity), 105);
+        Rw("Cost each", nameof(PurchaseOrderLine.CostEach), 105);
+        Ro("Line cost", nameof(PurchaseOrderLine.OrderCost), 105, "N2");
+        Rw("Received", nameof(PurchaseOrderLine.QuantityReceived), 105);
 
         var right = new DockPanel();
         DockPanel.SetDock(_title, Dock.Top);
@@ -245,7 +245,7 @@ public sealed class ReportPanel : DockPanel
 /// <summary>The Reports menu: pick a report and a period.</summary>
 public sealed class ReportsView : UserControl, IRefreshable
 {
-    private readonly ListBox _list = new() { Width = 300, Margin = new Thickness(0, 0, 12, 0) };
+    private readonly ListBox _list = new() { Width = 340, Margin = new Thickness(0, 0, 16, 0) };
     private readonly DatePicker _from = new() { SelectedDate = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1), Margin = new Thickness(0, 0, 8, 6) };
     private readonly DatePicker _to = new() { SelectedDate = DateTime.Today, Margin = new Thickness(0, 0, 8, 6) };
     private readonly ContentControl _result = new();
@@ -333,7 +333,7 @@ public sealed class ToolsView : UserControl, IRefreshable
     public ToolsView()
     {
         var cards = new WrapPanel();
-        cards.Children.Add(Card("Import from Retail Plus 5", "Copies a Retail Plus 5.x data folder (SETUP.DBF and the location folders) into this database. Use a copy taken while Retail Plus was closed.", "Import…", Import_Click));
+        cards.Children.Add(Card("Import from Retail Plus 5", "Brings in the data of the old Retail Plus 5 program. Use a copy made while the old program was closed.", "Import…", Import_Click));
         cards.Children.Add(Card("Backup", "Saves a full copy of the database to a .bak file.", "Back up now", Backup_Click));
         cards.Children.Add(Card("Restore", "Replaces the database with a backup. Every station must be closed.", "Restore…", Restore_Click));
         cards.Children.Add(Card("Rebuild", "Checks the database and rebuilds its indexes (the old Reindex).", "Rebuild", Rebuild_Click));
@@ -354,10 +354,12 @@ public sealed class ToolsView : UserControl, IRefreshable
     private static Border Card(string title, string text, string button, RoutedEventHandler click)
     {
         var p = new StackPanel();
-        p.Children.Add(new TextBlock { Text = title, FontWeight = FontWeights.SemiBold, FontSize = 15 });
-        p.Children.Add(new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = Brushes.Gray, Margin = new Thickness(0, 4, 0, 10), Height = 72 });
-        p.Children.Add(Layout.Button(button, click, true));
-        return new Border { Child = p, Width = 300, Padding = new Thickness(14), Margin = new Thickness(0, 0, 12, 12), Background = (Brush)Application.Current.FindResource("Panel"), CornerRadius = new CornerRadius(8) };
+        p.Children.Add(new TextBlock { Text = title, FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 21 });
+        p.Children.Add(new TextBlock { Text = text, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)Application.Current.FindResource("Muted"), Margin = new Thickness(0, 6, 0, 12), Height = 78, FontSize = 16 });
+        var b = Layout.Button(button, click, true);
+        b.HorizontalAlignment = HorizontalAlignment.Left;
+        p.Children.Add(b);
+        return new Border { Child = p, Width = 360, Style = Layout.S("CardBorder"), Margin = new Thickness(0, 0, 16, 16) };
     }
 
     private void Write(string line) => Dispatcher.Invoke(() => { _log.AppendText(line + Environment.NewLine); _log.ScrollToEnd(); });

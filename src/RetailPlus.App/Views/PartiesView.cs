@@ -14,7 +14,7 @@ namespace RetailPlus.App.Views;
 /// <summary>The Clients and Suppliers browse screens (same layout, different columns and actions).</summary>
 public abstract class PartiesView : UserControl, IRefreshable
 {
-    private readonly TextBox _search = new() { Width = 300, Margin = new Thickness(0, 0, 8, 6) };
+    private readonly TextBox _search = new() { Width = 380, Margin = new Thickness(0, 0, 12, 6) };
     private readonly CheckBox _deleted = new() { Content = "Show deleted", Margin = new Thickness(0, 0, 12, 6), VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock _count = new() { Foreground = (System.Windows.Media.Brush)Application.Current.FindResource("Muted"), VerticalAlignment = VerticalAlignment.Center };
     private readonly DispatcherTimer _timer = new() { Interval = TimeSpan.FromMilliseconds(300) };
@@ -57,6 +57,7 @@ public abstract class PartiesView : UserControl, IRefreshable
     protected void AddButton(string text, RoutedEventHandler click, bool accent = false)
     {
         var b = new Button { Content = text, Style = (Style)Application.Current.FindResource(accent ? "AccentButton" : "ToolButton") };
+        Look.SetIcon(b, Layout.IconFor(text));
         b.Click += click;
         Actions.Children.Add(b);
     }
@@ -64,7 +65,7 @@ public abstract class PartiesView : UserControl, IRefreshable
     protected void Col(string header, string path, double width, string? format = null) => Grid.Columns.Add(new DataGridTextColumn
     {
         Header = header, Binding = new Binding(path) { StringFormat = format },
-        Width = width < 0 ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(width),
+        Width = width < 0 ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(Math.Round(width * 1.2)),
     });
 
     protected PartyRow? Current => Grid.SelectedItem as PartyRow;

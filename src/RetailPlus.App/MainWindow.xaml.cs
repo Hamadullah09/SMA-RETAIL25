@@ -26,6 +26,7 @@ public partial class MainWindow : Window
 
     public static readonly IReadOnlyList<NavEntry> AllEntries =
     [
+        new("home", "Dashboard", "", 1, () => new DashboardView()),
         new("pos", "Point of Sale", "", 0, () => new PosView()),
         new("journal", "Sales Journal", "", 1, () => new SalesJournalView()),
         new("inventory", "Inventory", "", 2, () => new InventoryView()),
@@ -39,20 +40,38 @@ public partial class MainWindow : Window
         new("setup", "Setup", "", 3, () => new SetupView()),
     ];
 
+    private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(15) };
+
     public MainWindow()
     {
         InitializeComponent();
         RefreshChrome();
         Nav.SelectedIndex = 0;
         PreviewKeyDown += OnPreviewKeyDown;
+        _clock.Tick += (_, _) => UpdateClock();
+        _clock.Start();
+        UpdateClock();
     }
+
+    private void UpdateClock()
+    {
+        var now = DateTime.Now;
+        ClockText.Text = now.ToString("t", System.Globalization.CultureInfo.CurrentCulture);
+        DateText.Text = now.ToString("dddd, d MMMM yyyy", System.Globalization.CultureInfo.CurrentCulture);
+    }
+
+    private static readonly string[] LevelNames = ["Trainee", "Sales", "Sales and stock", "Supervisor", "Administrator"];
 
     public void RefreshChrome()
     {
         var s = AppServices.Session;
-        StoreName.Text = AppServices.Settings.CompanyName ?? "";
-        UserText.Text = $"{s.UserName} · level {s.AccessLevel}" + (s.IsTrainee ? " (training)" : "");
-        StationText.Text = $"Station {s.StationNumber:000} · {s.LocationCode}";
+        StoreName.Text = string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? "Your store" : AppServices.Settings.CompanyName;
+        UserText.Text = s.UserName;
+        LevelText.Text = LevelNames[Math.Clamp(s.AccessLevel, 0, 4)];
+        Initials.Text = string.Concat(s.UserName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => char.ToUpperInvariant(w[0])));
+        TrainingBadge.Visibility = s.IsTrainee ? Visibility.Visible : Visibility.Collapsed;
+        SettingsButton.Visibility = AppServices.Can(3) ? Visibility.Visible : Visibility.Collapsed;
+        StationText.Text = $"Station {s.StationNumber:000}  ·  Location {s.LocationCode}";
         DatabaseText.Text = $"Database {AppServices.Data.DatabaseName}";
         Title = $"Retail Plus — {AppServices.Settings.CompanyName}";
         var selected = (Nav.SelectedItem as NavEntry)?.Key;
@@ -95,6 +114,20 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Settings_Click(object sender, RoutedEventArgs e) => Navigate("setup");
+
+    private void Help_Click(object sender, RoutedEventArgs e) => Ui.Info(
+        "Ctrl + 1 … 9:  open a screen from the list on the left\n\n" +
+        "On the Point of Sale screen:\n" +
+        "Enter:  add the item whose code you typed (or pay, when the box is empty)\n" +
+        "3*CODE:  sell 3 of an item\n" +
+        "F3:  find an item\n" +
+        "F4:  choose a client\n" +
+        "F5:  change the quantity\n" +
+        "F6:  change the price\n" +
+        "F12:  pay\n" +
+        "Delete:  remove the chosen line", "Keyboard keys");
+
     private void SwitchUser_Click(object sender, RoutedEventArgs e)
     {
         var login = new LoginWindow { Owner = this };
@@ -123,7 +156,44 @@ public partial class MainWindow : Window
                 Log.Write($"Screenshot {entry.Key} failed: {ex}");
             }
         }
+        failures += await ShootDialogsAsync(folder);
         return failures == 0 ? 0 : 4;
+    }
+
+    /// <summary>Screenshots of the main dialogs, opened without waiting for input.</summary>
+    private async Task<int> ShootDialogsAsync(string folder)
+    {
+        int failures = 0;
+        async Task Shoot(string name, Func<Task<Window>> make)
+        {
+            try
+            {
+                var w = await make();
+                w.Owner = this;
+                w.WindowStartupLocation = WindowStartupLocation.CenterOwner;
+                w.Show();
+                await Settle();
+                SaveWindow(w, Path.Combine(folder, $"dlg-{name}.png"));
+                w.Close();
+                Log.Write($"Screenshot dialog {name} ok");
+            }
+            catch (Exception ex)
+            {
+                failures++;
+                Log.Write($"Screenshot dialog {name} failed: {ex}");
+            }
+        }
+        await Shoot("pay", async () => new PayWindow(123.45m, await AppServices.Setup.GetTenderTypesAsync(), AppServices.Settings.MinimumTender, false, false));
+        await Shoot("message", () => Task.FromResult<Window>(new MessageWindow("Cancel this sale?", "All the lines on the screen will be removed. Nothing is saved.", MessageKind.Question)));
+        await Shoot("client", () => Task.FromResult<Window>(new PartyEditorWindow(new Core.Model.Client { FirstName = "Sam", LastName = "Example" })));
+        await Shoot("item", async () =>
+        {
+            var row = (await AppServices.Inventory.SearchAsync(AppServices.Session.LocationId, null, take: 1)).FirstOrDefault();
+            var item = row is null ? new Core.Model.Item { Plu = "NEW1", Name = "New item" } : (await AppServices.Inventory.GetAsync(row.Id))!;
+            return new ItemEditorWindow(item);
+        });
+        await Shoot("login", () => Task.FromResult<Window>(new LoginWindow()));
+        return failures;
     }
 
     public static async Task Settle()
@@ -132,19 +202,15 @@ public partial class MainWindow : Window
         await Application.Current.Dispatcher.InvokeAsync(() => { }, DispatcherPriority.ApplicationIdle);
     }
 
-    public void Save(string file) => SaveVisual((FrameworkElement)Content, file);
+    public void Save(string file) => SaveWindow(this, file);
 
-    public static void SaveVisual(FrameworkElement element, string file)
+    /// <summary>Renders a window's client area (background, margins and all) to a PNG.</summary>
+    public static void SaveWindow(Window window, string file)
     {
-        element.UpdateLayout();
-        var bmp = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth), (int)Math.Ceiling(element.ActualHeight), 96, 96, PixelFormats.Pbgra32);
-        var visual = new DrawingVisual();
-        using (var dc = visual.RenderOpen())
-        {
-            dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, element.ActualWidth, element.ActualHeight));
-            dc.DrawRectangle(new VisualBrush(element), null, new Rect(0, 0, element.ActualWidth, element.ActualHeight));
-        }
-        bmp.Render(visual);
+        var root = (FrameworkElement)VisualTreeHelper.GetChild(window, 0);
+        root.UpdateLayout();
+        var bmp = new RenderTargetBitmap((int)Math.Ceiling(root.ActualWidth), (int)Math.Ceiling(root.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+        bmp.Render(root);
         var encoder = new PngBitmapEncoder();
         encoder.Frames.Add(BitmapFrame.Create(bmp));
         using var stream = File.Create(file);

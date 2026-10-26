@@ -262,6 +262,39 @@ public sealed class ServiceTests(LocalDbFixture db) : IClassFixture<LocalDbFixtu
     }
 
     [SkippableFact]
+    public async Task Dashboard_shows_today_the_week_stock_and_drawer()
+    {
+        var (session, location) = await SetUpAsync();
+        var item = await ItemAsync(location.Id, "D1", 10m, 3);
+        await using (var ctx = db.CreateContext())
+        {
+            var i = await ctx.Items.SingleAsync(x => x.Id == item.Id);
+            i.ReorderPoint = 5;
+            await ctx.SaveChangesAsync();
+        }
+        await ItemAsync(location.Id, "D2", 5m, 0);
+        await ItemAsync(location.Id, "D3", 5m, 50);
+        await new SalesService(Data).PostSaleAsync(new SaleDraft { Lines = [Line(item, 1)] }, [Cash(11.20m)], session);
+
+        var d = await new DashboardService(Data).LoadAsync(session);
+
+        Assert.Equal(11.2m, d.SalesToday);
+        Assert.Equal(1, d.CustomersToday);
+        Assert.Equal(7, d.Week.Count);
+        Assert.Equal(11.2m, d.Week[^1].Total);
+        Assert.True(d.PaymentsAreToday);
+        Assert.Equal(100m, Assert.Single(d.Payments).Percent);
+        Assert.Equal(3, d.ItemCount);
+        Assert.Equal(1, d.ItemsLow);
+        Assert.Equal(1, d.ItemsOut);
+        Assert.Equal(1, d.ItemsInStock);
+        Assert.Equal(["D2", "D1"], d.ToReorder.Select(r => r.Plu));
+        Assert.Equal(11.2m, d.ExpectedCash);
+        Assert.NotNull(d.DrawerOpenedAt);
+        Assert.Equal(11.2m, Assert.Single(d.Recent).Total);
+    }
+
+    [SkippableFact]
     public async Task Backup_writes_a_file()
     {
         Skip.IfNot(db.Available, db.UnavailableReason);

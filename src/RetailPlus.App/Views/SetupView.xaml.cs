@@ -17,6 +17,7 @@ public partial class SetupView : UserControl, IRefreshable
     public SetupView()
     {
         InitializeComponent();
+        Layout.AddIcons(this);
         KindColumn.ItemsSource = Enum.GetValues<TenderKind>();
         PanelBox.ItemsSource = Enumerable.Range(0, 26).ToList();
         PrinterBox.ItemsSource = InstalledPrinters();

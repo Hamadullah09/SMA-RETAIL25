@@ -91,23 +91,35 @@ public sealed class LoginWindow : Window
     public LoginWindow()
     {
         Title = "Retail Plus — log in";
-        Width = 380;
+        Width = 540;
         SizeToContent = SizeToContent.Height;
         WindowStartupLocation = WindowStartupLocation.CenterScreen;
         ResizeMode = ResizeMode.NoResize;
-        var p = new StackPanel { Margin = new Thickness(22) };
-        p.Children.Add(new TextBlock { Text = "Retail Plus", FontSize = 22, FontWeight = FontWeights.Bold, Foreground = (Brush)Application.Current.FindResource("Brand") });
-        p.Children.Add(new TextBlock { Text = AppServices.Settings.CompanyName ?? "", Foreground = Brushes.Gray, Margin = new Thickness(0, 0, 0, 14) });
-        p.Children.Add(new TextBlock { Text = "User name" });
+        var p = new StackPanel { Margin = new Thickness(36, 30, 36, 28) };
+        var brand = new Border { BorderBrush = Look.Brush("Charcoal"), BorderThickness = new Thickness(1.5), CornerRadius = new CornerRadius(30), Padding = new Thickness(24, 8, 24, 8), HorizontalAlignment = HorizontalAlignment.Left };
+        brand.Child = new TextBlock { Text = "Retail Plus", FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 28 };
+        p.Children.Add(brand);
+        p.Children.Add(new TextBlock { Text = string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? "Welcome" : "Welcome to " + AppServices.Settings.CompanyName,
+            FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 26, Margin = new Thickness(0, 22, 0, 4) });
+        p.Children.Add(new TextBlock { Text = "Please type your name and password.", Foreground = Look.Brush("Muted"), FontSize = 17, Margin = new Thickness(0, 0, 0, 18) });
+        p.Children.Add(new TextBlock { Text = "User name", FontSize = 18, Margin = new Thickness(2, 0, 0, 6) });
+        _user.FontSize = 20;
+        _user.MinHeight = 54;
         p.Children.Add(_user);
-        p.Children.Add(new TextBlock { Text = "Password", Margin = new Thickness(0, 10, 0, 0) });
+        p.Children.Add(new TextBlock { Text = "Password", FontSize = 18, Margin = new Thickness(2, 14, 0, 6) });
+        _password.FontSize = 20;
+        _password.MinHeight = 54;
         p.Children.Add(_password);
+        _message.FontSize = 17;
         p.Children.Add(_message);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 14, 0, 0) };
-        var ok = new Button { Content = "Log in", IsDefault = true, MinWidth = 90, Margin = new Thickness(0, 0, 8, 0), Style = (Style)Application.Current.FindResource("AccentButton") };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 22, 0, 0) };
+        var ok = new Button { Content = "Log in", IsDefault = true, MinWidth = 150, MinHeight = 56, FontSize = 19, Margin = new Thickness(0, 0, 10, 0), Style = (Style)Application.Current.FindResource("AccentButton") };
+        Look.SetIcon(ok, "");
         ok.Click += async (_, _) => await LoginAsync();
         buttons.Children.Add(ok);
-        buttons.Children.Add(new Button { Content = "Cancel", IsCancel = true, MinWidth = 90 });
+        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 150, MinHeight = 56, FontSize = 19 };
+        Look.SetIcon(cancel, "");
+        buttons.Children.Add(cancel);
         p.Children.Add(buttons);
         Content = p;
         Loaded += (_, _) => _user.Focus();

@@ -19,11 +19,11 @@ public sealed class PayWindow : Window
     private readonly bool _hasClient;
     private readonly bool _layaway;
     private readonly ObservableCollection<TenderEntry> _tenders = [];
-    private readonly TextBox _amount = new() { FontSize = 26, HorizontalContentAlignment = HorizontalAlignment.Right };
-    private readonly TextBlock _due = new() { FontSize = 34, FontWeight = FontWeights.Bold };
-    private readonly TextBlock _dueLabel = new() { Foreground = Brushes.Gray };
-    private readonly TextBlock _change = new() { FontSize = 20, FontWeight = FontWeights.SemiBold, Foreground = Brushes.DarkGreen };
-    private readonly Button _finish = new() { Content = "Finish sale", MinWidth = 140, FontSize = 16, Padding = new Thickness(10, 8, 10, 8), IsEnabled = false };
+    private readonly TextBox _amount = new() { FontSize = 32, MinHeight = 64, HorizontalContentAlignment = HorizontalAlignment.Right, Padding = new Thickness(14, 8, 14, 8) };
+    private readonly TextBlock _due = new() { FontSize = 56, FontFamily = new FontFamily("Century Gothic, Segoe UI"), Foreground = Infrastructure.Look.Brush("Sun") };
+    private readonly TextBlock _dueLabel = new() { Foreground = new SolidColorBrush(Color.FromRgb(0xB9, 0xB5, 0xAC)), FontSize = 18 };
+    private readonly TextBlock _change = new() { FontSize = 26, FontWeight = FontWeights.SemiBold, Foreground = Infrastructure.Look.Brush("Ok"), Margin = new Thickness(0, 10, 0, 0) };
+    private readonly Button _finish = new() { Content = "Finish sale", MinWidth = 190, MinHeight = 60, FontSize = 19, IsEnabled = false };
     private static CultureInfo C => CultureInfo.CurrentCulture;
 
     public IReadOnlyList<TenderEntry> Tenders => _tenders;
@@ -35,38 +35,61 @@ public sealed class PayWindow : Window
         _hasClient = hasClient;
         _layaway = layaway;
         Title = layaway ? "Layaway deposit" : "Pay";
-        Width = 640;
+        Width = 760;
         SizeToContent = SizeToContent.Height;
         Owner = Infrastructure.Ui.Owner;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
         ResizeMode = ResizeMode.NoResize;
 
-        var root = new StackPanel { Margin = new Thickness(20) };
-        root.Children.Add(_dueLabel);
-        root.Children.Add(_due);
-        root.Children.Add(new TextBlock { Text = "Amount tendered", Margin = new Thickness(0, 12, 0, 4) });
+        var root = new StackPanel { Margin = new Thickness(26, 22, 26, 22) };
+        var dark = new Border { Style = (Style)Application.Current.FindResource("DarkCard"), Padding = new Thickness(26, 18, 26, 18) };
+        var darkPanel = new StackPanel();
+        darkPanel.Children.Add(_dueLabel);
+        darkPanel.Children.Add(_due);
+        dark.Child = darkPanel;
+        root.Children.Add(dark);
+        root.Children.Add(new TextBlock { Text = "How much did the customer give?", FontSize = 18, Margin = new Thickness(4, 18, 0, 6) });
         root.Children.Add(_amount);
-        var keys = new WrapPanel { Margin = new Thickness(0, 12, 0, 0) };
+        root.Children.Add(new TextBlock { Text = "Then touch how they paid:", FontSize = 18, Margin = new Thickness(4, 16, 0, 6) });
+        var keys = new WrapPanel();
         foreach (var t in tenderTypes)
         {
-            var b = new Button { Content = t.Name, MinWidth = 108, Padding = new Thickness(8, 12, 8, 12), Margin = new Thickness(0, 0, 8, 8), Tag = t, FontSize = 14 };
-            if (t.Kind == TenderKind.Cash) b.Style = (Style)Application.Current.FindResource("AccentButton");
+            var b = new Button { Content = t.Name, MinWidth = 150, MinHeight = 76, Margin = new Thickness(0, 0, 10, 10), Tag = t, FontSize = 18 };
+            b.Style = (Style)Application.Current.FindResource(t.Kind == TenderKind.Cash ? "AccentButton" : "ToolButton");
+            b.Margin = new Thickness(0, 0, 10, 10);
+            Infrastructure.Look.SetCornerRadius(b, new CornerRadius(20));
+            Infrastructure.Look.SetIcon(b, t.Kind switch
+            {
+                TenderKind.Cash => "",
+                TenderKind.Card => "",
+                TenderKind.Cheque => "",
+                TenderKind.OnAccount => "",
+                TenderKind.GiftCard => "",
+                _ => "",
+            });
             b.Click += (_, _) => AddTender((TenderType)b.Tag);
             keys.Children.Add(b);
         }
         root.Children.Add(keys);
-        var list = new ListBox { ItemsSource = _tenders, Height = 110, Margin = new Thickness(0, 6, 0, 0) };
+        var list = new ListBox { ItemsSource = _tenders, MaxHeight = 170, Margin = new Thickness(0, 6, 0, 0), Visibility = Visibility.Collapsed };
+        _tenders.CollectionChanged += (_, _) => list.Visibility = _tenders.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         list.ItemTemplate = new DataTemplate { VisualTree = TenderTemplate() };
         root.Children.Add(list);
         root.Children.Add(_change);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
-        var clear = new Button { Content = "Remove last payment", Margin = new Thickness(0, 0, 8, 0) };
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) };
+        var clear = new Button { Content = "Undo last payment", MinHeight = 60, Margin = new Thickness(0, 0, 10, 0) };
+        Infrastructure.Look.SetIcon(clear, "");
         clear.Click += (_, _) => { if (_tenders.Count > 0) _tenders.RemoveAt(_tenders.Count - 1); Update(); };
-        _finish.Style = (Style)Application.Current.FindResource("AccentButton");
+        _finish.Style = (Style)Application.Current.FindResource("DarkButton");
+        _finish.MinHeight = 60;
+        _finish.Margin = new Thickness(0, 0, 10, 0);
+        Infrastructure.Look.SetIcon(_finish, "");
         _finish.Click += (_, _) => DialogResult = true;
         buttons.Children.Add(clear);
         buttons.Children.Add(_finish);
-        buttons.Children.Add(new Button { Content = "Back to sale", IsCancel = true, Margin = new Thickness(8, 0, 0, 0) });
+        var back = new Button { Content = "Back to sale", IsCancel = true, MinHeight = 60 };
+        Infrastructure.Look.SetIcon(back, "");
+        buttons.Children.Add(back);
         root.Children.Add(buttons);
         Content = root;
         Update();
@@ -85,7 +108,8 @@ public sealed class PayWindow : Window
     {
         var f = new FrameworkElementFactory(typeof(TextBlock));
         f.SetBinding(TextBlock.TextProperty, new System.Windows.Data.Binding { Converter = new TenderText() });
-        f.SetValue(TextBlock.FontSizeProperty, 14.0);
+        f.SetValue(TextBlock.FontSizeProperty, 19.0);
+        f.SetValue(TextBlock.FontFamilyProperty, new FontFamily("Consolas"));
         return f;
     }
 
@@ -162,7 +186,7 @@ public sealed class PayWindow : Window
         if (cashSoFar && target != _total && _tenders.Count == 0) _dueLabel.Text += $"  (cash: {target.ToString("N2", C)})";
         _amount.Text = Math.Max(0, remaining).ToString("0.00", C);
         var change = _tenders.Sum(t => t.Change);
-        _change.Text = change > 0 ? $"Change: {change.ToString("N2", C)}" : "";
+        _change.Text = change > 0 ? $"Give back (change):  {change.ToString("N2", C)}" : "";
         bool settled = Settled;
         _finish.IsEnabled = settled || (_layaway && _tenders.Count > 0) || (_total == 0);
         if (_layaway) _finish.Content = settled ? "Finish layaway" : "Leave rest owing";

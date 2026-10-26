@@ -19,6 +19,7 @@ public partial class ItemEditorWindow : Window
     public ItemEditorWindow(Item item)
     {
         InitializeComponent();
+        Views.Layout.AddIcons(this);
         _item = item;
         DataContext = item;
         HeaderText.Text = item.Id == 0 ? "New item" : $"{item.Plu} — {item.Name}";

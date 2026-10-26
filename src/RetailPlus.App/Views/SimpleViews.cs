@@ -18,8 +18,38 @@ internal static class Layout
     public static Button Button(string text, RoutedEventHandler click, bool accent = false)
     {
         var b = new Button { Content = text, Style = S(accent ? "AccentButton" : "ToolButton") };
+        Look.SetIcon(b, IconFor(text));
         b.Click += click;
         return b;
+    }
+
+    /// <summary>Gives every text button under <paramref name="root"/> that has no icon yet the icon for its text.</summary>
+    public static void AddIcons(DependencyObject root)
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+        {
+            if (child is Button { Content: string text } b && Look.GetIcon(b) is null) Look.SetIcon(b, IconFor(text));
+            AddIcons(child);
+        }
+    }
+
+    /// <summary>An icon for a button, chosen from the first word(s) of its text so that the same action looks the same everywhere.</summary>
+    public static string? IconFor(string text)
+    {
+        var t = text.ToUpperInvariant();
+        (string Start, string Glyph)[] map =
+        [
+            ("NEW", ""), ("ADD", ""), ("EDIT", ""), ("DUPLICATE", ""), ("DELETE", ""), ("UNDELETE", ""),
+            ("REMOVE", ""), ("SHOW", ""), ("RUN", ""), ("PRINT", ""), ("SAVE", ""), ("EXPORT", ""),
+            ("IMPORT", ""), ("TAKE PAYMENT", ""), ("DISTRIBUTE", ""), ("SELL", ""), ("STATEMENT", ""),
+            ("LATE", ""), ("VOID", ""), ("VIEW", ""), ("POST ORDER", ""), ("POST SHIPMENT", ""),
+            ("RECEIVE", ""), ("TODAY", ""), ("THIS", ""), ("MARK", ""), ("CLOSE", ""), ("FLAG", ""),
+            ("CLEAR", ""), ("CHANGE PRICES", ""), ("COPY", ""), ("ADJUST", ""), ("BACK UP", ""),
+            ("CANCEL", ""), ("TEST", ""), ("CHANGE LEVEL", ""), ("SET PASSWORD", ""), ("RESTORE", ""), ("REBUILD", ""), ("YEAR", ""), ("IMPORT…", ""),
+        ];
+        foreach (var (start, glyph) in map)
+            if (t.StartsWith(start, StringComparison.Ordinal)) return glyph;
+        return null;
     }
 
     public static DataGridTextColumn Col(string header, string path, double width = -1, string? format = null, bool right = false)
@@ -27,7 +57,8 @@ internal static class Layout
         var c = new DataGridTextColumn
         {
             Header = header, Binding = new Binding(path) { StringFormat = format },
-            Width = width < 0 ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(width),
+            // Widths were chosen for 14 px text; the larger text needs about a fifth more room.
+            Width = width < 0 ? new DataGridLength(1, DataGridLengthUnitType.Star) : new DataGridLength(Math.Round(width * 1.2)),
         };
         if (right) c.ElementStyle = S("Right");
         return c;
