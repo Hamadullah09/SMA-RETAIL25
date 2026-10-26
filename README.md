@@ -43,6 +43,19 @@ Screens: Point of Sale, Sales Journal, Inventory, Clients, Suppliers, Invoices &
 
 Automated checks: `--smoke` opens every screen, runs every report and rings up a sale, then exits 0 on success; `--screenshot-tour <folder>` saves a PNG of each screen. Both write to `%LOCALAPPDATA%\RetailPlus\retailplus-check.log`.
 
+## Barcodes, labels and keyboard
+
+Items carry a product barcode (UPC-A, EAN-13 or EAN-8, check digit verified). An item without the maker's barcode gets
+an in-store UPC-A: number system 4, the shop's own number and the check digit (*Inventory › item › Make one*, or
+automatically when its labels are printed). A USB barcode scanner works as a keyboard: at the POS whatever is scanned
+or typed goes into the code box, wherever the focus is, so scanning and RFID work at the same time; the same item
+scanned twice is one line with quantity 2, and an RFID tag read for a piece already scanned joins that piece.
+*Inventory › Print labels* prints barcode labels (item, price, UPC-A) on a label printer (50 × 30 or 38 × 25 mm) or
+on A4 sheets of 24.
+
+Everything can be done from the keyboard, and every button shows its key (F12 pay, F5 quantity, Ctrl+P print,
+Ctrl+1 … Ctrl+0 for the screens; Enter and Esc on OK and Cancel). F1 lists them.
+
 ## RFID
 
 Tagged items ring up by themselves at the POS, alongside barcodes. Readers (D2184, TCP/IP or serial), their four

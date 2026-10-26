@@ -6,7 +6,7 @@ namespace RetailPlus.App.Infrastructure;
 
 /// <summary>
 /// Attached properties the theme's templates read: an icon glyph (Segoe MDL2 Assets) shown before a button's text, a
-/// corner radius, and a placeholder text for text boxes.
+/// corner radius, a placeholder text for text boxes, and the keyboard shortcut a button shows as a key badge.
 /// </summary>
 public static class Look
 {
@@ -27,6 +27,13 @@ public static class Look
 
     public static string? GetPlaceholder(DependencyObject o) => (string?)o.GetValue(PlaceholderProperty);
     public static void SetPlaceholder(DependencyObject o, string? value) => o.SetValue(PlaceholderProperty, value);
+
+    /// <summary>The key that presses the button ("F5", "Ctrl+P"), shown on it; see <see cref="Shortcuts"/>.</summary>
+    public static readonly DependencyProperty ShortcutProperty = DependencyProperty.RegisterAttached(
+        "Shortcut", typeof(string), typeof(Look), new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsMeasure));
+
+    public static string? GetShortcut(DependencyObject o) => (string?)o.GetValue(ShortcutProperty);
+    public static void SetShortcut(DependencyObject o, string? value) => o.SetValue(ShortcutProperty, value);
 
     /// <summary>Called once at start-up, before any window opens: larger text and the warm background everywhere.</summary>
     public static void ApplyDefaults()

@@ -21,6 +21,32 @@ public partial class InventoryView : UserControl, IRefreshable
         FieldBox.ItemsSource = Enum.GetValues<ItemSearchField>();
         FieldBox.SelectedIndex = 0;
         _searchTimer.Tick += async (_, _) => { _searchTimer.Stop(); await Ui.Try(RefreshAsync); };
+        PreviewKeyDown += (_, e) =>
+        {
+            if (e.Key == System.Windows.Input.Key.F && System.Windows.Input.Keyboard.Modifiers == System.Windows.Input.ModifierKeys.Control)
+            {
+                e.Handled = true;
+                SearchBox.Focus();
+                SearchBox.SelectAll();
+            }
+        };
+    }
+
+    /// <summary>Enter on the list opens the chosen item.</summary>
+    private void Grid_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != System.Windows.Input.Key.Enter || Current is null) return;
+        e.Handled = true;
+        Edit_Click(sender, e);
+    }
+
+    private async void Labels_Click(object sender, RoutedEventArgs e)
+    {
+        var rows = ItemsGrid.SelectedItems.OfType<ItemRow>().ToList();
+        if (rows.Count == 0) rows = (ItemsGrid.ItemsSource as IEnumerable<ItemRow>)?.ToList() ?? [];
+        if (rows.Count == 0) { Ui.Info("There are no items to print labels for."); return; }
+        new LabelsWindow(rows.Where(r => !r.IsDeleted).ToList()) { Owner = Window.GetWindow(this) }.ShowDialog();
+        await Ui.Try(RefreshAsync);
     }
 
     private int LocationId => (LocationBox.SelectedItem as Location)?.Id ?? AppServices.Session.LocationId;
@@ -78,6 +104,7 @@ public partial class InventoryView : UserControl, IRefreshable
         item.Id = 0;
         item.RowVersion = [];
         item.Plu = "";
+        item.Barcode = null;
         item.OnHand = 0;
         item.OnOrder = 0;
         item.Serials.Clear();

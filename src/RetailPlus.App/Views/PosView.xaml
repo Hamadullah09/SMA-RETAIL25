@@ -19,14 +19,14 @@
 
             <!-- Scan / type box. -->
             <DockPanel>
-                <Button DockPanel.Dock="Right" Content="Find item" infra:Look.Icon="&#xE721;" Style="{StaticResource AccentButton}" Margin="10,0,0,0" MinHeight="62" FontSize="19"
-                        ToolTip="Search the inventory by name (F3)" Click="Find_Click" />
-                <Button DockPanel.Dock="Right" Content="Item without code" infra:Look.Icon="&#xE710;" Margin="10,0,0,0" MinHeight="62"
+                <Button DockPanel.Dock="Right" Content="Find item" infra:Look.Icon="&#xE721;" infra:Look.Shortcut="F3" Style="{StaticResource AccentButton}" Margin="10,0,0,0" MinHeight="62" FontSize="19"
+                        ToolTip="Search the inventory by name" Click="Find_Click" />
+                <Button DockPanel.Dock="Right" Content="Item without code" infra:Look.Icon="&#xE710;" infra:Look.Shortcut="F2" Margin="10,0,0,0" MinHeight="62"
                         ToolTip="Sell something that is not in the inventory" Click="OpenItem_Click" />
                 <Grid>
                     <TextBox x:Name="CodeBox" FontSize="22" MinHeight="62" Padding="50,10,12,10" Text="{Binding CodeText, UpdateSourceTrigger=PropertyChanged}" KeyDown="CodeBox_KeyDown" />
                     <TextBlock Text="&#xE8EC;" Style="{StaticResource Icon}" HorizontalAlignment="Left" Margin="18,0,0,0" FontSize="20" Foreground="{StaticResource Muted}" IsHitTestVisible="False" />
-                    <TextBlock Text="Scan a barcode or type an item code, then press Enter" Margin="52,0,12,0" VerticalAlignment="Center" FontSize="19"
+                    <TextBlock Text="Scan a barcode (or RFID) or type a code, then Enter" Margin="52,0,12,0" VerticalAlignment="Center" FontSize="19"
                                Foreground="{StaticResource Muted}" IsHitTestVisible="False" TextTrimming="CharacterEllipsis">
                         <TextBlock.Style>
                             <Style TargetType="TextBlock">
@@ -46,17 +46,17 @@
             <Border Grid.Row="1" Style="{StaticResource CardBorder}" Padding="14,10" Margin="0,14,0,14">
                 <DockPanel>
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="Use points" infra:Look.Icon="&#xE734;" Style="{StaticResource AccentButton}" Margin="8,0,0,0" Click="Reward_Click"
+                        <Button Content="Use points" infra:Look.Icon="&#xE734;" infra:Look.Shortcut="F11" Style="{StaticResource AccentButton}" Margin="8,0,0,0" Click="Reward_Click"
                                 Visibility="{Binding CanReward, Converter={StaticResource BoolToVis}}" />
-                        <Button Margin="8,0,0,0" Click="Rfid_Click" ToolTip="Pause or resume RFID reading at this counter"
+                        <Button Margin="8,0,0,0" Click="Rfid_Click" ToolTip="Pause or resume RFID reading at this counter" infra:Look.Shortcut="Ctrl+K"
                                 Visibility="{Binding RfidVisible, Converter={StaticResource BoolToVis}}">
                             <StackPanel Orientation="Horizontal">
                                 <Ellipse Width="12" Height="12" Fill="{Binding RfidBrush}" Margin="0,0,9,0" VerticalAlignment="Center" />
                                 <TextBlock Text="{Binding RfidText}" VerticalAlignment="Center" />
                             </StackPanel>
                         </Button>
-                        <Button Content="Choose client" infra:Look.Icon="&#xE716;" Style="{StaticResource DarkButton}" Margin="8,0,0,0" ToolTip="F4" Click="Client_Click" />
-                        <Button Content="Remove" infra:Look.Icon="&#xE711;" Margin="8,0,0,0" Click="ClearClient_Click"
+                        <Button Content="Choose client" infra:Look.Icon="&#xE716;" infra:Look.Shortcut="F4" Style="{StaticResource DarkButton}" Margin="8,0,0,0" Click="Client_Click" />
+                        <Button Content="Remove" infra:Look.Icon="&#xE711;" infra:Look.Shortcut="Shift+F4" Margin="8,0,0,0" Click="ClearClient_Click"
                                 Visibility="{Binding HasClient, Converter={StaticResource BoolToVis}}" />
                     </StackPanel>
                     <Border Width="50" Height="50" CornerRadius="25" Background="{StaticResource SunLight}" Margin="0,0,14,0">
@@ -82,6 +82,7 @@
                     <DataGridTextColumn Header="Code" Binding="{Binding Plu}" Width="120" />
                     <DataGridTextColumn Header="Option" Binding="{Binding VariantText}" Width="90" />
                     <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat=0.###}" Width="70" ElementStyle="{StaticResource Right}" />
+                    <DataGridTextColumn Header="RFID" Binding="{Binding Epcs.Count, StringFormat={}{0:#}}" Width="70" ElementStyle="{StaticResource Right}" />
                     <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat=N2}" Width="100" ElementStyle="{StaticResource Right}" />
                     <DataGridTextColumn Header="Discount" Binding="{Binding DiscountAmount, StringFormat=N2}" Width="100" ElementStyle="{StaticResource Right}" />
                     <DataGridTextColumn Header="Total" Binding="{Binding LineTotal, StringFormat=N2}" Width="110" ElementStyle="{StaticResource Right}" FontWeight="Bold" />
@@ -152,29 +153,29 @@
             </Border>
 
             <Button Grid.Row="1" Content="PAY" infra:Look.Icon="&#xE8C7;" Style="{StaticResource AccentButton}" FontSize="28" MinHeight="86" Margin="0,12,0,8"
-                    infra:Look.CornerRadius="30" ToolTip="Take the payment (F12)" Click="Pay_Click" />
+                    infra:Look.CornerRadius="30" infra:Look.Shortcut="F12" ToolTip="Take the payment" Click="Pay_Click" />
 
             <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Focusable="False">
                 <UniformGrid Columns="3" Margin="-4,0,-4,0">
-                    <Button Content="Change quantity" infra:Look.Icon="&#xE8EF;" Style="{StaticResource PosButton}" ToolTip="F5" Click="Qty_Click" />
-                    <Button Content="Change price" infra:Look.Icon="&#xE8EC;" Style="{StaticResource PosButton}" ToolTip="F6" Click="Price_Click" />
-                    <Button Content="Remove line" infra:Look.Icon="&#xE74D;" Style="{StaticResource PosButton}" ToolTip="Delete key" Click="Remove_Click" />
-                    <Button Content="Discount on line" infra:Look.Icon="&#xE734;" Style="{StaticResource PosButton}" Click="LineDiscount_Click" />
-                    <Button Content="Discount on sale" infra:Look.Icon="&#xE735;" Style="{StaticResource PosButton}" Click="SubtotalDiscount_Click" />
-                    <ToggleButton Content="Return / refund" infra:Look.Icon="&#xE7A7;" Style="{StaticResource PosToggle}" IsChecked="{Binding ReturnMode}"
+                    <Button Content="Change quantity" infra:Look.Icon="&#xE8EF;" Style="{StaticResource PosButton}" infra:Look.Shortcut="F5" Click="Qty_Click" />
+                    <Button Content="Change price" infra:Look.Icon="&#xE8EC;" Style="{StaticResource PosButton}" infra:Look.Shortcut="F6" Click="Price_Click" />
+                    <Button Content="Remove line" infra:Look.Icon="&#xE74D;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Del" Click="Remove_Click" />
+                    <Button Content="Discount on line" infra:Look.Icon="&#xE734;" Style="{StaticResource PosButton}" infra:Look.Shortcut="F7" Click="LineDiscount_Click" />
+                    <Button Content="Discount on sale" infra:Look.Icon="&#xE735;" Style="{StaticResource PosButton}" infra:Look.Shortcut="F8" Click="SubtotalDiscount_Click" />
+                    <ToggleButton Content="Return / refund" infra:Look.Icon="&#xE7A7;" Style="{StaticResource PosToggle}" infra:Look.Shortcut="F9" IsChecked="{Binding ReturnMode}"
                                   ToolTip="The next item is taken back" />
-                    <Button Content="Put on hold" infra:Look.Icon="&#xE769;" Style="{StaticResource PosButton}" Click="Suspend_Click" />
-                    <Button Content="Bring back" infra:Look.Icon="&#xE768;" Style="{StaticResource PosButton}" ToolTip="Recall a sale put on hold" Click="Recall_Click" />
-                    <Button Content="Save as quote" infra:Look.Icon="&#xE8A5;" Style="{StaticResource PosButton}" Click="Quote_Click" />
-                    <Button Content="Layaway" infra:Look.Icon="&#xE787;" Style="{StaticResource PosButton}" Click="Layaway_Click" />
-                    <Button Content="Print last receipt" infra:Look.Icon="&#xE749;" Style="{StaticResource PosButton}" Click="Reprint_Click" />
-                    <Button Content="Open drawer" infra:Look.Icon="&#xE8B7;" Style="{StaticResource PosButton}" ToolTip="No sale" Click="NoSale_Click" />
-                    <Button Content="Money in" infra:Look.Icon="&#xE710;" Style="{StaticResource PosButton}" Background="{StaticResource Cream}" ToolTip="Pay in" Click="PayIn_Click" />
-                    <Button Content="Money out" infra:Look.Icon="&#xE738;" Style="{StaticResource PosButton}" Background="{StaticResource Cream}" ToolTip="Pay out" Click="PayOut_Click" />
-                    <Button Content="Starting cash" infra:Look.Icon="&#xE8C7;" Style="{StaticResource PosButton}" Background="{StaticResource Cream}" ToolTip="Opening float" Click="Float_Click" />
-                    <Button Content="Drawer report" infra:Look.Icon="&#xE9D2;" Style="{StaticResource PosButton}" Background="{StaticResource Cream}" ToolTip="X report" Click="XReport_Click" />
-                    <Button Content="End of day" infra:Look.Icon="&#xE708;" Style="{StaticResource PosButton}" Background="{StaticResource Cream}" ToolTip="Z report: close the drawer" Click="EndOfDay_Click" />
-                    <Button Content="Cancel sale" infra:Look.Icon="&#xE711;" Style="{StaticResource PosButton}" Background="{StaticResource DangerLight}" Foreground="{StaticResource Danger}"
+                    <Button Content="Put on hold" infra:Look.Icon="&#xE769;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+H" Click="Suspend_Click" />
+                    <Button Content="Bring back" infra:Look.Icon="&#xE768;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+B" ToolTip="Recall a sale put on hold" Click="Recall_Click" />
+                    <Button Content="Save as quote" infra:Look.Icon="&#xE8A5;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+Q" Click="Quote_Click" />
+                    <Button Content="Layaway" infra:Look.Icon="&#xE787;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+L" Click="Layaway_Click" />
+                    <Button Content="Print last receipt" infra:Look.Icon="&#xE749;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+P" Click="Reprint_Click" />
+                    <Button Content="Open drawer" infra:Look.Icon="&#xE8B7;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+D" ToolTip="No sale" Click="NoSale_Click" />
+                    <Button Content="Money in" infra:Look.Icon="&#xE710;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+I" Background="{StaticResource Cream}" ToolTip="Pay in" Click="PayIn_Click" />
+                    <Button Content="Money out" infra:Look.Icon="&#xE738;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+O" Background="{StaticResource Cream}" ToolTip="Pay out" Click="PayOut_Click" />
+                    <Button Content="Starting cash" infra:Look.Icon="&#xE8C7;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+T" Background="{StaticResource Cream}" ToolTip="Opening float" Click="Float_Click" />
+                    <Button Content="Drawer report" infra:Look.Icon="&#xE9D2;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+R" Background="{StaticResource Cream}" ToolTip="X report" Click="XReport_Click" />
+                    <Button Content="End of day" infra:Look.Icon="&#xE708;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+E" Background="{StaticResource Cream}" ToolTip="Z report: close the drawer" Click="EndOfDay_Click" />
+                    <Button Content="Cancel sale" infra:Look.Icon="&#xE711;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Esc" Background="{StaticResource DangerLight}" Foreground="{StaticResource Danger}"
                             BorderBrush="#F2C4BB" Click="Clear_Click" />
                 </UniformGrid>
             </ScrollViewer>

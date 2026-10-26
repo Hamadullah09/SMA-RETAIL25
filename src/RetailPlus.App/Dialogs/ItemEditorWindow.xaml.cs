@@ -25,6 +25,7 @@ public partial class ItemEditorWindow : Window
         HeaderText.Text = item.Id == 0 ? "New item" : $"{item.Plu} — {item.Name}";
         Title = item.Id == 0 ? "New item" : $"Item {item.Plu}";
         TypeBox.ItemsSource = Enum.GetValues<ItemType>();
+        WeightUnitBox.ItemsSource = new[] { "g", "kg", "ml", "L", "oz", "lb" };
         Tax1Label.Text = AppServices.Settings.Tax1Name ?? "Tax 1";
         Tax2Label.Text = AppServices.Settings.Tax2Name ?? "Tax 2";
         OnHandBox.IsEnabled = item.Id == 0;
@@ -68,7 +69,21 @@ public partial class ItemEditorWindow : Window
         }
     }
 
-    private async Task LoadTagsAsync() => TagsGrid.ItemsSource = await AppServices.RfidData.GetTagsAsync(_item.Id);
+    private async Task LoadTagsAsync()
+    {
+        var tags = await AppServices.RfidData.GetTagsAsync(_item.Id);
+        TagsGrid.ItemsSource = tags;
+        int inStock = tags.Count(t => t.Status == ItemTagStatus.InStock);
+        TagSummary.Text = tags.Count == 0 ? "No tags yet" : $"{tags.Count} tag(s): {inStock} in stock, {tags.Count - inStock} sold or away";
+    }
+
+    private void SeeTags_Click(object sender, RoutedEventArgs e) => Tabs.SelectedItem = TagsTab;
+
+    private async void MakeBarcode_Click(object sender, RoutedEventArgs e)
+    {
+        if (!string.IsNullOrWhiteSpace(BarcodeBox.Text) && !Ui.Confirm($"Replace barcode {BarcodeBox.Text} with a new in-store one?")) return;
+        await Ui.Try(async () => BarcodeBox.Text = await AppServices.Inventory.NewInStoreBarcodeAsync());
+    }
 
     private bool SavedFirst()
     {

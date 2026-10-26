@@ -25,6 +25,27 @@ public sealed class EscPos
     public EscPos Line(string text = "") => Text(text + "\n");
     public EscPos Bold(bool on) { _bytes.AddRange([0x1B, 0x45, (byte)(on ? 1 : 0)]); return this; }
     public EscPos DoubleSize(bool on) { _bytes.AddRange([0x1D, 0x21, (byte)(on ? 0x11 : 0)]); return this; }
+    /// <summary>Tall characters at normal width, so a line keeps its full number of columns.</summary>
+    public EscPos DoubleHeight(bool on) { _bytes.AddRange([0x1D, 0x21, (byte)(on ? 0x01 : 0)]); return this; }
+    /// <summary>White text on black.</summary>
+    public EscPos Reverse(bool on) { _bytes.AddRange([0x1D, 0x42, (byte)(on ? 1 : 0)]); return this; }
+
+    /// <summary>A black-and-white picture (GS v 0): <paramref name="bits"/> holds the rows, 8 dots a byte, first dot in the high bit.</summary>
+    public EscPos Raster(byte[] bits, int widthBytes, int height)
+    {
+        _bytes.AddRange([0x1D, 0x76, 0x30, 0x00, (byte)(widthBytes & 0xFF), (byte)(widthBytes >> 8), (byte)(height & 0xFF), (byte)(height >> 8)]);
+        _bytes.AddRange(bits);
+        return this;
+    }
+
+    /// <summary>A Code 128 barcode drawn by the printer, with the text printed under it.</summary>
+    public EscPos Barcode128(string data, int height = 64, int moduleWidth = 2)
+    {
+        var payload = Cp1252.GetBytes("{B" + data);
+        _bytes.AddRange([0x1D, 0x48, 0x02, 0x1D, 0x68, (byte)height, 0x1D, 0x77, (byte)moduleWidth, 0x1D, 0x6B, 0x49, (byte)payload.Length]);
+        _bytes.AddRange(payload);
+        return this;
+    }
     public EscPos Center(bool on) { _bytes.AddRange([0x1B, 0x61, (byte)(on ? 1 : 0)]); return this; }
     public EscPos Feed(int lines = 4) { _bytes.AddRange([0x1B, 0x64, (byte)lines]); return this; }
     public EscPos Cut() { _bytes.AddRange([0x1D, 0x56, 0x42, 0x00]); return this; }
@@ -39,6 +60,8 @@ public sealed class EscPos
 public interface IReceiptPrinter
 {
     void Print(string receiptText, bool openDrawer, bool cut = true);
+    /// <summary>Prints a formatted ESC/POS job; a printer that cannot (the file printer) keeps <paramref name="plainText"/>.</summary>
+    void Print(EscPos job, string plainText, bool openDrawer);
     void OpenDrawer();
 }
 
@@ -48,6 +71,13 @@ public sealed class WindowsReceiptPrinter(string printerName, int drawerPin = 2)
     {
         var job = new EscPos().Text(receiptText).Feed();
         if (cut) job.Cut();
+        if (openDrawer) job.KickDrawer(drawerPin);
+        RawPrinter.Send(printerName, job.ToArray());
+    }
+
+    public void Print(EscPos job, string plainText, bool openDrawer)
+    {
+        job.Feed().Cut();
         if (openDrawer) job.KickDrawer(drawerPin);
         RawPrinter.Send(printerName, job.ToArray());
     }
@@ -66,6 +96,8 @@ public sealed class FileReceiptPrinter(string folder) : IReceiptPrinter
         LastFile = Path.Combine(folder, $"receipt_{DateTime.Now.ToString("yyyyMMdd_HHmmss_fff", CultureInfo.InvariantCulture)}.txt");
         File.WriteAllText(LastFile, receiptText + (openDrawer ? "\n[drawer opened]\n" : ""));
     }
+
+    public void Print(EscPos job, string plainText, bool openDrawer) => Print(plainText, openDrawer);
 
     public void OpenDrawer() { }
 }

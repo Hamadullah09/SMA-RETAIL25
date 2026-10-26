@@ -10,7 +10,8 @@ namespace RetailPlus.App.Dialogs;
 
 /// <summary>
 /// The Pay window: one or more tenders (split payment), change for cash, cash rounding to the minimum tender when the
-/// whole sale is paid in cash, and partial payment for layaways.
+/// whole sale is paid in cash, and partial payment for layaways. While the amount is typed it shows the change to give
+/// back, or a red warning when the amount is short; a short amount is only taken as part payment after a yes.
 /// </summary>
 public sealed class PayWindow : Window
 {
@@ -22,7 +23,9 @@ public sealed class PayWindow : Window
     private readonly TextBox _amount = new() { FontSize = 32, MinHeight = 64, HorizontalContentAlignment = HorizontalAlignment.Right, Padding = new Thickness(14, 8, 14, 8) };
     private readonly TextBlock _due = new() { FontSize = 56, FontFamily = new FontFamily("Century Gothic, Segoe UI"), Foreground = Infrastructure.Look.Brush("Sun") };
     private readonly TextBlock _dueLabel = new() { Foreground = new SolidColorBrush(Color.FromRgb(0xB9, 0xB5, 0xAC)), FontSize = 18 };
-    private readonly TextBlock _change = new() { FontSize = 26, FontWeight = FontWeights.SemiBold, Foreground = Infrastructure.Look.Brush("Ok"), Margin = new Thickness(0, 10, 0, 0) };
+    private readonly Border _amountFrame = new() { BorderThickness = new Thickness(3), CornerRadius = new CornerRadius(12), BorderBrush = Brushes.Transparent };
+    private readonly Border _status = new() { CornerRadius = new CornerRadius(14), Padding = new Thickness(18, 12, 18, 12), Margin = new Thickness(0, 10, 0, 0) };
+    private readonly TextBlock _statusText = new() { FontSize = 24, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly Button _finish = new() { Content = "Finish sale", MinWidth = 190, MinHeight = 60, FontSize = 19, IsEnabled = false };
     private static CultureInfo C => CultureInfo.CurrentCulture;
 
@@ -49,12 +52,17 @@ public sealed class PayWindow : Window
         dark.Child = darkPanel;
         root.Children.Add(dark);
         root.Children.Add(new TextBlock { Text = "How much did the customer give?", FontSize = 18, Margin = new Thickness(4, 18, 0, 6) });
-        root.Children.Add(_amount);
-        root.Children.Add(new TextBlock { Text = "Then touch how they paid:", FontSize = 18, Margin = new Thickness(4, 16, 0, 6) });
+        _amountFrame.Child = _amount;
+        root.Children.Add(_amountFrame);
+        _status.Child = _statusText;
+        root.Children.Add(_status);
+        root.Children.Add(new TextBlock { Text = "Then touch how they paid (or press its key; Enter = cash):", FontSize = 18, Margin = new Thickness(4, 16, 0, 6) });
         var keys = new WrapPanel();
+        int key = 0;
         foreach (var t in tenderTypes)
         {
             var b = new Button { Content = t.Name, MinWidth = 150, MinHeight = 76, Margin = new Thickness(0, 0, 10, 10), Tag = t, FontSize = 18 };
+            if (++key <= 8) Infrastructure.Look.SetShortcut(b, "F" + key.ToString(CultureInfo.InvariantCulture));
             b.Style = (Style)Application.Current.FindResource(t.Kind == TenderKind.Cash ? "AccentButton" : "ToolButton");
             b.Margin = new Thickness(0, 0, 10, 10);
             Infrastructure.Look.SetCornerRadius(b, new CornerRadius(20));
@@ -75,9 +83,9 @@ public sealed class PayWindow : Window
         _tenders.CollectionChanged += (_, _) => list.Visibility = _tenders.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         list.ItemTemplate = new DataTemplate { VisualTree = TenderTemplate() };
         root.Children.Add(list);
-        root.Children.Add(_change);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) };
         var clear = new Button { Content = "Undo last payment", MinHeight = 60, Margin = new Thickness(0, 0, 10, 0) };
+        Infrastructure.Look.SetShortcut(clear, "F9");
         Infrastructure.Look.SetIcon(clear, "");
         clear.Click += (_, _) => { if (_tenders.Count > 0) _tenders.RemoveAt(_tenders.Count - 1); Update(); };
         _finish.Style = (Style)Application.Current.FindResource("DarkButton");
@@ -93,6 +101,7 @@ public sealed class PayWindow : Window
         root.Children.Add(buttons);
         Content = root;
         Update();
+        _amount.TextChanged += (_, _) => ShowStatus();
         Loaded += (_, _) => { _amount.Focus(); _amount.SelectAll(); };
         _amount.KeyDown += (_, e) =>
         {
@@ -138,8 +147,24 @@ public sealed class PayWindow : Window
             return;
         }
         decimal remaining = Remaining(type.Kind);
-        if (!decimal.TryParse(_amount.Text, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, C, out var entered)) entered = remaining;
         if (remaining == 0 && _total != 0) return;
+        decimal entered = remaining;
+        if (remaining > 0 && _amount.Text.Trim().Length > 0 && (!TryAmount(out entered) || entered <= 0))
+        {
+            Status("Type how much the customer gave, in numbers (for example 500).", StatusKind.Error);
+            _amount.Focus();
+            _amount.SelectAll();
+            return;
+        }
+        // Less than is due: only as part of a split payment (or a layaway deposit), and only when the cashier says so.
+        if (!_layaway && remaining > 0 && entered < remaining && !Infrastructure.Ui.Confirm(
+                $"The customer gave {entered.ToString("N2", C)}, but {remaining.ToString("N2", C)} is due: {(remaining - entered).ToString("N2", C)} short.\n\n" +
+                $"Take {entered.ToString("N2", C)} by {type.Name} now, and the rest by another payment?", "Less than the amount due"))
+        {
+            _amount.Focus();
+            _amount.SelectAll();
+            return;
+        }
         TenderEntry entry;
         if (remaining < 0 || _total < 0)
         {
@@ -160,7 +185,56 @@ public sealed class PayWindow : Window
         if (entry.Amount == 0) return;
         _tenders.Add(entry);
         Update();
-        if (Settled && !_layaway) DialogResult = true;
+        if (Settled && !_layaway)
+        {
+            // Exact money finishes at once; with change the window stays until the cashier has handed it back.
+            if (_tenders.Sum(t => t.Change) == 0) DialogResult = true;
+            else _finish.Focus();
+        }
+    }
+
+    private bool TryAmount(out decimal amount) =>
+        decimal.TryParse(_amount.Text, NumberStyles.Number | NumberStyles.AllowCurrencySymbol, C, out amount);
+
+    private enum StatusKind
+    {
+        Info,
+        Ok,
+        Error,
+    }
+
+    private void Status(string? text, StatusKind kind = StatusKind.Info)
+    {
+        _status.Visibility = text is null ? Visibility.Collapsed : Visibility.Visible;
+        _statusText.Text = text ?? "";
+        var (back, fore) = kind switch
+        {
+            StatusKind.Ok => ("OkLight", "Ok"),
+            StatusKind.Error => ("DangerLight", "Danger"),
+            _ => ("StoneLight", "Ink"),
+        };
+        _status.Background = Infrastructure.Look.Brush(back);
+        _statusText.Foreground = Infrastructure.Look.Brush(fore);
+        _amountFrame.BorderBrush = kind == StatusKind.Error ? Infrastructure.Look.Brush("Danger") : Brushes.Transparent;
+    }
+
+    /// <summary>Under the amount: the change to give back, or a red warning when the amount is short or not a number.</summary>
+    private void ShowStatus()
+    {
+        if (Settled)
+        {
+            var change = _tenders.Sum(t => t.Change);
+            Status(change > 0 ? $"Received {_tenders.Sum(t => t.Tendered).ToString("N2", C)}. Give back {change.ToString("N2", C)}, then touch Finish sale." : "Paid in full.", StatusKind.Ok);
+            return;
+        }
+        decimal remaining = Remaining(TenderKind.Cash);
+        if (remaining <= 0) { Status(null); return; }
+        if (_amount.Text.Trim().Length == 0) { Status("Type how much the customer gave.", StatusKind.Info); return; }
+        if (!TryAmount(out var entered) || entered < 0) { Status("Type the amount in numbers, for example 500.", StatusKind.Error); return; }
+        if (entered > remaining) Status($"Change to give back:  {(entered - remaining).ToString("N2", C)}", StatusKind.Ok);
+        else if (entered == remaining) Status("Exact amount, no change.", StatusKind.Ok);
+        else if (_layaway) Status($"Deposit {entered.ToString("N2", C)}; {(remaining - entered).ToString("N2", C)} stays owing.", StatusKind.Info);
+        else Status($"{(remaining - entered).ToString("N2", C)} short. The customer must give at least {remaining.ToString("N2", C)}.", StatusKind.Error);
     }
 
     /// <summary>Paid in full: to the rounded total when everything was cash, to the cent otherwise.</summary>
@@ -184,11 +258,18 @@ public sealed class PayWindow : Window
         _dueLabel.Text = _tenders.Count == 0 ? (_total < 0 ? "Refund due" : "Amount due") : remaining < 0 ? "Refund due" : "Still owing";
         _due.Text = remaining.ToString("N2", C);
         if (cashSoFar && target != _total && _tenders.Count == 0) _dueLabel.Text += $"  (cash: {target.ToString("N2", C)})";
-        _amount.Text = Math.Max(0, remaining).ToString("0.00", C);
         var change = _tenders.Sum(t => t.Change);
-        _change.Text = change > 0 ? $"Give back (change):  {change.ToString("N2", C)}" : "";
         bool settled = Settled;
+        _amount.Text = (settled ? _tenders.Sum(t => t.Tendered) : Math.Max(0, remaining)).ToString("0.00", C);
+        if (settled && change > 0)
+        {
+            _dueLabel.Text = "Give back to the customer";
+            _due.Text = change.ToString("N2", C);
+        }
+        _amount.IsEnabled = !settled;
         _finish.IsEnabled = settled || (_layaway && _tenders.Count > 0) || (_total == 0);
+        _finish.IsDefault = settled;
+        ShowStatus();
         if (_layaway) _finish.Content = settled ? "Finish layaway" : "Leave rest owing";
     }
 }

@@ -38,6 +38,7 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
     public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
     public DbSet<Sale> Sales => Set<Sale>();
     public DbSet<SaleLine> SaleLines => Set<SaleLine>();
+    public DbSet<SaleLineTag> SaleLineTags => Set<SaleLineTag>();
     public DbSet<SalePayment> SalePayments => Set<SalePayment>();
     public DbSet<DrawerSession> DrawerSessions => Set<DrawerSession>();
     public DbSet<DrawerSessionTender> DrawerSessionTenders => Set<DrawerSessionTender>();

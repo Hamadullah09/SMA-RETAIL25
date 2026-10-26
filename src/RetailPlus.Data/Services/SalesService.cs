@@ -83,7 +83,8 @@ public sealed class SalesService(DataContext data)
                 Quantity = l.Quantity, UnitPrice = l.UnitPrice, DiscountAmount = l.DiscountAmount, LineTotal = l.Kind == SaleLineKind.Text ? 0 : l.LineTotal,
                 Cogs = Money.Round(l.UnitCost * l.Quantity), Department = l.Department, Taxable1 = l.Taxable1, Taxable2 = l.Taxable2,
                 Tax1 = lineTax.Item1, Tax2 = lineTax.Item2, SerialNumber = l.SerialNumber, VariantId = l.VariantId, SupplierName = l.SupplierName,
-                Commission = Money.Round(l.LineTotal * l.CommissionPercent / 100m), Restock = l.Restock, Epc = l.Epc,
+                Commission = Money.Round(l.LineTotal * l.CommissionPercent / 100m), Restock = l.Restock,
+                Tags = l.Epcs.Distinct().Select(e => new SaleLineTag { Epc = e }).ToList(),
             });
         }
         sale.Cogs = sale.Lines.Sum(l => l.Cogs);
@@ -190,8 +191,8 @@ public sealed class SalesService(DataContext data)
     /// <summary>RFID tags of sold lines become Sold, of returned lines In stock; <paramref name="sign"/> -1 undoes a sale.</summary>
     private static async Task UpdateTagsAsync(RetailPlusDbContext db, Sale sale, int sign)
     {
-        var sold = sale.Lines.Where(l => l.Epc != null && l.Kind == SaleLineKind.Sale).Select(l => l.Epc!).ToList();
-        var returned = sale.Lines.Where(l => l.Epc != null && l.Kind == SaleLineKind.Return).Select(l => l.Epc!).ToList();
+        var sold = sale.Lines.Where(l => l.Kind == SaleLineKind.Sale).SelectMany(l => l.Tags).Select(t => t.Epc).ToList();
+        var returned = sale.Lines.Where(l => l.Kind == SaleLineKind.Return).SelectMany(l => l.Tags).Select(t => t.Epc).ToList();
         if (sign < 0) (sold, returned) = (returned, sold);
         var at = sale.SoldAt;
         long invoice = sale.InvoiceNumber;
@@ -240,7 +241,7 @@ public sealed class SalesService(DataContext data)
     {
         await using var db = data.Create();
         await using var tx = await db.Database.BeginTransactionAsync();
-        var sale = await db.Sales.Include(s => s.Lines).Include(s => s.Payments).SingleAsync(s => s.Id == saleId);
+        var sale = await db.Sales.Include(s => s.Lines).ThenInclude(l => l.Tags).Include(s => s.Payments).SingleAsync(s => s.Id == saleId);
         if (sale.Status == SaleStatus.Voided) throw new BusinessRuleException("This sale is already voided.");
         await ApplyStockAndStatisticsAsync(db, sale, -1, sale.SoldAt);
         await UpdateTagsAsync(db, sale, -1);
@@ -273,13 +274,14 @@ public sealed class SalesService(DataContext data)
     public async Task<Sale?> GetSaleAsync(int id)
     {
         await using var db = data.Create();
-        return await db.Sales.AsNoTracking().Include(s => s.Lines.OrderBy(l => l.LineNumber)).Include(s => s.Payments).SingleOrDefaultAsync(s => s.Id == id);
+        return await db.Sales.AsNoTracking().AsSplitQuery().Include(s => s.Lines.OrderBy(l => l.LineNumber)).ThenInclude(l => l.Tags)
+            .Include(s => s.Payments).SingleOrDefaultAsync(s => s.Id == id);
     }
 
     public async Task<Sale?> FindByInvoiceNumberAsync(long invoiceNumber)
     {
         await using var db = data.Create();
-        return await db.Sales.AsNoTracking().Include(s => s.Lines.OrderBy(l => l.LineNumber)).Include(s => s.Payments)
+        return await db.Sales.AsNoTracking().AsSplitQuery().Include(s => s.Lines.OrderBy(l => l.LineNumber)).ThenInclude(l => l.Tags).Include(s => s.Payments)
             .Where(s => s.InvoiceNumber == invoiceNumber).OrderByDescending(s => s.Id).FirstOrDefaultAsync();
     }
 

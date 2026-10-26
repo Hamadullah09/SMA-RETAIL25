@@ -6,10 +6,14 @@ namespace RetailPlus.Data.Services;
 
 /// <summary>A row of the Inventory window's browse list.</summary>
 public sealed record ItemRow(int Id, string Plu, string Name, string? Department, string? Category, string? Supplier, string? Size,
-    decimal OnHand, decimal OnOrder, decimal Price1, decimal LastCost, decimal AverageCost, ItemType ItemType, bool IsFlagged, bool IsDeleted)
+    decimal OnHand, decimal OnOrder, decimal Price1, decimal LastCost, decimal AverageCost, ItemType ItemType, bool IsFlagged, bool IsDeleted,
+    decimal Weight = 0, string? WeightUnit = null, int Tags = 0, string? Barcode = null)
 {
     /// <summary>Average cost, or the last cost when no average is known yet.</summary>
     public decimal Cost => AverageCost > 0 ? AverageCost : LastCost;
+
+    /// <summary>"90 g", or empty when no weight is set.</summary>
+    public string WeightText => Weight > 0 ? $"{Weight:0.###} {WeightUnit}".Trim() : "";
 }
 
 public enum ItemSearchField
@@ -20,6 +24,9 @@ public enum ItemSearchField
     Department,
     Supplier,
     SupplierCode,
+    /// <summary>An RFID tag code: finds the item the tag belongs to.</summary>
+    Epc,
+    Barcode,
 }
 
 /// <summary>Inventory window operations for one location.</summary>
@@ -35,6 +42,7 @@ public sealed class InventoryService(DataContext data)
         if (!string.IsNullOrWhiteSpace(text))
         {
             var t = text.Trim();
+            var code = t.ToUpperInvariant();
             q = field switch
             {
                 ItemSearchField.Plu => q.Where(i => i.Plu.StartsWith(t)),
@@ -42,12 +50,17 @@ public sealed class InventoryService(DataContext data)
                 ItemSearchField.Department => q.Where(i => i.Department != null && i.Department.Name.StartsWith(t)),
                 ItemSearchField.Supplier => q.Where(i => i.Supplier != null && (i.Supplier.Company ?? "").StartsWith(t)),
                 ItemSearchField.SupplierCode => q.Where(i => i.SupplierCode != null && i.SupplierCode.StartsWith(t)),
-                _ => q.Where(i => i.Plu.StartsWith(t) || i.Name.Contains(t) || (i.SupplierCode != null && i.SupplierCode.StartsWith(t)) || (i.Brand != null && i.Brand.StartsWith(t))),
+                ItemSearchField.Epc => q.Where(i => db.ItemTags.Any(g => g.ItemId == i.Id && g.Epc.StartsWith(code))),
+                ItemSearchField.Barcode => q.Where(i => i.Barcode != null && i.Barcode.StartsWith(t)),
+                _ => q.Where(i => i.Plu.StartsWith(t) || i.Name.Contains(t) || (i.SupplierCode != null && i.SupplierCode.StartsWith(t)) || (i.Brand != null && i.Brand.StartsWith(t))
+                                  || (i.Barcode != null && i.Barcode.StartsWith(t))
+                                  || db.ItemTags.Any(g => g.ItemId == i.Id && g.Epc == code)),
             };
         }
         return await q.OrderBy(i => i.Plu).Take(take)
             .Select(i => new ItemRow(i.Id, i.Plu, i.Name, i.Department != null ? i.Department.Name : null, i.Category != null ? i.Category.Name : null,
-                i.Supplier != null ? i.Supplier.Company : null, i.Size, i.OnHand, i.OnOrder, i.Price1, i.LastCost, i.AverageCost, i.ItemType, i.IsFlagged, i.IsDeleted))
+                i.Supplier != null ? i.Supplier.Company : null, i.Size, i.OnHand, i.OnOrder, i.Price1, i.LastCost, i.AverageCost, i.ItemType, i.IsFlagged, i.IsDeleted,
+                i.Weight, i.WeightUnit, db.ItemTags.Count(g => g.ItemId == i.Id), i.Barcode))
             .ToListAsync();
     }
 
@@ -85,12 +98,37 @@ public sealed class InventoryService(DataContext data)
             .Where(i => i.LocationId == locationId && !i.IsDeleted);
         var item = await items.SingleOrDefaultAsync(i => i.Plu == code);
         if (item is not null) return (item, null);
+        var forms = Upc.Forms(code);
+        item = await items.FirstOrDefaultAsync(i => i.Barcode != null && forms.Contains(i.Barcode));
+        if (item is not null) return (item, null);
         var variant = await db.ItemVariants.AsNoTracking()
             .Where(v => v.Code == code && db.Items.Any(i => i.Id == v.ItemId && i.LocationId == locationId && !i.IsDeleted))
             .FirstOrDefaultAsync();
         if (variant is not null) return (await items.SingleAsync(i => i.Id == variant.ItemId), variant);
         item = await items.FirstOrDefaultAsync(i => i.SupplierCode == code);
         return (item, null);
+    }
+
+    /// <summary>The next free in-store UPC-A (number system 4), counting on from the highest one in use.</summary>
+    public async Task<string> NewInStoreBarcodeAsync()
+    {
+        await using var db = data.Create();
+        var codes = await db.Items.Where(i => i.Barcode != null && i.Barcode.Length == 12 && EF.Functions.Like(i.Barcode, "4%")).Select(i => i.Barcode!).ToListAsync();
+        return Upc.InStore((codes.Select(Upc.InStoreNumber).Max() ?? 0) + 1);
+    }
+
+    /// <summary>Gives each of the items that has no barcode the next in-store UPC-A. Returns how many got one.</summary>
+    public async Task<int> AssignInStoreBarcodesAsync(IEnumerable<int> itemIds)
+    {
+        int count = 0;
+        foreach (var id in itemIds.Distinct())
+        {
+            await using var db = data.Create();
+            if (await db.Items.Where(i => i.Id == id).Select(i => i.Barcode).SingleOrDefaultAsync() is not null) continue;
+            var code = await NewInStoreBarcodeAsync();
+            count += await db.Items.Where(i => i.Id == id && i.Barcode == null).ExecuteUpdateAsync(s => s.SetProperty(i => i.Barcode, code));
+        }
+        return count;
     }
 
     public async Task<bool> PluExistsAsync(int locationId, string plu, int exceptId = 0)
@@ -112,6 +150,16 @@ public sealed class InventoryService(DataContext data)
             throw new BusinessRuleException($"Stock code {item.Plu} is already used by another item.");
 
         await using var db = data.Create();
+        item.Barcode = string.IsNullOrWhiteSpace(item.Barcode) ? null : item.Barcode.Trim();
+        if (item.Barcode is not null)
+        {
+            if (!Upc.IsValid(item.Barcode))
+                throw new BusinessRuleException($"Barcode {item.Barcode} is not valid. A barcode has 12 digits (UPC-A), or 13 or 8, and its last digit is a check digit.");
+            var forms = Upc.Forms(item.Barcode);
+            var other = await db.Items.Where(i => i.LocationId == item.LocationId && !i.IsDeleted && i.Id != item.Id && i.Barcode != null && forms.Contains(i.Barcode))
+                .Select(i => i.Plu + " " + i.Name).FirstOrDefaultAsync();
+            if (other is not null) throw new BusinessRuleException($"Barcode {item.Barcode} is already on {other}.");
+        }
         item.DepartmentId = await LookupAsync(db.Departments, departmentName, n => new Department { Name = n }, db);
         item.CategoryId = await LookupAsync(db.Categories, categoryName, n => new Category { Name = n }, db);
         item.SupplierId = string.IsNullOrWhiteSpace(supplierName) ? null

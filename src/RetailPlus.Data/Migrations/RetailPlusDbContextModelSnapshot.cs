@@ -834,6 +834,11 @@ namespace RetailPlus.Data.Migrations
                         .HasPrecision(12, 3)
                         .HasColumnType("decimal(12,3)");
 
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(14)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(14)");
+
                     b.Property<decimal>("BaseStock")
                         .HasPrecision(12, 3)
                         .HasColumnType("decimal(12,3)");
@@ -1049,6 +1054,14 @@ namespace RetailPlus.Data.Migrations
                     b.Property<bool>("WebDelete")
                         .HasColumnType("bit");
 
+                    b.Property<decimal>("Weight")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<string>("WeightUnit")
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
@@ -1056,6 +1069,8 @@ namespace RetailPlus.Data.Migrations
                     b.HasIndex("DepartmentId");
 
                     b.HasIndex("SupplierId");
+
+                    b.HasIndex("LocationId", "Barcode");
 
                     b.HasIndex("LocationId", "Name");
 
@@ -1957,11 +1972,6 @@ namespace RetailPlus.Data.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
 
-                    b.Property<string>("Epc")
-                        .HasMaxLength(128)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(128)");
-
                     b.Property<int?>("ItemId")
                         .HasColumnType("int");
 
@@ -2029,6 +2039,32 @@ namespace RetailPlus.Data.Migrations
                     b.HasIndex("SaleId");
 
                     b.ToTable("SaleLines");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.SaleLineTag", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Epc")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<int>("SaleLineId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Epc");
+
+                    b.HasIndex("SaleLineId");
+
+                    b.ToTable("SaleLineTags");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.SalePayment", b =>
@@ -2963,6 +2999,15 @@ namespace RetailPlus.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.SaleLineTag", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.SaleLine", null)
+                        .WithMany("Tags")
+                        .HasForeignKey("SaleLineId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.SalePayment", b =>
                 {
                     b.HasOne("RetailPlus.Core.Model.Sale", null)
@@ -3043,6 +3088,11 @@ namespace RetailPlus.Data.Migrations
                     b.Navigation("Lines");
 
                     b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.SaleLine", b =>
+                {
+                    b.Navigation("Tags");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.Station", b =>

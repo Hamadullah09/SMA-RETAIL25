@@ -17,6 +17,7 @@ public partial class App : Application
     {
         base.OnStartup(e);
         Look.ApplyDefaults();
+        Shortcuts.Register();
         DispatcherUnhandledException += OnUnhandled;
         var args = e.Args;
         string? Arg(string name)

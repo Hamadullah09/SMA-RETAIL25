@@ -8,47 +8,68 @@ namespace RetailPlus.Reports;
 /// <summary>Plain-text receipts, invoices and drawer reports for a 40-column (or wider) receipt printer.</summary>
 public static class ReceiptFormatter
 {
-    public static string Sale(Sale sale, StoreSettings store, string? header, string? footer, int width = 40, CultureInfo? culture = null, string? reprint = null)
+    public static string Sale(Sale sale, StoreSettings store, string? header, string? footer, int width = 40, CultureInfo? culture = null, string? reprint = null) =>
+        Text(Receipt.FromSale(sale, store, header, footer, reprint, culture: culture), width, culture);
+
+    /// <summary>A receipt as plain text: framed store block, items with code and quantity, a boxed TOTAL, change.</summary>
+    public static string Text(Receipt r, int width = 40, CultureInfo? culture = null)
     {
         culture ??= CultureInfo.CurrentCulture;
+        string M(decimal v) => v.ToString("N2", culture);
         var sb = new StringBuilder();
-        foreach (var line in StoreBlock(store, header)) sb.AppendLine(Center(line, width));
+        sb.AppendLine(Center(r.StoreName.ToUpper(culture), width));
+        foreach (var line in r.StoreLines) sb.AppendLine(Center(line, width));
+        sb.AppendLine(new string('=', width));
+        sb.AppendLine(Center(r.Title, width));
+        if (r.Banner is not null) sb.AppendLine(Center($"*** {r.Banner} ***", width));
         sb.AppendLine();
-        if (reprint is not null) sb.AppendLine(Center(reprint, width));
-        if (sale.Status == SaleStatus.Voided) sb.AppendLine(Center("*** VOID ***", width));
-        sb.AppendLine(Pair($"Invoice {sale.InvoiceNumber}", sale.SoldAt.ToString("g", culture), width));
-        sb.AppendLine(Pair($"Station {sale.StationNumber:000}", sale.Staff ?? "", width));
-        if (!string.IsNullOrWhiteSpace(sale.ClientName)) sb.AppendLine(Fit("Client: " + sale.ClientName, width));
+        foreach (var line in Heading(r, width, culture)) sb.AppendLine(line);
         sb.AppendLine(new string('-', width));
-        foreach (var l in sale.Lines.OrderBy(l => l.LineNumber))
+        foreach (var i in r.Items)
         {
-            if (l.Kind == SaleLineKind.Text) { sb.AppendLine(Fit(l.Description, width)); continue; }
-            sb.AppendLine(Fit(l.Description, width));
-            var qty = l.Quantity == 1 ? "" : $"{l.Quantity.ToString("0.###", culture)} @ {l.UnitPrice.ToString("N2", culture)}";
-            var tax = (l.Taxable1 ? "T" : "") + (l.Taxable2 ? "S" : "");
-            sb.AppendLine(Pair("  " + qty + (l.DiscountAmount != 0 ? $" less {l.DiscountAmount.ToString("N2", culture)}" : ""), l.LineTotal.ToString("N2", culture) + " " + tax.PadRight(2), width));
-            if (!string.IsNullOrWhiteSpace(l.SerialNumber)) sb.AppendLine(Fit("  S/N " + l.SerialNumber, width));
+            sb.AppendLine(Fit(i.Name, width));
+            if (i.IsText) continue;
+            foreach (var line in ItemDetail(i, width, culture)) sb.AppendLine(line);
         }
         sb.AppendLine(new string('-', width));
-        sb.AppendLine(Pair("Subtotal", sale.Subtotal.ToString("N2", culture), width));
-        if (sale.SubtotalDiscount != 0) sb.AppendLine(Pair("Discount", "-" + sale.SubtotalDiscount.ToString("N2", culture), width));
-        if (sale.Tax1 != 0) sb.AppendLine(Pair($"{sale.Tax1Name ?? "Tax 1"} {sale.Tax1Rate.ToString("0.###", culture)}%" + (sale.TaxInclusive ? " incl." : ""), sale.Tax1.ToString("N2", culture), width));
-        if (sale.Tax2 != 0) sb.AppendLine(Pair($"{sale.Tax2Name ?? "Tax 2"} {sale.Tax2Rate.ToString("0.###", culture)}%" + (sale.TaxInclusive ? " incl." : ""), sale.Tax2.ToString("N2", culture), width));
-        if (sale.Rounding != 0) sb.AppendLine(Pair("Rounding", sale.Rounding.ToString("N2", culture), width));
-        sb.AppendLine(Pair("TOTAL", sale.Total.ToString("N2", culture), width));
-        foreach (var p in sale.Payments)
+        foreach (var t in r.Totals) sb.AppendLine(Pair(t.Label, M(t.Amount), width));
+        sb.AppendLine(new string('=', width));
+        sb.AppendLine(Pair("TOTAL", M(r.Total), width));
+        sb.AppendLine(new string('=', width));
+        foreach (var p in r.Payments)
         {
-            sb.AppendLine(Pair(p.TenderType, p.Tendered > p.Amount ? p.Tendered.ToString("N2", culture) : p.Amount.ToString("N2", culture), width));
-            if (p.Change > 0) sb.AppendLine(Pair("Change", p.Change.ToString("N2", culture), width));
-            if (!string.IsNullOrWhiteSpace(p.AuthCode)) sb.AppendLine(Fit("  Auth " + p.AuthCode, width));
+            sb.AppendLine(Pair(p.Label, M(p.Amount), width));
+            if (p.Note is not null) sb.AppendLine(Fit("  " + p.Note, width));
         }
-        if (store.BonusPointsEnabled && store.PrintPointsOnSlips && sale.PointsEarned > 0)
-            sb.AppendLine(Pair("Points earned", sale.PointsEarned.ToString("0.##", culture), width));
-        if (!string.IsNullOrWhiteSpace(store.TaxRegistrationNumber)) sb.AppendLine(Center("Tax reg. " + store.TaxRegistrationNumber, width));
+        if (r.Change > 0) sb.AppendLine(Pair("CHANGE", M(r.Change), width));
+        sb.AppendLine(new string('-', width));
+        sb.AppendLine(Center(Summary(r, culture), width));
+        foreach (var n in r.Notes) sb.AppendLine(Center(n, width));
         sb.AppendLine();
-        foreach (var line in (footer ?? "Thank you!").Split('\n')) sb.AppendLine(Center(line.TrimEnd('\r'), width));
+        foreach (var f in r.Footer) sb.AppendLine(Center(f, width));
         return sb.ToString();
     }
+
+    /// <summary>Invoice, date, cashier, station and customer lines.</summary>
+    public static IEnumerable<string> Heading(Receipt r, int width, CultureInfo culture)
+    {
+        yield return Pair($"Invoice #{r.InvoiceNumber}", r.SoldAt.ToString("g", culture), width);
+        yield return Pair("Cashier: " + (r.Cashier ?? "-"), $"Station {r.Station:000}", width);
+        if (r.Customer is not null) yield return Fit("Customer: " + r.Customer, width);
+    }
+
+    /// <summary>Under an item's name: code, quantity x price and the amount; then its discount and note.</summary>
+    public static IEnumerable<string> ItemDetail(ReceiptItem i, int width, CultureInfo culture)
+    {
+        var qty = $"{i.Quantity.ToString("0.###", culture)} x {i.UnitPrice.ToString("N2", culture)}";
+        yield return Pair("  " + (string.IsNullOrWhiteSpace(i.Code) ? "" : i.Code + "  ") + qty, i.Gross.ToString("N2", culture), width);
+        if (i.Discount != 0) yield return Pair("  Discount", (-i.Discount).ToString("N2", culture), width);
+        if (i.Note is not null) yield return Fit("  " + i.Note, width);
+    }
+
+    /// <summary>"Items 3 · Qty 5".</summary>
+    public static string Summary(Receipt r, CultureInfo culture) =>
+        $"Items {r.ItemCount}  \u00b7  Qty {r.Pieces.ToString("0.###", culture)}";
 
     public static string Drawer(DrawerReport report, StoreSettings store, int width = 40, CultureInfo? culture = null, bool final = true)
     {
@@ -128,10 +149,10 @@ public static class ReceiptFormatter
         if (!string.IsNullOrWhiteSpace(store.Phone)) yield return store.Phone!;
     }
 
-    private static string Fit(string s, int width) => s.Length <= width ? s : s[..width];
-    private static string Center(string s, int width) => s.Length >= width ? s[..width] : new string(' ', (width - s.Length) / 2) + s;
+    public static string Fit(string s, int width) => s.Length <= width ? s : s[..width];
+    public static string Center(string s, int width) => s.Length >= width ? s[..width] : new string(' ', (width - s.Length) / 2) + s;
 
-    private static string Pair(string left, string right, int width)
+    public static string Pair(string left, string right, int width)
     {
         int room = width - right.Length - 1;
         if (room < 1) return Fit(left + " " + right, width);

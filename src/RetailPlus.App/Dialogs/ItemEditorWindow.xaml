@@ -30,12 +30,25 @@
                     </Grid.ColumnDefinitions>
                     <StackPanel>
                         <DockPanel><TextBlock Text="Stock code" Style="{StaticResource L}" /><TextBox Text="{Binding Plu}" MaxLength="16" CharacterCasing="Upper" x:Name="PluBox" /></DockPanel>
+                        <DockPanel>
+                            <TextBlock Text="Barcode (UPC-A)" Style="{StaticResource L}" />
+                            <Button DockPanel.Dock="Right" Content="Make one" Style="{StaticResource ToolButton}" Margin="8,0,0,0" MinHeight="44"
+                                    ToolTip="Give this item a new in-store UPC-A barcode (to print on labels)" Click="MakeBarcode_Click" />
+                            <TextBox x:Name="BarcodeBox" Text="{Binding Barcode}" MaxLength="14" FontFamily="Consolas"
+                                     ToolTip="Scan the maker's barcode here, or press Make one" />
+                        </DockPanel>
                         <DockPanel><TextBlock Text="Description" Style="{StaticResource L}" /><TextBox Text="{Binding Name}" MaxLength="30" /></DockPanel>
                         <DockPanel><TextBlock Text="Item type" Style="{StaticResource L}" /><ComboBox x:Name="TypeBox" SelectedItem="{Binding ItemType}" /></DockPanel>
                         <DockPanel><TextBlock Text="Department" Style="{StaticResource L}" /><ComboBox x:Name="DeptBox" IsEditable="True" /></DockPanel>
                         <DockPanel><TextBlock Text="Category" Style="{StaticResource L}" /><ComboBox x:Name="CatBox" IsEditable="True" /></DockPanel>
                         <DockPanel><TextBlock Text="Brand" Style="{StaticResource L}" /><TextBox Text="{Binding Brand}" MaxLength="16" /></DockPanel>
                         <DockPanel><TextBlock Text="Size" Style="{StaticResource L}" /><TextBox Text="{Binding Size}" MaxLength="6" /></DockPanel>
+                        <DockPanel>
+                            <TextBlock Text="Weight" Style="{StaticResource L}" />
+                            <ComboBox x:Name="WeightUnitBox" DockPanel.Dock="Right" Width="110" Margin="8,0,0,0" IsEditable="True"
+                                      Text="{Binding WeightUnit, UpdateSourceTrigger=LostFocus}" ToolTip="g, kg, ml, L, oz or lb" />
+                            <TextBox Text="{Binding Weight, StringFormat=0.###}" ToolTip="Net weight or volume of one piece" />
+                        </DockPanel>
                         <DockPanel><TextBlock Text="Items per package" Style="{StaticResource L}" /><TextBox Text="{Binding PackQuantity}" /></DockPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="2">
@@ -46,6 +59,11 @@
                         <DockPanel><TextBlock x:Name="Tax2Label" Text="Tax 2" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding Taxable2}" Content="Taxable" /></DockPanel>
                         <DockPanel><TextBlock Text="Weigh on scale" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding ReadScale}" Content="Always read the scale" /></DockPanel>
                         <DockPanel><TextBlock Text="Flagged" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding IsFlagged}" /></DockPanel>
+                        <DockPanel>
+                            <TextBlock Text="RFID tags (EPC)" Style="{StaticResource L}" />
+                            <Button DockPanel.Dock="Right" Content="See tags" Style="{StaticResource ToolButton}" Click="SeeTags_Click" Margin="8,0,0,0" />
+                            <TextBlock x:Name="TagSummary" VerticalAlignment="Center" FontWeight="SemiBold" TextWrapping="Wrap" Text="Save the item, then add its tags" />
+                        </DockPanel>
                     </StackPanel>
                 </Grid>
             </TabItem>
@@ -183,7 +201,7 @@
                     </DataGrid.Columns>
                 </DataGrid>
             </TabItem>
-            <TabItem Header="RFID tags">
+            <TabItem Header="RFID tags (EPC)" x:Name="TagsTab">
                 <DockPanel Margin="12">
                     <TextBlock DockPanel.Dock="Top" x:Name="TagsHint" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,10"
                                Text="Tags stuck on this item. Tags that carry the barcode of the item (GS1 SGTIN) or its stock code are recognised without being listed here." />
@@ -195,6 +213,7 @@
                     <DataGrid x:Name="TagsGrid" Style="{StaticResource Grid}" SelectionMode="Single">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Tag code (EPC)" Binding="{Binding Epc}" Width="*" FontFamily="Consolas" />
+                            <DataGridTextColumn Header="Piece / label" Binding="{Binding SerialNumber}" Width="170" />
                             <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="110" />
                             <DataGridTextColumn Header="Registered" Binding="{Binding RegisteredAt, StringFormat=g}" Width="170" />
                             <DataGridTextColumn Header="Sold" Binding="{Binding SoldAt, StringFormat=g}" Width="170" />

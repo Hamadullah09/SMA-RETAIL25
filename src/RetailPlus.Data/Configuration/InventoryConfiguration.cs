@@ -38,9 +38,11 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
     {
         e.Property(x => x.Plu).HasMaxLength(16);
         e.Property(x => x.Name).HasMaxLength(30);
+        e.Property(x => x.Barcode).HasMaxLength(14).IsUnicode(false);
         e.Property(x => x.ItemType).HasConversion<string>().HasMaxLength(12);
         e.Property(x => x.Brand).HasMaxLength(16);
         e.Property(x => x.Size).HasMaxLength(6);
+        e.Property(x => x.WeightUnit).HasMaxLength(4);
         e.Property(x => x.SupplierCode).HasMaxLength(16);
         e.Property(x => x.BinLocation).HasMaxLength(25);
         e.Property(x => x.SubstituteCode).HasMaxLength(16);
@@ -62,10 +64,13 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
         e.Property(x => x.BreakQuantity3).Quantity();
         e.Property(x => x.ShipWeight).Quantity();
         e.Property(x => x.ThcWeight).Quantity();
+        e.Property(x => x.Weight).Quantity();
         e.Property(x => x.LastCost).UnitCost();
         e.Property(x => x.AverageCost).UnitCost();
         e.Property(x => x.MarginPercent).Rate();
         e.Property(x => x.RowVersion).IsRowVersion();
+
+        e.HasIndex(x => new { x.LocationId, x.Barcode });
 
         // Lookups are removed by the app, not by cascading deletes (items are soft-deleted).
         e.HasOne(x => x.Location).WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);

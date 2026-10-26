@@ -228,3 +228,55 @@ public class LoyaltyAndCreditTests
         Assert.False(RandomWeightBarcode.TryParse("012345012999", out _, out _));
     }
 }
+
+public class SaleLineJoinTests
+{
+    private static SaleDraftLine Line(int itemId, decimal qty = 1, SaleLineKind kind = SaleLineKind.Sale) =>
+        new() { ItemId = itemId, Kind = kind, Quantity = qty, UnitPrice = 250m };
+
+    [Fact]
+    public void The_same_item_joins_its_line()
+    {
+        var chocolate = new Item { Id = 7, ItemType = ItemType.Standard };
+        var lines = new List<SaleDraftLine> { Line(7), Line(8) };
+        Assert.Same(lines[0], SaleDraft.LineToJoin(lines, chocolate, null, SaleLineKind.Sale, 1));
+        Assert.Null(SaleDraft.LineToJoin(lines, chocolate, null, SaleLineKind.Return, 1));
+        Assert.Null(SaleDraft.LineToJoin(lines, chocolate, 3, SaleLineKind.Sale, 1));
+    }
+
+    [Fact]
+    public void Serialized_weighed_and_hand_discounted_items_keep_their_own_lines()
+    {
+        var lines = new List<SaleDraftLine> { Line(1), Line(2, 0.75m), Line(3) };
+        lines[2].AutoPriced = false;
+        lines[2].DiscountAmount = 20m;
+        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = 1, ItemType = ItemType.Serialized }, null, SaleLineKind.Sale, 1));
+        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = 1, ReadScale = true }, null, SaleLineKind.Sale, 1));
+        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = 1 }, null, SaleLineKind.Sale, 0.5m));
+        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = 2 }, null, SaleLineKind.Sale, 1));
+        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = 3 }, null, SaleLineKind.Sale, 1));
+        Assert.Null(SaleDraft.LineToJoin([new SaleDraftLine { ItemId = 4, SerialNumber = "S1" }], new Item { Id = 4 }, null, SaleLineKind.Sale, 1));
+    }
+}
+
+public class UpcTests
+{
+    [Fact]
+    public void Check_digits_and_in_store_codes()
+    {
+        Assert.True(Upc.IsValid("036000291452"));    // the textbook UPC-A
+        Assert.False(Upc.IsValid("036000291453"));
+        Assert.True(Upc.IsValid("4006381333931"));   // the textbook EAN-13
+        Assert.False(Upc.IsValid("12345"));
+        Assert.False(Upc.IsValid(null));
+
+        var code = Upc.InStore(1001);
+        Assert.Equal(12, code.Length);
+        Assert.StartsWith("40000001001", code, StringComparison.Ordinal);
+        Assert.True(Upc.IsValid(code));
+        Assert.Equal(1001, Upc.InStoreNumber(code));
+        Assert.Null(Upc.InStoreNumber("036000291452"));
+        Assert.Equal(["036000291452", "0036000291452"], Upc.Forms("036000291452"));
+        Assert.Equal(["0036000291452", "036000291452"], Upc.Forms("0036000291452"));
+    }
+}

@@ -145,14 +145,32 @@ public sealed partial class PosViewModel : ObservableObject
             qty = weight.Value;
         }
 
+        var kind = ReturnMode ? SaleLineKind.Return : SaleLineKind.Sale;
+        if (serial is null && SaleDraft.LineToJoin(Lines, item, variant?.Id, kind, qty) is { } same)
+        {
+            // The same item again: its line gets the quantity (and the piece's tag), so the bill shows it once.
+            _itemCache[item.Id] = item;
+            same.Quantity += kind == SaleLineKind.Return ? -Math.Abs(qty) : qty;
+            if (epc is not null) same.Epcs.Add(epc);
+            ReturnMode = false;
+            Price(same);
+            SelectedLine = same;
+            Message = $"{item.Name} x {Math.Abs(same.Quantity).ToString("0.###", C)} — {same.LineTotal.ToString("N2", C)}"
+                + (epc is null && same.Epcs.Count > 0 ? "   (if this piece was already read by RFID, lower the quantity with F5)" : "");
+            RefreshLines();
+            if (!string.IsNullOrWhiteSpace(item.TagAlongCode) && kind == SaleLineKind.Sale)
+                await AddCodeAsync(item.TagAlongCode!, qty);
+            return;
+        }
+
         var line = new SaleDraftLine
         {
-            Kind = ReturnMode ? SaleLineKind.Return : SaleLineKind.Sale,
+            Kind = kind,
             ItemId = item.Id, ItemType = item.ItemType, Plu = item.Plu, Description = item.Name, Quantity = ReturnMode ? -Math.Abs(qty) : qty,
             Taxable1 = item.Taxable1, Taxable2 = item.Taxable2, Department = item.Department?.Name,
             UnitCost = item.AverageCost > 0 ? item.AverageCost : item.LastCost, VariantId = variant?.Id,
             VariantText = variant is null ? null : $"{variant.Value1} {variant.Value2} {variant.Value3}".Trim(), SerialNumber = serial,
-            SupplierName = item.Supplier?.Company, CommissionPercent = item.Commission, ThcWeight = item.ThcWeight, Epc = epc,
+            SupplierName = item.Supplier?.Company, CommissionPercent = item.Commission, ThcWeight = item.ThcWeight, Epcs = epc is null ? [] : [epc],
         };
         _itemCache[item.Id] = item;
         Price(line);
@@ -259,6 +277,12 @@ public sealed partial class PosViewModel : ObservableObject
         if (q is null || q == 0) return;
         if (line.SerialNumber is not null && Math.Abs(q.Value) != 1) { Ui.Error("A serialized item is sold one at a time."); return; }
         line.Quantity = line.Kind == SaleLineKind.Return ? -Math.Abs(q.Value) : q.Value;
+        // Fewer pieces than tags: the tags taken off are not rung up again while they lie on the antenna.
+        while (line.Epcs.Count > Math.Abs(line.Quantity))
+        {
+            _rfidIgnored.Add(line.Epcs[^1]);
+            line.Epcs.RemoveAt(line.Epcs.Count - 1);
+        }
         Price(line);
         RefreshLines();
     }
@@ -299,7 +323,7 @@ public sealed partial class PosViewModel : ObservableObject
         if (SelectedLine is not { } line) return;
         if (Settings.SupervisorForVoids && !await LoginWindow.SupervisorApprovesAsync("Removing a line")) return;
         Lines.Remove(line);
-        if (line.Epc is not null) _rfidIgnored.Add(line.Epc);
+        _rfidIgnored.UnionWith(line.Epcs);
         SelectedLine = Lines.LastOrDefault();
         Recalculate();
     }
@@ -395,7 +419,7 @@ public sealed partial class PosViewModel : ObservableObject
         bool ok = await Ui.Try(async () => sale = await AppServices.Sales.PostSaleAsync(_draft, tenders, Session));
         if (!ok || sale is null) return false;
         _lastSale = sale;
-        foreach (var l in sale.Lines.Where(l => l.Epc is not null)) _recentlySold[l.Epc!] = DateTime.Now;
+        foreach (var t in sale.Lines.SelectMany(l => l.Tags)) _recentlySold[t.Epc] = DateTime.Now;
         var change = tenders.Sum(t => t.Change);
         var kinds = await AppServices.Setup.GetTenderTypesAsync(false);
         bool open = tenders.Any(t => kinds.FirstOrDefault(k => k.Name == t.TenderType)?.OpensDrawer ?? t.Kind == TenderKind.Cash);
@@ -410,11 +434,11 @@ public sealed partial class PosViewModel : ObservableObject
     {
         try
         {
-            var header = await AppServices.Setup.GetTextAsync(DocumentTextKind.InvoiceHeader);
-            var footer = await AppServices.Setup.GetTextAsync(DocumentTextKind.InvoiceFooter);
-            var text = ReceiptFormatter.Sale(sale, Settings, header, footer, AppServices.Config.ReceiptWidth, reprint: Session.IsTrainee ? "*** TRAINING ***" : null);
+            var receipt = await ReceiptWindow.ForSaleAsync(sale, Session.IsTrainee ? "TRAINING" : null);
+            int width = AppServices.Config.ReceiptWidth;
             bool print = AppServices.Config.PrintReceipts && (!AppServices.Config.AskBeforePrinting || Ui.Confirm("Print a receipt?"));
-            if (print) AppServices.Printer.Print(text, openDrawer && AppServices.Config.DrawerOnPrinter);
+            if (print)
+                AppServices.Printer.Print(EscPosReceipt.Build(receipt, width, ReceiptLogo.Raster()), ReceiptFormatter.Text(receipt, width), openDrawer && AppServices.Config.DrawerOnPrinter);
             else if (openDrawer) OpenDrawer();
         }
         catch (Exception ex)
@@ -440,9 +464,7 @@ public sealed partial class PosViewModel : ObservableObject
     public async Task ReprintLastAsync()
     {
         if (_lastSale is null) { Message = "No sale yet on this screen. Use the Sales Journal to reprint older sales."; return; }
-        var header = await AppServices.Setup.GetTextAsync(DocumentTextKind.InvoiceHeader);
-        var footer = await AppServices.Setup.GetTextAsync(DocumentTextKind.InvoiceFooter);
-        new TextPreviewWindow($"Invoice {_lastSale.InvoiceNumber}", ReceiptFormatter.Sale(_lastSale, Settings, header, footer, AppServices.Config.ReceiptWidth, reprint: "COPY")).ShowDialog();
+        new ReceiptWindow(await ReceiptWindow.ForSaleAsync(_lastSale, "COPY"), $"Invoice {_lastSale.InvoiceNumber}").ShowDialog();
     }
 
     public async Task SuspendAsync()
@@ -572,14 +594,14 @@ public sealed partial class PosViewModel : ObservableObject
     /// <summary>A tag read at this counter: add its item once, unless it was just sold or taken off this sale.</summary>
     public async Task OnTagAsync(RfidTagEvent tag)
     {
-        if (Lines.Any(l => l.Epc == tag.Epc) || _rfidIgnored.Contains(tag.Epc)) return;
+        if (Lines.Any(l => l.Epcs.Contains(tag.Epc)) || _rfidIgnored.Contains(tag.Epc)) return;
         if (!ReturnMode && _recentlySold.TryGetValue(tag.Epc, out var soldAt) && DateTime.Now - soldAt < TimeSpan.FromMinutes(10)) return;
         if (!_tagCache.TryGetValue(tag.Epc, out var found))
         {
             found = await AppServices.RfidData.ResolveAsync(Session.LocationId, tag.Epc);
             _tagCache[tag.Epc] = found;
         }
-        if (Lines.Any(l => l.Epc == tag.Epc)) return;
+        if (Lines.Any(l => l.Epcs.Contains(tag.Epc))) return;
         if (found is null)
         {
             if (_rfidNotices.Add(tag.Epc)) Message = $"Unknown RFID tag {tag.Epc}. Give it to an item in Inventory (item > RFID tags).";
@@ -589,6 +611,16 @@ public sealed partial class PosViewModel : ObservableObject
         {
             if (_rfidNotices.Add(tag.Epc))
                 Message = $"{found.Item.Name}: this tag was already sold on {sold.SoldAt:g} (invoice {sold.SoldOnInvoice}). Use Return / refund to take it back.";
+            return;
+        }
+        // A piece already rung up by its barcode: the tag joins that piece instead of adding another one.
+        if (!ReturnMode && found.Item.ItemType != ItemType.Serialized
+            && Lines.FirstOrDefault(l => l.ItemId == found.Item.Id && l.VariantId == found.Variant?.Id && l.Kind == SaleLineKind.Sale
+                                         && l.SerialNumber is null && l.Quantity > l.Epcs.Count) is { } scanned)
+        {
+            scanned.Epcs.Add(tag.Epc);
+            Message = $"{found.Item.Name}: the RFID tag belongs to the piece already scanned by barcode.";
+            RefreshLines();
             return;
         }
         await AddItemAsync(found.Item, found.Variant, 1, tag.Epc, found.Tag?.SerialNumber);

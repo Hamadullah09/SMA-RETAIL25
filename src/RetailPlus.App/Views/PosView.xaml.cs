@@ -17,7 +17,12 @@ public partial class PosView : UserControl, IRefreshable
     {
         InitializeComponent();
         DataContext = Vm;
-        PreviewKeyDown += OnKey;
+        Loaded += (_, _) =>
+        {
+            if (Window.GetWindow(this) is not { } window) return;
+            window.PreviewTextInput -= RouteTyping;
+            window.PreviewTextInput += RouteTyping;
+        };
         IsVisibleChanged += (_, _) =>
         {
             if (IsVisible)
@@ -36,22 +41,28 @@ public partial class PosView : UserControl, IRefreshable
         CodeBox.Focus();
     }
 
-    private async void OnKey(object sender, KeyEventArgs e)
+    /// <summary>
+    /// Whatever is typed or scanned on this screen goes into the code box, wherever the focus is: a barcode scanner
+    /// types like a keyboard, so a scan works even right after a click on the list or a button (and while RFID reads).
+    /// </summary>
+    private void RouteTyping(object sender, TextCompositionEventArgs e)
     {
-        switch (e.Key)
-        {
-            case Key.F3: e.Handled = true; Find_Click(this, e); break;
-            case Key.F4: e.Handled = true; Client_Click(this, e); break;
-            case Key.F5: e.Handled = true; Vm.ChangeQuantity(); break;
-            case Key.F6: e.Handled = true; Vm.ChangePrice(); break;
-            case Key.F12: e.Handled = true; await Vm.PayAsync(); break;
-            case Key.Delete when !CodeBox.IsKeyboardFocused || CodeBox.Text.Length == 0: e.Handled = true; await Vm.RemoveLineAsync(); break;
-        }
-        if (e.Handled) CodeBox.Focus();
+        if (!IsVisible || e.Text.Length == 0 || char.IsControl(e.Text[0]) || char.IsWhiteSpace(e.Text[0])) return;
+        if (Keyboard.FocusedElement is TextBox || CodeBox.IsKeyboardFocused) return;
+        e.Handled = true;
+        CodeBox.Focus();
+        Vm.CodeText += e.Text;
+        CodeBox.CaretIndex = CodeBox.Text.Length;
     }
 
     private async void CodeBox_KeyDown(object sender, KeyEventArgs e)
     {
+        if (e.Key == Key.Escape && CodeBox.Text.Length > 0)
+        {
+            e.Handled = true;
+            Vm.CodeText = "";
+            return;
+        }
         if (e.Key != Key.Enter) return;
         e.Handled = true;
         if (CodeBox.Text.Trim().Length == 0 && Vm.Lines.Count > 0) { await Vm.PayAsync(); return; }

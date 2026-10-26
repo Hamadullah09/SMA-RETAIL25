@@ -241,7 +241,8 @@ public sealed class RfidService(DataContext data)
         if (Epc.TryDecodeSgtin96(code, out var gtin, out _))
         {
             var forms = Epc.BarcodeForms(gtin).ToList();
-            var item = await items.FirstOrDefaultAsync(i => forms.Contains(i.Plu) || (i.SupplierCode != null && forms.Contains(i.SupplierCode)));
+            var item = await items.FirstOrDefaultAsync(i => forms.Contains(i.Plu) || (i.Barcode != null && forms.Contains(i.Barcode))
+                                                         || (i.SupplierCode != null && forms.Contains(i.SupplierCode)));
             if (item is not null) return new TagLookup(item, null, null, TagMatch.Gtin);
             var variant = await db.ItemVariants.AsNoTracking().FirstOrDefaultAsync(v => v.Code != null && forms.Contains(v.Code));
             if (variant is not null && await items.FirstOrDefaultAsync(i => i.Id == variant.ItemId) is { } owner)

@@ -51,6 +51,8 @@ public class Item : ISoftDeletable, IFlaggable, IVersioned
     public string Plu { get; set; } = "";
     /// <summary>Item name [PROD].</summary>
     public string Name { get; set; } = "";
+    /// <summary>The product barcode (UPC-A, EAN-13, EAN-8), the maker's or an in-store one; see <see cref="Rules.Upc"/>.</summary>
+    public string? Barcode { get; set; }
     public ItemType ItemType { get; set; }
     public int? DepartmentId { get; set; }
     public Department? Department { get; set; }
@@ -61,6 +63,10 @@ public class Item : ISoftDeletable, IFlaggable, IVersioned
     public string? Size { get; set; }
     /// <summary>Items per package [PKG].</summary>
     public int PackQuantity { get; set; }
+    /// <summary>Net weight (or volume) of one unit, in <see cref="WeightUnit"/>: 90 g, 1.5 L.</summary>
+    public decimal Weight { get; set; }
+    /// <summary>g, kg, ml, L, oz or lb.</summary>
+    public string? WeightUnit { get; set; }
     /// <summary>Supplier shown on the item; the original stores the name [SUPPLIER].</summary>
     public int? SupplierId { get; set; }
     public Supplier? Supplier { get; set; }

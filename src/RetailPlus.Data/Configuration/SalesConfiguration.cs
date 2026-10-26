@@ -37,10 +37,19 @@ internal sealed class SaleLineConfiguration : IEntityTypeConfiguration<SaleLine>
         e.Property(x => x.Department).HasMaxLength(15);
         e.Property(x => x.SerialNumber).HasMaxLength(50);
         e.Property(x => x.SupplierName).HasMaxLength(30);
-        e.Property(x => x.Epc).HasMaxLength(128).IsUnicode(false);
         e.HasOne<Sale>().WithMany(x => x.Lines).HasForeignKey(x => x.SaleId).OnDelete(DeleteBehavior.Cascade);
         e.HasIndex(x => x.ItemId);
         e.HasIndex(x => x.Plu);
+    }
+}
+
+internal sealed class SaleLineTagConfiguration : IEntityTypeConfiguration<SaleLineTag>
+{
+    public void Configure(EntityTypeBuilder<SaleLineTag> e)
+    {
+        e.Property(x => x.Epc).HasMaxLength(128).IsUnicode(false);
+        e.HasOne<SaleLine>().WithMany(x => x.Tags).HasForeignKey(x => x.SaleLineId).OnDelete(DeleteBehavior.Cascade);
+        e.HasIndex(x => x.Epc);
     }
 }
 

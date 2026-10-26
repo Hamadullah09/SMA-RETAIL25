@@ -86,8 +86,16 @@ public class SaleLine
     public decimal Commission { get; set; }
     /// <summary>For returns: put the item back into stock.</summary>
     public bool Restock { get; set; }
-    /// <summary>The RFID tag this line was rung up from, when it came from an antenna.</summary>
-    public string? Epc { get; set; }
+    /// <summary>The RFID tags rung up on this line, one per piece.</summary>
+    public List<SaleLineTag> Tags { get; set; } = [];
+}
+
+/// <summary>An RFID tag sold (or returned) on a sale line; a line of three tagged pieces has three.</summary>
+public class SaleLineTag
+{
+    public int Id { get; set; }
+    public int SaleLineId { get; set; }
+    public string Epc { get; set; } = "";
 }
 
 /// <summary>A payment on a sale; split tender gives two rows.</summary>

@@ -97,8 +97,17 @@ A tag (EPC) is matched to an item in this order:
    item's stock code or supplier code (14-, 13- and 12-digit forms), so supplier-tagged goods need no registration.
 3. **Item code as text**: tags whose EPC holds the stock code in ASCII.
 
-At the counter each physical tag rings up once per sale; a tag removed from the sale is not added again, and tags sold
-in the last ten minutes are ignored while they still lie on the antenna.
+Every piece carries its own tag and every tag belongs to one item, while the pieces share the item's stock code: seven
+chocolates are one item with seven tags and a stock of seven. *Inventory* shows each item's number of tags, the
+*RFID tags (EPC)* tab lists them with the label printed on each piece, and searching with *Epc* (or typing a full tag
+code in *Any*) finds the item a tag belongs to.
+
+At the counter each physical tag rings up once per sale. Pieces of the same item join one line: three chocolates on
+the antenna are one line of quantity 3 holding the three tags (column *RFID*), and scanning the barcode again adds to
+the line the same way. Serialized items, gift cards and weighed goods keep a line per piece. Lowering a line's
+quantity or removing the line puts its tags aside, so they are not added again while they lie on the antenna, and tags
+sold in the last ten minutes are ignored too. The sale keeps every tag of every line (`SaleLineTags`), so a void puts
+all of them back in stock.
 
 ### Why TCP, server-sent events and WebSocket
 

@@ -30,8 +30,8 @@ public sealed class SaleDraftLine
     public bool AutoPriced { get; set; } = true;
     public string? PriceExplanation { get; set; }
     public decimal ThcWeight { get; set; }
-    /// <summary>The RFID tag the line was read from, if any.</summary>
-    public string? Epc { get; set; }
+    /// <summary>The RFID tags rung up on this line, one per piece: three tagged chocolates are one line with three tags.</summary>
+    public List<string> Epcs { get; set; } = [];
 
     public decimal LineTotal => Money.Round(UnitPrice * Quantity - DiscountAmount);
 }
@@ -65,6 +65,18 @@ public sealed class SaleDraft
         tax, SubtotalDiscountPercent, ExemptTax1, ExemptTax2);
 
     public decimal TotalThc => Lines.Where(l => l.Kind == SaleLineKind.Sale).Sum(l => l.ThcWeight * l.Quantity);
+
+    /// <summary>
+    /// The line that more of an item joins, so the bill shows each item once with its quantity: same item, option and
+    /// kind, whole quantities, no serial number and no hand-made discount. Null when the item needs a line of its own
+    /// (serialized pieces, gift cards, weighed goods).
+    /// </summary>
+    public static SaleDraftLine? LineToJoin(IEnumerable<SaleDraftLine> lines, Item item, int? variantId, SaleLineKind kind, decimal quantity)
+    {
+        if (item.ItemType is ItemType.Serialized or ItemType.GiftCard || item.ReadScale || quantity != decimal.Truncate(quantity)) return null;
+        return lines.LastOrDefault(l => l.ItemId == item.Id && l.VariantId == variantId && l.Kind == kind && l.SerialNumber is null
+                                        && l.Quantity == decimal.Truncate(l.Quantity) && (l.AutoPriced || l.DiscountAmount == 0));
+    }
 }
 
 /// <summary>One payment entered at the Pay window.</summary>

@@ -132,16 +132,56 @@ public sealed class RfidServiceTests(LocalDbFixture db) : IClassFixture<LocalDbF
         var sales = new SalesService(Data);
         var draft = new SaleDraft
         {
-            Lines = [new SaleDraftLine { ItemId = item.Id, ItemType = item.ItemType, Plu = item.Plu, Description = item.Name, Quantity = 1, UnitPrice = 10m, Epc = epc }],
+            Lines = [new SaleDraftLine { ItemId = item.Id, ItemType = item.ItemType, Plu = item.Plu, Description = item.Name, Quantity = 1, UnitPrice = 10m, Epcs = [epc] }],
         };
         var sale = await sales.PostSaleAsync(draft, [new TenderEntry("Cash", TenderKind.Cash, 10m, 10m)], session);
 
         var tag = (await rfid.GetTagsAsync(item.Id)).Single();
         Assert.Equal(ItemTagStatus.Sold, tag.Status);
         Assert.Equal(sale.InvoiceNumber, tag.SoldOnInvoice);
-        Assert.Equal(epc, (await sales.GetSaleAsync(sale.Id))!.Lines.Single().Epc);
+        Assert.Equal(epc, (await sales.GetSaleAsync(sale.Id))!.Lines.Single().Tags.Single().Epc);
 
         await sales.VoidSaleAsync(sale.Id, session);
         Assert.Equal(ItemTagStatus.InStock, (await rfid.GetTagsAsync(item.Id)).Single().Status);
+    }
+
+    [SkippableFact]
+    public async Task One_line_of_several_tagged_pieces_sells_and_voids_every_tag()
+    {
+        var (session, location) = await SetUpAsync();
+        var rfid = new RfidService(Data);
+        var item = await ItemAsync(location.Id, "CHOC-7", onHand: 7);
+        var epcs = Enumerable.Range(1, 3).Select(n => $"E2000077{Random.Shared.Next():X8}{n:X4}").ToList();
+        foreach (var e in epcs) await rfid.RegisterTagAsync(e, item.Id);
+        var sales = new SalesService(Data);
+        var draft = new SaleDraft
+        {
+            Lines = [new SaleDraftLine { ItemId = item.Id, ItemType = item.ItemType, Plu = item.Plu, Description = item.Name, Quantity = 3, UnitPrice = 10m, Epcs = [.. epcs] }],
+        };
+        var sale = await sales.PostSaleAsync(draft, [new TenderEntry("Cash", TenderKind.Cash, 30m, 30m)], session);
+
+        var line = (await sales.GetSaleAsync(sale.Id))!.Lines.Single();
+        Assert.Equal(3m, line.Quantity);
+        Assert.Equal(epcs.Order(), line.Tags.Select(t => t.Epc).Order());
+        Assert.All(await rfid.GetTagsAsync(item.Id), t => Assert.Equal(ItemTagStatus.Sold, t.Status));
+        Assert.Equal(4m, (await new InventoryService(Data).GetAsync(item.Id))!.OnHand);
+        var row = (await new InventoryService(Data).SearchAsync(location.Id, epcs[1], ItemSearchField.Epc)).Single();
+        Assert.Equal(item.Id, row.Id);
+        Assert.Equal(3, row.Tags);
+
+        await sales.VoidSaleAsync(sale.Id, session);
+        Assert.All(await rfid.GetTagsAsync(item.Id), t => Assert.Equal(ItemTagStatus.InStock, t.Status));
+        Assert.Equal(7m, (await new InventoryService(Data).GetAsync(item.Id))!.OnHand);
+    }
+
+    [SkippableFact]
+    public async Task Item_weight_is_saved()
+    {
+        var (_, location) = await SetUpAsync();
+        var item = await new InventoryService(Data).SaveAsync(new Item { LocationId = location.Id, Plu = "WEIGHT-1", Name = "Chocolate", Weight = 90m, WeightUnit = "g" }, null, null, null);
+        var back = (await new InventoryService(Data).GetAsync(item.Id))!;
+        Assert.Equal(90m, back.Weight);
+        Assert.Equal("g", back.WeightUnit);
+        Assert.Equal("90 g", (await new InventoryService(Data).SearchAsync(location.Id, "WEIGHT-1")).Single().WeightText);
     }
 }

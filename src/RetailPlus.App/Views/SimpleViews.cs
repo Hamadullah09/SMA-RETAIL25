@@ -23,14 +23,36 @@ internal static class Layout
         return b;
     }
 
-    /// <summary>Gives every text button under <paramref name="root"/> that has no icon yet the icon for its text.</summary>
+    /// <summary>
+    /// Gives every text button under <paramref name="root"/> the icon and the keyboard shortcut for its text, unless it
+    /// has its own (Save and Cancel buttons keep Enter and Esc).
+    /// </summary>
     public static void AddIcons(DependencyObject root)
     {
         foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
         {
-            if (child is Button { Content: string text } b && Look.GetIcon(b) is null) Look.SetIcon(b, IconFor(text));
+            if (child is Button { Content: string text } b)
+            {
+                if (Look.GetIcon(b) is null) Look.SetIcon(b, IconFor(text));
+                if (Look.GetShortcut(b) is null && !b.IsDefault && !b.IsCancel) Look.SetShortcut(b, ShortcutFor(text));
+            }
             AddIcons(child);
         }
+    }
+
+    /// <summary>The usual key for a button's action, so the same action has the same key on every screen.</summary>
+    public static string? ShortcutFor(string text)
+    {
+        var t = text.ToUpperInvariant();
+        (string Start, string Key)[] map =
+        [
+            ("NEW", "Ctrl+N"), ("EDIT", "F2"), ("VIEW", "F2"), ("OPEN", "F2"), ("DELETE", "Del"), ("UNDELETE", "Ctrl+U"),
+            ("PRINT", "Ctrl+P"), ("SAVE", "Ctrl+S"), ("EXPORT", "Ctrl+E"), ("IMPORT", "Ctrl+I"), ("SHOW", "F5"), ("RUN", "F5"),
+            ("REFRESH", "F5"), ("FIND", "F3"), ("TAKE PAYMENT", "F12"), ("FLAG", "Ctrl+G"),
+        ];
+        foreach (var (start, key) in map)
+            if (t.StartsWith(start, StringComparison.Ordinal)) return key;
+        return null;
     }
 
     /// <summary>An icon for a button, chosen from the first word(s) of its text so that the same action looks the same everywhere.</summary>
@@ -146,9 +168,7 @@ public sealed class SalesJournalView : UserControl, IRefreshable
         {
             var sale = await AppServices.Sales.GetSaleAsync(row.Id);
             if (sale is null) return;
-            var header = await AppServices.Setup.GetTextAsync(DocumentTextKind.InvoiceHeader);
-            var footer = await AppServices.Setup.GetTextAsync(DocumentTextKind.InvoiceFooter);
-            new TextPreviewWindow($"Invoice {sale.InvoiceNumber}", ReceiptFormatter.Sale(sale, AppServices.Settings, header, footer, AppServices.Config.ReceiptWidth, reprint: "COPY")).ShowDialog();
+            new ReceiptWindow(await ReceiptWindow.ForSaleAsync(sale, "COPY"), $"Invoice {sale.InvoiceNumber}").ShowDialog();
         });
     }
 

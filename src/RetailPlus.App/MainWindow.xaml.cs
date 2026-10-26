@@ -12,7 +12,7 @@ using RetailPlus.App.Views;
 namespace RetailPlus.App;
 
 /// <summary>A screen of the program, created on first use.</summary>
-public sealed record NavEntry(string Key, string Title, string Glyph, int MinimumLevel, Func<UserControl> Create);
+public sealed record NavEntry(string Key, string Title, string Glyph, int MinimumLevel, Func<UserControl> Create, string? Shortcut = null);
 
 /// <summary>Views that reload their data when shown.</summary>
 public interface IRefreshable
@@ -26,19 +26,19 @@ public partial class MainWindow : Window
 
     public static readonly IReadOnlyList<NavEntry> AllEntries =
     [
-        new("home", "Dashboard", "", 1, () => new DashboardView()),
-        new("pos", "Point of Sale", "", 0, () => new PosView()),
-        new("journal", "Sales Journal", "", 1, () => new SalesJournalView()),
-        new("inventory", "Inventory", "", 2, () => new InventoryView()),
-        new("clients", "Clients", "", 1, () => new ClientsView()),
-        new("suppliers", "Suppliers", "", 2, () => new SuppliersView()),
-        new("invoices", "Invoices & A/R", "", 2, () => new InvoicesView()),
-        new("po", "Purchase Orders", "", 2, () => new PurchaseOrdersView()),
-        new("orders", "Orders & RMAs", "", 1, () => new CustomerOrdersView()),
-        new("reports", "Reports", "", 2, () => new ReportsView()),
-        new("rfid", "RFID readers", "\uE704", 3, () => new RfidView()),
-        new("tools", "Tools", "", 3, () => new ToolsView()),
-        new("setup", "Setup", "", 3, () => new SetupView()),
+        new("home", "Dashboard", "", 1, () => new DashboardView(), "Ctrl+1"),
+        new("pos", "Point of Sale", "", 0, () => new PosView(), "Ctrl+2"),
+        new("journal", "Sales Journal", "", 1, () => new SalesJournalView(), "Ctrl+3"),
+        new("inventory", "Inventory", "", 2, () => new InventoryView(), "Ctrl+4"),
+        new("clients", "Clients", "", 1, () => new ClientsView(), "Ctrl+5"),
+        new("suppliers", "Suppliers", "", 2, () => new SuppliersView(), "Ctrl+6"),
+        new("invoices", "Invoices & A/R", "", 2, () => new InvoicesView(), "Ctrl+7"),
+        new("po", "Purchase Orders", "", 2, () => new PurchaseOrdersView(), "Ctrl+8"),
+        new("orders", "Orders & RMAs", "", 1, () => new CustomerOrdersView(), "Ctrl+9"),
+        new("reports", "Reports", "", 2, () => new ReportsView(), "Ctrl+0"),
+        new("rfid", "RFID readers", "\uE704", 3, () => new RfidView(), "Ctrl+Shift+R"),
+        new("tools", "Tools", "", 3, () => new ToolsView(), "Ctrl+Shift+T"),
+        new("setup", "Setup", "", 3, () => new SetupView(), "Ctrl+Shift+S"),
     ];
 
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(15) };
@@ -142,37 +142,37 @@ public partial class MainWindow : Window
         if (!_views.TryGetValue(entry.Key, out var view))
         {
             view = entry.Create();
+            Layout.AddIcons(view);
             _views[entry.Key] = view;
         }
         Host.Content = view;
         if (view is IRefreshable r) await Ui.Try(r.RefreshAsync);
     }
 
+    /// <summary>Each screen's key (shown in the list): Ctrl+1 … Ctrl+0, Ctrl+Shift+letter for the last ones.</summary>
     private void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
-        if (Keyboard.Modifiers != ModifierKeys.Control) return;
-        int n = e.Key - Key.D1;
-        var list = (IReadOnlyList<NavEntry>)Nav.ItemsSource;
-        if (n >= 0 && n < list.Count && n < 9)
-        {
-            Nav.SelectedIndex = n;
-            e.Handled = true;
-        }
+        if (e.Handled || Shortcuts.Describe(e) is not { } gesture) return;
+        var entry = ((IReadOnlyList<NavEntry>)Nav.ItemsSource).FirstOrDefault(n => n.Shortcut == gesture);
+        if (entry is null) return;
+        Nav.SelectedItem = entry;
+        e.Handled = true;
     }
 
     private void Settings_Click(object sender, RoutedEventArgs e) => Navigate("setup");
 
     private void Help_Click(object sender, RoutedEventArgs e) => Ui.Info(
-        "Ctrl + 1 … 9:  open a screen from the list on the left\n\n" +
-        "On the Point of Sale screen:\n" +
-        "Enter:  add the item whose code you typed (or pay, when the box is empty)\n" +
+        "Every button shows its key on the right, like  F5  or  Ctrl+P. Press the key instead of clicking.\n\n" +
+        "Everywhere:\n" +
+        "Ctrl+1 … Ctrl+0:  open a screen (the key is next to each name on the left)\n" +
+        "Tab / Shift+Tab:  move between buttons and boxes;  Space:  press the chosen button\n" +
+        "Enter:  save or OK;  Esc:  cancel or close\n\n" +
+        "Point of Sale:\n" +
+        "Just scan or type: the code goes into the code box. Enter adds the item.\n" +
         "3*CODE:  sell 3 of an item\n" +
-        "F3:  find an item\n" +
-        "F4:  choose a client\n" +
-        "F5:  change the quantity\n" +
-        "F6:  change the price\n" +
-        "F12:  pay\n" +
-        "Delete:  remove the chosen line", "Keyboard keys");
+        "F2 item without code,  F3 find,  F4 client,  F5 quantity,  F6 price,  F7/F8 discounts,\n" +
+        "F9 return,  Del remove line,  F12 pay,  Esc cancel the sale\n\n" +
+        "Pay window:  type the amount, then F1 … F8 for the kind of payment (Enter = cash).", "Keyboard keys");
 
     private void SwitchUser_Click(object sender, RoutedEventArgs e)
     {
@@ -230,6 +230,50 @@ public partial class MainWindow : Window
             }
         }
         await Shoot("pay", async () => new PayWindow(123.45m, await AppServices.Setup.GetTenderTypesAsync(), AppServices.Settings.MinimumTender, false, false));
+        // The Pay window with 500 typed for 380 due (change), 300 typed (short), and 500 taken in cash (change to hand back).
+        async Task<Window> Pay(string typed, bool payCash)
+        {
+            var w = new PayWindow(380m, await AppServices.Setup.GetTenderTypesAsync(), AppServices.Settings.MinimumTender, false, false);
+            w.Loaded += (_, _) =>
+            {
+                Descendant<TextBox>(w)!.Text = typed;
+                if (payCash) Descendant<Button>(w, b => Equals(b.Content, "Cash"))?.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
+            };
+            return w;
+        }
+        await Shoot("pay-change", () => Pay("500", false));
+        await Shoot("pay-short", () => Pay("300", false));
+        await Shoot("pay-given", () => Pay("500", true));
+        await Shoot("receipt", async () => new ReceiptWindow(await ReceiptWindow.ForSaleAsync(SampleSale(), "COPY"), "Invoice 1005"));
+        await Shoot("labels", async () =>
+        {
+            var rows = (await AppServices.Inventory.SearchAsync(AppServices.Session.LocationId, null, take: 8)).Where(r => !r.IsDeleted).ToList();
+            return new LabelsWindow(rows);
+        });
+        try
+        {
+            var row = (await AppServices.Inventory.SearchAsync(AppServices.Session.LocationId, null, take: 1)).FirstOrDefault();
+            var options = new LabelOptions(true, true, "Rs", string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? Brand.Name : AppServices.Settings.CompanyName!);
+            var label = LabelCard.Create(row?.Name ?? "Sample item", row?.Plu ?? "SAMPLE", row?.Barcode ?? Core.Rules.Upc.InStore(1001), row?.Price1 ?? 450m, LabelLayout.All[0], options);
+            SaveElement(label, Path.Combine(folder, "dlg-label.png"), 4);
+            Log.Write("Screenshot dialog label ok");
+        }
+        catch (Exception ex)
+        {
+            failures++;
+            Log.Write($"Screenshot dialog label failed: {ex}");
+        }
+        try
+        {
+            var receipt = new ReceiptWindow(await ReceiptWindow.ForSaleAsync(SampleSale(), "COPY"), "Invoice 1005");
+            receipt.SavePictureTo(Path.Combine(folder, "dlg-receipt-paper.png"));
+            Log.Write("Screenshot dialog receipt-paper ok");
+        }
+        catch (Exception ex)
+        {
+            failures++;
+            Log.Write($"Screenshot dialog receipt-paper failed: {ex}");
+        }
         await Shoot("message", () => Task.FromResult<Window>(new MessageWindow("Cancel this sale?", "All the lines on the screen will be removed. Nothing is saved.", MessageKind.Question)));
         await Shoot("client", () => Task.FromResult<Window>(new PartyEditorWindow(new Core.Model.Client { FirstName = "Sam", LastName = "Example" })));
         await Shoot("item", async () =>
@@ -254,6 +298,48 @@ public partial class MainWindow : Window
             return w;
         });
         return failures;
+    }
+
+    /// <summary>A sale to show the receipt with: three products, a line discount, paid in cash with change.</summary>
+    /// <summary>Saves an element laid out on its own as a PNG on white, <paramref name="scale"/> times screen size.</summary>
+    private static void SaveElement(FrameworkElement element, string file, double scale)
+    {
+        element.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        element.Arrange(new Rect(element.DesiredSize));
+        element.UpdateLayout();
+        var bitmap = new RenderTargetBitmap((int)Math.Ceiling(element.ActualWidth * scale), (int)Math.Ceiling(element.ActualHeight * scale), 96 * scale, 96 * scale, PixelFormats.Pbgra32);
+        var white = new DrawingVisual();
+        using (var dc = white.RenderOpen()) dc.DrawRectangle(Brushes.White, null, new Rect(0, 0, element.ActualWidth, element.ActualHeight));
+        bitmap.Render(white);
+        bitmap.Render(element);
+        var encoder = new PngBitmapEncoder();
+        encoder.Frames.Add(BitmapFrame.Create(bitmap));
+        using var stream = File.Create(file);
+        encoder.Save(stream);
+    }
+
+    internal static Core.Model.Sale SampleSale()
+    {
+        var sale = new Core.Model.Sale
+        {
+            InvoiceNumber = 1005, SoldAt = DateTime.Now, StationNumber = 1, Staff = "admin", ClientName = "Ayesha Khan",
+            Subtotal = 1830m, Total = 1830m, Status = Core.Model.SaleStatus.Completed,
+        };
+        sale.Lines.Add(new Core.Model.SaleLine { LineNumber = 1, Kind = Core.Model.SaleLineKind.Sale, Plu = "CNF-1001", Description = "Cadbury Dairy Milk 90g", Quantity = 3, UnitPrice = 450m, LineTotal = 1350m });
+        sale.Lines.Add(new Core.Model.SaleLine { LineNumber = 2, Kind = Core.Model.SaleLineKind.Sale, Plu = "SNK-2002", Description = "Lay's Masala 70g", Quantity = 2, UnitPrice = 150m, LineTotal = 300m });
+        sale.Lines.Add(new Core.Model.SaleLine { LineNumber = 3, Kind = Core.Model.SaleLineKind.Sale, Plu = "BEV-3002", Description = "Coca-Cola 1.5L", Quantity = 1, UnitPrice = 220m, DiscountAmount = 40m, LineTotal = 180m });
+        sale.Payments.Add(new Core.Model.SalePayment { TenderType = "Cash", Amount = 1830m, Tendered = 2000m, Change = 170m });
+        return sale;
+    }
+
+    private static T? Descendant<T>(DependencyObject root, Func<T, bool>? match = null) where T : DependencyObject
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+        {
+            if (child is T t && (match is null || match(t))) return t;
+            if (Descendant(child, match) is { } found) return found;
+        }
+        return null;
     }
 
     public static async Task Settle()
