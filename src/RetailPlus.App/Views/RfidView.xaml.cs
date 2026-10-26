@@ -251,6 +251,61 @@ public partial class RfidView : UserControl, IRefreshable
         });
     }
 
+    /// <summary>Searches this computer's networks for readers that are not in the list yet and offers to add them.</summary>
+    private async void Find_Click(object sender, RoutedEventArgs e)
+    {
+        var main = (MainWindow)Window.GetWindow(this);
+        await Ui.Try(async () =>
+        {
+            main.SetStatus("Looking for RFID readers on this computer's networks…");
+            var used = _readers.Select(r => r.Host).Where(h => h is not null).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var found = await RfidDiscovery.FindAsync(RfidDiscovery.CandidateHosts(true).Where(h => !used.Contains(h)));
+            main.SetStatus("");
+            if (found.Count == 0)
+            {
+                Ui.Info("No new reader answered. Check that it is switched on and plugged into this computer's network " +
+                        "(a new reader is at 192.168.0.178, so this PC needs an address such as 192.168.0.10).", "Find readers");
+                return;
+            }
+            var list = string.Join("\n", found.Select(f => $"• {f.Host}  firmware {f.Info.Firmware}, antennas {(f.ConnectedAntennas.Count == 0 ? "none detected" : string.Join(", ", f.ConnectedAntennas))}"));
+            if (!Ui.Confirm($"Found {found.Count} reader(s):\n\n{list}\n\nAdd them?", "Find readers")) return;
+            bool giveToThisStation = found.Count == 1 && _readers.Count == 0;
+            int n = _readers.Count;
+            foreach (var f in found)
+            {
+                var record = RfidDiscovery.ToReader(f, $"Reader {++n}", giveToThisStation ? AppServices.Session.StationNumber : null);
+                record.HubKey = AppServices.Config.RfidHubKey;
+                await AppServices.RfidData.SaveReaderAsync(record);
+            }
+            await ReloadHubAsync();
+            Ui.Info(giveToThisStation
+                ? "The reader was added and its antennas were given to this station."
+                : "The readers were added. Choose the station of each antenna below, then press Save assignments.", "Find readers");
+        });
+    }
+
+    /// <summary>The address of the RFID hub that every station on Automatic uses (empty: stations connect themselves).</summary>
+    private async void SiteHub_Click(object sender, RoutedEventArgs e)
+    {
+        var current = await AppServices.Setup.GetExtraAsync(AppServices.SiteHubSetting) ?? "";
+        var url = Ui.Prompt("Address of the RFID hub every station should use, for example http://192.168.0.10:5280.\n" +
+                            "Leave it empty when each station (or one PC) connects to the readers itself.", "RFID hub for all stations", current);
+        if (url is null) return;
+        url = url.Trim();
+        if (url.Length > 0 && !Uri.TryCreate(url, UriKind.Absolute, out _))
+        {
+            Ui.Error("That is not a web address. It looks like http://192.168.0.10:5280");
+            return;
+        }
+        await Ui.Try(async () =>
+        {
+            await AppServices.Setup.SetExtraAsync(AppServices.SiteHubSetting, url);
+            await AppServices.StartRfidAsync();
+            await RefreshAsync();
+            Ui.Info(url.Length == 0 ? "Stations on Automatic now connect to their readers themselves." : $"Stations on Automatic now use the hub at {url} (each picks it up when it starts).");
+        });
+    }
+
     private async void Station_Click(object sender, RoutedEventArgs e)
     {
         if (Window.GetWindow(this) is not MainWindow main) return;

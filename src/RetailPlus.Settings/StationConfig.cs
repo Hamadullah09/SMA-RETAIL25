@@ -7,6 +7,11 @@ namespace RetailPlus.Settings;
 /// <summary>How this station reaches the RFID readers.</summary>
 public enum RfidMode
 {
+    /// <summary>
+    /// The default: use the shop's RFID hub when one is set for all stations, otherwise connect to this station's
+    /// readers directly, finding them on the network the first time.
+    /// </summary>
+    Auto,
     /// <summary>No RFID at this station.</summary>
     Off,
     /// <summary>This PC connects to the readers itself (a single PC, or the PC the readers are wired to).</summary>
@@ -48,7 +53,7 @@ public sealed class StationConfig
     public string? BackupFolder { get; set; }
     public string? ExportFolder { get; set; }
     public string? PhotoFolder { get; set; }
-    public RfidMode RfidMode { get; set; } = RfidMode.Off;
+    public RfidMode RfidMode { get; set; } = RfidMode.Auto;
     /// <summary>Address of the RFID hub service, e.g. http://192.168.0.10:5280.</summary>
     public string? RfidHubUrl { get; set; }
     public string? RfidHubApiKey { get; set; }
@@ -63,6 +68,7 @@ public sealed class StationConfig
     [JsonIgnore]
     public string? FilePath { get; private set; }
 
+    [JsonIgnore]
     public string EffectiveConnectionString =>
         !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RETAILPLUS_CONNECTION")) ? Environment.GetEnvironmentVariable("RETAILPLUS_CONNECTION")!
         : !string.IsNullOrWhiteSpace(ConnectionString) ? ConnectionString!
@@ -72,8 +78,11 @@ public sealed class StationConfig
 
     public static string DefaultPath => Path.Combine(DefaultFolder, "station.json");
 
+    [JsonIgnore]
     public string ReceiptFolderOrDefault => ReceiptFolder ?? Path.Combine(DefaultFolder, "Receipts");
+    [JsonIgnore]
     public string BackupFolderOrDefault => BackupFolder ?? Path.Combine(DefaultFolder, "Backups");
+    [JsonIgnore]
     public string ExportFolderOrDefault => ExportFolder ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Retail Plus");
 
     /// <summary>Reads the file, or returns defaults (and remembers the path) when there is none.</summary>

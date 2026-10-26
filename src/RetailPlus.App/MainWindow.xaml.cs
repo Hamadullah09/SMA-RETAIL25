@@ -52,6 +52,51 @@ public partial class MainWindow : Window
         _clock.Tick += (_, _) => UpdateClock();
         _clock.Start();
         UpdateClock();
+        _rfidTimer.Tick += async (_, _) => await UpdateRfidChipAsync();
+        _rfidTimer.Start();
+        AppServices.RfidChanged += () => Dispatcher.BeginInvoke(async () => await UpdateRfidChipAsync());
+        Loaded += async (_, _) => await UpdateRfidChipAsync();
+    }
+
+    private readonly DispatcherTimer _rfidTimer = new() { Interval = TimeSpan.FromSeconds(4) };
+
+    /// <summary>The RFID chip in the header: whether the readers are connected, at a glance.</summary>
+    private async Task UpdateRfidChipAsync()
+    {
+        if (AppServices.RfidSearchText is { } searching)
+        {
+            ShowChip(searching, "Sun");
+            return;
+        }
+        if (AppServices.Rfid is not { } rfid)
+        {
+            RfidChip.Visibility = Visibility.Collapsed;
+            return;
+        }
+        try
+        {
+            var enabled = (await rfid.GetStatusAsync()).Where(r => r.Enabled).ToList();
+            int up = enabled.Count(r => r.Connected);
+            if (enabled.Count == 0) ShowChip("RFID: no reader set up", "Stone");
+            else if (enabled.Count == 1) ShowChip($"RFID: {enabled[0].Name} {(enabled[0].Connected ? "connected" : "offline")}", enabled[0].Connected ? "Ok" : "Danger");
+            else ShowChip($"RFID: {up} of {enabled.Count} readers connected", up == enabled.Count ? "Ok" : up == 0 ? "Danger" : "Sun");
+        }
+        catch (Exception ex) when (ex is Rfid.RfidException or System.Net.Http.HttpRequestException or TaskCanceledException)
+        {
+            ShowChip("RFID hub not reachable", "Danger");
+        }
+    }
+
+    private void ShowChip(string text, string brush)
+    {
+        RfidChip.Visibility = Visibility.Visible;
+        RfidChipText.Text = text;
+        RfidDot.Fill = Look.Brush(brush);
+    }
+
+    private void RfidChip_Click(object sender, RoutedEventArgs e)
+    {
+        if (AppServices.Can(3)) Navigate("rfid");
     }
 
     private void UpdateClock()

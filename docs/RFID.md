@@ -25,11 +25,18 @@ reader's four antenna ports are given to POS stations by an administrator.
   hub. Stations never connect to readers directly when there is a hub.
 * **Antenna → station.** Each antenna port has a station number. The hub reads an antenna only while that station's
   POS screen is open (someone is listening), so idle counters do not transmit.
-* **Two ways to run.** In *Setup › This station › RFID*:
-  * **This computer connects to the readers**: the app hosts the hub itself. Right for a single PC, or for the PC the
-    readers are wired to when no other station needs them.
-  * **Use the RFID hub on another computer**: the station listens to `SmaRetail.RfidHub` over the network. Use this
-    when several stations share readers (the normal set-up with an Ethernet switch).
+* **Connected from the moment the program opens.** The app starts RFID before the login window: every reader is
+  connected straight away and kept connected (a keep-alive every 30 seconds notices a pulled cable; a lost reader is
+  reconnected by itself, 1 s back-off doubling to 30 s). The header shows an RFID chip (green: connected).
+* **Ways to run**, in *Setup › This station › RFID*:
+  * **Automatic** (the default): if the shop has an RFID hub for all stations (*RFID readers › Hub for all
+    stations…*), the station uses it; otherwise the app connects to the readers itself. On the first start with no
+    readers set up it searches this PC's networks (the factory address 192.168.0.178 first, then every address of
+    each local network on port 4001), registers what answers with its current settings, switches on the antenna
+    ports that have an antenna (measured by return loss) and gives them to this station.
+  * **This computer connects to the readers**: the same without the network search or the shop hub.
+  * **Use the RFID hub on another computer**: the station listens to `SmaRetail.RfidHub` at the address given.
+  * **Off.**
 * **Settings live in the database.** Power per antenna, frequency region, link profile, buzzer, DRM, antenna
   detection and fast TID are edited in *RFID readers › Edit reader* and pushed with *Send settings to reader*, so a
   replaced reader is configured in one click.
@@ -40,14 +47,15 @@ reader's four antenna ports are given to POS stations by an administrator.
    subnet (the vendor tool sets it; the default is 192.168.0.178, so number them .178, .179, … or plan a range such as
    192.168.0.101–163 for 63 readers). The hub PC needs an address in the same subnet.
 2. **Hub.** On the PC on the switch, run `SmaRetail.RfidHub.exe` (or install it as a Windows service, below).
-3. **Readers.** In *RFID readers* add each reader (name, where it is, IP address, port 4001). *Add reader* proposes the
-   next free address.
+3. **Readers.** In *RFID readers* press *Find readers* (searches this PC's networks and adds every reader that
+   answers), or add each reader by hand (name, where it is, IP address, port 4001; *Add reader* proposes the next free
+   address).
 4. **Antennas.** In each reader's *Antennas* tab (or the *Antennas and stations* grid), switch on the ports that have
    an antenna, name them ("Counter 3 mat"), set the power, and choose the station. One station may use several
    antennas, on any readers.
 5. **Send settings.** Select the reader and *Send settings to reader*. The reader keeps them after power loss.
-6. **Stations.** On every POS PC: *Setup › This station › RFID*, choose *Use the RFID hub on another computer* and
-   enter `http://<hub PC>:5280`.
+6. **Stations.** In *RFID readers › Hub for all stations…* enter `http://<hub PC>:5280` once; every station on
+   *Automatic* then uses the hub when it starts. (Or set each station to *Use the RFID hub on another computer*.)
 7. **Test.** *RFID readers › Live tag monitor* shows what a station's antennas read, with signal strength. Raise
    *Ignore tags weaker than* (Radio tab) or lower the antenna power if a counter picks up items from the next one.
 
@@ -68,7 +76,8 @@ Options: `--connection` (or `--localdb <name>` for development), `--hub <name>` 
 |---|---|---|
 | GET | `/health` | Up, number of readers, connected readers |
 | GET | `/readers` | Live status of every reader (state, last error, tags read, active antennas, firmware) |
-| GET | `/stations/{n}/events` | Server-sent events: one JSON tag read per `data:` line, for station *n* |
+| GET | `/stations/{n}/events` | Server-sent events: one JSON tag read per `data:` line, for station *n* (used by the app) |
+| GET (WebSocket) | `/stations/{n}/ws` | The same tag reads as WebSocket text messages, for browsers and other programs |
 | POST | `/reload` | Re-read readers and assignments from the database (also done every minute) |
 | GET | `/readers/{id}/info` | Read firmware, temperature, power, region, profile, DRM, detection, fast TID, GPIO |
 | POST | `/readers/{id}/apply` | Write the stored settings to the reader |
@@ -91,6 +100,13 @@ A tag (EPC) is matched to an item in this order:
 At the counter each physical tag rings up once per sale; a tag removed from the sale is not added again, and tags sold
 in the last ten minutes are ignored while they still lie on the antenna.
 
+### Why TCP, server-sent events and WebSocket
+
+The reader itself only speaks its own binary protocol over TCP (or serial), so whoever owns a reader talks TCP to it.
+Between the hub and the stations, tag reads only flow one way, so the app uses server-sent events: plain HTTP,
+reconnects by itself and passes proxies. The WebSocket endpoint carries the same data for clients that prefer it (a
+browser dashboard, another system).
+
 ## Capacity and scaling
 
 * The hub uses asynchronous sockets: 63 readers are 63 sockets and a handful of threads, not 63 threads. The test
@@ -111,6 +127,10 @@ antenna, fast antenna switching `0x8A` for several, per-antenna power `0x76`, fr
 `0x69` (the reader restarts, so it is only sent when it changes), buzzer `0x7A`, DRM `0x7C`, antenna detection
 `0x62`, fast TID `0x8D`, temperature `0x7B`, GPIO `0x60/0x61`, return loss `0x7E`, reset `0x70`. RSSI in dBm is the
 raw value − 129; frequency index 0–6 is 865–868 MHz and 7–59 is 902–928 MHz in 0.5 MHz steps.
+
+Tested on a real D2184 (firmware 6.09): discovery, reading settings, return loss (18 dB on the connected port,
+0 dB and error 0x22 on empty ports), real-time and fast-switch inventory, and tag reads streamed to a station over
+both server-sent events and WebSocket.
 
 A reader whose IP address is `sim` is simulated (no hardware); demo tags go in its *Notes*, one `antenna:EPC` per
 line. The tests and the app's `--smoke` check use this.

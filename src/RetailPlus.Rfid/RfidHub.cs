@@ -10,8 +10,9 @@ namespace RetailPlus.Rfid;
 /// Owns the connection to every reader and turns their antennas into per-station tag feeds.
 /// <list type="bullet">
 /// <item>One background loop per reader (async I/O, so 63 readers cost 63 sockets, not 63 threads).</item>
-/// <item>An antenna is read only while the station it is assigned to has someone listening, so idle counters do not
-/// transmit and nearby antennas interfere less.</item>
+/// <item>Every enabled reader is connected as soon as the hub starts and kept connected (a keep-alive every 30
+/// seconds notices a pulled cable); an antenna is read only while the station it is assigned to has someone listening,
+/// so idle counters do not transmit and nearby antennas interfere less.</item>
 /// <item>Reads below the reader's RSSI threshold are dropped, and a tag is reported to a station at most once per
 /// <see cref="RfidReader.DedupSeconds"/>.</item>
 /// <item>Each listener has a bounded queue; a slow listener loses its oldest reads instead of slowing the readers.</item>
@@ -121,9 +122,10 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
             w.ActiveAntennas = active.Count;
             if (active.Count == 0)
             {
-                w.State = "Idle";
+                // Nobody is listening: stay connected (connect now, keep alive, reconnect) but do not transmit.
                 try
                 {
+                    backoff = await KeepConnectedAsync(w, backoff, cancellationToken);
                     await w.Wake.WaitAsync(TimeSpan.FromSeconds(2), cancellationToken);
                 }
                 catch (OperationCanceledException)
@@ -144,6 +146,7 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
                 w.State = "Reading";
                 var result = await w.Device.InventoryAsync(active, w.Settings.DwellRounds, tag => OnTag(w, tag), cancellationToken);
                 Interlocked.Increment(ref w.Rounds);
+                w.LastActivity = DateTime.UtcNow;
                 w.LastError = result.MissingAntennas.Count > 0
                     ? $"Antenna {string.Join(", ", result.MissingAntennas)} not connected"
                     : result.Error;
@@ -176,9 +179,52 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
         try { await w.Device.DisconnectAsync(); } catch (Exception) { }
     }
 
+    private static readonly TimeSpan KeepAliveInterval = TimeSpan.FromSeconds(30);
+
+    /// <summary>Connects an idle reader (with back-off) or pings it when it has been quiet; returns the next back-off.</summary>
+    private async Task<TimeSpan> KeepConnectedAsync(Worker w, TimeSpan backoff, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        if (w.Device.IsConnected && now - w.LastActivity < KeepAliveInterval)
+        {
+            w.State = "Connected";
+            return backoff;
+        }
+        if (!w.Device.IsConnected && now < w.NextConnectAttempt) return backoff;
+        await w.Busy.WaitAsync(cancellationToken);
+        try
+        {
+            if (w.Device.IsConnected)
+            {
+                await w.Device.PingAsync(cancellationToken);
+                w.LastActivity = DateTime.UtcNow;
+                w.State = "Connected";
+                return backoff;
+            }
+            w.State = "Connecting";
+            await ConnectAsync(w, cancellationToken);
+            w.State = "Connected";
+            return TimeSpan.FromSeconds(1);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            w.State = "Offline";
+            w.LastError = ex.Message;
+            Log?.Invoke($"Reader {w.Settings.Name} ({w.Settings.Endpoint}): {ex.Message}");
+            try { await w.Device.DisconnectAsync(); } catch (Exception) { }
+            w.NextConnectAttempt = DateTime.UtcNow + backoff;
+            return TimeSpan.FromSeconds(Math.Min(30, backoff.TotalSeconds * 2));
+        }
+        finally
+        {
+            w.Busy.Release();
+        }
+    }
+
     private static async Task ConnectAsync(Worker w, CancellationToken cancellationToken)
     {
         await w.Device.ConnectAsync(cancellationToken);
+        w.LastActivity = DateTime.UtcNow;
         w.LastError = null;
         if (w.Firmware is null)
         {
@@ -314,6 +360,8 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
         public volatile string? LastError;
         public volatile string? Firmware;
         public DateTime? LastTagAt { get; set; }
+        public DateTime LastActivity { get; set; }
+        public DateTime NextConnectAttempt { get; set; }
         public int ActiveAntennas { get; set; }
         public long TagsRead;
         public long Rounds;

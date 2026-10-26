@@ -133,6 +133,58 @@ app.MapGet("/stations/{station:int}/events", async (int station, HttpContext con
     await pinger;
 });
 
+// WebSocket: the same tag reads as text messages (one JSON object each), for browsers and other programs.
+app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15) });
+app.Map("/stations/{station:int}/ws", async (int station, HttpContext context, RfidHub hub) =>
+{
+    if (!context.WebSockets.IsWebSocketRequest)
+    {
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await context.Response.WriteAsync("Connect with a WebSocket client.");
+        return;
+    }
+    using var socket = await context.WebSockets.AcceptWebSocketAsync();
+    using var done = CancellationTokenSource.CreateLinkedTokenSource(context.RequestAborted);
+    var json = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+    // Watch for the client closing, so the antennas stop being read for it.
+    var receiving = Task.Run(async () =>
+    {
+        var buffer = new byte[256];
+        try
+        {
+            while (socket.State == System.Net.WebSockets.WebSocketState.Open)
+            {
+                var r = await socket.ReceiveAsync(buffer, done.Token);
+                if (r.MessageType == System.Net.WebSockets.WebSocketMessageType.Close) break;
+            }
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or System.Net.WebSockets.WebSocketException)
+        {
+        }
+        await done.CancelAsync();
+    }, CancellationToken.None);
+    try
+    {
+        await foreach (var e in hub.ListenAsync(station, done.Token))
+            await socket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(e, json), System.Net.WebSockets.WebSocketMessageType.Text, true, done.Token);
+    }
+    catch (Exception ex) when (ex is OperationCanceledException or System.Net.WebSockets.WebSocketException)
+    {
+    }
+    await receiving;
+    // Answer the client's close (CloseReceived), or close ourselves when the hub is the one stopping.
+    if (socket.State is System.Net.WebSockets.WebSocketState.Open or System.Net.WebSockets.WebSocketState.CloseReceived)
+    {
+        try
+        {
+            await socket.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "bye", CancellationToken.None);
+        }
+        catch (System.Net.WebSockets.WebSocketException)
+        {
+        }
+    }
+});
+
 app.Run();
 
 static async Task<IResult> Run(Func<Task<IResult>> action)

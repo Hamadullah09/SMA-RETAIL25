@@ -13,6 +13,12 @@
         <!-- Header: brand pill, store name, clock, user. -->
         <DockPanel Margin="0,0,0,16">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button x:Name="RfidChip" Visibility="Collapsed" Margin="0,0,16,0" MinHeight="44" Padding="16,0" FontSize="15" Click="RfidChip_Click" ToolTip="RFID readers">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse x:Name="RfidDot" Width="12" Height="12" Margin="0,0,9,0" VerticalAlignment="Center" />
+                        <TextBlock x:Name="RfidChipText" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
                 <StackPanel VerticalAlignment="Center" Margin="0,0,18,0">
                     <TextBlock x:Name="ClockText" FontFamily="{StaticResource DisplayFont}" FontSize="26" HorizontalAlignment="Right" />
                     <TextBlock x:Name="DateText" Foreground="{StaticResource Muted}" FontSize="15" HorizontalAlignment="Right" />

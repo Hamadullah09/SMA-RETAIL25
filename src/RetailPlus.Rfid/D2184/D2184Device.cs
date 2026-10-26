@@ -231,6 +231,12 @@ public sealed class D2184Device(RfidReader settings) : IRfidDevice
         return reply.Data[0];
     }
 
+    public async Task PingAsync(CancellationToken cancellationToken)
+    {
+        var reply = await AskAsync(D2184Command.GetFirmwareVersion, cancellationToken);
+        if (reply.Data.Length != 2) throw new RfidException("Unexpected answer to the keep-alive.");
+    }
+
     public Task WriteGpioAsync(int gpio, bool high, CancellationToken cancellationToken)
     {
         if (gpio is not (3 or 4)) throw new ArgumentOutOfRangeException(nameof(gpio), "Only GPIO 3 and 4 are outputs.");

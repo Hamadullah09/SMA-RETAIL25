@@ -46,6 +46,9 @@ public static class SmokeCheck
             main.Navigate("pos");
             await MainWindow.Settle();
             var pos = main.GetView<PosView>() ?? throw new InvalidOperationException("POS screen did not open");
+            // A barcode-only sale: RFID antennas on this station must not add their tags to it.
+            pos.Vm.StopRfid();
+            await pos.Vm.ClearSaleAsync(ask: false);
             var before = (await AppServices.Inventory.GetAsync(item.Id))!.OnHand;
             await pos.Vm.AddCodeAsync(code, 2);
             var total = pos.Vm.Total;

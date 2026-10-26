@@ -40,6 +40,26 @@ public sealed class SetupService(DataContext data)
 
     // Store settings ------------------------------------------------------------------------------------------
 
+    /// <summary>A shop-wide value stored by name (such as the RFID hub address every station uses).</summary>
+    public async Task<string?> GetExtraAsync(string name)
+    {
+        await using var db = data.Create();
+        return await db.StoreSettingExtras.Where(x => x.Name == name).Select(x => x.Value).FirstOrDefaultAsync();
+    }
+
+    public async Task SetExtraAsync(string name, string? value)
+    {
+        await using var db = data.Create();
+        var row = await db.StoreSettingExtras.FirstOrDefaultAsync(x => x.Name == name);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            if (row is not null) db.StoreSettingExtras.Remove(row);
+        }
+        else if (row is null) db.StoreSettingExtras.Add(new StoreSettingExtra { Name = name, Value = value.Trim() });
+        else row.Value = value.Trim();
+        await db.SaveChangesAsync();
+    }
+
     public async Task<StoreSettings> GetSettingsAsync()
     {
         await using var db = data.Create();

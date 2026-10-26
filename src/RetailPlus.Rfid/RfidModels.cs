@@ -64,6 +64,9 @@ public interface IRfidDevice : IAsyncDisposable
 
     /// <summary>Sets output GPIO 3 or 4 (e.g. a light or gate lock).</summary>
     Task WriteGpioAsync(int gpio, bool high, CancellationToken cancellationToken);
+
+    /// <summary>A cheap command that proves the link still works (keep-alive while no one is reading).</summary>
+    Task PingAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>A tag read routed to the POS station its antenna is assigned to.</summary>

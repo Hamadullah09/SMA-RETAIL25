@@ -106,6 +106,25 @@ public class HubTests
     }
 
     [Fact]
+    public async Task Readers_connect_as_soon_as_the_hub_starts_and_reconnect_after_a_drop()
+    {
+        var readers = new List<RfidReader> { Reader(1, (1, 9)) };
+        await using var hub = new RfidHub(_ => Task.FromResult<IReadOnlyList<RfidReader>>(readers));
+        await hub.StartAsync();
+        await Task.Delay(500);
+        var status = Assert.Single(await hub.GetStatusAsync());
+        Assert.True(status.Connected);
+        Assert.Equal("Connected", status.State);
+        Assert.Equal(0, status.Rounds);   // connected, but nothing is read while no one listens
+
+        var device = (SimulatedRfidDevice)hub.DeviceOf(1)!;
+        await device.DisconnectAsync();   // cable pulled
+        await hub.ReloadAsync();          // wakes the reader loop
+        await Task.Delay(500);
+        Assert.True((await hub.GetStatusAsync()).Single().Connected);
+    }
+
+    [Fact]
     public async Task Admin_commands_run_between_inventory_rounds()
     {
         var readers = new List<RfidReader> { Reader(1, (1, 1)) };

@@ -61,7 +61,10 @@ public partial class App : Application
             }
         }
 
+        // RFID connects now, before the login window: readers set up for this PC are connected straight away, and on the
+        // first start (Automatic, no readers yet) the network is searched in the background while the user logs in.
         await AppServices.StartRfidAsync();
+        if (!AppServices.Unattended && AppServices.Config.RfidMode == Settings.RfidMode.Auto) _ = AppServices.DiscoverReadersAsync();
         var users = await AppServices.Setup.GetUsersAsync();
         if (users.Count > 0 && !AppServices.Unattended)
         {

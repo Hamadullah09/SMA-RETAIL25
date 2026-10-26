@@ -207,6 +207,24 @@ public class DriverTests
     }
 
     [Fact]
+    public async Task Discovery_finds_a_reader_its_settings_and_antennas()
+    {
+        await using var fake = new FakeReader();
+        var found = Assert.Single(await RfidDiscovery.FindAsync(["127.0.0.1", "127.0.0.2"], fake.Port, TimeSpan.FromMilliseconds(300)));
+        Assert.Equal("127.0.0.1", found.Host);
+        Assert.Equal("3.01", found.Info.Firmware);
+        Assert.Equal([1, 2, 3, 4], found.ConnectedAntennas);
+        var record = RfidDiscovery.ToReader(found, "Reader 1", 7);
+        Assert.All(record.Antennas, a => Assert.Equal(7, a.StationNumber));
+        Assert.Equal(RfidFrequencyRegion.Fcc, record.Region);
+        Assert.Equal(fake.Port, record.Port);
+    }
+
+    [Fact]
+    public void Candidate_hosts_start_with_the_factory_address() =>
+        Assert.Equal(RfidDiscovery.FactoryHost, RfidDiscovery.CandidateHosts(true)[0]);
+
+    [Fact]
     public async Task Unreachable_reader_fails_fast_with_a_clear_message()
     {
         D2184Connection.ConnectTimeout = TimeSpan.FromMilliseconds(500);

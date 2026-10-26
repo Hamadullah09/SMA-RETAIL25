@@ -98,4 +98,7 @@ public sealed class SimulatedRfidDevice : IRfidDevice
         Task.FromResult(_field.ContainsKey(antenna) ? 18 : 12);
 
     public Task WriteGpioAsync(int gpio, bool high, CancellationToken cancellationToken) => Task.CompletedTask;
+
+    public Task PingAsync(CancellationToken cancellationToken) =>
+        IsConnected && !Offline ? Task.CompletedTask : throw new RfidException("The reader is not connected.");
 }

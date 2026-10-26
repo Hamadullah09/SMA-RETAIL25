@@ -20,6 +20,7 @@ public partial class SetupView : UserControl, IRefreshable
         Layout.AddIcons(this);
         RfidModeBox.ItemsSource = new[]
         {
+            new StationModeChoice(Settings.RfidMode.Auto, "Automatic: connect to the readers by itself (recommended)"),
             new StationModeChoice(Settings.RfidMode.Off, "Off: no RFID at this station"),
             new StationModeChoice(Settings.RfidMode.ThisComputer, "This computer connects to the readers"),
             new StationModeChoice(Settings.RfidMode.Hub, "Use the RFID hub on another computer"),

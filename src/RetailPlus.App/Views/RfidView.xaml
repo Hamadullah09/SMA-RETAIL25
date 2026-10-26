@@ -27,6 +27,8 @@
             <Button Content="Send settings to reader" infra:Look.Icon="&#xE898;" Style="{StaticResource DarkButton}" Click="Apply_Click" />
             <Button Content="Read from reader" infra:Look.Icon="&#xE896;" Style="{StaticResource ToolButton}" Click="Info_Click" />
             <Button Content="Restart reader" infra:Look.Icon="&#xE777;" Style="{StaticResource ToolButton}" Click="Reset_Click" />
+            <Button Content="Find readers" infra:Look.Icon="&#xE721;" Style="{StaticResource ToolButton}" Click="Find_Click" />
+            <Button Content="Hub for all stations…" infra:Look.Icon="&#xE968;" Style="{StaticResource ToolButton}" Click="SiteHub_Click" />
             <Button Content="Station RFID settings" infra:Look.Icon="&#xE713;" Style="{StaticResource ToolButton}" Click="Station_Click" />
         </WrapPanel>
 

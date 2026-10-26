@@ -76,8 +76,14 @@ public static class AppServices
         await StopRfidAsync();
         try
         {
+            var siteHub = Config.RfidMode == RfidMode.Auto ? await Setup.GetExtraAsync(SiteHubSetting) : null;
             switch (Config.RfidMode)
             {
+                case RfidMode.Auto when !string.IsNullOrWhiteSpace(siteHub):
+                    Rfid = new RfidHubClient(siteHub!, Config.RfidHubApiKey);
+                    RfidHubAddress = siteHub;
+                    break;
+                case RfidMode.Auto:
                 case RfidMode.ThisComputer:
                     var key = Config.RfidHubKey;
                     _localHub = new RfidHub(async ct => await RfidData.GetReadersAsync(key, ct)) { Log = m => Log.Write("RFID " + m) };
@@ -86,6 +92,7 @@ public static class AppServices
                     break;
                 case RfidMode.Hub when !string.IsNullOrWhiteSpace(Config.RfidHubUrl):
                     Rfid = new RfidHubClient(Config.RfidHubUrl!, Config.RfidHubApiKey);
+                    RfidHubAddress = Config.RfidHubUrl;
                     break;
             }
         }
@@ -97,8 +104,62 @@ public static class AppServices
         RfidChanged?.Invoke();
     }
 
+    /// <summary>Name of the shop-wide setting that sends every Automatic station to one RFID hub.</summary>
+    public const string SiteHubSetting = "RfidHubUrl";
+
+    /// <summary>The hub this station listens to, when it uses one.</summary>
+    public static string? RfidHubAddress { get; private set; }
+
+    /// <summary>What the start-up search for readers is doing (null when it is not running).</summary>
+    public static string? RfidSearchText { get; private set; }
+
+    /// <summary>True when this computer connects to the readers itself (Automatic or This computer, without a hub).</summary>
+    public static bool RfidIsLocal => _localHub is not null;
+
+    /// <summary>
+    /// First start with RFID on Automatic and no readers set up yet: look for readers on this PC's networks, add
+    /// what answers and connect. One reader found is given to this station (its connected antennas); several are
+    /// added without stations for the administrator to assign.
+    /// </summary>
+    public static async Task<int> DiscoverReadersAsync(bool force = false)
+    {
+        if (!RfidIsLocal) return 0;
+        var known = await RfidData.GetReadersAsync();
+        if (!force && known.Any(r => r.HubKey == Config.RfidHubKey)) return 0;
+        RfidSearchText = "Looking for RFID readers…";
+        RfidChanged?.Invoke();
+        try
+        {
+            var usedHosts = known.Select(r => r.Host).Where(h => h is not null).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var factory = await RfidDiscovery.FindAsync(RfidDiscovery.CandidateHosts(false).Where(h => !usedHosts.Contains(h)), connectTimeout: TimeSpan.FromSeconds(1));
+            var found = factory.Count > 0 ? factory
+                : await RfidDiscovery.FindAsync(RfidDiscovery.CandidateHosts(true).Where(h => !usedHosts.Contains(h)));
+            int n = known.Count;
+            foreach (var reader in found)
+            {
+                var record = RfidDiscovery.ToReader(reader, $"Reader {++n}", found.Count == 1 ? Session.StationNumber : null);
+                record.HubKey = Config.RfidHubKey;
+                await RfidData.SaveReaderAsync(record);
+                Log.Write($"RFID reader found at {reader.Host}:{reader.Port} (firmware {reader.Info.Firmware}, antennas {string.Join(",", reader.ConnectedAntennas)})");
+            }
+            if (found.Count > 0 && Rfid is { } rfid) await rfid.ReloadAsync();
+            return found.Count;
+        }
+        catch (Exception ex)
+        {
+            Log.Write("RFID search: " + ex.Message);
+            return 0;
+        }
+        finally
+        {
+            RfidSearchText = null;
+            RfidChanged?.Invoke();
+        }
+    }
+
     public static async Task StopRfidAsync()
     {
+        RfidHubAddress = null;
         if (_localHub is not null)
         {
             await _localHub.DisposeAsync();
@@ -108,12 +169,10 @@ public static class AppServices
         Rfid = null;
     }
 
-    public static string RfidModeText => Config.RfidMode switch
-    {
-        RfidMode.ThisComputer => "This computer talks to the readers",
-        RfidMode.Hub => $"RFID hub at {Config.RfidHubUrl}",
-        _ => "RFID is off at this station",
-    };
+    public static string RfidModeText =>
+        Rfid is null ? "RFID is off at this station"
+        : RfidHubAddress is not null ? $"RFID hub at {RfidHubAddress}"
+        : "This computer connects to the readers";
 
     public static IReceiptPrinter Printer =>
         Unattended || string.IsNullOrWhiteSpace(Config.ReceiptPrinter)
