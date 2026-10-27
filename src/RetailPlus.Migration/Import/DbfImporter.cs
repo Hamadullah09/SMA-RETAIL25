@@ -171,11 +171,14 @@ public sealed partial class DbfImporter(ImportOptions options)
 
     // Database helpers -----------------------------------------------------------------------------------------
 
-    /// <summary>A context on the import connection, enlisted in the import transaction; new rows go to the import's store.</summary>
+    /// <summary>
+    /// A context on the import connection, enlisted in the import transaction; new rows go to the import's store. The
+    /// imported rows are not audited one by one: the import as a whole is (by the program that runs it).
+    /// </summary>
     private RetailPlusDbContext NewContext()
     {
         var builder = RetailPlusDb.Configure(new DbContextOptionsBuilder<RetailPlusDbContext>(), _connection, options.Database.Provider, 600);
-        var db = new RetailPlusDbContext(builder.Options) { Station = new StationIdentity(_storeId, 0) };
+        var db = new RetailPlusDbContext(builder.Options) { Station = new StationIdentity(_storeId, 0), SuppressAudit = true };
         db.Database.UseTransaction(_transaction);
         return db;
     }
@@ -190,8 +193,8 @@ public sealed partial class DbfImporter(ImportOptions options)
     }
 
     /// <summary>
-    /// Empties every table of the model except the stores and the current import batch, children before parents:
-    /// the data of the overwrite option, or what a new database was seeded with.
+    /// Empties every table of the model except the stores, the audit log and the current import batch, children before
+    /// parents: the data of the overwrite option, or what a new database was seeded with.
     /// </summary>
     private async Task WipeAsync(CancellationToken ct)
     {
@@ -201,7 +204,8 @@ public sealed partial class DbfImporter(ImportOptions options)
         var sql = db.GetService<ISqlGenerationHelper>();
         string Name(Microsoft.EntityFrameworkCore.Metadata.IEntityType t) => sql.DelimitIdentifier(t.GetTableName()!, t.GetSchema());
         string stores = Name(db.Model.FindEntityType(typeof(Store))!), batches = Name(db.Model.FindEntityType(typeof(ImportBatch))!);
-        var remaining = types.Select(Name).Where(t => t != stores).ToHashSet(StringComparer.Ordinal);
+        string audit = Name(db.Model.FindEntityType(typeof(AuditEntry))!);
+        var remaining = types.Select(Name).Where(t => t != stores && t != audit).ToHashSet(StringComparer.Ordinal);
         var references = types
             .SelectMany(t => t.GetForeignKeys().Select(fk => (Dependent: Name(t), Principal: Name(fk.PrincipalEntityType))))
             .Where(r => r.Dependent != r.Principal)

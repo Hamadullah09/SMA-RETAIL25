@@ -17,6 +17,8 @@ public class Sale : Entity, IFlaggable, IStationStamped
     /// <summary>The store's local time, as are all business times; <see cref="Entity.CreatedAtUtc"/> is UTC.</summary>
     public DateTime SoldAt { get; set; }
     public string? Staff { get; set; }
+    /// <summary>The user who made the sale; <see cref="Staff"/> keeps the name (imported sales have only the name).</summary>
+    public Guid? StaffId { get; set; }
     public Guid? ClientId { get; set; }
     public Client? Client { get; set; }
     public string? ClientName { get; set; }
@@ -43,6 +45,7 @@ public class Sale : Entity, IFlaggable, IStationStamped
     public string? Notes { get; set; }
     public DateTime? VoidedAt { get; set; }
     public string? VoidedBy { get; set; }
+    public Guid? VoidedById { get; set; }
     public bool IsFlagged { get; set; }
     public List<SaleLine> Lines { get; set; } = [];
     public List<SalePayment> Payments { get; set; } = [];
@@ -131,6 +134,9 @@ public class DrawerSession : Entity, IStationStamped
     public decimal BottleReturns { get; set; }
     public decimal TotalReceipts { get; set; }
     public bool IsFlagged { get; set; }
+    /// <summary>Who ran End of Day on the session.</summary>
+    public string? ClosedBy { get; set; }
+    public Guid? ClosedById { get; set; }
     public List<DrawerSessionTender> Tenders { get; set; } = [];
     public List<DrawerMovement> Movements { get; set; } = [];
 }
@@ -158,6 +164,7 @@ public class DrawerMovement : Entity
     public DateTime At { get; set; }
     public string? Reason { get; set; }
     public string? User { get; set; }
+    public Guid? UserId { get; set; }
 }
 
 /// <summary>A sale put away with Suspend, to be recalled later (SUSPEND.DBF).</summary>
@@ -182,6 +189,7 @@ public class CustomerOrder : Entity, IFlaggable, IStationStamped
     public string? Phone { get; set; }
     public DateOnly? OrderDate { get; set; }
     public string? SoldBy { get; set; }
+    public Guid? SoldById { get; set; }
     public long InvoiceNumber { get; set; }
     public string? CustomerNumber { get; set; }
     public Guid? ItemId { get; set; }
@@ -225,6 +233,9 @@ public class Rma : Entity, IFlaggable, IStationStamped
     public bool IsActive { get; set; }
     public string? Notes { get; set; }
     public bool IsFlagged { get; set; }
+    /// <summary>Who wrote the RMA (empty for imported ones).</summary>
+    public string? CreatedBy { get; set; }
+    public Guid? CreatedById { get; set; }
 }
 
 public enum TenderKind
@@ -283,6 +294,8 @@ public class FastKey : Entity
 public class StaffPeriod : Entity
 {
     public string UserName { get; set; } = "";
+    /// <summary>The user of that name, when the import found one.</summary>
+    public Guid? UserId { get; set; }
     public DateOnly? FromDate { get; set; }
     public DateOnly? ToDate { get; set; }
     public string? FromTime { get; set; }
@@ -331,4 +344,5 @@ public class StockMovement : Entity, IStationStamped
     public long? DocumentNumber { get; set; }
     public string? Reason { get; set; }
     public string? User { get; set; }
+    public Guid? UserId { get; set; }
 }

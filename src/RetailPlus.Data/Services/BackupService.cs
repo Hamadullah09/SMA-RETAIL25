@@ -25,6 +25,7 @@ public sealed class BackupService(DataContext data)
             await source.OpenAsync(cancellationToken);
             await target.OpenAsync(cancellationToken);
             source.BackupDatabase(target);
+            await AuditAsync(AuditActions.Backup, "Written to " + file);
             return file;
         }
         var database = data.DatabaseName;
@@ -37,6 +38,7 @@ public sealed class BackupService(DataContext data)
         command.Parameters.AddWithValue("@name", "SMA RETAIL backup");
         command.CommandTimeout = 0;
         await command.ExecuteNonQueryAsync(cancellationToken);
+        await AuditAsync(AuditActions.Backup, "Written to " + bak);
         return bak;
     }
 
@@ -54,6 +56,7 @@ public sealed class BackupService(DataContext data)
             await target.OpenAsync(cancellationToken);
             source.BackupDatabase(target);
             SqliteConnection.ClearAllPools();
+            await AuditAsync(AuditActions.Restore, "From " + backupFile);
             return;
         }
         var database = data.DatabaseName;
@@ -77,6 +80,27 @@ public sealed class BackupService(DataContext data)
         finally
         {
             await Run("ALTER DATABASE " + Quote(database) + " SET MULTI_USER");
+        }
+        await AuditAsync(AuditActions.Restore, "From " + backupFile);
+    }
+
+    /// <summary>
+    /// Writes the backup or restore to the audit log. A restored database from before the audit log keeps working:
+    /// the line is then left out.
+    /// </summary>
+    private async Task AuditAsync(string action, string details)
+    {
+        try
+        {
+            await using var db = data.Create();
+            db.Audit(action, details);
+            await db.SaveChangesAsync();
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+        }
+        catch (System.Data.Common.DbException)
+        {
         }
     }
 

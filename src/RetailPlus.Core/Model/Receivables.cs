@@ -27,6 +27,7 @@ public class Invoice : Entity, IFlaggable, IVersioned, IStationStamped
     public decimal Balance { get; set; }
     public decimal DiscountPercent { get; set; }
     public string? SalesPerson { get; set; }
+    public Guid? SalesPersonId { get; set; }
     public DateOnly? LastPaidDate { get; set; }
     public decimal LastPaidAmount { get; set; }
     /// <summary>Late charges added so far (included in Balance).</summary>
@@ -74,4 +75,7 @@ public class InvoicePayment : Entity, IStationStamped
     /// <summary>Part of the payment that went to the late charge first, as the manual describes.</summary>
     public decimal AppliedToPenalty { get; set; }
     public string? Note { get; set; }
+    /// <summary>Who took the payment.</summary>
+    public string? TakenBy { get; set; }
+    public Guid? TakenById { get; set; }
 }

@@ -8,11 +8,24 @@ using System.Windows.Threading;
 using RetailPlus.App.Dialogs;
 using RetailPlus.App.Infrastructure;
 using RetailPlus.App.Views;
+using RetailPlus.Core.Rules;
 
 namespace RetailPlus.App;
 
-/// <summary>A screen of the program, created on first use.</summary>
-public sealed record NavEntry(string Key, string Title, string Glyph, int MinimumLevel, Func<UserControl> Create, string? Shortcut = null);
+/// <summary>
+/// A screen of the program, created on first use. It is listed for users whose role has at least one of
+/// <see cref="Permissions"/> (every user when there are none).
+/// </summary>
+public sealed record NavEntry(string Key, string Title, string Glyph, IReadOnlyList<string> Permissions, Func<UserControl> Create, string? Shortcut = null)
+{
+    public NavEntry(string key, string title, string glyph, string permission, Func<UserControl> create, string? shortcut = null)
+        : this(key, title, glyph, [permission], create, shortcut)
+    {
+    }
+
+    /// <summary>True when the signed-in user may open the screen.</summary>
+    public bool IsAllowed => Permissions.Count == 0 || Permissions.Any(AppServices.Can);
+}
 
 /// <summary>Views that reload their data when shown.</summary>
 public interface IRefreshable
@@ -26,19 +39,22 @@ public partial class MainWindow : Window
 
     public static readonly IReadOnlyList<NavEntry> AllEntries =
     [
-        new("home", "Dashboard", "", 1, () => new DashboardView(), "Ctrl+1"),
-        new("pos", "Point of Sale", "", 0, () => new PosView(), "Ctrl+2"),
-        new("journal", "Sales Journal", "", 1, () => new SalesJournalView(), "Ctrl+3"),
-        new("inventory", "Inventory", "", 2, () => new InventoryView(), "Ctrl+4"),
-        new("clients", "Clients", "", 1, () => new ClientsView(), "Ctrl+5"),
-        new("suppliers", "Suppliers", "", 2, () => new SuppliersView(), "Ctrl+6"),
-        new("invoices", "Invoices & A/R", "", 2, () => new InvoicesView(), "Ctrl+7"),
-        new("po", "Purchase Orders", "", 2, () => new PurchaseOrdersView(), "Ctrl+8"),
-        new("orders", "Orders & RMAs", "", 1, () => new CustomerOrdersView(), "Ctrl+9"),
-        new("reports", "Reports", "", 2, () => new ReportsView(), "Ctrl+0"),
-        new("rfid", "RFID readers", "\uE704", 3, () => new RfidView(), "Ctrl+Shift+R"),
-        new("tools", "Tools", "", 3, () => new ToolsView(), "Ctrl+Shift+T"),
-        new("setup", "Setup", "", 3, () => new SetupView(), "Ctrl+Shift+S"),
+        new("home", "Dashboard", "", Permissions.DashboardView, () => new DashboardView(), "Ctrl+1"),
+        new("pos", "Point of Sale", "", Permissions.PosSell, () => new PosView(), "Ctrl+2"),
+        new("journal", "Sales Journal", "", [Permissions.PosSell, Permissions.PosVoidSale, Permissions.ReportsView], () => new SalesJournalView(), "Ctrl+3"),
+        new("inventory", "Inventory", "", Permissions.InventoryView, () => new InventoryView(), "Ctrl+4"),
+        new("clients", "Clients", "", Permissions.ClientsView, () => new ClientsView(), "Ctrl+5"),
+        new("suppliers", "Suppliers", "", [Permissions.SuppliersEdit, Permissions.PurchasingManage], () => new SuppliersView(), "Ctrl+6"),
+        new("invoices", "Invoices & A/R", "", Permissions.InvoicesManage, () => new InvoicesView(), "Ctrl+7"),
+        new("po", "Purchase Orders", "", Permissions.PurchasingManage, () => new PurchaseOrdersView(), "Ctrl+8"),
+        new("orders", "Orders & RMAs", "", [Permissions.ClientsEdit, Permissions.RmaManage], () => new CustomerOrdersView(), "Ctrl+9"),
+        new("reports", "Reports", "", [Permissions.ReportsView, Permissions.ReportsStaff], () => new ReportsView(), "Ctrl+0"),
+        new("staff", "Staff", "\uE716", [Permissions.TimeClockPunch, Permissions.TimeClockEdit, Permissions.ReportsStaff], () => new StaffView(), "Ctrl+Shift+E"),
+        new("rfid", "RFID readers", "\uE704", Permissions.RfidManage, () => new RfidView(), "Ctrl+Shift+R"),
+        new("tools", "Tools", "", [Permissions.BackupManage, Permissions.ImportRun, Permissions.YearEndRun, Permissions.InvoicesManage], () => new ToolsView(), "Ctrl+Shift+T"),
+        new("audit", "Audit log", "\uE81C", Permissions.AuditView, () => new AuditView(), "Ctrl+Shift+A"),
+        new("setup", "Setup", "", [Permissions.SetupStore, Permissions.SetupUsers, Permissions.SetupStations], () => new SetupView(), "Ctrl+Shift+S"),
+        new("help", "Help", "\uE897", [], () => new HelpView(), "Ctrl+Shift+H"),
     ];
 
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(15) };
@@ -96,7 +112,7 @@ public partial class MainWindow : Window
 
     private void RfidChip_Click(object sender, RoutedEventArgs e)
     {
-        if (AppServices.Can(3)) Navigate("rfid");
+        if (AppServices.Can(Permissions.RfidManage)) Navigate("rfid");
     }
 
     private void UpdateClock()
@@ -108,30 +124,35 @@ public partial class MainWindow : Window
 
     private static readonly string[] LevelNames = ["Trainee", "Sales", "Sales and stock", "Supervisor", "Administrator"];
 
+    /// <summary>The screens the signed-in user may open, in the order of the list.</summary>
+    public IReadOnlyList<NavEntry> AllowedEntries => (IReadOnlyList<NavEntry>)Nav.ItemsSource;
+
     public void RefreshChrome()
     {
         var s = AppServices.Session;
         StoreName.Text = string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? "Your store" : AppServices.Settings.CompanyName;
         UserText.Text = s.UserName;
-        LevelText.Text = LevelNames[Math.Clamp(s.AccessLevel, 0, 4)];
+        LevelText.Text = string.IsNullOrEmpty(s.RoleName) ? LevelNames[Math.Clamp(s.AccessLevel, 0, 4)] : s.RoleName;
         Initials.Text = string.Concat(s.UserName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(w => char.ToUpperInvariant(w[0])));
         TrainingBadge.Visibility = s.IsTrainee ? Visibility.Visible : Visibility.Collapsed;
-        SettingsButton.Visibility = AppServices.Can(3) ? Visibility.Visible : Visibility.Collapsed;
+        SettingsButton.Visibility = AppServices.CanAny(Permissions.SetupStore, Permissions.SetupUsers, Permissions.SetupStations) ? Visibility.Visible : Visibility.Collapsed;
         StationText.Text = $"Station {s.StationNumber:000}  ·  Location {s.LocationCode}";
         DatabaseText.Text = $"Database {AppServices.Data.DatabaseName}";
         Title = string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? Brand.Name : $"{Brand.Name} — {AppServices.Settings.CompanyName}";
         var selected = (Nav.SelectedItem as NavEntry)?.Key;
-        Nav.ItemsSource = AllEntries.Where(e => AppServices.Can(e.MinimumLevel)).ToList();
+        Nav.ItemsSource = AllEntries.Where(e => e.IsAllowed).ToList();
         _views.Clear();
         Nav.SelectedItem = ((IEnumerable<NavEntry>)Nav.ItemsSource).FirstOrDefault(e => e.Key == selected) ?? ((IEnumerable<NavEntry>)Nav.ItemsSource).First();
     }
 
     public void SetStatus(string text) => StatusText.Text = text;
 
-    public void Navigate(string key)
+    /// <summary>Opens a screen the user may open; false when they may not.</summary>
+    public bool Navigate(string key)
     {
         var entry = ((IEnumerable<NavEntry>)Nav.ItemsSource).FirstOrDefault(e => e.Key == key);
         if (entry is not null) Nav.SelectedItem = entry;
+        return entry is not null;
     }
 
     public T? GetView<T>() where T : UserControl => _views.Values.OfType<T>().FirstOrDefault();
@@ -161,9 +182,26 @@ public partial class MainWindow : Window
 
     private void Settings_Click(object sender, RoutedEventArgs e) => Navigate("setup");
 
+    /// <summary>Ctrl+K: type to go to any screen or common action the user may use.</summary>
+    public void OpenPalette()
+    {
+        var palette = new CommandPalette(this) { Owner = this };
+        palette.ShowDialog();
+    }
+
+    private void Palette_Click(object sender, RoutedEventArgs e) => OpenPalette();
+
+    /// <summary>The list of keys (Ctrl+Shift+K).</summary>
+    public void ShowKeys() => Help_Click(this, new RoutedEventArgs());
+
+    /// <summary>Lets the next person sign in (Ctrl+Shift+U).</summary>
+    public void SwitchUser() => SwitchUser_Click(this, new RoutedEventArgs());
+
     private void Help_Click(object sender, RoutedEventArgs e) => Ui.Info(
         "Every button shows its key on the right, like  F5  or  Ctrl+P. Press the key instead of clicking.\n\n" +
         "Everywhere:\n" +
+        "Ctrl+K:  go to: type a few letters of any screen, report or action, then Enter\n" +
+        "Ctrl+Shift+H:  help, with every screen explained\n" +
         "Ctrl+1 … Ctrl+0:  open a screen (the key is next to each name on the left)\n" +
         "Tab / Shift+Tab:  move between buttons and boxes;  Space:  press the chosen button\n" +
         "Enter:  save or OK;  Esc:  cancel or close\n\n" +
@@ -201,6 +239,17 @@ public partial class MainWindow : Window
             {
                 failures++;
                 Log.Write($"Screenshot {entry.Key} failed: {ex}");
+            }
+        }
+        // The Users and Roles tabs of Setup.
+        if (Navigate("setup") && GetView<SetupView>() is { } setup)
+        {
+            int number = AllEntries.ToList().FindIndex(x => x.Key == "setup") + 1;
+            foreach (var tab in new[] { "Users", "Roles" })
+            {
+                setup.ShowTab(tab);
+                await Settle();
+                Save(Path.Combine(folder, $"{number:00}-setup-{tab.ToLowerInvariant()}.png"));
             }
         }
         failures += await ShootDialogsAsync(folder);
@@ -294,6 +343,16 @@ public partial class MainWindow : Window
             return new ItemEditorWindow(item);
         });
         await Shoot("login", () => Task.FromResult<Window>(new LoginWindow()));
+        await Shoot("approval", () => Task.FromResult<Window>(new ApprovalWindow(Core.Rules.Permissions.PosVoidSale, "Voiding a sale")));
+        await Shoot("palette", () => Task.FromResult<Window>(new CommandPalette(this)));
+        await Shoot("punch", () => Task.FromResult<Window>(new PunchWindow()));
+        await Shoot("user", async () => new UserEditorWindow(null, await AppServices.Setup.GetRolesAsync(), await AppServices.Setup.GetStoresAsync()));
+        await Shoot("time-entry", async () => new TimeEntryWindow(null, await AppServices.Setup.GetUsersAsync()));
+        await Shoot("commission-rule", async () =>
+        {
+            var (departments, categories, items) = await AppServices.Staff.GetRuleChoicesAsync();
+            return new RuleEditorWindow(null, await AppServices.Setup.GetUsersAsync(), departments, categories, items);
+        });
         await Shoot("reader", async () =>
         {
             var reader = (await AppServices.RfidData.GetReadersAsync()).FirstOrDefault() ?? Data.Services.RfidService.NewReader("Reader 1");

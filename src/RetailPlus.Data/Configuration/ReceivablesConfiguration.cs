@@ -14,7 +14,7 @@ internal sealed class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         e.Property(x => x.FirstName).HasMaxLength(12);
         e.Property(x => x.LastName).HasMaxLength(16);
         e.Property(x => x.Company).HasMaxLength(30);
-        e.Property(x => x.SalesPerson).HasMaxLength(15);
+        e.Property(x => x.SalesPerson).HasMaxLength(50);
         e.Property(x => x.DiscountPercent).Rate();
         e.Property(x => x.Tax1Rate).Rate();
         e.Property(x => x.Tax2Rate).Rate();
@@ -51,6 +51,7 @@ internal sealed class InvoicePaymentConfiguration : IEntityTypeConfiguration<Inv
     {
         e.Property(x => x.TenderType).HasMaxLength(16);
         e.Property(x => x.Note).HasMaxLength(100);
+        e.Property(x => x.TakenBy).HasMaxLength(50);
         e.HasOne<Invoice>().WithMany(x => x.Payments).HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Cascade);
     }
 }
@@ -62,6 +63,8 @@ internal sealed class PurchaseOrderConfiguration : IEntityTypeConfiguration<Purc
         e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
         e.Property(x => x.Method).HasConversion<string>().HasMaxLength(16);
         e.Property(x => x.Description).HasMaxLength(100);
+        e.Property(x => x.CreatedBy).HasMaxLength(50);
+        e.Property(x => x.ReceivedBy).HasMaxLength(50);
         e.HasOne(x => x.Location).WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
         e.HasIndex(x => new { x.StoreId, x.Number }).IsUnique();
     }

@@ -2,43 +2,118 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RetailPlus.Data;
 
 #nullable disable
 
-namespace RetailPlus.Data.Sqlite.Migrations
+namespace RetailPlus.Data.SqlServer.Migrations
 {
     [DbContext(typeof(RetailPlusDbContext))]
-    [Migration("20261027184214_InitialCreate")]
+    [Migration("20261027191416_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
+            modelBuilder
+                .UseCollation("Latin1_General_100_CI_AS")
+                .HasAnnotation("ProductVersion", "10.0.13")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("RetailPlus.Core.Model.AuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("After")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("AtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Before")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<Guid?>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityName")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("StationNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AtUtc");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("Action", "AtUtc");
+
+                    b.HasIndex("EntityName", "EntityId");
+
+                    b.HasIndex("UserId", "AtUtc");
+
+                    b.ToTable("AuditEntries");
+                });
 
             modelBuilder.Entity("RetailPlus.Core.Model.Category", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(15)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -54,199 +129,175 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AccountNumber")
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<string>("Address1")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("Address2")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<decimal>("Balance")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateOnly?>("Birthday")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<string>("City")
                         .HasMaxLength(18)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(18)");
 
                     b.Property<string>("Company")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("Country")
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<decimal>("CreditLimit")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<string>("Email")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<bool>("ExemptTax1")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("ExemptTax2")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Extension")
                         .HasMaxLength(4)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(4)");
 
                     b.Property<string>("Fax")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("FirstName")
                         .HasMaxLength(12)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(12)");
 
                     b.Property<string>("HomePhone")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsFlagged")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<DateOnly?>("LastMailed")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<string>("LastName")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<DateOnly?>("LastPurchase")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Number")
                         .HasMaxLength(11)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(11)");
 
                     b.Property<string>("PhotoPath")
                         .HasMaxLength(260)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(260)");
 
                     b.Property<decimal>("Points")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<int>("PriceLevel")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<bool>("RecurringActive")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<int>("RecurringEvery")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("RecurringItemCode")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<DateOnly?>("RecurringLastBilled")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<int>("RecurringMaxBillings")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<DateOnly?>("RecurringNextBilling")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<int>("RecurringTimesBilled")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("RecurringUnit")
                         .HasMaxLength(6)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(6)");
 
                     b.Property<string>("ShipTo")
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("State")
                         .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(15)");
 
                     b.Property<string>("Title")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("Type")
                         .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(15)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<decimal>("UsualDiscountPercent")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<Guid>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Website")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("WorkPhone")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("Zip")
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(10)");
 
                     b.HasKey("Id");
 
@@ -283,95 +334,161 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.CommissionRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Basis")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("EffectiveTo")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<decimal>("Rate")
+                        .HasPrecision(7, 3)
+                        .HasColumnType("decimal(7,3)");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CommissionRules");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.CustomerOrder", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("ClientId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Company")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("CustomerNumber")
                         .HasMaxLength(11)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(11)");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(37)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(37)");
 
                     b.Property<long>("InvoiceNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
 
                     b.Property<bool>("IsFlagged")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<Guid?>("ItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("LocationId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Name")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<DateOnly?>("OrderDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<bool>("Paid")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Phone")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("Plu")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<string>("Size")
                         .HasMaxLength(6)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(6)");
 
                     b.Property<string>("SoldBy")
-                        .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("SoldById")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("StationNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -392,21 +509,20 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(15)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -422,31 +538,30 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<Guid?>("LocationId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Text")
                         .IsRequired()
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -469,41 +584,42 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("At")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("DrawerSessionId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(12)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(12)");
 
                     b.Property<string>("Reason")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("User")
-                        .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -518,86 +634,93 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("BottleReturns")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime?>("ClosedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("ClosedById")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Cogs")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<int>("CustomerCount")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("CustomerCredits")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<bool>("IsFlagged")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("LastSaleAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<Guid>("LocationId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("NetSales")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("NoTaxSales")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("OpenedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<decimal>("OpeningFloat")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("PayIns")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("PayOuts")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<int>("StationNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Tax1Total")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("Tax2Total")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("TotalReceipts")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -616,28 +739,27 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("DrawerSessionId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TenderType")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -653,52 +775,49 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Color")
                         .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(15)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<decimal>("FixedPrice")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<bool>("IsCategory")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsCredit")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<int>("KeyNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<int>("Panel")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("Plu")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<bool>("Taxable1")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("Taxable2")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -714,25 +833,24 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Currency")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<decimal>("Rate")
                         .HasPrecision(14, 6)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(14,6)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -748,126 +866,119 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AccountNumber")
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<decimal>("Balance")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<string>("BillTo")
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<Guid?>("ClientId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Company")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("CustomerNumber")
                         .HasMaxLength(11)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(11)");
 
                     b.Property<decimal>("DiscountPercent")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<string>("Email")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("FirstName")
                         .HasMaxLength(12)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(12)");
 
                     b.Property<DateOnly>("InvoiceDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<long>("InvoiceNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
 
                     b.Property<bool>("IsFlagged")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsVoided")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<byte>("Kind")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("tinyint");
 
                     b.Property<string>("LastName")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<decimal>("LastPaidAmount")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateOnly?>("LastPaidDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("Penalty")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<Guid?>("SaleId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("SalesPerson")
-                        .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("SalesPersonId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ShipTo")
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<int>("StationNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Tax1Rate")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<decimal>("Tax2Rate")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<decimal>("Total")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -894,48 +1005,46 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(60)");
 
                     b.Property<decimal>("DiscountAmount")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<Guid>("InvoiceId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("LineNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("LineTotal")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<string>("Plu")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -950,46 +1059,51 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("AppliedToPenalty")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("InvoiceId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Note")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<DateOnly>("PaidOn")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<int>("StationNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TakenBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("TakenById")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TenderType")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -1006,270 +1120,253 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("AverageCost")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<string>("Barcode")
                         .HasMaxLength(14)
                         .IsUnicode(false)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("varchar(14)");
 
                     b.Property<decimal>("BaseStock")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<string>("BinLocation")
                         .HasMaxLength(25)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(25)");
 
                     b.Property<int>("BonusBuyQuantity")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("BonusGetQuantity")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<bool>("BonusPricing")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Brand")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<decimal>("BreakQuantity1")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("BreakQuantity2")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("BreakQuantity3")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<Guid?>("CategoryId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Commission")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<string>("CommissionType")
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<decimal>("CustomerOrdered")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<Guid?>("DepartmentId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("InvoiceMessage")
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsFlagged")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("ItemType")
                         .IsRequired()
                         .HasMaxLength(12)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(12)");
 
                     b.Property<decimal>("LastCost")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<DateOnly?>("LastOrderDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<DateOnly?>("LastReceivedDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<decimal>("LastReceivedQuantity")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<DateOnly?>("LastUpdated")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<Guid>("LocationId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("MarginPercent")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<decimal>("MaxCommission")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("OnHand")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("OnHandBeforeYearEnd")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("OnOrder")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<int>("PackQuantity")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("ParentCode")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("PhotoPath")
                         .HasMaxLength(260)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(260)");
 
                     b.Property<string>("Plu")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("PosMessage")
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("Price1")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("Price2")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("Price3")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("Price4")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<bool>("ReadScale")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("ReorderPoint")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("ReorderQuantity")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<DateOnly?>("SaleEnd")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<decimal>("SalePrice")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateOnly?>("SaleStart")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<decimal>("ShipWeight")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<string>("Size")
                         .HasMaxLength(6)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(6)");
 
                     b.Property<string>("SubstituteCode")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("SupplierCode")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<Guid?>("SupplierId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TagAlongCode")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<bool>("Taxable1")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("Taxable2")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("ThcWeight")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("WebDelete")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("Weight")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("WeightTolerance")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<string>("WeightToleranceUnit")
                         .HasMaxLength(4)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(4)");
 
                     b.Property<string>("WeightUnit")
                         .HasMaxLength(4)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(4)");
 
                     b.HasKey("Id");
 
@@ -1302,27 +1399,26 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Heading")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("ItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Ordinal")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -1341,35 +1437,35 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<decimal>("Gross")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<Guid>("ItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<byte>("Kind")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("tinyint");
 
                     b.Property<int>("Period")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("Units")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<int>("Year")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -1387,19 +1483,19 @@ namespace RetailPlus.Data.Sqlite.Migrations
             modelBuilder.Entity("RetailPlus.Core.Model.ItemPicture", b =>
                 {
                     b.Property<Guid>("ItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<byte[]>("Data")
                         .IsRequired()
-                        .HasColumnType("BLOB");
+                        .HasColumnType("varbinary(max)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("ItemId");
 
@@ -1412,32 +1508,30 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("ItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("SerialNumber")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Status")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<DateOnly?>("StatusDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -1452,43 +1546,41 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("CaseQuantity")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("Cost")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("ItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Rank")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<Guid?>("SupplierId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("SupplierName")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("SupplierStockCode")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -1506,49 +1598,47 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Epc")
                         .IsRequired()
                         .HasMaxLength(128)
                         .IsUnicode(false)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("varchar(128)");
 
                     b.Property<Guid>("ItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("RegisteredAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<string>("SerialNumber")
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<DateTime?>("SoldAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<long?>("SoldOnInvoice")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(8)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(8)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid?>("VariantId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -1566,45 +1656,41 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Code")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("ItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("OnHand")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<int>("Ordinal")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Value1")
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Value2")
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("Value3")
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
@@ -1622,39 +1708,37 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("ComponentItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ComponentPlu")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Description")
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("KitItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Ordinal")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -1672,29 +1756,27 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(3)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(3)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Name")
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -1710,27 +1792,26 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<long>("LastValue")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
 
                     b.Property<int>("StationNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -1746,58 +1827,71 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Description")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<Guid>("LocationId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Method")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<long>("Number")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
 
                     b.Property<DateTime?>("PostedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<DateTime?>("ReceivedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("ReceivedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("ReceivedById")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("StationNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -1815,98 +1909,93 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("BackOrders")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("BaseStock")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("CaseQuantity")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("CostEach")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<bool>("IsFlagged")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<Guid?>("ItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("OnHandAtOrder")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("OnOrderAtOrder")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("OrderCost")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("OrderQuantity")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<string>("Plu")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<Guid>("PurchaseOrderId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("QuantityReceived")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<string>("ReorderNumber")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<decimal>("ReorderPoint")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("ReorderQuantity")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<string>("Size")
                         .HasMaxLength(6)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(6)");
 
                     b.Property<Guid?>("SupplierId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("SupplierName")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -1921,40 +2010,39 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<bool>("IsEnabled")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .HasMaxLength(40)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(40)");
 
                     b.Property<int>("Port")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("PowerDbm")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("Purpose")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<Guid>("ReaderId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int?>("StationNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -1972,128 +2060,121 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Address")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("AntennaDetectorDb")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("BaudRate")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("BeeperMode")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<int>("CustomChannels")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("CustomSpacing")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("CustomStartKHz")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("DedupSeconds")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<bool>("DrmEnabled")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<int>("DwellRounds")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("EndFrequency")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<bool>("FastTid")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("FirmwareVersion")
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("Host")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("HubKey")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<bool>("IsEnabled")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("LinkProfile")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<string>("Location")
                         .HasMaxLength(60)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(60)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(40)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(40)");
 
                     b.Property<string>("Notes")
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<int>("Port")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("Region")
                         .IsRequired()
                         .HasMaxLength(8)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(8)");
 
                     b.Property<int>("RssiThresholdDbm")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("SerialPort")
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime?>("SettingsAppliedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<int>("StartFrequency")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Transport")
                         .IsRequired()
                         .HasMaxLength(8)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(8)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -2111,134 +2192,124 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Company")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CustomerEmail")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("CustomerPhone")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<DateOnly?>("CustomerRmaDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<string>("CustomerRmaNumber")
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<string>("Description")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("FirstName")
                         .HasMaxLength(12)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(12)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsCustomerRma")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsFlagged")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsSupplierRma")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("LastName")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Plu")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<DateOnly?>("SetDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<string>("SetType")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("Size")
                         .HasMaxLength(6)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(6)");
 
                     b.Property<int>("StationNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Supplier")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("SupplierEmail")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("SupplierFirstName")
                         .HasMaxLength(12)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(12)");
 
                     b.Property<string>("SupplierLastName")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("SupplierPhone")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<DateOnly?>("SupplierRmaDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<string>("SupplierRmaNumber")
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -2253,32 +2324,30 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Description")
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<bool>("IsSystem")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<int>("Level")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -2297,24 +2366,23 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Permission")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("RoleId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -2330,133 +2398,132 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("ClientId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ClientName")
                         .HasMaxLength(60)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(60)");
 
                     b.Property<decimal>("Cogs")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("CustomerNumber")
                         .HasMaxLength(11)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(11)");
 
                     b.Property<long>("InvoiceNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
 
                     b.Property<bool>("IsFlagged")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsOnAccount")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<Guid>("LocationId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<decimal>("PointsEarned")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("PointsRedeemed")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("Rounding")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("SoldAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<string>("Staff")
-                        .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("StaffId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("StationNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Subtotal")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("SubtotalDiscount")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("Tax1")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<string>("Tax1Name")
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<decimal>("Tax1Rate")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<decimal>("Tax2")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<bool>("Tax2Compound")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Tax2Name")
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<decimal>("Tax2Rate")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<bool>("TaxInclusive")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("Total")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime?>("VoidedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<string>("VoidedBy")
-                        .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("VoidedById")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -2467,6 +2534,8 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.HasIndex("LocationId");
 
                     b.HasIndex("SoldAt");
+
+                    b.HasIndex("StaffId");
 
                     b.HasIndex("StoreId");
 
@@ -2481,99 +2550,94 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Cogs")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("Commission")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Department")
                         .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(15)");
 
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(60)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(60)");
 
                     b.Property<decimal>("DiscountAmount")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<Guid?>("ItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<int>("LineNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("LineTotal")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<string>("Plu")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<bool>("Restock")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<Guid>("SaleId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("SerialNumber")
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("SupplierName")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<decimal>("Tax1")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("Tax2")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<bool>("Taxable1")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("Taxable2")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid?>("VariantId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -2592,25 +2656,24 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Epc")
                         .IsRequired()
                         .HasMaxLength(128)
                         .IsUnicode(false)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("varchar(128)");
 
                     b.Property<Guid>("SaleLineId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -2627,46 +2690,43 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Amount")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<string>("AuthCode")
                         .HasMaxLength(40)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(40)");
 
                     b.Property<decimal>("Change")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Reference")
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<Guid>("SaleId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TenderType")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<decimal>("Tendered")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -2681,49 +2741,49 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Commission")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateOnly?>("FromDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<string>("FromTime")
                         .HasMaxLength(5)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(5)");
 
                     b.Property<decimal>("Hours")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("Sales")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<DateOnly?>("ToDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<string>("ToTime")
                         .HasMaxLength(5)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(5)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("UserName")
                         .IsRequired()
                         .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(15)");
 
                     b.HasKey("Id");
 
@@ -2736,26 +2796,25 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Name")
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<int>("Number")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -2776,35 +2835,32 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Section")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("StationId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Value")
                         .HasMaxLength(1000)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(1000)");
 
                     b.HasKey("Id");
 
@@ -2820,57 +2876,58 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("At")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<long?>("DocumentNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
 
                     b.Property<Guid>("ItemId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(12)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(12)");
 
                     b.Property<decimal>("OnHandAfter")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<decimal>("Quantity")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<string>("Reason")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int>("StationNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("User")
-                        .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("VariantId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -2889,32 +2946,29 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<string>("TimeZoneId")
                         .HasMaxLength(64)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -2930,29 +2984,27 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Value")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(255)");
 
                     b.HasKey("Id");
 
@@ -2968,167 +3020,155 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Address1")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("Address2")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<bool>("BonusPointsEnabled")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("CarryOverCityStateZip")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("CashDiscountPercent")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<string>("City")
                         .HasMaxLength(18)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(18)");
 
                     b.Property<string>("CompanyName")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("Country")
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Fax")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<bool>("FixedDiscountReward")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("GiftCardMaximum")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<int>("GracePeriodDays")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<decimal>("InterestRatePerMonth")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<bool>("LimitThc")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("MinimumTender")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<bool>("PercentDiscountReward")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Phone")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<decimal>("PointsPerDollar")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<decimal>("PointsRequired")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<bool>("PrintPointsOnSlips")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("RewardAmount")
                         .HasPrecision(12, 2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<decimal>("RewardPercent")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<bool>("ScanRandomWeightBarcodes")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("StaffMayDiscount")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("State")
                         .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(15)");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("SupervisorForVoids")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Tax1Name")
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<decimal>("Tax1Rate")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<bool>("Tax2Compound")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Tax2Name")
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<decimal>("Tax2Rate")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<bool>("TaxInclusive")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("TaxRegistrationNumber")
                         .HasMaxLength(25)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(25)");
 
                     b.Property<decimal>("ThcLimit")
                         .HasPrecision(12, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<bool>("TrackStaffSales")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<bool>("UseRmaOnReturns")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("UseUkDateFormat")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Zip")
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(10)");
 
                     b.HasKey("Id");
 
@@ -3144,143 +3184,121 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AccountNumber")
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<string>("Address1")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("Address2")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("City")
                         .HasMaxLength(18)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(18)");
 
                     b.Property<string>("Company")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("Country")
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime?>("DeletedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<string>("Email")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("Extension")
                         .HasMaxLength(4)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(4)");
 
                     b.Property<string>("Fax")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("FirstName")
                         .HasMaxLength(12)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(12)");
 
                     b.Property<string>("HomePhone")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<bool>("IsDeleted")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsFlagged")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<DateOnly?>("LastMailed")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<string>("LastName")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<DateOnly?>("LastPurchase")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("date");
 
                     b.Property<string>("Notes")
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Number")
                         .HasMaxLength(11)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(11)");
 
                     b.Property<string>("PhotoPath")
                         .HasMaxLength(260)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(260)");
 
                     b.Property<string>("ShipTo")
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("State")
                         .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(15)");
 
                     b.Property<string>("Title")
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("Type")
                         .HasMaxLength(15)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(15)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("Version")
                         .IsConcurrencyToken()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Website")
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("WorkPhone")
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<string>("Zip")
                         .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(10)");
 
                     b.HasKey("Id");
 
@@ -3318,35 +3336,33 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Label")
                         .HasMaxLength(60)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(60)");
 
                     b.Property<string>("PayloadJson")
                         .IsRequired()
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("StationNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<Guid>("StoreId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("SuspendedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -3361,39 +3377,36 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("Tax1Name")
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<decimal>("Tax1Rate")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<string>("Tax2Name")
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<decimal>("Tax2Rate")
                         .HasPrecision(7, 3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("decimal(7,3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -3406,35 +3419,34 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(12)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(12)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(16)");
 
                     b.Property<bool>("OpensDrawer")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<int>("SortOrder")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
                     b.HasKey("Id");
 
@@ -3446,69 +3458,128 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.ToTable("TenderTypes");
                 });
 
-            modelBuilder.Entity("RetailPlus.Core.Model.UserAccount", b =>
+            modelBuilder.Entity("RetailPlus.Core.Model.TimeClockEntry", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
-                    b.Property<int>("AccessLevel")
-                        .HasColumnType("INTEGER");
+                    b.Property<DateTime>("ClockIn")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<DateTime?>("ClockOut")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
 
-                    b.Property<int>("FailedSignIns")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("EditReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
-                    b.Property<string>("FullName")
-                        .HasMaxLength(100)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(true);
-
-                    b.Property<DateTime?>("LockedUntilUtc")
+                    b.Property<DateTime?>("EditedAtUtc")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
-                    b.Property<bool>("MustChangePassword")
-                        .HasColumnType("INTEGER");
+                    b.Property<string>("EditedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("PasswordHash")
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                    b.Property<Guid?>("EditedById")
+                        .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("PinHash")
-                        .HasMaxLength(200)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                    b.Property<int>("StationNumber")
+                        .HasColumnType("int");
 
-                    b.Property<Guid?>("RoleId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("StaffCode")
-                        .HasMaxLength(10)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
-
-                    b.Property<Guid?>("StoreId")
-                        .HasColumnType("TEXT");
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("UserName")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClockIn");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("UserId", "ClockIn");
+
+                    b.ToTable("TimeClockEntries");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.UserAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AccessLevel")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<int>("FailedSignIns")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FullName")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("LockedUntilUtc")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("PinHash")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("RoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("StaffCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
@@ -3535,41 +3606,38 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime?>("FinishedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<string>("ManifestJson")
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ReportJson")
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SourcePath")
                         .IsRequired()
                         .HasMaxLength(260)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(260)");
 
                     b.Property<DateTime>("StartedAt")
                         .HasPrecision(0)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2(0)");
 
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(20)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(20)");
 
                     b.Property<string>("ToolVersion")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.HasKey("Id");
 
@@ -3580,33 +3648,32 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("Entity")
                         .IsRequired()
                         .HasMaxLength(50)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid?>("EntityId")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("ImportBatchId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("RawJson")
                         .IsRequired()
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("SourceFile")
                         .IsRequired()
                         .HasMaxLength(260)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(260)");
 
                     b.Property<int>("SourceRecordNumber")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -3615,6 +3682,38 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.HasIndex("Entity", "EntityId");
 
                     b.ToTable("ImportSourceRows");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.AuditEntry", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.CommissionRule", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Category", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RetailPlus.Core.Model.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RetailPlus.Core.Model.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RetailPlus.Core.Model.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.CustomerOrder", b =>
@@ -3998,6 +4097,21 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.HasOne("RetailPlus.Core.Model.Store", null)
                         .WithMany()
                         .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.TimeClockEntry", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

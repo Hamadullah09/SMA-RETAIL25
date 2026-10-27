@@ -6,7 +6,7 @@ using RetailPlus.Data.Import;
 
 namespace RetailPlus.Data;
 
-public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) : DbContext(options)
+public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) : DbContext(options)
 {
     /// <summary>The kinds of document number the original kept in NUMBERS.DBF; see <see cref="NumberCounter"/>.</summary>
     public static class Sequences
@@ -73,6 +73,9 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
     public DbSet<ItemPicture> ItemPictures => Set<ItemPicture>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportSourceRow> ImportSourceRows => Set<ImportSourceRow>();
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<TimeClockEntry> TimeClockEntries => Set<TimeClockEntry>();
+    public DbSet<CommissionRule> CommissionRules => Set<CommissionRule>();
 
     /// <summary>The settings row of this context's store (of the only store when no station is set).</summary>
     public IQueryable<StoreSettings> CurrentStoreSettings =>
@@ -114,14 +117,16 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        AuditChangesAsync(sync: true, default).AsTask().GetAwaiter().GetResult();
         Stamp();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        await AuditChangesAsync(sync: false, cancellationToken);
         Stamp();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     /// <summary>Times, versions, and the store and station of new rows.</summary>

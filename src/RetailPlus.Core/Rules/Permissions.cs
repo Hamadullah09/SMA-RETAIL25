@@ -113,6 +113,13 @@ public static class Permissions
 
     public static bool IsKnown(string key) => All.Any(p => p.Key == key);
 
+    /// <summary>
+    /// The approval rule: someone may approve, at another user's till, an action that needs <paramref name="permission"/>
+    /// when their own role has both <see cref="PosApprove"/> and that permission.
+    /// </summary>
+    public static bool CanApprove(IReadOnlySet<string> approverPermissions, string permission) =>
+        approverPermissions.Contains(PosApprove) && approverPermissions.Contains(permission);
+
     private static readonly string[] TraineeKeys = [PosSell, InventoryView, ClientsView, TimeClockPunch];
     private static readonly string[] CashierKeys = [.. TraineeKeys, PosReturn, PosDrawer, ClientsEdit, GiftCardsIssue, SyncSend];
     private static readonly string[] ClerkKeys = [.. CashierKeys, InventoryEdit, InventoryAdjust, InventoryCount, InventoryLabels, PurchasingManage, SuppliersEdit];

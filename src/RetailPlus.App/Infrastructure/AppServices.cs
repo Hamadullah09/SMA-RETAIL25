@@ -28,6 +28,8 @@ public static class AppServices
     public static ReportService Reports { get; private set; } = null!;
     public static CsvExchange Csv { get; private set; } = null!;
     public static RfidService RfidData { get; private set; } = null!;
+    public static StaffService Staff { get; private set; } = null!;
+    public static AuditService Audit { get; private set; } = null!;
 
     /// <summary>The RFID readers as this station reaches them (null when RFID is off at this station).</summary>
     public static IRfidControl? Rfid { get; private set; }
@@ -43,7 +45,8 @@ public static class AppServices
     public static void Initialize(StationConfig config)
     {
         Config = config;
-        Data = new DataContext(config.EffectiveDatabase);
+        // The audit log and "who did it" columns name whoever is signed in.
+        Data = new DataContext(config.EffectiveDatabase) { CurrentUser = Session };
         Setup = new SetupService(Data);
         Inventory = new InventoryService(Data);
         Parties = new PartyService(Data);
@@ -55,6 +58,8 @@ public static class AppServices
         Reports = new ReportService(Data);
         Csv = new CsvExchange(Data);
         RfidData = new RfidService(Data);
+        Staff = new StaffService(Data);
+        Audit = new AuditService(Data);
         Session.StationNumber = config.StationNumber;
     }
 
@@ -197,8 +202,9 @@ public static class AppServices
 
     private static PoleDisplay? _pole;
 
-    public static bool Can(int level) => Session.AccessLevel >= level;
-
     /// <summary>True when the signed-in user's role has the permission (a key of <see cref="Core.Rules.Permissions"/>).</summary>
     public static bool Can(string permission) => Session.Can(permission);
+
+    /// <summary>True when the signed-in user's role has at least one of the permissions.</summary>
+    public static bool CanAny(params string[] permissions) => permissions.Any(Session.Can);
 }
