@@ -424,8 +424,10 @@ public sealed class SetupService(DataContext data)
     private async Task<SignInResult> CheckAsync(System.Linq.Expressions.Expression<Func<UserAccount, bool>> find, string typed, bool pin,
         Func<UserAccount, bool> check, string? purpose)
     {
+        // Nothing typed: nothing to look up, and nothing worth a line in the audit log.
+        if (typed.Length == 0) return new SignInResult(null, SignInFailure.WrongCredentials, null);
         await using var db = data.Create();
-        var user = typed.Length == 0 ? null : await db.UserAccounts.Include(u => u.Role).ThenInclude(r => r!.Permissions).SingleOrDefaultAsync(find);
+        var user = await db.UserAccounts.Include(u => u.Role).ThenInclude(r => r!.Permissions).SingleOrDefaultAsync(find);
         var now = DateTime.UtcNow;
         string why = purpose is null or AuditActions.SignIn ? "" : $" ({purpose})";
         void Failed(string details) => db.Audit(AuditActions.FailedSignIn, details + why, nameof(UserAccount), user?.Id, userId: user?.Id, userName: user?.UserName ?? typed);
