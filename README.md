@@ -106,7 +106,7 @@ serves the web back office and its API. Settings come from `appsettings.json`, e
 | Setting | What it is |
 |---|---|
 | `ConnectionStrings:RetailPlus` | The database (default: the LocalDB database `RetailPlus_Server`). It is created and brought up to date on every start |
-| `Bootstrap:AdminUserName`, `Bootstrap:AdminPassword` | The first super administrator, made on the first start while the database has no users. Without a password one is made up and written once to the log |
+| `Bootstrap:AdminUserName`, `Bootstrap:AdminPassword` | The first super administrator, made on the first start while the database has no users. Without a password one is made up and written once to the log. On a database that has users but nobody who can manage every store (after the Retail25 cutover), the user with this name is made super administrator, or added when there is no such user |
 | `Jwt:Key`, `Jwt:Hours` | The key that signs sign-in tokens (at least 32 characters; default: one made on the first start and kept in the data folder) and how long a sign-in lasts (12 hours) |
 | `Server:DataFolder` | The server's own files: the signing key, the data-protection keys that encrypt the tills' keys, packages being received (default `App_Data`) |
 | `Server:WebRoot` | The web back office's static export (default `web/out`, looked for in the content root and the folders above it). When there is none the server serves the API only |

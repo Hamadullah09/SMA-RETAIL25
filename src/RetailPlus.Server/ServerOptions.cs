@@ -26,7 +26,11 @@ public sealed class JwtOptions
     public int Hours { get; set; } = 12;
 }
 
-/// <summary>The "Bootstrap" section: the first super administrator, made when the database has no users.</summary>
+/// <summary>
+/// The "Bootstrap" section: the first super administrator, made when the database has no users. On a database with users
+/// but nobody who can manage every store (after the Retail25 cutover), the user with this name is made super administrator
+/// (or added, when there is none).
+/// </summary>
 public sealed class BootstrapOptions
 {
     public string? AdminUserName { get; set; }

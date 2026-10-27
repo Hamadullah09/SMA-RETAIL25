@@ -175,12 +175,23 @@ RetailPlus.Cutover --source "Server=sql01;Database=Retail25;Trusted_Connection=T
 
 ### 2.6 Deploying RetailPlus.Server and the web app
 
-- Copy the published server to the web server. The server serves the web app's static files itself (its `wwwroot`), so
-  one site serves both the API and the web pages.
-- **IIS**: a site with an application pool of "No Managed Code"; the connection string of `SmaRetail` and the server's
-  other settings (token key, and the rest listed in the server's own README) in `appsettings.Production.json` or
-  environment variables of the app pool; the HTTPS binding with the pos.sma-techno.net certificate; the app pool identity
-  given a login on SQL Server with access to `SmaRetail` only.
+- Publish the server (`dotnet publish src/RetailPlus.Server -c Release -o <folder>`) and build the web app
+  (`npm ci && npm run build` in `web/`, which writes the static export to `web/out`). Copy the server to the web server
+  and the contents of `web/out` to a folder beside it. The server serves the web app itself (`Server:WebRoot`), so one
+  site serves both the API (`/api`) and the web pages.
+- Settings (the server's README lists them all), in `appsettings.Production.json` or as environment variables:
+  - `ConnectionStrings:RetailPlus`: the `SmaRetail` database the cutover filled.
+  - `Server:WebRoot`: the folder holding the web app's files.
+  - `Server:DataFolder`: a folder that is backed up. It keeps the token signing key and the keys that protect the
+    tills' keys; losing it means every till joins again.
+  - `Jwt:Key`: at least 32 random characters (or leave it empty and let the server keep one in the data folder).
+  - `Bootstrap:AdminUserName`: the carried-over user who looks after every store (the owner). No carried-over user has
+    the Super administrator role, and a store administrator cannot give it, so on its first start the server makes this
+    user super administrator (they keep their Retail25 password). Remove the setting afterwards.
+  - `Cors:Origins`: not needed in production (the web app comes from the same site).
+- **IIS**: a site with an application pool of "No Managed Code", the settings above in `appsettings.Production.json` or
+  environment variables of the app pool, the HTTPS binding with the pos.sma-techno.net certificate, and the app pool
+  identity given a login on SQL Server with access to `SmaRetail` only.
 - **Reverse proxy** (nginx, Caddy, Apache) on Linux or in front of Kestrel: run the server as a service on a local port,
   terminate TLS at the proxy, forward `X-Forwarded-For` and `X-Forwarded-Proto`, and allow request bodies large enough for
   the tills' sync packages.
@@ -200,8 +211,9 @@ On each till, in the desktop app (Setup › This station):
 1. Set the station number **as the report says**: Retail25 station `001` of the first store is station 1; a clashing code
    at another store got another number (listed under the decisions). Station numbers are unique across the company, as
    each station numbers its documents from its own range (station × 10,000,000 + 1).
-2. Enrol the till with the server (address and enrolment code from the web's stores and tills page), as described in the
-   server's documentation.
+2. Join the server: on the web, *Tills* › *Add a till* (or *New code* for a till already listed) shows an enrolment
+   code; at the till, *Setup › Server* takes the server's address (https://pos.sma-techno.net) and the code, then
+   *Join the server*. The till's data moves to the server's store and the station number the server gave.
 3. Set up the hardware again (printer, drawer, scale, pole display, RFID readers): Retail25's device profiles are not
    carried over.
 
@@ -214,7 +226,8 @@ set the PINs (Setup › Users), and ring up a test sale and void it.
 ### 2.10 Checks after the switch
 
 - [ ] The web app at https://pos.sma-techno.net loads; an administrator signs in.
-- [ ] Give the person who looks after every store the role **Super administrator** (no carried-over user has it).
+- [ ] The user named in `Bootstrap:AdminUserName` signs in and sees every store (the server log says it made them super
+      administrator); then take the setting out.
 - [ ] At each till: a real sale reaches the server; stock, client balance and points change as they should.
 - [ ] A few items' stock and value, every gift card balance asked about, and the receivables total agree with the report.
 - [ ] Yesterday's sales report (per day and per tender) agrees with Retail25's for the same day.

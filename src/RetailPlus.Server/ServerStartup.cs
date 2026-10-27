@@ -3,13 +3,16 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using RetailPlus.Core.Model;
 using RetailPlus.Core.Rules;
+using RetailPlus.Data;
 using RetailPlus.Data.Services;
 
 namespace RetailPlus.Server;
 
 /// <summary>
 /// What the server does before it takes requests: bring the database up to date, give it the standard roles and tender
-/// types every store shares, and on the very first start make a super administrator.
+/// types every store shares, and make sure someone can manage every store: on the very first start a new super
+/// administrator, and on a database that has users but nobody with <see cref="Permissions.StoresAll"/> (one filled by
+/// the Retail25 cutover) the user named in <c>Bootstrap:AdminUserName</c>.
 /// </summary>
 public sealed class ServerStartup(DataContext data, IOptions<BootstrapOptions> bootstrap, ILogger<ServerStartup> log)
 {
@@ -25,10 +28,45 @@ public sealed class ServerStartup(DataContext data, IOptions<BootstrapOptions> b
                 db.TenderTypes.Add(new TenderType { Name = tender, Kind = kind, SortOrder = ++order, OpensDrawer = kind is TenderKind.Cash or TenderKind.Cheque });
         }
         await db.SaveChangesAsync(cancellationToken);
-        if (await db.UserAccounts.AnyAsync(cancellationToken)) return;
 
         var role = await db.Roles.SingleAsync(r => r.Name == Permissions.SuperAdministratorRole, cancellationToken);
-        var name = string.IsNullOrWhiteSpace(bootstrap.Value.AdminUserName) ? "admin" : bootstrap.Value.AdminUserName.Trim();
+        var configured = bootstrap.Value.AdminUserName?.Trim();
+        if (!await db.UserAccounts.AnyAsync(cancellationToken))
+        {
+            await AddAdministratorAsync(db, role, string.IsNullOrEmpty(configured) ? "admin" : configured, cancellationToken);
+            return;
+        }
+        if (await AnyoneSeesEveryStoreAsync(db, cancellationToken)) return;
+
+        // Users came in without anyone who sees every store: only the configured user is made super administrator, so
+        // nobody gets every store by accident.
+        if (string.IsNullOrEmpty(configured))
+        {
+            ServerLog.NoSuperAdministrator(log);
+            return;
+        }
+        var user = await db.UserAccounts.SingleOrDefaultAsync(u => u.UserName == configured, cancellationToken);
+        if (user is null)
+        {
+            await AddAdministratorAsync(db, role, configured, cancellationToken);
+            return;
+        }
+        user.RoleId = role.Id;
+        user.AccessLevel = role.Level;
+        user.StoreId = null;
+        user.IsActive = true;
+        user.LockedUntilUtc = null;
+        user.FailedSignIns = 0;
+        await db.SaveChangesAsync(cancellationToken);
+        ServerLog.AdministratorPromoted(log, user.UserName);
+    }
+
+    private static Task<bool> AnyoneSeesEveryStoreAsync(RetailPlusDbContext db, CancellationToken cancellationToken) =>
+        db.UserAccounts.AnyAsync(u => u.IsActive && u.RoleId != null
+            && db.RoleGrants.Any(g => g.RoleId == u.RoleId && g.Permission == Permissions.StoresAll), cancellationToken);
+
+    private async Task AddAdministratorAsync(RetailPlusDbContext db, Role role, string name, CancellationToken cancellationToken)
+    {
         var password = bootstrap.Value.AdminPassword;
         bool made = string.IsNullOrEmpty(password);
         if (made) password = MakePassword();
