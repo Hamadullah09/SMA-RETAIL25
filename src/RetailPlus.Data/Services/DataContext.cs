@@ -21,6 +21,28 @@ public sealed class DataContext
         _pool = new PooledDbContextFactory<RetailPlusDbContext>(options, poolSize: 256);
     }
 
+    private DataContext(DataContext shared, StationIdentity? station, SessionInfo? user)
+    {
+        Connection = shared.Connection;
+        _pool = shared._pool;
+        Station = station;
+        CurrentUser = user;
+        StoreScope = station?.StoreId;
+    }
+
+    /// <summary>
+    /// The same database (and pool of contexts) working for another store and user: the server makes one per request, for
+    /// the store being worked on (station number 0) and the signed-in web user. Null <paramref name="station"/> means
+    /// every store.
+    /// </summary>
+    public DataContext For(StationIdentity? station, SessionInfo? user) => new(this, station, user);
+
+    /// <summary>
+    /// The store that lists of store records (time clock, drawers, invoices, gift cards) are limited to. Set only on a
+    /// DataContext made by <see cref="For"/> (the server, which holds every store); a till's lists cover its whole database.
+    /// </summary>
+    public Guid? StoreScope { get; }
+
     public DatabaseConnection Connection { get; }
 
     /// <summary>The store and station this program works for; set by <see cref="SetupService.SeedAsync"/>.</summary>

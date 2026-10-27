@@ -22,8 +22,8 @@ public sealed record StationInfo(Guid Id, Guid StoreId, int Number, string? Name
 public sealed record NewStationRequest(int? Number, string? Name);
 public sealed record EnrollmentCodeInfo(StationInfo Station, string Code, DateTime ExpiresAtUtc);
 
-/// <summary>The server's HTTP API.</summary>
-public static class Endpoints
+/// <summary>The server's HTTP API (docs/API.md), one file per area.</summary>
+public static partial class Endpoints
 {
     private static IResult Error(int status, string message) => Results.Json(new { error = message }, statusCode: status);
 
@@ -35,6 +35,14 @@ public static class Endpoints
         MapAuth(app.MapGroup("/api/auth").WithTags("Sign-in"));
         MapStores(app.MapGroup("/api").WithTags("Stores and tills"));
         MapSync(app.MapGroup("/api/sync").WithTags("Sync"));
+        MapDashboard(app.MapGroup("/api").WithTags("Dashboard and tills"));
+        MapSales(app.MapGroup("/api").WithTags("Sales"));
+        MapCatalog(app.MapGroup("/api").WithTags("Items, clients and suppliers"));
+        MapStock(app.MapGroup("/api").WithTags("Stock and gift cards"));
+        MapReports(app.MapGroup("/api").WithTags("Reports"));
+        MapUsers(app.MapGroup("/api").WithTags("Users and roles"));
+        MapStaff(app.MapGroup("/api").WithTags("Audit and staff"));
+        MapSettings(app.MapGroup("/api").WithTags("Store settings"));
     }
 
     private static async Task<IResult> HealthAsync(DataContext data, CancellationToken cancellationToken)
@@ -57,15 +65,29 @@ public static class Endpoints
 
     private static void MapAuth(RouteGroupBuilder auth)
     {
-        auth.MapPost("/sign-in", async (SignInRequest request, DataContext data, TokenService tokens) =>
+        auth.MapPost("/sign-in", async (SignInRequest request, HttpContext http, DataContext data, TokenService tokens, IWebHostEnvironment environment) =>
         {
-            var user = await new SetupService(data).AuthenticateAsync(request.UserName ?? "", request.Password ?? "");
+            // The sign-in goes to the audit log like one at a till, under the user's store (or the first store), station 0.
+            var name = (request.UserName ?? "").Trim();
+            Guid? store;
+            await using (var db = data.Create())
+                store = await db.UserAccounts.Where(u => u.UserName == name).Select(u => u.StoreId).FirstOrDefaultAsync()
+                        ?? await db.Stores.OrderBy(s => s.Code).Select(s => (Guid?)s.Id).FirstOrDefaultAsync();
+            var audited = data.For(store is { } s ? new StationIdentity(s, 0) : null, null);
+            var user = (await new SetupService(audited).SignInAsync(name, request.Password ?? "")).User;
             // Users without a password yet (brought in from Retail Plus) choose one at a till first.
             if (user is null || user.PasswordHash is null) return Error(401, "Wrong user name or password, or the account is locked for a few minutes.");
             var permissions = SetupService.PermissionsOf(user);
             if (!permissions.Contains(Permissions.WebSignIn)) return Error(403, "This user may not sign in to the web back office.");
             var (token, expires) = tokens.Create(user, permissions);
+            http.Response.Cookies.Append(Session.Cookie, token, Session.Options(environment, expires));
             return Results.Ok(new SignInResponse(token, expires, (await UserInfoAsync(data, user.Id))!));
+        }).AllowAnonymous();
+
+        auth.MapPost("/sign-out", (HttpContext http, IWebHostEnvironment environment) =>
+        {
+            http.Response.Cookies.Delete(Session.Cookie, Session.Options(environment, null));
+            return Results.NoContent();
         }).AllowAnonymous();
 
         auth.MapGet("/me", async (HttpContext http, DataContext data) =>
@@ -166,7 +188,7 @@ public static class Endpoints
             Arm(link, code);
             db.StationLinks.Add(link);
             await db.SaveChangesAsync();
-            return Results.Created($"/api/stations/{station.Id}", new EnrollmentCodeInfo(await StationInfoAsync(db, station, options.Value), code, link.EnrollmentExpiresAtUtc!.Value));
+            return Results.Created($"/api/stations/{station.Id}", new EnrollmentCodeInfo(await StationInfoAsync(db, station, options.Value), code, ApiRequest.Utc(link.EnrollmentExpiresAtUtc!.Value)));
         }).RequireAuthorization(Need(Permissions.StoresManage));
 
         api.MapPost("/stations/{id:guid}/enrollment-code", async (Guid id, HttpContext http, DataContext data, IOptions<ServerOptions> options) =>
@@ -180,7 +202,8 @@ public static class Endpoints
             var code = StationKeys.NewEnrollmentCode();
             Arm(link, code);
             await db.SaveChangesAsync();
-            return Results.Ok(new EnrollmentCodeInfo(await StationInfoAsync(db, station, options.Value), code, link.EnrollmentExpiresAtUtc!.Value));
+            return Results.Ok(new EnrollmentCodeInfo(await StationInfoAsync(db, station, options.Value), code, ApiRequest.Utc(link.EnrollmentExpiresAtUtc!.Value)));
+
         }).RequireAuthorization(Need(Permissions.StoresManage));
 
         api.MapPost("/stations/{id:guid}/retire", async (Guid id, HttpContext http, DataContext data, IOptions<ServerOptions> options) =>
@@ -227,13 +250,15 @@ public static class Endpoints
         bool retired = link?.RetiredAtUtc is not null;
         var since = link?.LastUploadAtUtc ?? link?.EnrolledAtUtc;
         bool behind = enrolled && !retired && since < DateTime.UtcNow.AddHours(-options.BehindAfterHours);
-        return new StationInfo(station.Id, station.StoreId, station.Number, station.Name, enrolled, link?.EnrolledAtUtc, retired,
-            link?.EnrollmentCodeHash is null ? null : link.EnrollmentExpiresAtUtc, link?.LastUploadAtUtc, link?.LastDownloadAtUtc, link?.AppVersion,
+        return new StationInfo(station.Id, station.StoreId, station.Number, station.Name, enrolled, ApiRequest.Utc(link?.EnrolledAtUtc), retired,
+            link?.EnrollmentCodeHash is null ? null : ApiRequest.Utc(link.EnrollmentExpiresAtUtc), ApiRequest.Utc(link?.LastUploadAtUtc),
+            ApiRequest.Utc(link?.LastDownloadAtUtc), link?.AppVersion,
             last is null ? null : ToInfo(last), failed, behind);
     }
 
     private static BatchInfo ToInfo(SyncBatch b) =>
-        new(b.Id, b.BatchId, b.StoreId, b.StationNumber, b.Direction, b.Status, b.FileName, b.Rows, b.ReceivedAtUtc, b.AppliedAtUtc, b.AppVersion, b.Error, b.Notes);
+        new(b.Id, b.BatchId, b.StoreId, b.StationNumber, b.Direction, b.Status, b.FileName, b.Rows, ApiRequest.Utc(b.ReceivedAtUtc), ApiRequest.Utc(b.AppliedAtUtc),
+            b.AppVersion, b.Error, b.Notes);
 
     // Sync -------------------------------------------------------------------------------------------------------------
 

@@ -9,6 +9,11 @@ public sealed class ServerOptions
     public int BehindAfterHours { get; set; } = 24;
     /// <summary>The largest package accepted, in megabytes (a package may carry a copy of a till's database).</summary>
     public int MaxPackageMegabytes { get; set; } = 512;
+    /// <summary>
+    /// The web back office's static export (the folder with index.html and _next); empty = web/out, looked for in the
+    /// content root and the folders above it. When it is not there the server serves only the API.
+    /// </summary>
+    public string? WebRoot { get; set; }
 }
 
 /// <summary>The "Jwt" section: how sign-in tokens are made.</summary>

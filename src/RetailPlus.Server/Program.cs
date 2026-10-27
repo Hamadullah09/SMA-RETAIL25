@@ -27,6 +27,11 @@ builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<StationKeys>();
 builder.Services.AddSingleton<ServerSync>();
 builder.Services.AddSingleton<ServerStartup>();
+// What one web request works on (its user, stores and services); see Api.cs.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped(provider => new ApiRequest(
+    provider.GetRequiredService<IHttpContextAccessor>().HttpContext ?? throw new InvalidOperationException("An API request needs an HTTP request."),
+    provider.GetRequiredService<DataContext>()));
 
 // Station keys are encrypted with data-protection keys kept in the data folder (encrypted with DPAPI on Windows).
 builder.Services.AddDataProtection().SetApplicationName("SMA RETAIL Server");
@@ -41,7 +46,18 @@ builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSc
 {
     options.MapInboundClaims = false;
     options.TokenValidationParameters = tokens.Validation;
-    options.Events = new JwtBearerEvents { OnTokenValidated = TokenService.RefreshAsync };
+    options.Events = new JwtBearerEvents
+    {
+        // The web app keeps no token: it is signed in by the rp_session cookie, read when there is no Authorization header.
+        OnMessageReceived = context =>
+        {
+            if (string.IsNullOrEmpty(context.Request.Headers.Authorization) && context.Request.Cookies.TryGetValue(Session.Cookie, out var token)
+                && !string.IsNullOrEmpty(token))
+                context.Token = token;
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = TokenService.RefreshAsync,
+    };
 });
 // One policy per permission key: an endpoint names the permission it needs.
 builder.Services.AddAuthorization(options =>
@@ -51,17 +67,23 @@ builder.Services.AddAuthorization(options =>
 });
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(configuration.GetSection("Cors:Origins").Get<string[]>() is { Length: > 0 } origins ? origins : ["http://localhost:3000"])
-    .AllowAnyHeader().AllowAnyMethod()));
+    .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
 await app.Services.GetRequiredService<ServerStartup>().RunAsync();
 
+app.UseMiddleware<ApiErrors>();
+// The web back office's files come before routing, so a page is never taken for an endpoint.
+app.UseWebApp();
+app.UseRouting();
 app.UseCors();
 app.UseAuthentication();
+app.UseMiddleware<CsrfGuard>();
 app.UseAuthorization();
 app.MapOpenApi();
+
 app.MapRetailPlusApi();
 await app.RunAsync();
 

@@ -47,16 +47,26 @@ public sealed class ReportService(DataContext data)
         new("loyalty", "Clients", "Loyalty points earned and redeemed", true),
     ];
 
-    public async Task<ReportTable> RunAsync(string key, Guid locationId, DateOnly from, DateOnly to)
+    public Task<ReportTable> RunAsync(string key, Guid locationId, DateOnly from, DateOnly to) => RunAsync(key, [locationId], from, to);
+
+    /// <summary>
+    /// Runs a report over several locations (the server: every location of the stores asked for). Reports of what a store
+    /// does that are not kept per location (drawers, invoices, hours, gift cards, transfers) cover the store this
+    /// DataContext works for, or every store when it works for none.
+    /// </summary>
+    public async Task<ReportTable> RunAsync(string key, IReadOnlyCollection<Guid> locationIds, DateOnly from, DateOnly to)
     {
+        ArgumentNullException.ThrowIfNull(locationIds);
+        var locations = locationIds.ToList();
+        Guid? locationId = locations.Count == 1 ? locations[0] : null;
         var start = from.ToDateTime(TimeOnly.MinValue);
         var end = to.AddDays(1).ToDateTime(TimeOnly.MinValue);
         var period = $"{from:d} to {to:d}";
         await using var db = data.Create();
-        var sales = db.Sales.AsNoTracking().Where(s => s.SoldAt >= start && s.SoldAt < end && s.LocationId == locationId);
+        var sales = db.Sales.AsNoTracking().Where(s => s.SoldAt >= start && s.SoldAt < end && locations.Contains(s.LocationId));
         var completed = sales.Where(s => s.Status == SaleStatus.Completed);
         var lines = db.SaleLines.AsNoTracking().Where(l => completed.Any(s => s.Id == l.SaleId));
-        var items = db.Items.AsNoTracking().Where(i => i.LocationId == locationId && !i.IsDeleted);
+        var items = db.Items.AsNoTracking().Where(i => locations.Contains(i.LocationId) && !i.IsDeleted);
 
         switch (key)
         {
@@ -211,14 +221,16 @@ public sealed class ReportService(DataContext data)
             }
             case "orders":
             {
-                var rows = await db.PurchaseOrders.AsNoTracking().Where(p => p.LocationId == locationId && p.Status != PurchaseOrderStatus.Received).OrderBy(p => p.Number)
+                var rows = await db.PurchaseOrders.AsNoTracking().Where(p => locations.Contains(p.LocationId) && p.Status != PurchaseOrderStatus.Received).OrderBy(p => p.Number)
                     .Select(p => new { p.Number, p.CreatedAt, p.Status, p.Description, Lines = p.Lines.Count, Cost = p.Lines.Sum(l => l.OrderCost) }).ToListAsync();
                 return Table("Open purchase orders", null, [Col("PO", ColumnKind.Count), Col("Created", ColumnKind.Date), Col("Status"), Col("Description"), Col("Lines", ColumnKind.Count, true), Col("Cost", ColumnKind.Money, true)],
                     rows.Select(r => Row(r.Number, r.CreatedAt, r.Status.ToString(), r.Description, r.Lines, r.Cost)));
             }
             case "drawer":
             {
-                var rows = await db.DrawerSessions.AsNoTracking().Where(d => d.OpenedAt >= start && d.OpenedAt < end).OrderBy(d => d.OpenedAt).ToListAsync();
+                var drawers = db.DrawerSessions.AsNoTracking().Where(d => d.OpenedAt >= start && d.OpenedAt < end);
+                if (data.StoreScope is { } store) drawers = drawers.Where(d => d.StoreId == store);
+                var rows = await drawers.OrderBy(d => d.OpenedAt).ToListAsync();
                 return Table("End of day history", period, [Col("Station", ColumnKind.Count), Col("Opened", ColumnKind.Date), Col("Closed", ColumnKind.Date), Col("Customers", ColumnKind.Count, true), Col("Net sales", ColumnKind.Money, true), Col("Tax 1", ColumnKind.Money, true), Col("Tax 2", ColumnKind.Money, true), Col("Receipts", ColumnKind.Money, true)],
                     rows.Select(r => Row(r.StationNumber, r.OpenedAt, r.ClosedAt, r.CustomerCount, r.NetSales, r.Tax1Total, r.Tax2Total, r.TotalReceipts)));
             }
@@ -260,7 +272,7 @@ public sealed class ReportService(DataContext data)
             case "countvar":
             {
                 var rows = await db.StockCountLines.AsNoTracking().Where(l => l.Variance != 0)
-                    .Join(db.StockCounts.AsNoTracking().Where(c => c.Status == StockCountStatus.Posted && c.LocationId == locationId && c.PostedAt >= start && c.PostedAt < end),
+                    .Join(db.StockCounts.AsNoTracking().Where(c => c.Status == StockCountStatus.Posted && locations.Contains(c.LocationId) && c.PostedAt >= start && c.PostedAt < end),
                         l => l.StockCountId, c => c.Id, (l, c) => new { c.Number, c.PostedAt, l.Plu, l.Description, l.Expected, l.Counted, l.Variance, l.UnitCost, l.VarianceCost, l.NotCounted })
                     .ToListAsync();
                 return Table("Stock count variances", period, [Col("Count", ColumnKind.Count), Col("Posted", ColumnKind.Date), Col("Stock code"), Col("Description"),
@@ -289,7 +301,9 @@ public sealed class ReportService(DataContext data)
             }
             case "giftcards":
             {
-                var cards = await db.GiftCards.AsNoTracking()
+                var issued = db.GiftCards.AsNoTracking();
+                if (data.StoreScope is { } issuer) issued = issued.Where(c => c.StoreId == issuer);
+                var cards = await issued
                     .Select(c => new { c.Id, c.Number, c.Kind, c.IssuedAt, c.ExpiresOn, c.IsActive, Client = c.Client == null ? null : c.Client.Company ?? (c.Client.LastName + ", " + c.Client.FirstName) })
                     .ToListAsync();
                 var balances = (await db.GiftCardTransactions.AsNoTracking().Select(t => new { t.GiftCardId, t.Amount }).ToListAsync())
