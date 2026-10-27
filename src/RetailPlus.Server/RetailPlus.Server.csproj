@@ -4,11 +4,15 @@
     <ProjectReference Include="..\RetailPlus.Data\RetailPlus.Data.csproj" />
     <ProjectReference Include="..\RetailPlus.Data.SqlServer\RetailPlus.Data.SqlServer.csproj" />
     <ProjectReference Include="..\RetailPlus.Sync\RetailPlus.Sync.csproj" />
+    <ProjectReference Include="..\RetailPlus.Reports\RetailPlus.Reports.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.11" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />
+    <!-- Store pictures are resized on the server (the desktop app uses WPF, which a server does not have). -->
+    <PackageReference Include="SkiaSharp" Version="4.152.0" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.152.0" />
   </ItemGroup>
 
   <PropertyGroup>

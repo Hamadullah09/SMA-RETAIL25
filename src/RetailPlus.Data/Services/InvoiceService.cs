@@ -249,7 +249,9 @@ public sealed class InvoiceService(DataContext data)
     public async Task<List<AgingRow>> AgingAsync(DateOnly today)
     {
         await using var db = data.Create();
-        var open = await db.Invoices.AsNoTracking().Where(i => i.Balance != 0 && !i.IsVoided && i.Kind != InvoiceKind.Quote).ToListAsync();
+        var invoices = db.Invoices.AsNoTracking().Where(i => i.Balance != 0 && !i.IsVoided && i.Kind != InvoiceKind.Quote);
+        if (data.StoreScope is { } store) invoices = invoices.Where(i => i.StoreId == store);
+        var open = await invoices.ToListAsync();
         return open.GroupBy(i => (i.ClientId, Name: i.DisplayName))
             .Select(g =>
             {

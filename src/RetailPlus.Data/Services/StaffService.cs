@@ -90,6 +90,7 @@ public sealed class StaffService(DataContext data)
         var end = to.AddDays(1).ToDateTime(TimeOnly.MinValue);
         await using var db = data.Create();
         var q = db.TimeClockEntries.AsNoTracking().Where(t => (t.ClockIn >= start && t.ClockIn < end) || (t.ClockOut == null && t.ClockIn < end));
+        if (data.StoreScope is { } store) q = q.Where(t => t.StoreId == store);
         if (userId is Guid id) q = q.Where(t => t.UserId == id);
         return await q.OrderBy(t => t.UserName).ThenBy(t => t.ClockIn).ToListAsync();
     }
@@ -173,6 +174,7 @@ public sealed class StaffService(DataContext data)
         var end = to.AddDays(1).ToDateTime(TimeOnly.MinValue);
         await using var db = data.Create();
         var q = db.TimeClockEntries.AsNoTracking().Where(t => t.ClockOut != null && t.ClockIn < end && t.ClockOut > start);
+        if (data.StoreScope is { } store) q = q.Where(t => t.StoreId == store);
         if (userId is Guid id) q = q.Where(t => t.UserId == id);
         var entries = await q.ToListAsync();
         var names = await db.UserAccounts.AsNoTracking().ToDictionaryAsync(u => u.Id, u => u.UserName);
@@ -260,6 +262,7 @@ public sealed class StaffService(DataContext data)
         await using var db = data.Create();
         var sales = db.Sales.AsNoTracking().Where(s => s.Status == SaleStatus.Completed && s.SoldAt >= start && s.SoldAt < end);
         if (locationId is Guid loc) sales = sales.Where(s => s.LocationId == loc);
+        if (data.StoreScope is { } store) sales = sales.Where(s => s.StoreId == store);
         var rows = await (
             from l in db.SaleLines.AsNoTracking().Where(l => l.Kind == SaleLineKind.Sale || l.Kind == SaleLineKind.Return)
             join s in sales on l.SaleId equals s.Id

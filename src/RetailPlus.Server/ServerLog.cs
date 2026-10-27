@@ -14,4 +14,11 @@ internal static partial class ServerLog
 
     [LoggerMessage(4, LogLevel.Warning, "Package {Batch} from station {Station} refused: {Error}")]
     public static partial void PackageRefused(ILogger logger, Guid batch, int station, string? error);
+
+    [LoggerMessage(5, LogLevel.Information, "No web back office to serve (Server:WebRoot, or web/out above {ContentRoot}); serving the API only.")]
+    public static partial void NoWebApp(ILogger logger, string contentRoot);
+
+    [LoggerMessage(6, LogLevel.Information, "Serving the web back office from {WebRoot}.")]
+    public static partial void WebApp(ILogger logger, string webRoot);
+
 }
