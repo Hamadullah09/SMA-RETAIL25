@@ -49,6 +49,10 @@ public sealed class SalesService(DataContext data)
             throw new BusinessRuleException("Select a client for an on-account sale or a layaway.");
         if (settings.LimitThc && settings.ThcLimit > 0 && draft.TotalThc > settings.ThcLimit)
             throw new BusinessRuleException($"This sale has {draft.TotalThc:0.###} g of THC; the limit is {settings.ThcLimit:0.###} g.");
+        if (lines.FirstOrDefault(l => l.ItemType == ItemType.GiftCard && l.Kind == SaleLineKind.Sale && string.IsNullOrWhiteSpace(l.GiftCardNumber)) is { } card)
+            throw new BusinessRuleException($"{card.Description}: enter the number of the gift card sold.");
+        if (tenders.FirstOrDefault(t => t.Kind == TenderKind.GiftCard && t.Amount != 0 && string.IsNullOrWhiteSpace(t.Reference)) is { } giftTender)
+            throw new BusinessRuleException($"Enter the card number of the {giftTender.TenderType} payment.");
 
         var now = DateTime.Now;
         var sale = new Sale
@@ -85,13 +89,19 @@ public sealed class SalesService(DataContext data)
                 Cogs = Money.Round(l.UnitCost * l.Quantity), Department = l.Department, Taxable1 = l.Taxable1, Taxable2 = l.Taxable2,
                 Tax1 = lineTax.Item1, Tax2 = lineTax.Item2, SerialNumber = l.SerialNumber, VariantId = l.VariantId, SupplierName = l.SupplierName,
                 Commission = Money.Round(l.LineTotal * l.CommissionPercent / 100m), Restock = l.Restock,
+                GiftCardNumber = string.IsNullOrWhiteSpace(l.GiftCardNumber) ? null : GiftCardService.Normalize(l.GiftCardNumber),
                 Tags = l.Epcs.Distinct().Select(e => new SaleLineTag { Epc = e }).ToList(),
             });
         }
         sale.Cogs = sale.Lines.Sum(l => l.Cogs);
         sale.PointsEarned = BonusPoints.Earned(settings, totals.NetBeforeTax, draft.SubtotalDiscountPercent > 0);
         foreach (var t in tenders)
-            sale.Payments.Add(new SalePayment { TenderType = t.TenderType, Amount = t.Amount, Tendered = t.Tendered, Change = t.Change, AuthCode = t.AuthCode, Reference = t.Reference });
+            sale.Payments.Add(new SalePayment
+            {
+                TenderType = t.TenderType, Amount = t.Amount, Tendered = t.Tendered, Change = t.Change, AuthCode = t.AuthCode,
+                Reference = t.Kind == TenderKind.GiftCard && t.Reference is not null ? GiftCardService.Normalize(t.Reference) : t.Reference,
+                Currency = t.Currency, ForeignAmount = t.ForeignAmount, ExchangeRate = t.ExchangeRate,
+            });
 
         if (session.IsTrainee) return sale;
 
@@ -113,11 +123,13 @@ public sealed class SalesService(DataContext data)
 
         await ApplyStockAndStatisticsAsync(db, sale, +1, now, sale.Staff, sale.StaffId);
         await UpdateTagsAsync(db, sale, +1);
+        await ApplyGiftCardsAsync(db, settings, sale, lines, tenders);
 
         if (client is not null)
         {
             client.LastPurchase = DateOnly.FromDateTime(now);
-            client.Points += sale.PointsEarned - draft.PointsRedeemed;
+            LoyaltyService.Record(db, client, LoyaltyTransactionKind.Earn, sale.PointsEarned, sale, sale.Staff);
+            LoyaltyService.Record(db, client, LoyaltyTransactionKind.Redeem, -draft.PointsRedeemed, sale, sale.Staff);
             decimal owing = onAccount + layawayOwing;
             if (owing != 0)
             {
@@ -127,10 +139,30 @@ public sealed class SalesService(DataContext data)
         }
 
         var drawer = await DrawerService.GetOpenSessionAsync(db, session.StationNumber, session.LocationId);
-        AddToDrawer(drawer, sale, tenders.Where(t => t.Kind != TenderKind.OnAccount), +1);
+        AddToDrawer(drawer, sale, tenders.Where(t => t.Kind != TenderKind.OnAccount), +1, await HomeCashAsync(db));
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         return sale;
+    }
+
+    /// <summary>The home-currency cash tender, which gives the change for payments in a foreign currency.</summary>
+    private static Task<string?> HomeCashAsync(RetailPlusDbContext db) =>
+        db.TenderTypes.Where(t => t.Kind == TenderKind.Cash && t.Currency == null).OrderBy(t => t.SortOrder).Select(t => t.Name).FirstOrDefaultAsync();
+
+    /// <summary>Gift cards sold on the sale's lines (issue or reload) and paid with (redeem, or a refund put on the card).</summary>
+    private static async Task ApplyGiftCardsAsync(RetailPlusDbContext db, StoreSettings settings, Sale sale, IReadOnlyList<SaleDraftLine> lines, IReadOnlyList<TenderEntry> tenders)
+    {
+        foreach (var line in lines.Where(l => !string.IsNullOrWhiteSpace(l.GiftCardNumber) && l.Kind is SaleLineKind.Sale or SaleLineKind.Return))
+        {
+            if (line.LineTotal > 0) await GiftCardService.IssueOrReloadAsync(db, settings, line.GiftCardNumber!, line.GiftCardKind, line.LineTotal, sale);
+            else if (line.LineTotal < 0)
+                await GiftCardService.RefundAsync(db, settings, line.GiftCardNumber!, line.LineTotal, sale, GiftCardTransactionKind.Adjust, "Card returned");
+        }
+        foreach (var t in tenders.Where(t => t.Kind == TenderKind.GiftCard && t.Amount != 0))
+        {
+            if (t.Amount > 0) await GiftCardService.RedeemAsync(db, t.Reference!, t.Amount, sale);
+            else await GiftCardService.RefundAsync(db, settings, t.Reference!, -t.Amount, sale, GiftCardTransactionKind.Refund);
+        }
     }
 
     private static string Trim(string s, int max) => s.Length <= max ? s : s[..max];
@@ -234,7 +266,11 @@ public sealed class SalesService(DataContext data)
         }
     }
 
-    private static void AddToDrawer(DrawerSession drawer, Sale sale, IEnumerable<TenderEntry> tenders, int sign)
+    /// <summary>
+    /// The sale in the drawer totals. A payment in a foreign currency stays in the drawer whole (at its home value, and
+    /// in the currency), and the change given for it comes out of the home cash.
+    /// </summary>
+    private static void AddToDrawer(DrawerSession drawer, Sale sale, IEnumerable<TenderEntry> tenders, int sign, string? homeCash)
     {
         var real = sale.Lines.Where(l => l.Kind != SaleLineKind.Text).ToList();
         drawer.CustomerCount += sign;
@@ -246,11 +282,26 @@ public sealed class SalesService(DataContext data)
         drawer.CustomerCredits += sign * real.Where(l => l.Kind is SaleLineKind.Return or SaleLineKind.Credit).Sum(l => -l.LineTotal);
         drawer.BottleReturns += sign * real.Where(l => l.Kind == SaleLineKind.BottleReturn).Sum(l => -l.LineTotal);
         drawer.LastSaleAt = sale.SoldAt;
+        DrawerSessionTender Row(string name)
+        {
+            var row = drawer.Tenders.FirstOrDefault(x => x.TenderType == name);
+            if (row is null) drawer.Tenders.Add(row = new DrawerSessionTender { TenderType = name });
+            return row;
+        }
         foreach (var t in tenders)
         {
             drawer.TotalReceipts += sign * t.Amount;
-            var row = drawer.Tenders.FirstOrDefault(x => x.TenderType == t.TenderType);
-            if (row is null) drawer.Tenders.Add(row = new DrawerSessionTender { TenderType = t.TenderType });
+            var row = Row(t.TenderType);
+            if (t.Currency is not null)
+            {
+                row.ForeignAmount += sign * t.ForeignAmount;
+                if (homeCash is not null && t.Change > 0)
+                {
+                    row.Amount += sign * t.Tendered;
+                    Row(homeCash).Amount -= sign * t.Change;
+                    continue;
+                }
+            }
             row.Amount += sign * t.Amount;
         }
     }
@@ -265,16 +316,21 @@ public sealed class SalesService(DataContext data)
         if (sale.Status == SaleStatus.Voided) throw new BusinessRuleException("This sale is already voided.");
         await ApplyStockAndStatisticsAsync(db, sale, -1, sale.SoldAt, session.UserName, session.UserId);
         await UpdateTagsAsync(db, sale, -1);
+        await GiftCardService.ReverseSaleAsync(db, sale, session.UserName);
 
         var kinds = await db.TenderTypes.AsNoTracking().ToDictionaryAsync(t => t.Name, t => t.Kind);
-        var tenders = sale.Payments.Select(p => new TenderEntry(p.TenderType, kinds.GetValueOrDefault(p.TenderType, TenderKind.Other), p.Amount, p.Tendered)).ToList();
+        var tenders = sale.Payments.Select(p => new TenderEntry(p.TenderType, kinds.GetValueOrDefault(p.TenderType, TenderKind.Other), p.Amount, p.Tendered,
+            p.AuthCode, p.Reference, p.Currency, p.ForeignAmount, p.ExchangeRate)).ToList();
         var drawer = await DrawerService.GetOpenSessionAsync(db, sale.StationNumber, sale.LocationId);
-        AddToDrawer(drawer, sale, tenders.Where(t => t.Kind != TenderKind.OnAccount), -1);
+        AddToDrawer(drawer, sale, tenders.Where(t => t.Kind != TenderKind.OnAccount), -1, await HomeCashAsync(db));
 
         if (sale.ClientId is Guid clientId)
         {
             var client = await db.Clients.SingleAsync(c => c.Id == clientId);
-            client.Points -= sale.PointsEarned - sale.PointsRedeemed;
+            var voided = DateTime.Now;
+            string note = $"Invoice {sale.InvoiceNumber} voided";
+            LoyaltyService.Record(db, client, LoyaltyTransactionKind.Earn, -sale.PointsEarned, sale, session.UserName, note, voided);
+            LoyaltyService.Record(db, client, LoyaltyTransactionKind.Redeem, sale.PointsRedeemed, sale, session.UserName, note, voided);
             var invoice = await db.Invoices.SingleOrDefaultAsync(i => i.SaleId == sale.Id && !i.IsVoided);
             if (invoice is not null)
             {

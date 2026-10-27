@@ -24,6 +24,8 @@
             <Button Content="Delete" Style="{StaticResource ToolButton}" infra:Look.Shortcut="Del" Click="Delete_Click" />
             <Button Content="Undelete" Style="{StaticResource ToolButton}" infra:Look.Shortcut="Ctrl+U" Click="Restore_Click" />
             <Button Content="Adjust stock" Style="{StaticResource ToolButton}" infra:Look.Shortcut="Ctrl+J" Click="Adjust_Click" />
+            <Button Content="Break case…" Style="{StaticResource ToolButton}" infra:Look.Icon="&#xE7B8;" infra:Look.Shortcut="Ctrl+K"
+                    ToolTip="Move cases of the case item into the unit item that names it (item › Special: parent item and units per case)" Click="BreakCase_Click" />
             <Button Content="Flag / unflag" Style="{StaticResource ToolButton}" infra:Look.Shortcut="Ctrl+G" Click="Flag_Click" />
             <Button Content="Clear flags" Style="{StaticResource ToolButton}" infra:Look.Shortcut="Ctrl+Shift+G" Click="ClearFlags_Click" />
             <Button Content="Change prices…" Style="{StaticResource ToolButton}" infra:Look.Shortcut="Ctrl+R" Click="ChangePrices_Click" />

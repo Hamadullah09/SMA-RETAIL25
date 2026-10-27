@@ -174,6 +174,17 @@ public partial class PosView : UserControl, IRefreshable
             var report = await AppServices.Drawer.EndOfDayAsync(closer);
             var text = ReceiptFormatter.Drawer(report, AppServices.Settings, AppServices.Config.ReceiptWidth);
             try { AppServices.Printer.Print(text, false); } catch (Exception ex) { Log.Write(ex.Message); }
+            try
+            {
+                // The day's journal for the accounting program, when this station saves it at End of Day (Setup › Accounting).
+                var files = await AccountingSetupPanel.ExportAtEndOfDayAsync(report.Session.OpenedAt);
+                if (files.Count > 0) Vm.Message = "Journal saved for the accounting program: " + string.Join(", ", files.Select(System.IO.Path.GetFileName));
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or Data.Services.BusinessRuleException)
+            {
+                Log.Write("Accounting export at End of Day: " + ex);
+                Vm.Alert("The journal for the accounting program could not be saved: " + ex.Message);
+            }
             new TextPreviewWindow("End of Day (Z) report", text).ShowDialog();
         });
         CodeBox.Focus();

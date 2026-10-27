@@ -295,6 +295,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     SortOrder = table.Column<int>(type: "int", nullable: false),
                     OpensDrawer = table.Column<bool>(type: "bit", nullable: false),
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    Currency = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
                 },
@@ -346,6 +347,30 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         principalTable: "Roles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AccountMappings",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Key = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    AccountCode = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    AccountName = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AccountMappings", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AccountMappings_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -458,6 +483,38 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "GiftCards",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Number = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    IssuedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    ExpiresOn = table.Column<DateOnly>(type: "date", nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    ClientId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Note = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_GiftCards", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_GiftCards_Clients_ClientId",
+                        column: x => x.ClientId,
+                        principalTable: "Clients",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_GiftCards_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Invoices",
                 columns: table => new
                 {
@@ -526,6 +583,41 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     table.PrimaryKey("PK_Locations", x => x.Id);
                     table.ForeignKey(
                         name: "FK_Locations_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "LoyaltyTransactions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StationNumber = table.Column<int>(type: "int", nullable: false),
+                    ClientId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Points = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    At = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    SaleId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    InvoiceNumber = table.Column<long>(type: "bigint", nullable: true),
+                    User = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    Note = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_LoyaltyTransactions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_LoyaltyTransactions_Clients_ClientId",
+                        column: x => x.ClientId,
+                        principalTable: "Clients",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_LoyaltyTransactions_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -646,6 +738,28 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     table.CheckConstraint("CK_Station_Number", "[Number] BETWEEN 1 AND 999");
                     table.ForeignKey(
                         name: "FK_Stations_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StoreImages",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    Data = table.Column<byte[]>(type: "varbinary(max)", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StoreImages", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StoreImages_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -828,6 +942,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     DrawerSessionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     TenderType = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
                     Amount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    ForeignAmount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
                 },
@@ -840,6 +955,41 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         principalTable: "DrawerSessions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "GiftCardTransactions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StationNumber = table.Column<int>(type: "int", nullable: false),
+                    GiftCardId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    At = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    SaleId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    InvoiceNumber = table.Column<long>(type: "bigint", nullable: true),
+                    User = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    Note = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_GiftCardTransactions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_GiftCardTransactions_GiftCards_GiftCardId",
+                        column: x => x.GiftCardId,
+                        principalTable: "GiftCards",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_GiftCardTransactions_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -989,6 +1139,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     SubstituteCode = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: true),
                     TagAlongCode = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: true),
                     ParentCode = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: true),
+                    UnitsPerCase = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
                     ShipWeight = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
                     ThcWeight = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
                     Commission = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
@@ -1128,6 +1279,97 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     table.ForeignKey(
                         name: "FK_Sales_Stores_StoreId",
                         column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StockCounts",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StationNumber = table.Column<int>(type: "int", nullable: false),
+                    Number = table.Column<long>(type: "bigint", nullable: false),
+                    LocationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    StartedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    StartedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    PostedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    PostedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    CancelledAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    CancelledBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    UncountedSetToZero = table.Column<bool>(type: "bit", nullable: false),
+                    Note = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StockCounts", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StockCounts_Locations_LocationId",
+                        column: x => x.LocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StockCounts_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StockTransfers",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StationNumber = table.Column<int>(type: "int", nullable: false),
+                    ToStoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Number = table.Column<long>(type: "bigint", nullable: false),
+                    FromLocationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ToLocationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    CreatedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ShippedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    ShippedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ReceivedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    ReceivedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    CancelledAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    Note = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StockTransfers", x => x.Id);
+                    table.CheckConstraint("CK_StockTransfer_Locations", "[FromLocationId] <> [ToLocationId]");
+                    table.ForeignKey(
+                        name: "FK_StockTransfers_Locations_FromLocationId",
+                        column: x => x.FromLocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StockTransfers_Locations_ToLocationId",
+                        column: x => x.ToLocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StockTransfers_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StockTransfers_Stores_ToStoreId",
+                        column: x => x.ToStoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -1484,6 +1726,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     At = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
                     Quantity = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
                     OnHandAfter = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    UnitCost = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
                     DocumentNumber = table.Column<long>(type: "bigint", nullable: true),
                     Reason = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     User = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
@@ -1573,6 +1816,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     SupplierName = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
                     Commission = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     Restock = table.Column<bool>(type: "bit", nullable: false),
+                    GiftCardNumber = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
                 },
@@ -1599,6 +1843,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     Change = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     AuthCode = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
                     Reference = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Currency = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: true),
+                    ForeignAmount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    ExchangeRate = table.Column<decimal>(type: "decimal(14,6)", precision: 14, scale: 6, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
                 },
@@ -1609,6 +1856,101 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         name: "FK_SalePayments_Sales_SaleId",
                         column: x => x.SaleId,
                         principalTable: "Sales",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StockCountLines",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StockCountId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ItemId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    VariantId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Plu = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    Expected = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    Counted = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    Variance = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    UnitCost = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    VarianceCost = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    CountedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    NotCounted = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StockCountLines", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StockCountLines_Items_ItemId",
+                        column: x => x.ItemId,
+                        principalTable: "Items",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StockCountLines_StockCounts_StockCountId",
+                        column: x => x.StockCountId,
+                        principalTable: "StockCounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StockCountTags",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StockCountId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StockCountLineId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Epc = table.Column<string>(type: "varchar(128)", unicode: false, maxLength: 128, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StockCountTags", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StockCountTags_StockCounts_StockCountId",
+                        column: x => x.StockCountId,
+                        principalTable: "StockCounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StockTransferLines",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StockTransferId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LineNumber = table.Column<int>(type: "int", nullable: false),
+                    SourceItemId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Plu = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    Barcode = table.Column<string>(type: "varchar(14)", unicode: false, maxLength: 14, nullable: true),
+                    Size = table.Column<string>(type: "nvarchar(6)", maxLength: 6, nullable: true),
+                    Department = table.Column<string>(type: "nvarchar(15)", maxLength: 15, nullable: true),
+                    ItemType = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    Taxable1 = table.Column<bool>(type: "bit", nullable: false),
+                    Taxable2 = table.Column<bool>(type: "bit", nullable: false),
+                    UnitCost = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    Price = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    QuantityShipped = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    QuantityReceived = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    DestinationItemId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    CreatedAtDestination = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StockTransferLines", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StockTransferLines_StockTransfers_StockTransferId",
+                        column: x => x.StockTransferId,
+                        principalTable: "StockTransfers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -1633,6 +1975,17 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccountMappings_StoreId_Kind_Key",
+                table: "AccountMappings",
+                columns: new[] { "StoreId", "Kind", "Key" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccountMappings_UpdatedAtUtc",
+                table: "AccountMappings",
+                column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
                 name: "IX_AuditEntries_Action_AtUtc",
@@ -1884,6 +2237,47 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_GiftCards_ClientId",
+                table: "GiftCards",
+                column: "ClientId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCards_Number",
+                table: "GiftCards",
+                column: "Number",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCards_StoreId",
+                table: "GiftCards",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCards_UpdatedAtUtc",
+                table: "GiftCards",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCardTransactions_GiftCardId_At",
+                table: "GiftCardTransactions",
+                columns: new[] { "GiftCardId", "At" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCardTransactions_SaleId",
+                table: "GiftCardTransactions",
+                column: "SaleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCardTransactions_StoreId",
+                table: "GiftCardTransactions",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCardTransactions_UpdatedAtUtc",
+                table: "GiftCardTransactions",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_ImportSourceRows_Entity_EntityId",
                 table: "ImportSourceRows",
                 columns: new[] { "Entity", "EntityId" });
@@ -2120,6 +2514,26 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_LoyaltyTransactions_ClientId_At",
+                table: "LoyaltyTransactions",
+                columns: new[] { "ClientId", "At" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LoyaltyTransactions_SaleId",
+                table: "LoyaltyTransactions",
+                column: "SaleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LoyaltyTransactions_StoreId",
+                table: "LoyaltyTransactions",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LoyaltyTransactions_UpdatedAtUtc",
+                table: "LoyaltyTransactions",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_NumberCounters_Kind_StationNumber",
                 table: "NumberCounters",
                 columns: new[] { "Kind", "StationNumber" },
@@ -2338,6 +2752,52 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StockCountLines_ItemId",
+                table: "StockCountLines",
+                column: "ItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCountLines_StockCountId_ItemId_VariantId",
+                table: "StockCountLines",
+                columns: new[] { "StockCountId", "ItemId", "VariantId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCountLines_UpdatedAtUtc",
+                table: "StockCountLines",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCounts_LocationId_Status",
+                table: "StockCounts",
+                columns: new[] { "LocationId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCounts_StationNumber_Number",
+                table: "StockCounts",
+                columns: new[] { "StationNumber", "Number" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCounts_StoreId",
+                table: "StockCounts",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCounts_UpdatedAtUtc",
+                table: "StockCounts",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCountTags_StockCountId_Epc",
+                table: "StockCountTags",
+                columns: new[] { "StockCountId", "Epc" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCountTags_UpdatedAtUtc",
+                table: "StockCountTags",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StockMovements_ItemId_At",
                 table: "StockMovements",
                 columns: new[] { "ItemId", "At" });
@@ -2355,6 +2815,58 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_StockMovements_UpdatedAtUtc",
                 table: "StockMovements",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransferLines_StockTransferId_LineNumber",
+                table: "StockTransferLines",
+                columns: new[] { "StockTransferId", "LineNumber" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransferLines_UpdatedAtUtc",
+                table: "StockTransferLines",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransfers_FromLocationId",
+                table: "StockTransfers",
+                column: "FromLocationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransfers_StationNumber_Number",
+                table: "StockTransfers",
+                columns: new[] { "StationNumber", "Number" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransfers_StoreId",
+                table: "StockTransfers",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransfers_ToLocationId",
+                table: "StockTransfers",
+                column: "ToLocationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransfers_ToStoreId_Status",
+                table: "StockTransfers",
+                columns: new[] { "ToStoreId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransfers_UpdatedAtUtc",
+                table: "StockTransfers",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StoreImages_StoreId_Kind",
+                table: "StoreImages",
+                columns: new[] { "StoreId", "Kind" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StoreImages_UpdatedAtUtc",
+                table: "StoreImages",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -2529,6 +3041,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "AccountMappings");
+
+            migrationBuilder.DropTable(
                 name: "AuditEntries");
 
             migrationBuilder.DropTable(
@@ -2551,6 +3066,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "FxRates");
+
+            migrationBuilder.DropTable(
+                name: "GiftCardTransactions");
 
             migrationBuilder.DropTable(
                 name: "ImportSourceRows");
@@ -2586,6 +3104,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "KitComponents");
 
             migrationBuilder.DropTable(
+                name: "LoyaltyTransactions");
+
+            migrationBuilder.DropTable(
                 name: "NumberCounters");
 
             migrationBuilder.DropTable(
@@ -2613,7 +3134,19 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "StationSettings");
 
             migrationBuilder.DropTable(
+                name: "StockCountLines");
+
+            migrationBuilder.DropTable(
+                name: "StockCountTags");
+
+            migrationBuilder.DropTable(
                 name: "StockMovements");
+
+            migrationBuilder.DropTable(
+                name: "StockTransferLines");
+
+            migrationBuilder.DropTable(
+                name: "StoreImages");
 
             migrationBuilder.DropTable(
                 name: "StoreSettingExtras");
@@ -2637,6 +3170,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "DrawerSessions");
 
             migrationBuilder.DropTable(
+                name: "GiftCards");
+
+            migrationBuilder.DropTable(
                 name: "ImportBatches");
 
             migrationBuilder.DropTable(
@@ -2655,7 +3191,13 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "Stations");
 
             migrationBuilder.DropTable(
+                name: "StockCounts");
+
+            migrationBuilder.DropTable(
                 name: "Items");
+
+            migrationBuilder.DropTable(
+                name: "StockTransfers");
 
             migrationBuilder.DropTable(
                 name: "UserAccounts");

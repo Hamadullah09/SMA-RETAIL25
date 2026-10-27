@@ -67,7 +67,7 @@
                         <DockPanel><TextBlock Text="Price level" Style="{StaticResource L}" /><ComboBox x:Name="PriceLevelBox" SelectedItem="{Binding PriceLevel}" /></DockPanel>
                         <DockPanel><TextBlock x:Name="Exempt1Label" Text="Tax 1" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding ExemptTax1}" Content="Exempt" /></DockPanel>
                         <DockPanel><TextBlock x:Name="Exempt2Label" Text="Tax 2" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding ExemptTax2}" Content="Exempt" /></DockPanel>
-                        <DockPanel><TextBlock Text="Bonus points" Style="{StaticResource L}" /><TextBox Text="{Binding Points}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Bonus points" Style="{StaticResource L}" /><TextBlock Text="{Binding Points, StringFormat=0.##}" FontWeight="SemiBold" VerticalAlignment="Center" ToolTip="Points change with their history: see the Points tab" /></DockPanel>
                         <DockPanel><TextBlock Text="Last purchase" Style="{StaticResource L}" /><TextBlock Text="{Binding LastPurchase}" VerticalAlignment="Center" /></DockPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="2">
@@ -98,6 +98,26 @@
                         <TextBox Text="{Binding Notes}" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" FontFamily="Consolas" />
                     </DockPanel>
                 </Grid>
+            </TabItem>
+            <TabItem x:Name="PointsTab" Header="Points">
+                <DockPanel Margin="12">
+                    <DockPanel DockPanel.Dock="Top" Margin="0,0,0,10">
+                        <Button DockPanel.Dock="Right" Content="Adjust points…" Style="{StaticResource ToolButton}" Click="AdjustPoints_Click" />
+                        <TextBlock x:Name="PointsText" FontFamily="{StaticResource DisplayFont}" FontSize="26" VerticalAlignment="Center" />
+                    </DockPanel>
+                    <TextBlock DockPanel.Dock="Bottom" Foreground="{StaticResource Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
+                               Text="Every point earned on a sale, used for a reward or corrected is kept here; the client's points are the total of this history." />
+                    <DataGrid x:Name="PointsGrid" Style="{StaticResource Grid}">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="When" Binding="{Binding At, StringFormat=g}" Width="170" />
+                            <DataGridTextColumn Header="What" Binding="{Binding Kind}" Width="100" />
+                            <DataGridTextColumn Header="Points" Binding="{Binding Points, StringFormat=0.##}" Width="90" />
+                            <DataGridTextColumn Header="Invoice" Binding="{Binding InvoiceNumber}" Width="110" />
+                            <DataGridTextColumn Header="By" Binding="{Binding User}" Width="110" />
+                            <DataGridTextColumn Header="Note" Binding="{Binding Note}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
             </TabItem>
             <TabItem x:Name="HistoryTab" Header="Purchases">
                 <DataGrid x:Name="HistoryGrid" Margin="12" Style="{StaticResource Grid}">

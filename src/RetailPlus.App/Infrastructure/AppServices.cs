@@ -30,6 +30,18 @@ public static class AppServices
     public static RfidService RfidData { get; private set; } = null!;
     public static StaffService Staff { get; private set; } = null!;
     public static AuditService Audit { get; private set; } = null!;
+    public static StockCountService StockCounts { get; private set; } = null!;
+    public static TransferService Transfers { get; private set; } = null!;
+    public static GiftCardService GiftCards { get; private set; } = null!;
+    public static LoyaltyService Loyalty { get; private set; } = null!;
+    public static AccountingService Accounting { get; private set; } = null!;
+    public static BrandingService Branding { get; private set; } = null!;
+
+    /// <summary>The store's logo (Setup › Branding), or null to use the SMA mark.</summary>
+    public static System.Windows.Media.ImageSource? Logo { get; private set; }
+
+    /// <summary>The store's watermark for printed slips and reports, or null for none.</summary>
+    public static System.Windows.Media.ImageSource? Watermark { get; private set; }
 
     /// <summary>The RFID readers as this station reaches them (null when RFID is off at this station).</summary>
     public static IRfidControl? Rfid { get; private set; }
@@ -60,7 +72,29 @@ public static class AppServices
         RfidData = new RfidService(Data);
         Staff = new StaffService(Data);
         Audit = new AuditService(Data);
+        StockCounts = new StockCountService(Data);
+        Transfers = new TransferService(Data);
+        GiftCards = new GiftCardService(Data);
+        Loyalty = new LoyaltyService(Data);
+        Accounting = new AccountingService(Data);
+        Branding = new BrandingService(Data);
         Session.StationNumber = config.StationNumber;
+    }
+
+    /// <summary>Reloads the store's logo and watermark after they were changed in Setup › Branding.</summary>
+    public static async Task RefreshBrandingAsync()
+    {
+        try
+        {
+            Logo = Pictures.ToImage(await Branding.GetAsync(StoreImageKind.Logo));
+            Watermark = Pictures.ToImage(await Branding.GetAsync(StoreImageKind.Watermark));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Log.Write("Branding pictures: " + ex.Message);
+            Logo = null;
+            Watermark = null;
+        }
     }
 
     public static async Task RefreshSettingsAsync()
@@ -73,6 +107,7 @@ public static class AppServices
             Session.LocationId = location.Id;
             Session.LocationCode = location.Code;
         }
+        await RefreshBrandingAsync();
     }
 
     /// <summary>Connects to the RFID readers as the station settings say (this computer, a hub, or not at all).</summary>

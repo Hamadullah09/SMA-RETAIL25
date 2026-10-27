@@ -156,6 +156,13 @@ public sealed partial class PosViewModel : ObservableObject
             qty = weight.Value;
         }
 
+        if (item.ItemType == ItemType.GiftCard)
+        {
+            if (ReturnMode) Alert("A gift card is not taken back for money at the till; a supervisor corrects its balance on the Gift cards screen.");
+            else await AddGiftCardAsync(item);
+            return;
+        }
+
         var kind = ReturnMode ? SaleLineKind.Return : SaleLineKind.Sale;
         if (serial is null && SaleDraft.LineToJoin(Lines, item, variant?.Id, kind, qty) is { } same)
         {
@@ -209,6 +216,46 @@ public sealed partial class PosViewModel : ObservableObject
         Recalculate();
         if (!string.IsNullOrWhiteSpace(item.TagAlongCode) && line.Kind == SaleLineKind.Sale)
             await AddCodeAsync(item.TagAlongCode!, qty);
+    }
+
+    /// <summary>
+    /// Asks for the number and amount of a gift card being sold. The automated check sets its own; otherwise the gift card
+    /// window asks the cashier.
+    /// </summary>
+    public Func<Item, Task<GiftCardEntry?>>? GiftCardPrompt { get; set; }
+
+    /// <summary>A gift card item: the card's number and the amount put on it (issued, or reloaded when the card is known).</summary>
+    private async Task AddGiftCardAsync(Item item)
+    {
+        if (!AppServices.Can(Permissions.GiftCardsIssue))
+        {
+            Alert("Your role cannot sell gift cards.");
+            return;
+        }
+        GiftCardEntry? entry;
+        if (GiftCardPrompt is { } prompt) entry = await prompt(item);
+        else
+        {
+            var window = new GiftCardSaleWindow(item.Name, item.Price1 > 0 ? item.Price1 : null);
+            entry = window.ShowDialog() == true ? window.Result : null;
+        }
+        if (entry is null) return;
+        if (Lines.Any(l => l.GiftCardNumber == entry.Number))
+        {
+            Alert($"Card {entry.Number} is already on this sale.");
+            return;
+        }
+        var line = new SaleDraftLine
+        {
+            Kind = SaleLineKind.Sale, ItemId = item.Id, ItemType = item.ItemType, Plu = item.Plu, Description = $"{item.Name} {entry.Number}",
+            Quantity = 1, UnitPrice = entry.Amount, AutoPriced = false, Taxable1 = item.Taxable1, Taxable2 = item.Taxable2, Department = item.Department?.Name,
+            GiftCardNumber = entry.Number, GiftCardKind = entry.Kind, CommissionPercent = item.Commission,
+        };
+        _itemCache[item.Id] = item;
+        Lines.Add(line);
+        SelectedLine = line;
+        Message = $"{(entry.Kind == GiftCardKind.Certificate ? "Gift certificate" : "Gift card")} {entry.Number}: {entry.Amount.ToString("N2", C)}";
+        Recalculate();
     }
 
     private readonly Dictionary<Guid, Item> _itemCache = [];
@@ -519,7 +566,7 @@ public sealed partial class PosViewModel : ObservableObject
         _draft.Staff = Session.UserName;
         _draft.StaffId = Session.UserId;
         var tenders = await AppServices.Setup.GetTenderTypesAsync();
-        var pay = new PayWindow(Total, tenders, Settings.MinimumTender, _draft.ClientId is not null, layaway);
+        var pay = new PayWindow(Total, tenders, Settings.MinimumTender, _draft.ClientId is not null, layaway, await AppServices.Setup.GetFxRatesAsync());
         if (pay.ShowDialog() != true) { _draft.IsLayaway = false; return false; }
         return await PostAsync(pay.Tenders);
     }

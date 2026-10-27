@@ -94,7 +94,11 @@ public static class ReceiptFormatter
         Money("Cost of goods", s.Cogs);
         Money("Gross profit", report.GrossProfit);
         sb.AppendLine(new string('-', width));
-        foreach (var t in report.Tenders) Money(t.TenderType, t.Amount);
+        foreach (var t in report.Tenders)
+        {
+            Money(t.TenderType, t.Amount);
+            if (t.ForeignAmount != 0) sb.AppendLine(Pair("  in its currency", t.ForeignAmount.ToString("N2", culture), width));
+        }
         Money("Total receipts", s.TotalReceipts);
         sb.AppendLine(new string('-', width));
         Money("Opening float", s.OpeningFloat);

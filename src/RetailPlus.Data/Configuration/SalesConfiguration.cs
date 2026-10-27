@@ -38,6 +38,7 @@ internal sealed class SaleLineConfiguration : IEntityTypeConfiguration<SaleLine>
         e.Property(x => x.Department).HasMaxLength(15);
         e.Property(x => x.SerialNumber).HasMaxLength(50);
         e.Property(x => x.SupplierName).HasMaxLength(30);
+        e.Property(x => x.GiftCardNumber).HasMaxLength(30);
         e.HasOne<Sale>().WithMany(x => x.Lines).HasForeignKey(x => x.SaleId).OnDelete(DeleteBehavior.Cascade);
         e.HasIndex(x => x.ItemId);
         e.HasIndex(x => x.Plu);
@@ -61,6 +62,8 @@ internal sealed class SalePaymentConfiguration : IEntityTypeConfiguration<SalePa
         e.Property(x => x.TenderType).HasMaxLength(16);
         e.Property(x => x.AuthCode).HasMaxLength(40);
         e.Property(x => x.Reference).HasMaxLength(200);
+        e.Property(x => x.Currency).HasMaxLength(10);
+        e.Property(x => x.ExchangeRate).HasPrecision(14, 6);
         e.HasOne<Sale>().WithMany(x => x.Payments).HasForeignKey(x => x.SaleId).OnDelete(DeleteBehavior.Cascade);
     }
 }
@@ -151,6 +154,7 @@ internal sealed class TenderTypeConfiguration : IEntityTypeConfiguration<TenderT
     {
         e.Property(x => x.Name).HasMaxLength(16);
         e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(12);
+        e.Property(x => x.Currency).HasMaxLength(10);
         e.HasIndex(x => x.Name).IsUnique();
     }
 }
@@ -206,6 +210,7 @@ internal sealed class StockMovementConfiguration : IEntityTypeConfiguration<Stoc
         e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(12);
         e.Property(x => x.Quantity).Quantity();
         e.Property(x => x.OnHandAfter).Quantity();
+        e.Property(x => x.UnitCost).UnitCost();
         e.Property(x => x.Reason).HasMaxLength(100);
         e.Property(x => x.User).HasMaxLength(50);
         e.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Cascade);

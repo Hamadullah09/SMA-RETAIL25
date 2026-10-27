@@ -48,6 +48,9 @@ public partial class MainWindow : Window
         new("invoices", "Invoices & A/R", "", Permissions.InvoicesManage, () => new InvoicesView(), "Ctrl+7"),
         new("po", "Purchase Orders", "", Permissions.PurchasingManage, () => new PurchaseOrdersView(), "Ctrl+8"),
         new("orders", "Orders & RMAs", "", [Permissions.ClientsEdit, Permissions.RmaManage], () => new CustomerOrdersView(), "Ctrl+9"),
+        new("counts", "Stock counts", "\uE9D5", Permissions.InventoryCount, () => new StockCountsView(), "Ctrl+Shift+C"),
+        new("transfers", "Transfers", "\uE8AB", Permissions.InventoryTransfer, () => new TransfersView(), "Ctrl+Shift+M"),
+        new("giftcards", "Gift cards", "\uE8C7", Permissions.GiftCardsIssue, () => new GiftCardsView(), "Ctrl+Shift+V"),
         new("reports", "Reports", "", [Permissions.ReportsView, Permissions.ReportsStaff], () => new ReportsView(), "Ctrl+0"),
         new("staff", "Staff", "\uE716", [Permissions.TimeClockPunch, Permissions.TimeClockEdit, Permissions.ReportsStaff], () => new StaffView(), "Ctrl+Shift+E"),
         new("rfid", "RFID readers", "\uE704", Permissions.RfidManage, () => new RfidView(), "Ctrl+Shift+R"),
@@ -139,10 +142,18 @@ public partial class MainWindow : Window
         StationText.Text = $"Station {s.StationNumber:000}  ·  Location {s.LocationCode}";
         DatabaseText.Text = $"Database {AppServices.Data.DatabaseName}";
         Title = string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? Brand.Name : $"{Brand.Name} — {AppServices.Settings.CompanyName}";
+        ShowStoreLogo();
         var selected = (Nav.SelectedItem as NavEntry)?.Key;
         Nav.ItemsSource = AllEntries.Where(e => e.IsAllowed).ToList();
         _views.Clear();
         Nav.SelectedItem = ((IEnumerable<NavEntry>)Nav.ItemsSource).FirstOrDefault(e => e.Key == selected) ?? ((IEnumerable<NavEntry>)Nav.ItemsSource).First();
+    }
+
+    /// <summary>The store's logo next to the store name, when Setup › Branding has one.</summary>
+    public void ShowStoreLogo()
+    {
+        StoreLogo.Source = AppServices.Logo;
+        StoreLogoFrame.Visibility = AppServices.Logo is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     public void SetStatus(string text) => StatusText.Text = text;
@@ -353,6 +364,10 @@ public partial class MainWindow : Window
             var (departments, categories, items) = await AppServices.Staff.GetRuleChoicesAsync();
             return new RuleEditorWindow(null, await AppServices.Setup.GetUsersAsync(), departments, categories, items);
         });
+        await Shoot("giftcard", () => Task.FromResult<Window>(new GiftCardSaleWindow("Gift card", 50m)));
+        await Shoot("prices", async () => new PriceChangeWindow(
+            (await AppServices.Inventory.PreviewPriceChangesAsync(AppServices.Session.LocationId, new Data.Services.PriceRule(Data.Services.PriceChangeMethod.Percent, 5, 0.99m), false, null)).Take(30).ToList(),
+            "Price 1 +5%, rounded up to end in .99"));
         await Shoot("reader", async () =>
         {
             var reader = (await AppServices.RfidData.GetReadersAsync()).FirstOrDefault() ?? Data.Services.RfidService.NewReader("Reader 1");

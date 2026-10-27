@@ -15,7 +15,11 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
         public const string CustomerNumbers = "CustomerNumbers";
         public const string PurchaseOrderNumbers = "PurchaseOrderNumbers";
         public const string RmaNumbers = "RmaNumbers";
-        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers];
+        public const string StockCountNumbers = "StockCountNumbers";
+        public const string TransferNumbers = "TransferNumbers";
+        /// <summary>For gift certificates printed by the store, which have no number of their own.</summary>
+        public const string GiftCardNumbers = "GiftCardNumbers";
+        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers];
     }
 
     /// <summary>
@@ -76,6 +80,16 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<TimeClockEntry> TimeClockEntries => Set<TimeClockEntry>();
     public DbSet<CommissionRule> CommissionRules => Set<CommissionRule>();
+    public DbSet<StockCount> StockCounts => Set<StockCount>();
+    public DbSet<StockCountLine> StockCountLines => Set<StockCountLine>();
+    public DbSet<StockCountTag> StockCountTags => Set<StockCountTag>();
+    public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
+    public DbSet<StockTransferLine> StockTransferLines => Set<StockTransferLine>();
+    public DbSet<GiftCard> GiftCards => Set<GiftCard>();
+    public DbSet<GiftCardTransaction> GiftCardTransactions => Set<GiftCardTransaction>();
+    public DbSet<LoyaltyTransaction> LoyaltyTransactions => Set<LoyaltyTransaction>();
+    public DbSet<AccountMapping> AccountMappings => Set<AccountMapping>();
+    public DbSet<StoreImage> StoreImages => Set<StoreImage>();
 
     /// <summary>The settings row of this context's store (of the only store when no station is set).</summary>
     public IQueryable<StoreSettings> CurrentStoreSettings =>

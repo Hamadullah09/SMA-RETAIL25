@@ -89,6 +89,8 @@ public class SaleLine : Entity
     public decimal Commission { get; set; }
     /// <summary>For returns: put the item back into stock.</summary>
     public bool Restock { get; set; }
+    /// <summary>The gift card issued or reloaded by this line (an item of type gift card).</summary>
+    public string? GiftCardNumber { get; set; }
     /// <summary>The RFID tags rung up on this line, one per piece.</summary>
     public List<SaleLineTag> Tags { get; set; } = [];
 }
@@ -109,7 +111,16 @@ public class SalePayment : Entity
     public decimal Tendered { get; set; }
     public decimal Change { get; set; }
     public string? AuthCode { get; set; }
+    /// <summary>The gift card number for a gift card payment.</summary>
     public string? Reference { get; set; }
+    /// <summary>
+    /// For a tender in a foreign currency: the currency, what the customer handed over in it, and the rate used
+    /// (units of the currency per unit of home currency, see <see cref="FxRate"/>). The amounts above are in home
+    /// currency; change is always given in home currency.
+    /// </summary>
+    public string? Currency { get; set; }
+    public decimal ForeignAmount { get; set; }
+    public decimal ExchangeRate { get; set; }
 }
 
 /// <summary>Cash drawer totals of one station between two End of Day closings (one record of TOTALnnn.DBF).</summary>
@@ -146,6 +157,8 @@ public class DrawerSessionTender : Entity
     public Guid DrawerSessionId { get; set; }
     public string TenderType { get; set; } = "";
     public decimal Amount { get; set; }
+    /// <summary>For a foreign-currency tender: the amount in that currency (the cash of that currency in the drawer).</summary>
+    public decimal ForeignAmount { get; set; }
 }
 
 public enum DrawerMovementKind
@@ -256,6 +269,11 @@ public class TenderType : Entity
     public int SortOrder { get; set; }
     public bool OpensDrawer { get; set; }
     public bool IsActive { get; set; } = true;
+    /// <summary>
+    /// A foreign currency taken by this tender (one of the <see cref="FxRate"/> currencies); null for home currency.
+    /// The Pay window converts with the rate, and change is given in home currency.
+    /// </summary>
+    public string? Currency { get; set; }
 }
 
 /// <summary>An out-of-state / out-of-province tax configuration (up to 12).</summary>
@@ -321,6 +339,16 @@ public enum StockMovementKind
     Adjustment,
     /// <summary>On-hand counts set from an inventory CSV file.</summary>
     Import,
+    /// <summary>A posted stock count: counted minus expected.</summary>
+    Count,
+    /// <summary>Shipped to another location or store on a transfer.</summary>
+    TransferOut,
+    /// <summary>Received from another location or store on a transfer.</summary>
+    TransferIn,
+    /// <summary>Cases broken into units: out of the case item.</summary>
+    CaseBreakOut,
+    /// <summary>Cases broken into units: into the unit item.</summary>
+    CaseBreakIn,
 }
 
 /// <summary>
@@ -340,6 +368,11 @@ public class StockMovement : Entity, IStationStamped
     /// <summary>Positive in, negative out.</summary>
     public decimal Quantity { get; set; }
     public decimal OnHandAfter { get; set; }
+    /// <summary>
+    /// The cost of one unit when the stock moved, where it is known (receipts, adjustments, counts, transfers, case
+    /// breaks); 0 when it was not recorded. The accounting export values the movement with it.
+    /// </summary>
+    public decimal UnitCost { get; set; }
     /// <summary>The document behind the movement: an invoice or purchase order number.</summary>
     public long? DocumentNumber { get; set; }
     public string? Reason { get; set; }

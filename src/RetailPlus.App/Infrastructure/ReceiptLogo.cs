@@ -4,18 +4,22 @@ using System.Windows.Media.Imaging;
 namespace RetailPlus.App.Infrastructure;
 
 /// <summary>
-/// The SMA logo as a black-and-white raster for receipt printers. It is dithered (Floyd-Steinberg) rather than cut at a
-/// threshold, so the orange figure keeps its shading on thermal paper.
+/// The store's logo (Setup › Branding), or the SMA logo when the store has none, as a black-and-white raster for
+/// receipt printers. It is dithered (Floyd-Steinberg) rather than cut at a threshold, so the orange figure keeps its
+/// shading on thermal paper.
 /// </summary>
 public static class ReceiptLogo
 {
     private static (byte[] Bits, int WidthBytes, int Height)? _raster;
+    private static ImageSource? _rasterOf;
 
     /// <param name="widthDots">Width in printer dots (203 dpi: 192 dots is 24 mm).</param>
     public static (byte[] Bits, int WidthBytes, int Height) Raster(int widthDots = 192)
     {
-        if (_raster is { } cached) return cached;
-        var source = (BitmapSource)Brand.Mark;
+        var logo = AppServices.Logo ?? Brand.Mark;
+        if (_raster is { } cached && ReferenceEquals(_rasterOf, logo)) return cached;
+        _rasterOf = logo;
+        var source = (BitmapSource)logo;
         double scale = (double)widthDots / source.PixelWidth;
         var bitmap = new FormatConvertedBitmap(new TransformedBitmap(source, new ScaleTransform(scale, scale)), PixelFormats.Bgra32, null, 0);
         int w = bitmap.PixelWidth, h = bitmap.PixelHeight, stride = w * 4;

@@ -41,6 +41,10 @@ public sealed class ReportService(DataContext data)
         new("hours-day", "Staff", "Hours worked by day", true, Permissions.ReportsStaff),
         new("hours-week", "Staff", "Hours worked by week", true, Permissions.ReportsStaff),
         new("commission", "Staff", "Commission by staff member", true, Permissions.ReportsStaff),
+        new("countvar", "Inventory", "Stock count variances", true),
+        new("transit", "Inventory", "Transfers in transit", false),
+        new("giftcards", "Gift cards", "Gift card liability", false),
+        new("loyalty", "Clients", "Loyalty points earned and redeemed", true),
     ];
 
     public async Task<ReportTable> RunAsync(string key, Guid locationId, DateOnly from, DateOnly to)
@@ -253,9 +257,114 @@ public sealed class ReportService(DataContext data)
                      Col("By rules", ColumnKind.Money, true), Col("By item rates", ColumnKind.Money, true), Col("Commission", ColumnKind.Money, true)],
                     rows.Select(r => Row(r.Staff, r.Sales, r.Units, r.NetSales, r.FromRules, r.FromItems, r.Commission)));
             }
+            case "countvar":
+            {
+                var rows = await db.StockCountLines.AsNoTracking().Where(l => l.Variance != 0)
+                    .Join(db.StockCounts.AsNoTracking().Where(c => c.Status == StockCountStatus.Posted && c.LocationId == locationId && c.PostedAt >= start && c.PostedAt < end),
+                        l => l.StockCountId, c => c.Id, (l, c) => new { c.Number, c.PostedAt, l.Plu, l.Description, l.Expected, l.Counted, l.Variance, l.UnitCost, l.VarianceCost, l.NotCounted })
+                    .ToListAsync();
+                return Table("Stock count variances", period, [Col("Count", ColumnKind.Count), Col("Posted", ColumnKind.Date), Col("Stock code"), Col("Description"),
+                        Col("Expected", ColumnKind.Quantity), Col("Counted", ColumnKind.Quantity), Col("Variance", ColumnKind.Quantity, true), Col("Unit cost", ColumnKind.Money),
+                        Col("Variance value", ColumnKind.Money, true), Col("Note")],
+                    rows.OrderBy(r => r.PostedAt).ThenBy(r => r.Plu, StringComparer.Ordinal)
+                        .Select(r => Row(r.Number, r.PostedAt, r.Plu, r.Description, r.Expected, r.Counted, r.Variance, r.UnitCost, r.VarianceCost, r.NotCounted ? "Not counted, set to zero" : null)));
+            }
+            case "transit":
+            {
+                var transfers = db.StockTransfers.AsNoTracking().Where(t => t.Status == StockTransferStatus.Shipped);
+                if (data.Station is { } here) transfers = transfers.Where(StockTransfer.OfStore(here.StoreId));
+                var rows = await db.StockTransferLines.AsNoTracking()
+                    .Join(transfers, l => l.StockTransferId, t => t.Id, (l, t) => new
+                    {
+                        t.Number, t.ShippedAt, From = t.FromLocation!.Code, FromStore = t.StoreId, To = t.ToLocation!.Code, ToStore = t.ToStoreId,
+                        l.LineNumber, l.Plu, l.Description, l.QuantityShipped, l.UnitCost,
+                    })
+                    .ToListAsync();
+                var codes = await db.Stores.AsNoTracking().ToDictionaryAsync(s => s.Id, s => s.Code);
+                return Table("Transfers in transit", "Shipped and not received yet", [Col("Transfer", ColumnKind.Count), Col("Shipped", ColumnKind.Date), Col("From"), Col("To"),
+                        Col("Stock code"), Col("Description"), Col("Quantity", ColumnKind.Quantity, true), Col("Value at cost", ColumnKind.Money, true)],
+                    rows.OrderBy(r => r.ShippedAt).ThenBy(r => r.Number).ThenBy(r => r.LineNumber)
+                        .Select(r => Row(r.Number, r.ShippedAt, $"{codes.GetValueOrDefault(r.FromStore)} {r.From}", $"{codes.GetValueOrDefault(r.ToStore)} {r.To}", r.Plu, r.Description,
+                            r.QuantityShipped, Math.Round(r.QuantityShipped * r.UnitCost, 2))));
+            }
+            case "giftcards":
+            {
+                var cards = await db.GiftCards.AsNoTracking()
+                    .Select(c => new { c.Id, c.Number, c.Kind, c.IssuedAt, c.ExpiresOn, c.IsActive, Client = c.Client == null ? null : c.Client.Company ?? (c.Client.LastName + ", " + c.Client.FirstName) })
+                    .ToListAsync();
+                var balances = (await db.GiftCardTransactions.AsNoTracking().Select(t => new { t.GiftCardId, t.Amount }).ToListAsync())
+                    .GroupBy(t => t.GiftCardId).ToDictionary(g => g.Key, g => g.Sum(t => t.Amount));
+                return Table("Gift card liability", $"Balances on gift cards and certificates as of {DateTime.Now:g}", [Col("Number"), Col("Kind"), Col("Issued", ColumnKind.Date),
+                        Col("Expires", ColumnKind.Date), Col("Active"), Col("Client"), Col("Balance", ColumnKind.Money, true)],
+                    cards.Select(c => (Card: c, Balance: balances.GetValueOrDefault(c.Id))).Where(x => x.Balance != 0).OrderBy(x => x.Card.IssuedAt)
+                        .Select(x => Row(x.Card.Number, x.Card.Kind.ToString(), x.Card.IssuedAt, x.Card.ExpiresOn, x.Card.IsActive, x.Card.Client, x.Balance)));
+            }
+            case "loyalty":
+            {
+                var moves = await db.LoyaltyTransactions.AsNoTracking().Where(t => t.At < end).Select(t => new { t.ClientId, t.Kind, t.Points, t.At }).ToListAsync();
+                var clients = await db.Clients.AsNoTracking().Select(c => new { c.Id, c.Number, Name = c.Company ?? (c.LastName + ", " + c.FirstName) }).ToDictionaryAsync(c => c.Id);
+                var rows = moves.GroupBy(m => m.ClientId).Select(g =>
+                {
+                    var inPeriod = g.Where(m => m.At >= start).ToList();
+                    return new
+                    {
+                        Client = clients.GetValueOrDefault(g.Key), Opening = g.Where(m => m.At < start).Sum(m => m.Points),
+                        Earned = inPeriod.Where(m => m.Kind == LoyaltyTransactionKind.Earn).Sum(m => m.Points),
+                        Redeemed = -inPeriod.Where(m => m.Kind == LoyaltyTransactionKind.Redeem).Sum(m => m.Points),
+                        Adjusted = inPeriod.Where(m => m.Kind is LoyaltyTransactionKind.Adjust or LoyaltyTransactionKind.Opening).Sum(m => m.Points),
+                        Closing = g.Sum(m => m.Points), Active = inPeriod.Count > 0,
+                    };
+                }).Where(r => r.Active || r.Closing != 0).OrderByDescending(r => r.Closing).ToList();
+                return Table("Loyalty points earned and redeemed", period, [Col("Number"), Col("Client"), Col("Opening", ColumnKind.Quantity, true), Col("Earned", ColumnKind.Quantity, true),
+                        Col("Redeemed", ColumnKind.Quantity, true), Col("Adjusted", ColumnKind.Quantity, true), Col("Closing", ColumnKind.Quantity, true)],
+                    rows.Select(r => Row(r.Client?.Number, r.Client?.Name, r.Opening, r.Earned, r.Redeemed, r.Adjusted, r.Closing)));
+            }
             default:
                 throw new ArgumentException($"Unknown report {key}", nameof(key));
         }
+    }
+
+    /// <summary>
+    /// The count sheet of a stock count: every stocked item of the location in bin and stock code order, what was counted
+    /// so far, and an empty column to write the count in. <paramref name="showOnHand"/> adds the expected stock (leave it
+    /// out for a blind count).
+    /// </summary>
+    public async Task<ReportTable> CountSheetAsync(Guid countId, bool showOnHand)
+    {
+        await using var db = data.Create();
+        var count = await db.StockCounts.AsNoTracking().Include(c => c.Location).SingleAsync(c => c.Id == countId);
+        var counted = (await db.StockCountLines.AsNoTracking().Where(l => l.StockCountId == countId).Select(l => new { l.ItemId, l.Counted }).ToListAsync())
+            .GroupBy(l => l.ItemId).ToDictionary(g => g.Key, g => g.Sum(l => l.Counted));
+        var items = await db.Items.AsNoTracking()
+            .Where(i => i.LocationId == count.LocationId && !i.IsDeleted
+                        && (i.ItemType == ItemType.Standard || i.ItemType == ItemType.Matrix || i.ItemType == ItemType.Serialized || i.ItemType == ItemType.Kit))
+            .Select(i => new { i.Id, i.BinLocation, i.Plu, i.Barcode, i.Name, i.Size, i.OnHand }).ToListAsync();
+        var columns = new List<ReportColumn> { Col("Bin"), Col("Stock code"), Col("Barcode"), Col("Description"), Col("Size") };
+        if (showOnHand) columns.Add(Col("On hand", ColumnKind.Quantity));
+        columns.Add(Col("Counted so far", ColumnKind.Quantity));
+        columns.Add(Col("Count"));
+        return Table($"Count sheet {count.Number}", $"Location {count.Location?.Code} · started {count.StartedAt:g}" + (string.IsNullOrWhiteSpace(count.Note) ? "" : " · " + count.Note), columns,
+            items.OrderBy(i => i.BinLocation ?? "", StringComparer.OrdinalIgnoreCase).ThenBy(i => i.Plu, StringComparer.OrdinalIgnoreCase)
+                .Select(i =>
+                {
+                    var cells = new List<object?> { i.BinLocation, i.Plu, i.Barcode, i.Name, i.Size };
+                    if (showOnHand) cells.Add(i.OnHand);
+                    cells.Add(counted.TryGetValue(i.Id, out var c) ? c : null);
+                    cells.Add("");
+                    return cells.ToArray();
+                }));
+    }
+
+    /// <summary>The lines of a stock count with their variances and the value of each (only the differences when asked).</summary>
+    public async Task<ReportTable> CountVarianceAsync(Guid countId, bool differencesOnly)
+    {
+        await using var db = data.Create();
+        var count = await db.StockCounts.AsNoTracking().Include(c => c.Location).SingleAsync(c => c.Id == countId);
+        var lines = await db.StockCountLines.AsNoTracking().Where(l => l.StockCountId == countId && (!differencesOnly || l.Variance != 0)).ToListAsync();
+        return Table($"Stock count {count.Number} variances", $"Location {count.Location?.Code} · {count.Status} · started {count.StartedAt:g}",
+            [Col("Stock code"), Col("Description"), Col("Expected", ColumnKind.Quantity), Col("Counted", ColumnKind.Quantity), Col("Variance", ColumnKind.Quantity, true),
+                Col("Unit cost", ColumnKind.Money), Col("Variance value", ColumnKind.Money, true)],
+            lines.OrderBy(l => l.Plu, StringComparer.OrdinalIgnoreCase).Select(l => Row(l.Plu, l.Description, l.Expected, l.Counted, l.Variance, l.UnitCost, l.VarianceCost)));
     }
 
     private static ReportColumn Col(string header, ColumnKind kind = ColumnKind.Text, bool total = false) => new(header, kind, total);

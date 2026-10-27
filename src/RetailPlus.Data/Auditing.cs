@@ -27,6 +27,7 @@ public static class AuditActions
     public const string YearEnd = "Year end";
     public const string TimeClock = "Time clock";
     public const string TimeClockEdit = "Time clock edit";
+    public const string GiftCardAdjust = "Gift card adjust";
 }
 
 /// <summary>
@@ -57,6 +58,9 @@ public static class AuditedTables
         [typeof(FastKey)] = Name<FastKey>(k => $"Panel {k.Panel} key {k.KeyNumber}"),
         [typeof(RfidReader)] = Name<RfidReader>(r => r.Name),
         [typeof(CommissionRule)] = Name<CommissionRule>(r => r.Name),
+        [typeof(GiftCard)] = Name<GiftCard>(c => c.Number),
+        [typeof(AccountMapping)] = Name<AccountMapping>(m => $"{m.Kind} {m.Key}"),
+        [typeof(StoreImage)] = Name<StoreImage>(i => i.Kind.ToString()),
     };
 
     /// <summary>Properties never written to the log: kept by the program, or marks that are not changes of substance.</summary>
