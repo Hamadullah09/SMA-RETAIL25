@@ -48,7 +48,7 @@
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
                         <Button Content="Use points" infra:Look.Icon="&#xE734;" infra:Look.Shortcut="F11" Style="{StaticResource AccentButton}" Margin="8,0,0,0" Click="Reward_Click"
                                 Visibility="{Binding CanReward, Converter={StaticResource BoolToVis}}" />
-                        <Button Margin="8,0,0,0" Click="Rfid_Click" ToolTip="Pause or resume RFID reading at this counter" infra:Look.Shortcut="Ctrl+K"
+                        <Button Margin="8,0,0,0" Click="Rfid_Click" ToolTip="Pause or resume RFID reading at this counter" infra:Look.Shortcut="Ctrl+Shift+P"
                                 Visibility="{Binding RfidVisible, Converter={StaticResource BoolToVis}}">
                             <StackPanel Orientation="Horizontal">
                                 <Ellipse Width="12" Height="12" Fill="{Binding RfidBrush}" Margin="0,0,9,0" VerticalAlignment="Center" />

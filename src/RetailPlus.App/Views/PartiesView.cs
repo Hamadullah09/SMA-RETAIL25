@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using RetailPlus.App.Dialogs;
 using RetailPlus.App.Infrastructure;
 using RetailPlus.Core.Model;
+using RetailPlus.Core.Rules;
 using RetailPlus.Data.Services;
 using RetailPlus.Reports;
 
@@ -70,6 +71,9 @@ public abstract class PartiesView : UserControl, IRefreshable
 
     protected PartyRow? Current => Grid.SelectedItem as PartyRow;
 
+    /// <summary>Adding, changing and deleting: clients.edit or suppliers.edit, or a supervisor's approval.</summary>
+    protected bool MayEdit(string action) => Approval.Allowed(IsClients ? Permissions.ClientsEdit : Permissions.SuppliersEdit, action);
+
     public async Task RefreshAsync()
     {
         var rows = IsClients
@@ -79,8 +83,12 @@ public abstract class PartiesView : UserControl, IRefreshable
         _count.Text = $"{rows.Count:N0} shown";
     }
 
+    /// <summary>A new client or supplier, from the Ctrl+K list.</summary>
+    public void NewParty() => New_Click(this, new RoutedEventArgs());
+
     private async void New_Click(object sender, RoutedEventArgs e)
     {
+        if (!MayEdit(IsClients ? "A new client" : "A new supplier")) return;
         Party p = IsClients ? new Client { Country = AppServices.Settings.Country } : new Supplier();
         if (IsClients && AppServices.Settings.CarryOverCityStateZip)
         {
@@ -93,7 +101,7 @@ public abstract class PartiesView : UserControl, IRefreshable
 
     private async void Edit_Click(object sender, RoutedEventArgs e)
     {
-        if (Current is null) return;
+        if (Current is null || !MayEdit(IsClients ? "Changing a client" : "Changing a supplier")) return;
         Party? p = IsClients ? await AppServices.Parties.GetClientAsync(Current.Id) : await AppServices.Parties.GetSupplierAsync(Current.Id);
         if (p is null) return;
         if (new PartyEditorWindow(p) { Owner = Window.GetWindow(this) }.ShowDialog() == true) await Ui.Try(RefreshAsync);
@@ -101,7 +109,7 @@ public abstract class PartiesView : UserControl, IRefreshable
 
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
-        if (Current is not { } row || !Ui.Confirm($"Delete {row.DisplayName}?")) return;
+        if (Current is not { } row || !Ui.Confirm($"Delete {row.DisplayName}?") || !MayEdit("Deleting " + row.DisplayName)) return;
         await Ui.Try(async () =>
         {
             if (IsClients) await AppServices.Parties.DeleteClientAsync(row.Id); else await AppServices.Parties.DeleteSupplierAsync(row.Id);
@@ -160,6 +168,7 @@ public sealed class ClientsView : PartiesView
 
     private async void Import_Click(object sender, RoutedEventArgs e)
     {
+        if (!Approval.Allowed(Permissions.ImportRun, "Importing clients")) return;
         var file = Ui.OpenFile("CSV file|*.csv|All files|*.*");
         if (file is null) return;
         await Ui.Try(async () =>

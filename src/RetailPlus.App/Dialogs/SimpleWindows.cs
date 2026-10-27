@@ -2,7 +2,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using RetailPlus.App.Infrastructure;
-using RetailPlus.Core.Rules;
 using RetailPlus.Data;
 using RetailPlus.Data.Services;
 using RetailPlus.Settings;
@@ -94,91 +93,6 @@ public sealed class DatabaseWindow : Window
         p.Children.Add(buttons);
         Content = p;
     }
-}
-
-/// <summary>User name and password; a user imported without a password sets one on first login.</summary>
-public sealed class LoginWindow : Window
-{
-    private readonly TextBox _user = new();
-    private readonly PasswordBox _password = new();
-    private readonly TextBlock _message = new() { Foreground = Brushes.Firebrick, Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap };
-
-    public LoginWindow()
-    {
-        Title = Brand.Name + " — log in";
-        Width = 540;
-        SizeToContent = SizeToContent.Height;
-        WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        ResizeMode = ResizeMode.NoResize;
-        var p = new StackPanel { Margin = new Thickness(36, 30, 36, 28) };
-        var brand = new StackPanel { Orientation = Orientation.Horizontal };
-        brand.Children.Add(new Image { Source = Brand.Mark, Width = 96, Height = 96, Margin = new Thickness(0, 0, 14, 0) });
-        var names = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
-        names.Children.Add(new TextBlock { Text = Brand.Name, FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 34, FontWeight = FontWeights.Bold });
-        names.Children.Add(new TextBlock { Text = "by " + Brand.Company, Foreground = Look.Brush("Muted"), FontSize = 16 });
-        brand.Children.Add(names);
-        p.Children.Add(brand);
-        p.Children.Add(new TextBlock { Text = string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? "Welcome" : "Welcome to " + AppServices.Settings.CompanyName,
-            FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 26, Margin = new Thickness(0, 22, 0, 4) });
-        p.Children.Add(new TextBlock { Text = "Please type your name and password.", Foreground = Look.Brush("Muted"), FontSize = 17, Margin = new Thickness(0, 0, 0, 18) });
-        p.Children.Add(new TextBlock { Text = "User name", FontSize = 18, Margin = new Thickness(2, 0, 0, 6) });
-        _user.FontSize = 20;
-        _user.MinHeight = 54;
-        p.Children.Add(_user);
-        p.Children.Add(new TextBlock { Text = "Password", FontSize = 18, Margin = new Thickness(2, 14, 0, 6) });
-        _password.FontSize = 20;
-        _password.MinHeight = 54;
-        p.Children.Add(_password);
-        _message.FontSize = 17;
-        p.Children.Add(_message);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 22, 0, 0) };
-        var ok = new Button { Content = "Log in", IsDefault = true, MinWidth = 150, MinHeight = 56, FontSize = 19, Margin = new Thickness(0, 0, 10, 0), Style = (Style)Application.Current.FindResource("AccentButton") };
-        Look.SetIcon(ok, "");
-        ok.Click += async (_, _) => await LoginAsync();
-        buttons.Children.Add(ok);
-        var cancel = new Button { Content = "Cancel", IsCancel = true, MinWidth = 150, MinHeight = 56, FontSize = 19 };
-        Look.SetIcon(cancel, "");
-        buttons.Children.Add(cancel);
-        p.Children.Add(buttons);
-        Content = p;
-        Loaded += (_, _) => _user.Focus();
-    }
-
-    private async Task LoginAsync()
-    {
-        var user = await AppServices.Setup.AuthenticateAsync(_user.Text, _password.Password);
-        if (user is null)
-        {
-            _message.Text = "The user name or password is not right.";
-            _password.Clear();
-            return;
-        }
-        if (user.MustChangePassword || user.PasswordHash is null)
-        {
-            var first = Ui.Prompt($"Choose a new password for {user.UserName}:", "New password", password: true);
-            if (string.IsNullOrEmpty(first)) return;
-            var second = Ui.Prompt("Type the new password again:", "New password", password: true);
-            if (first != second) { _message.Text = "The two passwords were not the same."; return; }
-            await AppServices.Setup.SaveUserAsync(user, first);
-        }
-        AppServices.Session.SignIn(user);
-        DialogResult = true;
-    }
-
-    /// <summary>Asks a supervisor (a user whose role may approve) to approve an action. True when approved.</summary>
-    public static async Task<bool> SupervisorApprovesAsync(string action)
-    {
-        if (AppServices.Can(3) || AppServices.Unattended) return true;
-        var name = Ui.Prompt($"{action} needs a supervisor. Supervisor user name:", "Supervisor");
-        if (string.IsNullOrWhiteSpace(name)) return false;
-        var password = Ui.Prompt("Supervisor password:", "Supervisor", password: true);
-        if (password is null) return false;
-        var approver = await AppServices.Setup.AuthenticateAsync(name, password);
-        if (approver is { PasswordHash: not null } && SetupService.PermissionsOf(approver).Contains(Permissions.PosApprove)) return true;
-        Ui.Error("That user cannot approve this.");
-        return false;
-    }
-
 }
 
 /// <summary>Picks an item by searching the inventory.</summary>

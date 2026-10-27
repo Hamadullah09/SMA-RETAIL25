@@ -222,6 +222,7 @@ public partial class DashboardView : UserControl, IRefreshable
 
     private async void NewClient_Click(object sender, RoutedEventArgs e)
     {
+        if (!Approval.Allowed(Core.Rules.Permissions.ClientsEdit, "A new client")) return;
         var client = new Client { Country = AppServices.Settings.Country };
         if (new PartyEditorWindow(client) { Owner = Window.GetWindow(this) }.ShowDialog() == true) await Ui.Try(RefreshAsync);
     }

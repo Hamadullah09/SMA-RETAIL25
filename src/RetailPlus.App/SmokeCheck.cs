@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using RetailPlus.App.Infrastructure;
 using RetailPlus.App.Views;
 using RetailPlus.Core.Model;
@@ -94,6 +95,17 @@ public static class SmokeCheck
 
         try
         {
+            failures.AddRange(await StaffCheckAsync(main));
+            failures.AddRange(HelpAndPaletteCheck(main));
+            failures.AddRange(PermissionCheck(main));
+        }
+        catch (Exception ex)
+        {
+            failures.Add("Staff, audit, help: " + ex);
+        }
+
+        try
+        {
             failures.AddRange(await PictureCheckAsync(main));
             failures.AddRange(await TaggedStockCheckAsync(main));
             failures.AddRange(await RfidCheckAsync(main));
@@ -106,6 +118,110 @@ public static class SmokeCheck
         foreach (var f in failures) Log.Write("FAIL " + f);
         Log.Write(failures.Count == 0 ? "Smoke check passed" : $"Smoke check failed ({failures.Count})");
         return failures.Count == 0 ? 0 : 5;
+    }
+
+    /// <summary>
+    /// Staff and audit: a user is added (audited), signs in with a staff code and PIN, punches in and out, a supervisor's
+    /// correction across midnight shows in the hours, and the Staff and Audit screens show it. The user and their entries
+    /// are removed again so the database still opens without a login.
+    /// </summary>
+    private static async Task<List<string>> StaffCheckAsync(MainWindow main)
+    {
+        var failures = new List<string>();
+        var name = "smoke" + DateTime.Now.ToString("HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
+        var roles = await AppServices.Setup.GetRolesAsync();
+        var user = await AppServices.Setup.SaveUserAsync(new UserAccount { UserName = name, RoleId = roles.Single(r => r.Name == Permissions.CashierRole).Id }, "smoke-pass");
+        try
+        {
+            await AppServices.Setup.SetPinAsync(user.Id, name[^8..], "4711");
+            var signIn = await AppServices.Setup.SignInWithPinAsync(name[^8..], "4711");
+            if (signIn.User?.Id != user.Id) failures.Add($"staff code and PIN sign-in failed: {signIn.Message}");
+            await AppServices.Staff.PunchInAsync(user.Id);
+            try
+            {
+                await AppServices.Staff.PunchInAsync(user.Id);
+                failures.Add("a user could punch in twice");
+            }
+            catch (Data.Services.BusinessRuleException)
+            {
+            }
+            var shift = await AppServices.Staff.PunchOutAsync(user.Id);
+            var night = DateTime.Today.AddDays(-1).AddHours(22);
+            await AppServices.Staff.EditEntryAsync(shift.Id, night, night.AddHours(5), "Smoke check", AppServices.Session);
+            var hours = await AppServices.Staff.HoursByDayAsync(DateOnly.FromDateTime(night), DateOnly.FromDateTime(night.AddDays(1)), user.Id);
+            if (hours.Sum(h => h.Hours) != 5m || hours.Count != 2) failures.Add($"a 22:00 to 03:00 shift gave {string.Join(", ", hours.Select(h => $"{h.Day}: {h.Hours}"))}; expected 2 + 3 hours");
+
+            var history = await AppServices.Audit.HistoryAsync(nameof(UserAccount), user.Id);
+            if (!history.Any(a => a.Action == Data.AuditActions.Added)) failures.Add("adding a user was not audited");
+            if (!history.Any(a => a.Action == Data.AuditActions.SignIn)) failures.Add("a sign-in was not audited");
+            if (!(await AppServices.Audit.HistoryAsync(nameof(TimeClockEntry), shift.Id)).Any(a => a.Action == Data.AuditActions.TimeClockEdit))
+                failures.Add("a time clock correction was not audited");
+
+            main.Navigate("staff");
+            await MainWindow.Settle();
+            if (main.GetView<StaffView>() is null) failures.Add("the Staff screen did not open");
+            main.Navigate("audit");
+            await MainWindow.Settle();
+            if (main.GetView<AuditView>() is null) failures.Add("the Audit screen did not open");
+            Log.Write($"Staff: {name} signed in with a PIN, punched in and out, a corrected night shift counts {hours.Sum(h => h.Hours)} hours; {history.Count} audit lines");
+        }
+        finally
+        {
+            // Leave no user behind: a database with users asks for a login.
+            await using var db = AppServices.Data.Create();
+            db.TimeClockEntries.RemoveRange(await db.TimeClockEntries.Where(t => t.UserId == user.Id).ToListAsync());
+            db.UserAccounts.RemoveRange(await db.UserAccounts.Where(u => u.Id == user.Id).ToListAsync());
+            await db.SaveChangesAsync();
+        }
+        return failures;
+    }
+
+    /// <summary>The help finds topics by their words, and the Ctrl+K list finds screens, reports, actions and help.</summary>
+    private static List<string> HelpAndPaletteCheck(MainWindow main)
+    {
+        var failures = new List<string>();
+        if (Help.HelpTopics.Search("end of day") is not [{ Key: "drawer" }, ..]) failures.Add("help search for \"end of day\" did not find the drawer topic first");
+        if (Help.HelpTopics.Search("zzzz-nothing").Count != 0) failures.Add("help search found something for nonsense");
+        if (Help.HelpTopics.All.Select(t => t.Key).Distinct().Count() != Help.HelpTopics.All.Count) failures.Add("two help topics have the same key");
+        foreach (var topic in Help.HelpTopics.All.Where(t => t.Screen is not null && MainWindow.AllEntries.All(e => e.Key != t.Screen)))
+            failures.Add($"help topic {topic.Key} points at a screen that does not exist ({topic.Screen})");
+        main.Navigate("help");
+        if (main.GetView<HelpView>() is not { } help) failures.Add("the Help screen did not open");
+        else help.ShowTopic("timeclock");
+
+        var palette = new Dialogs.CommandPalette(main);
+        string First(string text) => palette.Matches(text) is [var first, ..] ? first.Title : "(nothing)";
+        if (First("inv") != "Go to Inventory") failures.Add($"Ctrl+K \"inv\" gave {First("inv")}");
+        if (First("end of day") != "End of day") failures.Add($"Ctrl+K \"end of day\" gave {First("end of day")}");
+        if (!palette.Matches("hours").Any(c => c.Kind == "Report")) failures.Add("Ctrl+K \"hours\" found no report");
+        if (!palette.Matches("pin").Any(c => c.Kind == "Help")) failures.Add("Ctrl+K \"pin\" found no help topic");
+        Log.Write($"Help: {Help.HelpTopics.All.Count} topics; Ctrl+K: {palette.Matches(null).Count} screens and actions, \"inv\" → {First("inv")}");
+        palette.Close();
+        return failures;
+    }
+
+    /// <summary>A cashier's role hides the back office: the screens listed follow the permissions.</summary>
+    private static List<string> PermissionCheck(MainWindow main)
+    {
+        var failures = new List<string>();
+        var all = AppServices.Session.Permissions;
+        try
+        {
+            AppServices.Session.Permissions = Permissions.DefaultRoles.Single(r => r.Name == Permissions.CashierRole).Permissions.ToHashSet(StringComparer.Ordinal);
+            main.RefreshChrome();
+            var keys = main.AllowedEntries.Select(e => e.Key).ToList();
+            foreach (var hidden in new[] { "setup", "audit", "tools", "reports", "home" })
+                if (keys.Contains(hidden)) failures.Add($"a cashier sees the {hidden} screen");
+            foreach (var shown in new[] { "pos", "clients", "staff", "help" })
+                if (!keys.Contains(shown)) failures.Add($"a cashier does not see the {shown} screen");
+            Log.Write("Cashier sees: " + string.Join(", ", keys));
+        }
+        finally
+        {
+            AppServices.Session.Permissions = all;
+            main.RefreshChrome();
+        }
+        return failures;
     }
 
     /// <summary>

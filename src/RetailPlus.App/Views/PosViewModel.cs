@@ -360,11 +360,16 @@ public sealed partial class PosViewModel : ObservableObject
 
     // Line changes --------------------------------------------------------------------------------------------
 
-    private bool MayDiscount()
+    /// <summary>
+    /// Discounts and price changes: open to everyone when the store lets staff discount, else for roles that may
+    /// discount, or with a supervisor's approval.
+    /// </summary>
+    private static bool MayDiscount(string action) => Settings.StaffMayDiscount || Approval.Allowed(Permissions.PosDiscount, action);
+
+    /// <summary>Return mode needs the returns permission, or a supervisor's approval.</summary>
+    partial void OnReturnModeChanged(bool value)
     {
-        if (Settings.StaffMayDiscount || AppServices.Can(3)) return true;
-        Ui.Error("Only a supervisor can give discounts at this station.");
-        return false;
+        if (value && !Approval.Allowed(Permissions.PosReturn, "A return")) ReturnMode = false;
     }
 
     public async Task ChangeQuantityAsync()
@@ -392,7 +397,7 @@ public sealed partial class PosViewModel : ObservableObject
 
     public void ChangePrice()
     {
-        if (SelectedLine is not { } line || !MayDiscount()) return;
+        if (SelectedLine is not { } line || !MayDiscount("Changing a price")) return;
         var p = Ui.PromptDecimal($"Price of {line.Description}:", "Price", line.UnitPrice);
         if (p is null) return;
         line.UnitPrice = p.Value;
@@ -403,7 +408,7 @@ public sealed partial class PosViewModel : ObservableObject
 
     public void LineDiscount()
     {
-        if (SelectedLine is not { } line || !MayDiscount()) return;
+        if (SelectedLine is not { } line || !MayDiscount("A discount on a line")) return;
         var p = Ui.PromptDecimal($"Discount on {line.Description} in percent (e.g. 10):", "Line discount");
         if (p is null) return;
         line.AutoPriced = false;
@@ -413,7 +418,7 @@ public sealed partial class PosViewModel : ObservableObject
 
     public void SubtotalDiscount()
     {
-        if (Lines.Count == 0 || !MayDiscount()) return;
+        if (Lines.Count == 0 || !MayDiscount("A discount on the sale")) return;
         var p = Ui.PromptDecimal("Discount on the whole sale in percent:", "Subtotal discount", _draft.SubtotalDiscountPercent);
         if (p is null) return;
         if (p < 0 || p > 100) { Ui.Error("Enter 0 to 100."); return; }
@@ -421,22 +426,23 @@ public sealed partial class PosViewModel : ObservableObject
         Recalculate();
     }
 
-    public async Task RemoveLineAsync()
+    public Task RemoveLineAsync()
     {
-        if (SelectedLine is not { } line) return;
-        if (Settings.SupervisorForVoids && !await LoginWindow.SupervisorApprovesAsync("Removing a line")) return;
+        if (SelectedLine is not { } line) return Task.CompletedTask;
+        if (Settings.SupervisorForVoids && !Approval.Allowed(Permissions.PosVoidLine, "Removing a line")) return Task.CompletedTask;
         Lines.Remove(line);
         _rfidIgnored.UnionWith(line.Epcs);
         SelectedLine = Lines.LastOrDefault();
         Recalculate();
+        return Task.CompletedTask;
     }
 
-    public async Task ClearSaleAsync(bool ask = true)
+    public Task ClearSaleAsync(bool ask = true)
     {
         if (ask && Lines.Count > 0)
         {
-            if (!Ui.Confirm("Cancel this whole sale?")) return;
-            if (Settings.SupervisorForVoids && !await LoginWindow.SupervisorApprovesAsync("Cancelling a sale")) return;
+            if (!Ui.Confirm("Cancel this whole sale?")) return Task.CompletedTask;
+            if (Settings.SupervisorForVoids && !Approval.Allowed(Permissions.PosVoidLine, "Cancelling a sale")) return Task.CompletedTask;
         }
         Lines.Clear();
         _draft = new SaleDraft();
@@ -450,6 +456,7 @@ public sealed partial class PosViewModel : ObservableObject
         HasClient = false;
         ReturnMode = false;
         Recalculate();
+        return Task.CompletedTask;
     }
 
     // Client -------------------------------------------------------------------------------------------------
@@ -510,6 +517,7 @@ public sealed partial class PosViewModel : ObservableObject
         Recalculate();
         _draft.IsLayaway = layaway;
         _draft.Staff = Session.UserName;
+        _draft.StaffId = Session.UserId;
         var tenders = await AppServices.Setup.GetTenderTypesAsync();
         var pay = new PayWindow(Total, tenders, Settings.MinimumTender, _draft.ClientId is not null, layaway);
         if (pay.ShowDialog() != true) { _draft.IsLayaway = false; return false; }
