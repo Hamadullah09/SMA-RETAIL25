@@ -166,11 +166,19 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
     /// </summary>
     public async Task<string> SavePackageToFileAsync(string folder, bool includeDatabase, CancellationToken cancellationToken = default)
     {
-        await using var db = data.Create();
-        var state = await StateAsync(db, cancellationToken);
-        await CreatePackageAsync(false, cancellationToken);   // what is new also waits in the outbox, in case the stick is lost
-        var (_, file) = await WriteAsync(db, state.SentThroughUtc, state.DownloadCursor, includeDatabase, folder, cancellationToken, evenIfEmpty: true);
-        return file!;
+        await Gate.WaitAsync(cancellationToken);
+        try
+        {
+            await using var db = data.Create();
+            var state = await StateAsync(db, cancellationToken);
+            await CreatePackageAsync(false, cancellationToken);   // what is new also waits in the outbox, in case the stick is lost
+            var (_, file) = await WriteAsync(db, state.SentThroughUtc, state.DownloadCursor, includeDatabase, folder, cancellationToken, evenIfEmpty: true);
+            return file!;
+        }
+        finally
+        {
+            Gate.Release();
+        }
     }
 
     /// <summary>

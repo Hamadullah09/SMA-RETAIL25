@@ -11,6 +11,7 @@
     <ProjectReference Include="..\RetailPlus.Rfid\RetailPlus.Rfid.csproj" />
     <ProjectReference Include="..\RetailPlus.Data.Sqlite\RetailPlus.Data.Sqlite.csproj" />
     <ProjectReference Include="..\RetailPlus.Data.SqlServer\RetailPlus.Data.SqlServer.csproj" />
+    <ProjectReference Include="..\RetailPlus.Sync\RetailPlus.Sync.csproj" />
   </ItemGroup>
 
   <ItemGroup>

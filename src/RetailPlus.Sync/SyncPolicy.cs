@@ -104,6 +104,8 @@ public sealed class SyncPolicy
         policy.MergeOn<ItemVariant>(nameof(ItemVariant.ItemId), nameof(ItemVariant.Ordinal));
         policy.MergeOn<KitComponent>(nameof(KitComponent.KitItemId), nameof(KitComponent.Ordinal));
         policy.MergeOn<ItemTag>(nameof(ItemTag.Epc));
+        // A till set up again under a number the server already counted for keeps counting from the server's numbers.
+        policy.MergeOn<NumberCounter>(nameof(NumberCounter.Kind), nameof(NumberCounter.StationNumber));
         // One user name is one person, but only within a store: a name taken by another store's user refuses the package.
         policy.MergeOn<UserAccount>([nameof(UserAccount.UserName)],
             (_, existing, till) => till is null || ((UserAccount)existing).StoreId == till.StoreId);

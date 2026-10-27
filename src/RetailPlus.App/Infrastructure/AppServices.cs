@@ -5,6 +5,7 @@ using RetailPlus.Integrations;
 using RetailPlus.Reports;
 using RetailPlus.Rfid;
 using RetailPlus.Settings;
+using RetailPlus.Sync;
 
 namespace RetailPlus.App.Infrastructure;
 
@@ -56,6 +57,139 @@ public static class AppServices
         Csv = new CsvExchange(Data);
         RfidData = new RfidService(Data);
         Session.StationNumber = config.StationNumber;
+        Sync = CreateSync();
+    }
+
+    // Server ---------------------------------------------------------------------------------------------------------
+
+    /// <summary>This till's synchronisation with its server; null while it works on its own (or uses a shared SQL Server database).</summary>
+    public static TillSync? Sync { get; private set; }
+
+    /// <summary>Where the till stands with its server, for the status line (null when it has not joined one).</summary>
+    public static TillSyncStatus? SyncStatus { get; private set; }
+
+    /// <summary>Raised on the UI thread after a send, a receive or a change of server.</summary>
+    public static event Action? SyncChanged;
+
+    public static string AppVersion => typeof(AppServices).Assembly.GetName().Version?.ToString() ?? "1.0";
+
+    private static CancellationTokenSource? _syncLoop;
+
+    private static TillSync? CreateSync()
+    {
+        if (Data.Connection.Provider != RetailPlus.Data.DatabaseProvider.Sqlite || string.IsNullOrWhiteSpace(Config.ServerUrl)) return null;
+        if (StationKeyStore.Unprotect(Config.StationKeyProtected) is not { } key) return null;
+        return new TillSync(Data, new TillSyncSettings
+        {
+            ServerUrl = Config.ServerUrl, StationKey = key, Outbox = TillSync.OutboxFor(Data.DatabaseName), AppVersion = AppVersion,
+        });
+    }
+
+    /// <summary>
+    /// After joining a server: keeps the server's address and this station's key (encrypted), takes the station number the
+    /// server gave, and starts sending.
+    /// </summary>
+    public static async Task JoinedAsync(string serverUrl, JoinResult joined)
+    {
+        Config.ServerUrl = serverUrl.Trim();
+        Config.StationKeyProtected = StationKeyStore.Protect(joined.StationKey);
+        Config.StationNumber = joined.StationNumber;
+        Config.Save();
+        Session.StationNumber = joined.StationNumber;
+        Sync = CreateSync();
+        await RefreshSettingsAsync();
+        StartSyncLoop();
+        await RefreshSyncStatusAsync();
+    }
+
+    /// <summary>After the server address or the interval changed in Setup.</summary>
+    public static void RestartSync()
+    {
+        Sync = CreateSync();
+        StartSyncLoop();
+    }
+
+    /// <summary>One send and receive, off the UI thread. Never throws: problems show in the status, and selling goes on.</summary>
+    public static async Task<SyncRunResult?> SyncNowAsync()
+    {
+        if (Sync is not { } sync || Unattended) return null;
+        SyncRunResult? result = null;
+        try
+        {
+            result = await Task.Run(() => sync.RunAsync());
+            if (result.Error is not null) Log.Write("Sync: " + result.Error);
+        }
+        catch (Exception ex)
+        {
+            Log.Write("Sync failed: " + ex);
+        }
+        await RefreshSyncStatusAsync();
+        return result;
+    }
+
+    public static async Task RefreshSyncStatusAsync()
+    {
+        try
+        {
+            SyncStatus = Sync is null ? null : await Sync.GetStatusAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Write("Sync status: " + ex.Message);
+        }
+        SyncChanged?.Invoke();
+    }
+
+    /// <summary>Sends and receives in the background every few minutes (Setup › Server), starting half a minute after start-up.</summary>
+    public static void StartSyncLoop()
+    {
+        _syncLoop?.Cancel();
+        _syncLoop = null;
+        if (Sync is null || Unattended) return;
+        var stop = _syncLoop = new CancellationTokenSource();
+        _ = LoopAsync(stop.Token);
+    }
+
+    private static async Task LoopAsync(CancellationToken stop)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30), stop);
+            while (!stop.IsCancellationRequested)
+            {
+                await SyncNowAsync();
+                await Task.Delay(TimeSpan.FromMinutes(Math.Clamp(Config.SyncIntervalMinutes, 1, 24 * 60)), stop);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    /// <summary>The short status line: when the till last sent and received, and what is waiting.</summary>
+    public static string SyncLine(TillSyncStatus status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        string When(DateTime? utc)
+        {
+            if (utc is not { } at) return "never";
+            var local = DateTime.SpecifyKind(at, DateTimeKind.Utc).ToLocalTime();
+            return local.Date == DateTime.Today ? local.ToString("t") : local.ToString("d MMM t");
+        }
+        var parts = new List<string>();
+        if (status.LastError is not null && status.LastAttemptAtUtc is not null && (status.LastSentAtUtc is null || status.LastAttemptAtUtc > status.LastSentAtUtc))
+            parts.Add("Server not reached");
+        else parts.Add($"Sent {When(status.LastSentAtUtc)}");
+        parts.Add($"received {When(status.LastReceivedAtUtc)}");
+        if (status.Waiting > 0) parts.Add($"{status.Waiting} waiting");
+        if (status.Refused > 0) parts.Add($"{status.Refused} refused");
+        return string.Join(" · ", parts);
+    }
+
+    /// <summary>After End of Day: sends at once, in the background.</summary>
+    public static void SyncSoon()
+    {
+        if (Sync is not null && !Unattended) _ = SyncNowAsync();
     }
 
     public static async Task RefreshSettingsAsync()

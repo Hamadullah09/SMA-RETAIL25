@@ -1,9 +1,13 @@
 using System.Collections.ObjectModel;
+using System.IO;
+using System.Net.Http;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using RetailPlus.App.Infrastructure;
 using RetailPlus.Core.Model;
 using RetailPlus.Data.Services;
+using RetailPlus.Sync;
 
 namespace RetailPlus.App.Views;
 
@@ -65,6 +69,122 @@ public partial class SetupView : UserControl, IRefreshable
         PoHeaderBox.Text = await AppServices.Setup.GetTextAsync(DocumentTextKind.PurchaseOrderHeader);
         ReturnBox.Text = await AppServices.Setup.GetTextAsync(DocumentTextKind.ReturnAddress);
         if (PanelBox.SelectedIndex < 0) PanelBox.SelectedIndex = 0; else await LoadKeysAsync();
+        await RefreshServerAsync();
+    }
+
+    // Server --------------------------------------------------------------------------------------------------------
+
+    /// <summary>Opens the Server tab (from the status line).</summary>
+    public void ShowServerTab() => Tabs.SelectedItem = ServerTab;
+
+    private async Task RefreshServerAsync()
+    {
+        ServerUrlBox.Text = AppServices.Config.ServerUrl ?? "";
+        IntervalBox.Text = AppServices.Config.SyncIntervalMinutes.ToString(System.Globalization.CultureInfo.CurrentCulture);
+        await AppServices.RefreshSyncStatusAsync();
+        bool joined = AppServices.Sync is not null;
+        bool canJoin = AppServices.Can(Core.Rules.Permissions.SetupStations);
+        JoinButton.IsEnabled = canJoin;
+        CodeBox.IsEnabled = canJoin;
+        SendNowButton.IsEnabled = SendAgainButton.IsEnabled = SavePackageButton.IsEnabled = LoadPackageButton.IsEnabled = joined;
+        if (!joined || AppServices.SyncStatus is not { } status)
+        {
+            ServerStatusText.Text = AppServices.Data.Connection.Provider == Data.DatabaseProvider.Sqlite
+                ? "This till works on its own: it has not joined a server."
+                : "This till uses a shared SQL Server database; only a till with its own database file can join a server.";
+            ServerErrorText.Text = "";
+            return;
+        }
+        ServerStatusText.Text = $"Station {AppServices.Session.StationNumber:000} of the server's store.  {AppServices.SyncLine(status)}.";
+        ServerErrorText.Text = status.LastError ?? (status.Refused > 0 ? $"The server refused {status.Refused} package(s); they are in {AppServices.Sync!.RefusedFolder}." : "");
+    }
+
+    private async void Join_Click(object sender, RoutedEventArgs e)
+    {
+        var url = ServerUrlBox.Text.Trim();
+        var code = CodeBox.Text.Trim();
+        if (url.Length == 0 || code.Length == 0)
+        {
+            Ui.Info("Enter the server address and the enrolment code you were given.");
+            return;
+        }
+        if (!Uri.TryCreate(url, UriKind.Absolute, out _))
+        {
+            Ui.Error($"{url} is not a web address. It looks like https://pos.example.com.");
+            return;
+        }
+        if (!Ui.Confirm("Join this till to the server? Its data moves to the server's store and it takes the station number the server gave it. Everything it has is then sent to the server.")) return;
+        Mouse.OverrideCursor = Cursors.Wait;
+        try
+        {
+            var joined = await Task.Run(() => TillSync.JoinAsync(AppServices.Data, url, code, AppServices.AppVersion));
+            await AppServices.JoinedAsync(url, joined);
+            CodeBox.Text = "";
+            (Window.GetWindow(this) as MainWindow)?.RefreshChrome();
+            Ui.Info($"This till is now station {joined.StationNumber:000} of {joined.StoreName}. Its data is being sent to the server.");
+            AppServices.SyncSoon();
+        }
+        catch (Exception ex) when (ex is SyncRefusedException or SyncAuthException or PackageRejectedException or BusinessRuleException or HttpRequestException or TaskCanceledException)
+        {
+            Ui.Error("The till could not join the server: " + ex.Message);
+        }
+        finally
+        {
+            Mouse.OverrideCursor = null;
+            await RefreshServerAsync();
+        }
+    }
+
+    private async void SendNow_Click(object sender, RoutedEventArgs e)
+    {
+        SendNowButton.IsEnabled = false;
+        ServerStatusText.Text = "Sending…";
+        var result = await AppServices.SyncNowAsync();
+        await RefreshServerAsync();
+        if (result is { Ok: true }) Ui.Info($"Sent to the server{(result.Received is { Changed: > 0 } r ? $"; {r.Changed} changes received" : "")}.");
+    }
+
+    private async void SendAgain_Click(object sender, RoutedEventArgs e)
+    {
+        if (AppServices.Sync is not { } sync || !Ui.Confirm("Send everything this till has, and receive everything again from the server? It can take a while.")) return;
+        await Ui.Try(async () =>
+        {
+            await sync.ResetAsync();
+            await AppServices.SyncNowAsync();
+            await RefreshServerAsync();
+        });
+    }
+
+    private async void SavePackage_Click(object sender, RoutedEventArgs e)
+    {
+        if (AppServices.Sync is not { } sync || Ui.PickFolder("Where to save the package (a USB stick)") is not { } folder) return;
+        bool full = FullCopyBox.IsChecked == true;
+        await Ui.Try(async () =>
+        {
+            var file = await Task.Run(() => sync.SavePackageToFileAsync(folder, full));
+            Ui.Info($"Saved {Path.GetFileName(file)} in {folder}. Upload it on the web (Tills › Upload a package).");
+        });
+    }
+
+    private async void LoadPackage_Click(object sender, RoutedEventArgs e)
+    {
+        if (AppServices.Sync is not { } sync || Ui.OpenFile("Sync packages (*.smapkg)|*.smapkg") is not { } file) return;
+        await Ui.Try(async () =>
+        {
+            ApplyResult result;
+            try
+            {
+                result = await Task.Run(() => sync.LoadPackageFromFileAsync(file));
+            }
+            catch (PackageRejectedException ex)
+            {
+                throw new BusinessRuleException(ex.Message);
+            }
+            if (result.Status == Core.Model.SyncBatchStatus.Failed) throw new BusinessRuleException("The package was not loaded: " + result.Error);
+            await AppServices.RefreshSettingsAsync();
+            await RefreshServerAsync();
+            Ui.Info(result.Status == Core.Model.SyncBatchStatus.Duplicate ? "This package was loaded before." : $"Package loaded: {result.Changed} changes.");
+        });
     }
 
     private async Task LoadKeysAsync()
@@ -92,7 +212,11 @@ public partial class SetupView : UserControl, IRefreshable
             foreach (var k in _keys.Where(k => k.Id != Guid.Empty || !string.IsNullOrWhiteSpace(k.Name) || !string.IsNullOrWhiteSpace(k.Plu)))
                 await AppServices.Setup.SaveFastKeyAsync(k);
             AppServices.Config.RfidHubApiKey = string.IsNullOrEmpty(HubKeyBox.Password) ? null : HubKeyBox.Password;
+            AppServices.Config.ServerUrl = string.IsNullOrWhiteSpace(ServerUrlBox.Text) ? null : ServerUrlBox.Text.Trim();
+            if (int.TryParse(IntervalBox.Text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.CurrentCulture, out var minutes))
+                AppServices.Config.SyncIntervalMinutes = Math.Clamp(minutes, 1, 24 * 60);
             AppServices.Config.Save();
+            AppServices.RestartSync();
             await AppServices.StartRfidAsync();
             await AppServices.RefreshSettingsAsync();
             (Window.GetWindow(this) as MainWindow)?.RefreshChrome();

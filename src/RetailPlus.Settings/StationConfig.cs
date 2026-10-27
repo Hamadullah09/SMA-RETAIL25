@@ -74,6 +74,13 @@ public sealed class StationConfig
     /// <summary>Ask for a user name and password when the program starts.</summary>
     public bool RequireLogin { get; set; }
 
+    /// <summary>The server this till sends its data to, e.g. https://pos.example.com; empty while it works on its own.</summary>
+    public string? ServerUrl { get; set; }
+    /// <summary>The key the server gave this station when it joined, encrypted for this Windows user (DPAPI).</summary>
+    public string? StationKeyProtected { get; set; }
+    /// <summary>While the server can be reached, the till sends and receives every this many minutes.</summary>
+    public int SyncIntervalMinutes { get; set; } = 5;
+
     [JsonIgnore]
     public string? FilePath { get; private set; }
 

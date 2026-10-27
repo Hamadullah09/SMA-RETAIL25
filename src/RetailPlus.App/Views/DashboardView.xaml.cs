@@ -14,7 +14,37 @@ public partial class DashboardView : UserControl, IRefreshable
 {
     private static CultureInfo C => CultureInfo.CurrentCulture;
 
-    public DashboardView() => InitializeComponent();
+    public DashboardView()
+    {
+        InitializeComponent();
+        Action changed = () => Dispatcher.BeginInvoke(ShowSync);
+        Loaded += (_, _) => AppServices.SyncChanged += changed;
+        Unloaded += (_, _) => AppServices.SyncChanged -= changed;
+    }
+
+    /// <summary>The Send to server button and its status line, on a till that joined a server.</summary>
+    private void ShowSync()
+    {
+        bool joined = AppServices.Sync is not null && AppServices.Can(Core.Rules.Permissions.SyncSend);
+        SendButton.Visibility = SyncLine.Visibility = joined ? Visibility.Visible : Visibility.Collapsed;
+        if (joined && AppServices.SyncStatus is { } status) SyncLine.Text = AppServices.SyncLine(status);
+    }
+
+    private async void Send_Click(object sender, RoutedEventArgs e)
+    {
+        SendButton.IsEnabled = false;
+        SyncLine.Text = "Sending…";
+        try
+        {
+            var result = await AppServices.SyncNowAsync();
+            if (result is { Ok: false }) Ui.Error("Not sent: " + result.Error + "\n\nThe till keeps selling; it tries again in a few minutes.");
+        }
+        finally
+        {
+            SendButton.IsEnabled = true;
+            ShowSync();
+        }
+    }
 
     private MainWindow? Main => Window.GetWindow(this) as MainWindow;
 
@@ -41,6 +71,7 @@ public partial class DashboardView : UserControl, IRefreshable
         BuildStock(d);
         BuildGlance(d);
         BuildRecent(d);
+        ShowSync();
     }
 
     private static string FirstName(string user) => user.Split(' ', StringSplitOptions.RemoveEmptyEntries) is { Length: > 0 } parts

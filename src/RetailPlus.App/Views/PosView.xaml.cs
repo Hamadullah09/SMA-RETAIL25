@@ -167,6 +167,8 @@ public partial class PosView : UserControl, IRefreshable
         await Ui.Try(async () =>
         {
             var report = await AppServices.Drawer.EndOfDayAsync(AppServices.Session);
+            // The day's data goes to the server at once, in the background; selling is never held up by it.
+            AppServices.SyncSoon();
             var text = ReceiptFormatter.Drawer(report, AppServices.Settings, AppServices.Config.ReceiptWidth);
             try { AppServices.Printer.Print(text, false); } catch (Exception ex) { Log.Write(ex.Message); }
             new TextPreviewWindow("End of Day (Z) report", text).ShowDialog();

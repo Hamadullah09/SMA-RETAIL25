@@ -56,6 +56,28 @@ public partial class MainWindow : Window
         _rfidTimer.Start();
         AppServices.RfidChanged += () => Dispatcher.BeginInvoke(async () => await UpdateRfidChipAsync());
         Loaded += async (_, _) => await UpdateRfidChipAsync();
+        AppServices.SyncChanged += () => Dispatcher.BeginInvoke(UpdateSyncText);
+        UpdateSyncText();
+    }
+
+    /// <summary>The server status at the bottom: quiet, and only on a till that joined a server.</summary>
+    private void UpdateSyncText()
+    {
+        if (AppServices.Sync is null || AppServices.SyncStatus is not { } status)
+        {
+            SyncText.Visibility = Visibility.Collapsed;
+            return;
+        }
+        SyncText.Text = AppServices.SyncLine(status);
+        SyncText.Foreground = Look.Brush(status.Refused > 0 ? "Danger" : "Muted");
+        SyncText.Visibility = Visibility.Visible;
+    }
+
+    private void SyncText_Click(object sender, MouseButtonEventArgs e)
+    {
+        if (!AppServices.Can(3)) return;
+        Navigate("setup");
+        GetView<SetupView>()?.ShowServerTab();
     }
 
     private readonly DispatcherTimer _rfidTimer = new() { Interval = TimeSpan.FromSeconds(4) };
@@ -202,6 +224,20 @@ public partial class MainWindow : Window
                 failures++;
                 Log.Write($"Screenshot {entry.Key} failed: {ex}");
             }
+        }
+        try
+        {
+            Navigate("setup");
+            await Settle();
+            GetView<SetupView>()?.ShowServerTab();
+            await Settle();
+            Save(Path.Combine(folder, "setup-server.png"));
+            Log.Write("Screenshot setup-server ok");
+        }
+        catch (Exception ex)
+        {
+            failures++;
+            Log.Write($"Screenshot setup-server failed: {ex}");
         }
         failures += await ShootDialogsAsync(folder);
         return failures == 0 ? 0 : 4;

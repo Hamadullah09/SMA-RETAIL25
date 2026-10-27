@@ -103,9 +103,64 @@ public static class SmokeCheck
             failures.Add("RFID: " + ex);
         }
 
+        try
+        {
+            failures.AddRange(await SyncCheckAsync(main));
+        }
+        catch (Exception ex)
+        {
+            failures.Add("Sync: " + ex);
+        }
+
         foreach (var f in failures) Log.Write("FAIL " + f);
         Log.Write(failures.Count == 0 ? "Smoke check passed" : $"Smoke check failed ({failures.Count})");
         return failures.Count == 0 ? 0 : 5;
+    }
+
+    /// <summary>
+    /// The server screen opens, and this till's data goes into a signed package (with a copy of the database file) that
+    /// reads back whole: every table of the model, the sale just rung up among them. Written with a throwaway key into
+    /// the temp folder, so the till's own sync state is not touched.
+    /// </summary>
+    private static async Task<List<string>> SyncCheckAsync(MainWindow main)
+    {
+        var failures = new List<string>();
+        main.Navigate("setup");
+        await MainWindow.Settle();
+        var setup = main.GetView<SetupView>() ?? throw new InvalidOperationException("Setup did not open");
+        setup.ShowServerTab();
+        await MainWindow.Settle();
+
+        if (AppServices.Data.Station is not { } station || AppServices.Data.Connection.Provider != Data.DatabaseProvider.Sqlite)
+        {
+            Log.Write("Sync package check skipped: not a till database file");
+            return failures;
+        }
+        var folder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "smaretail-smoke-" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            var key = Sync.StationKey.New();
+            var copy = await AppServices.Backup.BackupAsync(folder);
+            var file = System.IO.Path.Combine(folder, "smoke" + Sync.SyncPackage.Extension);
+            Sync.PackageManifest? manifest;
+            await using (var db = AppServices.Data.Create())
+            await using (var output = System.IO.File.Create(file))
+                manifest = await new Sync.PackageWriter().WriteUploadAsync(db, output,
+                    new Sync.UploadOptions(new Sync.TillScope(station.StoreId, station.StationNumber), Sync.StationKey.Parse(key), null, 0, AppServices.AppVersion) { DatabaseCopy = copy });
+            await using (var input = System.IO.File.OpenRead(file))
+            using (var package = Sync.PackageReader.Open(input))
+            {
+                package.Verify(Sync.StationKey.Parse(key));
+                if (!package.Manifest.Tables.Any(t => t.Entity == nameof(Sale) && t.Rows > 0)) failures.Add("the sync package holds no sales");
+                if (package.Manifest.Database is null) failures.Add("the sync package holds no copy of the database");
+            }
+            Log.Write($"Sync package: {manifest!.Tables.Count} tables, {manifest.Rows} rows, {new System.IO.FileInfo(file).Length / 1024} KB with the database copy; signature and checksums verified");
+        }
+        finally
+        {
+            try { System.IO.Directory.Delete(folder, true); } catch (System.IO.IOException) { }
+        }
+        return failures;
     }
 
     /// <summary>

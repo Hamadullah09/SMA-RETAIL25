@@ -198,6 +198,41 @@
                     </DataGrid>
                 </DockPanel>
             </TabItem>
+            <TabItem Header="Server" x:Name="ServerTab">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                <StackPanel Margin="12" MaxWidth="720" HorizontalAlignment="Left">
+                    <TextBlock Foreground="{StaticResource Muted}" Margin="0,0,0,10" TextWrapping="Wrap"
+                               Text="This till keeps selling without a connection. It sends its sales to the server and gets back items, prices, clients and users: after End of Day, when you press Send to server, and every few minutes while the server can be reached." />
+                    <DockPanel><TextBlock Text="Server address" Style="{StaticResource L}" /><TextBox x:Name="ServerUrlBox" ToolTip="For example https://pos.example.com" /></DockPanel>
+                    <DockPanel><TextBlock Text="Send every (minutes)" Style="{StaticResource L}" /><TextBox x:Name="IntervalBox" Width="100" HorizontalAlignment="Left" /></DockPanel>
+                    <TextBlock Text="Join the server" Style="{StaticResource SectionTitle}" Margin="0,14,0,8" />
+                    <TextBlock Foreground="{StaticResource Muted}" Margin="0,0,0,8" TextWrapping="Wrap"
+                               Text="An administrator adds this till on the web and gives you a one-time code. The till then belongs to the server's store, takes the station number the server gave it, and sends everything it already has." />
+                    <DockPanel>
+                        <TextBlock Text="Enrolment code" Style="{StaticResource L}" />
+                        <Button DockPanel.Dock="Right" Content="Join the server" Style="{StaticResource AccentButton}" Margin="10,0,0,0" Click="Join_Click" x:Name="JoinButton" />
+                        <TextBox x:Name="CodeBox" CharacterCasing="Upper" ToolTip="Like K7QM-4TXR" />
+                    </DockPanel>
+                    <TextBlock Text="Status" Style="{StaticResource SectionTitle}" Margin="0,14,0,8" />
+                    <TextBlock x:Name="ServerStatusText" TextWrapping="Wrap" Margin="0,0,0,4" FontSize="16" />
+                    <TextBlock x:Name="ServerErrorText" TextWrapping="Wrap" Foreground="{StaticResource Danger}" Margin="0,0,0,8" />
+                    <WrapPanel Style="{StaticResource Toolbar}">
+                        <Button Content="Send to server" Style="{StaticResource AccentButton}" Click="SendNow_Click" x:Name="SendNowButton" />
+                        <Button Content="Send everything again" Style="{StaticResource ToolButton}" Click="SendAgain_Click" x:Name="SendAgainButton"
+                                ToolTip="The next send holds every row of this till, and the next receive everything this till gets. After a refused package or a restored backup." />
+                    </WrapPanel>
+                    <TextBlock Text="Without a connection" Style="{StaticResource SectionTitle}" Margin="0,14,0,8" />
+                    <TextBlock Foreground="{StaticResource Muted}" Margin="0,0,0,8" TextWrapping="Wrap"
+                               Text="Save a package on a USB stick and upload it on the web; bring back the server's package for this till and load it here." />
+                    <CheckBox x:Name="FullCopyBox" Content="Include a full copy of the database" Margin="0,0,0,8" />
+                    <WrapPanel Style="{StaticResource Toolbar}">
+                        <Button Content="Save package to file…" Style="{StaticResource ToolButton}" Click="SavePackage_Click" x:Name="SavePackageButton" />
+                        <Button Content="Load package from file…" Style="{StaticResource ToolButton}" Click="LoadPackage_Click" x:Name="LoadPackageButton" />
+                    </WrapPanel>
+                </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <TabItem Header="This station">
                 <StackPanel x:Name="StationPanel" Margin="12" MaxWidth="720" HorizontalAlignment="Left">
                     <TextBlock Foreground="{StaticResource Muted}" Margin="0,0,0,10" TextWrapping="Wrap" x:Name="StationFile" />

@@ -85,6 +85,9 @@ public partial class App : Application
         MainWindow = main;
         ShutdownMode = ShutdownMode.OnMainWindowClose;
         main.Show();
+        // A till that joined a server sends and receives in the background from now on.
+        AppServices.StartSyncLoop();
+        await AppServices.RefreshSyncStatusAsync();
 
         if (tourFolder is not null)
         {
