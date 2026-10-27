@@ -98,11 +98,15 @@ public static partial class Endpoints
             await UserInfoAsync(data, new UserScope(http.User).UserId) is { } info ? Results.Ok(info) : Error(401, "Sign in again."))
             .RequireAuthorization(Need(Permissions.WebSignIn));
 
-        auth.MapPost("/change-password", async (ChangePasswordRequest request, HttpContext http, DataContext data) =>
+        auth.MapPost("/change-password", async (ChangePasswordRequest request, ApiRequest api) =>
         {
             if (string.IsNullOrEmpty(request.NewPassword) || request.NewPassword.Length < 8) return Error(400, "A password has at least 8 characters.");
-            await using var db = data.Create();
-            var id = new UserScope(http.User).UserId;
+            var id = api.User.UserId;
+            Guid? home;
+            await using (var read = api.Root.Create())
+                home = await read.UserAccounts.Where(u => u.Id == id).Select(u => u.StoreId).FirstOrDefaultAsync();
+            // Saved as a change for the user's store, so it reaches the audit log (which shows only that the password changed).
+            await using var db = (await api.ForChangeAsync(home)).Create();
             var user = await db.UserAccounts.SingleOrDefaultAsync(u => u.Id == id);
             if (user?.PasswordHash is null || !SetupService.VerifyPassword(request.CurrentPassword ?? "", user.PasswordHash))
                 return Error(400, "The current password is not right.");

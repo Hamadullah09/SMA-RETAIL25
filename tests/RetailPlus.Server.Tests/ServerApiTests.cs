@@ -79,6 +79,13 @@ public sealed class ServerApiTests(SyncWorld world) : IClassFixture<SyncWorld>
         using var again = await world.SignInAsync(name, "Another-pass-2");
         using var old = await world.Server.CreateClient().PostAsJsonAsync("/api/auth/sign-in", new SignInRequest(name, "Password-1"));
         Assert.Equal(HttpStatusCode.Unauthorized, old.StatusCode);
+
+        // The change is in the audit log under the user's store, without the password.
+        await using var db = world.ServerData.Create();
+        var user = await db.UserAccounts.AsNoTracking().SingleAsync(u => u.UserName == name);
+        var line = await db.AuditEntries.AsNoTracking().SingleAsync(a => a.EntityId == user.Id && a.Action == "Changed" && a.UserId == user.Id);
+        Assert.Equal(store.Id, line.StoreId);
+        Assert.DoesNotContain("Another-pass-2", line.After ?? "", StringComparison.Ordinal);
     }
 
     [SkippableFact]
