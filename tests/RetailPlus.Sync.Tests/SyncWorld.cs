@@ -115,13 +115,11 @@ public sealed class SyncWorld : IAsyncLifetime
         return (await response.Content.ReadFromJsonAsync<StoreInfo>(Json))!;
     }
 
-    private static int _station = 10;
-
-    /// <summary>A till set up on the server, with its one-time enrolment code.</summary>
+    /// <summary>A till set up on the server (the next free number unless one is given), with its one-time enrolment code.</summary>
     public async Task<EnrollmentCodeInfo> AddStationAsync(Guid storeId, int? number = null)
     {
         using var admin = await SignInAsync();
-        using var response = await admin.PostAsJsonAsync($"/api/stores/{storeId}/stations", new NewStationRequest(number ?? Interlocked.Increment(ref _station), null));
+        using var response = await admin.PostAsJsonAsync($"/api/stores/{storeId}/stations", new NewStationRequest(number, null));
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<EnrollmentCodeInfo>(Json))!;
     }

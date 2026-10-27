@@ -49,6 +49,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailPlus.Server", "src\Re
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailPlus.Sync.Tests", "tests\RetailPlus.Sync.Tests\RetailPlus.Sync.Tests.csproj", "{233443E5-4699-4754-8376-1665F406AB25}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RetailPlus.Server.Tests", "tests\RetailPlus.Server.Tests\RetailPlus.Server.Tests.csproj", "{AD162447-DBEC-4243-9785-1099C5B3C9A6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -311,6 +313,18 @@ Global
 		{233443E5-4699-4754-8376-1665F406AB25}.Release|x64.Build.0 = Release|Any CPU
 		{233443E5-4699-4754-8376-1665F406AB25}.Release|x86.ActiveCfg = Release|Any CPU
 		{233443E5-4699-4754-8376-1665F406AB25}.Release|x86.Build.0 = Release|Any CPU
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6}.Debug|x64.Build.0 = Debug|Any CPU
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6}.Debug|x86.Build.0 = Debug|Any CPU
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6}.Release|x64.ActiveCfg = Release|Any CPU
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6}.Release|x64.Build.0 = Release|Any CPU
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6}.Release|x86.ActiveCfg = Release|Any CPU
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -337,5 +351,6 @@ Global
 		{B4D26771-E357-42C8-BB0B-AE3BD2C3E382} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{EEB35FEA-5716-4CA9-A5A7-4B9C07381170} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{233443E5-4699-4754-8376-1665F406AB25} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{AD162447-DBEC-4243-9785-1099C5B3C9A6} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 EndGlobal
