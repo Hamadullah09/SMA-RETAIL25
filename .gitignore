@@ -15,3 +15,6 @@ __pycache__/
 
 # Copies of Retail Plus data folders used by spikes and parity tests (contain the vendor's program and sample data)
 /spike-data/
+
+# The server's own files when it runs from the source folder: signing key, data-protection keys, incoming packages
+App_Data/

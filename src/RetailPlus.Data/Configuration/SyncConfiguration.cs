@@ -36,6 +36,7 @@ internal sealed class SyncStateConfiguration : IEntityTypeConfiguration<SyncStat
     public void Configure(EntityTypeBuilder<SyncState> e)
     {
         e.Property(x => x.PackagedThroughUtc).HasPrecision(3);
+        e.Property(x => x.SentThroughUtc).HasPrecision(3);
         e.Property(x => x.LastSentAtUtc).HasPrecision(3);
         e.Property(x => x.LastReceivedAtUtc).HasPrecision(3);
         e.Property(x => x.LastAttemptAtUtc).HasPrecision(3);

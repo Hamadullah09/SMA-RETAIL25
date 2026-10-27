@@ -3739,6 +3739,10 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasPrecision(3)
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime>("SentThroughUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("TEXT");
@@ -3870,6 +3874,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("TEXT")
                         .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("MergedIntoId")
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("RowId")
                         .HasColumnType("TEXT");

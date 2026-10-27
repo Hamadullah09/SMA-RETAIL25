@@ -309,6 +309,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     PackagedThroughUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SentThroughUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     DownloadCursor = table.Column<long>(type: "INTEGER", nullable: false),
                     LastSentAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: true),
                     LastReceivedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: true),
@@ -370,6 +371,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     RowId = table.Column<Guid>(type: "TEXT", nullable: false),
                     DeletedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     StoreId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    MergedIntoId = table.Column<Guid>(type: "TEXT", nullable: true),
                     EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)

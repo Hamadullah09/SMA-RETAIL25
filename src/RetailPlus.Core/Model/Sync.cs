@@ -21,6 +21,11 @@ public class Tombstone : Entity, ILocalOnly
     public DateTime DeletedAtUtc { get; set; }
     /// <summary>The store of the deleted row when it belonged to one; null when it was shared by every store.</summary>
     public Guid? StoreId { get; set; }
+    /// <summary>
+    /// Set when the row was not deleted but merged into another one with the same code (the same stock code made at two
+    /// tills): rows that pointed at it point at this one instead.
+    /// </summary>
+    public Guid? MergedIntoId { get; set; }
 }
 
 /// <summary>Which way a package travels.</summary>
@@ -80,6 +85,8 @@ public class SyncState : Entity, ILocalOnly
 {
     /// <summary>Rows changed after this time (UTC) are not in a package yet.</summary>
     public DateTime PackagedThroughUtc { get; set; }
+    /// <summary>Rows changed up to this time (UTC) are on the server: the newest package it accepted went this far.</summary>
+    public DateTime SentThroughUtc { get; set; }
     /// <summary>The server's change number this till has received everything up to.</summary>
     public long DownloadCursor { get; set; }
     public DateTime? LastSentAtUtc { get; set; }

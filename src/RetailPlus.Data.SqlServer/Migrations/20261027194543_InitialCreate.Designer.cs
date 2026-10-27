@@ -12,7 +12,7 @@ using RetailPlus.Data;
 namespace RetailPlus.Data.SqlServer.Migrations
 {
     [DbContext(typeof(RetailPlusDbContext))]
-    [Migration("20261027191521_InitialCreate")]
+    [Migration("20261027194543_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -3877,6 +3877,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
+                    b.Property<DateTime>("SentThroughUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
@@ -4024,6 +4028,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("MergedIntoId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("RowId")
                         .HasColumnType("uniqueidentifier");

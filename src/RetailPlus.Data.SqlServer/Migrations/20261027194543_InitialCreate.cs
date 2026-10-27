@@ -320,6 +320,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     PackagedThroughUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    SentThroughUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     DownloadCursor = table.Column<long>(type: "bigint", nullable: false),
                     LastSentAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: true),
                     LastReceivedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: true),
@@ -384,6 +385,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     RowId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     DeletedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    MergedIntoId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
                     EditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
