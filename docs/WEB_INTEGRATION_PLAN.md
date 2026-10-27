@@ -151,24 +151,34 @@ Playwright layout screenshots will change.
 
 ## 7. Phases
 
-| # | Phase | Main work |
-|---|---|---|
-| 1 | Shared model and SQLite | Items 1–7 of section 4; SQLite provider and migrations for the desktop; reports and dashboard tested on SQLite; backup by file copy |
-| 2 | Sync | Outbox, `.smapkg` export at End of Day and on demand, upload queue; server upload endpoint (idempotent, verified by counts and checksums); master data package down to tills |
-| 3 | Server and web admin | Server API on the shared model, sign-in with roles, stores and tills, cross-store dashboard, till monitor, reports |
-| 4 | Web redesign | Section 6 applied to the web shell and every page |
-| 5 | Web features into the desktop | Section 3.1: permissions, audit, time clock and commissions, stock counts, transfers, gift cards, loyalty, accounting export, branding, help |
-| 6 | Data and cutover | Move any real data from the current web database into the new model; switch pos.sma-techno.net over |
+| # | Phase | Main work | Status (2026-10-28) |
+|---|---|---|---|
+| 1 | Shared model and SQLite | Items 1–7 of section 4; SQLite provider and migrations for the desktop; reports and dashboard tested on SQLite; backup by file copy | Done (section 9) |
+| 2 | Sync | Outbox, `.smapkg` export at End of Day and on demand, upload queue; server upload endpoint (idempotent, verified by counts and checksums); master data package down to tills | Done (section 10) |
+| 3 | Server and web admin | Server API on the shared model, sign-in with roles, stores and tills, cross-store dashboard, till monitor, reports | Done (section 10, [API.md](API.md)) |
+| 4 | Web redesign | Section 6 applied to the web shell and every page | Done (section 13) |
+| 5 | Web features into the desktop | Section 3.1: permissions, audit, time clock and commissions, stock counts, transfers, gift cards, loyalty, accounting export, branding, help | Done (sections 11 and 14) |
+| 6 | Data and cutover | Move any real data from the current web database into the new model; switch pos.sma-techno.net over | Tool and runbook done (section 12, [CUTOVER.md](CUTOVER.md)); the switch itself is not made |
+
+All six phases are on the branch `integration-all-phases` (not pushed); section 15 says where things stand.
 
 ## 8. Decisions needed
 
+Until these are answered the work went ahead on the defaults written after each one; section 15 repeats them.
+
 1. **"ISO image":** is the sync package in section 5 what is meant, or a full copy of the database each day, or both?
+   *Default: both. The package carries the changed rows, and "Save package to file" can add a full copy of the till's
+   database.*
 2. **Super admin:** one company with several branches, or several companies each with their own stores?
+   *Default: one company with several stores; a super administrator sees them all.*
 3. **Live data:** does pos.sma-techno.net hold real shop data that must be carried over?
+   *Default: assume it does. The cutover tool and runbook are ready; nothing was run against the live site.*
 4. ~~**Web backend:** option A, B or C in section 5.~~ **Decided 2026-10-27: option A.**
 5. **Master data:** are items and prices edited only on the web by the admin, or also by a manager on the desktop?
+   *Default: both. A till's edits go up with its package and the web's come down; the later edit wins (section 10).*
 6. **Repository:** `desktopApp` and `main` have no common history. Proposal: the server and the web app move into the
    desktop tree (one repository, one model library) on a new branch.
+   *Done that way: `src/RetailPlus.Server` and `web/` are in the desktop tree on `integration-all-phases`.*
 
 ## 9. Phase 1 status (2026-10-27)
 
@@ -370,3 +380,66 @@ On branch `phase6-cutover`:
 | Checks | Stock per store (units, ledger, value at cost), receivables, layaways owing, client balances, gift card liability, loyalty points, sales per business day and per tender, row counts; exit code 2 when one differs |
 | Passwords | `SetupService.VerifyPassword` accepts ASP.NET Identity v3 hashes and the sign-in stores them again in the program's format; Retail25's Argon2 PINs are not carried over |
 | Runbook | [docs/CUTOVER.md](CUTOVER.md): backup, trial run on a copy, freeze, final run, deploying the server and web app, switching the site, enrolling tills, first download, checks, rollback, mapping and decisions |
+
+## 13. Phase 4 status: the web back office (2026-10-28)
+
+On branch `phase4-web`, in `web/` (see [web/README.md](../web/README.md)):
+
+| Area | What was built |
+|---|---|
+| Stack | Next.js 14 static export (served by `RetailPlus.Server` from `Server:WebRoot`), React 18, strict TypeScript, Tailwind with the section 6 tokens, TanStack Query, Recharts, Vitest, Playwright |
+| Look and keys | The desktop frame: white navigation panel with key badges and a charcoal pill for the current page, a header of white pills (store picker, clock, Go to, user), Sun main actions at least 48 px high, cream-headed grids with totals. Ctrl+K palette, Ctrl+1…0 pages, `/` to search, keys on every button. Icon navigation on a tablet, a drawer on a phone, no sideways scrolling |
+| Pages | Sign-in and password change, Dashboard (all stores or one; tiles against the period before, payment mix, by hour and day, top items, stores, cashiers, tills, drawers), Tills (status, enrolment code, retire), Packages (USB upload), Sales Journal and sale, Inventory and item editor (per location; departments and categories), Clients, Suppliers, Stock (movements, transfers, counts), Gift cards, Reports (the desktop's catalog, CSV, print), Staff (time clock, hours, commission, rules), Users, Roles, Stores, Setup (settings, logo, watermark), Audit log |
+| Session | httpOnly cookie, never a token in the page; a 401 goes to sign-in, a 403 says the role cannot open the page; changes carry the `X-Requested-With` header the server checks |
+| Tests | 140 unit tests (API client, formats, permissions to navigation, dates, report totals, colour contrast of every token pair) and 69 Playwright tests at 1366×768 and 390×844 against the built site with the API from fixtures |
+
+## 14. Phase 5 status: stock and money (2026-10-28)
+
+On branch `phase5-stock-money`:
+
+| Area | What was built |
+|---|---|
+| Stock counts | Count by code, RFID tags or a CSV file; count sheet (blind or with stock), variance review, post (uncounted left alone or set to zero) or cancel; expected stock taken when an item is first counted |
+| Transfers | To another location or store: create, ship, receive what arrived (short or over per line); missing items created at the destination; case break; a transfer belongs to both stores |
+| Gift cards | Sold and reloaded at the POS, spent as a tender, voided with the sale; balance is the sum of its transactions; Gift cards screen (history, expiry, deactivate, supervisor adjust) |
+| Loyalty | Every points change is a transaction (earn, redeem, adjust, opening); points history and adjust on the client; Setup › Loyalty |
+| Accounting | Account mapping and a balanced CSV journal per business day and store; End of Day can save it |
+| Branding | Logo and watermark per store on the header, receipts, printed reports and statements |
+| Money | Tenders in another currency with exchange rates; undelete for clients and suppliers; price changes with a preview |
+| Reports | Stock count variances, transfers in transit, gift card liability, loyalty points earned and redeemed |
+
+## 15. Where things stand (2026-10-28)
+
+Everything is merged on `integration-all-phases`, committed and not pushed. That branch was checked end to end:
+
+- `dotnet build RetailPlus.sln` has no warnings, and every test project passes (Core, Rfid, Data on SQLite and SQL
+  Server, Migration, Sync, Server, Cutover). The web passes typecheck, lint, the static build, its unit tests and its
+  Playwright tests. `RetailPlus.exe --smoke` exits 0.
+- The demo Retail25 database, enriched with sales, clients, invoices, gift cards and users, was carried over with the
+  cutover tool into a new SQL Server database (all 39 checks matched). The server ran on it with the web app.
+  - In a browser, a new super administrator signed in and was made to change the password first.
+  - The dashboard, Sales Journal and a sale, Inventory, Tills, Gift cards, Users, Reports and the Audit log showed the
+    carried-over data of both stores. The audit log held the cutover's Import line.
+  - The phone layout had no sideways scrolling.
+
+Added while putting the phases together:
+
+- After the cutover nobody could manage every store. The server now makes the user named in `Bootstrap:AdminUserName`
+  super administrator (see CUTOVER.md 2.6).
+- The server answers what the web asked for after it was built: the currency symbol for every role, a staff list for
+  filters, whether the user may change shared records, a store's locations, the audit log's dates as business days,
+  and UTC times with a `Z` ([API.md](API.md), "Added after the web app was built").
+- A password changed on the web is in the audit log.
+- The desktop dashboard's greeting no longer runs into the day's figures on a narrow window.
+
+Still open:
+
+- The decisions of section 8 (the defaults are in force).
+- The switch of pos.sma-techno.net itself (CUTOVER.md), and a trial cutover run on a copy of the live database.
+- Known limits listed in sections 10 to 12, chiefly:
+  - two offline tills can each open a shift for the same user;
+  - Retail25 PINs are not carried over;
+  - a till's first package after joining resends everything;
+  - transfers and counts lists on the web are not paged.
+- One RFID hub test (`Many_readers_and_stations_are_handled_together`) depends on timing and can fail on a busy machine;
+  it passes when run alone.
