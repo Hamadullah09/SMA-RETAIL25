@@ -149,7 +149,7 @@ public sealed class InvoiceService(DataContext data)
         invoice.LastPaidAmount = amount;
         db.InvoicePayments.Add(new InvoicePayment { InvoiceId = invoice.Id, PaidOn = paidOn, Amount = amount, TenderType = tenderType, AppliedToPenalty = toPenalty, Note = note });
         if (invoice.ClientId is Guid cid)
-            await db.Clients.Where(c => c.Id == cid).ExecuteUpdateAsync(s => s.SetProperty(c => c.Balance, c => c.Balance - amount));
+            await db.Clients.Where(c => c.Id == cid).ExecuteUpdateAsync(s => s.SetProperty(c => c.Balance, c => c.Balance - amount).Touched());
     }
 
     private static async Task AddReceiptToDrawerAsync(RetailPlusDbContext db, SessionInfo session, string tenderType, decimal amount)
@@ -220,7 +220,7 @@ public sealed class InvoiceService(DataContext data)
             invoice.Penalty += delta;
             invoice.Balance += delta;
             if (invoice.ClientId is Guid cid)
-                await db.Clients.Where(c => c.Id == cid).ExecuteUpdateAsync(s => s.SetProperty(c => c.Balance, c => c.Balance + delta));
+                await db.Clients.Where(c => c.Id == cid).ExecuteUpdateAsync(s => s.SetProperty(c => c.Balance, c => c.Balance + delta).Touched());
             count++; sum += delta;
         }
         await db.SaveChangesAsync();
@@ -233,7 +233,7 @@ public sealed class InvoiceService(DataContext data)
         var invoice = await db.Invoices.SingleAsync(i => i.Id == invoiceId);
         if (invoice.IsVoided) return;
         if (invoice.ClientId is Guid cid && invoice.Kind != InvoiceKind.Quote)
-            await db.Clients.Where(c => c.Id == cid).ExecuteUpdateAsync(s => s.SetProperty(c => c.Balance, c => c.Balance - invoice.Balance));
+            await db.Clients.Where(c => c.Id == cid).ExecuteUpdateAsync(s => s.SetProperty(c => c.Balance, c => c.Balance - invoice.Balance).Touched());
         invoice.Balance = 0;
         invoice.IsVoided = true;
         await SaveAsync(db);

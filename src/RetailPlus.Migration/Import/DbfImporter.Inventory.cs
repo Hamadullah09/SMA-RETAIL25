@@ -135,12 +135,18 @@ public sealed partial class DbfImporter
 
         await using (var db = NewContext())
         {
+            var lines = (await db.ItemVariants.Where(v => v.OnHand != 0 && db.Items.Any(i => i.Id == v.ItemId && i.LocationId == locationId && !i.IsDeleted))
+                .Select(v => new { v.Id, v.ItemId, v.OnHand }).ToListAsync(ct)).ToLookup(v => v.ItemId);
             foreach (var i in await db.Items.Where(i => i.LocationId == locationId && !i.IsDeleted).Select(i => new { i.Id, i.Plu, i.OnHand }).ToListAsync(ct))
             {
                 _items[ItemKey(locationId, i.Plu)] = i.Id;
-                // The stock the item starts with, so its count is the sum of its movements from here on.
-                if (i.OnHand != 0)
-                    InventoryService.Record(db, i.Id, StockMovementKind.Opening, i.OnHand, i.OnHand, _now, reason: "Imported from Retail Plus");
+                // The stock the item starts with, so its count (and each matrix line's) is the sum of its movements from here on:
+                // one movement per matrix line, and one for the rest of the item's count.
+                decimal running = 0;
+                foreach (var v in lines[i.Id])
+                    InventoryService.Record(db, i.Id, StockMovementKind.Opening, v.OnHand, running += v.OnHand, _now, reason: "Imported from Retail Plus", variantId: v.Id);
+                if (i.OnHand - running != 0)
+                    InventoryService.Record(db, i.Id, StockMovementKind.Opening, i.OnHand - running, i.OnHand, _now, reason: "Imported from Retail Plus");
             }
             // Kit components point at live items of the same location by stock code.
             var components = await db.KitComponents.Where(k => k.ComponentItemId == null && db.Items.Any(i => i.Id == k.KitItemId && i.LocationId == locationId)).ToListAsync(ct);

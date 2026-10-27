@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.EntityFrameworkCore.ValueGeneration;
 using RetailPlus.Core.Model;
 using RetailPlus.Data.Import;
@@ -73,6 +75,16 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
     public DbSet<ItemPicture> ItemPictures => Set<ItemPicture>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportSourceRow> ImportSourceRows => Set<ImportSourceRow>();
+    public DbSet<Tombstone> Tombstones => Set<Tombstone>();
+    public DbSet<SyncBatch> SyncBatches => Set<SyncBatch>();
+    public DbSet<SyncState> SyncStates => Set<SyncState>();
+    public DbSet<StationLink> StationLinks => Set<StationLink>();
+
+    /// <summary>
+    /// Set while rows from a sync package are saved: they keep their times, store, station and version exactly as they
+    /// arrived, and deletions leave no tombstone of their own (the package's tombstones are handled by the applier).
+    /// </summary>
+    public bool ApplyingSync { get; set; }
 
     /// <summary>The settings row of this context's store (of the only store when no station is set).</summary>
     public IQueryable<StoreSettings> CurrentStoreSettings =>
@@ -92,14 +104,14 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
         try
         {
             var counter = NumberCounters.Where(c => c.Kind == sequence && c.StationNumber == station);
-            var now = DateTime.UtcNow;
-            if (await counter.ExecuteUpdateAsync(s => s.SetProperty(c => c.LastValue, c => c.LastValue + 1).SetProperty(c => c.UpdatedAtUtc, now), cancellationToken) == 0)
+            var now = SyncColumns.Now();
+            if (await counter.ExecuteUpdateAsync(s => s.SetProperty(c => c.LastValue, c => c.LastValue + 1).Edited(), cancellationToken) == 0)
             {
                 // The station's first number of this kind. Inserted directly so nothing else pending in the context is saved.
                 var id = Guid.CreateVersion7();
                 long first = NumberCounter.FirstNumber(station);
                 await Database.ExecuteSqlAsync(
-                    $"""INSERT INTO "NumberCounters" ("Id", "Kind", "StationNumber", "LastValue", "CreatedAtUtc", "UpdatedAtUtc") VALUES ({id}, {sequence}, {station}, {first}, {now}, {now})""",
+                    $"""INSERT INTO "NumberCounters" ("Id", "Kind", "StationNumber", "LastValue", "CreatedAtUtc", "UpdatedAtUtc", "EditedAtUtc") VALUES ({id}, {sequence}, {station}, {first}, {now}, {now}, {now})""",
                     cancellationToken);
             }
             var value = await counter.Select(c => c.LastValue).SingleAsync(cancellationToken);
@@ -124,20 +136,42 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
-    /// <summary>Times, versions, and the store and station of new rows.</summary>
+    /// <summary>
+    /// Times, versions, and the store and station of new rows; a <see cref="Tombstone"/> for every row deleted, so the
+    /// deletion reaches the other databases.
+    /// </summary>
     private void Stamp()
     {
-        var now = DateTime.UtcNow;
-        foreach (var entry in ChangeTracker.Entries())
+        var now = SyncColumns.Now();
+        var entries = ChangeTracker.Entries().ToList();
+        if (!ApplyingSync)
+            foreach (var entry in entries.Where(e => e.State == EntityState.Deleted).ToList())
+                if (TombstoneFor(entry, now) is { } tombstone)
+                    entries.Add(Tombstones.Add(tombstone));
+        foreach (var entry in entries)
         {
             if (entry.State is not (EntityState.Added or EntityState.Modified)) continue;
             bool added = entry.State == EntityState.Added;
+            var edited = entry.Metadata.FindProperty(SyncColumns.EditedAtUtc) is null ? null : entry.Property(SyncColumns.EditedAtUtc);
+            if (ApplyingSync)
+            {
+                // A row from a package is saved as it was in the database it came from.
+                if (entry.Entity is ITracked arrived && added && arrived.CreatedAtUtc == default) arrived.CreatedAtUtc = now;
+                if (edited is { CurrentValue: DateTime e } && e == default && entry.Entity is ITracked t) edited.CurrentValue = t.UpdatedAtUtc;
+                continue;
+            }
             if (entry.Entity is ITracked tracked)
             {
                 // Rows that arrive from another database keep the time they were made.
                 if (added && tracked.CreatedAtUtc == default) tracked.CreatedAtUtc = now;
                 else if (!added && tracked.CreatedAtUtc == default) entry.Property(nameof(ITracked.CreatedAtUtc)).IsModified = false;
                 tracked.UpdatedAtUtc = now;
+            }
+            if (edited is not null)
+            {
+                // Only a change to a column people edit makes the row newer than an edit made elsewhere.
+                if (added || IsEdit(entry)) edited.CurrentValue = now;
+                else if (edited.IsModified) edited.IsModified = false;
             }
             if (entry.Entity is IVersioned versioned) versioned.Version = Guid.NewGuid();
             if (!added) continue;
@@ -147,6 +181,23 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
             if (entry.Entity is IStationStamped stamped && stamped.StationNumber == 0 && Station is { StationNumber: > 0 } station)
                 stamped.StationNumber = station.StationNumber;
         }
+    }
+
+    /// <summary>True when a modified row has a changed column that people edit (not only counts the system keeps).</summary>
+    private static bool IsEdit(EntityEntry entry) =>
+        entry.Properties.Any(p => p.IsModified && !SyncColumns.IsBookkeeping(p.Metadata.Name) && !SyncColumns.IsKept(entry.Metadata.ClrType, p.Metadata.Name));
+
+    /// <summary>The tombstone of a deleted row; none for local bookkeeping and rows without a single GUID key.</summary>
+    private static Tombstone? TombstoneFor(EntityEntry entry, DateTime now)
+    {
+        if (entry.Entity is ILocalOnly || entry.Metadata.FindPrimaryKey() is not { Properties: [{ ClrType: var keyType } key] } || keyType != typeof(Guid))
+            return null;
+        Guid? store = entry.Entity is IStoreScoped scoped ? scoped.StoreId
+            : entry.Metadata.FindProperty(nameof(IStoreScoped.StoreId)) is { } p && p.ClrType == typeof(Guid?) ? (Guid?)entry.Property(p.Name).OriginalValue : null;
+        return new Tombstone
+        {
+            EntityName = entry.Metadata.ClrType.Name, RowId = (Guid)entry.Property(key.Name).OriginalValue!, DeletedAtUtc = now, StoreId = store,
+        };
     }
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
@@ -173,6 +224,16 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
                 entity.Property(nameof(ITracked.CreatedAtUtc)).HasPrecision(3);
                 entity.Property(nameof(ITracked.UpdatedAtUtc)).HasPrecision(3);
                 entity.HasIndex(nameof(ITracked.UpdatedAtUtc));
+                entity.Property<DateTime>(SyncColumns.EditedAtUtc).HasPrecision(3);
+                if (Database.IsSqlServer())
+                {
+                    // Raised by SQL Server on every insert and update, also by ExecuteUpdate and plain SQL; never written by EF.
+                    var changeNumber = entity.Property<long>(SyncColumns.ChangeNumber).HasColumnType("rowversion")
+                        .HasConversion(new NumberToBytesConverter<long>()).ValueGeneratedOnAddOrUpdate();
+                    changeNumber.Metadata.SetBeforeSaveBehavior(PropertySaveBehavior.Ignore);
+                    changeNumber.Metadata.SetAfterSaveBehavior(PropertySaveBehavior.Ignore);
+                    entity.HasIndex(SyncColumns.ChangeNumber);
+                }
             }
             if (typeof(IVersioned).IsAssignableFrom(type))
                 entity.Property(nameof(IVersioned.Version)).IsConcurrencyToken();

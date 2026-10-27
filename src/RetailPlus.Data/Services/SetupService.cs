@@ -159,7 +159,7 @@ public sealed class SetupService(DataContext data)
     /// Adds the default roles when the database has none, and gives users without a role the default role of their
     /// access level (users brought in by the importer).
     /// </summary>
-    private static async Task SeedRolesAsync(RetailPlusDbContext db, CancellationToken cancellationToken)
+    public static async Task SeedRolesAsync(RetailPlusDbContext db, CancellationToken cancellationToken = default)
     {
         var roles = await db.Roles.ToListAsync(cancellationToken);
         if (roles.Count == 0)
@@ -295,7 +295,9 @@ public sealed class SetupService(DataContext data)
     public async Task DeleteUserAsync(Guid id)
     {
         await using var db = data.Create();
-        await db.UserAccounts.Where(u => u.Id == id).ExecuteDeleteAsync();
+        if (await db.UserAccounts.SingleOrDefaultAsync(u => u.Id == id) is not { } user) return;
+        db.UserAccounts.Remove(user);
+        await db.SaveChangesAsync();
     }
 
     /// <summary>
@@ -415,7 +417,7 @@ public sealed class SetupService(DataContext data)
         await using var db = data.Create();
         var dept = await db.Departments.SingleOrDefaultAsync(d => d.Name == name);
         if (dept is null) return;
-        await db.Items.Where(i => i.DepartmentId == dept.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.DepartmentId, (Guid?)null));
+        await db.Items.Where(i => i.DepartmentId == dept.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.DepartmentId, (Guid?)null).Edited());
         db.Departments.Remove(dept);
         await db.SaveChangesAsync();
     }
@@ -425,7 +427,7 @@ public sealed class SetupService(DataContext data)
         await using var db = data.Create();
         var cat = await db.Categories.SingleOrDefaultAsync(d => d.Name == name);
         if (cat is null) return;
-        await db.Items.Where(i => i.CategoryId == cat.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.CategoryId, (Guid?)null));
+        await db.Items.Where(i => i.CategoryId == cat.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.CategoryId, (Guid?)null).Edited());
         db.Categories.Remove(cat);
         await db.SaveChangesAsync();
     }
@@ -441,8 +443,16 @@ public sealed class SetupService(DataContext data)
         var list = configurations.Where(c => !string.IsNullOrWhiteSpace(c.Name)).ToList();
         if (list.Count > 12) throw new BusinessRuleException("You can enter up to 12 tax configurations.");
         await using var db = data.Create();
-        await db.TaxConfigurations.ExecuteDeleteAsync();
-        foreach (var c in list) db.TaxConfigurations.Add(new TaxConfiguration { Name = c.Name, Tax1Name = c.Tax1Name, Tax1Rate = c.Tax1Rate, Tax2Name = c.Tax2Name, Tax2Rate = c.Tax2Rate });
+        // Rows are changed in place where the name is kept, so other databases see an edit rather than a new row.
+        var existing = await db.TaxConfigurations.ToListAsync();
+        foreach (var c in list)
+        {
+            var row = existing.FirstOrDefault(e => (c.Id != Guid.Empty && e.Id == c.Id) || string.Equals(e.Name, c.Name, StringComparison.OrdinalIgnoreCase));
+            if (row is null) db.TaxConfigurations.Add(row = new TaxConfiguration());
+            else existing.Remove(row);
+            row.Name = c.Name; row.Tax1Name = c.Tax1Name; row.Tax1Rate = c.Tax1Rate; row.Tax2Name = c.Tax2Name; row.Tax2Rate = c.Tax2Rate;
+        }
+        db.TaxConfigurations.RemoveRange(existing);
         await db.SaveChangesAsync();
     }
 
@@ -455,9 +465,16 @@ public sealed class SetupService(DataContext data)
     public async Task SaveFxRatesAsync(IEnumerable<FxRate> rates)
     {
         await using var db = data.Create();
-        await db.FxRates.ExecuteDeleteAsync();
+        var existing = await db.FxRates.ToListAsync();
         foreach (var r in rates.Where(r => !string.IsNullOrWhiteSpace(r.Currency) && r.Rate > 0))
-            db.FxRates.Add(new FxRate { Currency = r.Currency.Trim().ToUpperInvariant(), Rate = r.Rate });
+        {
+            var currency = r.Currency.Trim().ToUpperInvariant();
+            var row = existing.FirstOrDefault(e => e.Currency == currency);
+            if (row is null) db.FxRates.Add(row = new FxRate { Currency = currency });
+            else existing.Remove(row);
+            row.Rate = r.Rate;
+        }
+        db.FxRates.RemoveRange(existing);
         await db.SaveChangesAsync();
     }
 

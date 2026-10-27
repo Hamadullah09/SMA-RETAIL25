@@ -169,7 +169,7 @@ internal sealed class ItemPeriodSalesConfiguration : IEntityTypeConfiguration<It
         e.Property(x => x.Kind).HasConversion<byte>();
         e.Property(x => x.Units).Quantity();
         e.HasOne<Item>().WithMany(x => x.PeriodSales).HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Cascade);
-        e.HasIndex(x => new { x.ItemId, x.Year, x.Kind, x.Period }).IsUnique();
+        e.HasIndex(x => new { x.ItemId, x.Year, x.Kind, x.Period, x.StationNumber }).IsUnique();
         e.ToTable(t => t.HasCheckConstraint("CK_ItemPeriodSales_Period",
             "([Kind] = 1 AND [Period] BETWEEN 1 AND 12) OR ([Kind] = 2 AND [Period] BETWEEN 1 AND 54)"));
     }

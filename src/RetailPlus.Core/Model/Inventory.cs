@@ -268,4 +268,9 @@ public class ItemPeriodSales : Entity
     public int Period { get; set; }
     public decimal Units { get; set; }
     public decimal Gross { get; set; }
+    /// <summary>
+    /// The station whose sales these are; 0 for figures imported from Retail Plus. Each till adds to its own rows, so tills
+    /// never overwrite each other's counts when they synchronise; an item's figure for a period is the sum of its rows.
+    /// </summary>
+    public int StationNumber { get; set; }
 }

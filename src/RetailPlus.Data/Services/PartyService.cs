@@ -133,20 +133,20 @@ public sealed class PartyService(DataContext data)
         await using var db = data.Create();
         if (await db.Clients.AnyAsync(c => c.Id == id && c.Balance != 0))
             throw new BusinessRuleException("This client still has a balance owing.");
-        await db.Clients.Where(c => c.Id == id).ExecuteUpdateAsync(s => s.SetProperty(c => c.IsDeleted, true).SetProperty(c => c.DeletedAt, DateTime.Now));
+        await db.Clients.Where(c => c.Id == id).ExecuteUpdateAsync(s => s.SetProperty(c => c.IsDeleted, true).SetProperty(c => c.DeletedAt, DateTime.Now).Edited());
     }
 
     public async Task DeleteSupplierAsync(Guid id)
     {
         await using var db = data.Create();
-        await db.Suppliers.Where(c => c.Id == id).ExecuteUpdateAsync(s => s.SetProperty(c => c.IsDeleted, true).SetProperty(c => c.DeletedAt, DateTime.Now));
+        await db.Suppliers.Where(c => c.Id == id).ExecuteUpdateAsync(s => s.SetProperty(c => c.IsDeleted, true).SetProperty(c => c.DeletedAt, DateTime.Now).Edited());
     }
 
     public async Task SetClientFlagAsync(IEnumerable<Guid> ids, bool flagged)
     {
         var list = ids.ToList();
         await using var db = data.Create();
-        await db.Clients.Where(c => list.Contains(c.Id)).ExecuteUpdateAsync(s => s.SetProperty(c => c.IsFlagged, flagged));
+        await db.Clients.Where(c => list.Contains(c.Id)).ExecuteUpdateAsync(s => s.SetProperty(c => c.IsFlagged, flagged).Touched());
     }
 
     /// <summary>The client's purchases, newest first (the History tab).</summary>

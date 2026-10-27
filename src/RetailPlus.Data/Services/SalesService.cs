@@ -108,7 +108,7 @@ public sealed class SalesService(DataContext data)
         db.Sales.Add(sale);
         await db.SaveChangesAsync();
 
-        await ApplyStockAndStatisticsAsync(db, sale, +1, now);
+        await ApplyStockAndStatisticsAsync(db, sale, +1, now, sale.StationNumber);
         await UpdateTagsAsync(db, sale, +1);
 
         if (client is not null)
@@ -150,9 +150,10 @@ public sealed class SalesService(DataContext data)
 
     /// <summary>
     /// Stock counts, stock movements, serial numbers and sales statistics; <paramref name="sign"/> is -1 when voiding.
-    /// <paramref name="at"/> is the sale's time, which the statistics are counted in.
+    /// <paramref name="at"/> is the sale's time, which the statistics are counted in; they go to the rows of
+    /// <paramref name="station"/>, the station doing it, so tills never change each other's rows.
     /// </summary>
-    private static async Task ApplyStockAndStatisticsAsync(RetailPlusDbContext db, Sale sale, int sign, DateTime at)
+    private static async Task ApplyStockAndStatisticsAsync(RetailPlusDbContext db, Sale sale, int sign, DateTime at, int station)
     {
         int year = at.Year, month = at.Month, week = (at.DayOfYear - 1) / 7 + 1;
         var movedAt = sign > 0 ? at : DateTime.Now;
@@ -165,9 +166,9 @@ public sealed class SalesService(DataContext data)
             if (moves)
             {
                 var kind = sign < 0 ? StockMovementKind.Void : line.Kind == SaleLineKind.Return ? StockMovementKind.Return : StockMovementKind.Sale;
-                await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - qty));
+                await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - qty).Touched());
                 if (line.VariantId is Guid variantId)
-                    await db.ItemVariants.Where(v => v.Id == variantId).ExecuteUpdateAsync(s => s.SetProperty(v => v.OnHand, v => v.OnHand - qty));
+                    await db.ItemVariants.Where(v => v.Id == variantId).ExecuteUpdateAsync(s => s.SetProperty(v => v.OnHand, v => v.OnHand - qty).Touched());
                 InventoryService.Record(db, itemId, kind, -qty, await OnHandAsync(db, itemId), movedAt, sale.InvoiceNumber, variantId: line.VariantId, user: sale.Staff);
                 if (type == ItemType.Kit)
                 {
@@ -176,7 +177,7 @@ public sealed class SalesService(DataContext data)
                     {
                         decimal cq = qty * c.Quantity;
                         var componentId = c.ComponentItemId!.Value;
-                        await db.Items.Where(i => i.Id == componentId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - cq));
+                        await db.Items.Where(i => i.Id == componentId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - cq).Touched());
                         InventoryService.Record(db, componentId, kind, -cq, await OnHandAsync(db, componentId), movedAt, sale.InvoiceNumber,
                             reason: $"Kit {line.Plu}", user: sale.Staff);
                     }
@@ -186,14 +187,14 @@ public sealed class SalesService(DataContext data)
                     string status = (line.Kind == SaleLineKind.Sale) == (sign > 0) ? "SOLD" : "IN STOCK";
                     var today = DateOnly.FromDateTime(at);
                     await db.ItemSerials.Where(s => s.ItemId == itemId && s.SerialNumber == line.SerialNumber)
-                        .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, status).SetProperty(x => x.StatusDate, today));
+                        .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, status).SetProperty(x => x.StatusDate, today).Edited());
                 }
             }
             decimal gross = line.LineTotal * sign;
-            await AddPeriodAsync(db, itemId, year, SalesPeriodKind.Month, month, qty, gross);
-            await AddPeriodAsync(db, itemId, year, SalesPeriodKind.Week, Math.Min(week, 54), qty, gross);
+            await AddPeriodAsync(db, itemId, year, SalesPeriodKind.Month, month, qty, gross, station);
+            await AddPeriodAsync(db, itemId, year, SalesPeriodKind.Week, Math.Min(week, 54), qty, gross, station);
             var day = DateOnly.FromDateTime(at);
-            await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.LastUpdated, day));
+            await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.LastUpdated, day).Touched());
         }
     }
 
@@ -210,19 +211,19 @@ public sealed class SalesService(DataContext data)
         long invoice = sale.InvoiceNumber;
         if (sold.Count > 0)
             await db.ItemTags.Where(t => sold.Contains(t.Epc)).ExecuteUpdateAsync(s => s
-                .SetProperty(t => t.Status, ItemTagStatus.Sold).SetProperty(t => t.SoldAt, at).SetProperty(t => t.SoldOnInvoice, invoice));
+                .SetProperty(t => t.Status, ItemTagStatus.Sold).SetProperty(t => t.SoldAt, at).SetProperty(t => t.SoldOnInvoice, invoice).Edited());
         if (returned.Count > 0)
             await db.ItemTags.Where(t => returned.Contains(t.Epc)).ExecuteUpdateAsync(s => s
-                .SetProperty(t => t.Status, ItemTagStatus.InStock).SetProperty(t => t.SoldAt, (DateTime?)null).SetProperty(t => t.SoldOnInvoice, (long?)null));
+                .SetProperty(t => t.Status, ItemTagStatus.InStock).SetProperty(t => t.SoldAt, (DateTime?)null).SetProperty(t => t.SoldOnInvoice, (long?)null).Edited());
     }
 
-    private static async Task AddPeriodAsync(RetailPlusDbContext db, Guid itemId, int year, SalesPeriodKind kind, int period, decimal units, decimal gross)
+    private static async Task AddPeriodAsync(RetailPlusDbContext db, Guid itemId, int year, SalesPeriodKind kind, int period, decimal units, decimal gross, int station)
     {
-        int n = await db.ItemPeriodSales.Where(p => p.ItemId == itemId && p.Year == year && p.Kind == kind && p.Period == period)
-            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Units, p => p.Units + units).SetProperty(p => p.Gross, p => p.Gross + gross));
+        int n = await db.ItemPeriodSales.Where(p => p.ItemId == itemId && p.Year == year && p.Kind == kind && p.Period == period && p.StationNumber == station)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Units, p => p.Units + units).SetProperty(p => p.Gross, p => p.Gross + gross).Edited());
         if (n == 0)
         {
-            db.ItemPeriodSales.Add(new ItemPeriodSales { ItemId = itemId, Year = year, Kind = kind, Period = period, Units = units, Gross = gross });
+            db.ItemPeriodSales.Add(new ItemPeriodSales { ItemId = itemId, Year = year, Kind = kind, Period = period, Units = units, Gross = gross, StationNumber = station });
             await db.SaveChangesAsync();
         }
     }
@@ -255,7 +256,7 @@ public sealed class SalesService(DataContext data)
         await using var tx = await db.Database.BeginTransactionAsync();
         var sale = await db.Sales.Include(s => s.Lines).ThenInclude(l => l.Tags).Include(s => s.Payments).SingleAsync(s => s.Id == saleId);
         if (sale.Status == SaleStatus.Voided) throw new BusinessRuleException("This sale is already voided.");
-        await ApplyStockAndStatisticsAsync(db, sale, -1, sale.SoldAt);
+        await ApplyStockAndStatisticsAsync(db, sale, -1, sale.SoldAt, session.StationNumber);
         await UpdateTagsAsync(db, sale, -1);
 
         var kinds = await db.TenderTypes.AsNoTracking().ToDictionaryAsync(t => t.Name, t => t.Kind);
@@ -353,7 +354,7 @@ public sealed class SalesService(DataContext data)
         var isNew = order.Id == Guid.Empty;
         if (isNew) db.CustomerOrders.Add(order); else db.CustomerOrders.Update(order);
         if (isNew && order.ItemId is Guid itemId)
-            await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.CustomerOrdered, i => i.CustomerOrdered + order.Quantity));
+            await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.CustomerOrdered, i => i.CustomerOrdered + order.Quantity).Touched());
         await db.SaveChangesAsync();
     }
 
@@ -362,7 +363,8 @@ public sealed class SalesService(DataContext data)
         await using var db = data.Create();
         var order = await db.CustomerOrders.SingleAsync(o => o.Id == id);
         if (order.ItemId is Guid itemId)
-            await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.CustomerOrdered, i => i.CustomerOrdered - order.Quantity));
+            await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.CustomerOrdered, i => i.CustomerOrdered - order.Quantity).Touched());
+
         db.CustomerOrders.Remove(order);
         await db.SaveChangesAsync();
     }

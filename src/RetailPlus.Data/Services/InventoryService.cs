@@ -151,7 +151,7 @@ public sealed class InventoryService(DataContext data)
             await using var db = data.Create();
             if (await db.Items.Where(i => i.Id == id).Select(i => i.Barcode).SingleOrDefaultAsync() is not null) continue;
             var code = await NewInStoreBarcodeAsync();
-            count += await db.Items.Where(i => i.Id == id && i.Barcode == null).ExecuteUpdateAsync(s => s.SetProperty(i => i.Barcode, code));
+            count += await db.Items.Where(i => i.Id == id && i.Barcode == null).ExecuteUpdateAsync(s => s.SetProperty(i => i.Barcode, code).Edited());
         }
         return count;
     }
@@ -218,12 +218,23 @@ public sealed class InventoryService(DataContext data)
             throw new ConcurrencyConflictException($"Item {item.Plu} was changed at another station. Reload it and make your changes again.");
         }
 
-        // Replace the child lists (they are small).
-        await db.ItemSuppliers.Where(s => s.ItemId == item.Id).ExecuteDeleteAsync();
-        await db.ItemMatrixColumns.Where(s => s.ItemId == item.Id).ExecuteDeleteAsync();
-        await db.ItemVariants.Where(s => s.ItemId == item.Id).ExecuteDeleteAsync();
-        await db.KitComponents.Where(s => s.KitItemId == item.Id).ExecuteDeleteAsync();
-        await db.ItemSerials.Where(s => s.ItemId == item.Id).ExecuteDeleteAsync();
+        // Replace the child lists (they are small). Matrix lines keep their ids, so their stock movements stay theirs.
+        db.ItemSuppliers.RemoveRange(await db.ItemSuppliers.Where(s => s.ItemId == item.Id).ToListAsync());
+        db.ItemMatrixColumns.RemoveRange(await db.ItemMatrixColumns.Where(s => s.ItemId == item.Id).ToListAsync());
+        db.KitComponents.RemoveRange(await db.KitComponents.Where(s => s.KitItemId == item.Id).ToListAsync());
+        db.ItemSerials.RemoveRange(await db.ItemSerials.Where(s => s.ItemId == item.Id).ToListAsync());
+        var storedVariants = await db.ItemVariants.Where(v => v.ItemId == item.Id).ToListAsync();
+        var keptVariants = variants.Where(v => !string.IsNullOrWhiteSpace(v.Value1) || !string.IsNullOrWhiteSpace(v.Code)).ToList();
+        var variantChanges = new List<(Guid VariantId, decimal Change)>();
+        foreach (var gone in storedVariants.Where(s => keptVariants.All(v => v.Id != s.Id)))
+        {
+            if (gone.OnHand != 0) variantChanges.Add((gone.Id, -gone.OnHand));
+            db.ItemVariants.Remove(gone);
+        }
+        // Lines that move to another position first step aside, so two lines never hold the same position.
+        var moved = storedVariants.Where(s => keptVariants.FindIndex(v => v.Id == s.Id) is var at && at >= 0 && s.Ordinal != at + 1).ToList();
+        foreach (var s in moved) s.Ordinal = -(keptVariants.FindIndex(v => v.Id == s.Id) + 1);
+        await db.SaveChangesAsync();   // the removed rows go before new ones take their ranks and positions
         int rank = 0;
         foreach (var s in suppliers.Where(s => !string.IsNullOrWhiteSpace(s.SupplierName)))
             db.ItemSuppliers.Add(new ItemSupplier { ItemId = item.Id, Rank = ++rank, SupplierName = s.SupplierName.Trim(), SupplierId = s.SupplierId, SupplierStockCode = s.SupplierStockCode, Cost = s.Cost, CaseQuantity = s.CaseQuantity });
@@ -231,8 +242,22 @@ public sealed class InventoryService(DataContext data)
         foreach (var c in columns.Where(c => !string.IsNullOrWhiteSpace(c.Heading)))
             db.ItemMatrixColumns.Add(new ItemMatrixColumn { ItemId = item.Id, Ordinal = ++ord, Heading = c.Heading.Trim() });
         ord = 0;
-        foreach (var v in variants.Where(v => !string.IsNullOrWhiteSpace(v.Value1) || !string.IsNullOrWhiteSpace(v.Code)))
-            db.ItemVariants.Add(new ItemVariant { ItemId = item.Id, Ordinal = ++ord, Value1 = v.Value1, Value2 = v.Value2, Value3 = v.Value3, Code = v.Code, OnHand = v.OnHand });
+        foreach (var v in keptVariants)
+        {
+            var row = storedVariants.FirstOrDefault(s => v.Id != Guid.Empty && s.Id == v.Id);
+            if (row is null)
+            {
+                row = db.ItemVariants.Add(new ItemVariant { ItemId = item.Id, OnHand = v.OnHand }).Entity;
+                if (v.OnHand != 0) variantChanges.Add((row.Id, v.OnHand));
+            }
+            else if (row.OnHand != v.OnHand)
+            {
+                variantChanges.Add((row.Id, v.OnHand - row.OnHand));
+                row.OnHand = v.OnHand;
+            }
+            row.Ordinal = ++ord;
+            row.Value1 = v.Value1; row.Value2 = v.Value2; row.Value3 = v.Value3; row.Code = v.Code;
+        }
         ord = 0;
         foreach (var k in kit.Where(k => !string.IsNullOrWhiteSpace(k.ComponentPlu)))
         {
@@ -242,21 +267,24 @@ public sealed class InventoryService(DataContext data)
         }
         foreach (var s in serials.Where(s => !string.IsNullOrWhiteSpace(s.SerialNumber)))
             db.ItemSerials.Add(new ItemSerial { ItemId = item.Id, SerialNumber = s.SerialNumber.Trim(), Status = s.Status ?? "IN STOCK", StatusDate = s.StatusDate });
-        if (item.ItemType == ItemType.Matrix && variants.Count > 0)
+        bool matrix = item.ItemType == ItemType.Matrix && keptVariants.Count > 0;
+        // The matrix lines are counted in the editor; the item's count is their total.
+        decimal newOnHand = matrix ? keptVariants.Sum(v => v.OnHand) : isNew ? item.OnHand : storedOnHand;
+        if (matrix && (isNew || newOnHand != storedOnHand))
         {
-            // The matrix lines are counted in the editor; the item's count is their total.
-            decimal counted = variants.Sum(v => v.OnHand);
-            if (isNew || counted != storedOnHand)
-            {
-                var onHand = db.Entry(item).Property(i => i.OnHand);
-                onHand.CurrentValue = counted;
-                if (!isNew) onHand.IsModified = true;
-                if (counted != storedOnHand)
-                    Record(db, item.Id, isNew ? StockMovementKind.Opening : StockMovementKind.Adjustment, counted - storedOnHand, counted, reason: "Matrix counts");
-            }
+            var onHand = db.Entry(item).Property(i => i.OnHand);
+            onHand.CurrentValue = newOnHand;
+            if (!isNew) onHand.IsModified = true;
         }
-        else if (isNew && item.OnHand != 0)
-            Record(db, item.Id, StockMovementKind.Opening, item.OnHand, item.OnHand);
+        // One movement per matrix line counted differently, and one for the rest of the item's change, so both the
+        // item's count and each line's count are the sums of their movements.
+        var kind = isNew ? StockMovementKind.Opening : StockMovementKind.Adjustment;
+        string? why = matrix || variantChanges.Count > 0 ? "Matrix counts" : null;
+        decimal running = storedOnHand;
+        foreach (var (variantId, change) in variantChanges)
+            Record(db, item.Id, kind, change, running += change, reason: why, variantId: variantId);
+        decimal rest = newOnHand - storedOnHand - variantChanges.Sum(c => c.Change);
+        if (rest != 0) Record(db, item.Id, kind, rest, running + rest, reason: why);
         await db.SaveChangesAsync();
         if (!isNew) await db.Entry(item).ReloadAsync();
         return item;
@@ -303,7 +331,7 @@ public sealed class InventoryService(DataContext data)
     public async Task DeleteAsync(Guid id)
     {
         await using var db = data.Create();
-        await db.Items.Where(i => i.Id == id).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsDeleted, true).SetProperty(i => i.DeletedAt, DateTime.Now));
+        await db.Items.Where(i => i.Id == id).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsDeleted, true).SetProperty(i => i.DeletedAt, DateTime.Now).Edited());
     }
 
     public async Task RestoreAsync(Guid id)
@@ -321,13 +349,13 @@ public sealed class InventoryService(DataContext data)
     {
         var list = ids.ToList();
         await using var db = data.Create();
-        await db.Items.Where(i => list.Contains(i.Id)).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsFlagged, flagged));
+        await db.Items.Where(i => list.Contains(i.Id)).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsFlagged, flagged).Touched());
     }
 
     public async Task ClearFlagsAsync(Guid locationId)
     {
         await using var db = data.Create();
-        await db.Items.Where(i => i.LocationId == locationId && i.IsFlagged).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsFlagged, false));
+        await db.Items.Where(i => i.LocationId == locationId && i.IsFlagged).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsFlagged, false).Touched());
     }
 
     /// <summary>Adjust Stock: adds (or with <paramref name="setTo"/> replaces) the on-hand count and logs the change.</summary>
@@ -351,10 +379,14 @@ public sealed class InventoryService(DataContext data)
         return await db.StockMovements.AsNoTracking().Where(a => a.ItemId == itemId).OrderByDescending(a => a.At).ThenByDescending(a => a.CreatedAtUtc).ToListAsync();
     }
 
+    /// <summary>The item's sales per month or week of a year, every station's added together.</summary>
     public async Task<List<ItemPeriodSales>> GetPeriodSalesAsync(Guid itemId, int year, SalesPeriodKind kind)
     {
         await using var db = data.Create();
-        return await db.ItemPeriodSales.AsNoTracking().Where(p => p.ItemId == itemId && p.Year == year && p.Kind == kind).OrderBy(p => p.Period).ToListAsync();
+        var rows = await db.ItemPeriodSales.AsNoTracking().Where(p => p.ItemId == itemId && p.Year == year && p.Kind == kind).ToListAsync();
+        return rows.GroupBy(p => p.Period).OrderBy(g => g.Key)
+            .Select(g => new ItemPeriodSales { ItemId = itemId, Year = year, Kind = kind, Period = g.Key, Units = g.Sum(p => p.Units), Gross = g.Sum(p => p.Gross) })
+            .ToList();
     }
 
     /// <summary>
@@ -410,6 +442,6 @@ public sealed class InventoryService(DataContext data)
     {
         await using var db = data.Create();
         return await db.Items.Where(i => i.LocationId == locationId && !i.IsDeleted)
-            .ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHandBeforeYearEnd, i => i.OnHand));
+            .ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHandBeforeYearEnd, i => i.OnHand).Touched());
     }
 }

@@ -61,7 +61,7 @@ public sealed class PurchasingService(DataContext data)
                 .GroupBy(p => p.ItemId).Select(g => new { g.Key, Units = g.Sum(p => p.Units) }).ToDictionaryAsync(x => x.Key, x => x.Units);
             var lastYear = await db.ItemPeriodSales.AsNoTracking()
                 .Where(p => ids.Contains(p.ItemId) && p.Year == day.Year - 1 && p.Kind == SalesPeriodKind.Month && p.Period == day.Month)
-                .ToDictionaryAsync(p => p.ItemId, p => p.Units);
+                .GroupBy(p => p.ItemId).Select(g => new { g.Key, Units = g.Sum(p => p.Units) }).ToDictionaryAsync(x => x.Key, x => x.Units);
 
             foreach (var item in items)
             {
@@ -149,7 +149,7 @@ public sealed class PurchasingService(DataContext data)
         {
             decimal pieces = line.OrderQuantity * line.CaseQuantity;
             await db.Items.Where(i => i.Id == line.ItemId).ExecuteUpdateAsync(s => s
-                .SetProperty(i => i.OnOrder, i => i.OnOrder + pieces).SetProperty(i => i.LastOrderDate, today));
+                .SetProperty(i => i.OnOrder, i => i.OnOrder + pieces).SetProperty(i => i.LastOrderDate, today).Touched());
         }
         po.Status = PurchaseOrderStatus.Posted;
         po.PostedAt = DateTime.Now;
@@ -208,7 +208,7 @@ public sealed class PurchasingService(DataContext data)
             foreach (var line in po.Lines.Where(l => l.ItemId is not null))
             {
                 decimal pieces = line.OrderQuantity * line.CaseQuantity;
-                await db.Items.Where(i => i.Id == line.ItemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnOrder, i => i.OnOrder - pieces < 0 ? 0 : i.OnOrder - pieces));
+                await db.Items.Where(i => i.Id == line.ItemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnOrder, i => i.OnOrder - pieces < 0 ? 0 : i.OnOrder - pieces).Touched());
             }
         }
         db.PurchaseOrders.Remove(po);

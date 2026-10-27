@@ -114,7 +114,9 @@ public sealed class RfidService(DataContext data)
     public async Task DeleteReaderAsync(Guid id)
     {
         await using var db = data.Create();
-        await db.RfidReaders.Where(r => r.Id == id).ExecuteDeleteAsync();
+        if (await db.RfidReaders.Include(r => r.Antennas).SingleOrDefaultAsync(r => r.Id == id) is not { } reader) return;
+        db.RfidReaders.Remove(reader);
+        await db.SaveChangesAsync();
     }
 
     /// <summary>Records that the settings were written to the reader (and its firmware version, when known).</summary>
@@ -124,7 +126,7 @@ public sealed class RfidService(DataContext data)
         var now = DateTime.Now;
         await db.RfidReaders.Where(r => r.Id == readerId).ExecuteUpdateAsync(s => s
             .SetProperty(r => r.SettingsAppliedAt, now)
-            .SetProperty(r => r.FirmwareVersion, r => firmware ?? r.FirmwareVersion));
+            .SetProperty(r => r.FirmwareVersion, r => firmware ?? r.FirmwareVersion).Edited());
     }
 
     // Antennas and stations ----------------------------------------------------------------------------------
@@ -210,7 +212,9 @@ public sealed class RfidService(DataContext data)
     public async Task RemoveTagAsync(Guid tagId)
     {
         await using var db = data.Create();
-        await db.ItemTags.Where(t => t.Id == tagId).ExecuteDeleteAsync();
+        if (await db.ItemTags.SingleOrDefaultAsync(t => t.Id == tagId) is not { } tag) return;
+        db.ItemTags.Remove(tag);
+        await db.SaveChangesAsync();
     }
 
     /// <summary>

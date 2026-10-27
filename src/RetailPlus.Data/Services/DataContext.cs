@@ -30,6 +30,7 @@ public sealed class DataContext
     {
         var db = _pool.CreateDbContext();
         db.Station = Station;
+        db.ApplyingSync = false;
         return db;
     }
 
