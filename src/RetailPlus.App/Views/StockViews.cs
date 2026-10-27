@@ -92,6 +92,25 @@ public sealed class StockCountsView : UserControl, IRefreshable
         };
         _message.Text = "Start a count, then scan each item (or type its code and press Enter). Expected stock is taken when an item is first counted, "
                         + "so the shop can keep selling while it counts.";
+        RouteScans(this, _code);
+    }
+
+    /// <summary>
+    /// A barcode scanner types like a keyboard: whatever is typed while no text box has the focus goes into the code box,
+    /// so a scan works right after a click on the list or a button (as at the Point of Sale).
+    /// </summary>
+    internal static void RouteScans(UserControl view, TextBox box)
+    {
+        void Route(object sender, TextCompositionEventArgs e)
+        {
+            if (!view.IsVisible || e.Text.Length == 0 || char.IsControl(e.Text[0]) || Keyboard.FocusedElement is TextBox) return;
+            e.Handled = true;
+            box.Focus();
+            box.Text += e.Text;
+            box.CaretIndex = box.Text.Length;
+        }
+        view.Loaded += (_, _) => { if (Window.GetWindow(view) is { } w) { w.PreviewTextInput -= Route; w.PreviewTextInput += Route; } };
+        view.Unloaded += (_, _) => { if (Window.GetWindow(view) is { } w) w.PreviewTextInput -= Route; };
     }
 
     /// <summary>A list on the left and its detail on the right, sharing the width two to three.</summary>
@@ -388,6 +407,7 @@ public sealed class TransfersView : UserControl, IRefreshable
             e.Handled = true;
             await Ui.Try(AddEnteredAsync);
         };
+        StockCountsView.RouteScans(this, _code);
     }
 
     public async Task RefreshAsync()

@@ -41,7 +41,9 @@ dotnet run --project src/RetailPlus.App
 
 On first start the app creates (or upgrades) its database, by default the SQLite file `%LOCALAPPDATA%\RetailPlus\smaretail.db`, and seeds a store, the `POS` location, tender types and station 1. Station settings live in `%LOCALAPPDATA%\RetailPlus\station.json` (Setup › This station, where the database can also be switched to a shared SQL Server one); `--db <file>`, `--localdb <name>`, `--station <n>` and `--config <file>` override them. When the database has users, the app asks for a login; users imported from Retail Plus choose a new password on their first login, because the old passwords are not carried over.
 
-Screens: Point of Sale, Sales Journal, Inventory, Clients, Suppliers, Invoices & A/R, Purchase Orders, Orders & RMAs, Reports, Tools (import, backup, restore, rebuild, recurring billing, year end) and Setup.
+Screens: Point of Sale, Sales Journal, Inventory, Clients, Suppliers, Invoices & A/R, Purchase Orders, Orders & RMAs, Stock counts, Transfers, Gift cards, Reports, Tools (import, backup, restore, rebuild, recurring billing, year end) and Setup.
+
+Stock and money: stock counts (by code, RFID tag or CSV file; count sheet, variance review, post or cancel), transfers to another location or store (ship, then receive what arrived; missing items are created at the receiving location), break case, gift cards and certificates (sold at the POS, spent with the Gift Card tender, balance = the sum of their transactions), bonus points kept as a history per client, tenders in a foreign currency (change in home currency), and Setup › Loyalty, Accounting (account codes and a balanced journal per business day, optionally saved at End of Day) and Branding (store logo and watermark). Every stock change of these writes a stock movement (Count, TransferOut/In, CaseBreakOut/In).
 
 Automated checks: `--smoke` opens every screen, runs every report and rings up a sale, then exits 0 on success; `--screenshot-tour <folder>` saves a PNG of each screen. Both write to `%LOCALAPPDATA%\RetailPlus\retailplus-check.log`.
 
