@@ -218,14 +218,19 @@ public sealed partial class DbfImporter
         if (path is null) return;
         using var table = Open(path);
         var result = Result(table, nameof(StaffPeriod));
+        Dictionary<string, Guid> users;
+        await using (var db = NewContext())
+            users = (await db.UserAccounts.Select(u => new { u.UserName, u.Id }).ToListAsync(ct)).ToDictionary(u => u.UserName, u => u.Id, StringComparer.OrdinalIgnoreCase);
         var rows = new List<Pending>();
         foreach (var record in table.Records())
         {
             if (record.IsBlank) { result.Blank++; continue; }
             if (record.IsDeleted) { result.Deleted++; rows.Add(TraceOnly(nameof(StaffPeriod), record)); continue; }
+            var userName = record.Text("USERNAM") ?? "";
             rows.Add(One(new StaffPeriod
             {
-                UserName = record.Text("USERNAM") ?? "",
+                UserName = userName,
+                UserId = users.TryGetValue(userName, out var userId) ? userId : null,
                 FromDate = record.Date("FROM_DATE"),
                 ToDate = record.Date("TO_DATE"),
                 FromTime = record.Text("FROM_TIME"),

@@ -31,6 +31,12 @@ public class PurchaseOrder : Entity, IVersioned, IStationStamped
     public string? Description { get; set; }
     public DateTime? PostedAt { get; set; }
     public DateTime? ReceivedAt { get; set; }
+    /// <summary>Who made the order.</summary>
+    public string? CreatedBy { get; set; }
+    public Guid? CreatedById { get; set; }
+    /// <summary>Who posted the shipment.</summary>
+    public string? ReceivedBy { get; set; }
+    public Guid? ReceivedById { get; set; }
     public Guid Version { get; set; }
     public List<PurchaseOrderLine> Lines { get; set; } = [];
 }

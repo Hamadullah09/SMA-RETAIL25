@@ -36,9 +36,11 @@ public sealed partial class CsvExchange(DataContext data)
         return sb.ToString();
     }
 
+    /// <summary>Imports clients by number. The audit log gets one line for the file, not one per client.</summary>
     public async Task<CsvImportResult> ImportClientsAsync(string csv)
     {
         await using var db = data.Create();
+        db.SuppressAudit = true;
         var byNumber = (await db.Clients.Where(c => !c.IsDeleted && c.Number != null).ToListAsync())
             .GroupBy(c => c.Number!).ToDictionary(g => g.Key, g => g.First());
         int added = 0, updated = 0, skipped = 0, rowNo = 1;
@@ -82,6 +84,7 @@ public sealed partial class CsvExchange(DataContext data)
             if (DateOnly.TryParse(r["Birthday"], Inv, out var bd)) client.Birthday = bd;
             if (isNew) added++; else updated++;
         }
+        db.Audit(Data.AuditActions.Import, $"Clients CSV: {added} added, {updated} changed, {skipped} skipped");
         await db.SaveChangesAsync();
         return new CsvImportResult(added, updated, skipped, problems);
     }

@@ -51,6 +51,8 @@ public sealed class SaleDraft
     /// <summary>An out-of-state tax configuration picked for this sale; null uses the store's taxes.</summary>
     public TaxSetup? TaxOverride { get; set; }
     public string? Staff { get; set; }
+    /// <summary>The user id of <see cref="Staff"/>.</summary>
+    public Guid? StaffId { get; set; }
     public string? Notes { get; set; }
     /// <summary>Bonus points given up for a reward; the reward itself is a coupon line on the sale.</summary>
     public decimal PointsRedeemed { get; set; }

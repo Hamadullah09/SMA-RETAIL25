@@ -5,6 +5,34 @@ using RetailPlus.Core.Rules;
 
 namespace RetailPlus.Data.Services;
 
+/// <summary>Why a sign-in failed.</summary>
+public enum SignInFailure
+{
+    None,
+    WrongCredentials,
+    NotActive,
+    Locked,
+    /// <summary>The user works at another store than this station's.</summary>
+    OtherStore,
+}
+
+/// <summary>The outcome of a sign-in: the user, or why not (a locked account says until when, in UTC).</summary>
+public sealed record SignInResult(UserAccount? User, SignInFailure Failure, DateTime? LockedUntilUtc)
+{
+    /// <summary>What to tell the person at the till.</summary>
+    public string? Message => Failure switch
+    {
+        SignInFailure.None => null,
+        SignInFailure.NotActive => "This user is not active. Ask a manager.",
+        SignInFailure.OtherStore => "This user works at another store.",
+        SignInFailure.Locked => $"Locked after too many wrong tries. Try again in {MinutesLeft(DateTime.UtcNow)} minute{(MinutesLeft(DateTime.UtcNow) == 1 ? "" : "s")}.",
+        _ => "The name or password (or staff code or PIN) is not right.",
+    };
+
+    /// <summary>Whole minutes until the lock ends (at least 1).</summary>
+    public int MinutesLeft(DateTime nowUtc) => LockedUntilUtc is { } until ? Math.Max(1, (int)Math.Ceiling((until - nowUtc).TotalMinutes)) : 0;
+}
+
 /// <summary>Setup screen data: store settings, locations, stations, users, tender types, lists and texts.</summary>
 public sealed class SetupService(DataContext data)
 {
@@ -184,37 +212,54 @@ public sealed class SetupService(DataContext data)
         return await db.Roles.AsNoTracking().Include(r => r.Permissions).OrderBy(r => r.Level).ThenBy(r => r.Name).ToListAsync();
     }
 
-    /// <summary>Adds or changes a role with exactly the given permissions; its users get the role's access level.</summary>
+    /// <summary>How many users have each role (roles nobody has are left out).</summary>
+    public async Task<Dictionary<Guid, int>> GetRoleUsageAsync()
+    {
+        await using var db = data.Create();
+        return await db.UserAccounts.Where(u => u.RoleId != null).GroupBy(u => u.RoleId!.Value)
+            .Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(g => g.Key, g => g.Count);
+    }
+
+    /// <summary>
+    /// Adds or changes a role with exactly the given permissions; its users get the role's access level. A standard role
+    /// keeps its name, and no change may leave the users without anyone who can manage users and roles.
+    /// </summary>
     public async Task<Role> SaveRoleAsync(Role role, IEnumerable<string> permissions)
     {
         if (string.IsNullOrWhiteSpace(role.Name)) throw new BusinessRuleException("Enter a role name.");
         if (role.Level is < 0 or > 4) throw new BusinessRuleException("Access levels are 0 to 4.");
         var keys = permissions.Distinct().ToList();
         if (keys.FirstOrDefault(k => !Permissions.IsKnown(k)) is { } unknown) throw new BusinessRuleException($"There is no permission \"{unknown}\".");
+        var name = role.Name.Trim();
         await using var db = data.Create();
         var existing = role.Id == Guid.Empty ? null : await db.Roles.Include(r => r.Permissions).SingleOrDefaultAsync(r => r.Id == role.Id);
+        if (await db.Roles.AnyAsync(r => r.Name == name && r.Id != role.Id)) throw new BusinessRuleException($"There is already a role called {name}.");
+        if (existing is { IsSystem: true } && !string.Equals(existing.Name, name, StringComparison.Ordinal))
+            throw new BusinessRuleException($"{existing.Name} is one of the standard roles; its name stays.");
         if (existing is null)
         {
             existing = new Role();
             db.Roles.Add(existing);
         }
-        existing.Name = role.Name.Trim();
+        existing.Name = name;
         existing.Description = role.Description;
         existing.Level = role.Level;
         existing.Permissions.RemoveAll(p => !keys.Contains(p.Permission));
         existing.Permissions.AddRange(keys.Where(k => existing.Permissions.All(p => p.Permission != k)).Select(k => new RoleGrant { Permission = k }));
         foreach (var user in await db.UserAccounts.Where(u => u.RoleId == existing.Id && u.AccessLevel != role.Level).ToListAsync())
             user.AccessLevel = role.Level;
-        await db.SaveChangesAsync();
+        await SaveKeepingAManagerAsync(db);
         return existing;
     }
 
+    /// <summary>Deletes a role nobody has. The standard roles cannot be deleted.</summary>
     public async Task DeleteRoleAsync(Guid id)
     {
         await using var db = data.Create();
-        var role = await db.Roles.SingleAsync(r => r.Id == id);
+        var role = await db.Roles.Include(r => r.Permissions).SingleAsync(r => r.Id == id);
         if (role.IsSystem) throw new BusinessRuleException($"{role.Name} is one of the standard roles; change it instead.");
-        if (await db.UserAccounts.AnyAsync(u => u.RoleId == id)) throw new BusinessRuleException($"Some users have the role {role.Name}; give them another role first.");
+        int users = await db.UserAccounts.CountAsync(u => u.RoleId == id);
+        if (users > 0) throw new BusinessRuleException($"{users} user{(users == 1 ? " has" : "s have")} the role {role.Name}; give them another role first.");
         db.Roles.Remove(role);
         await db.SaveChangesAsync();
     }
@@ -222,6 +267,22 @@ public sealed class SetupService(DataContext data)
     /// <summary>The permission keys of a user's role (none for a user without a role or not active).</summary>
     public static IReadOnlySet<string> PermissionsOf(UserAccount user) =>
         user.IsActive && user.Role is { } role ? role.Permissions.Select(p => p.Permission).ToHashSet(StringComparer.Ordinal) : new HashSet<string>();
+
+    /// <summary>
+    /// Saves, but refuses (and saves nothing) when the change would leave no active user who may manage users and roles
+    /// while there was one before: nobody could put it right from the tills.
+    /// </summary>
+    private static async Task SaveKeepingAManagerAsync(RetailPlusDbContext db)
+    {
+        static IQueryable<UserAccount> Managers(RetailPlusDbContext db) =>
+            db.UserAccounts.Where(u => u.IsActive && u.Role != null && u.Role.Permissions.Any(p => p.Permission == Permissions.SetupUsers));
+        bool hadOne = await Managers(db).AnyAsync();
+        await using var tx = await db.Database.BeginTransactionAsync();
+        await db.SaveChangesAsync();
+        if (hadOne && !await Managers(db).AnyAsync())
+            throw new BusinessRuleException("Nobody would be left who can manage users and roles. Keep at least one active user with that permission.");
+        await tx.CommitAsync();
+    }
 
     // Users ------------------------------------------------------------------------------------------------------
 
@@ -235,25 +296,34 @@ public sealed class SetupService(DataContext data)
         return await db.UserAccounts.AsNoTracking().Include(u => u.Role).OrderBy(u => u.UserName).ToListAsync();
     }
 
+    public async Task<List<Store>> GetStoresAsync()
+    {
+        await using var db = data.Create();
+        return await db.Stores.AsNoTracking().OrderBy(s => s.Code).ToListAsync();
+    }
+
     /// <summary>
     /// Adds or changes a user. The access level follows the role; a user saved without a role gets the default role of
-    /// the access level given.
+    /// the access level given. A new user needs a password (or must choose one at the first sign-in).
     /// </summary>
-    public async Task SaveUserAsync(UserAccount user, string? newPassword)
+    public async Task<UserAccount> SaveUserAsync(UserAccount user, string? newPassword)
     {
         if (string.IsNullOrWhiteSpace(user.UserName)) throw new BusinessRuleException("Enter a user name.");
         if (user.AccessLevel is < 0 or > 4) throw new BusinessRuleException("Access levels are 0 to 4.");
+        var name = user.UserName.Trim();
         await using var db = data.Create();
+        if (await db.UserAccounts.AnyAsync(u => u.UserName == name && u.Id != user.Id)) throw new BusinessRuleException($"There is already a user called {name}.");
         var role = user.RoleId is { } roleId
             ? await db.Roles.SingleOrDefaultAsync(r => r.Id == roleId) ?? throw new BusinessRuleException("That role no longer exists.")
             : await db.Roles.SingleOrDefaultAsync(r => r.Name == Permissions.DefaultRoleForLevel(user.AccessLevel));
         var existing = user.Id == Guid.Empty ? null : await db.UserAccounts.FindAsync(user.Id);
         if (existing is null)
         {
+            if (string.IsNullOrEmpty(newPassword) && !user.MustChangePassword) throw new BusinessRuleException("Enter a password for the new user.");
             existing = new UserAccount();
             db.UserAccounts.Add(existing);
         }
-        existing.UserName = user.UserName.Trim();
+        existing.UserName = name;
         existing.FullName = string.IsNullOrWhiteSpace(user.FullName) ? null : user.FullName.Trim();
         existing.RoleId = role?.Id;
         existing.AccessLevel = role?.Level ?? user.AccessLevel;
@@ -267,6 +337,20 @@ public sealed class SetupService(DataContext data)
             existing.FailedSignIns = 0;
             existing.LockedUntilUtc = null;
         }
+        await SaveKeepingAManagerAsync(db);
+        return existing;
+    }
+
+    /// <summary>Gives a user a temporary password and unlocks the account: they choose their own at the next sign-in.</summary>
+    public async Task ResetPasswordAsync(Guid userId, string temporaryPassword)
+    {
+        if (string.IsNullOrEmpty(temporaryPassword)) throw new BusinessRuleException("Enter a temporary password.");
+        await using var db = data.Create();
+        var user = await db.UserAccounts.SingleAsync(u => u.Id == userId);
+        user.PasswordHash = HashPassword(temporaryPassword);
+        user.MustChangePassword = true;
+        user.FailedSignIns = 0;
+        user.LockedUntilUtc = null;
         await db.SaveChangesAsync();
     }
 
@@ -285,6 +369,7 @@ public sealed class SetupService(DataContext data)
             if (string.IsNullOrWhiteSpace(staffCode)) throw new BusinessRuleException("Enter a staff code.");
             if (pin.Length < 4 || !pin.All(char.IsAsciiDigit)) throw new BusinessRuleException("A PIN is at least 4 digits.");
             var code = staffCode.Trim();
+            if (code.Length > 10) throw new BusinessRuleException("A staff code has at most 10 characters.");
             if (await db.UserAccounts.AnyAsync(u => u.StaffCode == code && u.Id != userId)) throw new BusinessRuleException($"Staff code {code} is taken.");
             user.StaffCode = code;
             user.PinHash = HashPassword(pin);
@@ -292,10 +377,19 @@ public sealed class SetupService(DataContext data)
         await db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Deletes a user. Users with time clock entries or commission rules stay (their history needs them): make them not
+    /// active instead.
+    /// </summary>
     public async Task DeleteUserAsync(Guid id)
     {
         await using var db = data.Create();
-        await db.UserAccounts.Where(u => u.Id == id).ExecuteDeleteAsync();
+        var user = await db.UserAccounts.SingleOrDefaultAsync(u => u.Id == id);
+        if (user is null) return;
+        if (await db.TimeClockEntries.AnyAsync(t => t.UserId == id) || await db.CommissionRules.AnyAsync(r => r.UserId == id))
+            throw new BusinessRuleException($"{user.UserName} has time clock entries or commission rules. Make the user not active instead.");
+        db.UserAccounts.Remove(user);
+        await SaveKeepingAManagerAsync(db);
     }
 
     /// <summary>
@@ -303,43 +397,99 @@ public sealed class SetupService(DataContext data)
     /// locked users are refused, and <see cref="SignInAttempts"/> wrong passwords in a row lock the account for
     /// <see cref="LockoutTime"/>.
     /// </summary>
-    public Task<UserAccount?> AuthenticateAsync(string userName, string password)
-    {
-        var name = userName.Trim();
-        return SignInAsync(u => u.UserName == name, user => user.PasswordHash is null ? user.MustChangePassword : VerifyPassword(password, user.PasswordHash));
-    }
+    public async Task<UserAccount?> AuthenticateAsync(string userName, string password) => (await SignInAsync(userName, password)).User;
 
     /// <summary>The quick sign-in at the till with a staff code and PIN, by the same rules as <see cref="AuthenticateAsync"/>.</summary>
-    public Task<UserAccount?> AuthenticatePinAsync(string staffCode, string pin)
+    public async Task<UserAccount?> AuthenticatePinAsync(string staffCode, string pin) => (await SignInWithPinAsync(staffCode, pin)).User;
+
+    /// <summary>
+    /// Signs in with a user name and password, saying why when it fails (a locked account says until when). The sign-in
+    /// goes to the audit log as <paramref name="purpose"/> (null writes nothing for a success), every failure as a failed
+    /// sign-in.
+    /// </summary>
+    public Task<SignInResult> SignInAsync(string userName, string password, string? purpose = AuditActions.SignIn)
     {
-        var code = staffCode.Trim();
-        return SignInAsync(u => u.StaffCode == code, user => user.PinHash is not null && VerifyPassword(pin, user.PinHash));
+        var name = userName.Trim();
+        return CheckAsync(u => u.UserName == name, name, false,
+            user => user.PasswordHash is null ? user.MustChangePassword : VerifyPassword(password, user.PasswordHash), purpose);
     }
 
-    private async Task<UserAccount?> SignInAsync(System.Linq.Expressions.Expression<Func<UserAccount, bool>> find, Func<UserAccount, bool> check)
+    /// <summary>Signs in with a staff code and PIN, by the same rules as <see cref="SignInAsync"/>.</summary>
+    public Task<SignInResult> SignInWithPinAsync(string staffCode, string pin, string? purpose = AuditActions.SignIn)
+    {
+        var code = staffCode.Trim();
+        return CheckAsync(u => u.StaffCode == code, code, true, user => user.PinHash is not null && VerifyPassword(pin, user.PinHash), purpose);
+    }
+
+    private async Task<SignInResult> CheckAsync(System.Linq.Expressions.Expression<Func<UserAccount, bool>> find, string typed, bool pin,
+        Func<UserAccount, bool> check, string? purpose)
     {
         await using var db = data.Create();
-        var user = await db.UserAccounts.Include(u => u.Role).ThenInclude(r => r!.Permissions).SingleOrDefaultAsync(find);
-        if (user is null || !user.IsActive) return null;
+        var user = typed.Length == 0 ? null : await db.UserAccounts.Include(u => u.Role).ThenInclude(r => r!.Permissions).SingleOrDefaultAsync(find);
         var now = DateTime.UtcNow;
-        if (user.LockedUntilUtc > now) return null;
-        if (check(user))
+        string why = purpose is null or AuditActions.SignIn ? "" : $" ({purpose})";
+        void Failed(string details) => db.Audit(AuditActions.FailedSignIn, details + why, nameof(UserAccount), user?.Id, userId: user?.Id, userName: user?.UserName ?? typed);
+        SignInResult result;
+        if (user is null)
         {
-            if (user.FailedSignIns != 0 || user.LockedUntilUtc is not null)
-            {
-                user.FailedSignIns = 0;
-                user.LockedUntilUtc = null;
-                await db.SaveChangesAsync();
-            }
-            return user;
+            Failed(pin ? $"Unknown staff code {typed}" : $"Unknown user {typed}");
+            result = new SignInResult(null, SignInFailure.WrongCredentials, null);
         }
-        if (++user.FailedSignIns >= SignInAttempts)
+        else if (!user.IsActive)
+        {
+            Failed($"{user.UserName} is not active");
+            result = new SignInResult(null, SignInFailure.NotActive, null);
+        }
+        else if (user.LockedUntilUtc > now)
+        {
+            Failed($"{user.UserName} is locked");
+            result = new SignInResult(null, SignInFailure.Locked, user.LockedUntilUtc);
+        }
+        else if (user.StoreId is { } home && data.Station is { } here && home != here.StoreId)
+        {
+            Failed($"{user.UserName} works at another store");
+            result = new SignInResult(null, SignInFailure.OtherStore, null);
+        }
+        else if (check(user))
         {
             user.FailedSignIns = 0;
-            user.LockedUntilUtc = now + LockoutTime;
+            user.LockedUntilUtc = null;
+            if (purpose is not null) db.Audit(purpose, user.UserName + why, nameof(UserAccount), user.Id, userId: user.Id, userName: user.UserName);
+            result = new SignInResult(user, SignInFailure.None, null);
+        }
+        else
+        {
+            bool locks = ++user.FailedSignIns >= SignInAttempts;
+            if (locks)
+            {
+                user.FailedSignIns = 0;
+                user.LockedUntilUtc = now + LockoutTime;
+            }
+            Failed($"{user.UserName}: wrong {(pin ? "PIN" : "password")}{(locks ? "; locked for " + LockoutTime.TotalMinutes + " minutes" : "")}");
+            result = new SignInResult(null, locks ? SignInFailure.Locked : SignInFailure.WrongCredentials, user.LockedUntilUtc);
         }
         await db.SaveChangesAsync();
-        return null;
+        return result;
+    }
+
+    /// <summary>
+    /// The "needs a supervisor" approval: another user signs in with a password (or, with <paramref name="pin"/>, a staff
+    /// code and PIN) and is accepted when their role has both <see cref="Permissions.PosApprove"/> and
+    /// <paramref name="permission"/>. Approvals and refusals go to the audit log with <paramref name="action"/>.
+    /// Returns the approver, or null with the reason.
+    /// </summary>
+    public async Task<(UserAccount? Approver, string? Problem)> ApproveAsync(string nameOrCode, string secret, bool pin, string permission, string action)
+    {
+        var signIn = pin ? await SignInWithPinAsync(nameOrCode, secret, purpose: null) : await SignInAsync(nameOrCode, secret, purpose: null);
+        if (signIn.User is not { } approver) return (null, signIn.Message);
+        bool allowed = Permissions.CanApprove(PermissionsOf(approver), permission);
+        await using var db = data.Create();
+        var asked = data.CurrentUser?.UserName;
+        db.Audit(allowed ? AuditActions.Approval : AuditActions.ApprovalRefused,
+            $"{action}: {(allowed ? "approved" : "may not approve")} by {approver.UserName}{(asked is null ? "" : " for " + asked)}",
+            nameof(UserAccount), approver.Id);
+        await db.SaveChangesAsync();
+        return allowed ? (approver, null) : (null, $"{approver.UserName} may not approve this.");
     }
 
     public static string HashPassword(string password)
@@ -415,7 +565,10 @@ public sealed class SetupService(DataContext data)
         await using var db = data.Create();
         var dept = await db.Departments.SingleOrDefaultAsync(d => d.Name == name);
         if (dept is null) return;
-        await db.Items.Where(i => i.DepartmentId == dept.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.DepartmentId, (Guid?)null));
+        if (await db.CommissionRules.Where(r => r.DepartmentId == dept.Id).Select(r => r.Name).FirstOrDefaultAsync() is { } rule)
+            throw new BusinessRuleException($"The commission rule \"{rule}\" is for department {name}. Change or delete the rule first.");
+        var now = DateTime.UtcNow;
+        await db.Items.Where(i => i.DepartmentId == dept.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.DepartmentId, (Guid?)null).SetProperty(i => i.UpdatedAtUtc, now));
         db.Departments.Remove(dept);
         await db.SaveChangesAsync();
     }
@@ -425,7 +578,10 @@ public sealed class SetupService(DataContext data)
         await using var db = data.Create();
         var cat = await db.Categories.SingleOrDefaultAsync(d => d.Name == name);
         if (cat is null) return;
-        await db.Items.Where(i => i.CategoryId == cat.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.CategoryId, (Guid?)null));
+        if (await db.CommissionRules.Where(r => r.CategoryId == cat.Id).Select(r => r.Name).FirstOrDefaultAsync() is { } rule)
+            throw new BusinessRuleException($"The commission rule \"{rule}\" is for category {name}. Change or delete the rule first.");
+        var now = DateTime.UtcNow;
+        await db.Items.Where(i => i.CategoryId == cat.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.CategoryId, (Guid?)null).SetProperty(i => i.UpdatedAtUtc, now));
         db.Categories.Remove(cat);
         await db.SaveChangesAsync();
     }
@@ -436,13 +592,23 @@ public sealed class SetupService(DataContext data)
         return await db.TaxConfigurations.AsNoTracking().OrderBy(t => t.Name).ToListAsync();
     }
 
+    /// <summary>
+    /// Saves the out-of-state tax configurations: rows read earlier are changed, new ones added and the ones left out
+    /// deleted, so the audit log and the server see what really changed.
+    /// </summary>
     public async Task SaveTaxConfigurationsAsync(IEnumerable<TaxConfiguration> configurations)
     {
         var list = configurations.Where(c => !string.IsNullOrWhiteSpace(c.Name)).ToList();
         if (list.Count > 12) throw new BusinessRuleException("You can enter up to 12 tax configurations.");
         await using var db = data.Create();
-        await db.TaxConfigurations.ExecuteDeleteAsync();
-        foreach (var c in list) db.TaxConfigurations.Add(new TaxConfiguration { Name = c.Name, Tax1Name = c.Tax1Name, Tax1Rate = c.Tax1Rate, Tax2Name = c.Tax2Name, Tax2Rate = c.Tax2Rate });
+        var stored = await db.TaxConfigurations.ToListAsync();
+        db.TaxConfigurations.RemoveRange(stored.Where(s => list.All(c => c.Id != s.Id)));
+        foreach (var c in list)
+        {
+            var row = stored.FirstOrDefault(s => s.Id == c.Id && c.Id != Guid.Empty);
+            if (row is null) db.TaxConfigurations.Add(row = new TaxConfiguration());
+            row.Name = c.Name.Trim(); row.Tax1Name = c.Tax1Name; row.Tax1Rate = c.Tax1Rate; row.Tax2Name = c.Tax2Name; row.Tax2Rate = c.Tax2Rate;
+        }
         await db.SaveChangesAsync();
     }
 
@@ -452,12 +618,20 @@ public sealed class SetupService(DataContext data)
         return await db.FxRates.AsNoTracking().OrderBy(r => r.Currency).ToListAsync();
     }
 
+    /// <summary>Saves the exchange rates by currency: changed, added, and the ones left out deleted.</summary>
     public async Task SaveFxRatesAsync(IEnumerable<FxRate> rates)
     {
+        var list = rates.Where(r => !string.IsNullOrWhiteSpace(r.Currency) && r.Rate > 0)
+            .GroupBy(r => r.Currency.Trim().ToUpperInvariant()).Select(g => (Currency: g.Key, g.Last().Rate)).ToList();
         await using var db = data.Create();
-        await db.FxRates.ExecuteDeleteAsync();
-        foreach (var r in rates.Where(r => !string.IsNullOrWhiteSpace(r.Currency) && r.Rate > 0))
-            db.FxRates.Add(new FxRate { Currency = r.Currency.Trim().ToUpperInvariant(), Rate = r.Rate });
+        var stored = await db.FxRates.ToListAsync();
+        db.FxRates.RemoveRange(stored.Where(s => list.All(r => r.Currency != s.Currency)));
+        foreach (var (currency, rate) in list)
+        {
+            var row = stored.FirstOrDefault(s => s.Currency == currency);
+            if (row is null) db.FxRates.Add(new FxRate { Currency = currency, Rate = rate });
+            else row.Rate = rate;
+        }
         await db.SaveChangesAsync();
     }
 

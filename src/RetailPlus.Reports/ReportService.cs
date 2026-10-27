@@ -1,11 +1,15 @@
 using Microsoft.EntityFrameworkCore;
 using RetailPlus.Core.Model;
+using RetailPlus.Core.Rules;
 using RetailPlus.Data.Services;
 
 namespace RetailPlus.Reports;
 
-/// <summary>A report the Reports window offers, with the inputs it needs.</summary>
-public sealed record ReportDefinition(string Key, string Group, string Name, bool NeedsDates);
+/// <summary>
+/// A report the Reports window offers, with the inputs it needs and the permission it asks for besides
+/// <see cref="Permissions.ReportsView"/> (null for none).
+/// </summary>
+public sealed record ReportDefinition(string Key, string Group, string Name, bool NeedsDates, string? Permission = null);
 
 /// <summary>The reports of the Reports menu, computed from the database.</summary>
 public sealed class ReportService(DataContext data)
@@ -15,7 +19,7 @@ public sealed class ReportService(DataContext data)
         new("daily", "Sales", "Daily sales summary", true),
         new("dept", "Sales", "Sales by department", true),
         new("items", "Sales", "Sales by item (best sellers)", true),
-        new("staff", "Sales", "Sales and commission by staff", true),
+        new("staff", "Sales", "Sales and commission by staff", true, Permissions.ReportsStaff),
         new("hourly", "Sales", "Sales by hour of day", true),
         new("tenders", "Sales", "Payments by tender type", true),
         new("tax", "Sales", "Sales tax collected", true),
@@ -33,6 +37,10 @@ public sealed class ReportService(DataContext data)
         new("suppliers", "Suppliers", "Supplier list", false),
         new("orders", "Suppliers", "Open purchase orders", false),
         new("drawer", "Drawer", "End of day history", true),
+        new("hours", "Staff", "Hours worked by staff member", true, Permissions.ReportsStaff),
+        new("hours-day", "Staff", "Hours worked by day", true, Permissions.ReportsStaff),
+        new("hours-week", "Staff", "Hours worked by week", true, Permissions.ReportsStaff),
+        new("commission", "Staff", "Commission by staff member", true, Permissions.ReportsStaff),
     ];
 
     public async Task<ReportTable> RunAsync(string key, Guid locationId, DateOnly from, DateOnly to)
@@ -77,9 +85,17 @@ public sealed class ReportService(DataContext data)
             }
             case "staff":
             {
-                var rows = await completed.GroupBy(s => s.Staff ?? "(none)")
-                    .Select(g => new { Staff = g.Key, Count = g.Count(), Net = g.Sum(s => s.Subtotal - s.SubtotalDiscount), Commission = g.SelectMany(s => s.Lines).Sum(l => l.Commission) })
-                    .OrderByDescending(r => r.Net).ToListAsync();
+                // Commission as the commission report works it out: by the commission rules, else the item's own rate.
+                var sums = await completed.GroupBy(s => new { s.StaffId, s.Staff })
+                    .Select(g => new { g.Key.StaffId, g.Key.Staff, Count = g.Count(), Net = g.Sum(s => s.Subtotal - s.SubtotalDiscount) }).ToListAsync();
+                var commission = (await new StaffService(data).CommissionByStaffAsync(from, to, locationId)).ToDictionary(r => r.Key);
+                var rows = sums.GroupBy(s => StaffService.StaffKey(s.StaffId, s.Staff))
+                    .Select(g => new
+                    {
+                        Staff = commission.TryGetValue(g.Key, out var c) ? c.Staff : g.First().Staff ?? "(none)",
+                        Count = g.Sum(s => s.Count), Net = g.Sum(s => s.Net), Commission = c?.Commission ?? 0m,
+                    })
+                    .OrderByDescending(r => r.Net).ToList();
                 return Table("Sales and commission by staff", period, [Col("Staff"), Col("Sales", ColumnKind.Count, true), Col("Net sales", ColumnKind.Money, true), Col("Average sale", ColumnKind.Money), Col("Commission", ColumnKind.Money, true)],
                     rows.Select(r => Row(r.Staff, r.Count, r.Net, r.Count == 0 ? 0m : r.Net / r.Count, r.Commission)));
             }
@@ -201,6 +217,41 @@ public sealed class ReportService(DataContext data)
                 var rows = await db.DrawerSessions.AsNoTracking().Where(d => d.OpenedAt >= start && d.OpenedAt < end).OrderBy(d => d.OpenedAt).ToListAsync();
                 return Table("End of day history", period, [Col("Station", ColumnKind.Count), Col("Opened", ColumnKind.Date), Col("Closed", ColumnKind.Date), Col("Customers", ColumnKind.Count, true), Col("Net sales", ColumnKind.Money, true), Col("Tax 1", ColumnKind.Money, true), Col("Tax 2", ColumnKind.Money, true), Col("Receipts", ColumnKind.Money, true)],
                     rows.Select(r => Row(r.StationNumber, r.OpenedAt, r.ClosedAt, r.CustomerCount, r.NetSales, r.Tax1Total, r.Tax2Total, r.TotalReceipts)));
+            }
+            case "hours":
+            {
+                var rows = (await new StaffService(data).HoursByDayAsync(from, to))
+                    .GroupBy(r => (r.UserId, r.UserName))
+                    .Select(g => new { g.Key.UserName, Days = g.Count(), Hours = g.Sum(r => r.Hours) })
+                    .OrderBy(r => r.UserName, StringComparer.CurrentCultureIgnoreCase).ToList();
+                return Table("Hours worked by staff member", period + " · finished shifts",
+                    [Col("Staff"), Col("Days worked", ColumnKind.Count, true), Col("Hours", ColumnKind.Quantity, true), Col("Average a day", ColumnKind.Quantity)],
+                    rows.Select(r => Row(r.UserName, r.Days, r.Hours, r.Days == 0 ? 0m : Math.Round(r.Hours / r.Days, 2))));
+            }
+            case "hours-day":
+            {
+                var rows = await new StaffService(data).HoursByDayAsync(from, to);
+                return Table("Hours worked by day", period + " · finished shifts; a shift over midnight counts on both days",
+                    [Col("Staff"), Col("Date", ColumnKind.Date), Col("Day"), Col("Hours", ColumnKind.Quantity, true)],
+                    rows.Select(r => Row(r.UserName, r.Day, r.Day.ToString("dddd", System.Globalization.CultureInfo.CurrentCulture), r.Hours)));
+            }
+            case "hours-week":
+            {
+                var rows = (await new StaffService(data).HoursByDayAsync(from, to))
+                    .GroupBy(r => (r.UserId, r.UserName, Week: TimeClock.WeekStart(r.Day)))
+                    .Select(g => new { g.Key.UserName, g.Key.Week, Days = g.Count(), Hours = g.Sum(r => r.Hours) })
+                    .OrderBy(r => r.UserName, StringComparer.CurrentCultureIgnoreCase).ThenBy(r => r.Week).ToList();
+                return Table("Hours worked by week", period + " · weeks start on Monday",
+                    [Col("Staff"), Col("Week of", ColumnKind.Date), Col("Days", ColumnKind.Count, true), Col("Hours", ColumnKind.Quantity, true)],
+                    rows.Select(r => Row(r.UserName, r.Week, r.Days, r.Hours)));
+            }
+            case "commission":
+            {
+                var rows = await new StaffService(data).CommissionByStaffAsync(from, to, locationId);
+                return Table("Commission by staff member", period + " · by the commission rules, else the item's own commission rate",
+                    [Col("Staff"), Col("Sales", ColumnKind.Count, true), Col("Units", ColumnKind.Quantity, true), Col("Net sales", ColumnKind.Money, true),
+                     Col("By rules", ColumnKind.Money, true), Col("By item rates", ColumnKind.Money, true), Col("Commission", ColumnKind.Money, true)],
+                    rows.Select(r => Row(r.Staff, r.Sales, r.Units, r.NetSales, r.FromRules, r.FromItems, r.Commission)));
             }
             default:
                 throw new ArgumentException($"Unknown report {key}", nameof(key));

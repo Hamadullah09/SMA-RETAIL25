@@ -275,12 +275,12 @@ public sealed class InventoryService(DataContext data)
     /// change of OnHand goes with one, so stock can be added up from the movements.
     /// </summary>
     public static StockMovement Record(RetailPlusDbContext db, Guid itemId, StockMovementKind kind, decimal quantity, decimal onHandAfter,
-        DateTime? at = null, long? document = null, string? reason = null, string? user = null, Guid? variantId = null)
+        DateTime? at = null, long? document = null, string? reason = null, string? user = null, Guid? variantId = null, Guid? userId = null)
     {
         var movement = new StockMovement
         {
             ItemId = itemId, VariantId = variantId, Kind = kind, At = at ?? DateTime.Now, Quantity = quantity, OnHandAfter = onHandAfter,
-            DocumentNumber = document, Reason = reason, User = user,
+            DocumentNumber = document, Reason = reason, User = user ?? db.ActingUserName, UserId = user is null ? db.ActingUserId : userId,
         };
         db.StockMovements.Add(movement);
         return movement;
@@ -300,10 +300,15 @@ public sealed class InventoryService(DataContext data)
         return (Guid)db.Entry(entity).Property("Id").CurrentValue!;
     }
 
+    /// <summary>Puts an item in the trash (Undelete brings it back).</summary>
     public async Task DeleteAsync(Guid id)
     {
         await using var db = data.Create();
-        await db.Items.Where(i => i.Id == id).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsDeleted, true).SetProperty(i => i.DeletedAt, DateTime.Now));
+        var item = await db.Items.SingleOrDefaultAsync(i => i.Id == id);
+        if (item is null || item.IsDeleted) return;
+        item.IsDeleted = true;
+        item.DeletedAt = DateTime.Now;
+        await db.SaveChangesAsync();
     }
 
     public async Task RestoreAsync(Guid id)
@@ -330,15 +335,19 @@ public sealed class InventoryService(DataContext data)
         await db.Items.Where(i => i.LocationId == locationId && i.IsFlagged).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsFlagged, false));
     }
 
-    /// <summary>Adjust Stock: adds (or with <paramref name="setTo"/> replaces) the on-hand count and logs the change.</summary>
-    public async Task<decimal> AdjustStockAsync(Guid itemId, decimal quantity, string? reason, string? user, bool setTo = false)
+    /// <summary>
+    /// Adjust Stock: adds (or with <paramref name="setTo"/> replaces) the on-hand count and logs the change as a stock
+    /// movement, which names the user (the movement is the record, so the item change is not audited as well).
+    /// </summary>
+    public async Task<decimal> AdjustStockAsync(Guid itemId, decimal quantity, string? reason, string? user, bool setTo = false, Guid? userId = null)
     {
         await using var db = data.Create();
+        db.SuppressAudit = true;
         await using var tx = await db.Database.BeginTransactionAsync();
         var item = await db.Items.SingleAsync(i => i.Id == itemId);
         decimal delta = setTo ? quantity - item.OnHand : quantity;
         item.OnHand += delta;
-        Record(db, itemId, StockMovementKind.Adjustment, delta, item.OnHand, reason: reason, user: user);
+        Record(db, itemId, StockMovementKind.Adjustment, delta, item.OnHand, reason: reason, user: user, userId: userId);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         return item.OnHand;
@@ -409,7 +418,12 @@ public sealed class InventoryService(DataContext data)
     public async Task<int> YearEndAsync(Guid locationId)
     {
         await using var db = data.Create();
-        return await db.Items.Where(i => i.LocationId == locationId && !i.IsDeleted)
-            .ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHandBeforeYearEnd, i => i.OnHand));
+        var now = DateTime.UtcNow;
+        int n = await db.Items.Where(i => i.LocationId == locationId && !i.IsDeleted)
+            .ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHandBeforeYearEnd, i => i.OnHand).SetProperty(i => i.UpdatedAtUtc, now));
+        var code = await db.Locations.Where(l => l.Id == locationId).Select(l => l.Code).SingleOrDefaultAsync();
+        db.Audit(AuditActions.YearEnd, $"Location {code}: {n} items", nameof(Location), locationId);
+        await db.SaveChangesAsync();
+        return n;
     }
 }

@@ -194,6 +194,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 {
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     UserName = table.Column<string>(type: "nvarchar(15)", maxLength: 15, nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     FromDate = table.Column<DateOnly>(type: "date", nullable: true),
                     ToDate = table.Column<DateOnly>(type: "date", nullable: true),
                     FromTime = table.Column<string>(type: "nvarchar(5)", maxLength: 5, nullable: true),
@@ -348,6 +349,36 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "AuditEntries",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StationNumber = table.Column<int>(type: "int", nullable: false),
+                    AtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    UserName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    Action = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    EntityName = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    EntityId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Before = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    After = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Details = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AuditEntries", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AuditEntries_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "CustomerOrders",
                 columns: table => new
                 {
@@ -360,7 +391,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     Company = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
                     Phone = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: true),
                     OrderDate = table.Column<DateOnly>(type: "date", nullable: true),
-                    SoldBy = table.Column<string>(type: "nvarchar(15)", maxLength: 15, nullable: true),
+                    SoldBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    SoldById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     InvoiceNumber = table.Column<long>(type: "bigint", nullable: false),
                     CustomerNumber = table.Column<string>(type: "nvarchar(11)", maxLength: 11, nullable: true),
                     ItemId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
@@ -409,6 +441,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     BottleReturns = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     TotalReceipts = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     IsFlagged = table.Column<bool>(type: "bit", nullable: false),
+                    ClosedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ClosedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
                 },
@@ -442,7 +476,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     Total = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     Balance = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     DiscountPercent = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
-                    SalesPerson = table.Column<string>(type: "nvarchar(15)", maxLength: 15, nullable: true),
+                    SalesPerson = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    SalesPersonId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     LastPaidDate = table.Column<DateOnly>(type: "date", nullable: true),
                     LastPaidAmount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     Penalty = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
@@ -578,6 +613,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     IsActive = table.Column<bool>(type: "bit", nullable: false),
                     Notes = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     IsFlagged = table.Column<bool>(type: "bit", nullable: false),
+                    CreatedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    CreatedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
                 },
@@ -767,7 +804,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     Amount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     At = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
                     Reason = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    User = table.Column<string>(type: "nvarchar(15)", maxLength: 15, nullable: true),
+                    User = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
                 },
@@ -844,6 +882,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     TenderType = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
                     AppliedToPenalty = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     Note = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    TakenBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    TakenById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
                 },
@@ -1006,6 +1046,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     Description = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     PostedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
                     ReceivedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    CreatedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    CreatedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ReceivedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ReceivedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
@@ -1037,7 +1081,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     StationNumber = table.Column<int>(type: "int", nullable: false),
                     LocationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     SoldAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
-                    Staff = table.Column<string>(type: "nvarchar(15)", maxLength: 15, nullable: true),
+                    Staff = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    StaffId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     ClientId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     ClientName = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
                     CustomerNumber = table.Column<string>(type: "nvarchar(11)", maxLength: 11, nullable: true),
@@ -1060,7 +1105,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     PointsRedeemed = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     Notes = table.Column<string>(type: "nvarchar(max)", nullable: true),
                     VoidedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
-                    VoidedBy = table.Column<string>(type: "nvarchar(15)", maxLength: 15, nullable: true),
+                    VoidedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    VoidedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     IsFlagged = table.Column<bool>(type: "bit", nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
@@ -1134,6 +1180,89 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         principalTable: "Stations",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "TimeClockEntries",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StationNumber = table.Column<int>(type: "int", nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UserName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    ClockIn = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    ClockOut = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    EditReason = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    EditedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    EditedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    EditedAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TimeClockEntries", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_TimeClockEntries_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_TimeClockEntries_UserAccounts_UserId",
+                        column: x => x.UserId,
+                        principalTable: "UserAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "CommissionRules",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Scope = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    DepartmentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    CategoryId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ItemId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Basis = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Rate = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
+                    EffectiveFrom = table.Column<DateOnly>(type: "date", nullable: true),
+                    EffectiveTo = table.Column<DateOnly>(type: "date", nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CommissionRules", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_CommissionRules_Categories_CategoryId",
+                        column: x => x.CategoryId,
+                        principalTable: "Categories",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_CommissionRules_Departments_DepartmentId",
+                        column: x => x.DepartmentId,
+                        principalTable: "Departments",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_CommissionRules_Items_ItemId",
+                        column: x => x.ItemId,
+                        principalTable: "Items",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_CommissionRules_UserAccounts_UserId",
+                        column: x => x.UserId,
+                        principalTable: "UserAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -1357,7 +1486,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     OnHandAfter = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
                     DocumentNumber = table.Column<long>(type: "bigint", nullable: true),
                     Reason = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    User = table.Column<string>(type: "nvarchar(15)", maxLength: 15, nullable: true),
+                    User = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
                 },
@@ -1505,6 +1635,36 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_AuditEntries_Action_AtUtc",
+                table: "AuditEntries",
+                columns: new[] { "Action", "AtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditEntries_AtUtc",
+                table: "AuditEntries",
+                column: "AtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditEntries_EntityName_EntityId",
+                table: "AuditEntries",
+                columns: new[] { "EntityName", "EntityId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditEntries_StoreId",
+                table: "AuditEntries",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditEntries_UpdatedAtUtc",
+                table: "AuditEntries",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditEntries_UserId_AtUtc",
+                table: "AuditEntries",
+                columns: new[] { "UserId", "AtUtc" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Categories_Name",
                 table: "Categories",
                 column: "Name",
@@ -1574,6 +1734,31 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "IX_Clients_Zip",
                 table: "Clients",
                 column: "Zip");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CommissionRules_CategoryId",
+                table: "CommissionRules",
+                column: "CategoryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CommissionRules_DepartmentId",
+                table: "CommissionRules",
+                column: "DepartmentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CommissionRules_ItemId",
+                table: "CommissionRules",
+                column: "ItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CommissionRules_UpdatedAtUtc",
+                table: "CommissionRules",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CommissionRules_UserId",
+                table: "CommissionRules",
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_CustomerOrders_Company",
@@ -2101,6 +2286,11 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "SoldAt");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Sales_StaffId",
+                table: "Sales",
+                column: "StaffId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Sales_StationNumber_InvoiceNumber",
                 table: "Sales",
                 columns: new[] { "StationNumber", "InvoiceNumber" });
@@ -2287,6 +2477,26 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_TimeClockEntries_ClockIn",
+                table: "TimeClockEntries",
+                column: "ClockIn");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TimeClockEntries_StoreId",
+                table: "TimeClockEntries",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TimeClockEntries_UpdatedAtUtc",
+                table: "TimeClockEntries",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TimeClockEntries_UserId_ClockIn",
+                table: "TimeClockEntries",
+                columns: new[] { "UserId", "ClockIn" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_UserAccounts_RoleId",
                 table: "UserAccounts",
                 column: "RoleId");
@@ -2318,6 +2528,12 @@ namespace RetailPlus.Data.SqlServer.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "AuditEntries");
+
+            migrationBuilder.DropTable(
+                name: "CommissionRules");
+
             migrationBuilder.DropTable(
                 name: "CustomerOrders");
 
@@ -2415,7 +2631,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "TenderTypes");
 
             migrationBuilder.DropTable(
-                name: "UserAccounts");
+                name: "TimeClockEntries");
 
             migrationBuilder.DropTable(
                 name: "DrawerSessions");
@@ -2442,7 +2658,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "Items");
 
             migrationBuilder.DropTable(
-                name: "Roles");
+                name: "UserAccounts");
 
             migrationBuilder.DropTable(
                 name: "Sales");
@@ -2455,6 +2671,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "Suppliers");
+
+            migrationBuilder.DropTable(
+                name: "Roles");
 
             migrationBuilder.DropTable(
                 name: "Clients");

@@ -17,6 +17,82 @@ namespace RetailPlus.Data.Sqlite.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
 
+            modelBuilder.Entity("RetailPlus.Core.Model.AuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<string>("After")
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<DateTime>("AtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Before")
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(400)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("EntityId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EntityName")
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<int>("StationNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AtUtc");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("Action", "AtUtc");
+
+                    b.HasIndex("EntityName", "EntityId");
+
+                    b.HasIndex("UserId", "AtUtc");
+
+                    b.ToTable("AuditEntries");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.Category", b =>
                 {
                     b.Property<Guid>("Id")
@@ -280,6 +356,78 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.CommissionRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Basis")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("EffectiveFrom")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly?>("EffectiveTo")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<decimal>("Rate")
+                        .HasPrecision(7, 3)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CommissionRules");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.CustomerOrder", b =>
                 {
                     b.Property<Guid>("Id")
@@ -352,9 +500,12 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .UseCollation("NOCASE");
 
                     b.Property<string>("SoldBy")
-                        .HasMaxLength(15)
+                        .HasMaxLength(50)
                         .HasColumnType("TEXT")
                         .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("SoldById")
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("StationNumber")
                         .HasColumnType("INTEGER");
@@ -498,9 +649,12 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("User")
-                        .HasMaxLength(15)
+                        .HasMaxLength(50)
                         .HasColumnType("TEXT")
                         .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -523,6 +677,14 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
                     b.Property<DateTime?>("ClosedAt")
                         .HasPrecision(0)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("ClosedById")
                         .HasColumnType("TEXT");
 
                     b.Property<decimal>("Cogs")
@@ -831,9 +993,12 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("SalesPerson")
-                        .HasMaxLength(15)
+                        .HasMaxLength(50)
                         .HasColumnType("TEXT")
                         .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("SalesPersonId")
+                        .HasColumnType("TEXT");
 
                     b.Property<string>("ShipTo")
                         .HasMaxLength(200)
@@ -976,6 +1141,14 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<Guid>("StoreId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TakenBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("TakenById")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("TenderType")
@@ -1753,6 +1926,14 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasPrecision(3)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Description")
                         .HasMaxLength(100)
                         .HasColumnType("TEXT")
@@ -1775,6 +1956,14 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
                     b.Property<DateTime?>("ReceivedAt")
                         .HasPrecision(0)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ReceivedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("ReceivedById")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("StationNumber")
@@ -2119,6 +2308,14 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasPrecision(3)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("CustomerEmail")
                         .HasMaxLength(100)
                         .HasColumnType("TEXT")
@@ -2383,9 +2580,12 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Staff")
-                        .HasMaxLength(15)
+                        .HasMaxLength(50)
                         .HasColumnType("TEXT")
                         .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("StaffId")
+                        .HasColumnType("TEXT");
 
                     b.Property<int>("StationNumber")
                         .HasColumnType("INTEGER");
@@ -2451,9 +2651,12 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("VoidedBy")
-                        .HasMaxLength(15)
+                        .HasMaxLength(50)
                         .HasColumnType("TEXT")
                         .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("VoidedById")
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
@@ -2464,6 +2667,8 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.HasIndex("LocationId");
 
                     b.HasIndex("SoldAt");
+
+                    b.HasIndex("StaffId");
 
                     b.HasIndex("StoreId");
 
@@ -2716,6 +2921,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasPrecision(3)
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("UserName")
                         .IsRequired()
                         .HasMaxLength(15)
@@ -2862,9 +3070,12 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("User")
-                        .HasMaxLength(15)
+                        .HasMaxLength(50)
                         .HasColumnType("TEXT")
                         .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid?>("VariantId")
                         .HasColumnType("TEXT");
@@ -3443,6 +3654,73 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.ToTable("TenderTypes");
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.TimeClockEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ClockIn")
+                        .HasPrecision(0)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ClockOut")
+                        .HasPrecision(0)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EditReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<DateTime?>("EditedAtUtc")
+                        .HasPrecision(0)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EditedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.Property<Guid?>("EditedById")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("StationNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClockIn");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("UserId", "ClockIn");
+
+                    b.ToTable("TimeClockEntries");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.UserAccount", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3612,6 +3890,38 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.HasIndex("Entity", "EntityId");
 
                     b.ToTable("ImportSourceRows");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.AuditEntry", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.CommissionRule", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Category", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RetailPlus.Core.Model.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RetailPlus.Core.Model.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RetailPlus.Core.Model.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.CustomerOrder", b =>
@@ -3995,6 +4305,21 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.HasOne("RetailPlus.Core.Model.Store", null)
                         .WithMany()
                         .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.TimeClockEntry", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });

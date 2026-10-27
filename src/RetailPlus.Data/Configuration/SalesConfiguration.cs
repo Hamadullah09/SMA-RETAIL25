@@ -8,7 +8,7 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
 {
     public void Configure(EntityTypeBuilder<Sale> e)
     {
-        e.Property(x => x.Staff).HasMaxLength(15);
+        e.Property(x => x.Staff).HasMaxLength(50);
         e.Property(x => x.ClientName).HasMaxLength(60);
         e.Property(x => x.CustomerNumber).HasMaxLength(11);
         e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
@@ -16,13 +16,14 @@ internal sealed class SaleConfiguration : IEntityTypeConfiguration<Sale>
         e.Property(x => x.Tax2Name).HasMaxLength(20);
         e.Property(x => x.Tax1Rate).Rate();
         e.Property(x => x.Tax2Rate).Rate();
-        e.Property(x => x.VoidedBy).HasMaxLength(15);
+        e.Property(x => x.VoidedBy).HasMaxLength(50);
         e.HasOne(x => x.Location).WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne(x => x.Client).WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.ClientSetNull);
         e.HasIndex(x => new { x.StationNumber, x.InvoiceNumber });
         e.HasIndex(x => x.InvoiceNumber);
         e.HasIndex(x => x.SoldAt);
         e.HasIndex(x => x.ClientId);
+        e.HasIndex(x => x.StaffId);
     }
 }
 
@@ -69,6 +70,7 @@ internal sealed class DrawerSessionConfiguration : IEntityTypeConfiguration<Draw
     public void Configure(EntityTypeBuilder<DrawerSession> e)
     {
         e.HasIndex(x => new { x.StationNumber, x.ClosedAt });
+        e.Property(x => x.ClosedBy).HasMaxLength(50);
         e.HasIndex(x => x.OpenedAt);
     }
 }
@@ -89,7 +91,7 @@ internal sealed class DrawerMovementConfiguration : IEntityTypeConfiguration<Dra
     {
         e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(12);
         e.Property(x => x.Reason).HasMaxLength(100);
-        e.Property(x => x.User).HasMaxLength(15);
+        e.Property(x => x.User).HasMaxLength(50);
         e.HasOne<DrawerSession>().WithMany(x => x.Movements).HasForeignKey(x => x.DrawerSessionId).OnDelete(DeleteBehavior.Cascade);
     }
 }
@@ -106,7 +108,7 @@ internal sealed class CustomerOrderConfiguration : IEntityTypeConfiguration<Cust
         e.Property(x => x.Name).HasMaxLength(30);
         e.Property(x => x.Company).HasMaxLength(30);
         e.Property(x => x.Phone).HasMaxLength(16);
-        e.Property(x => x.SoldBy).HasMaxLength(15);
+        e.Property(x => x.SoldBy).HasMaxLength(50);
         e.Property(x => x.CustomerNumber).HasMaxLength(11);
         e.Property(x => x.Plu).HasMaxLength(16);
         e.Property(x => x.Description).HasMaxLength(37);
@@ -139,6 +141,7 @@ internal sealed class RmaConfiguration : IEntityTypeConfiguration<Rma>
         e.Property(x => x.SupplierEmail).HasMaxLength(100);
         e.Property(x => x.SupplierRmaNumber).HasMaxLength(10);
         e.Property(x => x.SetType).HasMaxLength(16);
+        e.Property(x => x.CreatedBy).HasMaxLength(50);
     }
 }
 
@@ -204,7 +207,7 @@ internal sealed class StockMovementConfiguration : IEntityTypeConfiguration<Stoc
         e.Property(x => x.Quantity).Quantity();
         e.Property(x => x.OnHandAfter).Quantity();
         e.Property(x => x.Reason).HasMaxLength(100);
-        e.Property(x => x.User).HasMaxLength(15);
+        e.Property(x => x.User).HasMaxLength(50);
         e.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Cascade);
         e.HasIndex(x => new { x.ItemId, x.At });
         e.HasIndex(x => new { x.Kind, x.At });

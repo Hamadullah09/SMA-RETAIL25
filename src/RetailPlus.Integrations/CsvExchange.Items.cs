@@ -169,6 +169,8 @@ public sealed partial class CsvExchange
     {
         var rows = CsvRecord.Read(csv).ToList();
         await using var db = data.Create();
+        // One audit line for the file, not one per item.
+        db.SuppressAudit = true;
         await using var transaction = await db.Database.BeginTransactionAsync();
         var lookups = new Lookups(
             await db.Departments.ToDictionaryAsync(d => d.Name, StringComparer.OrdinalIgnoreCase),
@@ -269,6 +271,8 @@ public sealed partial class CsvExchange
             tag.SoldOnInvoice = status == ItemTagStatus.Sold ? receipt : null;
             if (status == ItemTagStatus.InStock) tag.SoldAt = null;
         }
+        var location = await db.Locations.Where(l => l.Id == locationId).Select(l => l.Code).SingleOrDefaultAsync();
+        db.Audit(Data.AuditActions.Import, $"Inventory CSV into {location}: {added} added, {updated} changed, {skipped} skipped, {pieces.Count} tags");
         await db.SaveChangesAsync();
         await transaction.CommitAsync();
         return new CsvImportResult(added, updated, skipped, problems, pieces.Count);

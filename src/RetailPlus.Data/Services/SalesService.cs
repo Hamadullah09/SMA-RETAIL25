@@ -57,6 +57,7 @@ public sealed class SalesService(DataContext data)
             LocationId = session.LocationId,
             SoldAt = now,
             Staff = draft.Staff ?? session.UserName,
+            StaffId = draft.Staff is null ? session.UserId : draft.StaffId,
             ClientId = draft.ClientId,
             ClientName = draft.ClientName,
             CustomerNumber = draft.CustomerNumber,
@@ -94,6 +95,8 @@ public sealed class SalesService(DataContext data)
 
         if (session.IsTrainee) return sale;
 
+        // The sale is its own record: the client's balance and points it changes are not audited one by one.
+        db.SuppressAudit = true;
         await using var tx = await db.Database.BeginTransactionAsync();
         Client? client = null;
         if (draft.ClientId is Guid clientId)
@@ -108,7 +111,7 @@ public sealed class SalesService(DataContext data)
         db.Sales.Add(sale);
         await db.SaveChangesAsync();
 
-        await ApplyStockAndStatisticsAsync(db, sale, +1, now);
+        await ApplyStockAndStatisticsAsync(db, sale, +1, now, sale.Staff, sale.StaffId);
         await UpdateTagsAsync(db, sale, +1);
 
         if (client is not null)
@@ -138,21 +141,25 @@ public sealed class SalesService(DataContext data)
         {
             InvoiceNumber = sale.InvoiceNumber, Kind = kind, ClientId = client.Id, AccountNumber = client.AccountNumber, CustomerNumber = client.Number,
             FirstName = client.FirstName, LastName = client.LastName, Company = client.Company, InvoiceDate = DateOnly.FromDateTime(sale.SoldAt),
-            Total = sale.Total, Balance = owing, SalesPerson = sale.Staff, Tax1Rate = sale.Tax1Rate, Tax2Rate = sale.Tax2Rate,
+            Total = sale.Total, Balance = owing, SalesPerson = sale.Staff, SalesPersonId = sale.StaffId, Tax1Rate = sale.Tax1Rate, Tax2Rate = sale.Tax2Rate,
             ShipTo = client.ShipTo, Email = client.Email, SaleId = sale.Id,
         };
         foreach (var l in sale.Lines.Where(l => l.Kind != SaleLineKind.Text))
             invoice.Lines.Add(new InvoiceLine { LineNumber = l.LineNumber, Plu = l.Plu, Description = l.Description, Quantity = l.Quantity, UnitPrice = l.UnitPrice, DiscountAmount = l.DiscountAmount, LineTotal = l.LineTotal });
         if (deposit > 0)
-            invoice.Payments.Add(new InvoicePayment { PaidOn = invoice.InvoiceDate, Amount = deposit, TenderType = "Deposit", Note = "Paid at the sale" });
+            invoice.Payments.Add(new InvoicePayment
+            {
+                PaidOn = invoice.InvoiceDate, Amount = deposit, TenderType = "Deposit", Note = "Paid at the sale", TakenBy = sale.Staff, TakenById = sale.StaffId,
+            });
         return invoice;
     }
 
     /// <summary>
     /// Stock counts, stock movements, serial numbers and sales statistics; <paramref name="sign"/> is -1 when voiding.
-    /// <paramref name="at"/> is the sale's time, which the statistics are counted in.
+    /// <paramref name="at"/> is the sale's time, which the statistics are counted in; the stock movements name
+    /// <paramref name="user"/>, who sold or voided.
     /// </summary>
-    private static async Task ApplyStockAndStatisticsAsync(RetailPlusDbContext db, Sale sale, int sign, DateTime at)
+    private static async Task ApplyStockAndStatisticsAsync(RetailPlusDbContext db, Sale sale, int sign, DateTime at, string? user, Guid? userId)
     {
         int year = at.Year, month = at.Month, week = (at.DayOfYear - 1) / 7 + 1;
         var movedAt = sign > 0 ? at : DateTime.Now;
@@ -168,7 +175,7 @@ public sealed class SalesService(DataContext data)
                 await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - qty));
                 if (line.VariantId is Guid variantId)
                     await db.ItemVariants.Where(v => v.Id == variantId).ExecuteUpdateAsync(s => s.SetProperty(v => v.OnHand, v => v.OnHand - qty));
-                InventoryService.Record(db, itemId, kind, -qty, await OnHandAsync(db, itemId), movedAt, sale.InvoiceNumber, variantId: line.VariantId, user: sale.Staff);
+                InventoryService.Record(db, itemId, kind, -qty, await OnHandAsync(db, itemId), movedAt, sale.InvoiceNumber, variantId: line.VariantId, user: user, userId: userId);
                 if (type == ItemType.Kit)
                 {
                     var components = await db.KitComponents.Where(k => k.KitItemId == itemId && k.ComponentItemId != null).ToListAsync();
@@ -178,7 +185,7 @@ public sealed class SalesService(DataContext data)
                         var componentId = c.ComponentItemId!.Value;
                         await db.Items.Where(i => i.Id == componentId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - cq));
                         InventoryService.Record(db, componentId, kind, -cq, await OnHandAsync(db, componentId), movedAt, sale.InvoiceNumber,
-                            reason: $"Kit {line.Plu}", user: sale.Staff);
+                            reason: $"Kit {line.Plu}", user: user, userId: userId);
                     }
                 }
                 if (type == ItemType.Serialized && !string.IsNullOrWhiteSpace(line.SerialNumber))
@@ -252,10 +259,11 @@ public sealed class SalesService(DataContext data)
     public async Task VoidSaleAsync(Guid saleId, SessionInfo session, string? reason = null)
     {
         await using var db = data.Create();
+        db.SuppressAudit = true;
         await using var tx = await db.Database.BeginTransactionAsync();
         var sale = await db.Sales.Include(s => s.Lines).ThenInclude(l => l.Tags).Include(s => s.Payments).SingleAsync(s => s.Id == saleId);
         if (sale.Status == SaleStatus.Voided) throw new BusinessRuleException("This sale is already voided.");
-        await ApplyStockAndStatisticsAsync(db, sale, -1, sale.SoldAt);
+        await ApplyStockAndStatisticsAsync(db, sale, -1, sale.SoldAt, session.UserName, session.UserId);
         await UpdateTagsAsync(db, sale, -1);
 
         var kinds = await db.TenderTypes.AsNoTracking().ToDictionaryAsync(t => t.Name, t => t.Kind);
@@ -278,7 +286,10 @@ public sealed class SalesService(DataContext data)
         sale.Status = SaleStatus.Voided;
         sale.VoidedAt = DateTime.Now;
         sale.VoidedBy = session.UserName;
+        sale.VoidedById = session.UserId;
         if (!string.IsNullOrWhiteSpace(reason)) sale.Notes = (sale.Notes + " Void: " + reason).Trim();
+        db.Audit(AuditActions.VoidSale, $"Invoice {sale.InvoiceNumber}, {sale.Total:N2}" + (string.IsNullOrWhiteSpace(reason) ? "" : ": " + reason.Trim()),
+            nameof(Sale), sale.Id, userId: session.UserId, userName: session.UserName);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
     }
@@ -351,6 +362,11 @@ public sealed class SalesService(DataContext data)
     {
         await using var db = data.Create();
         var isNew = order.Id == Guid.Empty;
+        if (isNew && order.SoldBy is null && data.CurrentUser is { } user)
+        {
+            order.SoldBy = user.UserName;
+            order.SoldById = user.UserId;
+        }
         if (isNew) db.CustomerOrders.Add(order); else db.CustomerOrders.Update(order);
         if (isNew && order.ItemId is Guid itemId)
             await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.CustomerOrdered, i => i.CustomerOrdered + order.Quantity));
@@ -380,6 +396,11 @@ public sealed class SalesService(DataContext data)
         {
             if (string.IsNullOrWhiteSpace(rma.CustomerRmaNumber) && rma.IsCustomerRma)
                 rma.CustomerRmaNumber = (await db.NextNumberAsync(RetailPlusDbContext.Sequences.RmaNumbers)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (rma.CreatedBy is null && data.CurrentUser is { } user)
+            {
+                rma.CreatedBy = user.UserName;
+                rma.CreatedById = user.UserId;
+            }
             db.Rmas.Add(rma);
         }
         else db.Rmas.Update(rma);

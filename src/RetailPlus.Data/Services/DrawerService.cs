@@ -63,7 +63,14 @@ public sealed class DrawerService(DataContext data)
             case DrawerMovementKind.PayIn: session.PayIns += amount; break;
             case DrawerMovementKind.PayOut: session.PayOuts += amount; break;
         }
-        db.DrawerMovements.Add(new DrawerMovement { DrawerSessionId = session.Id, Kind = kind, Amount = kind == DrawerMovementKind.NoSale ? 0 : amount, At = DateTime.Now, Reason = reason, User = info.UserName });
+        db.DrawerMovements.Add(new DrawerMovement
+        {
+            DrawerSessionId = session.Id, Kind = kind, Amount = kind == DrawerMovementKind.NoSale ? 0 : amount, At = DateTime.Now, Reason = reason,
+            User = info.UserName, UserId = info.UserId,
+        });
+        if (kind == DrawerMovementKind.NoSale)
+            db.Audit(AuditActions.NoSale, $"Station {info.StationNumber}" + (string.IsNullOrWhiteSpace(reason) ? "" : ": " + reason.Trim()),
+                nameof(DrawerSession), session.Id, userId: info.UserId, userName: info.UserName);
         await db.SaveChangesAsync();
     }
 
@@ -73,6 +80,10 @@ public sealed class DrawerService(DataContext data)
         await using var db = data.Create();
         var session = await GetOpenSessionAsync(db, info.StationNumber, info.LocationId);
         session.ClosedAt = DateTime.Now;
+        session.ClosedBy = info.UserName;
+        session.ClosedById = info.UserId;
+        db.Audit(AuditActions.EndOfDay, $"Station {info.StationNumber}: {session.CustomerCount} customers, net sales {session.NetSales:N2}, receipts {session.TotalReceipts:N2}",
+            nameof(DrawerSession), session.Id, userId: info.UserId, userName: info.UserName);
         await db.SaveChangesAsync();
         return await BuildReportAsync(db, session);
     }
