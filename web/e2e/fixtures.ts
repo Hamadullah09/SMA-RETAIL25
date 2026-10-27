@@ -1,0 +1,627 @@
+/**
+ * Server answers that follow docs/API.md, for the end-to-end tests and the screenshots. Shapes come from
+ * src/lib/types.ts, so a contract change that breaks them fails `npm run typecheck`.
+ */
+import type {
+  AuditRow,
+  BatchInfo,
+  Category,
+  ClientDetail,
+  ClientRow,
+  CommissionRow,
+  CommissionRule,
+  Dashboard,
+  Department,
+  GiftCardDetail,
+  GiftCardRow,
+  HoursRow,
+  ItemDetail,
+  ItemRow,
+  PermissionInfo,
+  ReportInfo,
+  ReportTable,
+  RoleInfo,
+  SaleDetail,
+  SaleRow,
+  StationInfo,
+  StockCountDetail,
+  StockCountRow,
+  StockMovementRow,
+  StoreInfo,
+  StoreSettings,
+  SupplierDetail,
+  SupplierRow,
+  TillInfo,
+  TimeClockEntry,
+  TransferDetail,
+  TransferRow,
+  UserInfo,
+  UserRow,
+} from '../src/lib/types';
+
+const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+const today = (() => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+})();
+const at = (time: string, date = today) => `${date}T${time}`;
+const daysBefore = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+// Permissions ---------------------------------------------------------------------------------------------------
+
+export const permissions: PermissionInfo[] = [
+  ['pos.sell', 'Sales', 'Ring up sales'],
+  ['pos.discount', 'Sales', 'Give discounts and change prices at the POS'],
+  ['pos.return', 'Sales', 'Take returns'],
+  ['pos.void-line', 'Sales', 'Remove lines and cancel sales without a supervisor'],
+  ['pos.void-sale', 'Sales', 'Void a completed sale'],
+  ['pos.no-sale', 'Sales', 'Open the drawer without a sale'],
+  ['pos.drawer', 'Sales', 'Open and count the drawer, pay in and pay out'],
+  ['pos.end-of-day', 'Sales', 'Run End of Day'],
+  ['pos.approve', 'Sales', "Approve what needs a supervisor at another user's till"],
+  ['inventory.view', 'Stock', 'See items and stock'],
+  ['inventory.edit', 'Stock', 'Add, change and delete items'],
+  ['inventory.adjust', 'Stock', 'Adjust stock'],
+  ['inventory.count', 'Stock', 'Count stock and post counts'],
+  ['inventory.transfer', 'Stock', 'Send and receive transfers between stores'],
+  ['inventory.prices', 'Stock', 'Change prices in bulk'],
+  ['inventory.labels', 'Stock', 'Print labels'],
+  ['purchasing.manage', 'Stock', 'Purchase orders and receiving'],
+  ['clients.view', 'Customers', 'See clients'],
+  ['clients.edit', 'Customers', 'Add and change clients'],
+  ['suppliers.edit', 'Customers', 'Add and change suppliers'],
+  ['invoices.manage', 'Customers', 'Invoices, quotes, layaways and their payments'],
+  ['rma.manage', 'Customers', 'Returns to suppliers and from customers (RMA)'],
+  ['giftcards.issue', 'Customers', 'Sell and reload gift cards'],
+  ['timeclock.punch', 'Staff', 'Punch in and out'],
+  ['timeclock.edit', 'Staff', 'Change time clock entries and commission rules'],
+  ['dashboard.view', 'Reports', 'See the dashboard'],
+  ['reports.view', 'Reports', 'Run reports'],
+  ['reports.staff', 'Reports', 'Staff hours and commission reports'],
+  ['setup.store', 'Back office', 'Business, taxes, POS settings, tenders, lists and texts'],
+  ['setup.users', 'Back office', 'Users and roles'],
+  ['setup.stations', 'Back office', "Stations and this station's settings"],
+  ['rfid.manage', 'Back office', 'RFID readers and tags'],
+  ['backup.manage', 'Back office', 'Back up, restore and rebuild the database'],
+  ['import.run', 'Back office', 'Import Retail Plus data and CSV files'],
+  ['yearend.run', 'Back office', 'Year end'],
+  ['audit.view', 'Back office', 'See the audit log'],
+  ['accounting.export', 'Back office', 'Export to accounting'],
+  ['sync.send', 'Back office', "Send this till's data to the server"],
+  ['web.signin', 'Web', 'Sign in to the web back office'],
+  ['stores.manage', 'Web', 'Add stores and tills'],
+  ['stores.all', 'Web', 'See and manage every store (super admin)'],
+].map(([key, group, description]) => ({ key, group, description }));
+
+const everything = permissions.map((p) => p.key);
+
+// Users -----------------------------------------------------------------------------------------------------------
+
+export const superAdmin: UserInfo = {
+  id: 'u-1',
+  userName: 'sara',
+  fullName: 'Sara Mensah',
+  role: 'Super administrator',
+  permissions: everything,
+  storeId: null,
+  storeName: null,
+  mustChangePassword: false,
+};
+
+/** A supervisor: dashboard, sales and reports, stock and clients, but no staff, users, setup or audit. */
+export const supervisor: UserInfo = {
+  id: 'u-2',
+  userName: 'kofi',
+  fullName: 'Kofi Boateng',
+  role: 'Supervisor',
+  permissions: ['web.signin', 'dashboard.view', 'reports.view', 'inventory.view', 'clients.view', 'giftcards.issue', 'timeclock.edit', 'sync.send'],
+  storeId: 's-main',
+  storeName: 'Downtown',
+  mustChangePassword: false,
+};
+
+// Stores and tills ------------------------------------------------------------------------------------------------
+
+export const stores: StoreInfo[] = [
+  { id: 's-main', code: 'MAIN', name: 'Downtown', timeZoneId: 'Eastern Standard Time' },
+  { id: 's-west', code: 'WEST', name: 'Westside Mall', timeZoneId: 'Eastern Standard Time' },
+  { id: 's-north', code: 'NORTH', name: 'Northgate', timeZoneId: 'Central Standard Time' },
+];
+
+export const tills: TillInfo[] = [
+  till('s-main', 'MAIN', 'Downtown', 1, 'Front counter', 'ok', 3, 1842.35, 61, true),
+  till('s-main', 'MAIN', 'Downtown', 2, 'Back counter', 'ok', 9, 966.1, 28, true),
+  till('s-main', 'MAIN', 'Downtown', 3, 'Shoe corner', 'behind', 60 * 30, 0, 0, false),
+  till('s-west', 'WEST', 'Westside Mall', 11, 'Kiosk A', 'ok', 5, 1311.8, 44, true),
+  till('s-west', 'WEST', 'Westside Mall', 12, 'Kiosk B', 'failed', 47, 412.5, 15, true, 2),
+  till('s-north', 'NORTH', 'Northgate', 21, 'Main till', 'never', null, 0, 0, false),
+  till('s-north', 'NORTH', 'Northgate', 22, 'Old till', 'retired', 60 * 24 * 40, 0, 0, false),
+];
+
+function till(
+  storeId: string,
+  storeCode: string,
+  storeName: string,
+  number: number,
+  name: string,
+  status: TillInfo['status'],
+  uploadMinutesAgo: number | null,
+  todayNetSales: number,
+  todayTransactions: number,
+  drawerOpen: boolean,
+  failedBatches = 0,
+): TillInfo {
+  return {
+    stationId: `st-${number}`,
+    storeId,
+    storeCode,
+    storeName,
+    number,
+    name,
+    enrolled: status !== 'never',
+    retired: status === 'retired',
+    appVersion: status === 'never' ? null : number === 22 ? '1.0.4' : '1.2.0',
+    lastUploadAtUtc: uploadMinutesAgo === null ? null : minutesAgo(uploadMinutesAgo),
+    lastDownloadAtUtc: uploadMinutesAgo === null ? null : minutesAgo(uploadMinutesAgo + 2),
+    lastSaleAt: todayTransactions > 0 ? at('14:52:10') : null,
+    todayNetSales,
+    todayTransactions,
+    drawerOpen,
+    failedBatches,
+    status,
+  };
+}
+
+export function station(number: number, storeId = 's-main'): StationInfo {
+  return {
+    id: `st-${number}`,
+    storeId,
+    number,
+    name: `Station ${String(number).padStart(3, '0')}`,
+    enrolled: false,
+    enrolledAtUtc: null,
+    retired: false,
+    enrollmentExpiresAtUtc: new Date(Date.now() + 24 * 3600_000).toISOString(),
+    lastUploadAtUtc: null,
+    lastDownloadAtUtc: null,
+    appVersion: null,
+    lastBatch: null,
+    failedBatches: 0,
+    behind: false,
+  };
+}
+
+export const stations: Record<string, StationInfo[]> = {
+  's-main': [1, 2, 3].map((n) => ({ ...station(n), enrolled: true, enrollmentExpiresAtUtc: null, enrolledAtUtc: minutesAgo(60 * 24 * 30) })),
+  's-west': [11, 12].map((n) => ({ ...station(n, 's-west'), enrolled: true, enrollmentExpiresAtUtc: null })),
+  's-north': [21].map((n) => station(n, 's-north')),
+};
+
+export const batches: BatchInfo[] = [
+  batch('b-1', 's-main', 1, 'Applied', 3, 'MAIN-001-eod.smapkg', 412),
+  batch('b-2', 's-west', 11, 'Applied', 5, 'WEST-011-auto.smapkg', 88),
+  batch('b-3', 's-west', 12, 'Failed', 47, 'WEST-012-usb.smapkg', 0, 'The package was signed with another key. Enrol the till again.'),
+  batch('b-4', 's-main', 2, 'Duplicate', 120, 'MAIN-002-eod.smapkg', 0),
+  batch('b-5', 's-main', 2, 'Applied', 9, 'MAIN-002-auto.smapkg', 57),
+];
+
+function batch(id: string, storeId: string, stationNumber: number, status: BatchInfo['status'], ago: number, fileName: string, rows: number, error: string | null = null): BatchInfo {
+  return {
+    id,
+    batchId: `${id}-guid`,
+    storeId,
+    stationNumber,
+    direction: 'Upload',
+    status,
+    fileName,
+    rows,
+    receivedAtUtc: minutesAgo(ago),
+    appliedAtUtc: status === 'Applied' ? minutesAgo(ago) : null,
+    appVersion: '1.2.0',
+    error,
+    notes: null,
+  };
+}
+
+// Dashboard -------------------------------------------------------------------------------------------------------
+
+const hourly = [0, 0, 0, 0, 0, 0, 0, 0, 0, 210.5, 388.2, 612.9, 845.4, 701.25, 655.1, 590.0, 480.75, 395.2, 310.4, 220.0, 95.0, 0, 0, 0];
+
+export const dashboard: Dashboard = {
+  from: today,
+  to: today,
+  totals: { netSales: 5532.75, tax: 719.26, total: 6252.01, transactions: 148, averageSale: 37.38, units: 391, returns: 84.5, discounts: 142.3, grossProfit: 2318.4, voids: 2 },
+  previous: { netSales: 4987.1, tax: 648.32, total: 5635.42, transactions: 152, averageSale: 32.81, units: 402.5, returns: 40, discounts: 120, grossProfit: 2011.0, voids: 1 },
+  byStore: [
+    { storeId: 's-main', code: 'MAIN', name: 'Downtown', netSales: 2808.45, transactions: 89, averageSale: 31.56, lastUploadAtUtc: minutesAgo(3) },
+    { storeId: 's-west', code: 'WEST', name: 'Westside Mall', netSales: 1724.3, transactions: 59, averageSale: 29.23, lastUploadAtUtc: minutesAgo(5) },
+    { storeId: 's-north', code: 'NORTH', name: 'Northgate', netSales: 1000, transactions: 0, averageSale: 0, lastUploadAtUtc: null },
+  ],
+  byDay: Array.from({ length: 7 }, (_, i) => ({ date: daysBefore(6 - i), netSales: [4120.5, 3880.2, 4511.75, 5020.0, 6210.4, 4987.1, 5532.75][i], transactions: [120, 111, 130, 141, 170, 152, 148][i] })),
+  byHour: hourly.map((netSales, hour) => ({ hour, netSales, transactions: Math.round(netSales / 37) })),
+  paymentMix: [
+    { tender: 'Cash', amount: 2410.2, count: 71 },
+    { tender: 'Visa', amount: 1890.55, count: 44 },
+    { tender: 'Debit', amount: 1201.3, count: 27 },
+    { tender: 'Gift card', amount: 249.96, count: 6 },
+  ],
+  topItems: [
+    { itemId: 'i-1', plu: 'TS-100-M', name: 'Cotton T-shirt, medium', units: 42, netSales: 754.0 },
+    { itemId: 'i-2', plu: 'JN-220-32', name: 'Slim jeans 32', units: 11, netSales: 659.89 },
+    { itemId: 'i-3', plu: 'SN-410', name: 'Canvas sneakers', units: 8, netSales: 519.92 },
+    { itemId: 'i-4', plu: 'HD-090-L', name: 'Hoodie, large', units: 9, netSales: 449.91 },
+    { itemId: 'i-5', plu: 'SK-001', name: 'Sport socks, 3 pack', units: 37, netSales: 369.63 },
+    { itemId: 'i-6', plu: 'CP-012', name: 'Baseball cap', units: 14, netSales: 279.86 },
+  ],
+  byCashier: [
+    { userId: 'u-3', userName: 'ama', netSales: 2210.4, transactions: 61 },
+    { userId: 'u-4', userName: 'yaw', netSales: 1795.0, transactions: 50 },
+    { userId: 'u-5', userName: 'efua', netSales: 1527.35, transactions: 37 },
+  ],
+  byStation: [
+    { storeId: 's-main', storeCode: 'MAIN', stationNumber: 1, netSales: 1842.35, transactions: 61 },
+    { storeId: 's-west', storeCode: 'WEST', stationNumber: 11, netSales: 1311.8, transactions: 44 },
+    { storeId: 's-main', storeCode: 'MAIN', stationNumber: 2, netSales: 966.1, transactions: 28 },
+    { storeId: 's-west', storeCode: 'WEST', stationNumber: 12, netSales: 412.5, transactions: 15 },
+  ],
+  drawers: [
+    { storeCode: 'MAIN', stationNumber: 1, closedAt: at('21:04:00', daysBefore(1)), closedBy: 'ama', expected: 812.4, counted: 812.4, variance: 0 },
+    { storeCode: 'WEST', stationNumber: 11, closedAt: at('21:10:00', daysBefore(1)), closedBy: 'yaw', expected: 640.0, counted: 635.0, variance: -5 },
+  ],
+};
+
+// Sales -----------------------------------------------------------------------------------------------------------
+
+const names = ['Akua Owusu', null, 'Daniel Kim', null, 'Grace Adjei', null, null, 'Marc Dubois'];
+export const sales: SaleRow[] = Array.from({ length: 23 }, (_, i) => {
+  const net = Math.round((18 + ((i * 37) % 140) + (i % 3) * 0.45) * 100) / 100;
+  const tax = Math.round(net * 0.13 * 100) / 100;
+  return {
+    id: `sale-${i + 1}`,
+    storeCode: i % 3 === 2 ? 'WEST' : 'MAIN',
+    stationNumber: i % 3 === 2 ? 11 : 1 + (i % 2),
+    invoiceNumber: 10000001 + 40 - i,
+    at: at(`${String(18 - Math.floor(i / 2)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}:00`),
+    staff: ['ama', 'yaw', 'efua'][i % 3],
+    client: names[i % names.length],
+    units: 1 + (i % 4),
+    netSales: net,
+    tax,
+    total: Math.round((net + tax) * 100) / 100,
+    tenders: ['Cash', 'Visa', 'Debit', 'Cash, Gift card'][i % 4],
+    voided: i === 4,
+  };
+});
+
+export function saleDetail(id: string): SaleDetail {
+  const row = sales.find((s) => s.id === id) ?? sales[0];
+  return {
+    ...row,
+    id,
+    invoiceNumber: 10000041,
+    netSales: 69.47,
+    tax: 9.03,
+    total: 78.5,
+    units: 3,
+    client: 'Akua Owusu',
+    tenders: 'Cash, Visa',
+    lines: [
+      { lineNumber: 1, plu: 'TS-100-M', description: 'Cotton T-shirt, medium', quantity: 2, price: 17.95, discount: 0, tax: 4.67, total: 35.9 },
+      { lineNumber: 2, plu: 'CP-012', description: 'Baseball cap', quantity: 1, price: 19.99, discount: 2.0, tax: 2.34, total: 17.99 },
+      { lineNumber: 3, plu: 'SK-001', description: 'Sport socks, 3 pack', quantity: 1, price: 9.99, discount: 0, tax: 1.3, total: 9.99 },
+      { lineNumber: 4, plu: null, description: 'Gift wrap', quantity: 1, price: 5.59, discount: 0, tax: 0.72, total: 5.59 },
+    ],
+    payments: [
+      { tender: 'Cash', amount: 40, currency: null, foreignAmount: null },
+      { tender: 'Visa', amount: 38.5, currency: null, foreignAmount: null },
+    ],
+    voided: false,
+    voidedBy: null,
+    voidedAt: null,
+  };
+}
+
+// Items -----------------------------------------------------------------------------------------------------------
+
+export const departments: Department[] = [
+  { id: 'd-1', name: 'Clothing' },
+  { id: 'd-2', name: 'Footwear' },
+  { id: 'd-3', name: 'Accessories' },
+];
+
+export const categories: Category[] = [
+  { id: 'c-1', name: 'Tops', departmentId: 'd-1' },
+  { id: 'c-2', name: 'Bottoms', departmentId: 'd-1' },
+  { id: 'c-3', name: 'Sneakers', departmentId: 'd-2' },
+  { id: 'c-4', name: 'Hats', departmentId: 'd-3' },
+];
+
+export const items: ItemRow[] = [
+  ['i-1', 'TS-100-M', 'Cotton T-shirt, medium', 'Clothing', 'Tops', 17.95, 6.2, 124],
+  ['i-2', 'JN-220-32', 'Slim jeans 32', 'Clothing', 'Bottoms', 59.99, 24.0, 31],
+  ['i-3', 'SN-410', 'Canvas sneakers', 'Footwear', 'Sneakers', 64.99, 28.5, 18],
+  ['i-4', 'HD-090-L', 'Hoodie, large', 'Clothing', 'Tops', 49.99, 19.75, 7],
+  ['i-5', 'SK-001', 'Sport socks, 3 pack', 'Accessories', null, 9.99, 3.1, 260],
+  ['i-6', 'CP-012', 'Baseball cap', 'Accessories', 'Hats', 19.99, 7.4, -2],
+  ['i-7', 'BL-300', 'Leather belt', 'Accessories', null, 34.5, 12.0, 0],
+].map(([id, plu, name, department, category, price1, averageCost, onHand]) => ({
+  id: id as string,
+  plu: plu as string,
+  name: name as string,
+  department: department as string,
+  category: category as string | null,
+  price1: price1 as number,
+  averageCost: averageCost as number,
+  onHand: onHand as number,
+  isActive: id !== 'i-7',
+}));
+
+export function itemDetail(id: string): ItemDetail {
+  const row = items.find((i) => i.id === id) ?? items[0];
+  return {
+    id: row.id,
+    version: 'v-1',
+    plu: row.plu,
+    name: row.name,
+    description: 'Soft ring-spun cotton, regular fit.',
+    departmentId: 'd-1',
+    categoryId: 'c-1',
+    supplierId: 'sp-1',
+    price1: row.price1,
+    price2: 16.95,
+    price3: 0,
+    lastCost: 6.4,
+    averageCost: row.averageCost,
+    taxable1: true,
+    taxable2: false,
+    taxable3: false,
+    reorderPoint: 20,
+    reorderQuantity: 60,
+    unitsPerCase: 12,
+    isActive: true,
+    notes: null,
+    stock: [
+      { storeCode: 'MAIN', locationCode: 'POS', onHand: 84 },
+      { storeCode: 'WEST', locationCode: 'POS', onHand: 40 },
+    ],
+  };
+}
+
+// Clients and suppliers -------------------------------------------------------------------------------------------
+
+export const clients: ClientRow[] = [
+  { id: 'cl-1', number: 10000001, name: 'Akua Owusu', company: null, phone: '416-555-0142', email: 'akua@example.com', balance: 0, points: 320, isDeleted: false },
+  { id: 'cl-2', number: 10000002, name: 'Daniel Kim', company: 'Kim Design', phone: '416-555-0199', email: 'daniel@example.com', balance: 145.2, points: 80, isDeleted: false },
+  { id: 'cl-3', number: 10000003, name: 'Grace Adjei', company: null, phone: null, email: null, balance: 0, points: 12, isDeleted: false },
+  { id: 'cl-4', number: 10000004, name: 'Marc Dubois', company: 'Dubois & Fils', phone: '514-555-0110', email: 'marc@example.com', balance: -20, points: 0, isDeleted: false },
+];
+
+export function clientDetail(id: string): ClientDetail {
+  const row = clients.find((c) => c.id === id) ?? clients[0];
+  const [firstName, lastName] = row.name.split(' ');
+  return {
+    id: row.id,
+    version: 'v-1',
+    number: row.number,
+    firstName,
+    lastName,
+    company: row.company,
+    address1: '12 King Street West',
+    address2: null,
+    city: 'Toronto',
+    province: 'ON',
+    postalCode: 'M5H 1A1',
+    country: 'Canada',
+    phone: row.phone,
+    phone2: null,
+    email: row.email,
+    creditLimit: 500,
+    balance: row.balance,
+    points: row.points,
+    notes: null,
+  };
+}
+
+export const suppliers: SupplierRow[] = [
+  { id: 'sp-1', code: 'COTTON', company: 'Cotton Co. Ltd', contact: 'Ruth Mensah', phone: '416-555-0100', email: 'orders@cottonco.example', isDeleted: false },
+  { id: 'sp-2', code: 'SOLE', company: 'Sole Brothers', contact: 'Ali Hassan', phone: '905-555-0123', email: null, isDeleted: false },
+  { id: 'sp-3', code: 'CAPS', company: 'Top Caps Inc.', contact: null, phone: null, email: 'hello@topcaps.example', isDeleted: false },
+];
+
+export function supplierDetail(id: string): SupplierDetail {
+  const row = suppliers.find((s) => s.id === id) ?? suppliers[0];
+  return {
+    id: row.id,
+    version: 'v-1',
+    code: row.code,
+    company: row.company,
+    contact: row.contact,
+    address1: '400 Industrial Road',
+    address2: null,
+    city: 'Mississauga',
+    province: 'ON',
+    postalCode: 'L4W 1A1',
+    country: 'Canada',
+    phone: row.phone,
+    fax: null,
+    email: row.email,
+    notes: null,
+  };
+}
+
+// Stock -----------------------------------------------------------------------------------------------------------
+
+export const movements: StockMovementRow[] = [
+  { at: at('14:52:10'), storeCode: 'MAIN', locationCode: 'POS', plu: 'TS-100-M', name: 'Cotton T-shirt, medium', kind: 'Sale', quantity: -2, onHandAfter: 84, unitCost: 6.2, documentNumber: '10000041', reason: null, user: 'ama' },
+  { at: at('11:20:00'), storeCode: 'MAIN', locationCode: 'POS', plu: 'TS-100-M', name: 'Cotton T-shirt, medium', kind: 'Receipt', quantity: 48, onHandAfter: 86, unitCost: 6.4, documentNumber: 'PO 3000012', reason: null, user: 'kofi' },
+  { at: at('10:05:00'), storeCode: 'WEST', locationCode: 'POS', plu: 'CP-012', name: 'Baseball cap', kind: 'Adjustment', quantity: -1, onHandAfter: 6, unitCost: 7.4, documentNumber: null, reason: 'Damaged', user: 'yaw' },
+  { at: at('09:15:00'), storeCode: 'MAIN', locationCode: 'POS', plu: 'SN-410', name: 'Canvas sneakers', kind: 'TransferOut', quantity: -4, onHandAfter: 18, unitCost: 28.5, documentNumber: 'T 1000003', reason: null, user: 'kofi' },
+];
+
+export const transfers: TransferRow[] = [
+  { id: 't-3', number: 1000003, status: 'Shipped', fromStore: 'MAIN', fromLocation: 'POS', toStore: 'WEST', toLocation: 'POS', createdAt: at('09:10:00'), shippedAt: at('09:15:00'), receivedAt: null, lines: 2, units: 10, value: 228.0 },
+  { id: 't-2', number: 1000002, status: 'Received', fromStore: 'WEST', fromLocation: 'POS', toStore: 'MAIN', toLocation: 'POS', createdAt: at('10:00:00', daysBefore(3)), shippedAt: at('10:30:00', daysBefore(3)), receivedAt: at('15:00:00', daysBefore(2)), lines: 1, units: 6, value: 118.5 },
+];
+
+export function transferDetail(id: string): TransferDetail {
+  const row = transfers.find((t) => t.id === id) ?? transfers[0];
+  return {
+    ...row,
+    lines: [
+      { plu: 'SN-410', description: 'Canvas sneakers', quantityShipped: 4, quantityReceived: 0, unitCost: 28.5 },
+      { plu: 'TS-100-M', description: 'Cotton T-shirt, medium', quantityShipped: 6, quantityReceived: 0, unitCost: 19 },
+    ],
+  };
+}
+
+export const counts: StockCountRow[] = [
+  { id: 'k-2', number: 2000002, status: 'Open', storeCode: 'MAIN', locationCode: 'POS', startedAt: at('08:30:00'), postedAt: null, lines: 3, varianceUnits: -3, varianceValue: -26.4 },
+  { id: 'k-1', number: 2000001, status: 'Posted', storeCode: 'WEST', locationCode: 'POS', startedAt: at('08:00:00', daysBefore(7)), postedAt: at('12:00:00', daysBefore(7)), lines: 40, varianceUnits: 2, varianceValue: 18.9 },
+];
+
+export function countDetail(id: string): StockCountDetail {
+  const row = counts.find((c) => c.id === id) ?? counts[0];
+  return {
+    ...row,
+    lines: [
+      { plu: 'TS-100-M', description: 'Cotton T-shirt, medium', expected: 84, counted: 82, variance: -2, varianceCost: -12.4, notCounted: false },
+      { plu: 'CP-012', description: 'Baseball cap', expected: 6, counted: 5, variance: -1, varianceCost: -7.4, notCounted: false },
+      { plu: 'BL-300', description: 'Leather belt', expected: 3, counted: 0, variance: 0, varianceCost: 0, notCounted: true },
+    ],
+  };
+}
+
+// Gift cards ------------------------------------------------------------------------------------------------------
+
+export const giftCards: GiftCardRow[] = [
+  { id: 'g-1', number: '6035 0000 1234', kind: 'Card', storeCode: 'MAIN', issuedAt: at('12:00:00', daysBefore(20)), expiresOn: null, isActive: true, client: 'Akua Owusu', balance: 35.5 },
+  { id: 'g-2', number: '6035 0000 1240', kind: 'Certificate', storeCode: 'WEST', issuedAt: at('16:30:00', daysBefore(5)), expiresOn: daysBefore(-360), isActive: true, client: null, balance: 50 },
+  { id: 'g-3', number: '6035 0000 0999', kind: 'Card', storeCode: 'MAIN', issuedAt: at('10:00:00', daysBefore(400)), expiresOn: null, isActive: false, client: null, balance: 0 },
+];
+
+export function giftCardDetail(id: string): GiftCardDetail {
+  const row = giftCards.find((g) => g.id === id) ?? giftCards[0];
+  return {
+    ...row,
+    history: [
+      { at: row.issuedAt, kind: 'Issue', amount: 50, balanceAfter: 50, storeCode: 'MAIN', stationNumber: 1, invoiceNumber: 10000003, user: 'ama', note: null },
+      { at: at('13:15:00', daysBefore(2)), kind: 'Redeem', amount: -14.5, balanceAfter: 35.5, storeCode: 'MAIN', stationNumber: 2, invoiceNumber: 10000031, user: 'yaw', note: null },
+    ],
+  };
+}
+
+// Reports ---------------------------------------------------------------------------------------------------------
+
+export const reports: ReportInfo[] = [
+  ['daily', 'Sales', 'Daily sales summary', true],
+  ['dept', 'Sales', 'Sales by department', true],
+  ['items', 'Sales', 'Sales by item (best sellers)', true],
+  ['staff', 'Sales', 'Sales and commission by staff', true],
+  ['hourly', 'Sales', 'Sales by hour of day', true],
+  ['tenders', 'Sales', 'Payments by tender type', true],
+  ['tax', 'Sales', 'Sales tax collected', true],
+  ['voids', 'Sales', 'Voided sales', true],
+  ['stock', 'Inventory', 'Inventory valuation', false],
+  ['reorder', 'Inventory', 'Items at or below reorder point', false],
+  ['negative', 'Inventory', 'Items with negative stock', false],
+  ['clients', 'Clients', 'Client list', false],
+  ['balances', 'Clients', 'Client balances', false],
+  ['suppliers', 'Suppliers', 'Supplier list', false],
+  ['drawer', 'Drawer', 'End of day history', true],
+  ['hours', 'Staff', 'Hours worked by staff member', true],
+  ['giftcards', 'Gift cards', 'Gift card liability', false],
+].map(([key, group, title, usesDates]) => ({ key: key as string, group: group as string, title: title as string, usesDates: usesDates as boolean }));
+
+export const dailyReport: ReportTable = {
+  title: 'Daily sales summary',
+  subtitle: `${daysBefore(3)} to ${today}`,
+  columns: [
+    { header: 'Date', kind: 'Date', total: false },
+    { header: 'Customers', kind: 'Count', total: true },
+    { header: 'Net sales', kind: 'Money', total: true },
+    { header: 'Tax 1', kind: 'Money', total: true },
+    { header: 'Tax 2', kind: 'Money', total: true },
+    { header: 'Total', kind: 'Money', total: true },
+    { header: 'Cost', kind: 'Money', total: true },
+    { header: 'Profit', kind: 'Money', total: true },
+    { header: 'Margin', kind: 'Percent', total: false },
+  ],
+  rows: [
+    [daysBefore(3), 141, 5020.0, 652.6, 0, 5672.6, 3010.0, 2010.0, 40.04],
+    [daysBefore(2), 170, 6210.4, 807.35, 0, 7017.75, 3700.2, 2510.2, 40.42],
+    [daysBefore(1), 152, 4987.1, 648.32, 0, 5635.42, 2976.1, 2011.0, 40.32],
+    [today, 148, 5532.75, 719.26, 0, 6252.01, 3214.35, 2318.4, 41.9],
+  ],
+  totals: null,
+};
+
+// Users, roles, audit -------------------------------------------------------------------------------------------
+
+export const roles: RoleInfo[] = [
+  { id: 'r-1', version: 'v-1', name: 'Trainee', description: 'Practice sales that are not kept', level: 0, isSystem: true, permissions: ['pos.sell', 'inventory.view', 'clients.view', 'timeclock.punch'], userCount: 0 },
+  { id: 'r-2', version: 'v-1', name: 'Cashier', description: 'Sales at the till', level: 1, isSystem: true, permissions: ['pos.sell', 'pos.return', 'pos.drawer', 'inventory.view', 'clients.view', 'clients.edit', 'giftcards.issue', 'timeclock.punch', 'sync.send'], userCount: 6 },
+  { id: 'r-4', version: 'v-1', name: 'Supervisor', description: 'Approves voids, discounts and End of Day; reports', level: 3, isSystem: true, permissions: supervisor.permissions, userCount: 2 },
+  { id: 'r-6', version: 'v-1', name: 'Administrator', description: 'Everything for one store, at the tills and on the web', level: 4, isSystem: true, permissions: everything.filter((k) => k !== 'stores.all'), userCount: 1 },
+  { id: 'r-7', version: 'v-1', name: 'Super administrator', description: 'Everything, for every store', level: 4, isSystem: true, permissions: everything, userCount: 1 },
+  { id: 'r-8', version: 'v-1', name: 'Weekend help', description: 'Sales and stock look-ups only', level: 1, isSystem: false, permissions: ['pos.sell', 'inventory.view'], userCount: 0 },
+];
+
+export const users: UserRow[] = [
+  { id: 'u-1', version: 'v-1', userName: 'sara', fullName: 'Sara Mensah', roleId: 'r-7', role: 'Super administrator', storeId: null, storeCode: null, staffCode: '100', isActive: true, locked: false, mustChangePassword: false, lastSignInAtUtc: minutesAgo(2) },
+  { id: 'u-2', version: 'v-1', userName: 'kofi', fullName: 'Kofi Boateng', roleId: 'r-4', role: 'Supervisor', storeId: 's-main', storeCode: 'MAIN', staffCode: '201', isActive: true, locked: false, mustChangePassword: false, lastSignInAtUtc: minutesAgo(60 * 5) },
+  { id: 'u-3', version: 'v-1', userName: 'ama', fullName: 'Ama Darko', roleId: 'r-2', role: 'Cashier', storeId: 's-main', storeCode: 'MAIN', staffCode: '301', isActive: true, locked: false, mustChangePassword: false, lastSignInAtUtc: minutesAgo(30) },
+  { id: 'u-4', version: 'v-1', userName: 'yaw', fullName: 'Yaw Asante', roleId: 'r-2', role: 'Cashier', storeId: 's-west', storeCode: 'WEST', staffCode: '302', isActive: true, locked: true, mustChangePassword: false, lastSignInAtUtc: minutesAgo(60 * 26) },
+  { id: 'u-5', version: 'v-1', userName: 'efua', fullName: 'Efua Quaye', roleId: 'r-2', role: 'Cashier', storeId: 's-west', storeCode: 'WEST', staffCode: null, isActive: false, locked: false, mustChangePassword: true, lastSignInAtUtc: null },
+];
+
+export const audit: AuditRow[] = [
+  { id: 'a-3', atUtc: minutesAgo(12), storeCode: 'MAIN', stationNumber: 0, userName: 'sara', action: 'Changed', entityName: 'Item', entityId: 'i-1', details: 'TS-100-M', before: { Price1: 16.95, Description: 'Cotton T-shirt, medium', ReorderPoint: 10 }, after: { Price1: 17.95, Description: 'Cotton T-shirt, medium', ReorderPoint: 20 } },
+  { id: 'a-2', atUtc: minutesAgo(48), storeCode: 'MAIN', stationNumber: 1, userName: 'ama', action: 'Void sale', entityName: 'Sale', entityId: 'sale-5', details: 'Invoice 10000037 voided, approved by kofi', before: null, after: null },
+  { id: 'a-1', atUtc: minutesAgo(130), storeCode: 'WEST', stationNumber: 11, userName: 'yaw', action: 'Sign in', entityName: null, entityId: null, details: 'Signed in with staff code and PIN', before: null, after: null },
+];
+
+// Staff -----------------------------------------------------------------------------------------------------------
+
+export const timeClock: TimeClockEntry[] = [
+  { id: 'tc-1', userId: 'u-3', userName: 'ama', storeCode: 'MAIN', stationNumber: 1, inAt: at('08:58:00'), outAt: null, hours: null, editedBy: null, editReason: null },
+  { id: 'tc-2', userId: 'u-4', userName: 'yaw', storeCode: 'WEST', stationNumber: 11, inAt: at('09:00:00', daysBefore(1)), outAt: at('17:30:00', daysBefore(1)), hours: 8.5, editedBy: 'kofi', editReason: 'Forgot to punch out' },
+  { id: 'tc-3', userId: 'u-3', userName: 'ama', storeCode: 'MAIN', stationNumber: 1, inAt: at('09:02:00', daysBefore(1)), outAt: at('17:01:00', daysBefore(1)), hours: 7.98, editedBy: null, editReason: null },
+];
+
+export const hours: HoursRow[] = [
+  { userId: 'u-3', userName: 'ama', days: 5, hours: 39.75 },
+  { userId: 'u-4', userName: 'yaw', days: 4, hours: 32.5 },
+];
+
+export const commission: CommissionRow[] = [
+  { staff: 'ama', sales: 61, units: 140, netSales: 2210.4, fromRules: 88.42, fromItems: 12.1, commission: 100.52 },
+  { staff: 'yaw', sales: 50, units: 122, netSales: 1795.0, fromRules: 71.8, fromItems: 0, commission: 71.8 },
+];
+
+export const commissionRules: CommissionRule[] = [
+  { id: 'cr-1', version: 'v-1', name: 'Everyone, all items', userId: null, userName: null, scope: 'AllItems', departmentId: null, categoryId: null, itemId: null, target: 'PercentOfNetSales', percent: 2, startsOn: null, endsOn: null, isActive: true },
+  { id: 'cr-2', version: 'v-1', name: 'Footwear push', userId: 'u-3', userName: 'ama', scope: 'Department', departmentId: 'd-2', categoryId: null, itemId: null, target: 'PercentOfNetSales', percent: 5, startsOn: daysBefore(10), endsOn: daysBefore(-20), isActive: true },
+];
+
+// Settings --------------------------------------------------------------------------------------------------------
+
+export const settings: StoreSettings = {
+  version: 'v-1',
+  companyName: 'SMA Fashion Downtown',
+  address1: '12 King Street West',
+  address2: null,
+  city: 'Toronto',
+  province: 'ON',
+  postalCode: 'M5H 1A1',
+  phone: '416-555-0100',
+  email: 'downtown@smafashion.example',
+  website: 'smafashion.example',
+  taxNumber: '81234 5678 RT0001',
+  currencySymbol: '$',
+  receiptHeader: 'Thank you for shopping with us',
+  receiptFooter: 'Returns within 30 days with this receipt',
+};
