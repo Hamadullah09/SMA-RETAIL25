@@ -17,6 +17,7 @@ SMA RETAIL, by SMA Technology: a clean-room rewrite of the Retail Plus 5.2 point
 | `src/RetailPlus.Data.SqlServer` | The SQL Server migrations (the server) |
 | `src/RetailPlus.Migration` | The one-time import: DBF/FPT reader (`Dbf/`), memo codecs (`Codecs/`), importer with verification and report (`Import/`) |
 | `src/RetailPlus.Import` | Command-line importer |
+| `src/RetailPlus.Cutover` | One-time cutover of a Retail25 database (the old web system) into the new model, with a verification report ([docs/CUTOVER.md](docs/CUTOVER.md)) |
 | `src/RetailPlus.Reports` | Report queries, CSV/HTML output, receipt / statement / drawer report text |
 | `src/RetailPlus.Rfid` | UHF RFID: D2184 protocol driver (`D2184/`), simulated reader, the RFID hub (antenna-to-station routing) and its HTTP client |
 | `src/RetailPlus.RfidHub` | `SmaRetail.RfidHub`: the RFID hub as a service for many readers and stations |
@@ -28,6 +29,7 @@ SMA RETAIL, by SMA Technology: a clean-room rewrite of the Retail Plus 5.2 point
 | `tests/RetailPlus.Data.Tests` | Schema and service integration tests, each run on a throwaway SQLite file and on a throwaway LocalDB database |
 | `tests/RetailPlus.Rfid.Tests` | Protocol, driver (against a fake reader on a socket), hub routing with 63 simulated readers, hub client |
 | `tests/RetailPlus.Migration.Tests` | Reader, codec and importer tests: synthetic fixtures, plus live runs on real data when present |
+| `tests/RetailPlus.Cutover.Tests` | Cutover runs from an enriched copy of Retail25's demo database into a new SQLite file and a new LocalDB database |
 | `tests/RetailPlus.Parity` | Placeholder for old-vs-new comparison runs |
 | `tools/dbf/` | Read-only Python tools, including the reader's test oracle |
 | `spikes/` | Phase 0 experiments (X# runtime). Not in `RetailPlus.sln`; build them directly if needed |
@@ -96,6 +98,14 @@ dotnet run --project src/RetailPlus.Import -- --source <data folder> [--db <file
 ```
 
 Without a database option the import goes into the app's default SQLite file. It runs in one transaction, replaces everything but the store itself, records each item's opening stock as its first stock movement, checks control totals (record counts, stock, balances) against the source, and writes `report.md` and `report.json`. Imported documents keep their Retail Plus numbers; new ones are numbered per station from station × 10,000,000 + 1.
+
+## Carry over Retail25 (pos.sma-techno.net)
+
+```
+dotnet run --project src/RetailPlus.Cutover -- --source "<Retail25 connection>" --target "<connection string or .db file>" [--dry-run] [--report <file.md>] [--store-code <code>]
+```
+
+Reads the Retail25 SQL Server database (never writes it) and carries stores, settings, users and roles, items with their stock, clients, gift cards, loyalty points, sales history and open documents into the new model, in one transaction. Running it again changes only what changed in Retail25; `--dry-run` writes nothing. Every run ends with a report and checks (stock per store, receivables, gift card liability, points, sales per day and per tender); the exit code is 2 when a check differs. Users keep their Retail25 passwords, which are stored again in the new format at their first sign-in. The runbook for the switch, the mapping and the decisions are in [docs/CUTOVER.md](docs/CUTOVER.md).
 
 ## Build and test
 

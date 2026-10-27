@@ -215,3 +215,15 @@ On branch `phase5-staff-security`:
 | Time clock | `TimeClockEntries`: punch in and out at the login window or the Staff screen, one open entry per user, supervisor corrections with a reason (audited); hours reports by staff member, day and week |
 | Commission | `CommissionRules` (everyone or one user; all items, a department, a category or an item; percent of net sales or amount per unit; effective dates). Lines no rule covers keep the item's commission percent. Commission report and per-salesperson detail |
 | Help | Help screen with 22 searchable topics; Ctrl+K goes to any screen, report, action or help topic; Ctrl+Shift+H opens the help |
+
+## 11. Phase 6 status: data and cutover (2026-10-28)
+
+On branch `phase6-cutover`:
+
+| Area | What was built |
+|---|---|
+| Cutover tool | `src/RetailPlus.Cutover` (`RetailPlus.Cutover --source … --target … [--dry-run] [--report …] [--store-code …]`): reads Retail25 with ADO.NET, writes the new model through `RetailPlusDbContext` in one transaction with the audit lines held back and one Import line per run, records an `ImportBatch`. Ids are name-based UUIDs of each Retail25 row, so a second run changes nothing and a later run updates what changed; a dry run rolls back (or stages in a temporary file when the target has no schema) |
+| Mapping | Stores and locations, stations, settings, branding, tenders, exchange rates, departments, categories, roles (standard or custom with translated keys), users, suppliers, items with prices, suppliers, matrix, kits, serials, RFID tags and pictures, opening stock, clients with accounts, balances and points, gift cards and certificates, sales history, invoices, open layaways and quotes, open purchase orders, customer orders, transfers in transit, commission rules, time clock. Everything else is listed as not carried over, with counts |
+| Checks | Stock per store (units, ledger, value at cost), receivables, layaways owing, client balances, gift card liability, loyalty points, sales per business day and per tender, row counts; exit code 2 when one differs |
+| Passwords | `SetupService.VerifyPassword` accepts ASP.NET Identity v3 hashes and the sign-in stores them again in the program's format; Retail25's Argon2 PINs are not carried over |
+| Runbook | [docs/CUTOVER.md](CUTOVER.md): backup, trial run on a copy, freeze, final run, deploying the server and web app, switching the site, enrolling tills, first download, checks, rollback, mapping and decisions |
