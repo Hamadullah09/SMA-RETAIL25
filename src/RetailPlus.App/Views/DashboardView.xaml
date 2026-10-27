@@ -17,12 +17,9 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Greeting and the three big numbers. -->
-            <StackPanel Grid.ColumnSpan="2" VerticalAlignment="Center">
-                <TextBlock x:Name="Greeting" FontFamily="{StaticResource DisplayFont}" FontSize="44" TextTrimming="CharacterEllipsis" />
-                <TextBlock x:Name="Subtitle" Foreground="{StaticResource Muted}" FontSize="18" Margin="2,4,0,0" />
-            </StackPanel>
-            <StackPanel Grid.Column="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+            <!-- Greeting and the three big numbers. The numbers keep their room; on a narrow window the greeting is cut. -->
+            <DockPanel Grid.ColumnSpan="4">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
                 <StackPanel Margin="0,0,34,0">
                     <TextBlock x:Name="StatSales" Style="{StaticResource BigNumber}" FontSize="50" />
                     <StackPanel Orientation="Horizontal">
@@ -51,6 +48,11 @@
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
+            <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="Greeting" FontFamily="{StaticResource DisplayFont}" FontSize="44" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="Subtitle" Foreground="{StaticResource Muted}" FontSize="18" Margin="2,4,0,0" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            </DockPanel>
 
             <!-- How customers paid: pills sized by share. -->
             <Grid Grid.Row="1" Grid.ColumnSpan="4" Margin="0,16,0,18">
