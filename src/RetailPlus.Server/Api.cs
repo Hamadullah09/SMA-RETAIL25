@@ -119,16 +119,33 @@ public sealed class ApiRequest(HttpContext http, DataContext root)
         : Http.Request.Query[name].FirstOrDefault() is { Length: > 0 } bad ? throw ApiException.Bad($"{name} must be a date like 2026-10-28, not {bad}.") : null;
 
     /// <summary>Today where the store is (the server's own date across several stores).</summary>
-    public async Task<DateOnly> TodayAsync(Guid? store)
+    public async Task<DateOnly> TodayAsync(Guid? store) => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, await ZoneAsync(store)));
+
+    /// <summary>The period's business days (see <see cref="PeriodAsync"/>) as UTC times, end excluded, for rows kept in UTC.</summary>
+    public async Task<(DateTime StartUtc, DateTime EndUtc)> UtcPeriodAsync(Guid? store)
     {
-        string? zone = null;
+        var (from, to) = await PeriodAsync(store);
+        var zone = await ZoneAsync(store);
+        return (ToUtc(from.ToDateTime(TimeOnly.MinValue), zone), ToUtc(to.AddDays(1).ToDateTime(TimeOnly.MinValue), zone));
+    }
+
+    /// <summary>The store's time zone (the server's own across several stores, or when the store has none).</summary>
+    private async Task<TimeZoneInfo> ZoneAsync(Guid? store)
+    {
         if (store is { } s && s != Guid.Empty)
         {
             await using var db = Root.Create();
-            zone = await db.Stores.AsNoTracking().Where(x => x.Id == s).Select(x => x.TimeZoneId).FirstOrDefaultAsync();
+            var zone = await db.Stores.AsNoTracking().Where(x => x.Id == s).Select(x => x.TimeZoneId).FirstOrDefaultAsync();
+            if (zone is not null && TimeZoneInfo.TryFindSystemTimeZoneById(zone, out var tz)) return tz;
         }
-        var now = zone is not null && TimeZoneInfo.TryFindSystemTimeZoneById(zone, out var tz) ? TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, tz) : DateTime.Now;
-        return DateOnly.FromDateTime(now);
+        return TimeZoneInfo.Local;
+    }
+
+    private static DateTime ToUtc(DateTime local, TimeZoneInfo zone)
+    {
+        // Midnight can fall in a daylight-saving gap; the day then starts an hour later.
+        if (zone.IsInvalidTime(local)) local = local.AddHours(1);
+        return TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), zone);
     }
 
     /// <summary>The page asked for: <c>page</c> (from 1) and <c>pageSize</c> (50 by default, at most 500).</summary>

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.KeyManagement;
@@ -68,7 +69,11 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddCors(options => options.AddDefaultPolicy(policy => policy
     .WithOrigins(configuration.GetSection("Cors:Origins").Get<string[]>() is { Length: > 0 } origins ? origins : ["http://localhost:3000"])
     .AllowAnyHeader().AllowAnyMethod().AllowCredentials()));
-builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    options.SerializerOptions.TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { UtcJson.MarkUtc } };
+});
 builder.Services.AddOpenApi();
 
 var app = builder.Build();

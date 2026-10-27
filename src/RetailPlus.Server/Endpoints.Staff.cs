@@ -61,10 +61,8 @@ public static partial class Endpoints
         if (store is { } s) rows = rows.Where(a => a.StoreId == s);
         if (api.Text("from") is not null || api.Text("to") is not null)
         {
-            // The log keeps UTC times; the days asked for are the store's, taken as UTC days here.
-            var (from, to) = await api.PeriodAsync(store);
-            var start = from.ToDateTime(TimeOnly.MinValue);
-            var end = to.AddDays(1).ToDateTime(TimeOnly.MinValue);
+            // The log keeps UTC times; the days asked for are the store's business days.
+            var (start, end) = await api.UtcPeriodAsync(store);
             rows = rows.Where(a => a.AtUtc >= start && a.AtUtc < end);
         }
         if (api.Id("userId") is { } user) rows = rows.Where(a => a.UserId == user);

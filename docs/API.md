@@ -35,16 +35,16 @@ stations, enrollment, sync batches, package upload).
 |---|---|---|
 | `GET /api/health` | none | `{ status, database, version }` |
 | `POST /api/auth/sign-in` | none | body `{ userName, password }` → `{ token, expiresAtUtc, user: UserInfo }` + cookie |
-| `GET /api/auth/me` | web.signin | `UserInfo { id, userName, fullName, role, permissions[], storeId, storeName, mustChangePassword }` |
+| `GET /api/auth/me` | web.signin | `UserInfo { id, userName, fullName, role, permissions[], storeId, storeName, mustChangePassword, canChangeShared }` |
 | `POST /api/auth/change-password` | web.signin | `{ currentPassword, newPassword }` → 204 |
-| `GET /api/stores` | web.signin | `[StoreInfo { id, code, name, timeZoneId }]` |
+| `GET /api/stores` | web.signin | `[StoreInfo { id, code, name, timeZoneId, currencySymbol }]` |
 | `POST /api/stores`, `PUT /api/stores/{id}` | stores.manage | `{ code, name, timeZoneId }` |
 | `GET /api/stores/{id}/stations` | web.signin | `[StationInfo]` (see the server's `Endpoints.cs`) |
 | `POST /api/stores/{id}/stations` | stores.manage | `{ number?, name? }` → `EnrollmentCodeInfo { station, code, expiresAtUtc }` |
 | `POST /api/stations/{id}/enrollment-code` | stores.manage | new code |
 | `POST /api/stations/{id}/retire` | stores.manage | |
 | `GET /api/sync/batches?storeId&station&status&take` | web.signin | `[BatchInfo]` |
-| `POST /api/sync/upload-file` | sync.send | multipart, field `file`: a `.smapkg` from a USB stick → `BatchInfo` |
+| `POST /api/sync/upload-file` | sync.send | multipart, field `file`: a `.smapkg` from a USB stick → `UploadResponse { status, batchId, inserted, updated, deleted, notes[], error }` (the batch then shows in `/api/sync/batches`) |
 
 ## New in phase 3
 
@@ -178,8 +178,10 @@ stations, enrollment, sync batches, package upload).
 - `GET /api/commission?storeId&from&to` returns `[{ "staff", "sales", "units", "netSales", "fromRules",
   "fromItems", "commission" }]`.
 - `GET /api/commission-rules` returns `[{ "id", "version", "name", "userId", "userName", "scope", "departmentId",
-  "categoryId", "itemId", "target", "percent", "startsOn", "endsOn", "isActive" }]`. `POST`, `PUT` and `DELETE` use
-  the same shape.
+  "categoryId", "itemId", "target", "percent", "startsOn", "endsOn", "isActive", "basis" }]`. `POST`, `PUT` and
+  `DELETE` use the same shape. `target` is display text (what the rule applies to: an item, category or department
+  name, or "All items"); the server ignores it on a save. `basis` says how `percent` is read: `PercentOfNetSales` (a
+  percentage of the line's net amount, the default) or `AmountPerUnit` (money for every unit sold).
 
 ### Store settings and branding — `setup.store`
 - `GET /api/stores/{id}/settings` returns `{ "version", "companyName", "address1", "address2", "city", "province",
@@ -297,8 +299,10 @@ then travel like the tills' own: down to that store's tills.
 
 - Business dates (`from`, `to`) are the store's days; without a `storeId` and for several stores, the server's own date.
   A `from` after `to` is turned round; a date that is not `yyyy-MM-dd` is 400.
-- `GET /api/audit` takes `from` and `to` as UTC days (the log keeps UTC times). `GET /api/stock/movements` without `from`
-  and `to` covers all time.
+- `GET /api/audit` takes `from` and `to` as the store's business days like every other list; the server turns them
+  into UTC times with the store's time zone, as the log keeps UTC times. `GET /api/stock/movements` without `from` and
+  `to` covers all time.
+- Every date-time whose name ends in `Utc` is written with a `Z`; the others (the tills' local times) have no offset.
 - Dashboard: `netSales` is completed sales after line and sale discounts, before taxes; voided sales are left out and
   counted in `voids`; `returns` is the value of returned lines (a positive number); `discounts` adds line and sale
   discounts; `grossProfit` is net sales less the cost of the goods; `previous` covers the same number of days just
@@ -309,6 +313,17 @@ then travel like the tills' own: down to that store's tills.
 - Reports run over every location of the stores in scope; the reports that are not kept per location (drawers, aged
   receivables, hours, commission, gift card liability) cover the same stores. The CSV is UTF-8 with a byte order mark,
   named `{key}-{from}-{to}.csv`.
+
+### Added after the web app was built
+
+- `UserInfo.canChangeShared`: true when the user has `stores.all` or the company has one store, the same rule the
+  server applies to company-wide records; the web app hides those records' edit buttons when it is false.
+- `StoreInfo.currencySymbol`: the store's currency symbol (Setup), readable by every signed-in user.
+- `GET /api/stores/{id}/locations` (`web.signin`; 404 for a store the user cannot see) → `[{ "id", "code", "name" }]`,
+  for the location a new item goes to.
+- `GET /api/staff?storeId` → `[{ "id", "userName", "fullName" }]`, sorted by user name, active or not: the users of that
+  store and those who work at every store (every user for `stores.all` without `storeId`). Allowed with any of
+  `reports.view`, `reports.staff`, `audit.view` or `setup.users`, for the staff filters of the lists.
 
 ### Session, errors and the web app's files
 

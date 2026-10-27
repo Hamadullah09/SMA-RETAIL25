@@ -10,10 +10,14 @@ using RetailPlus.Sync;
 namespace RetailPlus.Server;
 
 public sealed record SignInRequest(string UserName, string Password);
-public sealed record UserInfo(Guid Id, string UserName, string? FullName, string? Role, IReadOnlyList<string> Permissions, Guid? StoreId, string? StoreName, bool MustChangePassword);
+/// <summary>The signed-in user. <c>CanChangeShared</c>: may change the records every store shares (see <see cref="ApiRequest.RequireCompanyChangeAsync"/>).</summary>
+public sealed record UserInfo(Guid Id, string UserName, string? FullName, string? Role, IReadOnlyList<string> Permissions, Guid? StoreId, string? StoreName, bool MustChangePassword,
+    bool CanChangeShared = false);
 public sealed record SignInResponse(string Token, DateTime ExpiresAtUtc, UserInfo User);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
-public sealed record StoreInfo(Guid Id, string Code, string Name, string? TimeZoneId);
+public sealed record StoreInfo(Guid Id, string Code, string Name, string? TimeZoneId, string? CurrencySymbol = null);
+public sealed record LocationInfo(Guid Id, string Code, string? Name);
+public sealed record StaffInfo(Guid Id, string UserName, string? FullName);
 public sealed record StoreRequest(string Code, string Name, string? TimeZoneId);
 public sealed record BatchInfo(Guid Id, Guid BatchId, Guid? StoreId, int StationNumber, SyncDirection Direction, SyncBatchStatus Status, string? FileName,
     int Rows, DateTime ReceivedAtUtc, DateTime? AppliedAtUtc, string? AppVersion, string? Error, string? Notes);
@@ -115,8 +119,10 @@ public static partial class Endpoints
         var user = await db.UserAccounts.AsNoTracking().Include(u => u.Role).ThenInclude(r => r!.Permissions).SingleOrDefaultAsync(u => u.Id == userId);
         if (user is null) return null;
         var store = user.StoreId is { } id ? await db.Stores.AsNoTracking().Where(s => s.Id == id).Select(s => s.Name).FirstOrDefaultAsync() : null;
-        return new UserInfo(user.Id, user.UserName, user.FullName, user.Role?.Name, [.. SetupService.PermissionsOf(user).Order(StringComparer.Ordinal)],
-            user.StoreId, store, user.MustChangePassword);
+        var permissions = SetupService.PermissionsOf(user);
+        bool shared = permissions.Contains(Permissions.StoresAll) || await db.Stores.CountAsync() <= 1;
+        return new UserInfo(user.Id, user.UserName, user.FullName, user.Role?.Name, [.. permissions.Order(StringComparer.Ordinal)],
+            user.StoreId, store, user.MustChangePassword, shared);
     }
 
     // Stores and tills ------------------------------------------------------------------------------------------------
@@ -127,7 +133,30 @@ public static partial class Endpoints
         {
             await using var db = data.Create();
             var stores = await new UserScope(http.User).Visible(db.Stores.AsNoTracking()).OrderBy(s => s.Code).ToListAsync();
-            return Results.Ok(stores.Select(s => new StoreInfo(s.Id, s.Code, s.Name, s.TimeZoneId)));
+            var ids = stores.Select(s => s.Id).ToList();
+            var symbols = await db.StoreSettingExtras.AsNoTracking().Where(x => x.Name == CurrencyExtra && ids.Contains(x.StoreId))
+                .ToDictionaryAsync(x => x.StoreId, x => x.Value);
+            return Results.Ok(stores.Select(s => new StoreInfo(s.Id, s.Code, s.Name, s.TimeZoneId, symbols.GetValueOrDefault(s.Id))));
+        }).RequireAuthorization(Need(Permissions.WebSignIn));
+
+        api.MapGet("/stores/{id:guid}/locations", async (Guid id, ApiRequest api) =>
+        {
+            api.RequireStore(id, "That store");
+            await using var db = api.Root.Create();
+            return Results.Ok(await db.Locations.AsNoTracking().Where(l => l.StoreId == id).OrderBy(l => l.Code)
+                .Select(l => new LocationInfo(l.Id, l.Code, l.Name)).ToListAsync());
+        }).RequireAuthorization(Need(Permissions.WebSignIn));
+
+        // The people a list can be filtered by: the store's users and those who work at every store.
+        api.MapGet("/staff", async (ApiRequest api) =>
+        {
+            if (!new[] { Permissions.ReportsView, Permissions.ReportsStaff, Permissions.AuditView, Permissions.SetupUsers }.Any(api.User.Can))
+                throw ApiException.Forbidden("Your role cannot see the staff list.");
+            var store = api.ListStore();
+            await using var db = api.Root.Create();
+            var users = db.UserAccounts.AsNoTracking();
+            if (store is { } s) users = users.Where(u => u.StoreId == s || u.StoreId == null);
+            return Results.Ok(await users.OrderBy(u => u.UserName).Select(u => new StaffInfo(u.Id, u.UserName, u.FullName)).ToListAsync());
         }).RequireAuthorization(Need(Permissions.WebSignIn));
 
         api.MapPost("/stores", async (StoreRequest request, HttpContext http, DataContext data) =>
