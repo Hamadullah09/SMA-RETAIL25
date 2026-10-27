@@ -175,13 +175,13 @@ export interface Dashboard {
   byDay: { date: BusinessDate; netSales: number; transactions: number }[];
   byHour: { hour: number; netSales: number; transactions: number }[];
   paymentMix: { tender: string; amount: number; count: number }[];
-  topItems: { itemId: string; plu: string; name: string; units: number; netSales: number }[];
+  topItems: { itemId: string | null; plu: string | null; name: string; units: number; netSales: number }[];
   byCashier: { userId: string | null; userName: string; netSales: number; transactions: number }[];
   byStation: { storeId: string; storeCode: string; stationNumber: number; netSales: number; transactions: number }[];
   drawers: {
     storeCode: string;
     stationNumber: number;
-    closedAt: LocalDateTime;
+    closedAt: LocalDateTime | null;
     closedBy: string | null;
     expected: number;
     /** Null: tills do not record the counted cash. */
@@ -385,7 +385,7 @@ export interface StockMovementRow {
   quantity: number;
   onHandAfter: number;
   unitCost: number | null;
-  documentNumber: string | null;
+  documentNumber: string | number | null;
   reason: string | null;
   user: string | null;
 }
@@ -615,8 +615,12 @@ export interface CommissionRule {
   departmentId: string | null;
   categoryId: string | null;
   itemId: string | null;
-  target: string;
+  /** What the rule applies to, in words ("Department Footwear"); the server works it out from scope and ids. */
+  target: string | null;
+  /** The rate: a percent of net sales, or money per unit with `basis` AmountPerUnit. */
   percent: number;
+  /** How `percent` is read (the server's extra field; PercentOfNetSales when missing). */
+  basis?: string;
   startsOn: BusinessDate | null;
   endsOn: BusinessDate | null;
   isActive: boolean;

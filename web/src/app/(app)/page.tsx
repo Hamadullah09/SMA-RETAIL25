@@ -161,10 +161,10 @@ function DashboardBody({ data, loading, stale, now }: { data: Dashboard | undefi
           title="Top items"
           loading={loading}
           rows={data?.topItems}
-          rowKey={(r) => r.itemId}
+          rowKey={(r, i) => `${r.itemId ?? r.plu ?? r.name}-${i}`}
           empty="No items sold yet."
           columns={[
-            { key: 'plu', header: 'Stock code', cell: (r) => r.plu, hideBelow: 'sm' },
+            { key: 'plu', header: 'Stock code', cell: (r) => r.plu ?? '', hideBelow: 'sm' },
             { key: 'name', header: 'Item', cell: (r) => r.name, className: 'wrap' },
             { key: 'units', header: 'Units', numeric: true, cell: (r) => formatQuantity(r.units) },
             { key: 'net', header: 'Net sales', numeric: true, cell: (r) => money(r.netSales) },

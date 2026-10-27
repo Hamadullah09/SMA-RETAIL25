@@ -18,7 +18,7 @@ import { isBusinessDate } from '@/lib/dates';
 import { formatCount, formatDate, formatHours, formatMoney, formatPercent, formatQuantity, formatShortDateTime } from '@/lib/format';
 import { checkNumber, numberText, parseNumber } from '@/lib/forms';
 import { useDebounced } from '@/lib/hooks';
-import { COMMISSION_SCOPES, COMMISSION_TARGETS, label } from '@/lib/labels';
+import { COMMISSION_BASIS, COMMISSION_SCOPES, label } from '@/lib/labels';
 import { P } from '@/lib/nav';
 import { useSession } from '@/lib/session';
 import { useStore } from '@/lib/store';
@@ -102,7 +102,7 @@ function TimeClock({ from, to }: { from: string; to: string }) {
           { key: 'till', header: 'Till', cell: (e) => (e.storeCode ? `${e.storeCode}${e.stationNumber ? ` · ${String(e.stationNumber).padStart(3, '0')}` : ''}` : ''), hideBelow: 'lg' },
           { key: 'in', header: 'In', cell: (e) => formatShortDateTime(e.inAt) },
           { key: 'out', header: 'Out', cell: (e) => (e.outAt ? formatShortDateTime(e.outAt) : <Chip tone="warn">Still in</Chip>) },
-          { key: 'hours', header: 'Hours', numeric: true, cell: (e) => (e.hours === null ? '' : formatHours(e.hours)) },
+          { key: 'hours', header: 'Hours', numeric: true, cell: (e) => (e.outAt && e.hours !== null ? formatHours(e.hours) : '') },
           { key: 'by', header: 'Changed by', cell: (e) => e.editedBy ?? '', hideBelow: 'md' },
           { key: 'why', header: 'Reason', cell: (e) => e.editReason ?? '', hideBelow: 'xl', className: 'wrap' },
         ]}
@@ -169,7 +169,7 @@ function Commission({ from, to }: { from: string; to: string }) {
 }
 
 function rate(rule: CommissionRule, symbol: string) {
-  return rule.target === 'AmountPerUnit' ? `${formatMoney(rule.percent, symbol)} a unit` : formatPercent(rule.percent, undefined, rule.percent % 1 === 0 ? 0 : 2);
+  return rule.basis === 'AmountPerUnit' ? `${formatMoney(rule.percent, symbol)} a unit` : formatPercent(rule.percent, undefined, rule.percent % 1 === 0 ? 0 : 2);
 }
 
 function Rules() {
@@ -233,8 +233,8 @@ function Rules() {
         columns={[
           { key: 'name', header: 'Name', cell: (r) => <span className="font-semibold">{r.name}</span> },
           { key: 'for', header: 'For', cell: (r) => r.userName ?? 'Everyone' },
-          { key: 'to', header: 'Applies to', cell: appliesTo, hideBelow: 'md' },
-          { key: 'how', header: 'Commission', cell: (r) => label(COMMISSION_TARGETS, r.target), hideBelow: 'xl' },
+          { key: 'to', header: 'Applies to', cell: (r) => r.target || appliesTo(r), hideBelow: 'md' },
+          { key: 'how', header: 'Commission', cell: (r) => label(COMMISSION_BASIS, r.basis ?? 'PercentOfNetSales'), hideBelow: 'xl' },
           { key: 'rate', header: 'Rate', numeric: true, cell: (r) => rate(r, symbol) },
           { key: 'from', header: 'First day', cell: (r) => (r.startsOn ? formatDate(r.startsOn) : ''), hideBelow: 'lg' },
           { key: 'to2', header: 'Last day', cell: (r) => (r.endsOn ? formatDate(r.endsOn) : ''), hideBelow: 'lg' },
@@ -274,7 +274,7 @@ function RuleDialog({ rule, onClose }: { rule: CommissionRule | null; onClose():
   const [categoryId, setCategoryId] = useState(rule?.categoryId ?? '');
   const [itemId, setItemId] = useState(rule?.itemId ?? '');
   const [itemText, setItemText] = useState('');
-  const [target, setTarget] = useState(rule?.target ?? 'PercentOfNetSales');
+  const [basis, setBasis] = useState(rule?.basis ?? 'PercentOfNetSales');
   const [rateText, setRateText] = useState(numberText(rule?.percent ?? 0));
   const [startsOn, setStartsOn] = useState(rule?.startsOn ?? '');
   const [endsOn, setEndsOn] = useState(rule?.endsOn ?? '');
@@ -328,8 +328,9 @@ function RuleDialog({ rule, onClose }: { rule: CommissionRule | null; onClose():
       departmentId: departmentId || null,
       categoryId: categoryId || null,
       itemId: itemId || null,
-      target,
+      target: rule?.target ?? null,
       percent: parseNumber(rateText) ?? 0,
+      basis,
       startsOn: isBusinessDate(startsOn) ? startsOn : null,
       endsOn: isBusinessDate(endsOn) ? endsOn : null,
       isActive,
@@ -417,16 +418,16 @@ function RuleDialog({ rule, onClose }: { rule: CommissionRule | null; onClose():
             </div>
           </Field>
         )}
-        <Field label="Commission" htmlFor="rule-target">
-          <Select id="rule-target" value={target} onChange={(e) => setTarget(e.target.value)}>
-            {Object.entries(COMMISSION_TARGETS).map(([key, text]) => (
+        <Field label="Commission" htmlFor="rule-basis">
+          <Select id="rule-basis" value={basis} onChange={(e) => setBasis(e.target.value)}>
+            {Object.entries(COMMISSION_BASIS).map(([key, text]) => (
               <option key={key} value={key}>
                 {text}
               </option>
             ))}
           </Select>
         </Field>
-        <Field label="Rate" htmlFor="rule-rate" hint={target === 'AmountPerUnit' ? 'Money for every unit sold.' : 'Percent of the line after its discount.'}>
+        <Field label="Rate" htmlFor="rule-rate" hint={basis === 'AmountPerUnit' ? 'Money for every unit sold.' : 'Percent of the line after its discount.'}>
           <Input id="rule-rate" inputMode="decimal" className="max-w-[160px]" value={rateText} onChange={(e) => setRateText(e.target.value)} />
         </Field>
         <Field label="First day" htmlFor="rule-from">

@@ -81,8 +81,8 @@ export const COMMISSION_SCOPES: Record<string, string> = {
   Item: 'One item',
 };
 
-/** The commission rule's `target`: how its rate is read (CommissionBasis on the desktop). */
-export const COMMISSION_TARGETS: Record<string, string> = {
+/** How a commission rule's rate is read (`basis`, CommissionBasis on the desktop). */
+export const COMMISSION_BASIS: Record<string, string> = {
   PercentOfNetSales: 'Percent of net sales',
   AmountPerUnit: 'Amount per unit',
 };

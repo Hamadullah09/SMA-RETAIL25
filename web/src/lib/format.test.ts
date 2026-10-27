@@ -117,6 +117,10 @@ describe('dates', () => {
 
   it('formats UTC times in a given time zone', () => {
     expect(formatUtc('2026-10-28T12:00:00Z', en, 'UTC')).toMatch(/^Oct 28, 2026,? 12:00\sPM$/);
+    expect(formatUtc('2026-10-28T12:00:00Z', en, 'America/Toronto')).toMatch(/^Oct 28, 2026,? 8:00\sAM$/);
+    // A UTC field that comes without its Z is still UTC.
+    expect(formatUtc('2026-10-28T12:00:00', en, 'UTC')).toMatch(/^Oct 28, 2026,? 12:00\sPM$/);
+    expect(formatUtc('2026-10-28T12:00:00.123+00:00', en, 'UTC')).toMatch(/^Oct 28, 2026,? 12:00\sPM$/);
   });
 
   it('says how long ago something happened', () => {

@@ -609,8 +609,9 @@ export const commission: CommissionRow[] = [
 ];
 
 export const commissionRules: CommissionRule[] = [
-  { id: 'cr-1', version: 'v-1', name: 'Everyone, all items', userId: null, userName: null, scope: 'AllItems', departmentId: null, categoryId: null, itemId: null, target: 'PercentOfNetSales', percent: 2, startsOn: null, endsOn: null, isActive: true },
-  { id: 'cr-2', version: 'v-1', name: 'Footwear push', userId: 'u-3', userName: 'ama', scope: 'Department', departmentId: 'd-2', categoryId: null, itemId: null, target: 'PercentOfNetSales', percent: 5, startsOn: daysBefore(10), endsOn: daysBefore(-20), isActive: true },
+  { id: 'cr-1', version: 'v-1', name: 'Everyone, all items', userId: null, userName: null, scope: 'AllItems', departmentId: null, categoryId: null, itemId: null, target: 'All items', percent: 2, basis: 'PercentOfNetSales', startsOn: null, endsOn: null, isActive: true },
+  { id: 'cr-2', version: 'v-1', name: 'Footwear push', userId: 'u-3', userName: 'ama', scope: 'Department', departmentId: 'd-2', categoryId: null, itemId: null, target: 'Department FOOTWEAR', percent: 5, basis: 'PercentOfNetSales', startsOn: daysBefore(10), endsOn: daysBefore(-20), isActive: true },
+  { id: 'cr-3', version: 'v-1', name: 'Socks bonus', userId: null, userName: null, scope: 'Item', departmentId: null, categoryId: null, itemId: 'i-5', target: 'Item SK-001 Sport socks, 3 pack', percent: 0.25, basis: 'AmountPerUnit', startsOn: null, endsOn: null, isActive: false },
 ];
 
 // Settings --------------------------------------------------------------------------------------------------------

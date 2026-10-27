@@ -98,9 +98,10 @@ export function parseLocalDateTime(value: string): Date | null {
   );
 }
 
-/** A UTC date-time (`…Z`) as a Date. */
+/** A UTC date-time (`…Z`) as a Date. One without a zone (`2026-10-28T10:00:00`) is read as UTC too, not local time. */
 export function parseUtc(value: string): Date | null {
-  const date = new Date(value);
+  const zoned = /([zZ]|[+-]\d{2}:?\d{2})$/.test(value) || !value.includes('T') ? value : value + 'Z';
+  const date = new Date(zoned);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
