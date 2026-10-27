@@ -11,8 +11,7 @@ import { DataTable } from '@/components/ui/table';
 import { api } from '@/lib/api';
 import { formatCount, formatMoney, formatQuantity, formatShortDateTime } from '@/lib/format';
 import { useDebounced } from '@/lib/hooks';
-import { P } from '@/lib/nav';
-import { useSession } from '@/lib/session';
+import { staffName, useStaff } from '@/lib/staff';
 import { useStore } from '@/lib/store';
 import type { SaleRow } from '@/lib/types';
 
@@ -20,7 +19,6 @@ const PAGE_SIZE = 50;
 
 export default function SalesJournalPage() {
   const router = useRouter();
-  const { can } = useSession();
   const { storeId, currencySymbol: symbol } = useStore();
   const dates = useDateRange('week');
   const [station, setStation] = useState('');
@@ -39,8 +37,7 @@ export default function SalesJournalPage() {
     placeholderData: keepPreviousData,
   });
   const tills = useQuery({ queryKey: ['tills', storeId], queryFn: () => api.tills({ storeId }) });
-  // The staff list comes from the users list, which only users who manage users may read.
-  const users = useQuery({ queryKey: ['users', storeId], queryFn: () => api.users({ storeId }), enabled: can(P.setupUsers) });
+  const staff = useStaff(storeId);
 
   const rows = query.data?.items;
   const sum = (pick: (s: SaleRow) => number) => (rows ?? []).filter((s) => !s.voided).reduce((t, s) => t + pick(s), 0);
@@ -68,16 +65,16 @@ export default function SalesJournalPage() {
             </option>
           ))}
         </Select>
-        {users.data && (
+        {staff.data && (
           <>
             <label className="sr-only" htmlFor="sales-staff">
               Staff
             </label>
             <Select id="sales-staff" className="w-[190px]" value={userId} onChange={(e) => setUserId(e.target.value)}>
               <option value="">Everyone</option>
-              {users.data.map((u) => (
+              {staff.data.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.fullName || u.userName}
+                  {staffName(u)}
                 </option>
               ))}
             </Select>

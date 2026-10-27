@@ -1,9 +1,10 @@
 'use client';
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pencil, Plus, Undo2 } from 'lucide-react';
+import { ListTree, Pencil, Plus, Undo2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { ListsDialog } from '@/components/lists-dialog';
 import { Button, LinkButton } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { Select } from '@/components/ui/field';
@@ -26,7 +27,7 @@ export default function InventoryPage() {
   const router = useRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const { can } = useSession();
+  const { can, canChangeShared } = useSession();
   const { storeId, currencySymbol: symbol } = useStore();
   const [text, setText] = useState('');
   const [departmentId, setDepartmentId] = useState('');
@@ -35,6 +36,7 @@ export default function InventoryPage() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<ItemRow | null>(null);
   const [restoring, setRestoring] = useState<ItemRow | null>(null);
+  const [lists, setLists] = useState(false);
   const search = useDebounced(text.trim());
   const edit = can(P.inventoryEdit);
 
@@ -115,6 +117,11 @@ export default function InventoryPage() {
           <Button icon={Undo2} shortcut="Ctrl+U" disabled={!selected || !deleted} onClick={() => selected && setRestoring(selected)}>
             Undelete
           </Button>
+          {canChangeShared && (
+            <Button icon={ListTree} onClick={() => setLists(true)}>
+              Departments and categories
+            </Button>
+          )}
         </Toolbar>
       )}
 
@@ -159,6 +166,7 @@ export default function InventoryPage() {
         keeps its own price and stock for a stock code, so an item sold in two stores has a line for each.
       </p>
 
+      {lists && <ListsDialog onClose={() => setLists(false)} />}
       <ConfirmDialog
         open={!!restoring}
         title={`Bring back ${restoring?.name ?? 'this item'}?`}

@@ -31,7 +31,7 @@ export default function SuppliersPage() {
 }
 
 function Suppliers() {
-  const { can } = useSession();
+  const { can, canChangeShared } = useSession();
   const params = useSearchParams();
   const router = useRouter();
   const [text, setText] = useState('');
@@ -40,7 +40,8 @@ function Suppliers() {
   const [selected, setSelected] = useState<SupplierRow | null>(null);
   const [editing, setEditing] = useState<string | 'new' | null>(null);
   const search = useDebounced(text.trim());
-  const edit = can(P.suppliersEdit);
+  // Suppliers are company-wide: changed with suppliers.edit by those who may change shared records.
+  const edit = can(P.suppliersEdit) && canChangeShared;
 
   useEffect(() => setPage(1), [search, deleted]);
   useEffect(() => setSelected(null), [deleted]);
@@ -97,6 +98,7 @@ function Suppliers() {
         ]}
         footer={query.data && <Pager page={page} pageSize={PAGE_SIZE} total={query.data.total} onPage={setPage} noun="suppliers" />}
       />
+      {can(P.suppliersEdit) && !canChangeShared && <p className="mt-2 px-1 text-ink">Suppliers are shared by every store: a super administrator changes them.</p>}
       {editing && <SupplierDialog id={editing === 'new' ? null : editing} readOnly={!edit} onClose={() => setEditing(null)} />}
       {actions.dialog}
     </div>

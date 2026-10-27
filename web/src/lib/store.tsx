@@ -7,7 +7,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { api } from './api';
-import { P } from './nav';
 import { useSession } from './session';
 import type { StoreInfo } from './types';
 
@@ -22,7 +21,7 @@ interface StoreScope {
   setStoreId(storeId: string | null): void;
   /** A store to work on when a page needs exactly one (settings, enrolling a till): the chosen one, else the first. */
   defaultStoreId: string | null;
-  /** The currency symbol from the store's settings ('' when the user may not read them). */
+  /** The currency symbol of the chosen store (or, for all stores, of the first one that has one). */
   currencySymbol: string;
 }
 
@@ -48,7 +47,7 @@ function save(storeId: string | null): void {
 }
 
 export function StoreProvider({ children }: { children: ReactNode }) {
-  const { user, allStores, can } = useSession();
+  const { user, allStores } = useSession();
   const storesQuery = useQuery({ queryKey: ['stores'], queryFn: () => api.stores(), staleTime: 5 * 60_000 });
   const stores = useMemo(() => storesQuery.data ?? [], [storesQuery.data]);
   const [chosen, setChosen] = useState<string | null>(null);
@@ -77,12 +76,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   const defaultStoreId = storeId ?? user.storeId ?? stores[0]?.id ?? null;
-  const settingsQuery = useQuery({
-    queryKey: ['settings', defaultStoreId],
-    queryFn: () => api.settings(defaultStoreId!),
-    enabled: !!defaultStoreId && can(P.setupStore),
-    staleTime: 5 * 60_000,
-  });
+  const symbolStore = stores.find((s) => s.id === defaultStoreId);
+  const currencySymbol = symbolStore?.currencySymbol ?? stores.find((s) => s.currencySymbol)?.currencySymbol ?? '';
 
   const value = useMemo<StoreScope>(
     () => ({
@@ -93,9 +88,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       canSwitch: allStores && stores.length > 0,
       setStoreId,
       defaultStoreId,
-      currencySymbol: settingsQuery.data?.currencySymbol ?? '',
+      currencySymbol,
     }),
-    [stores, storesQuery.isLoading, loaded, storeId, allStores, setStoreId, defaultStoreId, settingsQuery.data],
+    [stores, storesQuery.isLoading, loaded, storeId, allStores, setStoreId, defaultStoreId, currencySymbol],
   );
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;

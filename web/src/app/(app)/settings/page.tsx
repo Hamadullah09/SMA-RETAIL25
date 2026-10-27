@@ -110,6 +110,8 @@ function StoreSetup({ storeId, tab, tabs }: { storeId: string; tab: Tab; tabs: R
         setLoadedFrom(saved.version);
       }
       void queryClient.invalidateQueries({ queryKey: ['settings', storeId] });
+      // The currency symbol comes with the store list.
+      void queryClient.invalidateQueries({ queryKey: ['stores'] });
     },
     onError: (e) => e instanceof ApiError && e.isConflict && setConflict(true),
   });

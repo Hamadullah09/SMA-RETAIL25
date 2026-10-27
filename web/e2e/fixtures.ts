@@ -23,7 +23,10 @@ import type {
   RoleInfo,
   SaleDetail,
   SaleRow,
+  LocationInfo,
+  StaffMember,
   StationInfo,
+  UploadResponse,
   StockCountDetail,
   StockCountRow,
   StockMovementRow,
@@ -110,6 +113,7 @@ export const superAdmin: UserInfo = {
   storeId: null,
   storeName: null,
   mustChangePassword: false,
+  canChangeShared: true,
 };
 
 /** A supervisor: dashboard, sales and reports, stock and clients, but no staff, users, setup or audit. */
@@ -122,15 +126,38 @@ export const supervisor: UserInfo = {
   storeId: 's-main',
   storeName: 'Downtown',
   mustChangePassword: false,
+  canChangeShared: false,
+};
+
+/** One store's administrator in a company of several stores: everything but stores.all, so not the shared lists. */
+export const storeAdmin: UserInfo = {
+  id: 'u-6',
+  userName: 'abena',
+  fullName: 'Abena Ofori',
+  role: 'Administrator',
+  permissions: everything.filter((k) => k !== 'stores.all'),
+  storeId: 's-main',
+  storeName: 'Downtown',
+  mustChangePassword: false,
+  canChangeShared: false,
 };
 
 // Stores and tills ------------------------------------------------------------------------------------------------
 
 export const stores: StoreInfo[] = [
-  { id: 's-main', code: 'MAIN', name: 'Downtown', timeZoneId: 'Eastern Standard Time' },
-  { id: 's-west', code: 'WEST', name: 'Westside Mall', timeZoneId: 'Eastern Standard Time' },
-  { id: 's-north', code: 'NORTH', name: 'Northgate', timeZoneId: 'Central Standard Time' },
+  { id: 's-main', code: 'MAIN', name: 'Downtown', timeZoneId: 'Eastern Standard Time', currencySymbol: '$' },
+  { id: 's-west', code: 'WEST', name: 'Westside Mall', timeZoneId: 'Eastern Standard Time', currencySymbol: '$' },
+  { id: 's-north', code: 'NORTH', name: 'Northgate', timeZoneId: 'Central Standard Time', currencySymbol: '$' },
 ];
+
+export const locations: Record<string, LocationInfo[]> = {
+  's-main': [{ id: 'l-main-pos', code: 'POS', name: 'Downtown' }],
+  's-west': [
+    { id: 'l-west-pos', code: 'POS', name: 'Westside Mall' },
+    { id: 'l-west-back', code: 'BACK', name: 'Back room' },
+  ],
+  's-north': [{ id: 'l-north-pos', code: 'POS', name: 'Northgate' }],
+};
 
 export const tills: TillInfo[] = [
   till('s-main', 'MAIN', 'Downtown', 1, 'Front counter', 'ok', 3, 1842.35, 61, true),
@@ -583,6 +610,26 @@ export const users: UserRow[] = [
   { id: 'u-4', version: 'v-1', userName: 'yaw', fullName: 'Yaw Asante', roleId: 'r-2', role: 'Cashier', storeId: 's-west', storeCode: 'WEST', staffCode: '302', isActive: true, locked: true, mustChangePassword: false, lastSignInAtUtc: minutesAgo(60 * 26) },
   { id: 'u-5', version: 'v-1', userName: 'efua', fullName: 'Efua Quaye', roleId: 'r-2', role: 'Cashier', storeId: 's-west', storeCode: 'WEST', staffCode: null, isActive: false, locked: false, mustChangePassword: true, lastSignInAtUtc: null },
 ];
+
+/** `GET /api/staff`: active and inactive users, sorted by user name. */
+export const staff: StaffMember[] = [
+  { id: 'u-3', userName: 'ama', fullName: 'Ama Darko' },
+  { id: 'u-5', userName: 'efua', fullName: 'Efua Quaye' },
+  { id: 'u-2', userName: 'kofi', fullName: 'Kofi Boateng' },
+  { id: 'u-1', userName: 'sara', fullName: 'Sara Mensah' },
+  { id: 'u-4', userName: 'yaw', fullName: null },
+];
+
+/** What the server says after taking a package from a USB stick. */
+export const uploadResponse: UploadResponse = {
+  status: 'Applied',
+  batchId: 'b-new-guid',
+  inserted: 380,
+  updated: 30,
+  deleted: 2,
+  notes: ['2 clients were known already and kept the server\'s details.'],
+  error: null,
+};
 
 export const audit: AuditRow[] = [
   { id: 'a-3', atUtc: minutesAgo(12), storeCode: 'MAIN', stationNumber: 0, userName: 'sara', action: 'Changed', entityName: 'Item', entityId: 'i-1', details: 'TS-100-M', before: { Price1: 16.95, Description: 'Cotton T-shirt, medium', ReorderPoint: 10 }, after: { Price1: 17.95, Description: 'Cotton T-shirt, medium', ReorderPoint: 20 } },

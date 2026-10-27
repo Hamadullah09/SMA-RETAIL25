@@ -32,7 +32,7 @@ export default function RolesPage() {
 }
 
 function Roles() {
-  const { allStores } = useSession();
+  const { allStores, canChangeShared } = useSession();
   const toast = useToast();
   const queryClient = useQueryClient();
   const params = useSearchParams();
@@ -124,7 +124,7 @@ function Roles() {
     if (!text) save.mutate({ ...draft, name: draft.name.trim(), description: draft.description?.trim() || null });
   }
 
-  useHotkey('Ctrl+S', submit, !!draft && !save.isPending);
+  useHotkey('Ctrl+S', submit, !!draft && !save.isPending && canChangeShared);
 
   function edit(patch: Partial<RoleInfo>) {
     setDraft((d) => (d ? { ...d, ...patch } : d));
@@ -145,15 +145,22 @@ function Roles() {
     <div>
       <PageHeader title="Roles" aside={roles.data && `${roles.data.length} roles`} />
       <Toolbar>
-        <Button variant="sun" icon={Plus} shortcut="Ctrl+N" onClick={() => choose('new')}>
+        <Button variant="sun" icon={Plus} shortcut="Ctrl+N" onClick={() => choose('new')} disabled={!canChangeShared}>
           New role
         </Button>
-        <Button icon={Save} shortcut="Ctrl+S" onClick={submit} disabled={!draft} busy={save.isPending}>
+        <Button icon={Save} shortcut="Ctrl+S" onClick={submit} disabled={!draft || !canChangeShared} busy={save.isPending}>
           Save role
         </Button>
-        <Button icon={Trash2} shortcut="Del" disabled={!canDelete} onClick={() => setDeleting(true)} title={current?.isSystem ? 'Standard roles cannot be deleted.' : (current?.userCount ?? 0) > 0 ? 'Give its users another role first.' : undefined}>
+        <Button
+          icon={Trash2}
+          shortcut="Del"
+          disabled={!canDelete || !canChangeShared}
+          onClick={() => setDeleting(true)}
+          title={current?.isSystem ? 'Standard roles cannot be deleted.' : (current?.userCount ?? 0) > 0 ? 'Give its users another role first.' : undefined}
+        >
           Delete role
         </Button>
+        {!canChangeShared && <span className="text-ink">Roles are shared by every store: a super administrator changes them.</span>}
       </Toolbar>
 
       {roles.error ? (
@@ -201,44 +208,47 @@ function Roles() {
                   submit();
                 }}
               >
-                <div className="space-y-3">
-                  <Field label="Name" htmlFor="role-name" hint={draft.isSystem ? 'A standard role keeps its name.' : undefined}>
-                    <Input id="role-name" value={draft.name} maxLength={40} readOnly={draft.isSystem} onChange={(e) => edit({ name: e.target.value })} />
-                  </Field>
-                  <Field label="Description" htmlFor="role-desc">
-                    <Input id="role-desc" value={draft.description ?? ''} maxLength={120} onChange={(e) => edit({ description: e.target.value })} />
-                  </Field>
-                  <Field label="Access level" htmlFor="role-level" hint="For the parts of the tills that still go by level.">
-                    <Select id="role-level" value={draft.level} onChange={(e) => edit({ level: Number(e.target.value) })} className="max-w-[340px]">
-                      {LEVELS.map((text, level) => (
-                        <option key={level} value={level}>
-                          {text}
-                        </option>
-                      ))}
-                    </Select>
-                  </Field>
-                </div>
-                {permissions.isLoading && <Skeleton className="mt-5 h-64 rounded-card" />}
-                {groups.map((group) => (
-                  <fieldset key={group.name} className="mt-5">
-                    <legend className="mb-2 font-heading text-section">{group.name}</legend>
-                    <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
-                      {group.items.map((p) => {
-                        const locked = p.key === P.storesAll && !allStores;
-                        return (
-                          <Checkbox
-                            key={p.key}
-                            label={p.description}
-                            hint={locked ? 'Only a super administrator gives this.' : p.key}
-                            checked={draft.permissions.includes(p.key)}
-                            disabled={locked}
-                            onChange={(on) => toggle(p.key, on)}
-                          />
-                        );
-                      })}
-                    </div>
-                  </fieldset>
-                ))}
+                {/* Read only for those who may not change shared records: a disabled fieldset turns off every box. */}
+                <fieldset disabled={!canChangeShared} className="m-0 min-w-0 border-0 p-0">
+                  <div className="space-y-3">
+                    <Field label="Name" htmlFor="role-name" hint={draft.isSystem ? 'A standard role keeps its name.' : undefined}>
+                      <Input id="role-name" value={draft.name} maxLength={40} readOnly={draft.isSystem} onChange={(e) => edit({ name: e.target.value })} />
+                    </Field>
+                    <Field label="Description" htmlFor="role-desc">
+                      <Input id="role-desc" value={draft.description ?? ''} maxLength={120} onChange={(e) => edit({ description: e.target.value })} />
+                    </Field>
+                    <Field label="Access level" htmlFor="role-level" hint="For the parts of the tills that still go by level.">
+                      <Select id="role-level" value={draft.level} onChange={(e) => edit({ level: Number(e.target.value) })} className="max-w-[340px]">
+                        {LEVELS.map((text, level) => (
+                          <option key={level} value={level}>
+                            {text}
+                          </option>
+                        ))}
+                      </Select>
+                    </Field>
+                  </div>
+                  {permissions.isLoading && <Skeleton className="mt-5 h-64 rounded-card" />}
+                  {groups.map((group) => (
+                    <fieldset key={group.name} className="mt-5">
+                      <legend className="mb-2 font-heading text-section">{group.name}</legend>
+                      <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-2">
+                        {group.items.map((p) => {
+                          const locked = p.key === P.storesAll && !allStores;
+                          return (
+                            <Checkbox
+                              key={p.key}
+                              label={p.description}
+                              hint={locked ? 'Only a super administrator gives this.' : p.key}
+                              checked={draft.permissions.includes(p.key)}
+                              disabled={locked}
+                              onChange={(on) => toggle(p.key, on)}
+                            />
+                          );
+                        })}
+                      </div>
+                    </fieldset>
+                  ))}
+                </fieldset>
                 <FormError error={problem ?? (save.error && !(save.error instanceof ApiError && save.error.isConflict) ? save.error : null)} />
                 {dirty && <p className="mt-4 font-semibold text-ink">Not saved yet: press Save role (Ctrl+S).</p>}
               </form>

@@ -80,6 +80,10 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
         return { json: user.permissions.includes('stores.all') ? f.stores : f.stores.filter((s) => s.id === user!.storeId) };
       case /^GET \/api\/stores\/[^/]+\/stations$/.test(key):
         return { json: f.stations[id] ?? [] };
+      case /^GET \/api\/stores\/[^/]+\/locations$/.test(key):
+        return f.locations[id] ? { json: f.locations[id] } : { status: 404, json: { error: 'No such store.' } };
+      case key === 'GET /api/staff':
+        return { json: f.staff };
       case /^POST \/api\/stores\/[^/]+\/stations$/.test(key):
         return { json: { station: f.station(4, id), code: 'K7Q2-9XMB', expiresAtUtc: new Date(Date.now() + 24 * 3600_000).toISOString() } };
       case /^POST \/api\/stations\/[^/]+\/retire$/.test(key):
@@ -99,7 +103,7 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
       case key === 'GET /api/sync/batches':
         return { json: f.batches };
       case key === 'POST /api/sync/upload-file':
-        return { json: { ...f.batches[0], id: 'b-new', fileName: 'MAIN-001-usb.smapkg', receivedAtUtc: new Date().toISOString() } };
+        return { json: f.uploadResponse };
       case key === 'GET /api/dashboard':
         return { json: { ...f.dashboard, from: query.get('from') ?? f.dashboard.from, to: query.get('to') ?? f.dashboard.to } };
       case key === 'GET /api/sales':

@@ -21,6 +21,7 @@ import { useDebounced } from '@/lib/hooks';
 import { COMMISSION_BASIS, COMMISSION_SCOPES, label } from '@/lib/labels';
 import { P } from '@/lib/nav';
 import { useSession } from '@/lib/session';
+import { staffName, useStaff } from '@/lib/staff';
 import { useStore } from '@/lib/store';
 import type { CommissionRow, CommissionRule, HoursRow, TimeClockEntry } from '@/lib/types';
 
@@ -52,22 +53,17 @@ export default function StaffPage() {
   );
 }
 
-/** The staff to choose from: the users list for those who manage users, otherwise the names seen in the entries. */
-function useStaffList(storeId: string | null) {
-  const { can } = useSession();
-  return useQuery({ queryKey: ['users', storeId], queryFn: () => api.users({ storeId }), enabled: can(P.setupUsers) });
-}
 
 function TimeClock({ from, to }: { from: string; to: string }) {
   const { storeId } = useStore();
   const [userId, setUserId] = useState('');
-  const users = useStaffList(storeId);
+  const users = useStaff(storeId);
   const query = useQuery({ queryKey: ['time-clock', storeId, from, to, userId], queryFn: () => api.timeClock({ storeId, from, to, userId }) });
   const rows = query.data;
   const finished = (rows ?? []).filter((e) => e.outAt && e.hours !== null);
   const total = finished.reduce((s, e) => s + (e.hours ?? 0), 0);
   const people = useMemo(() => {
-    if (users.data) return users.data.map((u) => ({ id: u.id, name: u.fullName || u.userName }));
+    if (users.data) return users.data.map((u) => ({ id: u.id, name: staffName(u) }));
     const seen = new Map<string, string>();
     for (const e of rows ?? []) seen.set(e.userId, e.userName);
     return [...seen].map(([id, name]) => ({ id, name }));
@@ -173,11 +169,13 @@ function rate(rule: CommissionRule, symbol: string) {
 }
 
 function Rules() {
-  const { can } = useSession();
+  const { can, canChangeShared } = useSession();
   const symbol = useStore().currencySymbol;
   const toast = useToast();
   const queryClient = useQueryClient();
-  const edit = can(P.timeClockEdit);
+  // Commission rules are company-wide: changed with timeclock.edit by those who may change shared records.
+  const edit = can(P.timeClockEdit) && canChangeShared;
+  const readOnlyReason = !can(P.timeClockEdit) ? 'Your role can read the rules but not change them.' : !canChangeShared ? 'Commission rules are shared by every store; a super administrator changes them.' : '';
   const [selected, setSelected] = useState<CommissionRule | null>(null);
   const [editing, setEditing] = useState<CommissionRule | 'new' | null>(null);
   const [deleting, setDeleting] = useState<CommissionRule | null>(null);
@@ -242,7 +240,7 @@ function Rules() {
         ]}
       />
       <p className="mt-2 px-1 text-ink">
-        One item&apos;s rule wins over a category&apos;s, a category&apos;s over a department&apos;s, and a salesperson&apos;s own rule over everyone&apos;s. {edit ? '' : 'Your role can read the rules but not change them.'}
+        One item&apos;s rule wins over a category&apos;s, a category&apos;s over a department&apos;s, and a salesperson&apos;s own rule over everyone&apos;s. {readOnlyReason}
       </p>
       {editing && <RuleDialog rule={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
       <ConfirmDialog
@@ -264,7 +262,7 @@ function RuleDialog({ rule, onClose }: { rule: CommissionRule | null; onClose():
   const toast = useToast();
   const queryClient = useQueryClient();
   const { storeId } = useStore();
-  const users = useStaffList(storeId);
+  const users = useStaff(storeId);
   const departments = useQuery({ queryKey: ['departments'], queryFn: () => api.departments(), staleTime: 5 * 60_000 });
   const categories = useQuery({ queryKey: ['categories', ''], queryFn: () => api.categories(null), staleTime: 5 * 60_000 });
   const [name, setName] = useState(rule?.name ?? '');
@@ -364,7 +362,7 @@ function RuleDialog({ rule, onClose }: { rule: CommissionRule | null; onClose():
             {rule?.userId && !users.data && <option value={rule.userId}>{rule.userName}</option>}
             {(users.data ?? []).map((u) => (
               <option key={u.id} value={u.id}>
-                {u.fullName || u.userName}
+                {staffName(u)}
               </option>
             ))}
           </Select>

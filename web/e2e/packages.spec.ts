@@ -9,7 +9,8 @@ test('uploading a package from a USB stick shows progress and the result', async
 
   await page.getByLabel('Package file').setInputFiles({ name: 'MAIN-001-usb.smapkg', mimeType: 'application/octet-stream', buffer: Buffer.alloc(64 * 1024, 7) });
 
-  await expect(page.getByTestId('drop-zone').getByText('The package went in (412 rows).')).toBeVisible();
+  await expect(page.getByTestId('drop-zone').getByText('The package went in: 380 rows added, 30 changed, 2 deleted.')).toBeVisible();
+  await expect(page.getByTestId('drop-zone').getByText("2 clients were known already and kept the server's details.")).toBeVisible();
   await expect(page.getByRole('progressbar', { name: 'Upload' })).toHaveAttribute('aria-valuenow', '100');
 
   const upload = api.last('POST', '/api/sync/upload-file');

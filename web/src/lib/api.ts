@@ -36,7 +36,10 @@ import type {
   SaleRow,
   SignInRequest,
   SignInResponse,
+  LocationInfo,
+  StaffMember,
   StationInfo,
+  UploadResponse,
   StockCountDetail,
   StockCountRow,
   StockMovementRow,
@@ -304,6 +307,8 @@ export function createApi(options: ApiOptions = {}) {
     addStore: (request: StoreRequest) => post<StoreInfo>('/stores', request),
     saveStore: (storeId: string, request: StoreRequest) => put<StoreInfo>(`/stores/${id(storeId)}`, request),
     stations: (storeId: string) => get<StationInfo[]>(`/stores/${id(storeId)}/stations`),
+    locations: (storeId: string) => get<LocationInfo[]>(`/stores/${id(storeId)}/locations`),
+    staff: (query: Query) => get<StaffMember[]>('/staff', query),
     addStation: (storeId: string, request: NewStationRequest) => post<EnrollmentCodeInfo>(`/stores/${id(storeId)}/stations`, request),
     enrollmentCode: (stationId: string) => post<EnrollmentCodeInfo>(`/stations/${id(stationId)}/enrollment-code`),
     retireStation: (stationId: string) => post<StationInfo>(`/stations/${id(stationId)}/retire`),
@@ -312,7 +317,7 @@ export function createApi(options: ApiOptions = {}) {
     uploadPackage: (file: File, onProgress?: (fraction: number) => void) => {
       const form = new FormData();
       form.append('file', file, file.name);
-      return upload<BatchInfo>('/sync/upload-file', form, onProgress);
+      return upload<UploadResponse>('/sync/upload-file', form, onProgress);
     },
 
     // Dashboard and sales
@@ -330,6 +335,10 @@ export function createApi(options: ApiOptions = {}) {
     undeleteItem: (itemId: string) => post<void>(`/items/${id(itemId)}/undelete`),
     departments: () => get<Department[]>('/departments'),
     categories: (departmentId?: string | null) => get<Category[]>('/categories', { departmentId }),
+    addDepartment: (name: string) => post<Department>('/departments', { name }),
+    deleteDepartment: (departmentId: string) => del(`/departments/${id(departmentId)}`),
+    addCategory: (name: string) => post<Category>('/categories', { name }),
+    deleteCategory: (categoryId: string) => del(`/categories/${id(categoryId)}`),
 
     // Clients
     clients: (query: Query, signal?: AbortSignal) => get<Paged<ClientRow>>('/clients', query, signal),

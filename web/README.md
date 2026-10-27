@@ -73,11 +73,15 @@ The first time, install the browser: `npx playwright install chromium`.
 - The session token lives only in the server's httpOnly `rp_session` cookie. Nothing in the app stores it; the only
   thing kept in the browser is the chosen store (`localStorage`).
 - Every list sends the store chosen in the header as `storeId` (none for "All stores").
-- Money uses the currency symbol of the store's settings and `Intl` for the rest of the formatting. Business dates are
+- Money uses the currency symbol that comes with the store list (`GET /api/stores`) and `Intl` for the rest of the
+  formatting. Business dates are
   the browser's local days; weeks start on Monday.
 - Items are kept per location on the server, so Inventory has a line per store that stocks a code, and a new item is
-  added to the store chosen in its editor. Shared lists (clients, suppliers, departments, categories, roles, commission
-  rules) can only be changed by a super administrator once there is a second store; the server says so when it refuses.
+  added to the store and location chosen in its editor.
+- Shared lists (clients, suppliers, departments, categories, roles, commission rules) change only for users whose
+  `/api/auth/me` says `canChangeShared` (super administrators, or anyone while there is one store); for the others the
+  add, edit and delete buttons are hidden or disabled. Departments and categories are kept from Inventory.
+- Staff and user filters (Sales Journal, Staff, Audit log) use `GET /api/staff`.
 - The server answers `/tills` (no slash) with the export's `404.html`; that page moves on to `/tills/`.
 - Keys: Ctrl+K goes anywhere, Ctrl+1 … Ctrl+0 (or Alt+1 … Alt+0) open the first ten pages, `/` finds in a list, and
   every button shows the key that presses it. Chrome keeps Ctrl+N for a new window, so "new" buttons show Alt+N (Ctrl+N
