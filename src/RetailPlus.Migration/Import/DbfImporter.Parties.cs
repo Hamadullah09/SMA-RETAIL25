@@ -161,6 +161,14 @@ public sealed partial class DbfImporter
         }
         result.Imported = await SaveAsync(rows, ct);
         if (typeof(T) == typeof(Supplier)) _supplierRows.AddRange(rows.Select(r => r.Root).OfType<Supplier>());
+        if (typeof(T) == typeof(Client))
+        {
+            // The points each client starts with, so their points are the sum of their points history from here on.
+            await using var db = NewContext();
+            foreach (var c in rows.Select(r => r.Root).OfType<Client>().Where(c => c.Points != 0))
+                db.LoyaltyTransactions.Add(new LoyaltyTransaction { ClientId = c.Id, Kind = LoyaltyTransactionKind.Opening, Points = c.Points, At = _now, Note = "Imported from Retail Plus" });
+            await db.SaveChangesAsync(ct);
+        }
 
         int expected = result.Records - result.Blank;
         if (typeof(T) == typeof(Client))

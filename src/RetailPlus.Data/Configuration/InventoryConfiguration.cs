@@ -76,6 +76,7 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
         e.Property(x => x.ThcWeight).Quantity();
         e.Property(x => x.Weight).Quantity();
         e.Property(x => x.WeightTolerance).Quantity();
+        e.Property(x => x.UnitsPerCase).Quantity();
         e.Property(x => x.LastCost).UnitCost();
         e.Property(x => x.AverageCost).UnitCost();
         e.Property(x => x.MarginPercent).Rate();

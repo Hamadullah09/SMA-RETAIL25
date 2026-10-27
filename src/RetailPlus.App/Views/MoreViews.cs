@@ -7,6 +7,8 @@ using System.Windows.Media;
 using RetailPlus.App.Dialogs;
 using RetailPlus.App.Infrastructure;
 using RetailPlus.Core.Model;
+using RetailPlus.Core.Rules;
+using RetailPlus.Data;
 using RetailPlus.Data.Services;
 using RetailPlus.Migration.Import;
 using RetailPlus.Reports;
@@ -263,7 +265,8 @@ public sealed class ReportsView : UserControl, IRefreshable
 
     public ReportsView()
     {
-        _list.ItemsSource = ReportService.All;
+        // Reports need reports.view; the staff ones reports.staff.
+        _list.ItemsSource = ReportService.All.Where(d => AppServices.Can(d.Permission ?? Permissions.ReportsView)).ToList();
         _list.DisplayMemberPath = nameof(ReportDefinition.Name);
         var view = (System.Windows.Data.CollectionView)System.Windows.Data.CollectionViewSource.GetDefaultView(_list.ItemsSource);
         view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription(nameof(ReportDefinition.Group)));
@@ -298,6 +301,15 @@ public sealed class ReportsView : UserControl, IRefreshable
     public async Task RefreshAsync()
     {
         if (_result.Content is null) await RunAsync();
+    }
+
+    /// <summary>Chooses a report and runs it (from the Ctrl+K list).</summary>
+    public async Task ShowReportAsync(string key)
+    {
+        var def = ((IEnumerable<ReportDefinition>)_list.ItemsSource).FirstOrDefault(d => d.Key == key);
+        if (def is null) return;
+        _list.SelectedItem = def;
+        await Ui.Try(RunAsync);
     }
 
     public async Task RunAsync()
@@ -377,6 +389,7 @@ public sealed class ToolsView : UserControl, IRefreshable
 
     private async void Import_Click(object sender, RoutedEventArgs e)
     {
+        if (!Approval.Allowed(Permissions.ImportRun, "Importing from Retail Plus")) return;
         var folder = Ui.PickFolder("Retail Plus data folder (the one holding SETUP.DBF)");
         if (folder is null) return;
         if (!File.Exists(Path.Combine(folder, "SETUP.DBF"))) { Ui.Error("That folder has no SETUP.DBF."); return; }
@@ -392,6 +405,7 @@ public sealed class ToolsView : UserControl, IRefreshable
                 StationIniPath = File.Exists(ini) ? ini : null, Progress = Write,
             });
             var report = await Task.Run(() => importer.RunAsync());
+            await AppServices.Audit.WriteAsync(AuditActions.Import, $"Retail Plus data from {folder}: " + (report.VerificationPassed ? "all control totals match" : "some totals differ"));
             var dir = Path.Combine(Settings.StationConfig.DefaultFolder, "ImportReports", DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture));
             Directory.CreateDirectory(dir);
             await File.WriteAllTextAsync(Path.Combine(dir, "report.md"), report.ToMarkdown());
@@ -406,8 +420,12 @@ public sealed class ToolsView : UserControl, IRefreshable
         });
     }
 
+    /// <summary>Back up now, from the Ctrl+K list.</summary>
+    public void BackUpNow() => Backup_Click(this, new RoutedEventArgs());
+
     private async void Backup_Click(object sender, RoutedEventArgs e)
     {
+        if (!Approval.Allowed(Permissions.BackupManage, "A backup")) return;
         await Ui.Try(async () =>
         {
             Write("Backing up…");
@@ -418,6 +436,7 @@ public sealed class ToolsView : UserControl, IRefreshable
 
     private async void Restore_Click(object sender, RoutedEventArgs e)
     {
+        if (!Approval.Allowed(Permissions.BackupManage, "A restore")) return;
         var file = Ui.OpenFile(AppServices.Data.Connection.Provider == Data.DatabaseProvider.Sqlite ? "Database backup|*.db" : "SQL Server backup|*.bak");
         if (file is null || !Ui.Confirm("Replace the whole database with this backup? Everything entered since the backup is lost.")) return;
         await Ui.Try(async () =>
@@ -429,19 +448,25 @@ public sealed class ToolsView : UserControl, IRefreshable
         });
     }
 
-    private async void Rebuild_Click(object sender, RoutedEventArgs e) =>
+    private async void Rebuild_Click(object sender, RoutedEventArgs e)
+    {
+        if (!Approval.Allowed(Permissions.BackupManage, "A rebuild")) return;
         await Ui.Try(async () => { Write("Rebuilding…"); Write(await AppServices.Backup.RebuildAsync()); });
+    }
 
-    private async void Recurring_Click(object sender, RoutedEventArgs e) =>
+    private async void Recurring_Click(object sender, RoutedEventArgs e)
+    {
+        if (!Approval.Allowed(Permissions.InvoicesManage, "Recurring billing")) return;
         await Ui.Try(async () =>
         {
             int n = await AppServices.Parties.RunRecurringBillingAsync(AppServices.Session.LocationId, DateOnly.FromDateTime(DateTime.Today), AppServices.Invoices);
             Write($"Recurring billing: {n} invoices created.");
         });
+    }
 
     private async void YearEnd_Click(object sender, RoutedEventArgs e)
     {
-        if (!Ui.Confirm("Run Year End for this location now?")) return;
+        if (!Ui.Confirm("Run Year End for this location now?") || !Approval.Allowed(Permissions.YearEndRun, "Year end")) return;
         await Ui.Try(async () => Write($"Year end: {await AppServices.Inventory.YearEndAsync(AppServices.Session.LocationId)} items recorded."));
     }
 }

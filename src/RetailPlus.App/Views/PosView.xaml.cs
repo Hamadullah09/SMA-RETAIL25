@@ -5,6 +5,7 @@ using RetailPlus.App.Dialogs;
 using RetailPlus.App.Infrastructure;
 using RetailPlus.Core.Model;
 using RetailPlus.Core.Rules;
+using RetailPlus.Data.Services;
 using RetailPlus.Reports;
 
 namespace RetailPlus.App.Views;
@@ -126,6 +127,7 @@ public partial class PosView : UserControl, IRefreshable
 
     private async void NoSale_Click(object sender, RoutedEventArgs e)
     {
+        if (!Approval.Allowed(Permissions.PosNoSale, "Opening the drawer without a sale")) return;
         var reason = Ui.Prompt("Reason for opening the drawer:", "No sale", "Change");
         if (reason is null) return;
         if (await Ui.Try(() => AppServices.Drawer.AddMovementAsync(AppServices.Session, DrawerMovementKind.NoSale, 0, reason))) PosViewModel.OpenDrawer();
@@ -138,6 +140,7 @@ public partial class PosView : UserControl, IRefreshable
 
     private async Task MovementAsync(DrawerMovementKind kind, string title)
     {
+        if (!Approval.Allowed(Permissions.PosDrawer, title)) return;
         var amount = Ui.PromptDecimal("Amount:", title);
         if (amount is null) return;
         var reason = kind == DrawerMovementKind.OpeningFloat ? "Float" : Ui.Prompt("Reason:", title);
@@ -152,6 +155,7 @@ public partial class PosView : UserControl, IRefreshable
 
     private async void XReport_Click(object sender, RoutedEventArgs e)
     {
+        if (!Approval.Allowed(Permissions.PosDrawer, "The drawer report")) return;
         await Ui.Try(async () =>
         {
             var report = await AppServices.Drawer.GetCurrentAsync(AppServices.Session);
@@ -162,19 +166,40 @@ public partial class PosView : UserControl, IRefreshable
 
     private async void EndOfDay_Click(object sender, RoutedEventArgs e)
     {
-        if (!AppServices.Can(3) && !await LoginWindow.SupervisorApprovesAsync("End of Day")) return;
+        // Whoever may run it (the signed-in user, or the supervisor who approved) is recorded as closing the drawer.
+        if (Approval.SessionFor(Permissions.PosEndOfDay, "End of Day") is not SessionInfo closer) return;
         if (!Ui.Confirm("Close the drawer for today and print the End of Day report?")) return;
         await Ui.Try(async () =>
         {
-            var report = await AppServices.Drawer.EndOfDayAsync(AppServices.Session);
+            var report = await AppServices.Drawer.EndOfDayAsync(closer);
             // The day's data goes to the server at once, in the background; selling is never held up by it.
             AppServices.SyncSoon();
             var text = ReceiptFormatter.Drawer(report, AppServices.Settings, AppServices.Config.ReceiptWidth);
             try { AppServices.Printer.Print(text, false); } catch (Exception ex) { Log.Write(ex.Message); }
+            try
+            {
+                // The day's journal for the accounting program, when this station saves it at End of Day (Setup › Accounting).
+                var files = await AccountingSetupPanel.ExportAtEndOfDayAsync(report.Session.OpenedAt);
+                if (files.Count > 0) Vm.Message = "Journal saved for the accounting program: " + string.Join(", ", files.Select(System.IO.Path.GetFileName));
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or Data.Services.BusinessRuleException)
+            {
+                Log.Write("Accounting export at End of Day: " + ex);
+                Vm.Alert("The journal for the accounting program could not be saved: " + ex.Message);
+            }
             new TextPreviewWindow("End of Day (Z) report", text).ShowDialog();
         });
         CodeBox.Focus();
     }
+
+    /// <summary>End of Day from the Ctrl+K list.</summary>
+    public void EndOfDay() => EndOfDay_Click(this, new RoutedEventArgs());
+
+    /// <summary>The drawer (X) report from the Ctrl+K list.</summary>
+    public void DrawerReport() => XReport_Click(this, new RoutedEventArgs());
+
+    /// <summary>No sale from the Ctrl+K list.</summary>
+    public void NoSale() => NoSale_Click(this, new RoutedEventArgs());
 
     /// <summary>Used by Invoices &amp; A/R to sell a quote.</summary>
     public Task LoadDraftAsync(SaleDraft draft) => Vm.LoadDraftAsync(draft);

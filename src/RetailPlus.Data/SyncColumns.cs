@@ -11,11 +11,12 @@ namespace RetailPlus.Data;
 public static class SyncColumns
 {
     /// <summary>
-    /// Shadow column on every row: when a column that people edit last changed (UTC). <see cref="ITracked.UpdatedAtUtc"/>
+    /// Shadow column SyncEditedAtUtc on every row (not EditedAtUtc, which a time clock entry has for its own purpose): when
+    /// a column that people edit last changed (UTC). <see cref="ITracked.UpdatedAtUtc"/>
     /// also moves when only a column the system keeps changes (a sale lowers the stock), so the two together decide which
     /// copy of a row is newer: the later edit wins, and between equal edits the later change.
     /// </summary>
-    public const string EditedAtUtc = "EditedAtUtc";
+    public const string EditedAtUtc = "SyncEditedAtUtc";
 
     /// <summary>
     /// Shadow column on every row of the server's database (SQL Server only): a <c>rowversion</c>, which SQL Server raises

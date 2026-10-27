@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using RetailPlus.App.Infrastructure;
 using RetailPlus.App.Views;
 using RetailPlus.Core.Model;
@@ -94,6 +95,17 @@ public static class SmokeCheck
 
         try
         {
+            failures.AddRange(await StaffCheckAsync(main));
+            failures.AddRange(HelpAndPaletteCheck(main));
+            failures.AddRange(PermissionCheck(main));
+        }
+        catch (Exception ex)
+        {
+            failures.Add("Staff, audit, help: " + ex);
+        }
+
+        try
+        {
             failures.AddRange(await PictureCheckAsync(main));
             failures.AddRange(await TaggedStockCheckAsync(main));
             failures.AddRange(await RfidCheckAsync(main));
@@ -101,6 +113,15 @@ public static class SmokeCheck
         catch (Exception ex)
         {
             failures.Add("RFID: " + ex);
+        }
+
+        try
+        {
+            failures.AddRange(await StockAndMoneyCheckAsync(main));
+        }
+        catch (Exception ex)
+        {
+            failures.Add("Stock and money: " + ex);
         }
 
         try
@@ -159,6 +180,110 @@ public static class SmokeCheck
         finally
         {
             try { System.IO.Directory.Delete(folder, true); } catch (System.IO.IOException) { }
+        }
+        return failures;
+    }
+
+    /// <summary>
+    /// Staff and audit: a user is added (audited), signs in with a staff code and PIN, punches in and out, a supervisor's
+    /// correction across midnight shows in the hours, and the Staff and Audit screens show it. The user and their entries
+    /// are removed again so the database still opens without a login.
+    /// </summary>
+    private static async Task<List<string>> StaffCheckAsync(MainWindow main)
+    {
+        var failures = new List<string>();
+        var name = "smoke" + DateTime.Now.ToString("HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
+        var roles = await AppServices.Setup.GetRolesAsync();
+        var user = await AppServices.Setup.SaveUserAsync(new UserAccount { UserName = name, RoleId = roles.Single(r => r.Name == Permissions.CashierRole).Id }, "smoke-pass");
+        try
+        {
+            await AppServices.Setup.SetPinAsync(user.Id, name[^8..], "4711");
+            var signIn = await AppServices.Setup.SignInWithPinAsync(name[^8..], "4711");
+            if (signIn.User?.Id != user.Id) failures.Add($"staff code and PIN sign-in failed: {signIn.Message}");
+            await AppServices.Staff.PunchInAsync(user.Id);
+            try
+            {
+                await AppServices.Staff.PunchInAsync(user.Id);
+                failures.Add("a user could punch in twice");
+            }
+            catch (Data.Services.BusinessRuleException)
+            {
+            }
+            var shift = await AppServices.Staff.PunchOutAsync(user.Id);
+            var night = DateTime.Today.AddDays(-1).AddHours(22);
+            await AppServices.Staff.EditEntryAsync(shift.Id, night, night.AddHours(5), "Smoke check", AppServices.Session);
+            var hours = await AppServices.Staff.HoursByDayAsync(DateOnly.FromDateTime(night), DateOnly.FromDateTime(night.AddDays(1)), user.Id);
+            if (hours.Sum(h => h.Hours) != 5m || hours.Count != 2) failures.Add($"a 22:00 to 03:00 shift gave {string.Join(", ", hours.Select(h => $"{h.Day}: {h.Hours}"))}; expected 2 + 3 hours");
+
+            var history = await AppServices.Audit.HistoryAsync(nameof(UserAccount), user.Id);
+            if (!history.Any(a => a.Action == Data.AuditActions.Added)) failures.Add("adding a user was not audited");
+            if (!history.Any(a => a.Action == Data.AuditActions.SignIn)) failures.Add("a sign-in was not audited");
+            if (!(await AppServices.Audit.HistoryAsync(nameof(TimeClockEntry), shift.Id)).Any(a => a.Action == Data.AuditActions.TimeClockEdit))
+                failures.Add("a time clock correction was not audited");
+
+            main.Navigate("staff");
+            await MainWindow.Settle();
+            if (main.GetView<StaffView>() is null) failures.Add("the Staff screen did not open");
+            main.Navigate("audit");
+            await MainWindow.Settle();
+            if (main.GetView<AuditView>() is null) failures.Add("the Audit screen did not open");
+            Log.Write($"Staff: {name} signed in with a PIN, punched in and out, a corrected night shift counts {hours.Sum(h => h.Hours)} hours; {history.Count} audit lines");
+        }
+        finally
+        {
+            // Leave no user behind: a database with users asks for a login.
+            await using var db = AppServices.Data.Create();
+            db.TimeClockEntries.RemoveRange(await db.TimeClockEntries.Where(t => t.UserId == user.Id).ToListAsync());
+            db.UserAccounts.RemoveRange(await db.UserAccounts.Where(u => u.Id == user.Id).ToListAsync());
+            await db.SaveChangesAsync();
+        }
+        return failures;
+    }
+
+    /// <summary>The help finds topics by their words, and the Ctrl+K list finds screens, reports, actions and help.</summary>
+    private static List<string> HelpAndPaletteCheck(MainWindow main)
+    {
+        var failures = new List<string>();
+        if (Help.HelpTopics.Search("end of day") is not [{ Key: "drawer" }, ..]) failures.Add("help search for \"end of day\" did not find the drawer topic first");
+        if (Help.HelpTopics.Search("zzzz-nothing").Count != 0) failures.Add("help search found something for nonsense");
+        if (Help.HelpTopics.All.Select(t => t.Key).Distinct().Count() != Help.HelpTopics.All.Count) failures.Add("two help topics have the same key");
+        foreach (var topic in Help.HelpTopics.All.Where(t => t.Screen is not null && MainWindow.AllEntries.All(e => e.Key != t.Screen)))
+            failures.Add($"help topic {topic.Key} points at a screen that does not exist ({topic.Screen})");
+        main.Navigate("help");
+        if (main.GetView<HelpView>() is not { } help) failures.Add("the Help screen did not open");
+        else help.ShowTopic("timeclock");
+
+        var palette = new Dialogs.CommandPalette(main);
+        string First(string text) => palette.Matches(text) is [var first, ..] ? first.Title : "(nothing)";
+        if (First("inv") != "Go to Inventory") failures.Add($"Ctrl+K \"inv\" gave {First("inv")}");
+        if (First("end of day") != "End of day") failures.Add($"Ctrl+K \"end of day\" gave {First("end of day")}");
+        if (!palette.Matches("hours").Any(c => c.Kind == "Report")) failures.Add("Ctrl+K \"hours\" found no report");
+        if (!palette.Matches("pin").Any(c => c.Kind == "Help")) failures.Add("Ctrl+K \"pin\" found no help topic");
+        Log.Write($"Help: {Help.HelpTopics.All.Count} topics; Ctrl+K: {palette.Matches(null).Count} screens and actions, \"inv\" → {First("inv")}");
+        palette.Close();
+        return failures;
+    }
+
+    /// <summary>A cashier's role hides the back office: the screens listed follow the permissions.</summary>
+    private static List<string> PermissionCheck(MainWindow main)
+    {
+        var failures = new List<string>();
+        var all = AppServices.Session.Permissions;
+        try
+        {
+            AppServices.Session.Permissions = Permissions.DefaultRoles.Single(r => r.Name == Permissions.CashierRole).Permissions.ToHashSet(StringComparer.Ordinal);
+            main.RefreshChrome();
+            var keys = main.AllowedEntries.Select(e => e.Key).ToList();
+            foreach (var hidden in new[] { "setup", "audit", "tools", "reports", "home" })
+                if (keys.Contains(hidden)) failures.Add($"a cashier sees the {hidden} screen");
+            foreach (var shown in new[] { "pos", "clients", "staff", "help" })
+                if (!keys.Contains(shown)) failures.Add($"a cashier does not see the {shown} screen");
+            Log.Write("Cashier sees: " + string.Join(", ", keys));
+        }
+        finally
+        {
+            AppServices.Session.Permissions = all;
+            main.RefreshChrome();
         }
         return failures;
     }
@@ -249,6 +374,163 @@ public static class SmokeCheck
             await AppServices.Inventory.DeleteAsync(item.Id);
         }
         return failures;
+    }
+
+    /// <summary>
+    /// Stock and money: a stock count posted, a transfer shipped to a second location and received there, a gift card sold
+    /// and spent through the POS screen's own code, the accounting journal in balance, the store logo and watermark on a
+    /// receipt whose barcode still scans, undelete, and the new windows opened and closed.
+    /// </summary>
+    private static async Task<List<string>> StockAndMoneyCheckAsync(MainWindow main)
+    {
+        var failures = new List<string>();
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        string stamp = DateTime.Now.ToString("HHmmssfff", culture);
+        string user = AppServices.Session.UserName;
+        var here = AppServices.Session.LocationId;
+        async Task<decimal> OnHand(Guid id) => (await AppServices.Inventory.GetAsync(id))!.OnHand;
+
+        // A count of 7 where 10 were expected.
+        var item = await AppServices.Inventory.SaveAsync(new Item
+        {
+            LocationId = here, Plu = "SMK-C" + stamp, Name = "Smoke counted", Price1 = 2m, LastCost = 1m, AverageCost = 1m, OnHand = 10,
+        }, "SMOKE", null, null);
+        var count = await AppServices.StockCounts.StartAsync(here, "Smoke check", user);
+        await AppServices.StockCounts.CountCodeAsync(count.Id, item.Plu, 7);
+        var sheet = await AppServices.Reports.CountSheetAsync(count.Id, true);
+        var posted = await AppServices.StockCounts.PostAsync(count.Id, false, user);
+        if (await OnHand(item.Id) != 7 || posted.ItemsChanged != 1) failures.Add($"stock count: on hand {await OnHand(item.Id)} after counting 7, {posted.ItemsChanged} item(s) changed");
+        if (sheet.Rows.Count == 0) failures.Add("the count sheet has no items");
+        Log.Write($"Stock count {count.Number} posted: {posted.ItemsChanged} item changed by {posted.UnitsChanged}");
+
+        // 2 of them to a second location.
+        var second = (await AppServices.Setup.GetLocationsAsync()).FirstOrDefault(l => l.Code == "SM2") ?? await AppServices.Setup.AddLocationAsync("SM2", "Smoke back room");
+        var transfer = await AppServices.Transfers.CreateAsync(here, second.Id, "Smoke check", user);
+        await AppServices.Transfers.AddItemAsync(transfer.Id, item.Plu, 2);
+        await AppServices.Transfers.ShipAsync(transfer.Id, user);
+        var receipt = await AppServices.Transfers.ReceiveAsync(transfer.Id, null, user);
+        var arrived = (await AppServices.Inventory.FindByCodeAsync(second.Id, item.Plu)).Item;
+        if (await OnHand(item.Id) != 5 || arrived?.OnHand != 2 || receipt.CreatedItems.Count != 1)
+            failures.Add($"transfer {transfer.Number}: {await OnHand(item.Id)} left here, {arrived?.OnHand} arrived, {receipt.CreatedItems.Count} item(s) created");
+        Log.Write($"Transfer {transfer.Number}: 2 x {item.Plu} shipped to SM2 and received ({string.Join(", ", receipt.CreatedItems)} created there)");
+
+        // A gift card sold at the POS, then spent on that item.
+        var (cardItem, _) = await AppServices.Inventory.FindByCodeAsync(here, "SMOKE-GIFT");
+        cardItem ??= await AppServices.Inventory.SaveAsync(new Item { LocationId = here, Plu = "SMOKE-GIFT", Name = "Gift card", ItemType = ItemType.GiftCard }, "SMOKE", null, null);
+        main.Navigate("pos");
+        await MainWindow.Settle();
+        var pos = main.GetView<PosView>() ?? throw new InvalidOperationException("POS screen did not open");
+        pos.Vm.StopRfid();
+        await pos.Vm.ClearSaleAsync(ask: false);
+        string number = "SMK" + stamp;
+        pos.Vm.GiftCardPrompt = _ => Task.FromResult<Dialogs.GiftCardEntry?>(new Dialogs.GiftCardEntry(number, 25m, GiftCardKind.Card));
+        try
+        {
+            await pos.Vm.AddCodeAsync("SMOKE-GIFT");
+        }
+        finally
+        {
+            pos.Vm.GiftCardPrompt = null;
+        }
+        if (pos.Vm.Lines.SingleOrDefault()?.GiftCardNumber != number) failures.Add($"the gift card item did not ring up card {number}");
+        if (!await pos.Vm.PostAsync([new TenderEntry("Cash", TenderKind.Cash, pos.Vm.Total, pos.Vm.Total)])) failures.Add("the gift card sale was not saved");
+        await pos.Vm.AddCodeAsync(item.Plu);
+        var spent = pos.Vm.Total;
+        if (!await pos.Vm.PostAsync([new TenderEntry("Gift Card", TenderKind.GiftCard, spent, spent, Reference: number)])) failures.Add("the sale paid by gift card was not saved");
+        var card = await AppServices.GiftCards.FindAsync(number);
+        if (card?.Balance != 25m - spent) failures.Add($"gift card {number} holds {card?.Balance}, expected {25m - spent}");
+        Log.Write($"Gift card {number}: sold for 25, {spent} spent, {card?.Balance} left");
+
+        // The day's journal balances, and the End of Day file is written.
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var journal = await AppServices.Accounting.ExportAsync(today, today);
+        foreach (var t in journal.Totals.Where(t => t.Debit != t.Credit)) failures.Add($"journal {t.Journal} does not balance: {t.Debit} debit, {t.Credit} credit");
+        if (journal.Lines.Count == 0) failures.Add("today's journal is empty");
+        var folder = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "SmaRetailSmokeJournal" + stamp);
+        try
+        {
+            var file = await AppServices.Accounting.ExportDayToFolderAsync(folder, today, AppServices.Session.StationNumber);
+            if (!System.IO.File.ReadAllText(file).StartsWith("Date,Journal,Store,Account", StringComparison.Ordinal)) failures.Add("the journal file has no header");
+        }
+        finally
+        {
+            if (System.IO.Directory.Exists(folder)) System.IO.Directory.Delete(folder, true);
+        }
+        Log.Write($"Journal: {journal.Totals.Count} journal(s), {journal.Lines.Count} lines, unmapped: {string.Join(", ", journal.Unmapped)}");
+
+        // The store's logo and watermark on the header and a receipt whose barcode still scans; then back to none.
+        var picture = Pictures.Encode((System.Windows.Media.Imaging.BitmapSource)Brand.Mark);
+        await AppServices.Branding.SetAsync(StoreImageKind.Logo, picture);
+        await AppServices.Branding.SetAsync(StoreImageKind.Watermark, picture);
+        try
+        {
+            await AppServices.RefreshBrandingAsync();
+            main.ShowStoreLogo();
+            if (AppServices.Logo is null || AppServices.Watermark is null || main.StoreLogoFrame.Visibility != System.Windows.Visibility.Visible)
+                failures.Add("the store logo is not shown in the header");
+            var slip = Dialogs.ReceiptPaper.Create(Reports.Receipt.FromSale(MainWindow.SampleSale(), new StoreSettings(), null, null));
+            if (Decode(slip)?.Text != "1005") failures.Add("with the store's watermark, the receipt barcode does not scan");
+            if (ReceiptLogo.Raster().Bits.Length == 0) failures.Add("the store logo gives no receipt printer raster");
+        }
+        finally
+        {
+            await AppServices.Branding.SetAsync(StoreImageKind.Logo, null);
+            await AppServices.Branding.SetAsync(StoreImageKind.Watermark, null);
+            await AppServices.RefreshBrandingAsync();
+            main.ShowStoreLogo();
+        }
+
+        // Undelete a client.
+        var client = await AppServices.Parties.SaveClientAsync(new Client { LastName = "Smoke " + stamp[..6] });
+        await AppServices.Parties.DeleteClientAsync(client.Id);
+        await AppServices.Parties.RestoreClientAsync(client.Id);
+        if ((await AppServices.Parties.GetClientAsync(client.Id))!.IsDeleted) failures.Add("a deleted client did not come back");
+
+        // The new windows open, lay out and close.
+        var usd = new List<TenderType>(await AppServices.Setup.GetTenderTypesAsync()) { new() { Name = "US Dollars", Kind = TenderKind.Cash, Currency = "USD" } };
+        var preview = await AppServices.Inventory.PreviewPriceChangesAsync(here, new Data.Services.PriceRule(Data.Services.PriceChangeMethod.Percent, 10, 0.99m), false, null);
+        var windows = new (string Name, System.Windows.Window Window)[]
+        {
+            ("gift card sale", new Dialogs.GiftCardSaleWindow("Gift card", 25m)),
+            ("RFID count", new Dialogs.RfidCountWindow("Count 1")),
+            ("price preview", new Dialogs.PriceChangeWindow(preview.Take(20).ToList(), "Price 1 +10%")),
+            ("pay in USD", new Dialogs.PayWindow(33.60m, usd, 0.01m, false, false, [new FxRate { Currency = "USD", Rate = 0.5m }])),
+            ("client points", new Dialogs.PartyEditorWindow((await AppServices.Parties.GetClientAsync(client.Id))!)),
+        };
+        foreach (var (name, window) in windows)
+        {
+            try
+            {
+                window.Owner = main;
+                window.Show();
+                await MainWindow.Settle();
+                if (window is Dialogs.PayWindow && !Texts(window).Any(t => t.Contains("USD 16.80", StringComparison.Ordinal)))
+                    failures.Add("the Pay window does not show the amount due in USD");
+                if (window is Dialogs.RfidCountWindow rfidWindow)
+                {
+                    rfidWindow.Add("E2801170000" + stamp + "AA");
+                    rfidWindow.Add("E2801170000" + stamp + "AA");
+                }
+                window.Close();
+                Log.Write($"Window {name} ok");
+            }
+            catch (Exception ex)
+            {
+                failures.Add($"window {name}: {ex.Message}");
+            }
+        }
+        await pos.Vm.ClearSaleAsync(ask: false);
+        return failures;
+    }
+
+    /// <summary>The texts shown in a window (its logical tree).</summary>
+    private static IEnumerable<string> Texts(System.Windows.DependencyObject root)
+    {
+        foreach (var child in System.Windows.LogicalTreeHelper.GetChildren(root).OfType<System.Windows.DependencyObject>())
+        {
+            if (child is System.Windows.Controls.TextBlock { Text: { } text }) yield return text;
+            foreach (var t in Texts(child)) yield return t;
+        }
     }
 
     /// <summary>

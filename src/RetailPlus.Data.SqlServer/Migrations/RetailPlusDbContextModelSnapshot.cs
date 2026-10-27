@@ -23,6 +23,144 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("RetailPlus.Core.Model.AccountMapping", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AccountCode")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("AccountName")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("StoreId", "Kind", "Key")
+                        .IsUnique();
+
+                    b.ToTable("AccountMappings");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.AuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("After")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("AtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Before")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<Guid?>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityName")
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("StationNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UserName")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AtUtc");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("Action", "AtUtc");
+
+                    b.HasIndex("EntityName", "EntityId");
+
+                    b.HasIndex("UserId", "AtUtc");
+
+                    b.ToTable("AuditEntries");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.Category", b =>
                 {
                     b.Property<Guid>("Id")
@@ -38,14 +176,14 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(15)
                         .HasColumnType("nvarchar(15)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -116,10 +254,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<DateTime?>("DeletedAt")
                         .HasPrecision(0)
                         .HasColumnType("datetime2(0)");
-
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Email")
                         .HasMaxLength(100)
@@ -214,6 +348,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasMaxLength(15)
                         .HasColumnType("nvarchar(15)");
 
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
                     b.Property<string>("Title")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
@@ -283,6 +421,88 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         });
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.CommissionRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Basis")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("EffectiveTo")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<decimal>("Rate")
+                        .HasPrecision(7, 3)
+                        .HasColumnType("decimal(7,3)");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CommissionRules");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.CustomerOrder", b =>
                 {
                     b.Property<Guid>("Id")
@@ -313,10 +533,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(37)
                         .HasColumnType("nvarchar(37)");
-
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
 
                     b.Property<long>("InvoiceNumber")
                         .HasColumnType("bigint");
@@ -357,14 +573,21 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasColumnType("nvarchar(6)");
 
                     b.Property<string>("SoldBy")
-                        .HasMaxLength(15)
-                        .HasColumnType("nvarchar(15)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("SoldById")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("StationNumber")
                         .HasColumnType("int");
 
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(12, 2)
@@ -406,14 +629,14 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(15)
                         .HasColumnType("nvarchar(15)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -446,10 +669,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -460,6 +679,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Text")
                         .IsRequired()
@@ -514,10 +737,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<Guid>("DrawerSessionId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(12)
@@ -527,13 +746,20 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
                     b.Property<string>("User")
-                        .HasMaxLength(15)
-                        .HasColumnType("nvarchar(15)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -565,6 +791,13 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(0)
                         .HasColumnType("datetime2(0)");
 
+                    b.Property<string>("ClosedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("ClosedById")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<decimal>("Cogs")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
@@ -579,10 +812,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<decimal>("CustomerCredits")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
-
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
 
                     b.Property<bool>("IsFlagged")
                         .HasColumnType("bit");
@@ -623,6 +852,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<decimal>("Tax1Total")
                         .HasPrecision(12, 2)
@@ -677,7 +910,11 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<Guid>("DrawerSessionId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("EditedAtUtc")
+                    b.Property<decimal>("ForeignAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
@@ -721,10 +958,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<decimal>("FixedPrice")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
@@ -748,6 +981,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<string>("Plu")
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<bool>("Taxable1")
                         .HasColumnType("bit");
@@ -791,13 +1028,13 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<decimal>("Rate")
                         .HasPrecision(14, 6)
                         .HasColumnType("decimal(14,6)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -813,6 +1050,149 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.HasIndex("UpdatedAtUtc");
 
                     b.ToTable("FxRates");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.GiftCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid?>("ClientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateOnly?>("ExpiresOn")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("IssuedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("ClientId");
+
+                    b.HasIndex("Number")
+                        .IsUnique();
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.ToTable("GiftCards");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.GiftCardTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("At")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid>("GiftCardId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("InvoiceNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("SaleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("StationNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("User")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("SaleId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("GiftCardId", "At");
+
+                    b.ToTable("GiftCardTransactions");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.Invoice", b =>
@@ -856,10 +1236,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<decimal>("DiscountPercent")
                         .HasPrecision(7, 3)
                         .HasColumnType("decimal(7,3)");
-
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Email")
                         .HasMaxLength(100)
@@ -906,8 +1282,11 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("SalesPerson")
-                        .HasMaxLength(15)
-                        .HasColumnType("nvarchar(15)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("SalesPersonId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("ShipTo")
                         .HasMaxLength(200)
@@ -918,6 +1297,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<decimal>("Tax1Rate")
                         .HasPrecision(7, 3)
@@ -986,10 +1369,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<Guid>("InvoiceId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1007,6 +1386,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<decimal>("Quantity")
                         .HasPrecision(12, 3)
                         .HasColumnType("decimal(12,3)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(12, 2)
@@ -1050,10 +1433,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<Guid>("InvoiceId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1068,6 +1447,17 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasColumnType("int");
 
                     b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("TakenBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("TakenById")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("TenderType")
@@ -1170,10 +1560,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid?>("DepartmentId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("InvoiceMessage")
                         .HasColumnType("nvarchar(max)");
@@ -1312,6 +1698,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<Guid?>("SupplierId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
                     b.Property<string>("TagAlongCode")
                         .HasMaxLength(16)
                         .HasColumnType("nvarchar(16)");
@@ -1323,6 +1713,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasColumnType("bit");
 
                     b.Property<decimal>("ThcWeight")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<decimal>("UnitsPerCase")
                         .HasPrecision(12, 3)
                         .HasColumnType("decimal(12,3)");
 
@@ -1397,10 +1791,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Heading")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -1411,6 +1801,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<int>("Ordinal")
                         .HasColumnType("int");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -1446,10 +1840,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<decimal>("Gross")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
@@ -1465,6 +1855,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<int>("StationNumber")
                         .HasColumnType("int");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<decimal>("Units")
                         .HasPrecision(12, 3)
@@ -1510,7 +1904,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .IsRequired()
                         .HasColumnType("varbinary(max)");
 
-                    b.Property<DateTime>("EditedAtUtc")
+                    b.Property<DateTime>("SyncEditedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
@@ -1542,10 +1936,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1560,6 +1950,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<DateOnly?>("StatusDate")
                         .HasColumnType("date");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -1599,10 +1993,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1620,6 +2010,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<string>("SupplierStockCode")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -1654,10 +2048,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Epc")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -1686,6 +2076,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(8)
                         .HasColumnType("nvarchar(8)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -1727,10 +2121,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1740,6 +2130,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<int>("Ordinal")
                         .HasColumnType("int");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -1798,10 +2192,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<Guid>("KitItemId")
                         .HasColumnType("uniqueidentifier");
 
@@ -1811,6 +2201,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<decimal>("Quantity")
                         .HasPrecision(12, 3)
                         .HasColumnType("decimal(12,3)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -1850,16 +2244,16 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Name")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -1877,6 +2271,80 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.ToTable("Locations");
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.LoyaltyTransaction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("At")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<Guid>("ClientId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<long?>("InvoiceNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("Points")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<Guid?>("SaleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("StationNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("User")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("SaleId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("ClientId", "At");
+
+                    b.ToTable("LoyaltyTransactions");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.NumberCounter", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1892,10 +2360,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Kind")
                         .IsRequired()
                         .HasMaxLength(30)
@@ -1906,6 +2370,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<int>("StationNumber")
                         .HasColumnType("int");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -1942,13 +2410,16 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("Description")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("LocationId")
                         .HasColumnType("uniqueidentifier");
@@ -1969,6 +2440,13 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(0)
                         .HasColumnType("datetime2(0)");
 
+                    b.Property<string>("ReceivedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("ReceivedById")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<int>("StationNumber")
                         .HasColumnType("int");
 
@@ -1979,6 +2457,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -2038,10 +2520,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<bool>("IsFlagged")
                         .HasColumnType("bit");
 
@@ -2099,6 +2577,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
@@ -2129,10 +2611,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<bool>("IsEnabled")
                         .HasColumnType("bit");
 
@@ -2156,6 +2634,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<int?>("StationNumber")
                         .HasColumnType("int");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -2222,10 +2704,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<int>("DwellRounds")
                         .HasColumnType("int");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<int>("EndFrequency")
                         .HasColumnType("int");
 
@@ -2291,6 +2769,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
                     b.Property<string>("Transport")
                         .IsRequired()
                         .HasMaxLength(8)
@@ -2337,6 +2819,13 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("CustomerEmail")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -2355,10 +2844,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<string>("Description")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
-
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("FirstName")
                         .HasMaxLength(12)
@@ -2435,6 +2920,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
                     b.Property<decimal>("UnitPrice")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
@@ -2473,10 +2962,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<bool>("IsSystem")
                         .HasColumnType("bit");
 
@@ -2487,6 +2972,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -2522,10 +3011,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Permission")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -2533,6 +3018,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid>("RoleId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -2580,10 +3069,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasMaxLength(11)
                         .HasColumnType("nvarchar(11)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<long>("InvoiceNumber")
                         .HasColumnType("bigint");
 
@@ -2616,8 +3101,11 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasColumnType("datetime2(0)");
 
                     b.Property<string>("Staff")
-                        .HasMaxLength(15)
-                        .HasColumnType("nvarchar(15)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("StaffId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("StationNumber")
                         .HasColumnType("int");
@@ -2637,6 +3125,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<decimal>("SubtotalDiscount")
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<decimal>("Tax1")
                         .HasPrecision(12, 2)
@@ -2681,8 +3173,11 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasColumnType("datetime2(0)");
 
                     b.Property<string>("VoidedBy")
-                        .HasMaxLength(15)
-                        .HasColumnType("nvarchar(15)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("VoidedById")
+                        .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
@@ -2695,6 +3190,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.HasIndex("LocationId");
 
                     b.HasIndex("SoldAt");
+
+                    b.HasIndex("StaffId");
 
                     b.HasIndex("StoreId");
 
@@ -2741,9 +3238,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
+                    b.Property<string>("GiftCardNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<Guid?>("ItemId")
                         .HasColumnType("uniqueidentifier");
@@ -2781,6 +3278,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<string>("SupplierName")
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<decimal>("Tax1")
                         .HasPrecision(12, 2)
@@ -2837,10 +3338,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Epc")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -2849,6 +3346,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid>("SaleLineId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -2894,9 +3395,17 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
+                    b.Property<string>("Currency")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<decimal>("ExchangeRate")
+                        .HasPrecision(14, 6)
+                        .HasColumnType("decimal(14,6)");
+
+                    b.Property<decimal>("ForeignAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
 
                     b.Property<string>("Reference")
                         .HasMaxLength(200)
@@ -2904,6 +3413,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid>("SaleId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("TenderType")
                         .IsRequired()
@@ -2948,10 +3461,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<DateOnly?>("FromDate")
                         .HasColumnType("date");
 
@@ -2967,6 +3476,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(12, 2)
                         .HasColumnType("decimal(12,2)");
 
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
                     b.Property<DateOnly?>("ToDate")
                         .HasColumnType("date");
 
@@ -2977,6 +3490,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("UserName")
                         .IsRequired()
@@ -3007,10 +3523,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Name")
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
@@ -3020,6 +3532,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -3064,10 +3580,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<long>("DownloadCursor")
                         .HasColumnType("bigint");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<DateTime?>("EnrolledAtUtc")
                         .HasPrecision(0)
                         .HasColumnType("datetime2(0)");
@@ -3107,6 +3619,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
@@ -3145,10 +3661,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -3161,6 +3673,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid>("StationId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -3180,6 +3696,221 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .IsUnique();
 
                     b.ToTable("StationSettings");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.StockCount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("CancelledBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long>("Number")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("PostedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("PostedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("StartedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("StartedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("StationNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<bool>("UncountedSetToZero")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("LocationId", "Status");
+
+                    b.HasIndex("StationNumber", "Number");
+
+                    b.ToTable("StockCounts");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.StockCountLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<decimal>("Counted")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<DateTime>("CountedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<decimal>("Expected")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("NotCounted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Plu")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("StockCountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<decimal>("Variance")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<decimal>("VarianceCost")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<Guid?>("VariantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("StockCountId", "ItemId", "VariantId");
+
+                    b.ToTable("StockCountLines");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.StockCountTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Epc")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<Guid>("StockCountId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StockCountLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("StockCountId", "Epc")
+                        .IsUnique();
+
+                    b.ToTable("StockCountTags");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.StockMovement", b =>
@@ -3203,10 +3934,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<long?>("DocumentNumber")
                         .HasColumnType("bigint");
-
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
 
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uniqueidentifier");
@@ -3234,13 +3961,24 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
                     b.Property<string>("User")
-                        .HasMaxLength(15)
-                        .HasColumnType("nvarchar(15)");
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("VariantId")
                         .HasColumnType("uniqueidentifier");
@@ -3258,6 +3996,206 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.HasIndex("Kind", "At");
 
                     b.ToTable("StockMovements");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.StockTransfer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CancelledAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid>("FromLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long>("Number")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("ReceivedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("ReceivedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("ShippedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("ShippedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("StationNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid>("ToLocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ToStoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("FromLocationId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("ToLocationId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("StationNumber", "Number");
+
+                    b.HasIndex("ToStoreId", "Status");
+
+                    b.ToTable("StockTransfers", t =>
+                        {
+                            t.HasCheckConstraint("CK_StockTransfer_Locations", "[FromLocationId] <> [ToLocationId]");
+                        });
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.StockTransferLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Barcode")
+                        .HasMaxLength(14)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(14)");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<bool>("CreatedAtDestination")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Department")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<Guid?>("DestinationItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ItemType")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Plu")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<decimal>("QuantityReceived")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<decimal>("QuantityShipped")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<string>("Size")
+                        .HasMaxLength(6)
+                        .HasColumnType("nvarchar(6)");
+
+                    b.Property<Guid>("SourceItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StockTransferId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<bool>("Taxable1")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("Taxable2")
+                        .HasColumnType("bit");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("StockTransferId", "LineNumber")
+                        .IsUnique();
+
+                    b.ToTable("StockTransferLines");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.Store", b =>
@@ -3280,14 +4218,14 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("TimeZoneId")
                         .HasMaxLength(64)
@@ -3309,6 +4247,53 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.ToTable("Stores");
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.StoreImage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("StoreId", "Kind")
+                        .IsUnique();
+
+                    b.ToTable("StoreImages");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.StoreSettingExtra", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3324,10 +4309,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -3335,6 +4316,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -3398,10 +4383,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasColumnType("nvarchar(20)");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
-                    b.Property<DateTime>("EditedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
@@ -3471,6 +4452,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<bool>("SupervisorForVoids")
                         .HasColumnType("bit");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Tax1Name")
                         .HasMaxLength(20)
@@ -3574,10 +4559,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(0)
                         .HasColumnType("datetime2(0)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Email")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -3631,6 +4612,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<string>("State")
                         .HasMaxLength(15)
                         .HasColumnType("nvarchar(15)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Title")
                         .HasMaxLength(30)
@@ -3709,10 +4694,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Label")
                         .HasMaxLength(60)
                         .HasColumnType("nvarchar(60)");
@@ -3730,6 +4711,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<DateTime>("SuspendedAt")
                         .HasPrecision(0)
                         .HasColumnType("datetime2(0)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -3777,10 +4762,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Error")
                         .HasColumnType("nvarchar(max)");
 
@@ -3813,6 +4794,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid?>("StoreId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -3851,10 +4836,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<long>("DownloadCursor")
                         .HasColumnType("bigint");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<DateTime?>("LastAttemptAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
@@ -3875,6 +4856,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("SentThroughUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
@@ -3906,14 +4891,14 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<string>("Tax1Name")
                         .HasMaxLength(20)
@@ -3959,9 +4944,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
+                    b.Property<string>("Currency")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
@@ -3982,6 +4967,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
 
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
@@ -3996,6 +4985,81 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.HasIndex("UpdatedAtUtc");
 
                     b.ToTable("TenderTypes");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.TimeClockEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("ClockIn")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<DateTime?>("ClockOut")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("EditReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime?>("EditedAtUtc")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("EditedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("EditedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("StationNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("UserName")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("ClockIn");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("UserId", "ClockIn");
+
+                    b.ToTable("TimeClockEntries");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.Tombstone", b =>
@@ -4017,10 +5081,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
-                    b.Property<DateTime>("EditedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
                     b.Property<string>("EntityName")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -4034,6 +5094,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid?>("StoreId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -4065,10 +5129,6 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasColumnType("rowversion");
 
                     b.Property<DateTime>("CreatedAtUtc")
-                        .HasPrecision(3)
-                        .HasColumnType("datetime2(3)");
-
-                    b.Property<DateTime>("EditedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
@@ -4108,6 +5168,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid?>("StoreId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
@@ -4223,6 +5287,47 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.ToTable("ImportSourceRows");
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.AccountMapping", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.AuditEntry", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.CommissionRule", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Category", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RetailPlus.Core.Model.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RetailPlus.Core.Model.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RetailPlus.Core.Model.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.CustomerOrder", b =>
                 {
                     b.HasOne("RetailPlus.Core.Model.Store", null)
@@ -4272,6 +5377,36 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .WithMany("Tenders")
                         .HasForeignKey("DrawerSessionId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.GiftCard", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Client", "Client")
+                        .WithMany()
+                        .HasForeignKey("ClientId");
+
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Client");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.GiftCardTransaction", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.GiftCard", null)
+                        .WithMany("Transactions")
+                        .HasForeignKey("GiftCardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
@@ -4436,6 +5571,21 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.LoyaltyTransaction", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Client", null)
+                        .WithMany()
+                        .HasForeignKey("ClientId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.PurchaseOrder", b =>
                 {
                     b.HasOne("RetailPlus.Core.Model.Location", "Location")
@@ -4581,6 +5731,47 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.StockCount", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Location");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.StockCountLine", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.StockCount", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("StockCountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.StockCountTag", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.StockCount", null)
+                        .WithMany()
+                        .HasForeignKey("StockCountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.StockMovement", b =>
                 {
                     b.HasOne("RetailPlus.Core.Model.Item", null)
@@ -4589,6 +5780,55 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.StockTransfer", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Location", "FromLocation")
+                        .WithMany()
+                        .HasForeignKey("FromLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.Location", "ToLocation")
+                        .WithMany()
+                        .HasForeignKey("ToLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("ToStoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FromLocation");
+
+                    b.Navigation("ToLocation");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.StockTransferLine", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.StockTransfer", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("StockTransferId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.StoreImage", b =>
+                {
                     b.HasOne("RetailPlus.Core.Model.Store", null)
                         .WithMany()
                         .HasForeignKey("StoreId")
@@ -4623,6 +5863,21 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.TimeClockEntry", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.UserAccount", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.UserAccount", b =>
                 {
                     b.HasOne("RetailPlus.Core.Model.Role", "Role")
@@ -4652,6 +5907,11 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Navigation("Movements");
 
                     b.Navigation("Tenders");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.GiftCard", b =>
+                {
+                    b.Navigation("Transactions");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.Invoice", b =>
@@ -4706,6 +5966,16 @@ namespace RetailPlus.Data.SqlServer.Migrations
             modelBuilder.Entity("RetailPlus.Core.Model.Station", b =>
                 {
                     b.Navigation("Settings");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.StockCount", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.StockTransfer", b =>
+                {
+                    b.Navigation("Lines");
                 });
 #pragma warning restore 612, 618
         }

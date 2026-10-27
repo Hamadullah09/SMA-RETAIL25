@@ -83,7 +83,14 @@ public sealed class PartyService(DataContext data)
         if (!string.IsNullOrWhiteSpace(client.AccountNumber) && await db.Clients.AnyAsync(c => c.AccountNumber == client.AccountNumber && c.Id != client.Id && !c.IsDeleted))
             throw new BusinessRuleException($"Account number {client.AccountNumber} is already used.");
         if (string.IsNullOrWhiteSpace(client.AccountNumber)) client.AccountNumber = null;
-        if (client.Id == Guid.Empty) db.Clients.Add(client);
+        if (client.Id == Guid.Empty)
+        {
+            // A new client's points start with a history row like any other change.
+            decimal points = client.Points;
+            client.Points = 0;
+            db.Clients.Add(client);
+            LoyaltyService.Record(db, client, LoyaltyTransactionKind.Adjust, points, null, null, "Points of a new client");
+        }
         else
         {
             db.Clients.Update(client);
@@ -106,9 +113,9 @@ public sealed class PartyService(DataContext data)
         return supplier;
     }
 
-    /// <summary>Client columns that only the system changes once the client exists.</summary>
+    /// <summary>Client columns that only the system changes once the client exists (points change with their history).</summary>
     private static readonly string[] KeptByTheSystem =
-        [nameof(Client.Balance), nameof(Client.IsFlagged), nameof(Client.IsDeleted), nameof(Client.DeletedAt)];
+        [nameof(Client.Balance), nameof(Client.Points), nameof(Client.IsFlagged), nameof(Client.IsDeleted), nameof(Client.DeletedAt)];
 
     private static void Validate(Party p)
     {
@@ -140,6 +147,36 @@ public sealed class PartyService(DataContext data)
     {
         await using var db = data.Create();
         await db.Suppliers.Where(c => c.Id == id).ExecuteUpdateAsync(s => s.SetProperty(c => c.IsDeleted, true).SetProperty(c => c.DeletedAt, DateTime.Now).Edited());
+    }
+
+    /// <summary>Undelete: brings a deleted client back, unless another live client has taken its number meanwhile.</summary>
+    public async Task RestoreClientAsync(Guid id)
+    {
+        await using var db = data.Create();
+        var client = await db.Clients.SingleAsync(c => c.Id == id);
+        if (!client.IsDeleted) return;
+        if (client.Number is not null && await db.Clients.AnyAsync(c => c.Number == client.Number && !c.IsDeleted && c.Id != id))
+            throw new BusinessRuleException($"Another client now has customer number {client.Number}.");
+        if (client.AccountNumber is not null && await db.Clients.AnyAsync(c => c.AccountNumber == client.AccountNumber && !c.IsDeleted && c.Id != id))
+            throw new BusinessRuleException($"Another client now has account number {client.AccountNumber}.");
+        client.IsDeleted = false;
+        client.DeletedAt = null;
+        await SaveAsync(db, "client");
+    }
+
+    /// <summary>Undelete: brings a deleted supplier back, unless another live supplier has taken its number meanwhile.</summary>
+    public async Task RestoreSupplierAsync(Guid id)
+    {
+        await using var db = data.Create();
+        var supplier = await db.Suppliers.SingleAsync(c => c.Id == id);
+        if (!supplier.IsDeleted) return;
+        if (supplier.Number is not null && await db.Suppliers.AnyAsync(c => c.Number == supplier.Number && !c.IsDeleted && c.Id != id))
+            throw new BusinessRuleException($"Another supplier now has number {supplier.Number}.");
+        if (supplier.AccountNumber is not null && await db.Suppliers.AnyAsync(c => c.AccountNumber == supplier.AccountNumber && !c.IsDeleted && c.Id != id))
+            throw new BusinessRuleException($"Another supplier now has account number {supplier.AccountNumber}.");
+        supplier.IsDeleted = false;
+        supplier.DeletedAt = null;
+        await SaveAsync(db, "supplier");
     }
 
     public async Task SetClientFlagAsync(IEnumerable<Guid> ids, bool flagged)

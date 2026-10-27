@@ -45,7 +45,8 @@ public sealed class DrawerService(DataContext data)
     private static async Task<DrawerReport> BuildReportAsync(RetailPlusDbContext db, DrawerSession session)
     {
         var movements = await db.DrawerMovements.AsNoTracking().Where(m => m.DrawerSessionId == session.Id).OrderBy(m => m.At).ToListAsync();
-        var cashNames = await db.TenderTypes.AsNoTracking().Where(t => t.Kind == TenderKind.Cash).Select(t => t.Name).ToListAsync();
+        // Home-currency cash only: foreign cash is counted in its own currency.
+        var cashNames = await db.TenderTypes.AsNoTracking().Where(t => t.Kind == TenderKind.Cash && t.Currency == null).Select(t => t.Name).ToListAsync();
         decimal cash = session.Tenders.Where(t => cashNames.Contains(t.TenderType)).Sum(t => t.Amount);
         decimal expected = session.OpeningFloat + cash + session.PayIns - session.PayOuts;
         return new DrawerReport(session, session.Tenders.OrderBy(t => t.TenderType).ToList(), movements, cash, expected);
@@ -63,7 +64,14 @@ public sealed class DrawerService(DataContext data)
             case DrawerMovementKind.PayIn: session.PayIns += amount; break;
             case DrawerMovementKind.PayOut: session.PayOuts += amount; break;
         }
-        db.DrawerMovements.Add(new DrawerMovement { DrawerSessionId = session.Id, Kind = kind, Amount = kind == DrawerMovementKind.NoSale ? 0 : amount, At = DateTime.Now, Reason = reason, User = info.UserName });
+        db.DrawerMovements.Add(new DrawerMovement
+        {
+            DrawerSessionId = session.Id, Kind = kind, Amount = kind == DrawerMovementKind.NoSale ? 0 : amount, At = DateTime.Now, Reason = reason,
+            User = info.UserName, UserId = info.UserId,
+        });
+        if (kind == DrawerMovementKind.NoSale)
+            db.Audit(AuditActions.NoSale, $"Station {info.StationNumber}" + (string.IsNullOrWhiteSpace(reason) ? "" : ": " + reason.Trim()),
+                nameof(DrawerSession), session.Id, userId: info.UserId, userName: info.UserName);
         await db.SaveChangesAsync();
     }
 
@@ -73,6 +81,10 @@ public sealed class DrawerService(DataContext data)
         await using var db = data.Create();
         var session = await GetOpenSessionAsync(db, info.StationNumber, info.LocationId);
         session.ClosedAt = DateTime.Now;
+        session.ClosedBy = info.UserName;
+        session.ClosedById = info.UserId;
+        db.Audit(AuditActions.EndOfDay, $"Station {info.StationNumber}: {session.CustomerCount} customers, net sales {session.NetSales:N2}, receipts {session.TotalReceipts:N2}",
+            nameof(DrawerSession), session.Id, userId: info.UserId, userName: info.UserName);
         await db.SaveChangesAsync();
         return await BuildReportAsync(db, session);
     }

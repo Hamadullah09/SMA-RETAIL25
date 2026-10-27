@@ -17,7 +17,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 15, nullable: false, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -47,7 +47,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     RecurringMaxBillings = table.Column<int>(type: "INTEGER", nullable: false),
                     RecurringTimesBilled = table.Column<int>(type: "INTEGER", nullable: false),
                     RecurringActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     FirstName = table.Column<string>(type: "TEXT", maxLength: 12, nullable: true, collation: "NOCASE"),
@@ -91,7 +91,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 15, nullable: false, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -115,7 +115,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Taxable2 = table.Column<bool>(type: "INTEGER", nullable: false),
                     IsCategory = table.Column<bool>(type: "INTEGER", nullable: false),
                     Color = table.Column<string>(type: "TEXT", maxLength: 15, nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -131,7 +131,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     Currency = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false, collation: "NOCASE"),
                     Rate = table.Column<decimal>(type: "TEXT", precision: 14, scale: 6, nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -167,7 +167,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Kind = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false, collation: "NOCASE"),
                     StationNumber = table.Column<int>(type: "INTEGER", nullable: false),
                     LastValue = table.Column<long>(type: "INTEGER", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -185,7 +185,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Description = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
                     Level = table.Column<int>(type: "INTEGER", nullable: false),
                     IsSystem = table.Column<bool>(type: "INTEGER", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -201,6 +201,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     UserName = table.Column<string>(type: "TEXT", maxLength: 15, nullable: false, collation: "NOCASE"),
+                    UserId = table.Column<Guid>(type: "TEXT", nullable: true),
                     FromDate = table.Column<DateOnly>(type: "TEXT", nullable: true),
                     ToDate = table.Column<DateOnly>(type: "TEXT", nullable: true),
                     FromTime = table.Column<string>(type: "TEXT", maxLength: 5, nullable: true, collation: "NOCASE"),
@@ -208,7 +209,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Sales = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     Commission = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     Hours = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -225,7 +226,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Code = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false, collation: "NOCASE"),
                     Name = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false, collation: "NOCASE"),
                     TimeZoneId = table.Column<string>(type: "TEXT", maxLength: 64, nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -239,7 +240,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     FirstName = table.Column<string>(type: "TEXT", maxLength: 12, nullable: true, collation: "NOCASE"),
@@ -294,7 +295,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Status = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
                     Error = table.Column<string>(type: "TEXT", nullable: true, collation: "NOCASE"),
                     Notes = table.Column<string>(type: "TEXT", nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -315,7 +316,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     LastReceivedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: true),
                     LastAttemptAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: true),
                     LastError = table.Column<string>(type: "TEXT", nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -334,7 +335,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Tax1Rate = table.Column<decimal>(type: "TEXT", precision: 7, scale: 3, nullable: false),
                     Tax2Name = table.Column<string>(type: "TEXT", maxLength: 20, nullable: true, collation: "NOCASE"),
                     Tax2Rate = table.Column<decimal>(type: "TEXT", precision: 7, scale: 3, nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -353,7 +354,8 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     SortOrder = table.Column<int>(type: "INTEGER", nullable: false),
                     OpensDrawer = table.Column<bool>(type: "INTEGER", nullable: false),
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    Currency = table.Column<string>(type: "TEXT", maxLength: 10, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -372,7 +374,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     DeletedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     StoreId = table.Column<Guid>(type: "TEXT", nullable: true),
                     MergedIntoId = table.Column<Guid>(type: "TEXT", nullable: true),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -412,7 +414,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     RoleId = table.Column<Guid>(type: "TEXT", nullable: false),
                     Permission = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -428,6 +430,62 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "AccountMappings",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Kind = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    Key = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false, collation: "NOCASE"),
+                    AccountCode = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false, collation: "NOCASE"),
+                    AccountName = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AccountMappings", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AccountMappings_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AuditEntries",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StationNumber = table.Column<int>(type: "INTEGER", nullable: false),
+                    AtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UserId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    UserName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    Action = table.Column<string>(type: "TEXT", maxLength: 40, nullable: false, collation: "NOCASE"),
+                    EntityName = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
+                    EntityId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Before = table.Column<string>(type: "TEXT", nullable: true, collation: "NOCASE"),
+                    After = table.Column<string>(type: "TEXT", nullable: true, collation: "NOCASE"),
+                    Details = table.Column<string>(type: "TEXT", maxLength: 400, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AuditEntries", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AuditEntries_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "CustomerOrders",
                 columns: table => new
                 {
@@ -440,7 +498,8 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Company = table.Column<string>(type: "TEXT", maxLength: 30, nullable: true, collation: "NOCASE"),
                     Phone = table.Column<string>(type: "TEXT", maxLength: 16, nullable: true, collation: "NOCASE"),
                     OrderDate = table.Column<DateOnly>(type: "TEXT", nullable: true),
-                    SoldBy = table.Column<string>(type: "TEXT", maxLength: 15, nullable: true, collation: "NOCASE"),
+                    SoldBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    SoldById = table.Column<Guid>(type: "TEXT", nullable: true),
                     InvoiceNumber = table.Column<long>(type: "INTEGER", nullable: false),
                     CustomerNumber = table.Column<string>(type: "TEXT", maxLength: 11, nullable: true, collation: "NOCASE"),
                     ItemId = table.Column<Guid>(type: "TEXT", nullable: true),
@@ -451,7 +510,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Quantity = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
                     Paid = table.Column<bool>(type: "INTEGER", nullable: false),
                     IsFlagged = table.Column<bool>(type: "INTEGER", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -490,7 +549,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     BottleReturns = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     TotalReceipts = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     IsFlagged = table.Column<bool>(type: "INTEGER", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    ClosedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    ClosedById = table.Column<Guid>(type: "TEXT", nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -499,6 +560,39 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     table.PrimaryKey("PK_DrawerSessions", x => x.Id);
                     table.ForeignKey(
                         name: "FK_DrawerSessions_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "GiftCards",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Number = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false, collation: "NOCASE"),
+                    Kind = table.Column<string>(type: "TEXT", maxLength: 12, nullable: false),
+                    IssuedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
+                    ExpiresOn = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ClientId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Note = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_GiftCards", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_GiftCards_Clients_ClientId",
+                        column: x => x.ClientId,
+                        principalTable: "Clients",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_GiftCards_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -524,7 +618,8 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Total = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     Balance = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     DiscountPercent = table.Column<decimal>(type: "TEXT", precision: 7, scale: 3, nullable: false),
-                    SalesPerson = table.Column<string>(type: "TEXT", maxLength: 15, nullable: true, collation: "NOCASE"),
+                    SalesPerson = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    SalesPersonId = table.Column<Guid>(type: "TEXT", nullable: true),
                     LastPaidDate = table.Column<DateOnly>(type: "TEXT", nullable: true),
                     LastPaidAmount = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     Penalty = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
@@ -538,7 +633,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     IsVoided = table.Column<bool>(type: "INTEGER", nullable: false),
                     IsFlagged = table.Column<bool>(type: "INTEGER", nullable: false),
                     Version = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -566,7 +661,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
                     Code = table.Column<string>(type: "TEXT", maxLength: 3, nullable: false, collation: "NOCASE"),
                     Name = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -575,6 +670,42 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     table.PrimaryKey("PK_Locations", x => x.Id);
                     table.ForeignKey(
                         name: "FK_Locations_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "LoyaltyTransactions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StationNumber = table.Column<int>(type: "INTEGER", nullable: false),
+                    ClientId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Kind = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    Points = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
+                    At = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
+                    SaleId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    InvoiceNumber = table.Column<long>(type: "INTEGER", nullable: true),
+                    User = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    Note = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_LoyaltyTransactions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_LoyaltyTransactions_Clients_ClientId",
+                        column: x => x.ClientId,
+                        principalTable: "Clients",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_LoyaltyTransactions_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -615,7 +746,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     SettingsAppliedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
                     Notes = table.Column<string>(type: "TEXT", maxLength: 500, nullable: true, collation: "NOCASE"),
                     Version = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -663,7 +794,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
                     Notes = table.Column<string>(type: "TEXT", nullable: true, collation: "NOCASE"),
                     IsFlagged = table.Column<bool>(type: "INTEGER", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    CreatedById = table.Column<Guid>(type: "TEXT", nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -686,7 +819,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
                     Number = table.Column<int>(type: "INTEGER", nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -703,6 +836,29 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "StoreImages",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Kind = table.Column<string>(type: "TEXT", maxLength: 12, nullable: false),
+                    Data = table.Column<byte[]>(type: "BLOB", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StoreImages", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StoreImages_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "StoreSettingExtras",
                 columns: table => new
                 {
@@ -710,7 +866,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
                     Name = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false, collation: "NOCASE"),
                     Value = table.Column<string>(type: "TEXT", maxLength: 255, nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -769,7 +925,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     GracePeriodDays = table.Column<int>(type: "INTEGER", nullable: false),
                     MinimumTender = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     UseUkDateFormat = table.Column<bool>(type: "INTEGER", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -794,7 +950,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     SuspendedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
                     Label = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
                     PayloadJson = table.Column<string>(type: "TEXT", nullable: false, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -826,7 +982,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true),
                     FailedSignIns = table.Column<int>(type: "INTEGER", nullable: false),
                     LockedUntilUtc = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -858,8 +1014,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Amount = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     At = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
                     Reason = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true, collation: "NOCASE"),
-                    User = table.Column<string>(type: "TEXT", maxLength: 15, nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    User = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    UserId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -882,7 +1039,8 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     DrawerSessionId = table.Column<Guid>(type: "TEXT", nullable: false),
                     TenderType = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false, collation: "NOCASE"),
                     Amount = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    ForeignAmount = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -898,6 +1056,42 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "GiftCardTransactions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StationNumber = table.Column<int>(type: "INTEGER", nullable: false),
+                    GiftCardId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Kind = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    Amount = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
+                    At = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
+                    SaleId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    InvoiceNumber = table.Column<long>(type: "INTEGER", nullable: true),
+                    User = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    Note = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_GiftCardTransactions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_GiftCardTransactions_GiftCards_GiftCardId",
+                        column: x => x.GiftCardId,
+                        principalTable: "GiftCards",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_GiftCardTransactions_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "InvoiceLines",
                 columns: table => new
                 {
@@ -910,7 +1104,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     UnitPrice = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     DiscountAmount = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     LineTotal = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -938,7 +1132,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     TenderType = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false, collation: "NOCASE"),
                     AppliedToPenalty = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     Note = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    TakenBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    TakenById = table.Column<Guid>(type: "TEXT", nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -968,7 +1164,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Kind = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false),
                     LocationId = table.Column<Guid>(type: "TEXT", nullable: true),
                     Text = table.Column<string>(type: "TEXT", nullable: false, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1045,6 +1241,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     SubstituteCode = table.Column<string>(type: "TEXT", maxLength: 16, nullable: true, collation: "NOCASE"),
                     TagAlongCode = table.Column<string>(type: "TEXT", maxLength: 16, nullable: true, collation: "NOCASE"),
                     ParentCode = table.Column<string>(type: "TEXT", maxLength: 16, nullable: true, collation: "NOCASE"),
+                    UnitsPerCase = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
                     ShipWeight = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
                     ThcWeight = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
                     Commission = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
@@ -1058,7 +1255,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     IsDeleted = table.Column<bool>(type: "INTEGER", nullable: false),
                     DeletedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
                     Version = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1103,8 +1300,12 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Description = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true, collation: "NOCASE"),
                     PostedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
                     ReceivedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    CreatedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    CreatedById = table.Column<Guid>(type: "TEXT", nullable: true),
+                    ReceivedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    ReceivedById = table.Column<Guid>(type: "TEXT", nullable: true),
                     Version = table.Column<Guid>(type: "TEXT", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1135,7 +1336,8 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     StationNumber = table.Column<int>(type: "INTEGER", nullable: false),
                     LocationId = table.Column<Guid>(type: "TEXT", nullable: false),
                     SoldAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
-                    Staff = table.Column<string>(type: "TEXT", maxLength: 15, nullable: true, collation: "NOCASE"),
+                    Staff = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    StaffId = table.Column<Guid>(type: "TEXT", nullable: true),
                     ClientId = table.Column<Guid>(type: "TEXT", nullable: true),
                     ClientName = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
                     CustomerNumber = table.Column<string>(type: "TEXT", maxLength: 11, nullable: true, collation: "NOCASE"),
@@ -1158,9 +1360,10 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     PointsRedeemed = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     Notes = table.Column<string>(type: "TEXT", nullable: true, collation: "NOCASE"),
                     VoidedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
-                    VoidedBy = table.Column<string>(type: "TEXT", maxLength: 15, nullable: true, collation: "NOCASE"),
+                    VoidedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    VoidedById = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsFlagged = table.Column<bool>(type: "INTEGER", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1187,6 +1390,99 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "StockCounts",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StationNumber = table.Column<int>(type: "INTEGER", nullable: false),
+                    Number = table.Column<long>(type: "INTEGER", nullable: false),
+                    LocationId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    StartedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
+                    StartedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    PostedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    PostedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    CancelledAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    CancelledBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    UncountedSetToZero = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Note = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StockCounts", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StockCounts_Locations_LocationId",
+                        column: x => x.LocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StockCounts_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StockTransfers",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StationNumber = table.Column<int>(type: "INTEGER", nullable: false),
+                    ToStoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Number = table.Column<long>(type: "INTEGER", nullable: false),
+                    FromLocationId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    ToLocationId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
+                    CreatedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    ShippedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    ShippedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    ReceivedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    ReceivedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    CancelledAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    Note = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StockTransfers", x => x.Id);
+                    table.CheckConstraint("CK_StockTransfer_Locations", "[FromLocationId] <> [ToLocationId]");
+                    table.ForeignKey(
+                        name: "FK_StockTransfers_Locations_FromLocationId",
+                        column: x => x.FromLocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StockTransfers_Locations_ToLocationId",
+                        column: x => x.ToLocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StockTransfers_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StockTransfers_Stores_ToStoreId",
+                        column: x => x.ToStoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "RfidAntennas",
                 columns: table => new
                 {
@@ -1198,7 +1494,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     PowerDbm = table.Column<int>(type: "INTEGER", nullable: false),
                     Purpose = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false),
                     StationNumber = table.Column<int>(type: "INTEGER", nullable: true),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1230,7 +1526,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     LastDownloadAtUtc = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
                     DownloadCursor = table.Column<long>(type: "INTEGER", nullable: false),
                     AppVersion = table.Column<string>(type: "TEXT", maxLength: 40, nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1260,7 +1556,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Section = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false, collation: "NOCASE"),
                     Key = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false, collation: "NOCASE"),
                     Value = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1276,6 +1572,91 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "TimeClockEntries",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StationNumber = table.Column<int>(type: "INTEGER", nullable: false),
+                    UserId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    UserName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false, collation: "NOCASE"),
+                    ClockIn = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
+                    ClockOut = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    EditReason = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    EditedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    EditedById = table.Column<Guid>(type: "TEXT", nullable: true),
+                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TimeClockEntries", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_TimeClockEntries_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_TimeClockEntries_UserAccounts_UserId",
+                        column: x => x.UserId,
+                        principalTable: "UserAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "CommissionRules",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 60, nullable: false, collation: "NOCASE"),
+                    UserId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Scope = table.Column<string>(type: "TEXT", maxLength: 12, nullable: false),
+                    DepartmentId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    CategoryId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    ItemId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Basis = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    Rate = table.Column<decimal>(type: "TEXT", precision: 7, scale: 3, nullable: false),
+                    EffectiveFrom = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                    EffectiveTo = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CommissionRules", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_CommissionRules_Categories_CategoryId",
+                        column: x => x.CategoryId,
+                        principalTable: "Categories",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_CommissionRules_Departments_DepartmentId",
+                        column: x => x.DepartmentId,
+                        principalTable: "Departments",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_CommissionRules_Items_ItemId",
+                        column: x => x.ItemId,
+                        principalTable: "Items",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_CommissionRules_UserAccounts_UserId",
+                        column: x => x.UserId,
+                        principalTable: "UserAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ItemMatrixColumns",
                 columns: table => new
                 {
@@ -1283,7 +1664,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     ItemId = table.Column<Guid>(type: "TEXT", nullable: false),
                     Ordinal = table.Column<int>(type: "INTEGER", nullable: false),
                     Heading = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1311,7 +1692,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Units = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
                     Gross = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     StationNumber = table.Column<int>(type: "INTEGER", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1335,7 +1716,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Data = table.Column<byte[]>(type: "BLOB", nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -1357,7 +1738,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     SerialNumber = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false, collation: "NOCASE"),
                     Status = table.Column<string>(type: "TEXT", maxLength: 30, nullable: true, collation: "NOCASE"),
                     StatusDate = table.Column<DateOnly>(type: "TEXT", nullable: true),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1384,7 +1765,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     SupplierStockCode = table.Column<string>(type: "TEXT", maxLength: 30, nullable: true, collation: "NOCASE"),
                     Cost = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
                     CaseQuantity = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1417,7 +1798,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     RegisteredAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
                     SoldAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
                     SoldOnInvoice = table.Column<long>(type: "INTEGER", nullable: true),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1444,7 +1825,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Value3 = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
                     Code = table.Column<string>(type: "TEXT", maxLength: 30, nullable: true, collation: "NOCASE"),
                     OnHand = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1470,7 +1851,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     ComponentItemId = table.Column<Guid>(type: "TEXT", nullable: true),
                     Description = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
                     Quantity = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1503,10 +1884,12 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     At = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
                     Quantity = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
                     OnHandAfter = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
+                    UnitCost = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
                     DocumentNumber = table.Column<long>(type: "INTEGER", nullable: true),
                     Reason = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true, collation: "NOCASE"),
-                    User = table.Column<string>(type: "TEXT", maxLength: 15, nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    User = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    UserId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1552,7 +1935,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     SupplierName = table.Column<string>(type: "TEXT", maxLength: 30, nullable: true, collation: "NOCASE"),
                     ReorderNumber = table.Column<string>(type: "TEXT", maxLength: 16, nullable: true, collation: "NOCASE"),
                     IsFlagged = table.Column<bool>(type: "INTEGER", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1593,7 +1976,8 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     SupplierName = table.Column<string>(type: "TEXT", maxLength: 30, nullable: true, collation: "NOCASE"),
                     Commission = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     Restock = table.Column<bool>(type: "INTEGER", nullable: false),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    GiftCardNumber = table.Column<string>(type: "TEXT", maxLength: 30, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1620,7 +2004,10 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Change = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
                     AuthCode = table.Column<string>(type: "TEXT", maxLength: 40, nullable: true, collation: "NOCASE"),
                     Reference = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    Currency = table.Column<string>(type: "TEXT", maxLength: 10, nullable: true, collation: "NOCASE"),
+                    ForeignAmount = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
+                    ExchangeRate = table.Column<decimal>(type: "TEXT", precision: 14, scale: 6, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1636,13 +2023,111 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "StockCountLines",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StockCountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    ItemId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    VariantId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Plu = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false, collation: "NOCASE"),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 60, nullable: false, collation: "NOCASE"),
+                    Expected = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
+                    Counted = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
+                    Variance = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
+                    UnitCost = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
+                    VarianceCost = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
+                    CountedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
+                    NotCounted = table.Column<bool>(type: "INTEGER", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StockCountLines", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StockCountLines_Items_ItemId",
+                        column: x => x.ItemId,
+                        principalTable: "Items",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_StockCountLines_StockCounts_StockCountId",
+                        column: x => x.StockCountId,
+                        principalTable: "StockCounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StockCountTags",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StockCountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StockCountLineId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Epc = table.Column<string>(type: "TEXT", unicode: false, maxLength: 128, nullable: false, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StockCountTags", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StockCountTags_StockCounts_StockCountId",
+                        column: x => x.StockCountId,
+                        principalTable: "StockCounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StockTransferLines",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StockTransferId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    LineNumber = table.Column<int>(type: "INTEGER", nullable: false),
+                    SourceItemId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Plu = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false, collation: "NOCASE"),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 60, nullable: false, collation: "NOCASE"),
+                    Barcode = table.Column<string>(type: "TEXT", unicode: false, maxLength: 14, nullable: true, collation: "NOCASE"),
+                    Size = table.Column<string>(type: "TEXT", maxLength: 6, nullable: true, collation: "NOCASE"),
+                    Department = table.Column<string>(type: "TEXT", maxLength: 15, nullable: true, collation: "NOCASE"),
+                    ItemType = table.Column<string>(type: "TEXT", maxLength: 12, nullable: false),
+                    Taxable1 = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Taxable2 = table.Column<bool>(type: "INTEGER", nullable: false),
+                    UnitCost = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
+                    Price = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
+                    QuantityShipped = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
+                    QuantityReceived = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
+                    DestinationItemId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    CreatedAtDestination = table.Column<bool>(type: "INTEGER", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StockTransferLines", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StockTransferLines_StockTransfers_StockTransferId",
+                        column: x => x.StockTransferId,
+                        principalTable: "StockTransfers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "SaleLineTags",
                 columns: table => new
                 {
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     SaleLineId = table.Column<Guid>(type: "TEXT", nullable: false),
                     Epc = table.Column<string>(type: "TEXT", unicode: false, maxLength: 128, nullable: false, collation: "NOCASE"),
-                    EditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
                 },
@@ -1656,6 +2141,47 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccountMappings_StoreId_Kind_Key",
+                table: "AccountMappings",
+                columns: new[] { "StoreId", "Kind", "Key" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccountMappings_UpdatedAtUtc",
+                table: "AccountMappings",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditEntries_Action_AtUtc",
+                table: "AuditEntries",
+                columns: new[] { "Action", "AtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditEntries_AtUtc",
+                table: "AuditEntries",
+                column: "AtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditEntries_EntityName_EntityId",
+                table: "AuditEntries",
+                columns: new[] { "EntityName", "EntityId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditEntries_StoreId",
+                table: "AuditEntries",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditEntries_UpdatedAtUtc",
+                table: "AuditEntries",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AuditEntries_UserId_AtUtc",
+                table: "AuditEntries",
+                columns: new[] { "UserId", "AtUtc" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Categories_Name",
@@ -1727,6 +2253,31 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "IX_Clients_Zip",
                 table: "Clients",
                 column: "Zip");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CommissionRules_CategoryId",
+                table: "CommissionRules",
+                column: "CategoryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CommissionRules_DepartmentId",
+                table: "CommissionRules",
+                column: "DepartmentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CommissionRules_ItemId",
+                table: "CommissionRules",
+                column: "ItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CommissionRules_UpdatedAtUtc",
+                table: "CommissionRules",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CommissionRules_UserId",
+                table: "CommissionRules",
+                column: "UserId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_CustomerOrders_Company",
@@ -1849,6 +2400,47 @@ namespace RetailPlus.Data.Sqlite.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_FxRates_UpdatedAtUtc",
                 table: "FxRates",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCards_ClientId",
+                table: "GiftCards",
+                column: "ClientId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCards_Number",
+                table: "GiftCards",
+                column: "Number",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCards_StoreId",
+                table: "GiftCards",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCards_UpdatedAtUtc",
+                table: "GiftCards",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCardTransactions_GiftCardId_At",
+                table: "GiftCardTransactions",
+                columns: new[] { "GiftCardId", "At" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCardTransactions_SaleId",
+                table: "GiftCardTransactions",
+                column: "SaleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCardTransactions_StoreId",
+                table: "GiftCardTransactions",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GiftCardTransactions_UpdatedAtUtc",
+                table: "GiftCardTransactions",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -2088,6 +2680,26 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_LoyaltyTransactions_ClientId_At",
+                table: "LoyaltyTransactions",
+                columns: new[] { "ClientId", "At" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LoyaltyTransactions_SaleId",
+                table: "LoyaltyTransactions",
+                column: "SaleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LoyaltyTransactions_StoreId",
+                table: "LoyaltyTransactions",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LoyaltyTransactions_UpdatedAtUtc",
+                table: "LoyaltyTransactions",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_NumberCounters_Kind_StationNumber",
                 table: "NumberCounters",
                 columns: new[] { "Kind", "StationNumber" },
@@ -2254,6 +2866,11 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 column: "SoldAt");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Sales_StaffId",
+                table: "Sales",
+                column: "StaffId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Sales_StationNumber_InvoiceNumber",
                 table: "Sales",
                 columns: new[] { "StationNumber", "InvoiceNumber" });
@@ -2328,6 +2945,52 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StockCountLines_ItemId",
+                table: "StockCountLines",
+                column: "ItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCountLines_StockCountId_ItemId_VariantId",
+                table: "StockCountLines",
+                columns: new[] { "StockCountId", "ItemId", "VariantId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCountLines_UpdatedAtUtc",
+                table: "StockCountLines",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCounts_LocationId_Status",
+                table: "StockCounts",
+                columns: new[] { "LocationId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCounts_StationNumber_Number",
+                table: "StockCounts",
+                columns: new[] { "StationNumber", "Number" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCounts_StoreId",
+                table: "StockCounts",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCounts_UpdatedAtUtc",
+                table: "StockCounts",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCountTags_StockCountId_Epc",
+                table: "StockCountTags",
+                columns: new[] { "StockCountId", "Epc" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockCountTags_UpdatedAtUtc",
+                table: "StockCountTags",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StockMovements_ItemId_At",
                 table: "StockMovements",
                 columns: new[] { "ItemId", "At" });
@@ -2345,6 +3008,58 @@ namespace RetailPlus.Data.Sqlite.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_StockMovements_UpdatedAtUtc",
                 table: "StockMovements",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransferLines_StockTransferId_LineNumber",
+                table: "StockTransferLines",
+                columns: new[] { "StockTransferId", "LineNumber" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransferLines_UpdatedAtUtc",
+                table: "StockTransferLines",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransfers_FromLocationId",
+                table: "StockTransfers",
+                column: "FromLocationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransfers_StationNumber_Number",
+                table: "StockTransfers",
+                columns: new[] { "StationNumber", "Number" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransfers_StoreId",
+                table: "StockTransfers",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransfers_ToLocationId",
+                table: "StockTransfers",
+                column: "ToLocationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransfers_ToStoreId_Status",
+                table: "StockTransfers",
+                columns: new[] { "ToStoreId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StockTransfers_UpdatedAtUtc",
+                table: "StockTransfers",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StoreImages_StoreId_Kind",
+                table: "StoreImages",
+                columns: new[] { "StoreId", "Kind" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StoreImages_UpdatedAtUtc",
+                table: "StoreImages",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -2492,6 +3207,26 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_TimeClockEntries_ClockIn",
+                table: "TimeClockEntries",
+                column: "ClockIn");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TimeClockEntries_StoreId",
+                table: "TimeClockEntries",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TimeClockEntries_UpdatedAtUtc",
+                table: "TimeClockEntries",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TimeClockEntries_UserId_ClockIn",
+                table: "TimeClockEntries",
+                columns: new[] { "UserId", "ClockIn" });
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Tombstones_EntityName_RowId",
                 table: "Tombstones",
                 columns: new[] { "EntityName", "RowId" });
@@ -2534,6 +3269,15 @@ namespace RetailPlus.Data.Sqlite.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "AccountMappings");
+
+            migrationBuilder.DropTable(
+                name: "AuditEntries");
+
+            migrationBuilder.DropTable(
+                name: "CommissionRules");
+
+            migrationBuilder.DropTable(
                 name: "CustomerOrders");
 
             migrationBuilder.DropTable(
@@ -2550,6 +3294,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
             migrationBuilder.DropTable(
                 name: "FxRates");
+
+            migrationBuilder.DropTable(
+                name: "GiftCardTransactions");
 
             migrationBuilder.DropTable(
                 name: "ImportSourceRows");
@@ -2585,6 +3332,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "KitComponents");
 
             migrationBuilder.DropTable(
+                name: "LoyaltyTransactions");
+
+            migrationBuilder.DropTable(
                 name: "NumberCounters");
 
             migrationBuilder.DropTable(
@@ -2615,7 +3365,19 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "StationSettings");
 
             migrationBuilder.DropTable(
+                name: "StockCountLines");
+
+            migrationBuilder.DropTable(
+                name: "StockCountTags");
+
+            migrationBuilder.DropTable(
                 name: "StockMovements");
+
+            migrationBuilder.DropTable(
+                name: "StockTransferLines");
+
+            migrationBuilder.DropTable(
+                name: "StoreImages");
 
             migrationBuilder.DropTable(
                 name: "StoreSettingExtras");
@@ -2639,13 +3401,16 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "TenderTypes");
 
             migrationBuilder.DropTable(
+                name: "TimeClockEntries");
+
+            migrationBuilder.DropTable(
                 name: "Tombstones");
 
             migrationBuilder.DropTable(
-                name: "UserAccounts");
+                name: "DrawerSessions");
 
             migrationBuilder.DropTable(
-                name: "DrawerSessions");
+                name: "GiftCards");
 
             migrationBuilder.DropTable(
                 name: "ImportBatches");
@@ -2666,10 +3431,16 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "Stations");
 
             migrationBuilder.DropTable(
+                name: "StockCounts");
+
+            migrationBuilder.DropTable(
                 name: "Items");
 
             migrationBuilder.DropTable(
-                name: "Roles");
+                name: "StockTransfers");
+
+            migrationBuilder.DropTable(
+                name: "UserAccounts");
 
             migrationBuilder.DropTable(
                 name: "Sales");
@@ -2682,6 +3453,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
             migrationBuilder.DropTable(
                 name: "Suppliers");
+
+            migrationBuilder.DropTable(
+                name: "Roles");
 
             migrationBuilder.DropTable(
                 name: "Clients");

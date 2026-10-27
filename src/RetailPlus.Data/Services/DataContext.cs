@@ -26,11 +26,21 @@ public sealed class DataContext
     /// <summary>The store and station this program works for; set by <see cref="SetupService.SeedAsync"/>.</summary>
     public StationIdentity? Station { get; set; }
 
+    /// <summary>
+    /// Who is working: the audit log names this user for changes saved through the contexts handed out, and services
+    /// that record who did something without being given a session use it. Null in tools that run without a user.
+    /// </summary>
+    public SessionInfo? CurrentUser { get; set; }
+
     public RetailPlusDbContext Create()
     {
         var db = _pool.CreateDbContext();
+        // Pooled contexts keep their properties between uses, so every one is set again.
         db.Station = Station;
         db.ApplyingSync = false;
+        db.ActingUserId = CurrentUser?.UserId;
+        db.ActingUserName = CurrentUser?.UserName;
+        db.SuppressAudit = false;
         return db;
     }
 
@@ -59,6 +69,8 @@ public sealed class SessionInfo
     public string LocationCode { get; set; } = "";
     public Guid? UserId { get; set; }
     public string UserName { get; set; } = "Admin";
+    /// <summary>The name of the user's role (empty until someone signs in).</summary>
+    public string RoleName { get; set; } = "";
     /// <summary>0 trainee, 1 sales only, 2 add/change, 3 supervisor, 4 administrator.</summary>
     public int AccessLevel { get; set; } = 4;
     public bool IsTrainee => AccessLevel == 0;
@@ -72,8 +84,17 @@ public sealed class SessionInfo
     {
         UserId = user.Id;
         UserName = user.UserName;
+        RoleName = user.Role?.Name ?? "";
         AccessLevel = user.AccessLevel;
         Permissions = SetupService.PermissionsOf(user);
+    }
+
+    /// <summary>The same station and location, worked by another user (a supervisor approving at this till).</summary>
+    public SessionInfo As(UserAccount user)
+    {
+        var other = new SessionInfo { StationNumber = StationNumber, LocationId = LocationId, LocationCode = LocationCode };
+        other.SignIn(user);
+        return other;
     }
 }
 

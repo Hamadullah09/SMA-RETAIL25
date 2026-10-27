@@ -52,6 +52,8 @@ public sealed class SyncPolicy
     private readonly Dictionary<Type, Func<UploadCheck, Task<bool>>> _uploadRules = [];
     private readonly Dictionary<Type, HashSet<string>> _excludedColumns = [];
     private readonly List<Func<IDerivedRule>> _derived = [];
+    private readonly HashSet<Type> _everywhere = [];
+    private readonly HashSet<Type> _downEverywhere = [];
 
     /// <summary>The rules of SMA RETAIL.</summary>
     public static SyncPolicy Default { get; } = CreateDefault();
@@ -68,6 +70,10 @@ public sealed class SyncPolicy
         // it was seeded with are replaced by the server's when it joins.
         policy.Table<Store>(SyncFlow.Down, till => s => s.Id == till.StoreId);
         policy.Table<Station>(SyncFlow.Down);
+        // Every till also has the other stores and their locations (not their items): transfers, gift cards and loyalty
+        // transactions of other stores point at them. A till still only sends its own store's locations.
+        policy.DownEverywhere<Store>();
+        policy.DownEverywhere<Location>();
         // What each role may do is set for every store at once, on the server.
         policy.Table<Role>(SyncFlow.Down);
         policy.Table<RoleGrant>(SyncFlow.Down);
@@ -77,6 +83,16 @@ public sealed class SyncPolicy
         policy.UploadRule<UserAccount>(UserFromTillAsync);
         // A till's document number counters go up, and come back only to that till (after it is set up again).
         policy.Table<NumberCounter>(SyncFlow.Both, till => c => c.StationNumber == till.StationNumber);
+        // Commission rules are set for every store on the server, like roles.
+        policy.Table<CommissionRule>(SyncFlow.Down);
+        // A transfer (and its lines, which follow it) reaches the tills of both the sending and the receiving store.
+        policy.Table<StockTransfer>(SyncFlow.Both, till => StockTransfer.OfStore(till.StoreId));
+        // A gift card can be spent in any store, and a client's points earned anywhere: cards, their transactions and
+        // loyalty transactions go to every till. (Audit lines, time clock entries and stock counts keep the default: up to
+        // the server, down to their own store's tills.)
+        policy.Everywhere<GiftCard>(SyncFlow.Both);
+        policy.Everywhere<GiftCardTransaction>(SyncFlow.Both);
+        policy.Everywhere<LoyaltyTransaction>(SyncFlow.Both);
 
         // The same code made on two databases before they synchronised is one thing: the server's row stays, the other
         // is merged into it (rows pointing at it are moved over) and the merge is noted in the batch. Any other clash of
@@ -106,6 +122,10 @@ public sealed class SyncPolicy
         policy.MergeOn<ItemTag>(nameof(ItemTag.Epc));
         // A till set up again under a number the server already counted for keeps counting from the server's numbers.
         policy.MergeOn<NumberCounter>(nameof(NumberCounter.Kind), nameof(NumberCounter.StationNumber));
+        // One card number is one card: transactions made against two copies of it end up on one card.
+        policy.MergeOn<GiftCard>(nameof(GiftCard.Number));
+        policy.MergeOn<AccountMapping>(nameof(AccountMapping.StoreId), nameof(AccountMapping.Kind), nameof(AccountMapping.Key));
+        policy.MergeOn<StoreImage>(nameof(StoreImage.StoreId), nameof(StoreImage.Kind));
         // One user name is one person, but only within a store: a name taken by another store's user refuses the package.
         policy.MergeOn<UserAccount>([nameof(UserAccount.UserName)],
             (_, existing, till) => till is null || ((UserAccount)existing).StoreId == till.StoreId);
@@ -114,7 +134,7 @@ public sealed class SyncPolicy
         // out again from the rows they come from. The others (on order, flags, sign-in failures) stay each database's own.
         policy.Derive(() => new StockFromMovements());
         policy.Derive(() => new BalanceFromInvoices());
-        policy.Derive(() => new PointsFromSales());
+        policy.Derive(() => new PointsFromLoyalty());
         return policy;
     }
 
@@ -133,6 +153,19 @@ public sealed class SyncPolicy
         _flows[typeof(T)] = flow;
         if (receives is not null) _receives[typeof(T)] = receives;
     }
+
+    /// <summary>Rows of <typeparamref name="T"/> go to every till and may come from any till, whatever store they belong to.</summary>
+    public void Everywhere<T>(SyncFlow flow)
+    {
+        _flows[typeof(T)] = flow;
+        _everywhere.Add(typeof(T));
+    }
+
+    /// <summary>
+    /// Every till receives all rows of <typeparamref name="T"/>; a till still sends only its own store's, and rows that
+    /// belong to these rows still follow the store (a location's items).
+    /// </summary>
+    public void DownEverywhere<T>() => _downEverywhere.Add(typeof(T));
 
     /// <summary>
     /// Two rows of <typeparamref name="T"/> with the same values in these columns (a unique index) are merged instead of
@@ -162,6 +195,12 @@ public sealed class SyncPolicy
     public bool IsSynced(Type type) => !typeof(ILocalOnly).IsAssignableFrom(type) && !_excluded.Contains(type) && FlowOf(type) != SyncFlow.None;
 
     public SyncFlow FlowOf(Type type) => _flows.TryGetValue(type, out var flow) ? flow : SyncFlow.Both;
+
+    /// <summary>True when every till receives every row of the type (see <see cref="Everywhere{T}"/>).</summary>
+    public bool IsEverywhere(Type type) => _everywhere.Contains(type);
+
+    /// <summary>True when every till receives every row of the type, everywhere or only downwards.</summary>
+    public bool IsDownEverywhere(Type type) => _everywhere.Contains(type) || _downEverywhere.Contains(type);
 
     /// <summary>The rows of the type a till receives when they are not simply its store's; null for the default.</summary>
     public LambdaExpression? Receives(Type type, TillScope till) => _receives.TryGetValue(type, out var make) ? make(till) : null;

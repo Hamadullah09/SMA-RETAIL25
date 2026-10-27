@@ -85,6 +85,7 @@ public sealed class InvoiceService(DataContext data)
         var quote = NewInvoice(client, InvoiceKind.Quote, DateOnly.FromDateTime(DateTime.Today), settings);
         quote.InvoiceNumber = await db.NextNumberAsync(RetailPlusDbContext.Sequences.InvoiceNumbers);
         quote.SalesPerson = session.UserName;
+        quote.SalesPersonId = session.UserId;
         quote.Total = totals.Total;
         quote.DiscountPercent = draft.SubtotalDiscountPercent;
         quote.Notes = draft.Notes;
@@ -132,13 +133,13 @@ public sealed class InvoiceService(DataContext data)
         await using var db = data.Create();
         await using var tx = await db.Database.BeginTransactionAsync();
         var invoice = await db.Invoices.SingleAsync(i => i.Id == invoiceId);
-        await ApplyAsync(db, invoice, amount, tenderType, paidOn, note);
+        await ApplyAsync(db, invoice, amount, tenderType, paidOn, note, session);
         await AddReceiptToDrawerAsync(db, session, tenderType, amount);
         await SaveAsync(db);
         await tx.CommitAsync();
     }
 
-    private static async Task ApplyAsync(RetailPlusDbContext db, Invoice invoice, decimal amount, string tenderType, DateOnly paidOn, string? note)
+    private static async Task ApplyAsync(RetailPlusDbContext db, Invoice invoice, decimal amount, string tenderType, DateOnly paidOn, string? note, SessionInfo session)
     {
         if (invoice.IsVoided) throw new BusinessRuleException("This invoice is voided.");
         if (invoice.Kind == InvoiceKind.Quote) throw new BusinessRuleException("A quote has nothing to pay.");
@@ -147,7 +148,11 @@ public sealed class InvoiceService(DataContext data)
         invoice.Balance -= amount;
         invoice.LastPaidDate = paidOn;
         invoice.LastPaidAmount = amount;
-        db.InvoicePayments.Add(new InvoicePayment { InvoiceId = invoice.Id, PaidOn = paidOn, Amount = amount, TenderType = tenderType, AppliedToPenalty = toPenalty, Note = note });
+        db.InvoicePayments.Add(new InvoicePayment
+        {
+            InvoiceId = invoice.Id, PaidOn = paidOn, Amount = amount, TenderType = tenderType, AppliedToPenalty = toPenalty, Note = note,
+            TakenBy = session.UserName, TakenById = session.UserId,
+        });
         if (invoice.ClientId is Guid cid)
             await db.Clients.Where(c => c.Id == cid).ExecuteUpdateAsync(s => s.SetProperty(c => c.Balance, c => c.Balance - amount).Touched());
     }
@@ -191,10 +196,10 @@ public sealed class InvoiceService(DataContext data)
         {
             if (left <= 0) break;
             decimal pay = Math.Min(left, invoice.Balance);
-            await ApplyAsync(db, invoice, pay, tenderType, paidOn, "Distributed payment");
+            await ApplyAsync(db, invoice, pay, tenderType, paidOn, "Distributed payment", session);
             left -= pay;
         }
-        if (left > 0) await ApplyAsync(db, open[^1], left, tenderType, paidOn, "Overpayment (credit)");
+        if (left > 0) await ApplyAsync(db, open[^1], left, tenderType, paidOn, "Overpayment (credit)", session);
         await AddReceiptToDrawerAsync(db, session, tenderType, amount);
         await SaveAsync(db);
         await tx.CommitAsync();
@@ -234,6 +239,7 @@ public sealed class InvoiceService(DataContext data)
         if (invoice.IsVoided) return;
         if (invoice.ClientId is Guid cid && invoice.Kind != InvoiceKind.Quote)
             await db.Clients.Where(c => c.Id == cid).ExecuteUpdateAsync(s => s.SetProperty(c => c.Balance, c => c.Balance - invoice.Balance).Touched());
+        db.Audit(AuditActions.VoidInvoice, $"{invoice.Kind} {invoice.InvoiceNumber}, {invoice.DisplayName}, balance {invoice.Balance:N2}", nameof(Invoice), invoice.Id);
         invoice.Balance = 0;
         invoice.IsVoided = true;
         await SaveAsync(db);

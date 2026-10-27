@@ -27,6 +27,7 @@
                 <Border x:Name="TrainingBadge" Background="{StaticResource DangerLight}" CornerRadius="22" Padding="16,8" Margin="0,0,12,0" VerticalAlignment="Center" Visibility="Collapsed">
                     <TextBlock Text="Training mode" Foreground="{StaticResource Danger}" FontWeight="SemiBold" />
                 </Border>
+                <Button Content="Go to" infra:Look.Icon="&#xE721;" infra:Look.Shortcut="Ctrl+K" ToolTip="Type to go to any screen or action" Margin="0,0,10,0" MinHeight="52" Click="Palette_Click" />
                 <Button Content="Keys" infra:Look.Icon="&#xE765;" infra:Look.Shortcut="Ctrl+Shift+K" ToolTip="Help: keyboard keys" Margin="0,0,10,0" MinHeight="52" Click="Help_Click" />
                 <Button Style="{StaticResource RoundButton}" Content="&#xE713;" ToolTip="Setup (Ctrl+Shift+S)" Margin="0,0,10,0" Click="Settings_Click" x:Name="SettingsButton" />
                 <Border Background="{StaticResource CardSolid}" CornerRadius="28" Padding="6,6,18,6" BorderBrush="{StaticResource Line}" BorderThickness="1">
@@ -49,6 +50,9 @@
                         <TextBlock Text="SMA RETAIL" FontFamily="{StaticResource DisplayFont}" FontSize="26" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0" />
                     </StackPanel>
                 </Border>
+                <Border x:Name="StoreLogoFrame" Visibility="Collapsed" Background="{StaticResource CardSolid}" CornerRadius="14" Padding="8,4" Margin="14,0,0,0" VerticalAlignment="Center">
+                    <Image x:Name="StoreLogo" Height="50" MaxWidth="180" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" ToolTip="The store's logo (Setup › Branding)" />
+                </Border>
                 <StackPanel Margin="18,0,0,0" VerticalAlignment="Center">
                     <TextBlock x:Name="StoreName" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="420" />
                     <TextBlock x:Name="StationText" Foreground="{StaticResource Muted}" FontSize="15" />
@@ -66,7 +70,7 @@
             <Border Style="{StaticResource CardBorder}" Padding="12,14">
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Bottom" x:Name="ShortcutHint" Foreground="{StaticResource Muted}" FontSize="13" TextWrapping="Wrap" Margin="10,8,10,0"
-                               Text="Keys are shown on every button. Ctrl+Shift+K lists them all." />
+                               Text="Keys are shown on every button. Ctrl+K goes anywhere; Ctrl+Shift+K lists the keys." />
                     <ListBox x:Name="Nav" Background="Transparent" BorderThickness="0" ItemContainerStyle="{StaticResource NavItem}"
                              SelectionChanged="Nav_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                         <ListBox.ItemTemplate>

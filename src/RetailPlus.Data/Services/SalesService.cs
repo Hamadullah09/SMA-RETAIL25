@@ -49,6 +49,10 @@ public sealed class SalesService(DataContext data)
             throw new BusinessRuleException("Select a client for an on-account sale or a layaway.");
         if (settings.LimitThc && settings.ThcLimit > 0 && draft.TotalThc > settings.ThcLimit)
             throw new BusinessRuleException($"This sale has {draft.TotalThc:0.###} g of THC; the limit is {settings.ThcLimit:0.###} g.");
+        if (lines.FirstOrDefault(l => l.ItemType == ItemType.GiftCard && l.Kind == SaleLineKind.Sale && string.IsNullOrWhiteSpace(l.GiftCardNumber)) is { } card)
+            throw new BusinessRuleException($"{card.Description}: enter the number of the gift card sold.");
+        if (tenders.FirstOrDefault(t => t.Kind == TenderKind.GiftCard && t.Amount != 0 && string.IsNullOrWhiteSpace(t.Reference)) is { } giftTender)
+            throw new BusinessRuleException($"Enter the card number of the {giftTender.TenderType} payment.");
 
         var now = DateTime.Now;
         var sale = new Sale
@@ -57,6 +61,7 @@ public sealed class SalesService(DataContext data)
             LocationId = session.LocationId,
             SoldAt = now,
             Staff = draft.Staff ?? session.UserName,
+            StaffId = draft.Staff is null ? session.UserId : draft.StaffId,
             ClientId = draft.ClientId,
             ClientName = draft.ClientName,
             CustomerNumber = draft.CustomerNumber,
@@ -84,16 +89,24 @@ public sealed class SalesService(DataContext data)
                 Cogs = Money.Round(l.UnitCost * l.Quantity), Department = l.Department, Taxable1 = l.Taxable1, Taxable2 = l.Taxable2,
                 Tax1 = lineTax.Item1, Tax2 = lineTax.Item2, SerialNumber = l.SerialNumber, VariantId = l.VariantId, SupplierName = l.SupplierName,
                 Commission = Money.Round(l.LineTotal * l.CommissionPercent / 100m), Restock = l.Restock,
+                GiftCardNumber = string.IsNullOrWhiteSpace(l.GiftCardNumber) ? null : GiftCardService.Normalize(l.GiftCardNumber),
                 Tags = l.Epcs.Distinct().Select(e => new SaleLineTag { Epc = e }).ToList(),
             });
         }
         sale.Cogs = sale.Lines.Sum(l => l.Cogs);
         sale.PointsEarned = BonusPoints.Earned(settings, totals.NetBeforeTax, draft.SubtotalDiscountPercent > 0);
         foreach (var t in tenders)
-            sale.Payments.Add(new SalePayment { TenderType = t.TenderType, Amount = t.Amount, Tendered = t.Tendered, Change = t.Change, AuthCode = t.AuthCode, Reference = t.Reference });
+            sale.Payments.Add(new SalePayment
+            {
+                TenderType = t.TenderType, Amount = t.Amount, Tendered = t.Tendered, Change = t.Change, AuthCode = t.AuthCode,
+                Reference = t.Kind == TenderKind.GiftCard && t.Reference is not null ? GiftCardService.Normalize(t.Reference) : t.Reference,
+                Currency = t.Currency, ForeignAmount = t.ForeignAmount, ExchangeRate = t.ExchangeRate,
+            });
 
         if (session.IsTrainee) return sale;
 
+        // The sale is its own record: the client's balance and points it changes are not audited one by one.
+        db.SuppressAudit = true;
         await using var tx = await db.Database.BeginTransactionAsync();
         Client? client = null;
         if (draft.ClientId is Guid clientId)
@@ -108,13 +121,15 @@ public sealed class SalesService(DataContext data)
         db.Sales.Add(sale);
         await db.SaveChangesAsync();
 
-        await ApplyStockAndStatisticsAsync(db, sale, +1, now, sale.StationNumber);
+        await ApplyStockAndStatisticsAsync(db, sale, +1, now, sale.Staff, sale.StaffId, sale.StationNumber);
         await UpdateTagsAsync(db, sale, +1);
+        await ApplyGiftCardsAsync(db, settings, sale, lines, tenders);
 
         if (client is not null)
         {
             client.LastPurchase = DateOnly.FromDateTime(now);
-            client.Points += sale.PointsEarned - draft.PointsRedeemed;
+            LoyaltyService.Record(db, client, LoyaltyTransactionKind.Earn, sale.PointsEarned, sale, sale.Staff);
+            LoyaltyService.Record(db, client, LoyaltyTransactionKind.Redeem, -draft.PointsRedeemed, sale, sale.Staff);
             decimal owing = onAccount + layawayOwing;
             if (owing != 0)
             {
@@ -124,10 +139,30 @@ public sealed class SalesService(DataContext data)
         }
 
         var drawer = await DrawerService.GetOpenSessionAsync(db, session.StationNumber, session.LocationId);
-        AddToDrawer(drawer, sale, tenders.Where(t => t.Kind != TenderKind.OnAccount), +1);
+        AddToDrawer(drawer, sale, tenders.Where(t => t.Kind != TenderKind.OnAccount), +1, await HomeCashAsync(db));
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         return sale;
+    }
+
+    /// <summary>The home-currency cash tender, which gives the change for payments in a foreign currency.</summary>
+    private static Task<string?> HomeCashAsync(RetailPlusDbContext db) =>
+        db.TenderTypes.Where(t => t.Kind == TenderKind.Cash && t.Currency == null).OrderBy(t => t.SortOrder).Select(t => t.Name).FirstOrDefaultAsync();
+
+    /// <summary>Gift cards sold on the sale's lines (issue or reload) and paid with (redeem, or a refund put on the card).</summary>
+    private static async Task ApplyGiftCardsAsync(RetailPlusDbContext db, StoreSettings settings, Sale sale, IReadOnlyList<SaleDraftLine> lines, IReadOnlyList<TenderEntry> tenders)
+    {
+        foreach (var line in lines.Where(l => !string.IsNullOrWhiteSpace(l.GiftCardNumber) && l.Kind is SaleLineKind.Sale or SaleLineKind.Return))
+        {
+            if (line.LineTotal > 0) await GiftCardService.IssueOrReloadAsync(db, settings, line.GiftCardNumber!, line.GiftCardKind, line.LineTotal, sale);
+            else if (line.LineTotal < 0)
+                await GiftCardService.RefundAsync(db, settings, line.GiftCardNumber!, line.LineTotal, sale, GiftCardTransactionKind.Adjust, "Card returned");
+        }
+        foreach (var t in tenders.Where(t => t.Kind == TenderKind.GiftCard && t.Amount != 0))
+        {
+            if (t.Amount > 0) await GiftCardService.RedeemAsync(db, t.Reference!, t.Amount, sale);
+            else await GiftCardService.RefundAsync(db, settings, t.Reference!, -t.Amount, sale, GiftCardTransactionKind.Refund);
+        }
     }
 
     private static string Trim(string s, int max) => s.Length <= max ? s : s[..max];
@@ -138,22 +173,26 @@ public sealed class SalesService(DataContext data)
         {
             InvoiceNumber = sale.InvoiceNumber, Kind = kind, ClientId = client.Id, AccountNumber = client.AccountNumber, CustomerNumber = client.Number,
             FirstName = client.FirstName, LastName = client.LastName, Company = client.Company, InvoiceDate = DateOnly.FromDateTime(sale.SoldAt),
-            Total = sale.Total, Balance = owing, SalesPerson = sale.Staff, Tax1Rate = sale.Tax1Rate, Tax2Rate = sale.Tax2Rate,
+            Total = sale.Total, Balance = owing, SalesPerson = sale.Staff, SalesPersonId = sale.StaffId, Tax1Rate = sale.Tax1Rate, Tax2Rate = sale.Tax2Rate,
             ShipTo = client.ShipTo, Email = client.Email, SaleId = sale.Id,
         };
         foreach (var l in sale.Lines.Where(l => l.Kind != SaleLineKind.Text))
             invoice.Lines.Add(new InvoiceLine { LineNumber = l.LineNumber, Plu = l.Plu, Description = l.Description, Quantity = l.Quantity, UnitPrice = l.UnitPrice, DiscountAmount = l.DiscountAmount, LineTotal = l.LineTotal });
         if (deposit > 0)
-            invoice.Payments.Add(new InvoicePayment { PaidOn = invoice.InvoiceDate, Amount = deposit, TenderType = "Deposit", Note = "Paid at the sale" });
+            invoice.Payments.Add(new InvoicePayment
+            {
+                PaidOn = invoice.InvoiceDate, Amount = deposit, TenderType = "Deposit", Note = "Paid at the sale", TakenBy = sale.Staff, TakenById = sale.StaffId,
+            });
         return invoice;
     }
 
     /// <summary>
     /// Stock counts, stock movements, serial numbers and sales statistics; <paramref name="sign"/> is -1 when voiding.
-    /// <paramref name="at"/> is the sale's time, which the statistics are counted in; they go to the rows of
-    /// <paramref name="station"/>, the station doing it, so tills never change each other's rows.
+    /// <paramref name="at"/> is the sale's time, which the statistics are counted in; the stock movements name
+    /// <paramref name="user"/>, who sold or voided. The statistics go to the rows of <paramref name="station"/>, the
+    /// station doing it, so tills never change each other's rows.
     /// </summary>
-    private static async Task ApplyStockAndStatisticsAsync(RetailPlusDbContext db, Sale sale, int sign, DateTime at, int station)
+    private static async Task ApplyStockAndStatisticsAsync(RetailPlusDbContext db, Sale sale, int sign, DateTime at, string? user, Guid? userId, int station)
     {
         int year = at.Year, month = at.Month, week = (at.DayOfYear - 1) / 7 + 1;
         var movedAt = sign > 0 ? at : DateTime.Now;
@@ -169,7 +208,7 @@ public sealed class SalesService(DataContext data)
                 await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - qty).Touched());
                 if (line.VariantId is Guid variantId)
                     await db.ItemVariants.Where(v => v.Id == variantId).ExecuteUpdateAsync(s => s.SetProperty(v => v.OnHand, v => v.OnHand - qty).Touched());
-                InventoryService.Record(db, itemId, kind, -qty, await OnHandAsync(db, itemId), movedAt, sale.InvoiceNumber, variantId: line.VariantId, user: sale.Staff);
+                InventoryService.Record(db, itemId, kind, -qty, await OnHandAsync(db, itemId), movedAt, sale.InvoiceNumber, variantId: line.VariantId, user: user, userId: userId);
                 if (type == ItemType.Kit)
                 {
                     var components = await db.KitComponents.Where(k => k.KitItemId == itemId && k.ComponentItemId != null).ToListAsync();
@@ -179,7 +218,7 @@ public sealed class SalesService(DataContext data)
                         var componentId = c.ComponentItemId!.Value;
                         await db.Items.Where(i => i.Id == componentId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - cq).Touched());
                         InventoryService.Record(db, componentId, kind, -cq, await OnHandAsync(db, componentId), movedAt, sale.InvoiceNumber,
-                            reason: $"Kit {line.Plu}", user: sale.Staff);
+                            reason: $"Kit {line.Plu}", user: user, userId: userId);
                     }
                 }
                 if (type == ItemType.Serialized && !string.IsNullOrWhiteSpace(line.SerialNumber))
@@ -228,7 +267,11 @@ public sealed class SalesService(DataContext data)
         }
     }
 
-    private static void AddToDrawer(DrawerSession drawer, Sale sale, IEnumerable<TenderEntry> tenders, int sign)
+    /// <summary>
+    /// The sale in the drawer totals. A payment in a foreign currency stays in the drawer whole (at its home value, and
+    /// in the currency), and the change given for it comes out of the home cash.
+    /// </summary>
+    private static void AddToDrawer(DrawerSession drawer, Sale sale, IEnumerable<TenderEntry> tenders, int sign, string? homeCash)
     {
         var real = sale.Lines.Where(l => l.Kind != SaleLineKind.Text).ToList();
         drawer.CustomerCount += sign;
@@ -240,11 +283,26 @@ public sealed class SalesService(DataContext data)
         drawer.CustomerCredits += sign * real.Where(l => l.Kind is SaleLineKind.Return or SaleLineKind.Credit).Sum(l => -l.LineTotal);
         drawer.BottleReturns += sign * real.Where(l => l.Kind == SaleLineKind.BottleReturn).Sum(l => -l.LineTotal);
         drawer.LastSaleAt = sale.SoldAt;
+        DrawerSessionTender Row(string name)
+        {
+            var row = drawer.Tenders.FirstOrDefault(x => x.TenderType == name);
+            if (row is null) drawer.Tenders.Add(row = new DrawerSessionTender { TenderType = name });
+            return row;
+        }
         foreach (var t in tenders)
         {
             drawer.TotalReceipts += sign * t.Amount;
-            var row = drawer.Tenders.FirstOrDefault(x => x.TenderType == t.TenderType);
-            if (row is null) drawer.Tenders.Add(row = new DrawerSessionTender { TenderType = t.TenderType });
+            var row = Row(t.TenderType);
+            if (t.Currency is not null)
+            {
+                row.ForeignAmount += sign * t.ForeignAmount;
+                if (homeCash is not null && t.Change > 0)
+                {
+                    row.Amount += sign * t.Tendered;
+                    Row(homeCash).Amount -= sign * t.Change;
+                    continue;
+                }
+            }
             row.Amount += sign * t.Amount;
         }
     }
@@ -253,21 +311,27 @@ public sealed class SalesService(DataContext data)
     public async Task VoidSaleAsync(Guid saleId, SessionInfo session, string? reason = null)
     {
         await using var db = data.Create();
+        db.SuppressAudit = true;
         await using var tx = await db.Database.BeginTransactionAsync();
         var sale = await db.Sales.Include(s => s.Lines).ThenInclude(l => l.Tags).Include(s => s.Payments).SingleAsync(s => s.Id == saleId);
         if (sale.Status == SaleStatus.Voided) throw new BusinessRuleException("This sale is already voided.");
-        await ApplyStockAndStatisticsAsync(db, sale, -1, sale.SoldAt, session.StationNumber);
+        await ApplyStockAndStatisticsAsync(db, sale, -1, sale.SoldAt, session.UserName, session.UserId, session.StationNumber);
         await UpdateTagsAsync(db, sale, -1);
+        await GiftCardService.ReverseSaleAsync(db, sale, session.UserName);
 
         var kinds = await db.TenderTypes.AsNoTracking().ToDictionaryAsync(t => t.Name, t => t.Kind);
-        var tenders = sale.Payments.Select(p => new TenderEntry(p.TenderType, kinds.GetValueOrDefault(p.TenderType, TenderKind.Other), p.Amount, p.Tendered)).ToList();
+        var tenders = sale.Payments.Select(p => new TenderEntry(p.TenderType, kinds.GetValueOrDefault(p.TenderType, TenderKind.Other), p.Amount, p.Tendered,
+            p.AuthCode, p.Reference, p.Currency, p.ForeignAmount, p.ExchangeRate)).ToList();
         var drawer = await DrawerService.GetOpenSessionAsync(db, sale.StationNumber, sale.LocationId);
-        AddToDrawer(drawer, sale, tenders.Where(t => t.Kind != TenderKind.OnAccount), -1);
+        AddToDrawer(drawer, sale, tenders.Where(t => t.Kind != TenderKind.OnAccount), -1, await HomeCashAsync(db));
 
         if (sale.ClientId is Guid clientId)
         {
             var client = await db.Clients.SingleAsync(c => c.Id == clientId);
-            client.Points -= sale.PointsEarned - sale.PointsRedeemed;
+            var voided = DateTime.Now;
+            string note = $"Invoice {sale.InvoiceNumber} voided";
+            LoyaltyService.Record(db, client, LoyaltyTransactionKind.Earn, -sale.PointsEarned, sale, session.UserName, note, voided);
+            LoyaltyService.Record(db, client, LoyaltyTransactionKind.Redeem, sale.PointsRedeemed, sale, session.UserName, note, voided);
             var invoice = await db.Invoices.SingleOrDefaultAsync(i => i.SaleId == sale.Id && !i.IsVoided);
             if (invoice is not null)
             {
@@ -279,7 +343,10 @@ public sealed class SalesService(DataContext data)
         sale.Status = SaleStatus.Voided;
         sale.VoidedAt = DateTime.Now;
         sale.VoidedBy = session.UserName;
+        sale.VoidedById = session.UserId;
         if (!string.IsNullOrWhiteSpace(reason)) sale.Notes = (sale.Notes + " Void: " + reason).Trim();
+        db.Audit(AuditActions.VoidSale, $"Invoice {sale.InvoiceNumber}, {sale.Total:N2}" + (string.IsNullOrWhiteSpace(reason) ? "" : ": " + reason.Trim()),
+            nameof(Sale), sale.Id, userId: session.UserId, userName: session.UserName);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
     }
@@ -352,6 +419,11 @@ public sealed class SalesService(DataContext data)
     {
         await using var db = data.Create();
         var isNew = order.Id == Guid.Empty;
+        if (isNew && order.SoldBy is null && data.CurrentUser is { } user)
+        {
+            order.SoldBy = user.UserName;
+            order.SoldById = user.UserId;
+        }
         if (isNew) db.CustomerOrders.Add(order); else db.CustomerOrders.Update(order);
         if (isNew && order.ItemId is Guid itemId)
             await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.CustomerOrdered, i => i.CustomerOrdered + order.Quantity).Touched());
@@ -382,6 +454,11 @@ public sealed class SalesService(DataContext data)
         {
             if (string.IsNullOrWhiteSpace(rma.CustomerRmaNumber) && rma.IsCustomerRma)
                 rma.CustomerRmaNumber = (await db.NextNumberAsync(RetailPlusDbContext.Sequences.RmaNumbers)).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (rma.CreatedBy is null && data.CurrentUser is { } user)
+            {
+                rma.CreatedBy = user.UserName;
+                rma.CreatedById = user.UserId;
+            }
             db.Rmas.Add(rma);
         }
         else db.Rmas.Update(rma);

@@ -8,7 +8,7 @@ using RetailPlus.Data.Import;
 
 namespace RetailPlus.Data;
 
-public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) : DbContext(options)
+public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) : DbContext(options)
 {
     /// <summary>The kinds of document number the original kept in NUMBERS.DBF; see <see cref="NumberCounter"/>.</summary>
     public static class Sequences
@@ -17,7 +17,11 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
         public const string CustomerNumbers = "CustomerNumbers";
         public const string PurchaseOrderNumbers = "PurchaseOrderNumbers";
         public const string RmaNumbers = "RmaNumbers";
-        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers];
+        public const string StockCountNumbers = "StockCountNumbers";
+        public const string TransferNumbers = "TransferNumbers";
+        /// <summary>For gift certificates printed by the store, which have no number of their own.</summary>
+        public const string GiftCardNumbers = "GiftCardNumbers";
+        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers];
     }
 
     /// <summary>
@@ -75,6 +79,19 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
     public DbSet<ItemPicture> ItemPictures => Set<ItemPicture>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportSourceRow> ImportSourceRows => Set<ImportSourceRow>();
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<TimeClockEntry> TimeClockEntries => Set<TimeClockEntry>();
+    public DbSet<CommissionRule> CommissionRules => Set<CommissionRule>();
+    public DbSet<StockCount> StockCounts => Set<StockCount>();
+    public DbSet<StockCountLine> StockCountLines => Set<StockCountLine>();
+    public DbSet<StockCountTag> StockCountTags => Set<StockCountTag>();
+    public DbSet<StockTransfer> StockTransfers => Set<StockTransfer>();
+    public DbSet<StockTransferLine> StockTransferLines => Set<StockTransferLine>();
+    public DbSet<GiftCard> GiftCards => Set<GiftCard>();
+    public DbSet<GiftCardTransaction> GiftCardTransactions => Set<GiftCardTransaction>();
+    public DbSet<LoyaltyTransaction> LoyaltyTransactions => Set<LoyaltyTransaction>();
+    public DbSet<AccountMapping> AccountMappings => Set<AccountMapping>();
+    public DbSet<StoreImage> StoreImages => Set<StoreImage>();
     public DbSet<Tombstone> Tombstones => Set<Tombstone>();
     public DbSet<SyncBatch> SyncBatches => Set<SyncBatch>();
     public DbSet<SyncState> SyncStates => Set<SyncState>();
@@ -82,7 +99,8 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
 
     /// <summary>
     /// Set while rows from a sync package are saved: they keep their times, store, station and version exactly as they
-    /// arrived, and deletions leave no tombstone of their own (the package's tombstones are handled by the applier).
+    /// arrived, deletions leave no tombstone of their own (the package's tombstones are handled by the applier), and no
+    /// audit lines are written (audit lines that arrive keep their own user, time and station).
     /// </summary>
     public bool ApplyingSync { get; set; }
 
@@ -111,7 +129,7 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
                 var id = Guid.CreateVersion7();
                 long first = NumberCounter.FirstNumber(station);
                 await Database.ExecuteSqlAsync(
-                    $"""INSERT INTO "NumberCounters" ("Id", "Kind", "StationNumber", "LastValue", "CreatedAtUtc", "UpdatedAtUtc", "EditedAtUtc") VALUES ({id}, {sequence}, {station}, {first}, {now}, {now}, {now})""",
+                    $"""INSERT INTO "NumberCounters" ("Id", "Kind", "StationNumber", "LastValue", "CreatedAtUtc", "UpdatedAtUtc", "SyncEditedAtUtc") VALUES ({id}, {sequence}, {station}, {first}, {now}, {now}, {now})""",
                     cancellationToken);
             }
             var value = await counter.Select(c => c.LastValue).SingleAsync(cancellationToken);
@@ -126,14 +144,16 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        AuditChangesAsync(sync: true, default).AsTask().GetAwaiter().GetResult();
         Stamp();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        await AuditChangesAsync(sync: false, cancellationToken);
         Stamp();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     /// <summary>

@@ -156,6 +156,13 @@ public sealed partial class PosViewModel : ObservableObject
             qty = weight.Value;
         }
 
+        if (item.ItemType == ItemType.GiftCard)
+        {
+            if (ReturnMode) Alert("A gift card is not taken back for money at the till; a supervisor corrects its balance on the Gift cards screen.");
+            else await AddGiftCardAsync(item);
+            return;
+        }
+
         var kind = ReturnMode ? SaleLineKind.Return : SaleLineKind.Sale;
         if (serial is null && SaleDraft.LineToJoin(Lines, item, variant?.Id, kind, qty) is { } same)
         {
@@ -209,6 +216,46 @@ public sealed partial class PosViewModel : ObservableObject
         Recalculate();
         if (!string.IsNullOrWhiteSpace(item.TagAlongCode) && line.Kind == SaleLineKind.Sale)
             await AddCodeAsync(item.TagAlongCode!, qty);
+    }
+
+    /// <summary>
+    /// Asks for the number and amount of a gift card being sold. The automated check sets its own; otherwise the gift card
+    /// window asks the cashier.
+    /// </summary>
+    public Func<Item, Task<GiftCardEntry?>>? GiftCardPrompt { get; set; }
+
+    /// <summary>A gift card item: the card's number and the amount put on it (issued, or reloaded when the card is known).</summary>
+    private async Task AddGiftCardAsync(Item item)
+    {
+        if (!AppServices.Can(Permissions.GiftCardsIssue))
+        {
+            Alert("Your role cannot sell gift cards.");
+            return;
+        }
+        GiftCardEntry? entry;
+        if (GiftCardPrompt is { } prompt) entry = await prompt(item);
+        else
+        {
+            var window = new GiftCardSaleWindow(item.Name, item.Price1 > 0 ? item.Price1 : null);
+            entry = window.ShowDialog() == true ? window.Result : null;
+        }
+        if (entry is null) return;
+        if (Lines.Any(l => l.GiftCardNumber == entry.Number))
+        {
+            Alert($"Card {entry.Number} is already on this sale.");
+            return;
+        }
+        var line = new SaleDraftLine
+        {
+            Kind = SaleLineKind.Sale, ItemId = item.Id, ItemType = item.ItemType, Plu = item.Plu, Description = $"{item.Name} {entry.Number}",
+            Quantity = 1, UnitPrice = entry.Amount, AutoPriced = false, Taxable1 = item.Taxable1, Taxable2 = item.Taxable2, Department = item.Department?.Name,
+            GiftCardNumber = entry.Number, GiftCardKind = entry.Kind, CommissionPercent = item.Commission,
+        };
+        _itemCache[item.Id] = item;
+        Lines.Add(line);
+        SelectedLine = line;
+        Message = $"{(entry.Kind == GiftCardKind.Certificate ? "Gift certificate" : "Gift card")} {entry.Number}: {entry.Amount.ToString("N2", C)}";
+        Recalculate();
     }
 
     private readonly Dictionary<Guid, Item> _itemCache = [];
@@ -360,11 +407,16 @@ public sealed partial class PosViewModel : ObservableObject
 
     // Line changes --------------------------------------------------------------------------------------------
 
-    private bool MayDiscount()
+    /// <summary>
+    /// Discounts and price changes: open to everyone when the store lets staff discount, else for roles that may
+    /// discount, or with a supervisor's approval.
+    /// </summary>
+    private static bool MayDiscount(string action) => Settings.StaffMayDiscount || Approval.Allowed(Permissions.PosDiscount, action);
+
+    /// <summary>Return mode needs the returns permission, or a supervisor's approval.</summary>
+    partial void OnReturnModeChanged(bool value)
     {
-        if (Settings.StaffMayDiscount || AppServices.Can(3)) return true;
-        Ui.Error("Only a supervisor can give discounts at this station.");
-        return false;
+        if (value && !Approval.Allowed(Permissions.PosReturn, "A return")) ReturnMode = false;
     }
 
     public async Task ChangeQuantityAsync()
@@ -392,7 +444,7 @@ public sealed partial class PosViewModel : ObservableObject
 
     public void ChangePrice()
     {
-        if (SelectedLine is not { } line || !MayDiscount()) return;
+        if (SelectedLine is not { } line || !MayDiscount("Changing a price")) return;
         var p = Ui.PromptDecimal($"Price of {line.Description}:", "Price", line.UnitPrice);
         if (p is null) return;
         line.UnitPrice = p.Value;
@@ -403,7 +455,7 @@ public sealed partial class PosViewModel : ObservableObject
 
     public void LineDiscount()
     {
-        if (SelectedLine is not { } line || !MayDiscount()) return;
+        if (SelectedLine is not { } line || !MayDiscount("A discount on a line")) return;
         var p = Ui.PromptDecimal($"Discount on {line.Description} in percent (e.g. 10):", "Line discount");
         if (p is null) return;
         line.AutoPriced = false;
@@ -413,7 +465,7 @@ public sealed partial class PosViewModel : ObservableObject
 
     public void SubtotalDiscount()
     {
-        if (Lines.Count == 0 || !MayDiscount()) return;
+        if (Lines.Count == 0 || !MayDiscount("A discount on the sale")) return;
         var p = Ui.PromptDecimal("Discount on the whole sale in percent:", "Subtotal discount", _draft.SubtotalDiscountPercent);
         if (p is null) return;
         if (p < 0 || p > 100) { Ui.Error("Enter 0 to 100."); return; }
@@ -421,22 +473,23 @@ public sealed partial class PosViewModel : ObservableObject
         Recalculate();
     }
 
-    public async Task RemoveLineAsync()
+    public Task RemoveLineAsync()
     {
-        if (SelectedLine is not { } line) return;
-        if (Settings.SupervisorForVoids && !await LoginWindow.SupervisorApprovesAsync("Removing a line")) return;
+        if (SelectedLine is not { } line) return Task.CompletedTask;
+        if (Settings.SupervisorForVoids && !Approval.Allowed(Permissions.PosVoidLine, "Removing a line")) return Task.CompletedTask;
         Lines.Remove(line);
         _rfidIgnored.UnionWith(line.Epcs);
         SelectedLine = Lines.LastOrDefault();
         Recalculate();
+        return Task.CompletedTask;
     }
 
-    public async Task ClearSaleAsync(bool ask = true)
+    public Task ClearSaleAsync(bool ask = true)
     {
         if (ask && Lines.Count > 0)
         {
-            if (!Ui.Confirm("Cancel this whole sale?")) return;
-            if (Settings.SupervisorForVoids && !await LoginWindow.SupervisorApprovesAsync("Cancelling a sale")) return;
+            if (!Ui.Confirm("Cancel this whole sale?")) return Task.CompletedTask;
+            if (Settings.SupervisorForVoids && !Approval.Allowed(Permissions.PosVoidLine, "Cancelling a sale")) return Task.CompletedTask;
         }
         Lines.Clear();
         _draft = new SaleDraft();
@@ -450,6 +503,7 @@ public sealed partial class PosViewModel : ObservableObject
         HasClient = false;
         ReturnMode = false;
         Recalculate();
+        return Task.CompletedTask;
     }
 
     // Client -------------------------------------------------------------------------------------------------
@@ -510,8 +564,9 @@ public sealed partial class PosViewModel : ObservableObject
         Recalculate();
         _draft.IsLayaway = layaway;
         _draft.Staff = Session.UserName;
+        _draft.StaffId = Session.UserId;
         var tenders = await AppServices.Setup.GetTenderTypesAsync();
-        var pay = new PayWindow(Total, tenders, Settings.MinimumTender, _draft.ClientId is not null, layaway);
+        var pay = new PayWindow(Total, tenders, Settings.MinimumTender, _draft.ClientId is not null, layaway, await AppServices.Setup.GetFxRatesAsync());
         if (pay.ShowDialog() != true) { _draft.IsLayaway = false; return false; }
         return await PostAsync(pay.Tenders);
     }

@@ -5,6 +5,7 @@ using System.Windows.Media;
 using RetailPlus.App.Dialogs;
 using RetailPlus.App.Infrastructure;
 using RetailPlus.Core.Model;
+using RetailPlus.Core.Rules;
 using RetailPlus.Data.Services;
 using RetailPlus.Reports;
 
@@ -175,10 +176,11 @@ public sealed class SalesJournalView : UserControl, IRefreshable
     private async void Void_Click(object sender, RoutedEventArgs e)
     {
         if (_grid.SelectedItem is not SaleRow row || row.Status == SaleStatus.Voided) return;
-        if (!await LoginWindow.SupervisorApprovesAsync("Voiding a sale")) return;
+        // The sale is voided in the name of whoever may void it: the signed-in user, or the supervisor who approved.
+        if (Approval.SessionFor(Permissions.PosVoidSale, "Voiding a sale") is not { } voider) return;
         var reason = Ui.Prompt($"Void invoice {row.InvoiceNumber} ({row.Total:N2})? Reason:", "Void sale");
         if (reason is null) return;
-        await Ui.Try(async () => { await AppServices.Sales.VoidSaleAsync(row.Id, AppServices.Session, reason); await RefreshAsync(); });
+        await Ui.Try(async () => { await AppServices.Sales.VoidSaleAsync(row.Id, voider, reason); await RefreshAsync(); });
     }
 }
 
@@ -329,7 +331,7 @@ public sealed class InvoicesView : UserControl, IRefreshable
     private async void Void_Click(object sender, RoutedEventArgs e)
     {
         if (Current is not { } row || !Ui.Confirm($"Void {row.Kind} {row.InvoiceNumber}? Its balance is taken off the client's account.")) return;
-        if (!await LoginWindow.SupervisorApprovesAsync("Voiding an invoice")) return;
+        if (!Approval.Allowed(Permissions.PosVoidSale, "Voiding an invoice")) return;
         await Ui.Try(async () => { await AppServices.Invoices.VoidAsync(row.Id); await RefreshAsync(); });
     }
 }
@@ -381,6 +383,7 @@ public sealed class CustomerOrdersView : UserControl, IRefreshable
 
     private async void NewOrder_Click(object sender, RoutedEventArgs e)
     {
+        if (!Approval.Allowed(Permissions.ClientsEdit, "A customer order")) return;
         var client = new PartyPickerWindow();
         if (client.ShowDialog() != true || client.Selected is not { } c) return;
         var picker = new ItemPickerWindow();
@@ -393,7 +396,8 @@ public sealed class CustomerOrdersView : UserControl, IRefreshable
             await AppServices.Sales.SaveCustomerOrderAsync(new CustomerOrder
             {
                 LocationId = AppServices.Session.LocationId, ClientId = c.Id, Name = c.DisplayName.Length > 30 ? c.DisplayName[..30] : c.DisplayName,
-                Company = full?.Company, Phone = full?.WorkPhone ?? full?.HomePhone, OrderDate = DateOnly.FromDateTime(DateTime.Today), SoldBy = AppServices.Session.UserName,
+                Company = full?.Company, Phone = full?.WorkPhone ?? full?.HomePhone, OrderDate = DateOnly.FromDateTime(DateTime.Today),
+                SoldBy = AppServices.Session.UserName, SoldById = AppServices.Session.UserId,
                 CustomerNumber = c.Number, ItemId = item.Id, Plu = item.Plu, Description = item.Name, Size = item.Size, UnitPrice = item.Price1, Quantity = qty.Value,
             });
             await RefreshAsync();
@@ -402,7 +406,7 @@ public sealed class CustomerOrdersView : UserControl, IRefreshable
 
     private async void Paid_Click(object sender, RoutedEventArgs e)
     {
-        if (_orders.SelectedItem is not CustomerOrder o) return;
+        if (_orders.SelectedItem is not CustomerOrder o || !Approval.Allowed(Permissions.ClientsEdit, "Changing a customer order")) return;
         o.Paid = !o.Paid;
         await Ui.Try(async () => { await AppServices.Sales.SaveCustomerOrderAsync(o); await RefreshAsync(); });
     }
@@ -410,11 +414,13 @@ public sealed class CustomerOrdersView : UserControl, IRefreshable
     private async void DeleteOrder_Click(object sender, RoutedEventArgs e)
     {
         if (_orders.SelectedItem is not CustomerOrder o || !Ui.Confirm($"Delete the order for {o.Description}?")) return;
+        if (!Approval.Allowed(Permissions.ClientsEdit, "Deleting a customer order")) return;
         await Ui.Try(async () => { await AppServices.Sales.DeleteCustomerOrderAsync(o.Id); await RefreshAsync(); });
     }
 
     private async void NewRma_Click(object sender, RoutedEventArgs e)
     {
+        if (!Approval.Allowed(Permissions.RmaManage, "An RMA")) return;
         var picker = new ItemPickerWindow();
         if (picker.ShowDialog() != true || picker.Selected is not { } item) return;
         var qty = Ui.PromptDecimal("Quantity returned:", "RMA", 1);
@@ -434,7 +440,7 @@ public sealed class CustomerOrdersView : UserControl, IRefreshable
 
     private async void CloseRma_Click(object sender, RoutedEventArgs e)
     {
-        if (_rmas.SelectedItem is not Rma r) return;
+        if (_rmas.SelectedItem is not Rma r || !Approval.Allowed(Permissions.RmaManage, "Closing an RMA")) return;
         r.IsActive = !r.IsActive;
         await Ui.Try(async () => { await AppServices.Sales.SaveRmaAsync(r); await RefreshAsync(); });
     }

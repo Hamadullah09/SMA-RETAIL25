@@ -6,6 +6,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using RetailPlus.App.Infrastructure;
 using RetailPlus.Core.Model;
+using RetailPlus.Core.Rules;
 using RetailPlus.Data.Services;
 using RetailPlus.Sync;
 
@@ -16,7 +17,10 @@ public partial class SetupView : UserControl, IRefreshable
     private StoreSettings _settings = new();
     private ObservableCollection<TaxConfiguration> _taxes = [];
     private ObservableCollection<TenderType> _tenders = [];
+    private ObservableCollection<FxRate> _fx = [];
     private List<FastKey> _keys = [];
+    private readonly AccountingSetupPanel? _accounting;
+    private readonly BrandingSetupPanel? _branding;
 
     public SetupView()
     {
@@ -36,6 +40,14 @@ public partial class SetupView : UserControl, IRefreshable
         ProviderBox.ItemsSource = Enum.GetValues<Data.DatabaseProvider>();
         StationPanel.DataContext = AppServices.Config;
         StationFile.Text = $"These settings belong to this computer only and are kept in {AppServices.Config.FilePath}. Restart the program after changing the database, station or location.";
+        // Accounting and branding have their own Save buttons, so they come in from code; This station stays last.
+        int at = Tabs.Items.OfType<TabItem>().ToList().FindIndex(t => Equals(t.Header, "Users"));
+        if (at < 0) at = Tabs.Items.Count - 1;
+        if (AppServices.Can(Core.Rules.Permissions.SetupStore))
+            Tabs.Items.Insert(at, new TabItem { Header = "Branding", Content = _branding = new BrandingSetupPanel() });
+        if (AppServices.Can(Core.Rules.Permissions.AccountingExport))
+            Tabs.Items.Insert(at, new TabItem { Header = "Accounting", Content = _accounting = new AccountingSetupPanel() });
+        Tabs.SelectionChanged += (_, e) => { if (ReferenceEquals(e.OriginalSource, Tabs)) ShowSaveButton(); };
     }
 
     private static List<string> InstalledPrinters()
@@ -51,8 +63,38 @@ public partial class SetupView : UserControl, IRefreshable
         }
     }
 
+    /// <summary>Shows the tabs the user may use: store settings, users and roles, and this station's settings.</summary>
+    private void ShowAllowedTabs()
+    {
+        bool store = AppServices.Can(Permissions.SetupStore), users = AppServices.Can(Permissions.SetupUsers), station = AppServices.Can(Permissions.SetupStations);
+        foreach (var tab in Tabs.Items.OfType<TabItem>())
+        {
+            bool allowed = tab.Tag switch { "users" => users, "station" => station, _ => store };
+            tab.Visibility = allowed ? Visibility.Visible : Visibility.Collapsed;
+        }
+        if (Tabs.SelectedItem is not TabItem { Visibility: Visibility.Visible })
+            Tabs.SelectedItem = Tabs.Items.OfType<TabItem>().FirstOrDefault(t => t.Visibility == Visibility.Visible);
+        ShowSaveButton();
+    }
+
+    /// <summary>
+    /// Save settings saves the store's tabs and this station's; on the Users and Roles tabs it is hidden, so their own
+    /// Save (Ctrl+S) is the one that answers.
+    /// </summary>
+    private void ShowSaveButton()
+    {
+        bool mayChange = AppServices.CanAny(Permissions.SetupStore, Permissions.SetupStations);
+        SaveButton.Visibility = mayChange && (Tabs.SelectedItem as TabItem)?.Tag as string != "users" ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     public async Task RefreshAsync()
     {
+        ShowAllowedTabs();
+        if (AppServices.Can(Permissions.SetupUsers))
+        {
+            await UsersPanel.RefreshAsync();
+            await RolesPanel.RefreshAsync();
+        }
         _settings = await AppServices.Setup.GetSettingsAsync();
         Tabs.DataContext = _settings;
         StationPanel.DataContext = AppServices.Config;
@@ -60,7 +102,10 @@ public partial class SetupView : UserControl, IRefreshable
         TaxGrid.ItemsSource = _taxes;
         _tenders = new(await AppServices.Setup.GetTenderTypesAsync(false));
         TendersGrid.ItemsSource = _tenders;
-        UsersGrid.ItemsSource = await AppServices.Setup.GetUsersAsync();
+        _fx = new(await AppServices.Setup.GetFxRatesAsync());
+        FxGrid.ItemsSource = _fx;
+        if (_accounting is not null) await _accounting.LoadAsync();
+        if (_branding is not null) await _branding.LoadAsync();
         DeptList.ItemsSource = await AppServices.Setup.GetDepartmentsAsync();
         CatList.ItemsSource = await AppServices.Setup.GetCategoriesAsync();
         LocationList.ItemsSource = (await AppServices.Setup.GetLocationsAsync()).Select(l => $"{l.Code}  {l.Name}").ToList();
@@ -199,25 +244,33 @@ public partial class SetupView : UserControl, IRefreshable
 
     private async void Save_Click(object sender, RoutedEventArgs e)
     {
-        TaxGrid.CommitEdit(); TendersGrid.CommitEdit(); KeysGrid.CommitEdit();
+        TaxGrid.CommitEdit(); TendersGrid.CommitEdit(); KeysGrid.CommitEdit(); FxGrid.CommitEdit();
         await Ui.Try(async () =>
         {
-            await AppServices.Setup.SaveSettingsAsync(_settings);
-            await AppServices.Setup.SaveTaxConfigurationsAsync(_taxes);
-            await AppServices.Setup.SaveTenderTypesAsync(_tenders);
-            await AppServices.Setup.SetTextAsync(DocumentTextKind.InvoiceHeader, HeaderBox.Text);
-            await AppServices.Setup.SetTextAsync(DocumentTextKind.InvoiceFooter, FooterBox.Text);
-            await AppServices.Setup.SetTextAsync(DocumentTextKind.PurchaseOrderHeader, PoHeaderBox.Text);
-            await AppServices.Setup.SetTextAsync(DocumentTextKind.ReturnAddress, ReturnBox.Text);
-            foreach (var k in _keys.Where(k => k.Id != Guid.Empty || !string.IsNullOrWhiteSpace(k.Name) || !string.IsNullOrWhiteSpace(k.Plu)))
-                await AppServices.Setup.SaveFastKeyAsync(k);
-            AppServices.Config.RfidHubApiKey = string.IsNullOrEmpty(HubKeyBox.Password) ? null : HubKeyBox.Password;
-            AppServices.Config.ServerUrl = string.IsNullOrWhiteSpace(ServerUrlBox.Text) ? null : ServerUrlBox.Text.Trim();
-            if (int.TryParse(IntervalBox.Text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.CurrentCulture, out var minutes))
-                AppServices.Config.SyncIntervalMinutes = Math.Clamp(minutes, 1, 24 * 60);
-            AppServices.Config.Save();
-            AppServices.RestartSync();
-            await AppServices.StartRfidAsync();
+            // Each part is saved only by users who may change it.
+            if (AppServices.Can(Permissions.SetupStore))
+            {
+                await AppServices.Setup.SaveSettingsAsync(_settings);
+                await AppServices.Setup.SaveTaxConfigurationsAsync(_taxes);
+                await AppServices.Setup.SaveFxRatesAsync(_fx);
+                await AppServices.Setup.SaveTenderTypesAsync(_tenders);
+                await AppServices.Setup.SetTextAsync(DocumentTextKind.InvoiceHeader, HeaderBox.Text);
+                await AppServices.Setup.SetTextAsync(DocumentTextKind.InvoiceFooter, FooterBox.Text);
+                await AppServices.Setup.SetTextAsync(DocumentTextKind.PurchaseOrderHeader, PoHeaderBox.Text);
+                await AppServices.Setup.SetTextAsync(DocumentTextKind.ReturnAddress, ReturnBox.Text);
+                foreach (var k in _keys.Where(k => k.Id != Guid.Empty || !string.IsNullOrWhiteSpace(k.Name) || !string.IsNullOrWhiteSpace(k.Plu)))
+                    await AppServices.Setup.SaveFastKeyAsync(k);
+            }
+            if (AppServices.Can(Permissions.SetupStations))
+            {
+                AppServices.Config.RfidHubApiKey = string.IsNullOrEmpty(HubKeyBox.Password) ? null : HubKeyBox.Password;
+                AppServices.Config.ServerUrl = string.IsNullOrWhiteSpace(ServerUrlBox.Text) ? null : ServerUrlBox.Text.Trim();
+                if (int.TryParse(IntervalBox.Text, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.CurrentCulture, out var minutes))
+                    AppServices.Config.SyncIntervalMinutes = Math.Clamp(minutes, 1, 24 * 60);
+                AppServices.Config.Save();
+                AppServices.RestartSync();
+                await AppServices.StartRfidAsync();
+            }
             await AppServices.RefreshSettingsAsync();
             (Window.GetWindow(this) as MainWindow)?.RefreshChrome();
             await RefreshAsync();
@@ -231,41 +284,9 @@ public partial class SetupView : UserControl, IRefreshable
     /// <summary>Opens the "This station" tab (from the RFID screen).</summary>
     public void ShowStationTab() => Tabs.SelectedIndex = Tabs.Items.Count - 1;
 
-    private UserAccount? CurrentUser => UsersGrid.SelectedItem as UserAccount;
-
-    private async void AddUser_Click(object sender, RoutedEventArgs e)
-    {
-        var name = Ui.Prompt("User name:", "Add user");
-        if (string.IsNullOrWhiteSpace(name)) return;
-        var level = Ui.Choose("Access level:", ["0 — trainee", "1 — sales only", "2 — add and change", "3 — supervisor", "4 — administrator"], "Add user");
-        if (level < 0) return;
-        var password = Ui.Prompt($"Password for {name}:", "Add user", password: true);
-        if (string.IsNullOrEmpty(password)) return;
-        await Ui.Try(async () => { await AppServices.Setup.SaveUserAsync(new UserAccount { UserName = name, AccessLevel = level }, password); await RefreshAsync(); });
-    }
-
-    private async void UserLevel_Click(object sender, RoutedEventArgs e)
-    {
-        if (CurrentUser is not { } u) return;
-        var level = Ui.Choose($"Access level of {u.UserName}:", ["0 — trainee", "1 — sales only", "2 — add and change", "3 — supervisor", "4 — administrator"], "Change level");
-        if (level < 0) return;
-        u.AccessLevel = level;
-        await Ui.Try(async () => { await AppServices.Setup.SaveUserAsync(u, null); await RefreshAsync(); });
-    }
-
-    private async void UserPassword_Click(object sender, RoutedEventArgs e)
-    {
-        if (CurrentUser is not { } u) return;
-        var password = Ui.Prompt($"New password for {u.UserName}:", "Set password", password: true);
-        if (string.IsNullOrEmpty(password)) return;
-        await Ui.Try(async () => { await AppServices.Setup.SaveUserAsync(u, password); await RefreshAsync(); });
-    }
-
-    private async void DeleteUser_Click(object sender, RoutedEventArgs e)
-    {
-        if (CurrentUser is not { } u || !Ui.Confirm($"Delete user {u.UserName}?")) return;
-        await Ui.Try(async () => { await AppServices.Setup.DeleteUserAsync(u.Id); await RefreshAsync(); });
-    }
+    /// <summary>Opens a tab by its header (Users, Roles…), for the screenshot tour.</summary>
+    public void ShowTab(string header) =>
+        Tabs.SelectedItem = Tabs.Items.OfType<TabItem>().FirstOrDefault(t => string.Equals(t.Header as string, header, StringComparison.OrdinalIgnoreCase)) ?? Tabs.SelectedItem;
 
     private async void AddDept_Click(object sender, RoutedEventArgs e)
     {

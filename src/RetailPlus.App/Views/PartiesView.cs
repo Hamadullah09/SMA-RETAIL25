@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using RetailPlus.App.Dialogs;
 using RetailPlus.App.Infrastructure;
 using RetailPlus.Core.Model;
+using RetailPlus.Core.Rules;
 using RetailPlus.Data.Services;
 using RetailPlus.Reports;
 
@@ -43,6 +44,7 @@ public abstract class PartiesView : UserControl, IRefreshable
         AddButton("New", New_Click, accent: true);
         AddButton("Edit", Edit_Click);
         AddButton("Delete", Delete_Click);
+        AddButton("Undelete", Undelete_Click);
         _timer.Tick += async (_, _) => { _timer.Stop(); await Ui.Try(RefreshAsync); };
         _search.TextChanged += (_, _) => { _timer.Stop(); _timer.Start(); };
         _deleted.Click += async (_, _) => await Ui.Try(RefreshAsync);
@@ -52,6 +54,7 @@ public abstract class PartiesView : UserControl, IRefreshable
         Col("City", nameof(PartyRow.City), 130);
         Col("Phone", nameof(PartyRow.WorkPhone), 130);
         Col("E-mail", nameof(PartyRow.Email), 200);
+        Grid.Columns.Add(new DataGridCheckBoxColumn { Header = "Deleted", Binding = new Binding(nameof(PartyRow.IsDeleted)), Width = 90 });
     }
 
     protected void AddButton(string text, RoutedEventHandler click, bool accent = false)
@@ -70,6 +73,9 @@ public abstract class PartiesView : UserControl, IRefreshable
 
     protected PartyRow? Current => Grid.SelectedItem as PartyRow;
 
+    /// <summary>Adding, changing and deleting: clients.edit or suppliers.edit, or a supervisor's approval.</summary>
+    protected bool MayEdit(string action) => Approval.Allowed(IsClients ? Permissions.ClientsEdit : Permissions.SuppliersEdit, action);
+
     public async Task RefreshAsync()
     {
         var rows = IsClients
@@ -79,8 +85,12 @@ public abstract class PartiesView : UserControl, IRefreshable
         _count.Text = $"{rows.Count:N0} shown";
     }
 
+    /// <summary>A new client or supplier, from the Ctrl+K list.</summary>
+    public void NewParty() => New_Click(this, new RoutedEventArgs());
+
     private async void New_Click(object sender, RoutedEventArgs e)
     {
+        if (!MayEdit(IsClients ? "A new client" : "A new supplier")) return;
         Party p = IsClients ? new Client { Country = AppServices.Settings.Country } : new Supplier();
         if (IsClients && AppServices.Settings.CarryOverCityStateZip)
         {
@@ -93,15 +103,37 @@ public abstract class PartiesView : UserControl, IRefreshable
 
     private async void Edit_Click(object sender, RoutedEventArgs e)
     {
-        if (Current is null) return;
+        if (Current is null || !MayEdit(IsClients ? "Changing a client" : "Changing a supplier")) return;
         Party? p = IsClients ? await AppServices.Parties.GetClientAsync(Current.Id) : await AppServices.Parties.GetSupplierAsync(Current.Id);
         if (p is null) return;
         if (new PartyEditorWindow(p) { Owner = Window.GetWindow(this) }.ShowDialog() == true) await Ui.Try(RefreshAsync);
     }
 
+    /// <summary>Brings deleted clients or suppliers back (tick Show deleted to see them).</summary>
+    private async void Undelete_Click(object sender, RoutedEventArgs e)
+    {
+        var rows = Grid.SelectedItems.OfType<PartyRow>().Where(r => r.IsDeleted).ToList();
+        if (rows.Count == 0)
+        {
+            Ui.Info("Tick Show deleted and select the " + (IsClients ? "clients" : "suppliers") + " to bring back.");
+            return;
+        }
+        if (!AppServices.Can(IsClients ? Core.Rules.Permissions.ClientsEdit : Core.Rules.Permissions.SuppliersEdit))
+        {
+            Ui.Error("Your role cannot change " + (IsClients ? "clients." : "suppliers."));
+            return;
+        }
+        await Ui.Try(async () =>
+        {
+            foreach (var row in rows)
+                if (IsClients) await AppServices.Parties.RestoreClientAsync(row.Id); else await AppServices.Parties.RestoreSupplierAsync(row.Id);
+            await RefreshAsync();
+        });
+    }
+
     private async void Delete_Click(object sender, RoutedEventArgs e)
     {
-        if (Current is not { } row || !Ui.Confirm($"Delete {row.DisplayName}?")) return;
+        if (Current is not { } row || !Ui.Confirm($"Delete {row.DisplayName}?") || !MayEdit("Deleting " + row.DisplayName)) return;
         await Ui.Try(async () =>
         {
             if (IsClients) await AppServices.Parties.DeleteClientAsync(row.Id); else await AppServices.Parties.DeleteSupplierAsync(row.Id);
@@ -120,6 +152,7 @@ public sealed class ClientsView : PartiesView
         Col("Points", nameof(PartyRow.Points), 70, "0.##");
         Col("Last purchase", nameof(PartyRow.LastPurchase), 110);
         AddButton("Sell to client", SellTo_Click);
+        AddButton("Points history", Points_Click);
         AddButton("Statement", Statement_Click);
         AddButton("Flag / unflag", Flag_Click);
         AddButton("Export CSV", Export_Click);
@@ -132,6 +165,16 @@ public sealed class ClientsView : PartiesView
         main.Navigate("pos");
         await MainWindow.Settle();
         if (main.GetView<PosView>() is { } pos) await Ui.Try(() => pos.Vm.SetClientAsync(row.Id));
+    }
+
+    /// <summary>The client's bonus points history, on the Points tab of the client window.</summary>
+    private async void Points_Click(object sender, RoutedEventArgs e)
+    {
+        if (Current is not { } row || await AppServices.Parties.GetClientAsync(row.Id) is not { } client) return;
+        var window = new PartyEditorWindow(client) { Owner = Window.GetWindow(this) };
+        window.ShowPoints();
+        window.ShowDialog();
+        await Ui.Try(RefreshAsync);
     }
 
     private async void Statement_Click(object sender, RoutedEventArgs e)
@@ -160,6 +203,7 @@ public sealed class ClientsView : PartiesView
 
     private async void Import_Click(object sender, RoutedEventArgs e)
     {
+        if (!Approval.Allowed(Permissions.ImportRun, "Importing clients")) return;
         var file = Ui.OpenFile("CSV file|*.csv|All files|*.*");
         if (file is null) return;
         await Ui.Try(async () =>

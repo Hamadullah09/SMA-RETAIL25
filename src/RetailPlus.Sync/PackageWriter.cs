@@ -88,7 +88,7 @@ public sealed class PackageWriter(SyncPolicy? policy = null)
         var tables = new List<(SyncTable Table, List<object?[]> Rows)>();
         foreach (var table in model.Tables.Where(t => t.Flow.HasFlag(SyncFlow.Down)))
         {
-            var filter = And(Between(table.ClrType, cursor, high), model.StoreFilter(table, db, options.Till));
+            var filter = And(Between(table.ClrType, cursor, high), model.DownloadFilter(table, db, options.Till));
             var rows = await ReadRowsAsync(db, table, filter, cancellationToken);
             if (rows.Count > 0) tables.Add((table, rows));
         }

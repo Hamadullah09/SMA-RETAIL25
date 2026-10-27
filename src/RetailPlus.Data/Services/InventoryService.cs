@@ -29,6 +29,40 @@ public enum ItemSearchField
     Barcode,
 }
 
+/// <summary>How Change prices sets the new Price 1.</summary>
+public enum PriceChangeMethod
+{
+    /// <summary>Up or down by a percentage.</summary>
+    Percent,
+    /// <summary>From the cost, to a gross margin in percent.</summary>
+    Margin,
+    /// <summary>Up or down by an amount.</summary>
+    Amount,
+}
+
+/// <summary>A price change: the method and its value, and optionally the cents every new price ends in (.99).</summary>
+public sealed record PriceRule(PriceChangeMethod Method, decimal Value, decimal? Ending = null);
+
+/// <summary>One item of the Change prices preview; the user may change the new price or leave the item out.</summary>
+public sealed class PriceChangePreview(Guid itemId, string plu, string name, string? department, decimal cost, decimal oldPrice)
+{
+    public Guid ItemId { get; } = itemId;
+    public string Plu { get; } = plu;
+    public string Name { get; } = name;
+    public string? Department { get; } = department;
+    public decimal Cost { get; } = cost;
+    public decimal OldPrice { get; } = oldPrice;
+    public decimal NewPrice { get; set; }
+    public bool Apply { get; set; } = true;
+    public decimal OldMargin => Money.MarginPercent(OldPrice, Cost);
+    public decimal NewMargin => Money.MarginPercent(NewPrice, Cost);
+    public decimal Change => NewPrice - OldPrice;
+}
+
+/// <summary>A case item and the unit item that names it, with the units one case holds.</summary>
+public sealed record CaseLink(Guid CaseItemId, string CasePlu, string CaseName, decimal CasesOnHand, Guid UnitItemId, string UnitPlu, string UnitName,
+    decimal UnitsOnHand, decimal UnitsPerCase);
+
 /// <summary>Inventory window operations for one location.</summary>
 public sealed class InventoryService(DataContext data)
 {
@@ -303,12 +337,12 @@ public sealed class InventoryService(DataContext data)
     /// change of OnHand goes with one, so stock can be added up from the movements.
     /// </summary>
     public static StockMovement Record(RetailPlusDbContext db, Guid itemId, StockMovementKind kind, decimal quantity, decimal onHandAfter,
-        DateTime? at = null, long? document = null, string? reason = null, string? user = null, Guid? variantId = null)
+        DateTime? at = null, long? document = null, string? reason = null, string? user = null, Guid? variantId = null, Guid? userId = null, decimal unitCost = 0)
     {
         var movement = new StockMovement
         {
             ItemId = itemId, VariantId = variantId, Kind = kind, At = at ?? DateTime.Now, Quantity = quantity, OnHandAfter = onHandAfter,
-            DocumentNumber = document, Reason = reason, User = user,
+            DocumentNumber = document, Reason = reason, User = user ?? db.ActingUserName, UserId = user is null ? db.ActingUserId : userId, UnitCost = unitCost,
         };
         db.StockMovements.Add(movement);
         return movement;
@@ -328,10 +362,15 @@ public sealed class InventoryService(DataContext data)
         return (Guid)db.Entry(entity).Property("Id").CurrentValue!;
     }
 
+    /// <summary>Puts an item in the trash (Undelete brings it back).</summary>
     public async Task DeleteAsync(Guid id)
     {
         await using var db = data.Create();
-        await db.Items.Where(i => i.Id == id).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsDeleted, true).SetProperty(i => i.DeletedAt, DateTime.Now).Edited());
+        var item = await db.Items.SingleOrDefaultAsync(i => i.Id == id);
+        if (item is null || item.IsDeleted) return;
+        item.IsDeleted = true;
+        item.DeletedAt = DateTime.Now;
+        await db.SaveChangesAsync();
     }
 
     public async Task RestoreAsync(Guid id)
@@ -358,15 +397,19 @@ public sealed class InventoryService(DataContext data)
         await db.Items.Where(i => i.LocationId == locationId && i.IsFlagged).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsFlagged, false).Touched());
     }
 
-    /// <summary>Adjust Stock: adds (or with <paramref name="setTo"/> replaces) the on-hand count and logs the change.</summary>
-    public async Task<decimal> AdjustStockAsync(Guid itemId, decimal quantity, string? reason, string? user, bool setTo = false)
+    /// <summary>
+    /// Adjust Stock: adds (or with <paramref name="setTo"/> replaces) the on-hand count and logs the change as a stock
+    /// movement, which names the user (the movement is the record, so the item change is not audited as well).
+    /// </summary>
+    public async Task<decimal> AdjustStockAsync(Guid itemId, decimal quantity, string? reason, string? user, bool setTo = false, Guid? userId = null)
     {
         await using var db = data.Create();
+        db.SuppressAudit = true;
         await using var tx = await db.Database.BeginTransactionAsync();
         var item = await db.Items.SingleAsync(i => i.Id == itemId);
         decimal delta = setTo ? quantity - item.OnHand : quantity;
         item.OnHand += delta;
-        Record(db, itemId, StockMovementKind.Adjustment, delta, item.OnHand, reason: reason, user: user);
+        Record(db, itemId, StockMovementKind.Adjustment, delta, item.OnHand, reason: reason, user: user, userId: userId, unitCost: item.AverageCost > 0 ? item.AverageCost : item.LastCost);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         return item.OnHand;
@@ -419,6 +462,139 @@ public sealed class InventoryService(DataContext data)
         return items.Count;
     }
 
+    /// <summary>
+    /// Change prices with a preview: the new Price 1 of every item the rule reaches, for the user to check (and change or
+    /// leave out) before <see cref="ApplyPriceChangesAsync"/>. Items whose price would not change are not listed; with a
+    /// margin, items without a cost are not either.
+    /// </summary>
+    public async Task<List<PriceChangePreview>> PreviewPriceChangesAsync(Guid locationId, PriceRule rule, bool flaggedOnly, string? department)
+    {
+        if (rule.Method == PriceChangeMethod.Margin && rule.Value >= 100) throw new BusinessRuleException("A margin must be below 100%.");
+        await using var db = data.Create();
+        var q = db.Items.AsNoTracking().Where(i => i.LocationId == locationId && !i.IsDeleted);
+        if (flaggedOnly) q = q.Where(i => i.IsFlagged);
+        if (!string.IsNullOrWhiteSpace(department)) q = q.Where(i => i.Department != null && i.Department.Name == department);
+        var items = await q.OrderBy(i => i.Plu)
+            .Select(i => new { i.Id, i.Plu, i.Name, Department = i.Department != null ? i.Department.Name : null, i.AverageCost, i.LastCost, i.Price1 }).ToListAsync();
+        var rows = new List<PriceChangePreview>();
+        foreach (var i in items)
+        {
+            decimal cost = i.AverageCost > 0 ? i.AverageCost : i.LastCost;
+            decimal price = rule.Method switch
+            {
+                PriceChangeMethod.Margin when cost <= 0 => i.Price1,
+                PriceChangeMethod.Margin => Money.SuggestPrice(cost, rule.Value),
+                PriceChangeMethod.Amount => Money.Round(i.Price1 + rule.Value),
+                _ => Money.Round(i.Price1 * (1 + rule.Value / 100m)),
+            };
+            if (rule.Ending is decimal ending && price > 0) price = EndIn(price, ending);
+            price = Math.Max(0, price);
+            if (price == i.Price1) continue;
+            rows.Add(new PriceChangePreview(i.Id, i.Plu, i.Name, i.Department, cost, i.Price1) { NewPrice = price });
+        }
+        return rows;
+    }
+
+    /// <summary>The smallest price at or above <paramref name="price"/> whose cents are <paramref name="ending"/> (.99, .95, .00).</summary>
+    public static decimal EndIn(decimal price, decimal ending)
+    {
+        ending -= Math.Floor(ending);
+        return Math.Ceiling(price - ending) + ending;
+    }
+
+    /// <summary>Sets the checked rows' new Price 1 (and the margin that goes with it). Returns the number of items changed.</summary>
+    public async Task<int> ApplyPriceChangesAsync(IEnumerable<PriceChangePreview> rows)
+    {
+        var chosen = rows.Where(r => r.Apply && r.NewPrice >= 0).ToDictionary(r => r.ItemId, r => r.NewPrice);
+        if (chosen.Count == 0) return 0;
+        await using var db = data.Create();
+        var ids = chosen.Keys.ToList();
+        var items = await db.Items.Where(i => ids.Contains(i.Id)).ToListAsync();
+        foreach (var i in items)
+        {
+            i.Price1 = Money.Round(chosen[i.Id]);
+            i.MarginPercent = Math.Clamp(Money.MarginPercent(i.Price1, i.AverageCost > 0 ? i.AverageCost : i.LastCost), -9999m, 9999m);
+        }
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            throw new ConcurrencyConflictException("Some of these items were changed at another station. Make the preview again.");
+        }
+        return items.Count;
+    }
+
+    /// <summary>
+    /// The case relationship an item is part of: as the unit item (it names its case item and units per case), or as
+    /// the case item (the first unit item naming it). Null when there is none.
+    /// </summary>
+    public async Task<CaseLink?> FindCaseLinkAsync(Guid itemId)
+    {
+        await using var db = data.Create();
+        var item = await db.Items.AsNoTracking().SingleOrDefaultAsync(i => i.Id == itemId);
+        if (item is null) return null;
+        Item? unit, box;
+        if (!string.IsNullOrWhiteSpace(item.ParentCode) && item.UnitsPerCase > 0)
+        {
+            unit = item;
+            box = await db.Items.AsNoTracking().FirstOrDefaultAsync(i => i.LocationId == item.LocationId && i.Plu == item.ParentCode && !i.IsDeleted);
+        }
+        else
+        {
+            box = item;
+            unit = await db.Items.AsNoTracking().Where(i => i.LocationId == item.LocationId && i.ParentCode == item.Plu && i.UnitsPerCase > 0 && !i.IsDeleted)
+                .OrderBy(i => i.Plu).FirstOrDefaultAsync();
+        }
+        return unit is null || box is null ? null
+            : new CaseLink(box.Id, box.Plu, box.Name, box.OnHand, unit.Id, unit.Plu, unit.Name, unit.OnHand, unit.UnitsPerCase);
+    }
+
+    /// <summary>
+    /// Break case: takes <paramref name="cases"/> out of the case item's stock (a CaseBreakOut movement) and puts the units
+    /// they hold into the unit item's (CaseBreakIn). The unit item's average cost takes in the case cost per unit.
+    /// </summary>
+    public async Task<CaseLink> BreakCaseAsync(Guid unitItemId, decimal cases, string? user)
+    {
+        if (cases <= 0) throw new BusinessRuleException("Enter how many cases to break (above zero).");
+        await using (var db = data.Create())
+        {
+            await using var tx = await db.Database.BeginTransactionAsync();
+            var unit = await db.Items.SingleAsync(i => i.Id == unitItemId);
+            if (string.IsNullOrWhiteSpace(unit.ParentCode) || unit.UnitsPerCase <= 0)
+                throw new BusinessRuleException($"{unit.Name} does not name its case item and units per case (item › Special).");
+            var box = await db.Items.SingleOrDefaultAsync(i => i.LocationId == unit.LocationId && i.Plu == unit.ParentCode && !i.IsDeleted)
+                      ?? throw new BusinessRuleException($"There is no case item {unit.ParentCode} at this location.");
+            decimal units = cases * unit.UnitsPerCase;
+            decimal caseCost = box.AverageCost > 0 ? box.AverageCost : box.LastCost;
+            decimal unitCost = Math.Round(caseCost / unit.UnitsPerCase, 3, MidpointRounding.AwayFromZero);
+            box.OnHand -= cases;
+            if (unitCost > 0)
+            {
+                unit.AverageCost = Reordering.AverageCostAfterReceipt(unit.OnHand, unit.AverageCost, units, unitCost, 0);
+                if (unit.LastCost == 0) unit.LastCost = unitCost;
+            }
+            unit.OnHand += units;
+            var now = DateTime.Now;
+            string? who = user is { Length: > 15 } ? user[..15] : user;
+            // Valued at the case's cost both ways, so breaking a case neither gains nor loses value.
+            Record(db, box.Id, StockMovementKind.CaseBreakOut, -cases, box.OnHand, now, reason: $"Broken into {units:0.###} x {unit.Plu}", user: who, unitCost: caseCost);
+            Record(db, unit.Id, StockMovementKind.CaseBreakIn, units, unit.OnHand, now, reason: $"From {cases:0.###} case(s) of {box.Plu}", user: who,
+                unitCost: caseCost / unit.UnitsPerCase);
+            try
+            {
+                await db.SaveChangesAsync();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                throw new ConcurrencyConflictException("One of the two items was changed at another station. Try again.");
+            }
+            await tx.CommitAsync();
+        }
+        return (await FindCaseLinkAsync(unitItemId))!;
+    }
+
     /// <summary>Copies a list of items to another location (Tools / Copy to location), skipping codes already there.</summary>
     public async Task<int> CopyToLocationAsync(IEnumerable<Guid> itemIds, Guid targetLocationId)
     {
@@ -441,7 +617,11 @@ public sealed class InventoryService(DataContext data)
     public async Task<int> YearEndAsync(Guid locationId)
     {
         await using var db = data.Create();
-        return await db.Items.Where(i => i.LocationId == locationId && !i.IsDeleted)
+        int n = await db.Items.Where(i => i.LocationId == locationId && !i.IsDeleted)
             .ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHandBeforeYearEnd, i => i.OnHand).Touched());
+        var code = await db.Locations.Where(l => l.Id == locationId).Select(l => l.Code).SingleOrDefaultAsync();
+        db.Audit(AuditActions.YearEnd, $"Location {code}: {n} items", nameof(Location), locationId);
+        await db.SaveChangesAsync();
+        return n;
     }
 }

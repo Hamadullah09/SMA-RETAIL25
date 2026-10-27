@@ -45,7 +45,16 @@ dotnet run --project src/RetailPlus.App
 
 On first start the app creates (or upgrades) its database, by default the SQLite file `%LOCALAPPDATA%\RetailPlus\smaretail.db`, and seeds a store, the `POS` location, tender types and station 1. Station settings live in `%LOCALAPPDATA%\RetailPlus\station.json` (Setup › This station, where the database can also be switched to a shared SQL Server one); `--db <file>`, `--localdb <name>`, `--station <n>` and `--config <file>` override them. When the database has users, the app asks for a login; users imported from Retail Plus choose a new password on their first login, because the old passwords are not carried over.
 
-Screens: Point of Sale, Sales Journal, Inventory, Clients, Suppliers, Invoices & A/R, Purchase Orders, Orders & RMAs, Reports, Tools (import, backup, restore, rebuild, recurring billing, year end) and Setup.
+Screens: Point of Sale, Sales Journal, Inventory, Clients, Suppliers, Invoices & A/R, Purchase Orders, Orders & RMAs, Stock counts, Transfers, Gift cards, Reports, Staff (time clock, commission rules and commission), RFID readers, Tools (import, backup, restore, rebuild, recurring billing, year end), Audit log, Setup and Help. Each user sees the screens their role allows.
+
+## Users, roles and the audit log
+
+Every user has a role (Setup › Users and Setup › Roles). A role is a set of permissions from `Core.Rules.Permissions`, grouped as Sales, Stock, Customers, Staff, Reports and Back office; the seven standard roles can be changed but not renamed or deleted. Users sign in with a name and password, or with a staff code and PIN; five wrong tries lock the account for five minutes, and the login window says how long is left. When a user's role lacks a permission an action needs (a discount, a void, a return, End of Day…), another user can approve it at the till: their role must have both `pos.approve` and that permission.
+
+Sales, voids, drawer movements and sessions, stock movements, invoices and their payments, purchase orders, RMAs and customer orders record the user's id next to the name they always kept. The audit log (Audit log screen, `audit.view`) holds every change to the tables listed in `AuditedTables` (items, clients, suppliers, users and roles, store settings, tenders, taxes, stations…) with the values before and after, plus sign-ins and failed sign-ins, approvals, voids, no-sales, End of Day, backups, restores and imports. `RetailPlusDbContext.SuppressAudit` holds the automatic lines back while rows are written in bulk (an import, a sync package).
+
+Staff punch in and out from the login window or the Staff screen; a supervisor corrects an entry with a reason, which stays on the entry and is audited. Commission comes from commission rules (one item, then a category, a department or all items; a salesperson's own rule before everyone's; the latest start) and, where no rule applies, from the item's commission percent as before. Reports › Staff has hours by staff member, day and week, and commission by staff member.
+Stock and money: stock counts (by code, RFID tag or CSV file; count sheet, variance review, post or cancel), transfers to another location or store (ship, then receive what arrived; missing items are created at the receiving location), break case, gift cards and certificates (sold at the POS, spent with the Gift Card tender, balance = the sum of their transactions), bonus points kept as a history per client, tenders in a foreign currency (change in home currency), and Setup › Loyalty, Accounting (account codes and a balanced journal per business day, optionally saved at End of Day) and Branding (store logo and watermark). Every stock change of these writes a stock movement (Count, TransferOut/In, CaseBreakOut/In).
 
 Automated checks: `--smoke` opens every screen, runs every report and rings up a sale, then exits 0 on success; `--screenshot-tour <folder>` saves a PNG of each screen. Both write to `%LOCALAPPDATA%\RetailPlus\retailplus-check.log`.
 
@@ -60,8 +69,9 @@ scanned twice is one line with quantity 2, and an RFID tag read for a piece alre
 of 30 (3 × 10) or 24, or on a label printer (50 × 30 or 38 × 25 mm), and saves them as a PDF.
 
 Everything can be done from the keyboard, and every button shows its key (F12 pay, F5 quantity, Ctrl+P print,
-Ctrl+1 … Ctrl+0 for the screens; Enter and Esc on OK and Cancel). Ctrl+Shift+K lists them; F1, F2 and F3 are
-left to Windows.
+Ctrl+1 … Ctrl+0 for the screens; Enter and Esc on OK and Cancel). Ctrl+K goes to any screen, report, action or help
+topic by typing a few letters; Ctrl+Shift+H opens the help and Ctrl+Shift+K lists the keys; F1, F2 and F3 are left
+to Windows.
 
 Inventory CSV files (*Import CSV*, *Export CSV*, *CSV template*) use Retail Plus's INVENTORY columns with the RFID
 ones: EPC (one row per tagged piece, so an item with three tags is three rows with the same PLU), PWEIGHT and TOLRANCE

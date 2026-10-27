@@ -124,11 +124,19 @@ public sealed class SyncModel
     // Which rows a till receives -----------------------------------------------------------------------------------
 
     /// <summary>
-    /// The condition on rows of <paramref name="table"/> that belong to the till's store (or that the policy sends it);
-    /// null when every till receives every row.
+    /// The condition on rows of <paramref name="table"/> a till receives: <see cref="StoreFilter"/>, except for tables every
+    /// till receives whole (stores and locations, which transfers and gift cards of other stores point at).
+    /// </summary>
+    public LambdaExpression? DownloadFilter(SyncTable table, RetailPlusDbContext db, TillScope till) =>
+        Policy.IsDownEverywhere(table.ClrType) ? null : StoreFilter(table, db, till);
+
+    /// <summary>
+    /// The condition on rows of <paramref name="table"/> that belong to the till's store (or that the policy gives it):
+    /// what a till may send, and what rows that belong to these rows follow. Null when they belong to every store.
     /// </summary>
     public LambdaExpression? StoreFilter(SyncTable table, RetailPlusDbContext db, TillScope till)
     {
+        if (Policy.IsEverywhere(table.ClrType)) return null;
         if (Policy.Receives(table.ClrType, till) is { } custom) return custom;
         var e = Expression.Parameter(table.ClrType, "e");
         if (table.HasStore)

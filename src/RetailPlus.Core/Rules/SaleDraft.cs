@@ -32,6 +32,9 @@ public sealed class SaleDraftLine
     public decimal ThcWeight { get; set; }
     /// <summary>The RFID tags rung up on this line, one per piece: three tagged chocolates are one line with three tags.</summary>
     public List<string> Epcs { get; set; } = [];
+    /// <summary>For a gift card item: the card issued or reloaded by this line, and the kind of a new card.</summary>
+    public string? GiftCardNumber { get; set; }
+    public GiftCardKind GiftCardKind { get; set; }
 
     public decimal LineTotal => Money.Round(UnitPrice * Quantity - DiscountAmount);
 }
@@ -51,6 +54,8 @@ public sealed class SaleDraft
     /// <summary>An out-of-state tax configuration picked for this sale; null uses the store's taxes.</summary>
     public TaxSetup? TaxOverride { get; set; }
     public string? Staff { get; set; }
+    /// <summary>The user id of <see cref="Staff"/>.</summary>
+    public Guid? StaffId { get; set; }
     public string? Notes { get; set; }
     /// <summary>Bonus points given up for a reward; the reward itself is a coupon line on the sale.</summary>
     public decimal PointsRedeemed { get; set; }
@@ -82,7 +87,12 @@ public sealed class SaleDraft
 /// <summary>One payment entered at the Pay window.</summary>
 /// <param name="Amount">The part of the total this tender pays (after change).</param>
 /// <param name="Tendered">What the customer handed over; above Amount for cash with change.</param>
-public sealed record TenderEntry(string TenderType, TenderKind Kind, decimal Amount, decimal Tendered, string? AuthCode = null, string? Reference = null)
+/// <param name="Reference">The gift card number, for a gift card payment.</param>
+/// <param name="Currency">For a foreign-currency tender: the currency. Amount, Tendered and Change stay in home currency.</param>
+/// <param name="ForeignAmount">What the customer handed over in <paramref name="Currency"/>.</param>
+/// <param name="ExchangeRate">Units of <paramref name="Currency"/> per unit of home currency.</param>
+public sealed record TenderEntry(string TenderType, TenderKind Kind, decimal Amount, decimal Tendered, string? AuthCode = null, string? Reference = null,
+    string? Currency = null, decimal ForeignAmount = 0, decimal ExchangeRate = 0)
 {
     public decimal Change => Math.Max(0, Tendered - Amount);
 }

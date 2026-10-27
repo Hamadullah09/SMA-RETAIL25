@@ -153,7 +153,8 @@
                     <StackPanel>
                         <DockPanel><TextBlock Text="Substitute item" Style="{StaticResource L}" /><TextBox Text="{Binding SubstituteCode}" MaxLength="16" CharacterCasing="Upper" /></DockPanel>
                         <DockPanel><TextBlock Text="Tag-along item" Style="{StaticResource L}" /><TextBox Text="{Binding TagAlongCode}" MaxLength="16" CharacterCasing="Upper" /></DockPanel>
-                        <DockPanel><TextBlock Text="Parent (case) item" Style="{StaticResource L}" /><TextBox Text="{Binding ParentCode}" MaxLength="16" CharacterCasing="Upper" /></DockPanel>
+                        <DockPanel><TextBlock Text="Parent (case) item" Style="{StaticResource L}" /><TextBox Text="{Binding ParentCode}" MaxLength="16" CharacterCasing="Upper" ToolTip="The stock code of the case this item comes in" /></DockPanel>
+                        <DockPanel><TextBlock Text="Units per case" Style="{StaticResource L}" /><TextBox Text="{Binding UnitsPerCase}" ToolTip="How many of this item one case holds (Inventory › Break case)" /></DockPanel>
                         <DockPanel><TextBlock Text="Shipping weight" Style="{StaticResource L}" /><TextBox Text="{Binding ShipWeight}" /></DockPanel>
                         <DockPanel><TextBlock Text="THC (grams)" Style="{StaticResource L}" /><TextBox Text="{Binding ThcWeight}" /></DockPanel>
                         <DockPanel><TextBlock Text="Commission %" Style="{StaticResource L}" /><TextBox Text="{Binding Commission}" /></DockPanel>

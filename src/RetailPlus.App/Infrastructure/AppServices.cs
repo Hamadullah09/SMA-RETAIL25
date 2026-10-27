@@ -29,6 +29,20 @@ public static class AppServices
     public static ReportService Reports { get; private set; } = null!;
     public static CsvExchange Csv { get; private set; } = null!;
     public static RfidService RfidData { get; private set; } = null!;
+    public static StaffService Staff { get; private set; } = null!;
+    public static AuditService Audit { get; private set; } = null!;
+    public static StockCountService StockCounts { get; private set; } = null!;
+    public static TransferService Transfers { get; private set; } = null!;
+    public static GiftCardService GiftCards { get; private set; } = null!;
+    public static LoyaltyService Loyalty { get; private set; } = null!;
+    public static AccountingService Accounting { get; private set; } = null!;
+    public static BrandingService Branding { get; private set; } = null!;
+
+    /// <summary>The store's logo (Setup › Branding), or null to use the SMA mark.</summary>
+    public static System.Windows.Media.ImageSource? Logo { get; private set; }
+
+    /// <summary>The store's watermark for printed slips and reports, or null for none.</summary>
+    public static System.Windows.Media.ImageSource? Watermark { get; private set; }
 
     /// <summary>The RFID readers as this station reaches them (null when RFID is off at this station).</summary>
     public static IRfidControl? Rfid { get; private set; }
@@ -44,7 +58,8 @@ public static class AppServices
     public static void Initialize(StationConfig config)
     {
         Config = config;
-        Data = new DataContext(config.EffectiveDatabase);
+        // The audit log and "who did it" columns name whoever is signed in.
+        Data = new DataContext(config.EffectiveDatabase) { CurrentUser = Session };
         Setup = new SetupService(Data);
         Inventory = new InventoryService(Data);
         Parties = new PartyService(Data);
@@ -56,6 +71,14 @@ public static class AppServices
         Reports = new ReportService(Data);
         Csv = new CsvExchange(Data);
         RfidData = new RfidService(Data);
+        Staff = new StaffService(Data);
+        Audit = new AuditService(Data);
+        StockCounts = new StockCountService(Data);
+        Transfers = new TransferService(Data);
+        GiftCards = new GiftCardService(Data);
+        Loyalty = new LoyaltyService(Data);
+        Accounting = new AccountingService(Data);
+        Branding = new BrandingService(Data);
         Session.StationNumber = config.StationNumber;
         Sync = CreateSync();
     }
@@ -192,6 +215,22 @@ public static class AppServices
         if (Sync is not null && !Unattended) _ = SyncNowAsync();
     }
 
+    /// <summary>Reloads the store's logo and watermark after they were changed in Setup › Branding.</summary>
+    public static async Task RefreshBrandingAsync()
+    {
+        try
+        {
+            Logo = Pictures.ToImage(await Branding.GetAsync(StoreImageKind.Logo));
+            Watermark = Pictures.ToImage(await Branding.GetAsync(StoreImageKind.Watermark));
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Log.Write("Branding pictures: " + ex.Message);
+            Logo = null;
+            Watermark = null;
+        }
+    }
+
     public static async Task RefreshSettingsAsync()
     {
         Settings = await Setup.GetSettingsAsync();
@@ -202,6 +241,7 @@ public static class AppServices
             Session.LocationId = location.Id;
             Session.LocationCode = location.Code;
         }
+        await RefreshBrandingAsync();
     }
 
     /// <summary>Connects to the RFID readers as the station settings say (this computer, a hub, or not at all).</summary>
@@ -331,8 +371,9 @@ public static class AppServices
 
     private static PoleDisplay? _pole;
 
-    public static bool Can(int level) => Session.AccessLevel >= level;
-
     /// <summary>True when the signed-in user's role has the permission (a key of <see cref="Core.Rules.Permissions"/>).</summary>
     public static bool Can(string permission) => Session.Can(permission);
+
+    /// <summary>True when the signed-in user's role has at least one of the permissions.</summary>
+    public static bool CanAny(params string[] permissions) => permissions.Any(Session.Can);
 }

@@ -12,6 +12,8 @@ namespace RetailPlus.App.Dialogs;
 /// The Pay window: one or more tenders (split payment), change for cash, cash rounding to the minimum tender when the
 /// whole sale is paid in cash, and partial payment for layaways. While the amount is typed it shows the change to give
 /// back, or a red warning when the amount is short; a short amount is only taken as part payment after a yes.
+/// A gift card payment asks for the card and checks what is on it. A tender in a foreign currency takes the amount
+/// typed in that currency, converts it with the exchange rate, and gives change in home currency.
 /// </summary>
 public sealed class PayWindow : Window
 {
@@ -27,12 +29,20 @@ public sealed class PayWindow : Window
     private readonly Border _status = new() { CornerRadius = new CornerRadius(14), Padding = new Thickness(18, 12, 18, 12), Margin = new Thickness(0, 10, 0, 0) };
     private readonly TextBlock _statusText = new() { FontSize = 24, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.Wrap };
     private readonly Button _finish = new() { Content = "Finish sale", MinWidth = 190, MinHeight = 60, FontSize = 19, IsEnabled = false };
+    private readonly TextBlock _foreignDue = new() { Foreground = new SolidColorBrush(Color.FromRgb(0xB9, 0xB5, 0xAC)), FontSize = 18, TextWrapping = TextWrapping.Wrap };
+    private readonly Dictionary<string, decimal> _rates = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _currencies;
+    /// <summary>The amount box holds what the cashier typed, not the amount due the window filled in.</summary>
+    private bool _typed;
+    private bool _filling;
     private static CultureInfo C => CultureInfo.CurrentCulture;
 
     public IReadOnlyList<TenderEntry> Tenders => _tenders;
 
-    public PayWindow(decimal total, IReadOnlyList<TenderType> tenderTypes, decimal minimumTender, bool hasClient, bool layaway)
+    public PayWindow(decimal total, IReadOnlyList<TenderType> tenderTypes, decimal minimumTender, bool hasClient, bool layaway, IReadOnlyList<FxRate>? rates = null)
     {
+        foreach (var r in rates ?? []) _rates[r.Currency] = r.Rate;
+        _currencies = tenderTypes.Where(t => t.Currency is not null && _rates.ContainsKey(t.Currency)).Select(t => t.Currency!).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         _total = total;
         _minimumTender = minimumTender;
         _hasClient = hasClient;
@@ -49,9 +59,14 @@ public sealed class PayWindow : Window
         var darkPanel = new StackPanel();
         darkPanel.Children.Add(_dueLabel);
         darkPanel.Children.Add(_due);
+        darkPanel.Children.Add(_foreignDue);
         dark.Child = darkPanel;
         root.Children.Add(dark);
-        root.Children.Add(new TextBlock { Text = "How much did the customer give?", FontSize = 18, Margin = new Thickness(4, 18, 0, 6) });
+        root.Children.Add(new TextBlock
+        {
+            Text = _currencies.Count == 0 ? "How much did the customer give?" : "How much did the customer give? (For a foreign currency, type the amount in that currency.)",
+            FontSize = 18, Margin = new Thickness(4, 18, 0, 6), TextWrapping = TextWrapping.Wrap,
+        });
         _amountFrame.Child = _amount;
         root.Children.Add(_amountFrame);
         _status.Child = _statusText;
@@ -103,7 +118,11 @@ public sealed class PayWindow : Window
         root.Children.Add(buttons);
         Content = root;
         Update();
-        _amount.TextChanged += (_, _) => ShowStatus();
+        _amount.TextChanged += (_, _) =>
+        {
+            if (!_filling) _typed = true;
+            ShowStatus();
+        };
         Loaded += (_, _) => { _amount.Focus(); _amount.SelectAll(); };
         _amount.KeyDown += (_, e) =>
         {
@@ -148,6 +167,16 @@ public sealed class PayWindow : Window
             Infrastructure.Ui.Error("Select a client before charging to an account.");
             return;
         }
+        if (type.Kind == TenderKind.GiftCard)
+        {
+            AddGiftCard(type);
+            return;
+        }
+        if (type.Currency is not null)
+        {
+            AddForeign(type);
+            return;
+        }
         decimal remaining = Remaining(type.Kind);
         if (remaining == 0 && _total != 0) return;
         decimal entered = remaining;
@@ -184,6 +213,11 @@ public sealed class PayWindow : Window
             string? auth = type.Kind == TenderKind.Card ? Infrastructure.Ui.Prompt("Authorization number (optional):", type.Name) : null;
             entry = new TenderEntry(type.Name, type.Kind, entered, entered, string.IsNullOrWhiteSpace(auth) ? null : auth);
         }
+        Added(entry);
+    }
+
+    private void Added(TenderEntry entry)
+    {
         if (entry.Amount == 0) return;
         _tenders.Add(entry);
         Update();
@@ -193,6 +227,83 @@ public sealed class PayWindow : Window
             if (_tenders.Sum(t => t.Change) == 0) DialogResult = true;
             else _finish.Focus();
         }
+    }
+
+    /// <summary>The amount typed for the next payment, or what is still owing when nothing was typed.</summary>
+    private bool TryEntered(decimal remaining, out decimal entered)
+    {
+        entered = remaining;
+        if (remaining <= 0 || !_typed || _amount.Text.Trim().Length == 0) return true;
+        if (TryAmount(out entered) && entered > 0) return true;
+        Status("Type how much the customer gave, in numbers (for example 500).", StatusKind.Error);
+        _amount.Focus();
+        _amount.SelectAll();
+        return false;
+    }
+
+    /// <summary>A gift card payment: the card's number, and no more than is on it (the rest by another payment).</summary>
+    private async void AddGiftCard(TenderType type)
+    {
+        decimal remaining = Remaining(type.Kind);
+        if (remaining == 0 && _total != 0) return;
+        if (!TryEntered(remaining, out var entered)) return;
+        if (remaining > 0) entered = Math.Min(entered, remaining);
+        var number = Infrastructure.Ui.Prompt(remaining < 0 ? "Gift card to put the refund on (scan or type its number):" : "Scan or type the gift card number:", type.Name);
+        if (string.IsNullOrWhiteSpace(number)) return;
+        number = Data.Services.GiftCardService.Normalize(number);
+        try
+        {
+            var card = await Infrastructure.AppServices.GiftCards.FindAsync(number)
+                       ?? throw new Data.Services.BusinessRuleException($"Gift card {number} is not known at this till.\n\n{Data.Services.GiftCardService.OfflineNote}");
+            if (remaining > 0)
+            {
+                decimal onThisSale = _tenders.Where(t => t.Kind == TenderKind.GiftCard && t.Reference == number).Sum(t => t.Amount);
+                decimal available = card.Balance - onThisSale;
+                if (available <= 0) throw new Data.Services.BusinessRuleException($"Gift card {number} has nothing left on it.");
+                if (available < entered)
+                {
+                    if (!Infrastructure.Ui.Confirm($"Gift card {number} has {available.ToString("N2", C)} on it, less than {entered.ToString("N2", C)}.\n\n"
+                                                   + $"Take {available.ToString("N2", C)} from the card, and the rest by another payment?", type.Name)) return;
+                    entered = available;
+                }
+                await Infrastructure.AppServices.GiftCards.CheckPaymentAsync(number, onThisSale + entered);
+            }
+        }
+        catch (Data.Services.BusinessRuleException ex)
+        {
+            Infrastructure.Ui.Error(ex.Message, type.Name);
+            return;
+        }
+        Added(new TenderEntry(type.Name, type.Kind, entered, entered, Reference: number));
+    }
+
+    /// <summary>A payment in a foreign currency: the amount typed is in that currency; change is given in home currency.</summary>
+    private void AddForeign(TenderType type)
+    {
+        var currency = type.Currency!;
+        if (!_rates.TryGetValue(currency, out var rate) || rate <= 0)
+        {
+            Infrastructure.Ui.Error($"There is no exchange rate for {currency}. Set it in Setup › Payments.");
+            return;
+        }
+        decimal remaining = Remaining(type.Kind);
+        if (remaining <= 0)
+        {
+            if (remaining < 0) Infrastructure.Ui.Error("Money is given back in home currency.");
+            return;
+        }
+        decimal due = ForeignCurrency.ToForeign(remaining, rate);
+        if (!TryEntered(due, out var given)) return;
+        decimal home = ForeignCurrency.ToHome(given, rate);
+        if (!_layaway && home < remaining && !Infrastructure.Ui.Confirm(
+                $"The customer gave {currency} {given.ToString("N2", C)} ({home.ToString("N2", C)}), but {currency} {due.ToString("N2", C)} is due.\n\n"
+                + $"Take {currency} {given.ToString("N2", C)} now, and the rest by another payment?", "Less than the amount due"))
+        {
+            _amount.Focus();
+            _amount.SelectAll();
+            return;
+        }
+        Added(ForeignCurrency.Pay(type.Name, type.Kind, currency, rate, given, remaining));
     }
 
     private bool TryAmount(out decimal amount) =>
@@ -262,7 +373,13 @@ public sealed class PayWindow : Window
         if (cashSoFar && target != _total && _tenders.Count == 0) _dueLabel.Text += $"  (cash: {target.ToString("N2", C)})";
         var change = _tenders.Sum(t => t.Change);
         bool settled = Settled;
+        _filling = true;
         _amount.Text = (settled ? _tenders.Sum(t => t.Tendered) : Math.Max(0, remaining)).ToString("0.00", C);
+        _filling = false;
+        _typed = false;
+        _foreignDue.Text = settled || remaining <= 0 || _currencies.Count == 0 ? ""
+            : "In " + string.Join(",  ", _currencies.Select(c => $"{c} {ForeignCurrency.ToForeign(remaining, _rates[c]).ToString("N2", C)}"));
+        _foreignDue.Visibility = _foreignDue.Text.Length == 0 ? Visibility.Collapsed : Visibility.Visible;
         if (settled && change > 0)
         {
             _dueLabel.Text = "Give back to the customer";

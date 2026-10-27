@@ -293,3 +293,18 @@ upload and download, last batch, failures since the last good package, app versi
 
 Next: phase 3 (the web admin, reports and dashboards on these endpoints) and the merge with the other phase 5 branches,
 whose new tables synchronise by the default rules.
+
+## 11. Phase 5 status: staff and security (2026-10-28)
+
+On branch `phase5-staff-security`:
+
+| Area | What was built |
+|---|---|
+| Users and roles | Setup › Users (role, full name, home store, active, staff code and PIN, reset password) and Setup › Roles (permissions grouped as in `Permissions.All`, level; custom roles added, renamed and deleted; standard roles changed only). Nobody can remove the last active user who may manage users |
+| Sign-in | Name and password, or staff code and PIN; a locked account says how many minutes are left; users of another store are refused |
+| Permissions | Every screen and action checks a permission instead of an access level; a missing permission offers the supervisor approval (password or PIN; the approver needs `pos.approve` and the permission). `AppServices.Can(int)` is gone |
+| Users by id (section 4 item 6) | Sale (staff, voided by), drawer sessions (closed by) and movements, stock movements, invoices (sales person) and payments (taken by), purchase orders (created, received by), RMAs, customer orders and imported staff periods keep the user's id next to the name |
+| Audit log | `AuditEntries` (station-stamped): the DbContext writes added, changed and deleted rows of the tables in `AuditedTables` with the values before and after; sign-ins, failed sign-ins, approvals, voids, no-sales, End of Day, backups, restores, imports and time clock changes are written explicitly. `RetailPlusDbContext.SuppressAudit` holds the automatic lines back (imports; the sync can use it). Audit log screen behind `audit.view` |
+| Time clock | `TimeClockEntries`: punch in and out at the login window or the Staff screen, one open entry per user, supervisor corrections with a reason (audited); hours reports by staff member, day and week |
+| Commission | `CommissionRules` (everyone or one user; all items, a department, a category or an item; percent of net sales or amount per unit; effective dates). Lines no rule covers keep the item's commission percent. Commission report and per-salesperson detail |
+| Help | Help screen with 22 searchable topics; Ctrl+K goes to any screen, report, action or help topic; Ctrl+Shift+H opens the help |

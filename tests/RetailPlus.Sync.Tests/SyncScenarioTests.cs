@@ -247,8 +247,11 @@ public sealed class SyncScenarioTests(SyncWorld world) : IClassFixture<SyncWorld
 
         await using (var db = till.Data.Create())
         {
-            Assert.Equal([store.Id], await db.Stores.Select(s => s.Id).ToListAsync());
-            var pos = await db.Locations.SingleAsync();
+            // The till knows every store of the company now (transfers and gift cards point at them), but not its old one.
+            var stores = await db.Stores.Select(s => s.Id).ToListAsync();
+            Assert.Contains(store.Id, stores);
+            Assert.DoesNotContain(seeded.StoreId, stores);
+            var pos = await db.Locations.SingleAsync(l => l.StoreId == store.Id);
             await using (var server = world.ServerData.Create())
                 Assert.Equal(await server.Locations.Where(l => l.StoreId == store.Id).Select(l => l.Id).SingleAsync(), pos.Id);
             Assert.Equal(pos.Id, (await db.Items.SingleAsync(i => i.Id == item.Id)).LocationId);
@@ -334,6 +337,124 @@ public sealed class SyncScenarioTests(SyncWorld world) : IClassFixture<SyncWorld
         Assert.Equal(expected, (await check.Clients.SingleAsync(c => c.Id == client.Id)).Points);
         var earned = await check.Sales.Where(s => s.ClientId == client.Id).Select(s => s.PointsEarned).ToListAsync();
         Assert.Equal(earned.Sum(), expected);
+        // Every change of points is a loyalty transaction; the points are their sum, in every database.
+        var moves = await check.LoyaltyTransactions.Where(t => t.ClientId == client.Id).ToListAsync();
+        Assert.Equal(expected, moves.Sum(t => t.Points));
+        Assert.Equal([a.Data.Station!.StationNumber, b.Data.Station!.StationNumber], moves.Select(t => t.StationNumber).Distinct().Order());
+        await using var tillB = b.Data.Create();
+        Assert.Equal(moves.Count, await tillB.LoyaltyTransactions.CountAsync(t => t.ClientId == client.Id));
+    }
+
+    [SkippableFact]
+    public async Task A_transfer_shipped_at_one_store_is_received_at_another_through_the_server()
+    {
+        Require();
+        var storeA = await world.AddStoreAsync();
+        var storeB = await world.AddStoreAsync();
+        var a = await world.NewJoinedTillAsync(storeA.Id);
+        var b = await world.NewJoinedTillAsync(storeB.Id);
+        var item = await ItemAsync(a, "TRF1", 10);
+        await a.SyncAsync();
+        await b.SyncAsync();
+
+        var transfers = new TransferService(a.Data);
+        var transfer = await transfers.CreateAsync((await a.SessionAsync()).LocationId, (await b.SessionAsync()).LocationId, "To store B", "tester");
+        await transfers.AddItemAsync(transfer.Id, "TRF1", 4);
+        await transfers.ShipAsync(transfer.Id, "tester");
+        await a.SyncAsync();
+        await b.SyncAsync();
+
+        // The receiving store's till has the shipped transfer, though it belongs to the sending store.
+        var atB = (await new TransferService(b.Data).GetAsync(transfer.Id))!;
+        Assert.Equal(StockTransferStatus.Shipped, atB.Status);
+        var receipt = await new TransferService(b.Data).ReceiveAsync(transfer.Id, null, "tester");
+        Assert.Single(receipt.CreatedItems);
+        await b.SyncAsync();
+        await a.SyncAsync();
+
+        Assert.Equal(StockTransferStatus.Received, (await new TransferService(a.Data).GetAsync(transfer.Id))!.Status);
+        Guid arrived;
+        await using (var server = world.ServerData.Create())
+        {
+            Assert.Equal(StockTransferStatus.Received, (await server.StockTransfers.SingleAsync(t => t.Id == transfer.Id)).Status);
+            arrived = await server.Items.Where(i => i.Plu == "TRF1" && i.LocationId == atB.ToLocationId).Select(i => i.Id).SingleAsync();
+        }
+        Assert.Equal((6m, 6m), await StockAsync(world.ServerData, item.Id));
+        Assert.Equal((4m, 4m), await StockAsync(world.ServerData, arrived));
+        Assert.Equal((6m, 6m), await StockAsync(a.Data, item.Id));
+        Assert.Equal((4m, 4m), await StockAsync(b.Data, arrived));
+        // Each store's tills have their own store's items only.
+        await using var tillA = a.Data.Create();
+        Assert.False(await tillA.Items.AnyAsync(i => i.Id == arrived));
+    }
+
+    [SkippableFact]
+    public async Task A_gift_card_sold_at_one_store_is_spent_at_another()
+    {
+        Require();
+        var storeA = await world.AddStoreAsync();
+        var storeB = await world.AddStoreAsync();
+        var a = await world.NewJoinedTillAsync(storeA.Id);
+        var b = await world.NewJoinedTillAsync(storeB.Id);
+        var cardItem = (await a.Inventory.SaveAsync(new Item
+        {
+            LocationId = (await a.SessionAsync()).LocationId, Plu = "GIFT", Name = "Gift card", ItemType = ItemType.GiftCard,
+        }, null, null, null));
+        var goods = await ItemAsync(b, "GOODS", 5, price: 30m);
+        string number = "GC" + Guid.NewGuid().ToString("N")[..8].ToUpperInvariant();
+        var line = new SaleDraftLine
+        {
+            ItemId = cardItem.Id, ItemType = ItemType.GiftCard, Plu = cardItem.Plu, Description = cardItem.Name, Quantity = 1, UnitPrice = 100m,
+            GiftCardNumber = number, GiftCardKind = GiftCardKind.Card,
+        };
+        await a.Sales.PostSaleAsync(new SaleDraft { Lines = [line] }, [Cash(100m)], await a.SessionAsync());
+        await a.SyncAsync();
+        await b.SyncAsync();
+
+        Assert.Equal(100m, (await new GiftCardService(b.Data).FindAsync(number))!.Balance);
+        await b.Sales.PostSaleAsync(Draft(goods, 1), [new TenderEntry("Gift Card", TenderKind.GiftCard, 30m, 30m, Reference: number)], await b.SessionAsync());
+        await b.SyncAsync();
+        await a.SyncAsync();
+
+        Assert.Equal(70m, (await new GiftCardService(a.Data).FindAsync(number))!.Balance);
+        Assert.Equal(70m, (await new GiftCardService(b.Data).FindAsync(number))!.Balance);
+        await using var server = world.ServerData.Create();
+        var card = await server.GiftCards.SingleAsync(c => c.Number == number);
+        Assert.Equal(storeA.Id, card.StoreId);
+        var moves = await server.GiftCardTransactions.Where(t => t.GiftCardId == card.Id).ToListAsync();
+        Assert.Equal(70m, moves.Sum(t => t.Amount));
+        Assert.Equal([storeA.Id, storeB.Id], moves.OrderBy(t => t.Amount < 0).Select(t => t.StoreId));
+    }
+
+    [SkippableFact]
+    public async Task Audit_lines_reach_the_server_with_their_user_time_and_station()
+    {
+        Require();
+        var store = await world.AddStoreAsync();
+        var other = await world.AddStoreAsync();
+        var a = await world.NewJoinedTillAsync(store.Id);
+        var b = await world.NewJoinedTillAsync(store.Id);
+        var c = await world.NewJoinedTillAsync(other.Id);
+        a.Data.CurrentUser = new SessionInfo { UserId = Guid.CreateVersion7(), UserName = "auditor", StationNumber = a.Data.Station!.StationNumber };
+        var item = await ItemAsync(a, "AUD1", 3);
+        await a.Inventory.DeleteAsync(item.Id);
+        List<AuditEntry> local;
+        await using (var db = a.Data.Create()) local = await db.AuditEntries.AsNoTracking().Where(e => e.EntityId == item.Id).ToListAsync();
+        Assert.Equal(2, local.Count);
+        await a.SyncAsync();
+        await b.SyncAsync();
+        await c.SyncAsync();
+
+        await using (var server = world.ServerData.Create())
+        {
+            var arrived = await server.AuditEntries.AsNoTracking().Where(e => e.EntityId == item.Id).ToListAsync();
+            Assert.Equal(local.Select(e => (e.Id, e.Action, e.UserName, e.UserId, e.AtUtc, e.StationNumber, e.StoreId)).Order(),
+                arrived.Select(e => (e.Id, e.Action, e.UserName, e.UserId, e.AtUtc, e.StationNumber, e.StoreId)).Order());
+            // Applying the package wrote no audit lines of its own.
+            Assert.False(await server.AuditEntries.AnyAsync(e => e.EntityId == item.Id && e.StationNumber != a.Data.Station.StationNumber));
+        }
+        await using (var tillB = b.Data.Create()) Assert.Equal(2, await tillB.AuditEntries.CountAsync(e => e.EntityId == item.Id));
+        await using (var tillC = c.Data.Create()) Assert.False(await tillC.AuditEntries.AnyAsync(e => e.EntityId == item.Id));
     }
 
     [SkippableFact]

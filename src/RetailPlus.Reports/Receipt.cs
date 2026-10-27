@@ -101,14 +101,24 @@ public sealed class Receipt
             Items = items,
             Totals = totals,
             Total = sale.Total,
-            Payments = sale.Payments.Select(p => new ReceiptAmount(p.TenderType, p.Tendered > p.Amount ? p.Tendered : p.Amount,
-                string.IsNullOrWhiteSpace(p.AuthCode) ? null : "Auth " + p.AuthCode)).ToList(),
+            Payments = sale.Payments.Select(p => new ReceiptAmount(p.TenderType, p.Tendered > p.Amount ? p.Tendered : p.Amount, PaymentNote(p, culture))).ToList(),
             Change = sale.Payments.Sum(p => p.Change),
             ItemCount = goods.Count,
             Pieces = goods.Sum(l => Math.Abs(l.Quantity)),
             Notes = notes,
             Footer = footerLines.Count > 0 ? footerLines : ["Thank you for shopping with us!"],
         };
+    }
+
+    /// <summary>Under a payment: the card's authorization, the gift card used, the foreign money handed over.</summary>
+    private static string? PaymentNote(SalePayment p, CultureInfo culture)
+    {
+        var notes = new List<string>();
+        if (!string.IsNullOrWhiteSpace(p.AuthCode)) notes.Add("Auth " + p.AuthCode);
+        if (!string.IsNullOrWhiteSpace(p.Reference)) notes.Add("Card " + p.Reference);
+        if (!string.IsNullOrWhiteSpace(p.Currency))
+            notes.Add($"{p.Currency} {p.ForeignAmount.ToString("N2", culture)} at {p.ExchangeRate.ToString("0.######", culture)}");
+        return notes.Count == 0 ? null : string.Join("  ", notes);
     }
 
     private static List<string> Lines(string? text) =>

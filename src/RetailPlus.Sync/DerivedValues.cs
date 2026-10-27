@@ -82,48 +82,31 @@ public sealed class BalanceFromInvoices : IDerivedRule
 }
 
 /// <summary>
-/// Bonus points cannot be worked out from the sales alone (a client may bring points from Retail Plus), so each sale
-/// arriving from another database does here what it did where it was rung up: a new completed sale adds the points
-/// earned less those redeemed (and moves the last purchase date on), a sale arriving voided takes them back. A client
-/// arriving in the same package already counts that package's sales.
+/// A client's bonus points are the sum of their loyalty transactions (earned, redeemed, corrected, brought from Retail
+/// Plus), which every till and the server write for each change; loyalty transactions go to every store, so the sum is the
+/// same everywhere.
 /// </summary>
-public sealed class PointsFromSales : IDerivedRule
+public sealed class PointsFromLoyalty : IDerivedRule
 {
-    private readonly Dictionary<Guid, (decimal Points, DateOnly? Purchase)> _changes = [];
-    private readonly HashSet<Guid> _newClients = [];
+    private readonly HashSet<Guid> _clients = [];
 
     public void Observe(SyncTable table, IReadOnlyDictionary<string, object?> row, bool inserted, PropertyValues? before)
     {
-        if (table.ClrType == typeof(Client) && inserted && row.GetValueOrDefault(nameof(Client.Id)) is Guid newClient) _newClients.Add(newClient);
-        if (table.ClrType != typeof(Sale) || row.GetValueOrDefault(nameof(Sale.ClientId)) is not Guid client) return;
-        var status = row.GetValueOrDefault(nameof(Sale.Status)) as SaleStatus?;
-        var points = (row.GetValueOrDefault(nameof(Sale.PointsEarned)) as decimal? ?? 0) - (row.GetValueOrDefault(nameof(Sale.PointsRedeemed)) as decimal? ?? 0);
-        var change = _changes.GetValueOrDefault(client);
-        if (inserted && status == SaleStatus.Completed)
-        {
-            var day = row.GetValueOrDefault(nameof(Sale.SoldAt)) is DateTime soldAt ? DateOnly.FromDateTime(soldAt) : (DateOnly?)null;
-            _changes[client] = (change.Points + points, Max(change.Purchase, day));
-        }
-        else if (!inserted && status == SaleStatus.Voided && before?[nameof(Sale.Status)] is SaleStatus.Completed)
-            _changes[client] = (change.Points - points, change.Purchase);
+        if (table.ClrType == typeof(LoyaltyTransaction) && row.GetValueOrDefault(nameof(LoyaltyTransaction.ClientId)) is Guid client) _clients.Add(client);
+        else if (table.ClrType == typeof(Client) && row.GetValueOrDefault(nameof(Client.Id)) is Guid id) _clients.Add(id);
     }
 
     public async Task ApplyAsync(RetailPlusDbContext db, CancellationToken cancellationToken)
     {
-        var ids = _changes.Keys.Where(c => !_newClients.Contains(c)).ToList();
-        foreach (var chunk in ids.Chunk(500))
+        foreach (var chunk in _clients.Chunk(500))
         {
-            var list = chunk.ToList();
-            foreach (var client in await db.Clients.Where(c => list.Contains(c.Id)).ToListAsync(cancellationToken))
-            {
-                var (points, purchase) = _changes[client.Id];
-                client.Points += points;
-                client.LastPurchase = Max(client.LastPurchase, purchase);
-            }
+            var ids = chunk.ToList();
+            var sums = await db.LoyaltyTransactions.Where(t => ids.Contains(t.ClientId)).GroupBy(t => t.ClientId)
+                .Select(g => new { g.Key, Sum = g.Sum(t => t.Points) }).ToDictionaryAsync(x => x.Key, x => x.Sum, cancellationToken);
+            foreach (var client in await db.Clients.Where(c => ids.Contains(c.Id)).ToListAsync(cancellationToken))
+                client.Points = sums.GetValueOrDefault(client.Id);
             await db.SaveChangesAsync(cancellationToken);
             db.ChangeTracker.Clear();
         }
     }
-
-    private static DateOnly? Max(DateOnly? a, DateOnly? b) => a is null ? b : b is null ? a : a > b ? a : b;
 }

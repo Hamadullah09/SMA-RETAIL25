@@ -42,6 +42,7 @@ public sealed class PurchasingService(DataContext data)
         {
             LocationId = locationId, CreatedAt = DateTime.Now, Status = PurchaseOrderStatus.Draft, Method = method, Description = description,
             Number = await db.NextNumberAsync(RetailPlusDbContext.Sequences.PurchaseOrderNumbers),
+            CreatedBy = data.CurrentUser?.UserName, CreatedById = data.CurrentUser?.UserId,
         };
         if (method != OrderMethod.Blank)
         {
@@ -164,6 +165,8 @@ public sealed class PurchasingService(DataContext data)
     public async Task PostShipmentAsync(Guid purchaseOrderId, IReadOnlyList<ReceivedLine> received, decimal shippingCost = 0)
     {
         await using var db = data.Create();
+        // The receipt is its own record (stock movements): the item counts and costs it changes are not audited one by one.
+        db.SuppressAudit = true;
         await using var tx = await db.Database.BeginTransactionAsync();
         var po = await db.PurchaseOrders.Include(p => p.Lines).SingleAsync(p => p.Id == purchaseOrderId);
         if (po.Status == PurchaseOrderStatus.Received) throw new BusinessRuleException("This shipment was already posted.");
@@ -188,11 +191,13 @@ public sealed class PurchasingService(DataContext data)
             item.OnHand += pieces;
             item.LastReceivedDate = today;
             item.LastReceivedQuantity = pieces;
-            InventoryService.Record(db, itemId, StockMovementKind.Receipt, pieces, item.OnHand, document: po.Number);
+            InventoryService.Record(db, itemId, StockMovementKind.Receipt, pieces, item.OnHand, document: po.Number, unitCost: cost);
             if (item.Price1 > 0) item.MarginPercent = Money.MarginPercent(item.Price1, item.AverageCost);
         }
         po.Status = PurchaseOrderStatus.Received;
         po.ReceivedAt = DateTime.Now;
+        po.ReceivedBy = data.CurrentUser?.UserName;
+        po.ReceivedById = data.CurrentUser?.UserId;
         await db.SaveChangesAsync();
         await tx.CommitAsync();
     }

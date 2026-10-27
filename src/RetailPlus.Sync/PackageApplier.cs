@@ -74,6 +74,7 @@ public sealed partial class PackageApplier(SyncPolicy? policy = null)
 
         await using var db = data.Create();
         db.ApplyingSync = true;
+        db.SuppressAudit = true;
         if (await db.SyncBatches.AnyAsync(b => b.BatchId == manifest.BatchId && b.Status == SyncBatchStatus.Applied, cancellationToken))
         {
             db.ApplyingSync = false;
@@ -104,6 +105,7 @@ public sealed partial class PackageApplier(SyncPolicy? policy = null)
             if (options.Side == SyncSide.Server) await CheckStoresAsync(run, manifest);
             foreach (var rule in run.Derived) await rule.ApplyAsync(db, cancellationToken);
             if (options.AfterApply is { } after) await after(db, manifest);
+            if (db.Database.IsSqlite()) await CheckReferencesAsync(db, cancellationToken);
             db.SyncBatches.Add(Batch(manifest, options, SyncBatchStatus.Applied, null, run.Notes.Count == 0 ? null : string.Join(Environment.NewLine, run.Notes)));
             await db.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
@@ -115,6 +117,21 @@ public sealed partial class PackageApplier(SyncPolicy? policy = null)
             return await RecordFailureAsync(data, manifest, options, Explain(ex), cancellationToken);
         }
         return new ApplyResult(SyncBatchStatus.Applied, manifest.BatchId, run.Inserted, run.Updated, run.Deleted, run.Unchanged, run.Notes, null);
+    }
+
+    /// <summary>
+    /// On a till, references are checked at the commit; this names the first broken one instead of SQLite's bare
+    /// "FOREIGN KEY constraint failed".
+    /// </summary>
+    private static async Task CheckReferencesAsync(RetailPlusDbContext db, CancellationToken cancellationToken)
+    {
+        var connection = db.Database.GetDbConnection();
+        await using var command = connection.CreateCommand();
+        command.Transaction = db.Database.CurrentTransaction?.GetDbTransaction();
+        command.CommandText = "SELECT \"table\", rowid, \"parent\" FROM pragma_foreign_key_check LIMIT 1";
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        if (await reader.ReadAsync(cancellationToken))
+            throw new PackageRejectedException($"A row of {reader.GetString(0)} (row {reader.GetValue(1)}) points at a {reader.GetString(2)} row that is not here.");
     }
 
     private static void Check(PackageManifest manifest, ApplyOptions options, SyncModel model)

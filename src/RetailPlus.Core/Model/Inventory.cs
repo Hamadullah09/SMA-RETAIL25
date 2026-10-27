@@ -147,6 +147,11 @@ public class Item : Entity, ISoftDeletable, IFlaggable, IVersioned
     public string? TagAlongCode { get; set; }
     /// <summary>Parent (case) item's stock code [PARENT].</summary>
     public string? ParentCode { get; set; }
+    /// <summary>
+    /// With <see cref="ParentCode"/>: how many of this item one case holds. Break case takes cases out of the case item's
+    /// stock and puts this many units per case into this item's.
+    /// </summary>
+    public decimal UnitsPerCase { get; set; }
     public decimal ShipWeight { get; set; }
     /// <summary>Total THC in grams [THCWEIGHT].</summary>
     public decimal ThcWeight { get; set; }
