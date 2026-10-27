@@ -23,9 +23,13 @@ SMA RETAIL, by SMA Technology: a clean-room rewrite of the Retail Plus 5.2 point
 | `src/RetailPlus.Devices` | Receipt printer (raw ESC/POS through Windows), cash drawer, pole display, scale |
 | `src/RetailPlus.Settings` | Per-station settings (`station.json`) |
 | `src/RetailPlus.Integrations` | CSV import and export of inventory and clients |
+| `src/RetailPlus.Sync` | Synchronisation between tills and the server: the `.smapkg` package (writer, reader, applier), the one policy class (`SyncPolicy`), the till's outbox and runs (`TillSync`), joining a server |
+| `src/RetailPlus.Server` | The server: ASP.NET Core on SQL Server; sign-in (JWT), stores and tills, the sync API |
 | `src/RetailPlus.App` | The WPF desktop app |
 | `tests/RetailPlus.Core.Tests` | Business rule tests |
 | `tests/RetailPlus.Data.Tests` | Schema and service integration tests, each run on a throwaway SQLite file and on a throwaway LocalDB database |
+| `tests/RetailPlus.Sync.Tests` | Two tills on SQLite and the server on LocalDB, over HTTP: sales, stock, deletions, edits, joining, merges, USB packages |
+| `tests/RetailPlus.Server.Tests` | The server's API through WebApplicationFactory: sign-in, permissions, store limits, enrolment, uploads and downloads |
 | `tests/RetailPlus.Rfid.Tests` | Protocol, driver (against a fake reader on a socket), hub routing with 63 simulated readers, hub client |
 | `tests/RetailPlus.Migration.Tests` | Reader, codec and importer tests: synthetic fixtures, plus live runs on real data when present |
 | `tests/RetailPlus.Parity` | Placeholder for old-vs-new comparison runs |
@@ -77,6 +81,28 @@ dotnet run --project src/RetailPlus.RfidHub -- --db "%LOCALAPPDATA%\RetailPlus\s
 and every station points at it in *Setup › This station › RFID*. Design, installation and capacity:
 [docs/RFID.md](docs/RFID.md).
 
+## The server and syncing tills
+
+```
+dotnet run --project src/RetailPlus.Server
+```
+
+The server uses `ConnectionStrings:RetailPlus` (default: the LocalDB database `RetailPlus_Server`), brings it up to date on
+start, and on the first start makes a super administrator from `Bootstrap:AdminUserName` / `Bootstrap:AdminPassword`
+(without a password one is made up and written once to the log). Its own files (the token signing key unless `Jwt:Key`
+is set, the data-protection keys that encrypt the tills' keys, packages being received) are kept in `App_Data`, or
+`Server:DataFolder`. Web origins allowed by CORS: `Cors:Origins` (default `http://localhost:3000`). API: `/api/health`,
+`/api/auth/*`, `/api/stores`, `/api/stores/{id}/stations`, `/api/stations/{id}/*`, `/api/sync/*`; the OpenAPI document
+is at `/openapi/v1.json`.
+
+An administrator adds a till to a store (`POST /api/stores/{id}/stations`) and gets a one-time enrolment code (24
+hours). At the till, *Setup › Server* takes the server's address and the code: the till joins, its data moves to the
+server's store and the station number the server gave, and from then on it sends and receives after End of Day, with
+*Send to server* (Dashboard, Setup › Server) and every few minutes while the server can be reached. Waiting packages
+stay in `outbox` next to the database file. Without a connection a package can be saved to a file (optionally with a
+copy of the database) and uploaded on the web, and the server's package for the till loaded from a file. How the sync
+works: [docs/WEB_INTEGRATION_PLAN.md](docs/WEB_INTEGRATION_PLAN.md), section 10.
+
 ## Import a store's Retail Plus data
 
 From the app: Tools › Import from Retail Plus 5. From the command line:
@@ -97,6 +123,7 @@ dotnet test RetailPlus.sln
 ```
 
 - **Database tests** run twice: on a SQLite file in the temp folder (always) and on their own database on `(localdb)\MSSQLLocalDB`. Set `RETAILPLUS_TEST_SQL` to a connection string (without a database name) to use another server. Without a server the SQL Server half is skipped.
+- **Sync and server tests** run the server in-process (WebApplicationFactory) on a throwaway database on the same SQL Server, with tills on SQLite files in the temp folder; without a server they are skipped.
 - **The live oracle test** reads every table in `spike-data/baseline` and `spike-data/run2`, or in the folders listed in `RETAILPLUS_DBF_SAMPLES` (separated by `;`), and compares the reader with `tools/dbf/dbf_to_json.py`. Without data or Python it's skipped; the fixture tests always run.
 
 ## Database migrations

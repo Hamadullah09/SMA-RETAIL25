@@ -200,3 +200,96 @@ Left for the next phases:
   across stores get a store filter with the server API (phase 3).
 - **RFID hub service** on SQLite reads the database file of the PC it runs on (`--db`); a hub serving several tills
   gets its reader list from the server in phase 2.
+
+## 10. Phase 2 status: sync, and the core of the server (2026-10-28)
+
+Done, on branch `phase2-sync-server`.
+
+### What changed in the model
+
+| Change | Why |
+|---|---|
+| `Tombstones` (entity, row id, time, store; `MergedIntoId` for merges) | Deletions travel. The DbContext writes one in the same save as every delete; the `ExecuteDelete` calls were replaced by load and remove |
+| Shadow `EditedAtUtc` on every table | Last writer wins on what people edit. `UpdatedAtUtc` also moves when the system changes a count it keeps (a sale lowers the stock), so a till that sold an item before hearing of a new price would otherwise win with the old price. The later `EditedAtUtc` wins; between equal ones, the later `UpdatedAtUtc`. Columns the system keeps are listed in `SyncColumns` |
+| Shadow `ChangeNumber` on every table, SQL Server only (`rowversion`) | The server's "everything changed since cursor X". See below |
+| Every `ExecuteUpdate` sets `UpdatedAtUtc` (`.Touched()`), and `EditedAtUtc` too when it changes what people edit (`.Edited()`) | Changes made outside the change tracker are sent too |
+| `ItemPeriodSales.StationNumber` (part of the unique key) | Two tills selling the same item in the same month each add to their own row, so neither overwrites the other; screens and reports add the rows up |
+| Matrix lines keep their ids when an item is saved, each count change of a line writes its own stock movement, and the importer writes one opening movement per line | `Item.OnHand` and `ItemVariant.OnHand` are always the sums of their stock movements (tested for opening, sale, return, void, receipt, adjustment, matrix edits and CSV import) |
+| `SyncBatches`, `SyncStates`, `StationLinks` (`ILocalOnly`, never sent) | Every package received or written; a till's progress; the server's side of each till (encrypted key, enrolment code, last upload and download, app version) |
+
+**Change numbers.** The brief proposed a `long` column filled from a counter row raised inside each save. That misses
+every `ExecuteUpdate` and plain SQL statement unless each call site takes a number itself, and the web back office will
+call the same services (delete an item, flag, barcode, balances) on the server. A `rowversion` is raised by SQL Server on
+every insert and update whatever made it. Its catch, that numbers are taken when a row is written but become visible when
+the transaction commits, is closed by reading only up to `MIN_ACTIVE_ROWVERSION() - 1`: no transaction still running can
+commit a number below it, so a till's cursor never passes a row it has not seen. Tills have no such column (they never
+serve downloads).
+
+**Station keys** are not on `Station` (which travels to the tills) but in the server-only `StationLinks`, encrypted with
+ASP.NET Core data protection; its key ring is in the server's data folder and is itself encrypted with DPAPI on Windows,
+so a copy of the database alone gives no key away. The key leaves the server once, to the till that joins, which keeps
+it in `station.json` encrypted with DPAPI for its Windows user.
+
+### The package and its rules
+
+A `.smapkg` is a zip: `manifest.json` (format, batch id, kind, store, station, app version, times, cursors, and per table
+its row count and SHA-256), `tables/<Entity>.json` (rows with the CLR property names), `tombstones.json`, optionally
+`database.sqlite`, and `manifest.sig` (HMAC-SHA256 of the manifest with the station's key). Requests from a till are
+signed the same way (`X-Station`, `X-Station-Time`, `X-Station-Signature`).
+
+The tables come from the EF model, parents before children. `SyncPolicy` holds every exception in one place, and a table
+added later needs no code: rows with a store go up from the tills and down to the tills of that store; rows that belong
+to a row of a store (lines, matrix lines, antennas) follow it through their required reference; rows without a store go
+everywhere. The exceptions: stores, stations, roles and role grants only come down; a till receives its store's users and
+the users of every store (with password and PIN hashes, for signing in offline) and its own number counters; a till
+cannot change another store's users or give anyone a role for every store; a till may only send and delete rows of its
+own store. `SyncPolicy.Table<T>(flow, receives)` is the place for a table such as a transfer that must reach two stores.
+
+Applying a package checks the signature, every checksum and row count, the station, and that the batch was not applied
+before; then, in one transaction, it deletes what the tombstones name (optional references are cleared, a required one
+still in use refuses the package), inserts new rows, and updates rows whose copy is newer. A copy older than a deletion
+does not bring the row back (a till's packages overlap by ten minutes, so it may send a row again). Columns the system
+keeps are never taken for a row already there; afterwards `OnHand` is recomputed from the stock movements, a client's
+balance from their invoices (on the server: every store's invoices; on a till: its store's), and bonus points, which
+cannot be derived (a client may bring points from Retail Plus), are replayed from the sales that arrive: a new completed
+sale adds what it earned less what was redeemed, a sale arriving voided takes it back. On order, customer orders, last
+order and receipt dates, year-end counts, flags and sign-in failures stay each database's own.
+
+**The same code made twice.** When a new row's unique value is taken (the same stock code made offline on two tills of
+a store, a department, a tender, a location code, a user name in the same store, an RFID tag), the server keeps its row,
+moves the new row's references to it, writes a merge tombstone (so the till's later packages are mapped and the till
+replaces its row by the server's, moving its own references over), and notes it in the batch. Stock stays right: both
+tills' movements end up on the one item. Any other clash (an invoice number, a staff code, a station number) refuses the
+package with a message naming the rows. Merging was chosen over refusing because refusing would stop a till's sync until
+someone repairs data by hand, and the clashes listed are, in practice, the same thing made twice.
+
+### What the till and the server do
+
+The till writes a package of everything changed since its last one (`UpdatedAtUtc`, ten minutes of overlap) into
+`outbox` next to its database file, sends the outbox oldest first (a refused package goes to `outbox/refused` and the
+others still go), then downloads what changed since its cursor and applies it. This runs after End of Day, from *Send to
+server*, and every `SyncIntervalMinutes` (default 5). *Save package to file* writes one package with everything the
+server has not confirmed, optionally with an online-backup copy of the database (the "image"); *Load package from file*
+applies the server's package for this till. Joining moves the till's data from the store and station it was seeded with
+to the server's, in the same transaction as the server's first package (where the same thing exists on both, the
+server's is kept). The server records every package, refused and duplicate ones too, and lists each till with its last
+upload and download, last batch, failures since the last good package, app version, and "behind" after
+`Server:BehindAfterHours` (24) without an upload.
+
+### Known limits
+
+- Tills on a shared SQL Server database (the old LAN set-up) cannot join a server; the till side relies on SQLite
+  checking references at the commit.
+- Concurrent edits of one invoice at two tills (two payments before either synchronises) keep the later invoice row; both
+  payments are kept, but the invoice balance is the later till's.
+- On order and customer-order counts are each database's own (imported values cannot be worked out again).
+- A till's first package after joining holds every row it has, including what the server just sent it; nothing changes
+  on the server, but it is large.
+- Downloads are built in memory; a store with a very large history makes a large first download.
+- Uploads are applied one at a time per station on one server process; several server processes would need a lock in
+  the database.
+- Re-importing Retail Plus data into a till that already joined a server wipes rows without tombstones; import before
+  joining.
+
+Next: phase 3 (the web admin, reports and dashboards on these endpoints) and the merge with the other phase 5 branches,
+whose new tables synchronise by the default rules.
