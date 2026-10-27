@@ -1,0 +1,126 @@
+import { describe, expect, it } from 'vitest';
+import { canOpen, commandsFor, homeFor, navFor, navKeyForPath, pageForPath, pageForShortcut, PAGES, searchCommands } from './nav';
+
+const supervisor = ['web.signin', 'dashboard.view', 'reports.view', 'inventory.view', 'clients.view', 'giftcards.issue', 'timeclock.edit'];
+const administrator = [
+  'web.signin',
+  'dashboard.view',
+  'reports.view',
+  'reports.staff',
+  'inventory.view',
+  'inventory.edit',
+  'clients.view',
+  'clients.edit',
+  'suppliers.edit',
+  'giftcards.issue',
+  'setup.users',
+  'setup.store',
+  'stores.manage',
+  'audit.view',
+  'sync.send',
+];
+
+describe('the permission-to-navigation filter', () => {
+  it('shows an administrator every page', () => {
+    expect(navFor(administrator).map((p) => p.title)).toEqual([
+      'Dashboard',
+      'Tills',
+      'Sales Journal',
+      'Inventory',
+      'Clients',
+      'Suppliers',
+      'Stock',
+      'Gift cards',
+      'Reports',
+      'Staff',
+      'Packages',
+      'Users',
+      'Roles',
+      'Stores',
+      'Setup',
+      'Audit log',
+    ]);
+  });
+
+  it('hides what a role lacks', () => {
+    const titles = navFor(supervisor).map((p) => p.title);
+    expect(titles).toContain('Dashboard');
+    expect(titles).toContain('Sales Journal');
+    expect(titles).toContain('Tills');
+    expect(titles).not.toContain('Staff');
+    expect(titles).not.toContain('Users');
+    expect(titles).not.toContain('Roles');
+    expect(titles).not.toContain('Stores');
+    expect(titles).not.toContain('Setup');
+    expect(titles).not.toContain('Audit log');
+  });
+
+  it('shows nothing without web.signin', () => {
+    expect(navFor(['dashboard.view', 'reports.view'])).toEqual([]);
+    expect(canOpen({ permission: null }, ['reports.view'])).toBe(false);
+  });
+
+  it('leaves detail pages and Account out of the panel', () => {
+    const keys = navFor(administrator).map((p) => p.key);
+    expect(keys).not.toContain('sale');
+    expect(keys).not.toContain('item');
+    expect(keys).not.toContain('account');
+  });
+
+  it('takes a set as well as a list', () => {
+    expect(navFor(new Set(supervisor)).length).toBe(navFor(supervisor).length);
+  });
+
+  it('lands on the dashboard, or the first page the role has', () => {
+    expect(homeFor(administrator)).toBe('/');
+    expect(homeFor(['web.signin', 'inventory.view'])).toBe('/tills/');
+    expect(homeFor([])).toBe('/account/');
+  });
+
+  it('keeps each Ctrl key on its page whatever the role', () => {
+    expect(pageForShortcut('Ctrl+4', administrator)?.title).toBe('Inventory');
+    expect(pageForShortcut('Ctrl+4', ['web.signin', 'inventory.view'])?.title).toBe('Inventory');
+    expect(pageForShortcut('Ctrl+0', supervisor)).toBeUndefined();
+    const keys = PAGES.filter((p) => p.shortcut).map((p) => p.shortcut);
+    expect(keys).toEqual(['Ctrl+1', 'Ctrl+2', 'Ctrl+3', 'Ctrl+4', 'Ctrl+5', 'Ctrl+6', 'Ctrl+7', 'Ctrl+8', 'Ctrl+9', 'Ctrl+0']);
+  });
+
+  it('finds the page of a path, with or without the trailing slash', () => {
+    expect(pageForPath('/sales/view')?.key).toBe('sale');
+    expect(pageForPath('/sales/view/')?.key).toBe('sale');
+    expect(pageForPath('/')?.key).toBe('dashboard');
+    expect(pageForPath('/nowhere/')).toBeUndefined();
+    expect(navKeyForPath('/items/edit/')).toBe('items');
+  });
+});
+
+describe('the Ctrl+K palette', () => {
+  const reports = [
+    { key: 'daily', title: 'Daily sales summary', group: 'Sales' },
+    { key: 'stock', title: 'Inventory valuation', group: 'Inventory' },
+  ];
+
+  it('offers only what the user may open', () => {
+    const titles = commandsFor(supervisor, reports).map((c) => c.title);
+    expect(titles).toContain('Go to Dashboard');
+    expect(titles).toContain('Daily sales summary');
+    expect(titles).toContain('Sign out');
+    expect(titles).not.toContain('Go to Users');
+    expect(titles).not.toContain('Enrol a till');
+    expect(titles).not.toContain('New item');
+  });
+
+  it('offers no reports without reports.view', () => {
+    const titles = commandsFor(['web.signin', 'inventory.view'], reports).map((c) => c.title);
+    expect(titles).not.toContain('Daily sales summary');
+  });
+
+  it('matches every typed word, titles that start with it first', () => {
+    const commands = commandsFor(administrator, reports);
+    expect(searchCommands(commands, 'inv')[0].title).toBe('Go to Inventory');
+    expect(searchCommands(commands, 'sales sum').map((c) => c.title)).toEqual(['Daily sales summary']);
+    expect(searchCommands(commands, 'customers').map((c) => c.title)).toContain('Go to Clients');
+    expect(searchCommands(commands, 'zzz')).toEqual([]);
+    expect(searchCommands(commands, '  ').length).toBe(commands.length);
+  });
+});

@@ -1,0 +1,18 @@
+{
+  "root": true,
+  "extends": "next/core-web-vitals",
+  "ignorePatterns": ["out/**", ".next/**", "node_modules/**", "playwright-report/**", "test-results/**"],
+  "rules": {
+    "no-restricted-syntax": [
+      "error",
+      {
+        "selector": "Literal[value=/(^|\\s)text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl)(\\s|$)/]",
+        "message": "Tailwind's own text sizes are off. Use the desktop scale: text-key, text-note, text-small, text-body, text-lead, text-section, text-value, text-title, text-big."
+      },
+      {
+        "selector": "Literal[value=/(^|\\s)(text|bg|border)-stone(\\s|$)/][value=/(^|\\s)text-stone(\\s|$)/]",
+        "message": "Stone is under 4.5:1 on white: use it for lines and icons, never for words (text-muted instead)."
+      }
+    ]
+  }
+}
