@@ -60,6 +60,11 @@
     font-weight: 400;
   }
 
+  /* `hidden` must win over display utilities such as `grid` (tabs keep their panels mounted). */
+  [hidden] {
+    display: none !important;
+  }
+
   ::selection {
     background: rgb(var(--rp-sun));
     color: rgb(var(--rp-ink));
@@ -215,7 +220,10 @@
     @apply sticky top-0 z-[1] whitespace-nowrap border-b border-line bg-cream px-3 py-2.5 text-left text-small font-semibold text-muted;
   }
   .grid-table tbody td {
-    @apply border-b border-line/70 px-3 py-2.5 align-middle;
+    @apply whitespace-nowrap border-b border-line/70 px-3 py-2.5 align-middle;
+  }
+  .grid-table tbody td.wrap {
+    @apply whitespace-normal;
   }
   .grid-table tbody tr:nth-child(even) td {
     @apply bg-row-alt;

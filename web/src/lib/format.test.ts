@@ -10,6 +10,7 @@ import {
   formatMoney,
   formatPercent,
   formatQuantity,
+  formatShortDateTime,
   formatUtc,
   initials,
   parseBusinessDate,
@@ -105,6 +106,13 @@ describe('dates', () => {
     expect(formatDate('2026-10-28', en)).toBe('Oct 28, 2026');
     expect(formatLocalDateTime('2026-10-28T13:05:00', en)).toMatch(/^Oct 28, 2026,? 1:05\sPM$/);
     expect(formatDate(null, en)).toBe('');
+  });
+
+  it('shortens date-times in tables', () => {
+    const now = new Date(2026, 9, 28);
+    expect(formatShortDateTime('2026-10-28T13:05:00', en, now)).toMatch(/^Oct 28,? 1:05\sPM$/);
+    expect(formatShortDateTime('2025-12-31T09:00:00', en, now)).toMatch(/^Dec 31, 2025,? 9:00\sAM$/);
+    expect(formatShortDateTime(null, en, now)).toBe('');
   });
 
   it('formats UTC times in a given time zone', () => {

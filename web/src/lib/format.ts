@@ -137,6 +137,30 @@ export function formatUtc(value: string | null | undefined, locale?: Locale, tim
   return date ? dateFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }, timeZone).format(date) : value;
 }
 
+/** `Oct 28, 1:05 PM` for a store-local date-time in a table: no year when it is this year. */
+export function formatShortDateTime(value: string | null | undefined, locale?: Locale, now: Date = new Date()): string {
+  if (!value) return '';
+  const date = parseLocalDateTime(value);
+  if (!date) return value;
+  const options: Intl.DateTimeFormatOptions =
+    date.getFullYear() === now.getFullYear()
+      ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
+      : { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
+  return dateFormat(locale, options).format(date);
+}
+
+/** `Oct 28, 1:05 PM` for a UTC date-time in a table, in the browser's time zone. */
+export function formatShortUtc(value: string | null | undefined, locale?: Locale, now: Date = new Date()): string {
+  if (!value) return '';
+  const date = parseUtc(value);
+  if (!date) return value;
+  const options: Intl.DateTimeFormatOptions =
+    date.getFullYear() === now.getFullYear()
+      ? { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }
+      : { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' };
+  return dateFormat(locale, options).format(date);
+}
+
 /** `13:05` for a store-local date-time. */
 export function formatTime(value: string | null | undefined, locale?: Locale): string {
   if (!value) return '';
