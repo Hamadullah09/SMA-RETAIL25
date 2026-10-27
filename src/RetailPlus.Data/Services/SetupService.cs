@@ -405,13 +405,15 @@ public sealed class SetupService(DataContext data)
     /// <summary>
     /// Signs in with a user name and password, saying why when it fails (a locked account says until when). The sign-in
     /// goes to the audit log as <paramref name="purpose"/> (null writes nothing for a success), every failure as a failed
-    /// sign-in.
+    /// sign-in. A password carried over from Retail25 (an ASP.NET Identity hash) is stored again in this program's own
+    /// format on the first sign-in that proves it.
     /// </summary>
     public Task<SignInResult> SignInAsync(string userName, string password, string? purpose = AuditActions.SignIn)
     {
         var name = userName.Trim();
         return CheckAsync(u => u.UserName == name, name, false,
-            user => user.PasswordHash is null ? user.MustChangePassword : VerifyPassword(password, user.PasswordHash), purpose);
+            user => user.PasswordHash is null ? user.MustChangePassword : VerifyPassword(password, user.PasswordHash), purpose,
+            user => user.PasswordHash is { } stored && IsIdentityHash(stored) ? HashPassword(password) : null);
     }
 
     /// <summary>Signs in with a staff code and PIN, by the same rules as <see cref="SignInAsync"/>.</summary>
@@ -421,8 +423,12 @@ public sealed class SetupService(DataContext data)
         return CheckAsync(u => u.StaffCode == code, code, true, user => user.PinHash is not null && VerifyPassword(pin, user.PinHash), purpose);
     }
 
+    /// <summary>
+    /// The sign-in rules shared by passwords and PINs. <paramref name="rehash"/>, given a user whose secret matched,
+    /// returns a new hash to store instead of the old one (a carried-over hash in another format), or null.
+    /// </summary>
     private async Task<SignInResult> CheckAsync(System.Linq.Expressions.Expression<Func<UserAccount, bool>> find, string typed, bool pin,
-        Func<UserAccount, bool> check, string? purpose)
+        Func<UserAccount, bool> check, string? purpose, Func<UserAccount, string?>? rehash = null)
     {
         // Nothing typed: nothing to look up, and nothing worth a line in the audit log.
         if (typed.Length == 0) return new SignInResult(null, SignInFailure.WrongCredentials, null);
@@ -456,7 +462,15 @@ public sealed class SetupService(DataContext data)
         {
             user.FailedSignIns = 0;
             user.LockedUntilUtc = null;
-            if (purpose is not null) db.Audit(purpose, user.UserName + why, nameof(UserAccount), user.Id, userId: user.Id, userName: user.UserName);
+            string upgraded = "";
+            if (rehash?.Invoke(user) is { } newHash)
+            {
+                // Nobody changed the password, only how it is stored: no "Changed" line of its own, a note on the sign-in.
+                user.PasswordHash = newHash;
+                db.SuppressAudit = true;
+                upgraded = "; password now stored in the new format";
+            }
+            if (purpose is not null) db.Audit(purpose, user.UserName + why + upgraded, nameof(UserAccount), user.Id, userId: user.Id, userName: user.UserName);
             result = new SignInResult(user, SignInFailure.None, null);
         }
         else
@@ -501,8 +515,17 @@ public sealed class SetupService(DataContext data)
         return $"pbkdf2$100000${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
     }
 
+    /// <summary>
+    /// True when <paramref name="stored"/> matches the password: a hash made by <see cref="HashPassword"/>, or an ASP.NET
+    /// Identity version 3 hash carried over from Retail25 (see <see cref="IsIdentityHash"/>).
+    /// </summary>
     public static bool VerifyPassword(string password, string stored)
     {
+        if (TryReadIdentityHash(stored, out var prf, out var rounds, out var identitySalt, out var subkey))
+        {
+            var derived = Rfc2898DeriveBytes.Pbkdf2(password, identitySalt, rounds, prf, subkey.Length);
+            return CryptographicOperations.FixedTimeEquals(derived, subkey);
+        }
         var parts = stored.Split('$');
         if (parts.Length != 4 || parts[0] != "pbkdf2") return false;
         var iterations = int.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture);
@@ -510,6 +533,38 @@ public sealed class SetupService(DataContext data)
         var expected = Convert.FromBase64String(parts[3]);
         var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, expected.Length);
         return CryptographicOperations.FixedTimeEquals(actual, expected);
+    }
+
+    /// <summary>
+    /// True for an ASP.NET Core Identity version 3 password hash (base64, starting "AQAAAA"), the format Retail25 kept its
+    /// users' passwords in. Such a hash is accepted by <see cref="VerifyPassword"/> and replaced at the next sign-in.
+    /// </summary>
+    public static bool IsIdentityHash(string stored) => TryReadIdentityHash(stored, out _, out _, out _, out _);
+
+    /// <summary>
+    /// Reads an Identity version 3 hash: a 0x01 marker byte, then the PBKDF2 pseudo-random function (0 HMAC-SHA1,
+    /// 1 HMAC-SHA256, 2 HMAC-SHA512), the iteration count and the salt length as big-endian 32-bit numbers, the salt, and
+    /// the derived key. Anything else (this program's own format included) is not one.
+    /// </summary>
+    private static bool TryReadIdentityHash(string stored, out HashAlgorithmName prf, out int iterations, out byte[] salt, out byte[] subkey)
+    {
+        prf = default;
+        iterations = 0;
+        salt = subkey = [];
+        if (stored.Length < 20 || stored.Contains('$', StringComparison.Ordinal)) return false;
+        var bytes = new byte[stored.Length];
+        if (!Convert.TryFromBase64String(stored, bytes, out int length) || length < 13 || bytes[0] != 0x01) return false;
+        var data = bytes.AsSpan(0, length);
+        uint function = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(data[1..]);
+        uint rounds = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(data[5..]);
+        uint saltLength = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(data[9..]);
+        // Identity itself refuses salts and keys shorter than 128 bits.
+        if (function > 2 || rounds is 0 or > int.MaxValue || saltLength < 16 || 13L + saltLength + 16 > length) return false;
+        prf = function switch { 0 => HashAlgorithmName.SHA1, 1 => HashAlgorithmName.SHA256, _ => HashAlgorithmName.SHA512 };
+        iterations = (int)rounds;
+        salt = data.Slice(13, (int)saltLength).ToArray();
+        subkey = data[(13 + (int)saltLength)..].ToArray();
+        return true;
     }
 
     // Lists ------------------------------------------------------------------------------------------------------

@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.85" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\RetailPlus.Cutover\RetailPlus.Cutover.csproj" />
+    <ProjectReference Include="..\..\src\RetailPlus.Data.Sqlite\RetailPlus.Data.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\RetailPlus.Data.SqlServer\RetailPlus.Data.SqlServer.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The SQL that enriches a copy of Retail25's demo database into the source the cutover is tested on. -->
+    <None Include="Fixtures\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
