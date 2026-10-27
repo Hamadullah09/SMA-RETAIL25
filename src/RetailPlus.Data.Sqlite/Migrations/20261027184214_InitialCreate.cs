@@ -171,6 +171,24 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Roles",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false, collation: "NOCASE"),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    Level = table.Column<int>(type: "INTEGER", nullable: false),
+                    IsSystem = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Roles", x => x.Id);
+                    table.CheckConstraint("CK_Role_Level", "[Level] BETWEEN 0 AND 4");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "StaffPeriods",
                 columns: table => new
                 {
@@ -285,24 +303,6 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "UserAccounts",
-                columns: table => new
-                {
-                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
-                    UserName = table.Column<string>(type: "TEXT", maxLength: 15, nullable: false, collation: "NOCASE"),
-                    PasswordHash = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
-                    AccessLevel = table.Column<int>(type: "INTEGER", nullable: false),
-                    MustChangePassword = table.Column<bool>(type: "INTEGER", nullable: false),
-                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
-                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_UserAccounts", x => x.Id);
-                    table.CheckConstraint("CK_UserAccount_AccessLevel", "[AccessLevel] BETWEEN 0 AND 4");
-                });
-
-            migrationBuilder.CreateTable(
                 name: "ImportSourceRows",
                 columns: table => new
                 {
@@ -322,6 +322,27 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         name: "FK_ImportSourceRows_ImportBatches_ImportBatchId",
                         column: x => x.ImportBatchId,
                         principalTable: "ImportBatches",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RoleGrants",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    RoleId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Permission = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false, collation: "NOCASE"),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RoleGrants", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RoleGrants_Roles_RoleId",
+                        column: x => x.RoleId,
+                        principalTable: "Roles",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -692,6 +713,44 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     table.PrimaryKey("PK_SuspendedSales", x => x.Id);
                     table.ForeignKey(
                         name: "FK_SuspendedSales_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "UserAccounts",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    UserName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false, collation: "NOCASE"),
+                    FullName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true, collation: "NOCASE"),
+                    PasswordHash = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    AccessLevel = table.Column<int>(type: "INTEGER", nullable: false),
+                    MustChangePassword = table.Column<bool>(type: "INTEGER", nullable: false),
+                    RoleId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    StaffCode = table.Column<string>(type: "TEXT", maxLength: 10, nullable: true, collation: "NOCASE"),
+                    PinHash = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false, defaultValue: true),
+                    FailedSignIns = table.Column<int>(type: "INTEGER", nullable: false),
+                    LockedUntilUtc = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_UserAccounts", x => x.Id);
+                    table.CheckConstraint("CK_UserAccount_AccessLevel", "[AccessLevel] BETWEEN 0 AND 4");
+                    table.ForeignKey(
+                        name: "FK_UserAccounts_Roles_RoleId",
+                        column: x => x.RoleId,
+                        principalTable: "Roles",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_UserAccounts_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -1955,6 +2014,28 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_RoleGrants_RoleId_Permission",
+                table: "RoleGrants",
+                columns: new[] { "RoleId", "Permission" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RoleGrants_UpdatedAtUtc",
+                table: "RoleGrants",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Roles_Name",
+                table: "Roles",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Roles_UpdatedAtUtc",
+                table: "Roles",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_SaleLines_ItemId",
                 table: "SaleLines",
                 column: "ItemId");
@@ -2206,6 +2287,23 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_UserAccounts_RoleId",
+                table: "UserAccounts",
+                column: "RoleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserAccounts_StaffCode",
+                table: "UserAccounts",
+                column: "StaffCode",
+                unique: true,
+                filter: "[StaffCode] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserAccounts_StoreId",
+                table: "UserAccounts",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_UserAccounts_UpdatedAtUtc",
                 table: "UserAccounts",
                 column: "UpdatedAtUtc");
@@ -2284,6 +2382,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "Rmas");
 
             migrationBuilder.DropTable(
+                name: "RoleGrants");
+
+            migrationBuilder.DropTable(
                 name: "SaleLineTags");
 
             migrationBuilder.DropTable(
@@ -2339,6 +2440,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
             migrationBuilder.DropTable(
                 name: "Items");
+
+            migrationBuilder.DropTable(
+                name: "Roles");
 
             migrationBuilder.DropTable(
                 name: "Sales");

@@ -198,4 +198,7 @@ public static class AppServices
     private static PoleDisplay? _pole;
 
     public static bool Can(int level) => Session.AccessLevel >= level;
+
+    /// <summary>True when the signed-in user's role has the permission (a key of <see cref="Core.Rules.Permissions"/>).</summary>
+    public static bool Can(string permission) => Session.Can(permission);
 }

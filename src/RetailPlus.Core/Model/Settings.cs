@@ -161,12 +161,27 @@ public class DocumentText : Entity, IStoreScoped
     public string Text { get; set; } = "";
 }
 
-/// <summary>A login (USERS.DBF). Passwords are never stored in a readable form.</summary>
+/// <summary>
+/// A login (USERS.DBF), at the tills and on the web. Passwords and PINs are never stored in a readable form. What the
+/// user may do comes from the role; <see cref="AccessLevel"/> follows the role's level.
+/// </summary>
 public class UserAccount : Entity
 {
     public string UserName { get; set; } = "";
+    public string? FullName { get; set; }
     public string? PasswordHash { get; set; }
-    /// <summary>0 = trainee, 1–4 as in the Security tab.</summary>
+    /// <summary>0 = trainee, 1–4 as in the Security tab; the level of <see cref="Role"/>.</summary>
     public int AccessLevel { get; set; }
     public bool MustChangePassword { get; set; }
+    public Guid? RoleId { get; set; }
+    public Role? Role { get; set; }
+    /// <summary>The store the user works for; none for users of every store (super administrators).</summary>
+    public Guid? StoreId { get; set; }
+    /// <summary>Short code typed with the PIN for a quick sign-in at the till.</summary>
+    public string? StaffCode { get; set; }
+    public string? PinHash { get; set; }
+    public bool IsActive { get; set; } = true;
+    /// <summary>Wrong passwords or PINs in a row; the account locks for a while after five.</summary>
+    public int FailedSignIns { get; set; }
+    public DateTime? LockedUntilUtc { get; set; }
 }

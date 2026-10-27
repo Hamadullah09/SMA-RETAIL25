@@ -378,6 +378,72 @@ public abstract class ServiceTests(DatabaseFixture db)
     }
 
     [SkippableFact]
+    public async Task New_databases_get_the_standard_roles_and_users_get_the_role_of_their_level()
+    {
+        Skip.IfNot(db.Available, db.UnavailableReason);
+        var setup = new SetupService(Data);
+        var roles = await setup.GetRolesAsync();
+        Assert.Equal(Permissions.DefaultRoles.Select(r => r.Name).Order(), roles.Where(r => r.IsSystem).Select(r => r.Name).Order());
+        var cashier = roles.Single(r => r.Name == Permissions.CashierRole);
+        Assert.Contains(cashier.Permissions, p => p.Permission == Permissions.PosSell);
+        Assert.DoesNotContain(cashier.Permissions, p => p.Permission == Permissions.PosVoidSale);
+        Assert.Contains(roles.Single(r => r.Name == Permissions.SuperAdministratorRole).Permissions, p => p.Permission == Permissions.StoresAll);
+        Assert.DoesNotContain(roles.Single(r => r.Name == Permissions.AdministratorRole).Permissions, p => p.Permission == Permissions.StoresAll);
+
+        var name = "lvl" + Guid.NewGuid().ToString("N")[..6];
+        await setup.SaveUserAsync(new UserAccount { UserName = name, AccessLevel = 3 }, "pass");
+        var user = (await setup.AuthenticateAsync(name, "pass"))!;
+        Assert.Equal(Permissions.SupervisorRole, user.Role!.Name);
+        var session = new SessionInfo();
+        session.SignIn(user);
+        Assert.True(session.Can(Permissions.PosApprove));
+        Assert.False(session.Can(Permissions.SetupUsers));
+    }
+
+    [SkippableFact]
+    public async Task A_role_change_reaches_its_users_and_standard_roles_cannot_be_deleted()
+    {
+        Skip.IfNot(db.Available, db.UnavailableReason);
+        var setup = new SetupService(Data);
+        var role = await setup.SaveRoleAsync(new Role { Name = "Floor " + Guid.NewGuid().ToString("N")[..6], Level = 1 }, [Permissions.PosSell]);
+        var name = "flr" + Guid.NewGuid().ToString("N")[..6];
+        await setup.SaveUserAsync(new UserAccount { UserName = name, RoleId = role.Id }, "pass");
+        Assert.Equal(1, (await setup.AuthenticateAsync(name, "pass"))!.AccessLevel);
+
+        role.Level = 2;
+        await setup.SaveRoleAsync(role, [Permissions.PosSell, Permissions.InventoryCount]);
+        var user = (await setup.AuthenticateAsync(name, "pass"))!;
+        Assert.Equal(2, user.AccessLevel);
+        Assert.Equal([Permissions.InventoryCount, Permissions.PosSell], SetupService.PermissionsOf(user).Order());
+
+        await Assert.ThrowsAsync<BusinessRuleException>(() => setup.DeleteRoleAsync(role.Id));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => setup.SaveRoleAsync(new Role { Name = "Bad", Level = 1 }, ["no.such"]));
+        var standard = (await setup.GetRolesAsync()).First(r => r.IsSystem);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => setup.DeleteRoleAsync(standard.Id));
+    }
+
+    [SkippableFact]
+    public async Task Five_wrong_passwords_lock_the_account_and_a_staff_code_with_pin_signs_in()
+    {
+        Skip.IfNot(db.Available, db.UnavailableReason);
+        var setup = new SetupService(Data);
+        var name = "pin" + Guid.NewGuid().ToString("N")[..6];
+        await setup.SaveUserAsync(new UserAccount { UserName = name, AccessLevel = 1 }, "right");
+        var id = (await setup.GetUsersAsync()).Single(u => u.UserName == name).Id;
+        var code = Guid.NewGuid().ToString("N")[..8];
+        await setup.SetPinAsync(id, code, "4321");
+        Assert.NotNull(await setup.AuthenticatePinAsync(code, "4321"));
+        Assert.Null(await setup.AuthenticatePinAsync(code, "1111"));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => setup.SetPinAsync(id, code, "12"));
+
+        for (int i = 0; i < SetupService.SignInAttempts; i++)
+            Assert.Null(await setup.AuthenticateAsync(name, "wrong"));
+        Assert.Null(await setup.AuthenticateAsync(name, "right"));
+        await setup.SaveUserAsync((await setup.GetUsersAsync()).Single(u => u.UserName == name), "new one");
+        Assert.NotNull(await setup.AuthenticateAsync(name, "new one"));
+    }
+
+    [SkippableFact]
     public async Task Dashboard_shows_today_the_week_stock_and_drawer()
     {
         var (session, location) = await SetUpAsync();

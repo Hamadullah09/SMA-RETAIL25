@@ -44,6 +44,8 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
     public DbSet<NumberCounter> NumberCounters => Set<NumberCounter>();
     public DbSet<DocumentText> DocumentTexts => Set<DocumentText>();
     public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
+    public DbSet<Role> Roles => Set<Role>();
+    public DbSet<RoleGrant> RoleGrants => Set<RoleGrant>();
     public DbSet<Sale> Sales => Set<Sale>();
     public DbSet<SaleLine> SaleLines => Set<SaleLine>();
     public DbSet<SaleLineTag> SaleLineTags => Set<SaleLineTag>();

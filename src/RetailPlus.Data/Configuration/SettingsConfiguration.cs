@@ -102,10 +102,38 @@ internal sealed class UserAccountConfiguration : IEntityTypeConfiguration<UserAc
 {
     public void Configure(EntityTypeBuilder<UserAccount> e)
     {
-        e.Property(x => x.UserName).HasMaxLength(15);
+        e.Property(x => x.UserName).HasMaxLength(50);
+        e.Property(x => x.FullName).HasMaxLength(100);
         e.Property(x => x.PasswordHash).HasMaxLength(200);
+        e.Property(x => x.StaffCode).HasMaxLength(10);
+        e.Property(x => x.PinHash).HasMaxLength(200);
+        e.Property(x => x.IsActive).HasDefaultValue(true);
         e.HasIndex(x => x.UserName).IsUnique();
+        e.HasIndex(x => x.StaffCode).IsUnique().HasFilter("[StaffCode] IS NOT NULL");
+        e.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Restrict);
+        e.HasOne<Store>().WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Restrict);
         e.ToTable(t => t.HasCheckConstraint("CK_UserAccount_AccessLevel", "[AccessLevel] BETWEEN 0 AND 4"));
+    }
+}
+
+internal sealed class RoleConfiguration : IEntityTypeConfiguration<Role>
+{
+    public void Configure(EntityTypeBuilder<Role> e)
+    {
+        e.Property(x => x.Name).HasMaxLength(50);
+        e.Property(x => x.Description).HasMaxLength(200);
+        e.HasIndex(x => x.Name).IsUnique();
+        e.HasMany(x => x.Permissions).WithOne().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
+        e.ToTable(t => t.HasCheckConstraint("CK_Role_Level", "[Level] BETWEEN 0 AND 4"));
+    }
+}
+
+internal sealed class RoleGrantConfiguration : IEntityTypeConfiguration<RoleGrant>
+{
+    public void Configure(EntityTypeBuilder<RoleGrant> e)
+    {
+        e.Property(x => x.Permission).HasMaxLength(50);
+        e.HasIndex(x => new { x.RoleId, x.Permission }).IsUnique();
     }
 }
 

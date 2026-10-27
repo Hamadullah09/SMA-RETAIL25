@@ -1,0 +1,156 @@
+namespace RetailPlus.Core.Rules;
+
+/// <summary>One thing a role may do, shown in the role editor under its group.</summary>
+public sealed record PermissionInfo(string Key, string Group, string Description);
+
+/// <summary>A role every database starts with, and the Retail Plus access level its users get.</summary>
+public sealed record DefaultRole(string Name, int Level, string Description, IReadOnlyList<string> Permissions);
+
+/// <summary>
+/// The permission keys of the desktop app and the web back office, and the roles a new database gets. Keys are stored in
+/// RoleGrants, so they never change once released.
+/// </summary>
+public static class Permissions
+{
+    public const string PosSell = "pos.sell";
+    public const string PosDiscount = "pos.discount";
+    public const string PosReturn = "pos.return";
+    public const string PosVoidLine = "pos.void-line";
+    public const string PosVoidSale = "pos.void-sale";
+    public const string PosNoSale = "pos.no-sale";
+    public const string PosDrawer = "pos.drawer";
+    public const string PosEndOfDay = "pos.end-of-day";
+    public const string PosApprove = "pos.approve";
+
+    public const string InventoryView = "inventory.view";
+    public const string InventoryEdit = "inventory.edit";
+    public const string InventoryAdjust = "inventory.adjust";
+    public const string InventoryCount = "inventory.count";
+    public const string InventoryTransfer = "inventory.transfer";
+    public const string InventoryPrices = "inventory.prices";
+    public const string InventoryLabels = "inventory.labels";
+    public const string PurchasingManage = "purchasing.manage";
+
+    public const string ClientsView = "clients.view";
+    public const string ClientsEdit = "clients.edit";
+    public const string SuppliersEdit = "suppliers.edit";
+    public const string InvoicesManage = "invoices.manage";
+    public const string RmaManage = "rma.manage";
+    public const string GiftCardsIssue = "giftcards.issue";
+
+    public const string TimeClockPunch = "timeclock.punch";
+    public const string TimeClockEdit = "timeclock.edit";
+
+    public const string DashboardView = "dashboard.view";
+    public const string ReportsView = "reports.view";
+    public const string ReportsStaff = "reports.staff";
+
+    public const string SetupStore = "setup.store";
+    public const string SetupUsers = "setup.users";
+    public const string SetupStations = "setup.stations";
+    public const string RfidManage = "rfid.manage";
+    public const string BackupManage = "backup.manage";
+    public const string ImportRun = "import.run";
+    public const string YearEndRun = "yearend.run";
+    public const string AuditView = "audit.view";
+    public const string AccountingExport = "accounting.export";
+    public const string SyncSend = "sync.send";
+
+    public const string WebSignIn = "web.signin";
+    public const string StoresManage = "stores.manage";
+    public const string StoresAll = "stores.all";
+
+    public static IReadOnlyList<PermissionInfo> All { get; } =
+    [
+        new(PosSell, "Sales", "Ring up sales"),
+        new(PosDiscount, "Sales", "Give discounts and change prices at the POS"),
+        new(PosReturn, "Sales", "Take returns"),
+        new(PosVoidLine, "Sales", "Remove lines and cancel sales without a supervisor"),
+        new(PosVoidSale, "Sales", "Void a completed sale"),
+        new(PosNoSale, "Sales", "Open the drawer without a sale"),
+        new(PosDrawer, "Sales", "Open and count the drawer, pay in and pay out"),
+        new(PosEndOfDay, "Sales", "Run End of Day"),
+        new(PosApprove, "Sales", "Approve what needs a supervisor at another user's till"),
+
+        new(InventoryView, "Stock", "See items and stock"),
+        new(InventoryEdit, "Stock", "Add, change and delete items"),
+        new(InventoryAdjust, "Stock", "Adjust stock"),
+        new(InventoryCount, "Stock", "Count stock and post counts"),
+        new(InventoryTransfer, "Stock", "Send and receive transfers between stores"),
+        new(InventoryPrices, "Stock", "Change prices in bulk"),
+        new(InventoryLabels, "Stock", "Print labels"),
+        new(PurchasingManage, "Stock", "Purchase orders and receiving"),
+
+        new(ClientsView, "Customers", "See clients"),
+        new(ClientsEdit, "Customers", "Add and change clients"),
+        new(SuppliersEdit, "Customers", "Add and change suppliers"),
+        new(InvoicesManage, "Customers", "Invoices, quotes, layaways and their payments"),
+        new(RmaManage, "Customers", "Returns to suppliers and from customers (RMA)"),
+        new(GiftCardsIssue, "Customers", "Sell and reload gift cards"),
+
+        new(TimeClockPunch, "Staff", "Punch in and out"),
+        new(TimeClockEdit, "Staff", "Change time clock entries and commission rules"),
+
+        new(DashboardView, "Reports", "See the dashboard"),
+        new(ReportsView, "Reports", "Run reports"),
+        new(ReportsStaff, "Reports", "Staff hours and commission reports"),
+
+        new(SetupStore, "Back office", "Business, taxes, POS settings, tenders, lists and texts"),
+        new(SetupUsers, "Back office", "Users and roles"),
+        new(SetupStations, "Back office", "Stations and this station's settings"),
+        new(RfidManage, "Back office", "RFID readers and tags"),
+        new(BackupManage, "Back office", "Back up, restore and rebuild the database"),
+        new(ImportRun, "Back office", "Import Retail Plus data and CSV files"),
+        new(YearEndRun, "Back office", "Year end"),
+        new(AuditView, "Back office", "See the audit log"),
+        new(AccountingExport, "Back office", "Export to accounting"),
+        new(SyncSend, "Back office", "Send this till's data to the server"),
+
+        new(WebSignIn, "Web", "Sign in to the web back office"),
+        new(StoresManage, "Web", "Add stores and tills"),
+        new(StoresAll, "Web", "See and manage every store (super admin)"),
+    ];
+
+    public static bool IsKnown(string key) => All.Any(p => p.Key == key);
+
+    private static readonly string[] TraineeKeys = [PosSell, InventoryView, ClientsView, TimeClockPunch];
+    private static readonly string[] CashierKeys = [.. TraineeKeys, PosReturn, PosDrawer, ClientsEdit, GiftCardsIssue, SyncSend];
+    private static readonly string[] ClerkKeys = [.. CashierKeys, InventoryEdit, InventoryAdjust, InventoryCount, InventoryLabels, PurchasingManage, SuppliersEdit];
+    private static readonly string[] SupervisorKeys =
+        [.. ClerkKeys, PosDiscount, PosVoidLine, PosVoidSale, PosNoSale, PosEndOfDay, PosApprove, InvoicesManage, RmaManage, InventoryTransfer, DashboardView, ReportsView, TimeClockEdit];
+    private static readonly string[] ManagerKeys =
+        [.. SupervisorKeys, InventoryPrices, ReportsStaff, SetupStore, SetupStations, RfidManage, BackupManage, YearEndRun, AuditView, AccountingExport];
+
+    public const string TraineeRole = "Trainee";
+    public const string CashierRole = "Cashier";
+    public const string ClerkRole = "Stock clerk";
+    public const string SupervisorRole = "Supervisor";
+    public const string ManagerRole = "Manager";
+    public const string AdministratorRole = "Administrator";
+    public const string SuperAdministratorRole = "Super administrator";
+
+    /// <summary>
+    /// The roles of a new database. Cashiers, supervisors and managers work at the tills; administrators look after one
+    /// store, on the web and at its tills; super administrators see every store.
+    /// </summary>
+    public static IReadOnlyList<DefaultRole> DefaultRoles { get; } =
+    [
+        new(TraineeRole, 0, "Practice sales that are not kept", TraineeKeys),
+        new(CashierRole, 1, "Sales at the till", CashierKeys),
+        new(ClerkRole, 2, "Sales, items and receiving", ClerkKeys),
+        new(SupervisorRole, 3, "Approves voids, discounts and End of Day; reports", SupervisorKeys),
+        new(ManagerRole, 3, "Runs the store: prices, staff, setup, backups", ManagerKeys),
+        new(AdministratorRole, 4, "Everything for one store, at the tills and on the web", [.. All.Select(p => p.Key).Where(k => k != StoresAll)]),
+        new(SuperAdministratorRole, 4, "Everything, for every store", [.. All.Select(p => p.Key)]),
+    ];
+
+    /// <summary>The default role for a Retail Plus access level (users brought in by the importer).</summary>
+    public static string DefaultRoleForLevel(int level) => level switch
+    {
+        <= 0 => TraineeRole,
+        1 => CashierRole,
+        2 => ClerkRole,
+        3 => SupervisorRole,
+        _ => AdministratorRole,
+    };
+}

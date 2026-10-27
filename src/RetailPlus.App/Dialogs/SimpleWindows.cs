@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using RetailPlus.App.Infrastructure;
+using RetailPlus.Core.Rules;
 using RetailPlus.Data;
 using RetailPlus.Data.Services;
 using RetailPlus.Settings;
@@ -160,12 +161,11 @@ public sealed class LoginWindow : Window
             if (first != second) { _message.Text = "The two passwords were not the same."; return; }
             await AppServices.Setup.SaveUserAsync(user, first);
         }
-        AppServices.Session.UserName = user.UserName;
-        AppServices.Session.AccessLevel = user.AccessLevel;
+        AppServices.Session.SignIn(user);
         DialogResult = true;
     }
 
-    /// <summary>Asks a supervisor (level 3 or higher) to approve an action. True when approved.</summary>
+    /// <summary>Asks a supervisor (a user whose role may approve) to approve an action. True when approved.</summary>
     public static async Task<bool> SupervisorApprovesAsync(string action)
     {
         if (AppServices.Can(3) || AppServices.Unattended) return true;
@@ -173,13 +173,12 @@ public sealed class LoginWindow : Window
         if (string.IsNullOrWhiteSpace(name)) return false;
         var password = Ui.Prompt("Supervisor password:", "Supervisor", password: true);
         if (password is null) return false;
-        UserAccountCheck? check = await AppServices.Setup.AuthenticateAsync(name, password) is { } u ? new UserAccountCheck(u.AccessLevel, u.PasswordHash is not null) : null;
-        if (check is { Level: >= 3, HasPassword: true }) return true;
+        var approver = await AppServices.Setup.AuthenticateAsync(name, password);
+        if (approver is { PasswordHash: not null } && SetupService.PermissionsOf(approver).Contains(Permissions.PosApprove)) return true;
         Ui.Error("That user cannot approve this.");
         return false;
     }
 
-    private sealed record UserAccountCheck(int Level, bool HasPassword);
 }
 
 /// <summary>Picks an item by searching the inventory.</summary>

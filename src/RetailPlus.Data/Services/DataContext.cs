@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using RetailPlus.Core.Model;
 
 namespace RetailPlus.Data.Services;
 
@@ -55,10 +56,24 @@ public sealed class SessionInfo
     public int StationNumber { get; set; } = 1;
     public Guid LocationId { get; set; }
     public string LocationCode { get; set; } = "";
+    public Guid? UserId { get; set; }
     public string UserName { get; set; } = "Admin";
     /// <summary>0 trainee, 1 sales only, 2 add/change, 3 supervisor, 4 administrator.</summary>
     public int AccessLevel { get; set; } = 4;
     public bool IsTrainee => AccessLevel == 0;
+    /// <summary>What the user's role allows; everything until someone signs in (a database without users).</summary>
+    public IReadOnlySet<string> Permissions { get; set; } = RetailPlus.Core.Rules.Permissions.All.Select(p => p.Key).ToHashSet(StringComparer.Ordinal);
+
+    public bool Can(string permission) => Permissions.Contains(permission);
+
+    /// <summary>Works as the given user from now on.</summary>
+    public void SignIn(UserAccount user)
+    {
+        UserId = user.Id;
+        UserName = user.UserName;
+        AccessLevel = user.AccessLevel;
+        Permissions = SetupService.PermissionsOf(user);
+    }
 }
 
 /// <summary>A save was rejected because someone else changed the record first.</summary>
