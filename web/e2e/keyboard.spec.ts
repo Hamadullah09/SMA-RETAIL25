@@ -50,9 +50,14 @@ test('Ctrl+1 … Ctrl+0 open the first ten pages and / finds in a list', async (
   await page.keyboard.press('Control+2');
   await expect(page).toHaveURL(/\/tills\/$/);
 
-  // A button's key presses it: Ctrl+N on Tills enrols a till.
-  await page.keyboard.press('Control+n');
+  // A button's key presses it: Alt+N (the desktop's Ctrl+N, which Chrome keeps for a new window) enrols a till.
+  await expect(page.getByRole('button', { name: /Enrol a till/ }).locator('kbd')).toHaveText('Alt+N');
+  await page.keyboard.press('Alt+n');
   const enrol = page.getByRole('dialog', { name: 'Enrol a till' });
+  await expect(enrol).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(enrol).toBeHidden();
+  await page.keyboard.press('Control+n');
   await expect(enrol).toBeVisible();
   await enrol.getByRole('button', { name: /Get a code/ }).click();
   await expect(page.getByTestId('enrolment-code')).toHaveText('K7Q2-9XMB');

@@ -77,6 +77,14 @@ for (const [size, viewport] of SIZES) {
       await page.screenshot({ animations: 'disabled', path: join(dir, `${size}-23-enrolment-code.png`) });
     });
 
+    test('report printout', async ({ page }) => {
+      await mockApi(page);
+      await page.goto('/reports/view/?key=daily');
+      await expect(page.getByRole('table', { name: 'Daily sales summary' })).toBeVisible();
+      await page.emulateMedia({ media: 'print' });
+      await page.screenshot({ animations: 'disabled', fullPage: true, path: join(dir, `${size}-24-report-print.png`) });
+    });
+
     test('palette', async ({ page }) => {
       await mockApi(page);
       await page.goto('/');

@@ -91,7 +91,10 @@ export const textPairs: ReadonlyArray<readonly [ColorToken, ColorToken]> = [
   ['cream', 'charcoal'],
   ['sunLight', 'charcoal'],
   ['danger', 'card'],
+  ['danger', 'rowAlt'],
   ['ok', 'card'],
+  ['ok', 'rowAlt'],
+  ['muted', 'page80'],
   ['dangerInk', 'dangerLight'],
   ['okInk', 'okLight'],
 ];

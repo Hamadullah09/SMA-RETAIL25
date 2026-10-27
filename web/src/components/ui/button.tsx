@@ -38,10 +38,28 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children?: ReactNode;
 }
 
+/**
+ * Desktop keys a browser keeps for itself, and what the web shows instead: Chrome opens a new window on Ctrl+N
+ * whatever the page does. The desktop key stays bound for browsers that let it through.
+ */
+const BROWSER_KEEPS: Record<string, string> = { 'Ctrl+N': 'Alt+N' };
+
+/** The key to show on the cap. */
+export function shownKey(shortcut: string): string {
+  return BROWSER_KEEPS[shortcut] ?? shortcut;
+}
+
 function bindable(shortcut?: string): string | null {
   if (!shortcut) return null;
   const lower = shortcut.toLowerCase();
   return lower === 'enter' || lower === 'esc' ? null : shortcut;
+}
+
+/** Binds the button's key (and the desktop's, where the web shows another). */
+function useButtonKeys(shortcut: string | undefined, press: () => void, enabled = true) {
+  const shown = shortcut ? shownKey(shortcut) : undefined;
+  useHotkey(bindable(shown), press, enabled);
+  useHotkey(shown !== shortcut ? bindable(shortcut) : null, press, enabled);
 }
 
 /** A pill, at least 48 px high: icon, label and key cap. `sun` is the main action of a screen. */
@@ -51,7 +69,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 ) {
   const inner = useRef<HTMLButtonElement>(null);
   useImperativeHandle(ref, () => inner.current as HTMLButtonElement);
-  useHotkey(bindable(shortcut), () => inner.current?.click(), !disabled && !busy);
+  useButtonKeys(shortcut, () => inner.current?.click(), !disabled && !busy);
 
   return (
     <button
@@ -59,13 +77,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       type={type}
       disabled={disabled || busy}
       aria-busy={busy || undefined}
-      aria-keyshortcuts={shortcut}
+      aria-keyshortcuts={shortcut && shownKey(shortcut)}
       className={cx('btn', VARIANT[variant], className)}
       {...rest}
     >
       {Icon && <Icon className={cx('h-5 w-5 shrink-0', busy && 'animate-pulse')} strokeWidth={1.9} aria-hidden="true" />}
       {children !== undefined && <span className={cx(compact && Icon && 'max-sm:sr-only')}>{children}</span>}
-      {shortcut && <KeyCap keys={shortcut} className={cx(compact ? 'max-md:hidden' : 'max-sm:hidden')} />}
+      {shortcut && <KeyCap keys={shownKey(shortcut)} className={cx(compact ? 'max-md:hidden' : 'max-sm:hidden')} />}
     </button>
   );
 });
@@ -87,12 +105,12 @@ export function LinkButton({
   children: ReactNode;
 }) {
   const ref = useRef<HTMLAnchorElement>(null);
-  useHotkey(bindable(shortcut), () => ref.current?.click());
+  useButtonKeys(shortcut, () => ref.current?.click());
   return (
-    <Link ref={ref} href={href} className={cx('btn', VARIANT[variant], className)} aria-keyshortcuts={shortcut}>
+    <Link ref={ref} href={href} className={cx('btn', VARIANT[variant], className)} aria-keyshortcuts={shortcut && shownKey(shortcut)}>
       {Icon && <Icon className="h-5 w-5 shrink-0" strokeWidth={1.9} aria-hidden="true" />}
       <span>{children}</span>
-      {shortcut && <KeyCap keys={shortcut} className="max-sm:hidden" />}
+      {shortcut && <KeyCap keys={shownKey(shortcut)} className="max-sm:hidden" />}
     </Link>
   );
 }

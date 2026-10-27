@@ -4,7 +4,7 @@ import { X } from 'lucide-react';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { ApiError } from '@/lib/api';
+import { api, ApiError } from '@/lib/api';
 import { HotkeyScope, useHotkey, useHotkeyMap } from '@/lib/hotkeys';
 import { canOpen, homeFor, navFor, navKeyForPath, pageForPath } from '@/lib/nav';
 import { SessionProvider, useMe, useSession } from '@/lib/session';
@@ -33,10 +33,24 @@ export function AppShell({ children }: { children: ReactNode }) {
     );
   }
   if (me.error && !(me.error instanceof ApiError && me.error.status === 401)) {
+    const forbidden = me.error instanceof ApiError && me.error.isForbidden;
     return (
       <div className="grid min-h-screen place-items-center p-6">
-        <div className="card w-full max-w-lg">
-          <ErrorState error={me.error} onRetry={() => void me.refetch()} />
+        <div className="card w-full max-w-lg pb-6">
+          <ErrorState error={me.error} onRetry={forbidden ? undefined : () => void me.refetch()} />
+          {forbidden && (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                className="btn btn-dark"
+                onClick={() => {
+                  void api.signOut().finally(() => window.location.assign('/sign-in/'));
+                }}
+              >
+                Sign in as someone else
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );

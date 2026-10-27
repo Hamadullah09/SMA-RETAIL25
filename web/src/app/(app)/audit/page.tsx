@@ -95,7 +95,7 @@ export default function AuditPage() {
         ]}
         footer={query.data && <Pager page={page} pageSize={PAGE_SIZE} total={query.data.total} onPage={setPage} noun="lines" />}
       />
-      <p className="mt-2 px-1 text-ink">Choose a line to see what changed. Changes made on the web are logged at station 000.</p>
+      <p className="mt-2 px-1 text-ink">Choose a line to see what changed.</p>
       {open && <AuditPanel row={open} onClose={() => setOpen(null)} />}
     </div>
   );

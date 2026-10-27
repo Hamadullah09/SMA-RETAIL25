@@ -58,9 +58,9 @@ export default function GiftCardsPage() {
             { key: 'n', header: 'Number', cell: (g) => <span className="whitespace-nowrap font-semibold">{g.number}</span> },
             { key: 'bal', header: 'Balance', numeric: true, cell: (g) => formatMoney(g.balance, symbol) },
             { key: 'kind', header: 'Kind', cell: (g) => label(GIFT_CARD_KINDS, g.kind), hideBelow: 'md' },
-            { key: 'client', header: 'Client', cell: (g) => g.client ?? '', hideBelow: 'lg' },
-            { key: 'issued', header: 'Issued', cell: (g) => formatDate(g.issuedAt.slice(0, 10)), hideBelow: 'sm' },
-            { key: 'exp', header: 'Expires', cell: (g) => (g.expiresOn ? formatDate(g.expiresOn) : 'Never'), hideBelow: 'xl' },
+            { key: 'client', header: 'Client', cell: (g) => g.client ?? '', hideBelow: '2xl' },
+            { key: 'issued', header: 'Issued', cell: (g) => formatDate(g.issuedAt.slice(0, 10)), hideBelow: '2xl' },
+            { key: 'exp', header: 'Expires', cell: (g) => (g.expiresOn ? formatDate(g.expiresOn) : 'Never'), hideBelow: '2xl' },
             { key: 'active', header: 'Status', cell: (g) => (g.isActive ? <Chip tone="ok">Active</Chip> : <Chip>Inactive</Chip>), hideBelow: 'md' },
           ]}
           footer={query.data && <Pager page={page} pageSize={PAGE_SIZE} total={query.data.total} onPage={setPage} noun="cards" />}
