@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\RetailPlus.Core\RetailPlus.Core.csproj" />
+    <ProjectReference Include="..\RetailPlus.Data\RetailPlus.Data.csproj" />
+    <ProjectReference Include="..\RetailPlus.Data.Sqlite\RetailPlus.Data.Sqlite.csproj" />
+    <ProjectReference Include="..\RetailPlus.Data.SqlServer\RetailPlus.Data.SqlServer.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="RetailPlus.Cutover.Tests" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>RetailPlus.Cutover</AssemblyName>
+  </PropertyGroup>
+
+</Project>
