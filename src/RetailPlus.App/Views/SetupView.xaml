@@ -68,16 +68,23 @@
             </TabItem>
             <TabItem Header="Options">
                 <StackPanel Margin="12" MaxWidth="700" HorizontalAlignment="Left">
-                    <TextBlock Text="Bonus points" Style="{StaticResource SectionTitle}" />
-                    <CheckBox IsChecked="{Binding BonusPointsEnabled}" Content="Give clients bonus points" Margin="0,0,0,8" />
-                    <CheckBox IsChecked="{Binding PrintPointsOnSlips}" Content="Print points on receipts" Margin="0,0,0,8" />
-                    <DockPanel><TextBlock Text="Points per dollar" Style="{StaticResource L}" /><TextBox Text="{Binding PointsPerDollar}" Width="120" HorizontalAlignment="Left" /></DockPanel>
-                    <DockPanel><TextBlock Text="Points needed for a reward" Style="{StaticResource L}" /><TextBox Text="{Binding PointsRequired}" Width="120" HorizontalAlignment="Left" /></DockPanel>
-                    <DockPanel><CheckBox IsChecked="{Binding PercentDiscountReward}" Content="Reward is a discount of (%)" Width="250" /><TextBox Text="{Binding RewardPercent}" Width="120" HorizontalAlignment="Left" /></DockPanel>
-                    <DockPanel><CheckBox IsChecked="{Binding FixedDiscountReward}" Content="Reward is (up to) an amount of" Width="250" /><TextBox Text="{Binding RewardAmount}" Width="120" HorizontalAlignment="Left" /></DockPanel>
                     <TextBlock Text="Overdue accounts" Style="{StaticResource SectionTitle}" />
                     <DockPanel><TextBlock Text="Interest per month %" Style="{StaticResource L}" /><TextBox Text="{Binding InterestRatePerMonth}" Width="120" HorizontalAlignment="Left" /></DockPanel>
                     <DockPanel><TextBlock Text="Grace period (days)" Style="{StaticResource L}" /><TextBox Text="{Binding GracePeriodDays}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Loyalty">
+                <StackPanel Margin="12" MaxWidth="760" HorizontalAlignment="Left">
+                    <TextBlock Text="Bonus points" Style="{StaticResource SectionTitle}" />
+                    <CheckBox IsChecked="{Binding BonusPointsEnabled}" Content="Give clients bonus points" Margin="0,0,0,8" />
+                    <CheckBox IsChecked="{Binding PrintPointsOnSlips}" Content="Print the points earned on receipts" Margin="0,0,0,8" />
+                    <DockPanel><TextBlock Text="Points per dollar spent" Style="{StaticResource L}" /><TextBox Text="{Binding PointsPerDollar}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    <TextBlock Text="Reward" Style="{StaticResource SectionTitle}" />
+                    <DockPanel><TextBlock Text="Points needed for a reward" Style="{StaticResource L}" /><TextBox Text="{Binding PointsRequired}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><CheckBox IsChecked="{Binding PercentDiscountReward}" Content="Reward is a discount of (%)" Width="250" /><TextBox Text="{Binding RewardPercent}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    <DockPanel><CheckBox IsChecked="{Binding FixedDiscountReward}" Content="Reward is (up to) an amount of" Width="250" /><TextBox Text="{Binding RewardAmount}" Width="120" HorizontalAlignment="Left" /></DockPanel>
+                    <TextBlock Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,12,0,0"
+                               Text="Clients earn points on what they spend before taxes, but not on a sale with a discount on the whole sale. At the Point of Sale, Use points gives the reward and takes the points needed. Every point earned, used or corrected is kept on the client's Points tab, and the client's points are the total of that history. Both a percent and an amount: the discount is the percent, up to the amount." />
                 </StackPanel>
             </TabItem>
             <TabItem Header="Users">
@@ -100,18 +107,29 @@
                 </DockPanel>
             </TabItem>
             <TabItem Header="Payments">
-                <DockPanel Margin="12">
-                    <TextBlock DockPanel.Dock="Top" Foreground="{StaticResource Muted}" Margin="0,0,0,8" Text="Tender types offered on the Pay window, in this order." />
-                    <DataGrid x:Name="TendersGrid" AutoGenerateColumns="False" CanUserAddRows="True" HeadersVisibility="Column" MaxWidth="760" HorizontalAlignment="Left">
+                <StackPanel Margin="12" HorizontalAlignment="Left">
+                    <TextBlock Foreground="{StaticResource Muted}" Margin="0,0,0,8" TextWrapping="Wrap" MaxWidth="900"
+                               Text="Tender types offered on the Pay window, in this order. A tender with a currency takes that currency: the Pay window converts with the exchange rate below, and change is given in home currency." />
+                    <DataGrid x:Name="TendersGrid" AutoGenerateColumns="False" CanUserAddRows="True" HeadersVisibility="Column" MaxWidth="900" MaxHeight="380" HorizontalAlignment="Left">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200" />
                             <DataGridComboBoxColumn x:Name="KindColumn" Header="Kind" SelectedItemBinding="{Binding Kind}" Width="140" />
                             <DataGridTextColumn Header="Order" Binding="{Binding SortOrder}" Width="80" />
                             <DataGridCheckBoxColumn Header="Opens drawer" Binding="{Binding OpensDrawer}" Width="120" />
                             <DataGridCheckBoxColumn Header="Active" Binding="{Binding IsActive}" Width="80" />
+                            <DataGridTextColumn Header="Currency" Binding="{Binding Currency}" Width="110" />
                         </DataGrid.Columns>
                     </DataGrid>
-                </DockPanel>
+                    <TextBlock Text="Exchange rates" Style="{StaticResource SectionTitle}" Margin="0,18,0,6" />
+                    <TextBlock Foreground="{StaticResource Muted}" Margin="0,0,0,8" TextWrapping="Wrap" MaxWidth="900"
+                               Text="How many units of each currency one unit of home currency buys (for example USD 0.0036)." />
+                    <DataGrid x:Name="FxGrid" AutoGenerateColumns="False" CanUserAddRows="True" HeadersVisibility="Column" Width="380" MaxHeight="260" HorizontalAlignment="Left">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Currency" Binding="{Binding Currency}" Width="130" />
+                            <DataGridTextColumn Header="Rate" Binding="{Binding Rate}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </StackPanel>
             </TabItem>
             <TabItem Header="Lists">
                 <Grid Margin="12">

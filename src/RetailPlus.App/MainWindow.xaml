@@ -49,6 +49,9 @@
                         <TextBlock Text="SMA RETAIL" FontFamily="{StaticResource DisplayFont}" FontSize="26" FontWeight="Bold" VerticalAlignment="Center" Margin="8,0,0,0" />
                     </StackPanel>
                 </Border>
+                <Border x:Name="StoreLogoFrame" Visibility="Collapsed" Background="{StaticResource CardSolid}" CornerRadius="14" Padding="8,4" Margin="14,0,0,0" VerticalAlignment="Center">
+                    <Image x:Name="StoreLogo" Height="50" MaxWidth="180" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" ToolTip="The store's logo (Setup › Branding)" />
+                </Border>
                 <StackPanel Margin="18,0,0,0" VerticalAlignment="Center">
                     <TextBlock x:Name="StoreName" FontSize="18" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="420" />
                     <TextBlock x:Name="StationText" Foreground="{StaticResource Muted}" FontSize="15" />

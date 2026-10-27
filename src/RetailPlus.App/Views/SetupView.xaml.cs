@@ -12,7 +12,10 @@ public partial class SetupView : UserControl, IRefreshable
     private StoreSettings _settings = new();
     private ObservableCollection<TaxConfiguration> _taxes = [];
     private ObservableCollection<TenderType> _tenders = [];
+    private ObservableCollection<FxRate> _fx = [];
     private List<FastKey> _keys = [];
+    private readonly AccountingSetupPanel? _accounting;
+    private readonly BrandingSetupPanel? _branding;
 
     public SetupView()
     {
@@ -32,6 +35,13 @@ public partial class SetupView : UserControl, IRefreshable
         ProviderBox.ItemsSource = Enum.GetValues<Data.DatabaseProvider>();
         StationPanel.DataContext = AppServices.Config;
         StationFile.Text = $"These settings belong to this computer only and are kept in {AppServices.Config.FilePath}. Restart the program after changing the database, station or location.";
+        // Accounting and branding have their own Save buttons, so they come in from code; This station stays last.
+        int at = Tabs.Items.OfType<TabItem>().ToList().FindIndex(t => Equals(t.Header, "Users"));
+        if (at < 0) at = Tabs.Items.Count - 1;
+        if (AppServices.Can(Core.Rules.Permissions.SetupStore))
+            Tabs.Items.Insert(at, new TabItem { Header = "Branding", Content = _branding = new BrandingSetupPanel() });
+        if (AppServices.Can(Core.Rules.Permissions.AccountingExport))
+            Tabs.Items.Insert(at, new TabItem { Header = "Accounting", Content = _accounting = new AccountingSetupPanel() });
     }
 
     private static List<string> InstalledPrinters()
@@ -56,6 +66,10 @@ public partial class SetupView : UserControl, IRefreshable
         TaxGrid.ItemsSource = _taxes;
         _tenders = new(await AppServices.Setup.GetTenderTypesAsync(false));
         TendersGrid.ItemsSource = _tenders;
+        _fx = new(await AppServices.Setup.GetFxRatesAsync());
+        FxGrid.ItemsSource = _fx;
+        if (_accounting is not null) await _accounting.LoadAsync();
+        if (_branding is not null) await _branding.LoadAsync();
         UsersGrid.ItemsSource = await AppServices.Setup.GetUsersAsync();
         DeptList.ItemsSource = await AppServices.Setup.GetDepartmentsAsync();
         CatList.ItemsSource = await AppServices.Setup.GetCategoriesAsync();
@@ -79,11 +93,12 @@ public partial class SetupView : UserControl, IRefreshable
 
     private async void Save_Click(object sender, RoutedEventArgs e)
     {
-        TaxGrid.CommitEdit(); TendersGrid.CommitEdit(); KeysGrid.CommitEdit();
+        TaxGrid.CommitEdit(); TendersGrid.CommitEdit(); KeysGrid.CommitEdit(); FxGrid.CommitEdit();
         await Ui.Try(async () =>
         {
             await AppServices.Setup.SaveSettingsAsync(_settings);
             await AppServices.Setup.SaveTaxConfigurationsAsync(_taxes);
+            await AppServices.Setup.SaveFxRatesAsync(_fx);
             await AppServices.Setup.SaveTenderTypesAsync(_tenders);
             await AppServices.Setup.SetTextAsync(DocumentTextKind.InvoiceHeader, HeaderBox.Text);
             await AppServices.Setup.SetTextAsync(DocumentTextKind.InvoiceFooter, FooterBox.Text);

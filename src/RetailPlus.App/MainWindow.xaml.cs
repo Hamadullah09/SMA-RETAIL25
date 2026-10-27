@@ -11,8 +11,14 @@ using RetailPlus.App.Views;
 
 namespace RetailPlus.App;
 
-/// <summary>A screen of the program, created on first use.</summary>
-public sealed record NavEntry(string Key, string Title, string Glyph, int MinimumLevel, Func<UserControl> Create, string? Shortcut = null);
+/// <summary>
+/// A screen of the program, created on first use. It is listed for users of at least <see cref="MinimumLevel"/> whose
+/// role has <see cref="Permission"/> (a key of <see cref="Core.Rules.Permissions"/>), when one is given.
+/// </summary>
+public sealed record NavEntry(string Key, string Title, string Glyph, int MinimumLevel, Func<UserControl> Create, string? Shortcut = null, string? Permission = null)
+{
+    public bool IsAllowed => AppServices.Can(MinimumLevel) && (Permission is null || AppServices.Can(Permission));
+}
 
 /// <summary>Views that reload their data when shown.</summary>
 public interface IRefreshable
@@ -35,6 +41,9 @@ public partial class MainWindow : Window
         new("invoices", "Invoices & A/R", "", 2, () => new InvoicesView(), "Ctrl+7"),
         new("po", "Purchase Orders", "", 2, () => new PurchaseOrdersView(), "Ctrl+8"),
         new("orders", "Orders & RMAs", "", 1, () => new CustomerOrdersView(), "Ctrl+9"),
+        new("counts", "Stock counts", "", 1, () => new StockCountsView(), "Ctrl+Shift+C", Core.Rules.Permissions.InventoryCount),
+        new("transfers", "Transfers", "", 1, () => new TransfersView(), "Ctrl+Shift+M", Core.Rules.Permissions.InventoryTransfer),
+        new("giftcards", "Gift cards", "", 1, () => new GiftCardsView(), "Ctrl+Shift+V", Core.Rules.Permissions.GiftCardsIssue),
         new("reports", "Reports", "", 2, () => new ReportsView(), "Ctrl+0"),
         new("rfid", "RFID readers", "\uE704", 3, () => new RfidView(), "Ctrl+Shift+R"),
         new("tools", "Tools", "", 3, () => new ToolsView(), "Ctrl+Shift+T"),
@@ -120,10 +129,18 @@ public partial class MainWindow : Window
         StationText.Text = $"Station {s.StationNumber:000}  ·  Location {s.LocationCode}";
         DatabaseText.Text = $"Database {AppServices.Data.DatabaseName}";
         Title = string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? Brand.Name : $"{Brand.Name} — {AppServices.Settings.CompanyName}";
+        ShowStoreLogo();
         var selected = (Nav.SelectedItem as NavEntry)?.Key;
-        Nav.ItemsSource = AllEntries.Where(e => AppServices.Can(e.MinimumLevel)).ToList();
+        Nav.ItemsSource = AllEntries.Where(e => e.IsAllowed).ToList();
         _views.Clear();
         Nav.SelectedItem = ((IEnumerable<NavEntry>)Nav.ItemsSource).FirstOrDefault(e => e.Key == selected) ?? ((IEnumerable<NavEntry>)Nav.ItemsSource).First();
+    }
+
+    /// <summary>The store's logo next to the store name, when Setup › Branding has one.</summary>
+    public void ShowStoreLogo()
+    {
+        StoreLogo.Source = AppServices.Logo;
+        StoreLogoFrame.Visibility = AppServices.Logo is null ? Visibility.Collapsed : Visibility.Visible;
     }
 
     public void SetStatus(string text) => StatusText.Text = text;
@@ -294,6 +311,10 @@ public partial class MainWindow : Window
             return new ItemEditorWindow(item);
         });
         await Shoot("login", () => Task.FromResult<Window>(new LoginWindow()));
+        await Shoot("giftcard", () => Task.FromResult<Window>(new GiftCardSaleWindow("Gift card", 50m)));
+        await Shoot("prices", async () => new PriceChangeWindow(
+            (await AppServices.Inventory.PreviewPriceChangesAsync(AppServices.Session.LocationId, new Data.Services.PriceRule(Data.Services.PriceChangeMethod.Percent, 5, 0.99m), false, null)).Take(30).ToList(),
+            "Price 1 +5%, rounded up to end in .99"));
         await Shoot("reader", async () =>
         {
             var reader = (await AppServices.RfidData.GetReadersAsync()).FirstOrDefault() ?? Data.Services.RfidService.NewReader("Reader 1");

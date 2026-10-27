@@ -161,6 +161,7 @@ public static class Ui
         {
             PagePadding = new Thickness(48), ColumnWidth = double.PositiveInfinity, PageWidth = dlg.PrintableAreaWidth, PageHeight = dlg.PrintableAreaHeight,
         };
+        AddBranding(doc);
         dlg.PrintDocument(((IDocumentPaginatorSource)doc).DocumentPaginator, title);
     }
 
@@ -173,6 +174,7 @@ public static class Ui
         var culture = CultureInfo.CurrentCulture;
         var doc = new FlowDocument { PagePadding = new Thickness(40), ColumnWidth = double.PositiveInfinity, FontFamily = new FontFamily("Segoe UI"), FontSize = 10,
             PageWidth = dlg.PrintableAreaWidth, PageHeight = dlg.PrintableAreaHeight };
+        AddBranding(doc);
         doc.Blocks.Add(new Paragraph(new Run(report.Title)) { FontSize = 16, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0) });
         doc.Blocks.Add(new Paragraph(new Run($"{report.Subtitle} · {AppServices.Settings.CompanyName} · {report.GeneratedAt:g}")) { Foreground = Brushes.Gray });
         var table = new Table { CellSpacing = 0 };
@@ -184,6 +186,19 @@ public static class Ui
         table.RowGroups.Add(group);
         doc.Blocks.Add(table);
         dlg.PrintDocument(((IDocumentPaginatorSource)doc).DocumentPaginator, report.Title);
+    }
+
+    /// <summary>The store's logo at the top of a printed page and its watermark faintly behind every page (Setup › Branding).</summary>
+    public static void AddBranding(FlowDocument doc)
+    {
+        if (AppServices.Logo is { } logo)
+        {
+            var block = new BlockUIContainer(new System.Windows.Controls.Image { Source = logo, Height = 48, HorizontalAlignment = HorizontalAlignment.Left }) { Margin = new Thickness(0, 0, 0, 8) };
+            if (doc.Blocks.FirstBlock is { } first) doc.Blocks.InsertBefore(first, block);
+            else doc.Blocks.Add(block);
+        }
+        if (AppServices.Watermark is { } watermark)
+            doc.Background = new ImageBrush(watermark) { Opacity = 0.07, Stretch = Stretch.Uniform };
     }
 
     private static TableRow Row(IEnumerable<string> cells, ReportTable report, bool bold)

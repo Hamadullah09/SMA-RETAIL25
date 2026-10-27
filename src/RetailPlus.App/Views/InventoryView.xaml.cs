@@ -156,12 +156,18 @@ public partial class InventoryView : UserControl, IRefreshable
     private async void ClearFlags_Click(object sender, RoutedEventArgs e) =>
         await Ui.Try(async () => { await AppServices.Inventory.ClearFlagsAsync(LocationId); await RefreshAsync(); });
 
+    /// <summary>Change prices: a rule, the items it reaches, and a preview of every new price before anything changes.</summary>
     private async void ChangePrices_Click(object sender, RoutedEventArgs e)
     {
-        var how = Ui.Choose("How should Price 1 change?", ["By a percentage (e.g. +5 or -10)", "From cost, to a gross margin"], "Change prices");
+        if (!AppServices.Can(Core.Rules.Permissions.InventoryPrices)) { Ui.Error("Your role cannot change prices in bulk."); return; }
+        var methods = new[] { PriceChangeMethod.Percent, PriceChangeMethod.Margin, PriceChangeMethod.Amount };
+        var how = Ui.Choose("How should Price 1 change?", ["By a percentage (e.g. +5 or -10)", "From cost, to a gross margin", "By an amount (e.g. +0.50 or -1)"], "Change prices");
         if (how < 0) return;
-        var value = Ui.PromptDecimal(how == 0 ? "Percent change:" : "Gross margin in percent:", "Change prices");
+        var value = Ui.PromptDecimal(how switch { 0 => "Percent change:", 1 => "Gross margin in percent:", _ => "Amount to add (negative to take off):" }, "Change prices");
         if (value is null) return;
+        decimal?[] endings = [null, 0.99m, 0.95m, 0.00m];
+        int ending = Ui.Choose("Round the new prices?", ["No, keep them to the cent", "Up to end in .99", "Up to end in .95", "Up to a whole amount"], "Change prices");
+        if (ending < 0) return;
         var scope = Ui.Choose("Which items?", ["Flagged items", "One department", "All items in this location"], "Change prices");
         if (scope < 0) return;
         string? dept = null;
@@ -172,11 +178,47 @@ public partial class InventoryView : UserControl, IRefreshable
             if (d < 0) return;
             dept = depts[d];
         }
-        if (!Ui.Confirm("Change the prices now? This cannot be undone.")) return;
+        var rule = new PriceRule(methods[how], value.Value, endings[ending]);
+        var text = (how switch
+        {
+            0 => $"Price 1 {value.Value:+0.##;-0.##}%",
+            1 => $"Price 1 from cost at a {value.Value:0.##}% margin",
+            _ => $"Price 1 {value.Value:+0.00;-0.00}",
+        }) + (endings[ending] is decimal end ? $", rounded up to end in {end:.00}" : "") + (scope == 0 ? ", flagged items" : dept is not null ? $", department {dept}" : ", every item");
         await Ui.Try(async () =>
         {
-            int n = await AppServices.Inventory.ChangePricesAsync(LocationId, value.Value, scope == 0, dept, fromMargin: how == 1, margin: value.Value);
-            Ui.Info($"{n} prices changed.");
+            var preview = await AppServices.Inventory.PreviewPriceChangesAsync(LocationId, rule, scope == 0, dept);
+            if (preview.Count == 0)
+            {
+                Ui.Info("No price would change.");
+                return;
+            }
+            var window = new PriceChangeWindow(preview, text) { Owner = Window.GetWindow(this) };
+            if (window.ShowDialog() == true) ((MainWindow)Window.GetWindow(this)).SetStatus($"{window.Applied} price(s) changed.");
+            await RefreshAsync();
+        });
+    }
+
+    /// <summary>Break case: cases of the case item become units of the item that names it.</summary>
+    private async void BreakCase_Click(object sender, RoutedEventArgs e)
+    {
+        if (Current is not { } row) return;
+        if (!AppServices.Can(Core.Rules.Permissions.InventoryAdjust)) { Ui.Error("Your role cannot change stock."); return; }
+        CaseLink? link = null;
+        if (!await Ui.Try(async () => link = await AppServices.Inventory.FindCaseLinkAsync(row.Id))) return;
+        if (link is null)
+        {
+            Ui.Info($"{row.Name} is not part of a case. Open the unit item (the single piece), and on its Special tab enter the case item's stock code "
+                    + "as Parent (case) item and how many units one case holds.");
+            return;
+        }
+        var cases = Ui.PromptDecimal($"Break how many cases of {link.CasePlu} {link.CaseName} ({link.CasesOnHand:0.###} on hand)? "
+                                     + $"Each holds {link.UnitsPerCase:0.###} x {link.UnitPlu} {link.UnitName}.", "Break case", 1);
+        if (cases is null) return;
+        await Ui.Try(async () =>
+        {
+            var after = await AppServices.Inventory.BreakCaseAsync(link.UnitItemId, cases.Value, AppServices.Session.UserName);
+            ((MainWindow)Window.GetWindow(this)).SetStatus($"{link.CasePlu}: {after.CasesOnHand:0.###} case(s) left · {link.UnitPlu}: {after.UnitsOnHand:0.###} on hand");
             await RefreshAsync();
         });
     }

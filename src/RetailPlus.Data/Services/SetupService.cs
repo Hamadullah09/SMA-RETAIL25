@@ -371,9 +371,13 @@ public sealed class SetupService(DataContext data)
     public async Task SaveTenderTypesAsync(IEnumerable<TenderType> tenders)
     {
         await using var db = data.Create();
+        var currencies = await db.FxRates.Select(r => r.Currency).ToListAsync();
         foreach (var t in tenders)
         {
             if (string.IsNullOrWhiteSpace(t.Name)) continue;
+            t.Currency = string.IsNullOrWhiteSpace(t.Currency) ? null : t.Currency.Trim().ToUpperInvariant();
+            if (t.Currency is not null && !currencies.Contains(t.Currency, StringComparer.OrdinalIgnoreCase))
+                throw new BusinessRuleException($"{t.Name}: there is no exchange rate for {t.Currency}. Add the rate first.");
             if (t.Id == Guid.Empty) db.TenderTypes.Add(t);
             else db.TenderTypes.Update(t);
         }
@@ -452,12 +456,29 @@ public sealed class SetupService(DataContext data)
         return await db.FxRates.AsNoTracking().OrderBy(r => r.Currency).ToListAsync();
     }
 
+    /// <summary>
+    /// Saves the exchange rates (units of each currency one unit of home currency buys). Rows are changed in place and
+    /// removed one by one, so the change reaches the other tills; a currency a tender still takes cannot be removed.
+    /// </summary>
     public async Task SaveFxRatesAsync(IEnumerable<FxRate> rates)
     {
+        var wanted = rates.Where(r => !string.IsNullOrWhiteSpace(r.Currency) && r.Rate > 0)
+            .GroupBy(r => r.Currency.Trim().ToUpperInvariant()).ToDictionary(g => g.Key, g => g.Last().Rate);
         await using var db = data.Create();
-        await db.FxRates.ExecuteDeleteAsync();
-        foreach (var r in rates.Where(r => !string.IsNullOrWhiteSpace(r.Currency) && r.Rate > 0))
-            db.FxRates.Add(new FxRate { Currency = r.Currency.Trim().ToUpperInvariant(), Rate = r.Rate });
+        var existing = await db.FxRates.ToListAsync();
+        var used = await db.TenderTypes.Where(t => t.Currency != null).Select(t => t.Currency!).ToListAsync();
+        foreach (var row in existing.Where(r => !wanted.ContainsKey(r.Currency)))
+        {
+            if (used.Contains(row.Currency, StringComparer.OrdinalIgnoreCase))
+                throw new BusinessRuleException($"A tender takes {row.Currency}; change that tender before removing its rate.");
+            db.FxRates.Remove(row);
+        }
+        foreach (var (currency, rate) in wanted)
+        {
+            var row = existing.FirstOrDefault(r => string.Equals(r.Currency, currency, StringComparison.OrdinalIgnoreCase));
+            if (row is null) db.FxRates.Add(new FxRate { Currency = currency, Rate = rate });
+            else row.Rate = rate;
+        }
         await db.SaveChangesAsync();
     }
 

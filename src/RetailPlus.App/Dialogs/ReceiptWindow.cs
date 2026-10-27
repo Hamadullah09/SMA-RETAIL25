@@ -143,7 +143,7 @@ public static class ReceiptPaper
         var display = new FontFamily("Century Gothic, Segoe UI");
         var body = new StackPanel { Margin = new Thickness(18, 20, 18, 8) };
 
-        body.Children.Add(new Image { Source = Brand.Mark, Height = 62, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 6) });
+        body.Children.Add(new Image { Source = AppServices.Logo ?? Brand.Mark, Height = 62, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 6) });
         body.Children.Add(Text(r.StoreName, 22, FontWeights.Bold, ink, display, TextAlignment.Center));
         foreach (var line in r.StoreLines) body.Children.Add(Text(line, 11.5, FontWeights.Normal, muted, null, TextAlignment.Center));
         body.Children.Add(new Border
@@ -225,7 +225,16 @@ public static class ReceiptPaper
         }
         body.Children.Add(Text("Powered by " + Brand.Name, 9.5, FontWeights.Normal, Look.Brush("Stone"), null, TextAlignment.Center, new Thickness(0, 10, 0, 0)));
 
-        var sheet = new Border { Background = Brushes.White, CornerRadius = new CornerRadius(6, 6, 0, 0), Child = body };
+        // The store's watermark, faint behind the slip.
+        UIElement content = body;
+        if (AppServices.Watermark is { } watermark)
+        {
+            var layers = new Grid();
+            layers.Children.Add(new Image { Source = watermark, Opacity = 0.08, Stretch = Stretch.Uniform, Width = Inner, VerticalAlignment = VerticalAlignment.Center, IsHitTestVisible = false });
+            layers.Children.Add(body);
+            content = layers;
+        }
+        var sheet = new Border { Background = Brushes.White, CornerRadius = new CornerRadius(6, 6, 0, 0), Child = content };
         var paper = new StackPanel { Width = PaperWidth, SnapsToDevicePixels = true };
         paper.Children.Add(sheet);
         paper.Children.Add(TornEdge());
