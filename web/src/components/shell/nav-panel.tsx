@@ -16,11 +16,14 @@ export function NavList({
   current,
   collapsible,
   onNavigate,
+  keys = true,
 }: {
   pages: PageDef[];
   current: string | undefined;
   collapsible?: boolean;
   onNavigate?: () => void;
+  /** Show each page's key (not in the phone's menu, where there is no keyboard). */
+  keys?: boolean;
 }) {
   const list = useRef<HTMLUListElement>(null);
   // Keep the current page in sight when the panel is shorter than the list (as the desktop's list does).
@@ -48,7 +51,7 @@ export function NavList({
             >
               <Icon className="h-[22px] w-[22px] shrink-0" strokeWidth={1.7} aria-hidden="true" />
               <span className={cx('flex-1 truncate text-lead font-semibold', collapsible && 'max-xl:sr-only')}>{page.title}</span>
-              {page.shortcut && (
+              {page.shortcut && keys && (
                 <span className={cx('text-note', active ? 'text-cream' : 'text-muted', collapsible && 'max-xl:hidden')} aria-hidden="true">
                   {page.shortcut}
                 </span>

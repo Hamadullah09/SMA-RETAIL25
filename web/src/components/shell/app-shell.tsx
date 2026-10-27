@@ -207,10 +207,10 @@ function Drawer({ pages, current, onClose }: { pages: ReturnType<typeof navFor>;
             </button>
           </div>
           <div className="px-4 py-2">
-            <UserCard />
+            <UserCard full />
           </div>
           <nav aria-label="Pages" className="card mx-4 mb-4 min-h-0 flex-1 overflow-y-auto p-3">
-            <NavList pages={pages} current={current} onNavigate={onClose} />
+            <NavList pages={pages} current={current} onNavigate={onClose} keys={false} />
           </nav>
         </aside>
       </HotkeyScope>

@@ -77,7 +77,7 @@ export function GoToButton({ onOpen, className }: { onOpen(): void; className?: 
 }
 
 /** The signed-in user (avatar, name, role) with the dark Sign out pill, like the desktop's user card. */
-export function UserCard({ className }: { className?: string }) {
+export function UserCard({ className, full }: { className?: string; /** Name, role and "Sign out" at every width (the phone's menu). */ full?: boolean }) {
   const { user, signOut } = useSession();
   const [busy, setBusy] = useState(false);
   const name = user.fullName || user.userName;
@@ -87,7 +87,7 @@ export function UserCard({ className }: { className?: string }) {
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-sun font-heading text-section font-bold text-ink" aria-hidden="true">
           {initials(name)}
         </span>
-        <span className="min-w-0 leading-tight max-lg:hidden">
+        <span className={cx('min-w-0 leading-tight', !full && 'max-lg:hidden')}>
           <span className="block truncate font-semibold">{name}</span>
           <span className="block truncate text-note text-muted">{user.role ?? 'No role'}</span>
         </span>
@@ -99,10 +99,10 @@ export function UserCard({ className }: { className?: string }) {
           void signOut();
         }}
         disabled={busy}
-        className="btn btn-dark min-h-[44px] px-4"
+        className="btn btn-dark ml-auto min-h-[44px] shrink-0 px-4"
       >
         <LogOut className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
-        <span className="max-xl:sr-only">Sign out</span>
+        <span className={cx(!full && 'max-xl:sr-only')}>Sign out</span>
       </button>
     </div>
   );

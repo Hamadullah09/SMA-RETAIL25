@@ -85,6 +85,15 @@ for (const [size, viewport] of SIZES) {
       await page.screenshot({ animations: 'disabled', fullPage: true, path: join(dir, `${size}-24-report-print.png`) });
     });
 
+    test('phone menu', async ({ page }) => {
+      test.skip(size !== 'phone', 'The drawer is the phone navigation.');
+      await mockApi(page);
+      await page.goto('/sales/');
+      await page.getByRole('button', { name: 'Open the menu' }).click();
+      await expect(page.getByRole('dialog', { name: 'Menu' })).toBeVisible();
+      await page.screenshot({ animations: 'disabled', path: join(dir, `${size}-25-menu.png`) });
+    });
+
     test('palette', async ({ page }) => {
       await mockApi(page);
       await page.goto('/');
