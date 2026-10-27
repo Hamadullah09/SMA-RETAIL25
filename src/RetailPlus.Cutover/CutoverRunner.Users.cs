@@ -79,6 +79,8 @@ public sealed partial class CutoverRunner
             }
             var roleId = existingRoles.TryGetValue(Cut(name, 50).ToUpperInvariant(), out var same) ? same.Id : StableIds.For("role", row.Id);
             customIds.Add(roleId);
+            // In Retail25 anyone may approve, at another user's till, what their own role may do; here that takes pos.approve.
+            if (granted.Count > 0) granted.Add(Permissions.PosApprove);
             roles.Add(From(new Role { Id = roleId, Name = name, Description = row.Text("description"), Level = roleLevel, IsSystem = false }, row));
             grants.AddRange(granted.Select(p => new RoleGrant { Id = StableIds.For("role-grant", roleId.ToString("N") + "/" + p), RoleId = roleId, Permission = p }));
             sourceRoles[row.Id] = (roleId, roleLevel, name);

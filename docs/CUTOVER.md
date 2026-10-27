@@ -248,7 +248,7 @@ set the PINs (Setup › Users), and ring up a test sale and void it.
 | `currencies` (not the home currency, active) | `FxRate` | Same meaning: units of the currency per unit of home currency. |
 | `tender_types` | `TenderType` | Display name (16 characters). Behaviour Cash → Cash, Card → Card, GiftCard and GiftCertificate → Gift card, OnAccount → On account, Manual → Cheque when named like one, else Other. The tender's currency. Deleted ones come over inactive (old payments name them). |
 | `departments`, `categories` | `Department`, `Category` | Company-wide here: the same name at two locations is one entry. Names in capitals, as the program keeps them, cut to 15 characters (decision 6). |
-| `AspNetRoles`, `role_permissions` | `Role`, `RoleGrant` | Trainee, Cashier, Clerk, Supervisor, Administrator → the standard roles Trainee, Cashier, Stock clerk, Supervisor, Administrator. Any other role → a custom role with the keys its Retail25 keys translate to (`PermissionMap`). The seven standard roles are created when the target has none. |
+| `AspNetRoles`, `role_permissions` | `Role`, `RoleGrant` | Trainee, Cashier, Clerk, Supervisor, Administrator → the standard roles Trainee, Cashier, Stock clerk, Supervisor, Administrator. Any other role → a custom role with the keys its Retail25 keys translate to (`PermissionMap`), plus `pos.approve` (decision 16). The seven standard roles are created when the target has none. |
 | `AspNetUsers`, `AspNetUserRoles`, `staff_profiles` | `UserAccount` | User name (Retail25's, usually an e-mail address), full name, the password hash as it is (decision 8), the role with the most rights, the home location's store, the staff code, active. |
 | `suppliers` | `Supplier` | Company, contact, address, phones, e-mail, number (decision 5). |
 | `products` with `product_prices`, `price_breaks`, `sale_pricings`, `bonus_pricings` | `Item` | Stock code (16 characters, decision 7), name, type (same names), UPC/EAN as the barcode, department, category, tax flags, regular price (level 1) and levels 2–4, break quantities, last and average cost, margin, base stock, reorder point and quantity, on order, case quantity, ship weight, bin, messages, notes (description and notes), substitute, tag-along and case (parent) item, the current or next sale price (percent off, dates), bonus pricing (Retail25's "buy 3, 1 free" is "buy 2, get 1"), deleted. |
@@ -317,6 +317,12 @@ set the PINs (Setup › Users), and ring up a test sale and void it.
     (`business_day_start`); the sales check groups sales by that day on both sides, and the start time is kept as the
     setting `R25_DAY_START`.
 15. **Not carried over** (part 3.3) is listed in every report with counts, so nothing is lost silently.
+16. **Roles.** Retail25's five standard roles are the standard roles of the same job here, with this program's
+    permissions; where Retail25's role could do more, the report says what (Setup › Roles can add it). Another Retail25
+    role becomes a custom role with its keys translated (`PermissionMap`: several Retail25 keys can be one key here, a few
+    have none, and an unknown key is reported). In Retail25 anyone may approve, at another user's till, what their own role
+    may do; here approving also takes `pos.approve`, so custom roles get it. A user with several roles gets the one with the
+    most rights; a user without a role gets the standard role of their staff access level.
 
 ### 3.3 Not carried over
 

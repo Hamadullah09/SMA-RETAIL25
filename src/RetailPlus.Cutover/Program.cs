@@ -54,7 +54,10 @@ if (source is null || target is null || provider is not (null or "sqlserver" or 
 }
 
 provider ??= target.Contains('=', StringComparison.Ordinal) ? "sqlserver" : "sqlite";
-var database = provider == "sqlite" ? DatabaseConnection.SqliteFile(target) : DatabaseConnection.SqlServer(target);
+// A SQLite target may be given as a file or as a connection string ("Data Source=…").
+var database = provider == "sqlite"
+    ? DatabaseConnection.SqliteFile(target.Contains('=', StringComparison.Ordinal) ? new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder(target).DataSource : target)
+    : DatabaseConnection.SqlServer(target);
 report ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RetailPlus", "CutoverReports",
     "cutover-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture) + ".md");
 Console.WriteLine($"Retail25 cutover into {database.Description}{(dryRun ? " (dry run: nothing is written)" : "")}");
