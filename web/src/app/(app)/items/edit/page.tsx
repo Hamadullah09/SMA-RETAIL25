@@ -147,6 +147,7 @@ function ItemEditor() {
   const { currencySymbol: symbol, stores, defaultStoreId } = useStore();
   // A new item goes to the first location of this store (the server keeps items per location).
   const [newStoreId, setNewStoreId] = useState<string>(defaultStoreId ?? '');
+  const [newLocationId, setNewLocationId] = useState<string>('');
   const [tab, setTab] = useState<Tab>('detail');
   const [form, setForm] = useState<Form>(EMPTY);
   const [loadedFrom, setLoadedFrom] = useState<string | null>(null);
@@ -160,6 +161,12 @@ function ItemEditor() {
   // Categories are not kept under a department, so every category is offered.
   const categories = useQuery({ queryKey: ['categories', ''], queryFn: () => api.categories(null), staleTime: 5 * 60_000 });
   const suppliers = useQuery({ queryKey: ['suppliers', 'all'], queryFn: () => api.suppliers({ pageSize: 500 }), staleTime: 5 * 60_000 });
+  // A new item goes to a location of the chosen store (the model keeps items per location).
+  const locations = useQuery({ queryKey: ['locations', newStoreId], queryFn: () => api.locations(newStoreId), enabled: isNew && !!newStoreId, staleTime: 5 * 60_000 });
+  useEffect(() => {
+    const list = locations.data ?? [];
+    if (!list.some((l) => l.id === newLocationId)) setNewLocationId(list[0]?.id ?? '');
+  }, [locations.data, newLocationId]);
 
   // Fill the boxes from the server once per version (a reload after a conflict brings the new values in).
   useEffect(() => {
@@ -220,6 +227,7 @@ function ItemEditor() {
     }
     const body: ItemDetail = {
       id: isNew ? null : id,
+      ...(isNew && newLocationId ? { locationId: newLocationId } : {}),
       version: isNew ? null : item.data?.version ?? null,
       plu: form.plu.trim(),
       barcode: textOrNull(form.barcode),
@@ -326,6 +334,17 @@ function ItemEditor() {
                       {stores.map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.code} · {s.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                )}
+                {isNew && (locations.data?.length ?? 0) > 1 && (
+                  <Field label="Location" htmlFor="item-location">
+                    <Select id="item-location" value={newLocationId} onChange={(e) => setNewLocationId(e.target.value)}>
+                      {(locations.data ?? []).map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.code} · {l.name}
                         </option>
                       ))}
                     </Select>

@@ -16,6 +16,11 @@ interface Session {
   can(permission: string): boolean;
   /** Sees every store (super administrator). */
   allStores: boolean;
+  /**
+   * May change company-wide records (clients, suppliers, departments, categories, roles, commission rules). A server
+   * that does not say is taken to allow it; it refuses with its own message if not.
+   */
+  canChangeShared: boolean;
   signOut(): Promise<void>;
 }
 
@@ -48,6 +53,7 @@ export function SessionProvider({ user, children }: { user: UserInfo; children: 
       permissions,
       can: (permission) => permissions.has(permission),
       allStores: permissions.has(P.storesAll),
+      canChangeShared: user.canChangeShared !== false,
       signOut,
     };
   }, [user, signOut]);

@@ -77,6 +77,14 @@ for (const [size, viewport] of SIZES) {
       await page.screenshot({ animations: 'disabled', path: join(dir, `${size}-23-enrolment-code.png`) });
     });
 
+    test('departments and categories', async ({ page }) => {
+      await mockApi(page);
+      await page.goto('/items/');
+      await page.getByRole('button', { name: /Departments and categories/ }).click();
+      await expect(page.getByRole('dialog', { name: 'Departments and categories' }).getByText('Footwear')).toBeVisible();
+      await page.screenshot({ animations: 'disabled', path: join(dir, `${size}-26-departments.png`) });
+    });
+
     test('report printout', async ({ page }) => {
       await mockApi(page);
       await page.goto('/reports/view/?key=daily');

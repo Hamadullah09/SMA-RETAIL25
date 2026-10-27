@@ -13,15 +13,13 @@ import { cx } from '@/lib/cx';
 import { formatCount, formatShortUtc, formatUtc } from '@/lib/format';
 import { useDebounced } from '@/lib/hooks';
 import { AUDIT_ACTIONS } from '@/lib/labels';
-import { P } from '@/lib/nav';
-import { useSession } from '@/lib/session';
+import { useStaff } from '@/lib/staff';
 import { useStore } from '@/lib/store';
 import type { AuditRow } from '@/lib/types';
 
 const PAGE_SIZE = 100;
 
 export default function AuditPage() {
-  const { can } = useSession();
   const { storeId } = useStore();
   const dates = useDateRange('week');
   const [userId, setUserId] = useState('');
@@ -38,7 +36,7 @@ export default function AuditPage() {
     queryFn: ({ signal }) => api.audit({ ...filters, page, pageSize: PAGE_SIZE }, signal),
     placeholderData: keepPreviousData,
   });
-  const users = useQuery({ queryKey: ['users', storeId], queryFn: () => api.users({ storeId }), enabled: can(P.setupUsers) });
+  const users = useStaff(storeId);
 
   return (
     <div>

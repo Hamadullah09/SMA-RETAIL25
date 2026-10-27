@@ -35,6 +35,11 @@ export interface UserInfo {
   storeId: string | null;
   storeName: string | null;
   mustChangePassword: boolean;
+  /**
+   * May change the company-wide records (clients, suppliers, departments, categories, roles, commission rules): true
+   * with `stores.all`, or while the company has a single store.
+   */
+  canChangeShared?: boolean;
 }
 
 export interface SignInRequest {
@@ -66,6 +71,22 @@ export interface StoreInfo {
   code: string;
   name: string;
   timeZoneId: string | null;
+  /** From the store's settings, readable by everyone signed in. */
+  currencySymbol?: string | null;
+}
+
+/** A stock location of a store (`GET /api/stores/{id}/locations`). */
+export interface LocationInfo {
+  id: string;
+  code: string;
+  name: string;
+}
+
+/** Someone to filter by (`GET /api/staff`): active and inactive users, sorted by user name. */
+export interface StaffMember {
+  id: string;
+  userName: string;
+  fullName: string | null;
 }
 
 export interface StoreRequest {
@@ -91,6 +112,17 @@ export interface BatchInfo {
   appVersion: string | null;
   error: string | null;
   notes: string | null;
+}
+
+/** What `POST /api/sync/upload-file` answers: what the server did with the package. */
+export interface UploadResponse {
+  status: SyncBatchStatus | (string & {});
+  batchId: string;
+  inserted: number;
+  updated: number;
+  deleted: number;
+  notes: string[];
+  error: string | null;
 }
 
 export interface StationInfo {

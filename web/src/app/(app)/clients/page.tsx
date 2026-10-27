@@ -33,7 +33,7 @@ export default function ClientsPage() {
 }
 
 function Clients() {
-  const { can } = useSession();
+  const { can, canChangeShared } = useSession();
   const symbol = useStore().currencySymbol;
   const params = useSearchParams();
   const router = useRouter();
@@ -43,7 +43,8 @@ function Clients() {
   const [selected, setSelected] = useState<ClientRow | null>(null);
   const [editing, setEditing] = useState<string | 'new' | null>(null);
   const search = useDebounced(text.trim());
-  const edit = can(P.clientsEdit);
+  // Clients are company-wide: changed with clients.edit by those who may change shared records.
+  const edit = can(P.clientsEdit) && canChangeShared;
 
   useEffect(() => setPage(1), [search, deleted]);
   useEffect(() => setSelected(null), [deleted]);
@@ -102,7 +103,10 @@ function Clients() {
         ]}
         footer={query.data && <Pager page={page} pageSize={PAGE_SIZE} total={query.data.total} onPage={setPage} noun="clients" />}
       />
-      <p className="mt-2 px-1 text-ink">Choose a client, then {edit ? 'Edit' : 'Open'} (or choose it again). Clients added at a till show up after its next upload.</p>
+      <p className="mt-2 px-1 text-ink">
+        Choose a client, then {edit ? 'Edit' : 'Open'} (or choose it again). Clients added at a till show up after its next upload.
+        {can(P.clientsEdit) && !canChangeShared && ' Clients are shared by every store: a super administrator changes them.'}
+      </p>
       {editing && <ClientDialog id={editing === 'new' ? null : editing} readOnly={!edit} onClose={() => setEditing(null)} />}
       {actions.dialog}
     </div>

@@ -10,6 +10,7 @@ import { EmptyState } from '@/components/ui/states';
 import { DataTable } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import { api, ApiError } from '@/lib/api';
+import { describeUpload } from '@/lib/packages';
 import { cx } from '@/lib/cx';
 import { formatCount, formatShortUtc } from '@/lib/format';
 import { P } from '@/lib/nav';
@@ -25,7 +26,7 @@ const STATUS: Record<SyncBatchStatus, { label: string; tone: ChipTone }> = {
   Sent: { label: 'Sent', tone: 'ok' },
 };
 
-type Upload = { name: string; progress: number; state: 'sending' | 'done' | 'failed'; message?: string };
+type Upload = { name: string; progress: number; state: 'sending' | 'done' | 'failed'; message?: string; notes?: string[] };
 
 export default function PackagesPage() {
   const { can } = useSession();
@@ -54,13 +55,8 @@ export default function PackagesPage() {
     setUpload({ name: file.name, progress: 0, state: 'sending' });
     try {
       const result = await api.uploadPackage(file, (progress) => setUpload((u) => (u ? { ...u, progress } : u)));
-      const failed = result?.status === 'Failed';
-      const message = failed
-        ? result.error ?? 'The server refused the package.'
-        : result?.status === 'Duplicate'
-          ? 'This package was sent before; nothing changed.'
-          : `The package went in${typeof result?.rows === 'number' && result.rows > 0 ? ` (${formatCount(result.rows)} rows)` : ''}.`;
-      setUpload({ name: file.name, progress: 1, state: failed ? 'failed' : 'done', message });
+      const { failed, message } = describeUpload(result);
+      setUpload({ name: file.name, progress: 1, state: failed ? 'failed' : 'done', message, notes: result?.notes ?? [] });
       if (failed) toast.error(message);
       else toast.ok(message);
     } catch (e) {
@@ -130,6 +126,13 @@ export default function PackagesPage() {
                   <p className={cx('mt-2 font-semibold', upload.state === 'failed' ? 'text-danger' : 'text-ok')} role={upload.state === 'failed' ? 'alert' : 'status'}>
                     {upload.message}
                   </p>
+                )}
+                {upload.notes && upload.notes.length > 0 && (
+                  <ul className="mt-1 list-disc pl-5 text-ink">
+                    {upload.notes.map((note, i) => (
+                      <li key={i}>{note}</li>
+                    ))}
+                  </ul>
                 )}
               </div>
             )}

@@ -44,6 +44,9 @@ test('the item editor checks the boxes before saving', async ({ page }) => {
   // Items are kept per location: a new one goes to the store chosen here.
   await expect(page.locator('#item-store')).toHaveValue('s-main');
   await page.locator('#item-store').selectOption('s-west');
+  // Westside has two locations: the item goes to the one chosen.
+  await expect(page.locator('#item-location')).toHaveValue('l-west-pos');
+  await page.locator('#item-location').selectOption({ label: 'BACK · Back room' });
   await page.getByLabel('Stock code').fill('NEW-1');
   await page.getByLabel('Barcode').fill('036000291453');
   await page.getByRole('button', { name: /Save/ }).click();
@@ -63,4 +66,5 @@ test('the item editor checks the boxes before saving', async ({ page }) => {
   const post = api.last('POST', '/api/items');
   expect(post?.body).toMatchObject({ plu: 'NEW-1', barcode: '036000291452', name: 'Linen scarf', price1: 24, taxable3: false, id: null, version: null });
   expect(post?.query.get('storeId')).toBe('s-west');
+  expect(post?.body).toMatchObject({ locationId: 'l-west-back' });
 });
