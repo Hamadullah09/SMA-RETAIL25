@@ -1,0 +1,352 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  The desktop app's tokens (src/RetailPlus.App/App.xaml). Colours are `R G B` so Tailwind can add an alpha; the hex
+  values live in src/lib/tokens.ts and tokens.test.ts checks that both say the same.
+*/
+:root {
+  --rp-page0: 236 235 231; /* #ECEBE7 */
+  --rp-page45: 242 240 234; /* #F2F0EA */
+  --rp-page80: 247 236 201; /* #F7ECC9 */
+  --rp-page100: 248 227 156; /* #F8E39C */
+  --rp-card: 255 255 255; /* #FFFFFF */
+  --rp-ink: 30 30 30; /* #1E1E1E */
+  --rp-charcoal: 43 43 43; /* #2B2B2B */
+  --rp-charcoal-soft: 58 58 58; /* #3A3A3A */
+  --rp-sun: 247 211 92; /* #F7D35C */
+  --rp-sun-dark: 226 181 42; /* #E2B52A */
+  --rp-sun-light: 255 242 194; /* #FFF2C2 */
+  --rp-cream: 250 247 238; /* #FAF7EE */
+  --rp-line: 230 225 211; /* #E6E1D3 */
+  --rp-muted: 107 103 94; /* #6B675E */
+  --rp-stone: 154 150 141; /* #9A968D */
+  --rp-stone-light: 237 234 226; /* #EDEAE2 */
+  --rp-danger: 194 65 45; /* #C2412D */
+  --rp-danger-light: 251 228 223; /* #FBE4DF */
+  --rp-ok: 47 125 78; /* #2F7D4E */
+  --rp-ok-light: 223 241 229; /* #DFF1E5 */
+  --rp-danger-ink: 163 54 34; /* #A33622 */
+  --rp-ok-ink: 37 107 65; /* #256B41 */
+  --rp-row-alt: 251 249 243; /* #FBF9F3 */
+  --rp-row-hover: 246 241 225; /* #F6F1E1 */
+
+  --rp-radius-card: 14px;
+  --rp-radius-control: 10px;
+  --rp-font-heading: 'Century Gothic', 'URW Gothic L', 'Avant Garde', Futura, 'Trebuchet MS', sans-serif;
+  --rp-font-body: 'Segoe UI', system-ui, -apple-system, sans-serif;
+
+  color-scheme: light;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    background: rgb(var(--rp-page45));
+  }
+
+  body {
+    @apply bg-page font-body text-body text-ink antialiased;
+    min-height: 100vh;
+    background-attachment: fixed;
+    overflow-x: hidden;
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--rp-font-heading);
+    font-weight: 400;
+  }
+
+  /* `hidden` must win over display utilities such as `grid` (tabs keep their panels mounted). */
+  [hidden] {
+    display: none !important;
+  }
+
+  ::selection {
+    background: rgb(var(--rp-sun));
+    color: rgb(var(--rp-ink));
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--rp-sun-dark));
+    outline-offset: 2px;
+  }
+
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  input[type='date']::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* Surfaces ------------------------------------------------------------------------------------------------------ */
+  .card {
+    @apply rounded-card bg-card shadow-card;
+  }
+
+  .page-title {
+    @apply font-heading text-title text-ink;
+  }
+
+  .section-title {
+    @apply font-heading text-section text-ink;
+  }
+
+  .label {
+    @apply text-muted;
+  }
+
+  /* Buttons: pills at least 48 px high, an icon, the label and the key cap ----------------------------------------- */
+  .btn {
+    @apply relative inline-flex min-h-control select-none items-center justify-center gap-2.5 whitespace-nowrap rounded-full border border-line bg-card px-5 text-body font-semibold text-ink transition-colors;
+  }
+  .btn:hover:not(:disabled) {
+    background-color: rgb(var(--rp-row-hover));
+  }
+  .btn:active:not(:disabled) {
+    background-color: rgb(var(--rp-stone-light));
+  }
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-45;
+  }
+  .btn-sun {
+    @apply border-sun-dark bg-sun;
+  }
+  .btn-sun:hover:not(:disabled) {
+    background-color: rgb(var(--rp-sun-dark));
+  }
+  .btn-dark {
+    @apply border-charcoal bg-charcoal text-white;
+  }
+  .btn-dark:hover:not(:disabled) {
+    background-color: rgb(var(--rp-charcoal-soft));
+  }
+  .btn-danger {
+    @apply bg-danger-light text-danger-ink;
+    border-color: #f2c4bb;
+  }
+  .btn-danger:hover:not(:disabled) {
+    background-color: #f8d5ce;
+  }
+  .btn-icon {
+    @apply px-0;
+    min-width: 48px;
+  }
+  .keycap {
+    @apply inline-flex items-center rounded-md border px-1.5 text-key font-semibold leading-4;
+    border-color: currentColor;
+    border-width: 1.2px;
+    opacity: 0.75;
+  }
+
+  /* Inputs: tall and easy to hit ----------------------------------------------------------------------------------- */
+  .input {
+    @apply block min-h-input w-full rounded-control border border-line bg-cream px-3 text-body text-ink transition-colors placeholder:text-muted;
+    border-bottom-color: rgb(var(--rp-stone) / 0.7);
+  }
+  .input:focus {
+    @apply border-sun-dark bg-card outline-none;
+    box-shadow: 0 0 0 1px rgb(var(--rp-sun-dark));
+  }
+  .input:disabled {
+    @apply cursor-not-allowed opacity-60;
+  }
+  .input[aria-invalid='true'] {
+    @apply border-danger;
+  }
+  select.input {
+    @apply cursor-pointer appearance-none pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231E1E1E' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+  }
+  textarea.input {
+    @apply py-2.5;
+  }
+
+  .check {
+    @apply h-5 w-5 shrink-0 cursor-pointer rounded-full border-2 border-stone bg-card;
+    appearance: none;
+    display: inline-grid;
+    place-content: center;
+  }
+  .check:checked {
+    @apply border-charcoal bg-charcoal;
+  }
+  .check:checked::before {
+    content: '';
+    width: 10px;
+    height: 10px;
+    background: white;
+    clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+  }
+
+  /* Tabs: a row of pills on a white band, the chosen one charcoal -------------------------------------------------- */
+  .tabs {
+    @apply inline-flex max-w-full flex-wrap gap-1 rounded-[30px] bg-card/85 p-1.5;
+  }
+  .tab {
+    @apply min-h-[46px] rounded-full px-[18px] text-body font-semibold text-ink transition-colors;
+  }
+  .tab:hover {
+    @apply bg-stone-light;
+  }
+  .tab[aria-selected='true'] {
+    @apply bg-charcoal text-white;
+  }
+
+  /* Grids like the desktop DataGrid: cream header, line separators, right-aligned numbers, totals row --------------- */
+  .grid-card {
+    @apply card overflow-hidden;
+  }
+  .grid-scroll {
+    @apply max-w-full overflow-x-auto;
+  }
+  .grid-table {
+    @apply w-full border-separate border-spacing-0 text-body;
+  }
+  .grid-table thead th {
+    @apply sticky top-0 z-[1] whitespace-nowrap border-b border-line bg-cream px-3 py-2.5 text-left text-small font-semibold text-muted;
+  }
+  .grid-table tbody td {
+    @apply whitespace-nowrap border-b border-line/70 px-3 py-2.5 align-middle;
+  }
+  .grid-table tbody td.wrap {
+    @apply whitespace-normal;
+  }
+  .grid-table tbody tr:nth-child(even) td {
+    @apply bg-row-alt;
+  }
+  .grid-table tbody tr[data-clickable='true'] {
+    @apply cursor-pointer;
+  }
+  .grid-table tbody tr[data-clickable='true']:hover td {
+    @apply bg-row-hover;
+  }
+  .grid-table tbody tr[aria-selected='true'] td {
+    @apply bg-sun-light;
+  }
+  .grid-table tfoot td {
+    @apply whitespace-nowrap border-t-2 border-charcoal bg-cream px-3 py-2.5 font-semibold;
+  }
+  .grid-table .num {
+    @apply whitespace-nowrap text-right tabular-nums;
+  }
+
+  /* Status chips ------------------------------------------------------------------------------------------------- */
+  .chip {
+    @apply inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-small font-semibold;
+  }
+  .chip-ok {
+    @apply bg-ok-light text-ok-ink;
+  }
+  .chip-danger {
+    @apply bg-danger-light text-danger-ink;
+  }
+  .chip-warn {
+    @apply bg-sun-light text-ink;
+  }
+  .chip-plain {
+    @apply bg-stone-light text-ink;
+  }
+  .chip-dark {
+    @apply bg-charcoal text-white;
+  }
+
+  .skeleton {
+    @apply rounded-control;
+    background: linear-gradient(90deg, rgb(var(--rp-stone-light)) 0, rgb(var(--rp-cream)) 50%, rgb(var(--rp-stone-light)) 100%);
+    background-size: 800px 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+}
+
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Thin, warm scrollbars like the desktop's. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--rp-stone) / 0.6) transparent;
+}
+
+/*
+  Print: only the content, in black on white, with the grid's lines. The navigation, the header, the toolbars and
+  anything marked .no-print disappear; .print-only appears.
+*/
+.print-only {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 14mm 12mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+  }
+  .no-print,
+  [data-shell='nav'],
+  [data-shell='header'],
+  [data-shell='drawer'] {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  [data-shell='main'] {
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .card,
+  .grid-card {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    overflow: visible !important;
+  }
+  .grid-scroll {
+    overflow: visible !important;
+  }
+  .grid-table {
+    font-size: 10pt;
+  }
+  .grid-table thead th {
+    position: static;
+    background: #f0f0f0 !important;
+    color: #000 !important;
+    padding: 4px 6px;
+  }
+  .grid-table tbody td,
+  .grid-table tfoot td {
+    background: #fff !important;
+    padding: 3px 6px;
+  }
+  .grid-table tbody tr {
+    break-inside: avoid;
+  }
+  .grid-table tfoot td {
+    border-top: 2px solid #000;
+  }
+}

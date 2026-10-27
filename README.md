@@ -142,6 +142,10 @@ dotnet run --project src/RetailPlus.Import -- --source <data folder> [--db <file
 
 Without a database option the import goes into the app's default SQLite file. It runs in one transaction, replaces everything but the store itself, records each item's opening stock as its first stock movement, checks control totals (record counts, stock, balances) against the source, and writes `report.md` and `report.json`. Imported documents keep their Retail Plus numbers; new ones are numbered per station from station × 10,000,000 + 1.
 
+## Web back office
+
+`web/` is the browser side for administrators and super administrators, in the desktop app's design: dashboard across stores, tills and packages, sales, stock, clients, suppliers, gift cards, reports, staff, users and roles, stores, setup and the audit log, each page shown only to the roles that may open it. It is a Next.js static export (`cd web && npm install && npm run build` writes `web/out`, which the server serves) and uses only the server API in [docs/API.md](docs/API.md); `npm test` and `npm run e2e` check it. Running it against a local server: [web/README.md](web/README.md).
+
 ## Carry over Retail25 (pos.sma-techno.net)
 
 ```
