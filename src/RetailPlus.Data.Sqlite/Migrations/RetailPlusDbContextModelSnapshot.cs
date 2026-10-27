@@ -3311,6 +3311,10 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.Property<Guid>("StoreId")
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("TEXT");

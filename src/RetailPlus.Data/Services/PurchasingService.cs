@@ -188,7 +188,7 @@ public sealed class PurchasingService(DataContext data)
             item.OnHand += pieces;
             item.LastReceivedDate = today;
             item.LastReceivedQuantity = pieces;
-            InventoryService.Record(db, itemId, StockMovementKind.Receipt, pieces, item.OnHand, document: po.Number);
+            InventoryService.Record(db, itemId, StockMovementKind.Receipt, pieces, item.OnHand, document: po.Number, unitCost: cost);
             if (item.Price1 > 0) item.MarginPercent = Money.MarginPercent(item.Price1, item.AverageCost);
         }
         po.Status = PurchaseOrderStatus.Received;

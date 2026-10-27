@@ -355,6 +355,11 @@ public class StockMovement : Entity, IStationStamped
     /// <summary>Positive in, negative out.</summary>
     public decimal Quantity { get; set; }
     public decimal OnHandAfter { get; set; }
+    /// <summary>
+    /// The cost of one unit when the stock moved, where it is known (receipts, adjustments, counts, transfers, case
+    /// breaks); 0 when it was not recorded. The accounting export values the movement with it.
+    /// </summary>
+    public decimal UnitCost { get; set; }
     /// <summary>The document behind the movement: an invoice or purchase order number.</summary>
     public long? DocumentNumber { get; set; }
     public string? Reason { get; set; }

@@ -11,7 +11,7 @@ using RetailPlus.Data;
 namespace RetailPlus.Data.Sqlite.Migrations
 {
     [DbContext(typeof(RetailPlusDbContext))]
-    [Migration("20261027191301_InitialCreate")]
+    [Migration("20261027195127_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -3312,6 +3312,10 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<Guid>("StoreId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(12, 3)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("UpdatedAtUtc")

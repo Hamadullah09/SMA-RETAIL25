@@ -207,6 +207,7 @@ internal sealed class StockMovementConfiguration : IEntityTypeConfiguration<Stoc
         e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(12);
         e.Property(x => x.Quantity).Quantity();
         e.Property(x => x.OnHandAfter).Quantity();
+        e.Property(x => x.UnitCost).UnitCost();
         e.Property(x => x.Reason).HasMaxLength(100);
         e.Property(x => x.User).HasMaxLength(15);
         e.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Cascade);

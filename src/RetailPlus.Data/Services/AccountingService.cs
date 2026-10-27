@@ -35,9 +35,9 @@ public sealed record JournalExport(IReadOnlyList<JournalLine> Lines, IReadOnlyLi
 /// of goods and inventory, and a balanced journal per business day per store of the sales, payments, taxes, cost of
 /// goods, stock received and stock adjustments in a date range.
 /// <para>
-/// Voided sales are left out (on the day they were sold too: export again after a void). Stock is valued at the cost
-/// on the purchase order for receipts, at the transfer's cost for transfers, and at the item's average cost (last cost
-/// when none) for adjustments, counts and case breaks.
+/// Voided sales are left out (on the day they were sold too: export again after a void). Stock movements are valued at
+/// the unit cost kept on them (the purchase order's cost for receipts, the transfer's, the count's, the case's), and
+/// at the item's average cost (last cost when none) where no cost was kept.
 /// </para>
 /// </summary>
 public sealed class AccountingService(DataContext data)
@@ -161,11 +161,13 @@ public sealed class AccountingService(DataContext data)
             .ToListAsync();
         foreach (var m in movements)
         {
+            // The cost kept on the movement; for movements made before it was kept, the order's or transfer's cost, else the item's.
             decimal cost = costs.GetValueOrDefault(m.ItemId);
             if (m.Kind == StockMovementKind.Receipt && m.DocumentNumber is long po && poCosts.TryGetValue((po, m.ItemId), out var c)) cost = c;
             if (m.Kind is StockMovementKind.TransferOut or StockMovementKind.TransferIn && m.DocumentNumber is long number
                 && transferLines.FirstOrDefault(l => l.Number == number && (l.SourceItemId == m.ItemId || l.DestinationItemId == m.ItemId)) is { } line)
                 cost = line.UnitCost;
+            if (m.UnitCost > 0) cost = m.UnitCost;
             decimal value = Money.Round(m.Quantity * cost);
             if (value == 0) continue;
             var day = DateOnly.FromDateTime(m.At);

@@ -245,7 +245,7 @@ public sealed class StockCountService(DataContext data)
                 await db.ItemVariants.Where(v => v.ItemId == line.ItemId && v.OnHand != 0).ExecuteUpdateAsync(s => s
                     .SetProperty(v => v.OnHand, 0m).SetProperty(v => v.UpdatedAtUtc, DateTime.UtcNow));
             var onHand = await db.Items.Where(i => i.Id == line.ItemId).Select(i => i.OnHand).SingleAsync();
-            InventoryService.Record(db, line.ItemId, StockMovementKind.Count, delta, onHand, now, count.Number, reason, Trim(user, 15), line.VariantId);
+            InventoryService.Record(db, line.ItemId, StockMovementKind.Count, delta, onHand, now, count.Number, reason, Trim(user, 15), line.VariantId, line.UnitCost);
             changed++;
             units += delta;
         }

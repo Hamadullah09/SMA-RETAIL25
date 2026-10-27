@@ -3152,6 +3152,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");

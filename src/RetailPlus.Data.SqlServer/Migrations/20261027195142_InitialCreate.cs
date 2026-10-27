@@ -1597,6 +1597,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     At = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
                     Quantity = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
                     OnHandAfter = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    UnitCost = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
                     DocumentNumber = table.Column<long>(type: "bigint", nullable: true),
                     Reason = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     User = table.Column<string>(type: "nvarchar(15)", maxLength: 15, nullable: true),

@@ -12,7 +12,7 @@ using RetailPlus.Data;
 namespace RetailPlus.Data.SqlServer.Migrations
 {
     [DbContext(typeof(RetailPlusDbContext))]
-    [Migration("20261027191320_InitialCreate")]
+    [Migration("20261027195142_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -3154,6 +3154,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasPrecision(3)

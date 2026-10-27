@@ -149,7 +149,7 @@ public sealed class TransferService(DataContext data)
                 throw new BusinessRuleException($"{line.Plu} {line.Description} is no longer at the sending location.");
             var onHand = await db.Items.Where(i => i.Id == line.SourceItemId).Select(i => i.OnHand).SingleAsync();
             var movement = InventoryService.Record(db, line.SourceItemId, StockMovementKind.TransferOut, -qty, onHand, now, transfer.Number,
-                $"Transfer {transfer.Number} to {await LocationTextAsync(db, transfer.ToLocationId)}", Trim(user, 15));
+                $"Transfer {transfer.Number} to {await LocationTextAsync(db, transfer.ToLocationId)}", Trim(user, 15), unitCost: line.UnitCost);
             movement.StoreId = transfer.StoreId;
         }
         // Empty lines are not sent.
@@ -205,7 +205,7 @@ public sealed class TransferService(DataContext data)
                 item.LastReceivedDate = DateOnly.FromDateTime(now);
                 item.LastReceivedQuantity = qty;
                 var movement = InventoryService.Record(db, item.Id, StockMovementKind.TransferIn, qty, item.OnHand, now, transfer.Number,
-                    $"Transfer {transfer.Number} from {from}", Trim(user, 15));
+                    $"Transfer {transfer.Number} from {from}", Trim(user, 15), unitCost: line.UnitCost);
                 movement.StoreId = destination.StoreId;
             }
             line.QuantityReceived = qty;

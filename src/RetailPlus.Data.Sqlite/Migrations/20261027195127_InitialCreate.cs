@@ -1597,6 +1597,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     At = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
                     Quantity = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
                     OnHandAfter = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
+                    UnitCost = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
                     DocumentNumber = table.Column<long>(type: "INTEGER", nullable: true),
                     Reason = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true, collation: "NOCASE"),
                     User = table.Column<string>(type: "TEXT", maxLength: 15, nullable: true, collation: "NOCASE"),

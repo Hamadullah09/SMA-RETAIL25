@@ -309,12 +309,12 @@ public sealed class InventoryService(DataContext data)
     /// change of OnHand goes with one, so stock can be added up from the movements.
     /// </summary>
     public static StockMovement Record(RetailPlusDbContext db, Guid itemId, StockMovementKind kind, decimal quantity, decimal onHandAfter,
-        DateTime? at = null, long? document = null, string? reason = null, string? user = null, Guid? variantId = null)
+        DateTime? at = null, long? document = null, string? reason = null, string? user = null, Guid? variantId = null, decimal unitCost = 0)
     {
         var movement = new StockMovement
         {
             ItemId = itemId, VariantId = variantId, Kind = kind, At = at ?? DateTime.Now, Quantity = quantity, OnHandAfter = onHandAfter,
-            DocumentNumber = document, Reason = reason, User = user,
+            DocumentNumber = document, Reason = reason, User = user, UnitCost = unitCost,
         };
         db.StockMovements.Add(movement);
         return movement;
@@ -372,7 +372,7 @@ public sealed class InventoryService(DataContext data)
         var item = await db.Items.SingleAsync(i => i.Id == itemId);
         decimal delta = setTo ? quantity - item.OnHand : quantity;
         item.OnHand += delta;
-        Record(db, itemId, StockMovementKind.Adjustment, delta, item.OnHand, reason: reason, user: user);
+        Record(db, itemId, StockMovementKind.Adjustment, delta, item.OnHand, reason: reason, user: user, unitCost: item.AverageCost > 0 ? item.AverageCost : item.LastCost);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         return item.OnHand;
@@ -537,8 +537,10 @@ public sealed class InventoryService(DataContext data)
             unit.OnHand += units;
             var now = DateTime.Now;
             string? who = user is { Length: > 15 } ? user[..15] : user;
-            Record(db, box.Id, StockMovementKind.CaseBreakOut, -cases, box.OnHand, now, reason: $"Broken into {units:0.###} x {unit.Plu}", user: who);
-            Record(db, unit.Id, StockMovementKind.CaseBreakIn, units, unit.OnHand, now, reason: $"From {cases:0.###} case(s) of {box.Plu}", user: who);
+            // Valued at the case's cost both ways, so breaking a case neither gains nor loses value.
+            Record(db, box.Id, StockMovementKind.CaseBreakOut, -cases, box.OnHand, now, reason: $"Broken into {units:0.###} x {unit.Plu}", user: who, unitCost: caseCost);
+            Record(db, unit.Id, StockMovementKind.CaseBreakIn, units, unit.OnHand, now, reason: $"From {cases:0.###} case(s) of {box.Plu}", user: who,
+                unitCost: caseCost / unit.UnitsPerCase);
             try
             {
                 await db.SaveChangesAsync();

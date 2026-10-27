@@ -446,6 +446,14 @@ public abstract class StockAndMoneyTests(DatabaseFixture db)
         var count = await counts.StartAsync(location.Id, null, "tester");
         await counts.CountCodeAsync(count.Id, "AC1", 30);
         await counts.PostAsync(count.Id, false, "tester");
+        var backRoom = await new SetupService(Data).AddLocationAsync(db.NextLocationCode(), "Back room");
+        var transfers = new TransferService(Data);
+        var transfer = await transfers.CreateAsync(location.Id, backRoom.Id, null, "tester");
+        await transfers.AddItemAsync(transfer.Id, "AC1", 4);
+        await transfers.ShipAsync(transfer.Id, "tester");
+        var box = await ItemAsync(location.Id, "ACCASE", 40m, 2, cost: 36m);
+        var unit = await ItemAsync(location.Id, "ACUNIT", 2m, 0, cost: 1.5m, parent: "ACCASE", unitsPerCase: 24);
+        await new InventoryService(Data).BreakCaseAsync(unit.Id, 1, "tester");
 
         var today = DateOnly.FromDateTime(DateTime.Today);
         var export = await accounting.ExportAsync(today.AddDays(-1), today);
@@ -456,6 +464,9 @@ public abstract class StockAndMoneyTests(DatabaseFixture db)
         Assert.Contains(export.Lines, l => l.Account == "2400" && l.Memo == "Gift cards sold" && l.Credit > 0);
         Assert.Contains(export.Lines, l => l.Account == "2100" && l.Memo == "Stock received" && l.Credit > 0);
         Assert.Contains(export.Lines, l => l.Account == "5100" && l.Memo == "Stock counts");
+        Assert.Contains(export.Lines, l => l.Account == "1300" && l.Memo == "Transfers" && l.Credit > 0);
+        // A case broken at its cost moves value from the case item to the units: no gain or loss.
+        Assert.DoesNotContain(export.Lines, l => l.Memo == "Case breaks");
         Assert.Contains(export.Lines, l => l.Account == "1100" && l.Memo == "Payments on account" && l.Credit > 0);
         Assert.Contains("Tender Visa", export.Unmapped);
         Assert.StartsWith("Date,Journal,Store,Account,Account name,Debit,Credit,Memo", export.ToCsv(), StringComparison.Ordinal);
