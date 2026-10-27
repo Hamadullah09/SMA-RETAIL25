@@ -1,5 +1,5 @@
-// Serves the static export (`out/`) the way RetailPlus.Server does: `index.html` for a folder, a redirect to add the
-// trailing slash, `404.html` for unknown paths, and nothing at all under /api (the end-to-end tests answer those).
+// Serves the static export (`out/`) the way RetailPlus.Server does: `/x/` serves `x/index.html`, `/x` serves `x.html`,
+// anything else gets `404.html` with status 404, and nothing at all is served under /api (the tests answer those).
 //
 //   node e2e/serve.mjs [port] [folder]
 import { createReadStream, existsSync, statSync } from 'node:fs';
@@ -54,14 +54,10 @@ createServer((req, res) => {
     res.writeHead(403).end();
     return;
   }
-  if (existsSync(file) && statSync(file).isDirectory()) {
-    if (!path.endsWith('/')) {
-      res.writeHead(308, { Location: path + '/' + url.search }).end();
-      return;
-    }
+  if (path.endsWith('/')) {
     const index = join(file, 'index.html');
     if (existsSync(index)) return send(res, 200, index);
-  } else if (existsSync(file)) {
+  } else if (existsSync(file) && statSync(file).isFile()) {
     return send(res, 200, file);
   } else if (existsSync(file + '.html')) {
     return send(res, 200, file + '.html');

@@ -15,7 +15,9 @@ test('saving an item someone else changed asks to reload, and reloading brings t
   });
 
   await page.goto('/items/');
-  await page.getByRole('row', { name: /TS-100-M/ }).dblclick();
+  // One line per store that stocks the code: this is Downtown's.
+  await expect(page.getByRole('row', { name: /TS-100-M/ })).toHaveCount(2);
+  await page.getByRole('row', { name: /TS-100-M.*MAIN · POS/ }).dblclick();
   await expect(page).toHaveURL(/\/items\/edit\/\?id=i-1$/);
   await expect(page.getByLabel('Description', { exact: true })).toHaveValue('Cotton T-shirt, medium');
 
@@ -39,9 +41,15 @@ test('the item editor checks the boxes before saving', async ({ page }) => {
   const api = await mockApi(page);
   await page.goto('/items/edit/');
   await expect(page.getByRole('heading', { name: 'New item' })).toBeVisible();
+  // Items are kept per location: a new one goes to the store chosen here.
+  await expect(page.locator('#item-store')).toHaveValue('s-main');
+  await page.locator('#item-store').selectOption('s-west');
   await page.getByLabel('Stock code').fill('NEW-1');
+  await page.getByLabel('Barcode').fill('036000291453');
   await page.getByRole('button', { name: /Save/ }).click();
+  await expect(page.getByText("The barcode's check digit is not right.")).toBeVisible();
   await expect(page.getByText('A description is needed.')).toBeVisible();
+  await page.getByLabel('Barcode').fill('036000291452');
   await page.getByLabel('Description', { exact: true }).fill('Linen scarf');
   await page.getByRole('button', { name: /Save/ }).click();
   // Price 1 is on the Pricing tab, which opens by itself.
@@ -52,5 +60,7 @@ test('the item editor checks the boxes before saving', async ({ page }) => {
   await page.getByLabel('Price 1').fill('24.00');
   await page.getByRole('button', { name: /Save/ }).click();
   await expect(page).toHaveURL(/\/items\/edit\/\?id=i-new$/);
-  expect(api.last('POST', '/api/items')?.body).toMatchObject({ plu: 'NEW-1', name: 'Linen scarf', price1: 24, id: null, version: null });
+  const post = api.last('POST', '/api/items');
+  expect(post?.body).toMatchObject({ plu: 'NEW-1', barcode: '036000291452', name: 'Linen scarf', price1: 24, taxable3: false, id: null, version: null });
+  expect(post?.query.get('storeId')).toBe('s-west');
 });

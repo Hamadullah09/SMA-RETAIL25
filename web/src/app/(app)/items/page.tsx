@@ -138,13 +138,14 @@ export default function InventoryPage() {
         columns={[
           { key: 'plu', header: 'Stock code', cell: (i) => <span className="font-semibold">{i.plu}</span> },
           { key: 'name', header: 'Description', cell: (i) => i.name, className: 'wrap min-w-[200px]' },
+          { key: 'where', header: 'Store', cell: (i) => [i.storeCode, i.locationCode].filter(Boolean).join(' · '), hideBelow: 'lg' },
           { key: 'dept', header: 'Department', cell: (i) => i.department ?? '', hideBelow: 'md' },
-          { key: 'cat', header: 'Category', cell: (i) => i.category ?? '', hideBelow: 'xl' },
+          { key: 'cat', header: 'Category', cell: (i) => i.category ?? '', hideBelow: '2xl' },
           { key: 'price', header: 'Price', numeric: true, cell: (i) => formatMoney(i.price1, symbol) },
-          { key: 'cost', header: 'Average cost', numeric: true, cell: (i) => formatMoney(i.averageCost, symbol), hideBelow: 'lg' },
+          { key: 'cost', header: 'Average cost', numeric: true, cell: (i) => formatMoney(i.averageCost, symbol), hideBelow: 'xl' },
           {
             key: 'onhand',
-            header: storeId ? 'On hand' : 'On hand, all stores',
+            header: 'On hand',
             numeric: true,
             cell: (i) => <span className={cx(i.onHand < 0 && 'font-semibold text-danger')}>{formatQuantity(i.onHand)}</span>,
             hideBelow: 'sm',
@@ -153,7 +154,10 @@ export default function InventoryPage() {
         ]}
         footer={query.data && <Pager page={page} pageSize={PAGE_SIZE} total={query.data.total} onPage={setPage} noun="items" />}
       />
-      <p className="mt-2 px-1 text-ink">{edit ? (deleted ? 'Choose a deleted item to bring it back.' : 'Choose an item, then Edit (or choose it again).') : 'Your role can look at items but not change them.'}</p>
+      <p className="mt-2 px-1 text-ink">
+        {edit ? (deleted ? 'Choose a deleted item to bring it back.' : 'Choose an item, then Edit (or choose it again).') : 'Your role can look at items but not change them.'} Each store
+        keeps its own price and stock for a stock code, so an item sold in two stores has a line for each.
+      </p>
 
       <ConfirmDialog
         open={!!restoring}

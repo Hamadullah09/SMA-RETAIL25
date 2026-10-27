@@ -184,8 +184,10 @@ export interface Dashboard {
     closedAt: LocalDateTime;
     closedBy: string | null;
     expected: number;
-    counted: number;
-    variance: number;
+    /** Null: tills do not record the counted cash. */
+    counted: number | null;
+    /** Null when nothing was counted. */
+    variance: number | null;
   }[];
 }
 
@@ -236,10 +238,16 @@ export interface SaleDetail extends SaleRow {
 
 // Items --------------------------------------------------------------------------------------------------------------
 
+/**
+ * One location's item: the model keeps a row (with its own price and stock) per location for a stock code, so a code
+ * stocked in two stores is two rows.
+ */
 export interface ItemRow {
   id: string;
   plu: string;
   name: string;
+  storeCode?: string;
+  locationCode?: string;
   department: string | null;
   category: string | null;
   price1: number;
@@ -259,7 +267,11 @@ export interface ItemDetail {
   version: string | null;
   plu: string;
   name: string;
+  /** The item's long description. */
   description: string | null;
+  barcode?: string | null;
+  /** On a new item: the location it is for (otherwise the first location of the store sent as `storeId`). */
+  locationId?: string | null;
   departmentId: string | null;
   categoryId: string | null;
   supplierId: string | null;
@@ -270,12 +282,16 @@ export interface ItemDetail {
   averageCost: number;
   taxable1: boolean;
   taxable2: boolean;
+  /** Always false: stores have two taxes. */
   taxable3: boolean;
   reorderPoint: number;
   reorderQuantity: number;
   unitsPerCase: number;
+  /** False deletes the item; true brings a deleted one back. */
   isActive: boolean;
+  /** The message shown at the till when the item is rung up. */
   notes: string | null;
+  /** The same stock code at every location of the stores the user sees. */
   stock?: ItemStock[];
 }
 
@@ -284,6 +300,7 @@ export interface Department {
   name: string;
 }
 
+/** Categories are not kept under a department: `departmentId` is null. */
 export interface Category {
   id: string;
   name: string;
@@ -615,7 +632,9 @@ export interface StoreSettings {
   city: string | null;
   province: string | null;
   postalCode: string | null;
+  country?: string | null;
   phone: string | null;
+  fax?: string | null;
   email: string | null;
   website: string | null;
   taxNumber: string | null;

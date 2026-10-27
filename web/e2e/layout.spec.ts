@@ -18,6 +18,13 @@ for (const path of PAGES) {
   });
 }
 
+test('an address without the trailing slash still finds its page', async ({ page }) => {
+  await mockApi(page);
+  await page.goto('/tills?enrol=1');
+  await expect(page).toHaveURL(/\/tills\/\?enrol=1$/);
+  await expect(page.getByRole('heading', { name: 'Tills' })).toBeVisible();
+});
+
 test('the sign-in page fits too', async ({ page }) => {
   await mockApi(page, { user: null });
   await page.goto('/sign-in/');

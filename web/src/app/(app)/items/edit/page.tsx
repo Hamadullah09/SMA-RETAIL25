@@ -13,7 +13,7 @@ import { DataTable } from '@/components/ui/table';
 import { Tabs } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/toast';
 import { api, ApiError } from '@/lib/api';
-import { checkNumber, numberText, parseNumber, textOrNull, type Errors } from '@/lib/forms';
+import { checkBarcode, checkNumber, numberText, parseNumber, textOrNull, type Errors } from '@/lib/forms';
 import { formatMoney, formatPercent, formatQuantity } from '@/lib/format';
 import { useHotkey } from '@/lib/hotkeys';
 import { useStore } from '@/lib/store';
@@ -36,6 +36,7 @@ const TABS: ReadonlyArray<{ key: Tab; label: string }> = [
 
 interface Form {
   plu: string;
+  barcode: string;
   name: string;
   description: string;
   departmentId: string;
@@ -60,6 +61,7 @@ type Key = keyof Form;
 
 const EMPTY: Form = {
   plu: '',
+  barcode: '',
   name: '',
   description: '',
   departmentId: '',
@@ -83,6 +85,7 @@ const EMPTY: Form = {
 function toForm(item: ItemDetail): Form {
   return {
     plu: item.plu ?? '',
+    barcode: item.barcode ?? '',
     name: item.name ?? '',
     description: item.description ?? '',
     departmentId: item.departmentId ?? '',
@@ -120,6 +123,7 @@ function validate(form: Form): Errors<Key> {
   const errors: Errors<Key> = {};
   if (!form.plu.trim()) errors.plu = 'A stock code is needed.';
   else if (form.plu.trim().length > 20) errors.plu = 'A stock code has at most 20 characters.';
+  errors.barcode = checkBarcode(form.barcode);
   if (!form.name.trim()) errors.name = 'A description is needed.';
   else if (form.name.trim().length > 60) errors.name = 'A description has at most 60 characters.';
   errors.price1 = checkNumber(form.price1, { required: true, label: 'Price 1' });
@@ -140,7 +144,9 @@ function ItemEditor() {
   const router = useRouter();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const { currencySymbol: symbol } = useStore();
+  const { currencySymbol: symbol, stores, defaultStoreId } = useStore();
+  // A new item goes to the first location of this store (the server keeps items per location).
+  const [newStoreId, setNewStoreId] = useState<string>(defaultStoreId ?? '');
   const [tab, setTab] = useState<Tab>('detail');
   const [form, setForm] = useState<Form>(EMPTY);
   const [loadedFrom, setLoadedFrom] = useState<string | null>(null);
@@ -151,7 +157,8 @@ function ItemEditor() {
 
   const item = useQuery({ queryKey: ['item', id], queryFn: () => api.item(id!), enabled: !isNew, staleTime: 0 });
   const departments = useQuery({ queryKey: ['departments'], queryFn: () => api.departments(), staleTime: 5 * 60_000 });
-  const categories = useQuery({ queryKey: ['categories', form.departmentId], queryFn: () => api.categories(form.departmentId || null), staleTime: 5 * 60_000 });
+  // Categories are not kept under a department, so every category is offered.
+  const categories = useQuery({ queryKey: ['categories', ''], queryFn: () => api.categories(null), staleTime: 5 * 60_000 });
   const suppliers = useQuery({ queryKey: ['suppliers', 'all'], queryFn: () => api.suppliers({ pageSize: 500 }), staleTime: 5 * 60_000 });
 
   // Fill the boxes from the server once per version (a reload after a conflict brings the new values in).
@@ -174,7 +181,7 @@ function ItemEditor() {
   }
 
   const save = useMutation({
-    mutationFn: (body: ItemDetail) => (isNew ? api.addItem(body) : api.saveItem(id!, body)),
+    mutationFn: (body: ItemDetail) => (isNew ? api.addItem(body, newStoreId || null) : api.saveItem(id!, body)),
     onSuccess: (saved) => {
       toast.ok(`${saved.name || 'The item'} is saved.`);
       setDirty(false);
@@ -215,6 +222,7 @@ function ItemEditor() {
       id: isNew ? null : id,
       version: isNew ? null : item.data?.version ?? null,
       plu: form.plu.trim(),
+      barcode: textOrNull(form.barcode),
       name: form.name.trim(),
       description: textOrNull(form.description),
       departmentId: form.departmentId || null,
@@ -227,7 +235,7 @@ function ItemEditor() {
       averageCost: parseNumber(form.averageCost) ?? 0,
       taxable1: form.taxable1,
       taxable2: form.taxable2,
-      taxable3: form.taxable3,
+      taxable3: false,
       reorderPoint: parseNumber(form.reorderPoint) ?? 0,
       reorderQuantity: parseNumber(form.reorderQuantity) ?? 0,
       unitsPerCase: parseNumber(form.unitsPerCase) ?? 1,
@@ -312,7 +320,19 @@ function ItemEditor() {
           <>
             <div hidden={tab !== 'detail'} className="grid grid-cols-1 gap-x-10 gap-y-3 xl:grid-cols-2">
               <div className="space-y-3">
+                {isNew && stores.length > 1 && (
+                  <Field label="Store" htmlFor="item-store" hint="Each store keeps its own price and stock for a stock code.">
+                    <Select id="item-store" value={newStoreId} onChange={(e) => setNewStoreId(e.target.value)}>
+                      {stores.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.code} · {s.name}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                )}
                 {box('plu', 'Stock code', { maxLength: 20, autoFocus: isNew })}
+                {box('barcode', 'Barcode', { inputMode: 'numeric', maxLength: 13, hint: 'UPC-A, EAN-13 or EAN-8, as printed on the product.' })}
                 {box('name', 'Description', { maxLength: 60 })}
                 <Field label="Long description" htmlFor="item-description">
                   <TextArea id="item-description" value={form.description} onChange={(e) => set('description', e.target.value)} rows={2} />
@@ -321,10 +341,7 @@ function ItemEditor() {
                   <Select
                     id="item-departmentId"
                     value={form.departmentId}
-                    onChange={(e) => {
-                      set('departmentId', e.target.value);
-                      set('categoryId', '');
-                    }}
+                    onChange={(e) => set('departmentId', e.target.value)}
                   >
                     <option value="">None</option>
                     {(departments.data ?? []).map((d) => (
@@ -357,9 +374,14 @@ function ItemEditor() {
                   </Select>
                 </Field>
                 <Field label="Active" htmlFor="item-active">
-                  <Checkbox label="Sold at the tills" checked={form.isActive} onChange={(v) => set('isActive', v)} />
+                  <Checkbox
+                    label="Sold at the tills"
+                    hint={isNew ? undefined : 'Untick and save to delete it; Show deleted on the list brings it back.'}
+                    checked={form.isActive}
+                    onChange={(v) => set('isActive', v)}
+                  />
                 </Field>
-                <Field label="Notes" htmlFor="item-notes">
+                <Field label="Message at the till" htmlFor="item-notes" hint="Shown at the POS when the item is rung up.">
                   <TextArea id="item-notes" value={form.notes} onChange={(e) => set('notes', e.target.value)} rows={3} />
                 </Field>
               </div>
@@ -383,7 +405,6 @@ function ItemEditor() {
                   <div className="flex flex-wrap gap-x-6">
                     <Checkbox label="Tax 1" checked={form.taxable1} onChange={(v) => set('taxable1', v)} />
                     <Checkbox label="Tax 2" checked={form.taxable2} onChange={(v) => set('taxable2', v)} />
-                    <Checkbox label="Tax 3" checked={form.taxable3} onChange={(v) => set('taxable3', v)} />
                   </div>
                 </Field>
               </div>

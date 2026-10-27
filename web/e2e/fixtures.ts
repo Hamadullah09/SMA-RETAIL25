@@ -269,7 +269,8 @@ export const dashboard: Dashboard = {
     { storeId: 's-west', storeCode: 'WEST', stationNumber: 12, netSales: 412.5, transactions: 15 },
   ],
   drawers: [
-    { storeCode: 'MAIN', stationNumber: 1, closedAt: at('21:04:00', daysBefore(1)), closedBy: 'ama', expected: 812.4, counted: 812.4, variance: 0 },
+    // Tills record the cash expected but no counted amount (docs/API.md, "How the server applies this contract").
+    { storeCode: 'MAIN', stationNumber: 1, closedAt: at('21:04:00', daysBefore(1)), closedBy: 'ama', expected: 812.4, counted: null, variance: null },
     { storeCode: 'WEST', stationNumber: 11, closedAt: at('21:10:00', daysBefore(1)), closedBy: 'yaw', expected: 640.0, counted: 635.0, variance: -5 },
   ],
 };
@@ -340,18 +341,22 @@ export const categories: Category[] = [
   { id: 'c-4', name: 'Hats', departmentId: 'd-3' },
 ];
 
+/** One row per location item: TS-100-M is stocked in two stores. */
 export const items: ItemRow[] = [
-  ['i-1', 'TS-100-M', 'Cotton T-shirt, medium', 'Clothing', 'Tops', 17.95, 6.2, 124],
-  ['i-2', 'JN-220-32', 'Slim jeans 32', 'Clothing', 'Bottoms', 59.99, 24.0, 31],
-  ['i-3', 'SN-410', 'Canvas sneakers', 'Footwear', 'Sneakers', 64.99, 28.5, 18],
-  ['i-4', 'HD-090-L', 'Hoodie, large', 'Clothing', 'Tops', 49.99, 19.75, 7],
-  ['i-5', 'SK-001', 'Sport socks, 3 pack', 'Accessories', null, 9.99, 3.1, 260],
-  ['i-6', 'CP-012', 'Baseball cap', 'Accessories', 'Hats', 19.99, 7.4, -2],
-  ['i-7', 'BL-300', 'Leather belt', 'Accessories', null, 34.5, 12.0, 0],
-].map(([id, plu, name, department, category, price1, averageCost, onHand]) => ({
+  ['i-1', 'TS-100-M', 'Cotton T-shirt, medium', 'Clothing', 'Tops', 17.95, 6.2, 84, 'MAIN'],
+  ['i-1w', 'TS-100-M', 'Cotton T-shirt, medium', 'Clothing', 'Tops', 18.5, 6.2, 40, 'WEST'],
+  ['i-2', 'JN-220-32', 'Slim jeans 32', 'Clothing', 'Bottoms', 59.99, 24.0, 31, 'MAIN'],
+  ['i-3', 'SN-410', 'Canvas sneakers', 'Footwear', 'Sneakers', 64.99, 28.5, 18, 'MAIN'],
+  ['i-4', 'HD-090-L', 'Hoodie, large', 'Clothing', 'Tops', 49.99, 19.75, 7, 'WEST'],
+  ['i-5', 'SK-001', 'Sport socks, 3 pack', 'Accessories', null, 9.99, 3.1, 260, 'MAIN'],
+  ['i-6', 'CP-012', 'Baseball cap', 'Accessories', 'Hats', 19.99, 7.4, -2, 'WEST'],
+  ['i-7', 'BL-300', 'Leather belt', 'Accessories', null, 34.5, 12.0, 0, 'MAIN'],
+].map(([id, plu, name, department, category, price1, averageCost, onHand, storeCode]) => ({
   id: id as string,
   plu: plu as string,
   name: name as string,
+  storeCode: storeCode as string,
+  locationCode: 'POS',
   department: department as string,
   category: category as string | null,
   price1: price1 as number,
@@ -366,6 +371,7 @@ export function itemDetail(id: string): ItemDetail {
     id: row.id,
     version: 'v-1',
     plu: row.plu,
+    barcode: '036000291452',
     name: row.name,
     description: 'Soft ring-spun cotton, regular fit.',
     departmentId: 'd-1',
@@ -617,7 +623,9 @@ export const settings: StoreSettings = {
   city: 'Toronto',
   province: 'ON',
   postalCode: 'M5H 1A1',
+  country: 'Canada',
   phone: '416-555-0100',
+  fax: null,
   email: 'downtown@smafashion.example',
   website: 'smafashion.example',
   taxNumber: '81234 5678 RT0001',

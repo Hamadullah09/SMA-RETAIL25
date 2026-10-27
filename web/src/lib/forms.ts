@@ -39,6 +39,20 @@ export function checkNumber(
   return undefined;
 }
 
+/**
+ * A product barcode: empty, or EAN-8, UPC-A (12 digits) or EAN-13 with a right check digit, as the desktop checks it.
+ */
+export function checkBarcode(text: string): string | undefined {
+  const code = text.trim();
+  if (!code) return undefined;
+  if (!/^(\d{8}|\d{12}|\d{13})$/.test(code)) return 'A barcode is 8, 12 or 13 digits (EAN-8, UPC-A or EAN-13).';
+  const digits = code.split('').map(Number);
+  const check = digits.pop()!;
+  // From the right of the payload, weights 3, 1, 3, 1…
+  const sum = digits.reverse().reduce((total, d, i) => total + d * (i % 2 === 0 ? 3 : 1), 0);
+  return (10 - (sum % 10)) % 10 === check ? undefined : 'The barcode\'s check digit is not right.';
+}
+
 /** A simple e-mail check: something@something.something. */
 export function checkEmail(text: string): string | undefined {
   const t = text.trim();

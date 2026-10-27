@@ -33,7 +33,9 @@ const EMPTY: StoreSettings = {
   city: '',
   province: '',
   postalCode: '',
+  country: '',
   phone: '',
+  fax: '',
   email: '',
   website: '',
   taxNumber: '',
@@ -121,13 +123,13 @@ function StoreSetup({ storeId, tab, tabs }: { storeId: string; tab: Tab; tabs: R
     const text = !form.companyName?.trim() ? 'Type the business name.' : checkEmail(form.email ?? '') ?? ((form.currencySymbol ?? '').length > 3 ? 'A currency symbol has at most 3 characters.' : null);
     setProblem(text);
     if (text) return;
-    const body = { ...form };
-    for (const key of Object.keys(body) as TextKey[]) {
-      if (key === ('version' as string)) continue;
-      const v = body[key];
-      body[key] = typeof v === 'string' && v.trim() === '' ? null : typeof v === 'string' ? (key === 'receiptHeader' || key === 'receiptFooter' ? v : v.trim()) : v;
+    // Empty boxes go as null; the receipt texts keep their spacing, everything else is trimmed.
+    const body: Record<string, string | null> = { version: form.version };
+    for (const key of Object.keys(form) as TextKey[]) {
+      const v = form[key] ?? '';
+      body[key] = v.trim() === '' ? null : key === 'receiptHeader' || key === 'receiptFooter' ? v : v.trim();
     }
-    save.mutate(body);
+    save.mutate(body as unknown as StoreSettings);
   }
 
   useHotkey('Ctrl+S', submit, !save.isPending && !!query.data);
@@ -182,9 +184,11 @@ function StoreSetup({ storeId, tab, tabs }: { storeId: string; tab: Tab; tabs: R
                 {box('city', 'City')}
                 {box('province', 'State / province')}
                 {box('postalCode', 'Zip / postal code', { className: 'max-w-[220px]' })}
+                {box('country', 'Country')}
               </div>
               <div className="space-y-3">
                 {box('phone', 'Phone', { type: 'tel' })}
+                {box('fax', 'Fax', { type: 'tel' })}
                 {box('email', 'E-mail', { type: 'email' })}
                 {box('website', 'Website')}
                 {box('taxNumber', 'Tax number')}
@@ -193,10 +197,10 @@ function StoreSetup({ storeId, tab, tabs }: { storeId: string; tab: Tab; tabs: R
             </div>
             <div hidden={tab !== 'receipt'} className="grid grid-cols-1 gap-x-10 gap-y-3 xl:grid-cols-2">
               <div className="space-y-3">
-                <Field label="Receipt header" htmlFor="settings-receiptHeader" hint="Printed at the top of every receipt, under the business name.">
+                <Field label="Receipt header" htmlFor="settings-receiptHeader" hint="Printed at the top of receipts and invoices, under the business name.">
                   <TextArea id="settings-receiptHeader" rows={4} value={form.receiptHeader ?? ''} onChange={(e) => set('receiptHeader', e.target.value)} className="font-mono" />
                 </Field>
-                <Field label="Receipt footer" htmlFor="settings-receiptFooter" hint="Printed at the bottom: returns, thanks, opening hours.">
+                <Field label="Receipt footer" htmlFor="settings-receiptFooter" hint="Printed at the bottom of receipts and invoices: returns, thanks, opening hours.">
                   <TextArea id="settings-receiptFooter" rows={4} value={form.receiptFooter ?? ''} onChange={(e) => set('receiptFooter', e.target.value)} className="font-mono" />
                 </Field>
               </div>
@@ -250,7 +254,7 @@ function ReceiptPreview({ settings }: { settings: StoreSettings }) {
 function Branding({ storeId }: { storeId: string }) {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <BrandImage storeId={storeId} kind="logo" title="Logo" hint="Printed at the top of receipts and reports. The server makes it the size the tills print." />
+      <BrandImage storeId={storeId} kind="logo" title="Logo" hint="Printed at the top of receipts and reports. The server keeps it as the desktop does: a JPEG at most 800 pixels a side." />
       <BrandImage storeId={storeId} kind="watermark" title="Watermark" hint="Printed faintly behind invoices and statements." />
     </div>
   );
@@ -289,11 +293,11 @@ function BrandImage({ storeId, kind, title, hint }: { storeId: string; kind: Ima
 
   async function upload(file: File) {
     if (!file.type.startsWith('image/')) {
-      toast.error('Choose a picture (JPEG, PNG or BMP).');
+      toast.error('Choose a picture (JPEG, PNG, GIF, BMP or WebP).');
       return;
     }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('The picture is larger than 10 MB.');
+    if (file.size > 20 * 1024 * 1024) {
+      toast.error('The picture is larger than 20 MB.');
       return;
     }
     setProgress(0);
@@ -361,7 +365,7 @@ function BrandImage({ storeId, kind, title, hint }: { storeId: string; kind: Ima
       <input
         ref={input}
         type="file"
-        accept="image/jpeg,image/png,image/bmp,image/gif"
+        accept="image/jpeg,image/png,image/gif,image/bmp,image/webp"
         className="sr-only"
         aria-label={`${title} file`}
         onChange={(e) => {

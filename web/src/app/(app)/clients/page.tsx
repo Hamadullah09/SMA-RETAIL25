@@ -268,8 +268,8 @@ function ClientDialog({ id, readOnly, onClose }: { id: string | null; readOnly: 
             {box('country', 'Country')}
           </div>
           <div className="space-y-3">
-            {box('phone', 'Phone', { type: 'tel', inputMode: 'tel' })}
-            {box('phone2', 'Other phone', { type: 'tel', inputMode: 'tel' })}
+            {box('phone', 'Work phone', { type: 'tel', inputMode: 'tel' })}
+            {box('phone2', 'Home phone', { type: 'tel', inputMode: 'tel' })}
             {box('email', 'E-mail', { type: 'email', inputMode: 'email' })}
             {box('creditLimit', 'Credit limit', { inputMode: 'decimal', className: 'max-w-[180px]' })}
             <Field label="Balance" htmlFor="client-balance" hint="From invoices and payments at the tills.">

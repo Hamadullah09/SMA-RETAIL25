@@ -323,7 +323,8 @@ export function createApi(options: ApiOptions = {}) {
     // Items
     items: (query: Query, signal?: AbortSignal) => get<Paged<ItemRow>>('/items', query, signal),
     item: (itemId: string) => get<ItemDetail>(`/items/${id(itemId)}`),
-    addItem: (item: ItemDetail) => post<ItemDetail>('/items', item),
+    /** Without `locationId`, the item goes to the first location of `storeId` (or the user's store). */
+    addItem: (item: ItemDetail, storeId?: string | null) => json<ItemDetail>('/items', { method: 'POST', body: item, query: { storeId } }),
     saveItem: (itemId: string, item: ItemDetail) => put<ItemDetail>(`/items/${id(itemId)}`, item),
     deleteItem: (itemId: string) => del(`/items/${id(itemId)}`),
     undeleteItem: (itemId: string) => post<void>(`/items/${id(itemId)}/undelete`),

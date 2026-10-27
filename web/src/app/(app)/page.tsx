@@ -222,22 +222,26 @@ function DashboardBody({ data, loading, stale, now }: { data: Dashboard | undefi
           rows={data?.drawers}
           rowKey={(r, i) => `${r.storeCode}-${r.stationNumber}-${r.closedAt}-${i}`}
           empty="No drawer was closed in these days."
+          aside={<span className="text-note text-muted">Counted cash shows once the tills record it.</span>}
           columns={[
             { key: 'till', header: 'Till', cell: (r) => `${r.storeCode} · ${String(r.stationNumber).padStart(3, '0')}` },
             { key: 'at', header: 'Closed', cell: (r) => formatShortDateTime(r.closedAt) },
             { key: 'by', header: 'Closed by', cell: (r) => r.closedBy ?? '', hideBelow: 'sm' },
             { key: 'exp', header: 'Expected', numeric: true, cell: (r) => money(r.expected), hideBelow: 'md' },
-            { key: 'cnt', header: 'Counted', numeric: true, cell: (r) => money(r.counted), hideBelow: 'md' },
+            { key: 'cnt', header: 'Counted', numeric: true, cell: (r) => (r.counted === null ? '—' : money(r.counted)), hideBelow: 'md' },
             {
               key: 'var',
               header: 'Variance',
               numeric: true,
-              cell: (r) => (
-                <span className={cx('font-semibold', Math.abs(r.variance) >= 0.005 ? 'text-danger' : 'text-ok')}>
-                  {r.variance > 0 ? '+' : ''}
-                  {money(r.variance)}
-                </span>
-              ),
+              cell: (r) =>
+                r.variance === null ? (
+                  '—'
+                ) : (
+                  <span className={cx('font-semibold', Math.abs(r.variance) >= 0.005 ? 'text-danger' : 'text-ok')}>
+                    {r.variance > 0 ? '+' : ''}
+                    {money(r.variance)}
+                  </span>
+                ),
             },
           ]}
         />
