@@ -201,18 +201,20 @@ Left for the next phases:
 - **RFID hub service** on SQLite reads the database file of the PC it runs on (`--db`); a hub serving several tills
   gets its reader list from the server in phase 2.
 
-## 10. Phase 2 status: sync, and the core of the server (2026-10-28)
+## 10. Phase 2 and 3 status: sync, the server and the back-office API (2026-10-28)
 
-Done, on branch `phase2-sync-server`.
+Phase 2 (sync, and the core of the server) was done on branch `phase2-sync-server`. Phase 3 (the server API for the web
+back office) is on `phase3-admin-api`, made from it with the phase 5 branches (`integration-all-phases`) merged in; it is
+described after phase 2's known limits.
 
 ### What changed in the model
 
 | Change | Why |
 |---|---|
 | `Tombstones` (entity, row id, time, store; `MergedIntoId` for merges) | Deletions travel. The DbContext writes one in the same save as every delete; the `ExecuteDelete` calls were replaced by load and remove |
-| Shadow `EditedAtUtc` on every table | Last writer wins on what people edit. `UpdatedAtUtc` also moves when the system changes a count it keeps (a sale lowers the stock), so a till that sold an item before hearing of a new price would otherwise win with the old price. The later `EditedAtUtc` wins; between equal ones, the later `UpdatedAtUtc`. Columns the system keeps are listed in `SyncColumns` |
+| Shadow `SyncEditedAtUtc` on every table (`EditedAtUtc` until phase 5 brought a `TimeClockEntry.EditedAtUtc` column) | Last writer wins on what people edit. `UpdatedAtUtc` also moves when the system changes a count it keeps (a sale lowers the stock), so a till that sold an item before hearing of a new price would otherwise win with the old price. The later `SyncEditedAtUtc` wins; between equal ones, the later `UpdatedAtUtc`. Columns the system keeps are listed in `SyncColumns` |
 | Shadow `ChangeNumber` on every table, SQL Server only (`rowversion`) | The server's "everything changed since cursor X". See below |
-| Every `ExecuteUpdate` sets `UpdatedAtUtc` (`.Touched()`), and `EditedAtUtc` too when it changes what people edit (`.Edited()`) | Changes made outside the change tracker are sent too |
+| Every `ExecuteUpdate` sets `UpdatedAtUtc` (`.Touched()`), and `SyncEditedAtUtc` too when it changes what people edit (`.Edited()`) | Changes made outside the change tracker are sent too |
 | `ItemPeriodSales.StationNumber` (part of the unique key) | Two tills selling the same item in the same month each add to their own row, so neither overwrites the other; screens and reports add the rows up |
 | Matrix lines keep their ids when an item is saved, each count change of a line writes its own stock movement, and the importer writes one opening movement per line | `Item.OnHand` and `ItemVariant.OnHand` are always the sums of their stock movements (tested for opening, sale, return, void, receipt, adjustment, matrix edits and CSV import) |
 | `SyncBatches`, `SyncStates`, `StationLinks` (`ILocalOnly`, never sent) | Every package received or written; a till's progress; the server's side of each till (encrypted key, enrolment code, last upload and download, app version) |
@@ -250,9 +252,8 @@ before; then, in one transaction, it deletes what the tombstones name (optional 
 still in use refuses the package), inserts new rows, and updates rows whose copy is newer. A copy older than a deletion
 does not bring the row back (a till's packages overlap by ten minutes, so it may send a row again). Columns the system
 keeps are never taken for a row already there; afterwards `OnHand` is recomputed from the stock movements, a client's
-balance from their invoices (on the server: every store's invoices; on a till: its store's), and bonus points, which
-cannot be derived (a client may bring points from Retail Plus), are replayed from the sales that arrive: a new completed
-sale adds what it earned less what was redeemed, a sale arriving voided takes it back. On order, customer orders, last
+balance from their invoices (on the server: every store's invoices; on a till: its store's), and bonus points from the
+client's loyalty transactions (since phase 5 every change of points is one, and they go to every till). On order, customer orders, last
 order and receipt dates, year-end counts, flags and sign-in failures stay each database's own.
 
 **The same code made twice.** When a new row's unique value is taken (the same stock code made offline on two tills of
@@ -291,8 +292,57 @@ upload and download, last batch, failures since the last good package, app versi
 - Re-importing Retail Plus data into a till that already joined a server wipes rows without tombstones; import before
   joining.
 
-Next: phase 3 (the web admin, reports and dashboards on these endpoints) and the merge with the other phase 5 branches,
-whose new tables synchronise by the default rules.
+### Phase 3: the phase 5 tables in the sync
+
+Merging `integration-all-phases` brought the phase 5 tables; most synchronise by the default rules, and these needed a
+rule of their own:
+
+| Table | How it travels |
+|---|---|
+| Audit lines, time clock entries, stock counts | The default: up from the till, down to the tills of their store. Applying a package writes no audit lines of its own (`SuppressAudit`); audit times are kept to the millisecond, so SQLite and SQL Server hold the same value |
+| Transfers and their lines | To the tills of both the sending and the receiving store (`StockTransfer.OfStore`) |
+| Gift cards and their transactions, loyalty transactions | To every till (`SyncPolicy.Everywhere`): a card sold at one store is spent at another, and points are earned anywhere |
+| Stores and locations | Every till also receives the other stores and their locations (`SyncPolicy.DownEverywhere`), which transfers, cards and loyalty transactions point at; a till still sends only its own |
+| Commission rules | Down only, like roles |
+
+New sync tests: a transfer shipped at one store and received at another through the server, a gift card sold at one
+store and spent at another, and audit lines reaching the server with their user, time and station.
+
+### Phase 3: the back-office API
+
+| Area | What was built |
+|---|---|
+| Endpoints | Every "New in phase 3" endpoint of [API.md](API.md): dashboard, till monitor, sales, items, departments, categories, clients, suppliers, stock movements, transfers, counts, gift cards, reports (JSON and CSV), permissions, roles, users, audit log, time clock, hours, commission, commission rules, store settings and pictures. One file per area (`Endpoints.*.cs`); what every request shares (store scope, paging, dates, versions, errors) is in `Api.cs` |
+| Session | Sign-in also sets the `rp_session` cookie (httpOnly, SameSite=Strict, Secure outside Development), which signs in the requests without an `Authorization` header; `POST /api/auth/sign-out`; the CSRF guard (`X-Requested-With: retailplus-web`) on changes signed in by the cookie; CORS with credentials for `Cors:Origins` |
+| The desktop's services | The endpoints call the same services as the desktop app. `DataContext.For(station, user)` gives each request a DataContext over the same pool, working for station 0 of the store concerned and for the web user, so the services' own audit lines name the web user and the store. `DataContext.StoreScope`, set only there, limits to one store the lists that a till holds for its own store anyway (time clock, hours, commission, drawers, aged receivables, gift card liability); `ReportService.RunAsync` takes several locations. A till sees exactly what it saw before |
+| Store scope | Lists cover the stores the user sees (403 for a `storeId` they do not see); a single record of another store is 404. Shared records (clients, suppliers, departments, categories, roles, commission rules) are changed by users with `stores.all`, or by any administrator while there is a single store |
+| Pictures | Logos and watermarks are resized on the server with SkiaSharp exactly as the desktop app resizes them (WPF): a JPEG of at most 800 pixels a side on white |
+| The web app's files | The server serves the web app's static export from `Server:WebRoot` (default `web/out`): default files, `404.html` for unknown pages, a year's cache for `/_next/static`, none for pages, never anything under `/api` |
+
+The rules decided on the way (items kept per location, field mappings, versions, how the server writes audit lines,
+the server's number range for clients, the dashboard's figures, till statuses) are written down in API.md, "How the
+server applies this contract".
+
+### Phase 3: tests
+
+`RetailPlus.Server.Tests` builds a company once the way a real one comes about: two stores with two SQLite tills each
+that sell on several days, void a sale, sell a gift card at one store and spend it at the other, ship and receive a
+transfer, count stock and punch the time clock, then send it all to the server. Every group of endpoints is tested for
+the happy path, the refusal without the permission, store scoping (a store administrator sees nothing of the other
+store, a super administrator sees both), paging and 409 on an old version; plus the cookie sign-in, the CSRF refusal,
+sign-out, the CSV report, a picture upload, serving a fake export from a temporary `WebRoot`, and master data going down
+(changed on the web, downloaded and applied by a SQLite till, and the till's next change still going up).
+
+### Phase 3: known limits
+
+- Items are kept per location: the web changes one store's row of a stock code; the same code at another store is
+  changed there (there is no "change at every store" yet).
+- Tills record no counted cash at End of Day, so the dashboard's drawers have no counted amount or variance.
+- With several stores in different time zones and no `storeId`, "today" is the server's date.
+- Transfers and counts are listed up to the latest 1,000 (not paged); the audit log's `from` and `to` are UTC days.
+- A wrong HTTP method on an `/api` address is answered 404 rather than 405.
+
+Next: phase 4 (the web back office on this API) and phase 6 (the cutover).
 
 ## 11. Phase 5 status: staff and security (2026-10-28)
 

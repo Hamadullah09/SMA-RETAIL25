@@ -222,3 +222,101 @@ The pages, with the permission each needs:
 
 The navigation shows only the pages the user may open. A store picker sits in the header: it lists every store for
 `stores.all` users, and shows the home store fixed for everyone else. It sets `storeId` on every request.
+
+## How the server applies this contract (phase 3)
+
+The rules below were decided while building the server. They add to the contract above and change nothing in it.
+
+### Stores: what a user sees and what they may change
+
+- **Store records** belong to one store: items (through their location), stock movements, stock counts, sales, drawers,
+  time clock entries, audit lines, gift cards (the store that issued the card), store settings and pictures, and users
+  (their home store). Lists cover the stores the user sees; a `storeId` they cannot see is 403; a single record of a
+  store they cannot see is 404, so ids tell nothing about other stores.
+- **Transfers** belong to both their sending and their receiving store.
+- **Company-wide records** are shared by every store: clients, suppliers, departments, categories, roles and commission
+  rules. Anyone with the read permission reads them. **They are changed only by a user with `stores.all`, or by any user
+  with the change permission while the company has a single store** (403 otherwise). A store administrator therefore
+  edits their own store's items, users, settings and pictures, but not the shared lists, once there is a second store.
+- **Users:** an administrator without `stores.all` lists and manages only users of their own store (others are 404),
+  cannot make a user of every store (`storeId` null), cannot move a user to another store, and cannot give a role that
+  holds `stores.all` nor create or change such a role (403). The Super administrator role holds it.
+
+### Items are kept per location
+
+In the model each location of a store has its own row (and price and stock) for a stock code. So:
+
+- `GET /api/items` lists one row per location item, with two extra fields, `storeCode` and `locationCode`. `onHand` is
+  that row's count; with `storeId` the rows are that store's. A user who sees several stores gets one row per store
+  that stocks the code.
+- `GET /api/items/{id}` is one location's item; its `stock` lists the same code at every location of the stores the
+  user sees.
+- `POST /api/items` takes an optional extra `locationId`; without it the item goes to the first location of `storeId`,
+  else of the user's store, else of the only store (400 when none can be told).
+- Extra field `barcode`. `description` is the item's long description and `notes` its message shown at the till.
+  `taxable3` is always false (stores have two taxes).
+- A category is not kept under a department: `departmentId` in category rows is null, and
+  `GET /api/categories?departmentId=` returns the categories used by that department's items. Extra endpoints:
+  `POST /api/departments` and `POST /api/categories` take `{ name }` (names are kept in capitals);
+  `DELETE /api/departments/{id}` and `DELETE /api/categories/{id}`; all four follow the company-wide rule.
+
+### Clients, suppliers, settings
+
+- Client `phone` is the work phone and `phone2` the home phone. A client added on the web without a `number` gets one
+  from the server's own number range (station 1000; tills are 1 to 999), so it never clashes with a till's.
+- Supplier `contact` is kept as first and last name: the first word is the first name, the rest the last name.
+- Store settings: `email`, `website` and `currencySymbol` have no column and are kept as store setting extras (`EMAIL`,
+  `WEBSITE`, `CURRENCY`); `receiptHeader` and `receiptFooter` are the store's invoice header and footer texts. Extra
+  fields `country` and `fax`. All of it is the store's own rows, so it reaches the store's tills with the next
+  download.
+- Pictures: any JPEG, PNG, GIF, BMP or WebP up to 20 MB, stored as the desktop app stores them: a JPEG (quality 85) of at
+  most 800 pixels a side, drawn on white. Anything else is 400.
+
+### Versions
+
+`version` is an opaque string. Items, clients and suppliers: the row's concurrency token. Roles: the latest change of
+the role or of its permissions. Users: the time the user was last edited (signing in does not change it). Commission
+rules: their last change. Store settings: the latest change of the settings row, its extras and its receipt texts. A
+PUT without `version` is 400; with an old one, 409.
+
+### The audit log on the server
+
+The server writes audit lines exactly as a till does, through the same services: each request works with a
+`DataContext.For(StationIdentity(store, 0), web user)`, so the automatic lines (added, changed, deleted, with the values
+before and after) and the explicit ones carry:
+
+- the web user's id and name;
+- the store the change belongs to: the record's store; for company-wide records the `storeId` of the request, else the
+  user's home store, else the first store by code;
+- station number **0**, which marks a line written on the web (tills are 1 to 999).
+
+Web sign-ins and failed sign-ins are written the same way, under the user's home store (or the first store). Audit lines
+then travel like the tills' own: down to that store's tills.
+
+### Dates, figures and statuses
+
+- Business dates (`from`, `to`) are the store's days; without a `storeId` and for several stores, the server's own date.
+  A `from` after `to` is turned round; a date that is not `yyyy-MM-dd` is 400.
+- `GET /api/audit` takes `from` and `to` as UTC days (the log keeps UTC times). `GET /api/stock/movements` without `from`
+  and `to` covers all time.
+- Dashboard: `netSales` is completed sales after line and sale discounts, before taxes; voided sales are left out and
+  counted in `voids`; `returns` is the value of returned lines (a positive number); `discounts` adds line and sale
+  discounts; `grossProfit` is net sales less the cost of the goods; `previous` covers the same number of days just
+  before `from`. `drawers` are the drawers closed in the period with the cash expected (opening float, cash taken,
+  pay-ins less pay-outs); tills do not record a counted amount, so `counted` and `variance` are null.
+- Till `status`: `retired`; `never` (not joined, or nothing sent yet); `failed` (a package refused since the last good
+  one); `behind` (nothing sent for `Server:BehindAfterHours`, 24 by default); else `ok`.
+- Reports run over every location of the stores in scope; the reports that are not kept per location (drawers, aged
+  receivables, hours, commission, gift card liability) cover the same stores. The CSV is UTF-8 with a byte order mark,
+  named `{key}-{from}-{to}.csv`.
+
+### Session, errors and the web app's files
+
+- The cookie lasts as long as the token (`Jwt:Hours`, 12). The CSRF guard applies to requests signed in by the cookie;
+  sign-in and sign-out (open to anyone) and requests with an `Authorization` header are not checked.
+- Errors are always `{ "error" }`. A change the database refuses (a code that must be unique, a record that no longer
+  exists) is 400. An unknown address under `/api` is a JSON 404.
+- The server serves the web app's static export from `Server:WebRoot` (default: `web/out`, looked for in the content root
+  and the folders above it; when there is none, only the API is served). `/x/` serves `x/index.html` and `/x` serves
+  `x.html`; any other path outside `/api` gets the export's `404.html` with status 404. Files under `/_next/static/` are
+  cached for a year (`immutable`), pages are `no-cache`. Nothing under `/api` is ever served from the files.

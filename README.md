@@ -91,19 +91,36 @@ dotnet run --project src/RetailPlus.RfidHub -- --db "%LOCALAPPDATA%\RetailPlus\s
 and every station points at it in *Setup › This station › RFID*. Design, installation and capacity:
 [docs/RFID.md](docs/RFID.md).
 
-## The server and syncing tills
+## The server, the web back office and syncing tills
 
 ```
 dotnet run --project src/RetailPlus.Server
 ```
 
-The server uses `ConnectionStrings:RetailPlus` (default: the LocalDB database `RetailPlus_Server`), brings it up to date on
-start, and on the first start makes a super administrator from `Bootstrap:AdminUserName` / `Bootstrap:AdminPassword`
-(without a password one is made up and written once to the log). Its own files (the token signing key unless `Jwt:Key`
-is set, the data-protection keys that encrypt the tills' keys, packages being received) are kept in `App_Data`, or
-`Server:DataFolder`. Web origins allowed by CORS: `Cors:Origins` (default `http://localhost:3000`). API: `/api/health`,
-`/api/auth/*`, `/api/stores`, `/api/stores/{id}/stations`, `/api/stations/{id}/*`, `/api/sync/*`; the OpenAPI document
-is at `/openapi/v1.json`.
+The server holds every store's data on SQL Server (the same model as the tills), receives the tills' packages, and
+serves the web back office and its API. Settings come from `appsettings.json`, environment variables (for example
+`ConnectionStrings__RetailPlus`) or user secrets (`dotnet user-secrets set ...` in `src/RetailPlus.Server`):
+
+| Setting | What it is |
+|---|---|
+| `ConnectionStrings:RetailPlus` | The database (default: the LocalDB database `RetailPlus_Server`). It is created and brought up to date on every start |
+| `Bootstrap:AdminUserName`, `Bootstrap:AdminPassword` | The first super administrator, made on the first start while the database has no users. Without a password one is made up and written once to the log |
+| `Jwt:Key`, `Jwt:Hours` | The key that signs sign-in tokens (at least 32 characters; default: one made on the first start and kept in the data folder) and how long a sign-in lasts (12 hours) |
+| `Server:DataFolder` | The server's own files: the signing key, the data-protection keys that encrypt the tills' keys, packages being received (default `App_Data`) |
+| `Server:WebRoot` | The web back office's static export (default `web/out`, looked for in the content root and the folders above it). When there is none the server serves the API only |
+| `Server:BehindAfterHours`, `Server:MaxPackageMegabytes` | When a till that has sent nothing is shown as behind (24) and the largest package accepted (512) |
+| `Cors:Origins` | Web origins that may call the API with the session cookie (default `http://localhost:3000`, the web app's development server) |
+
+**The first sign-in.** Set `Bootstrap:AdminUserName` and `Bootstrap:AdminPassword` before the first start (or read the
+made-up password in the log once), sign in to the web back office as that super administrator and change the password.
+Then add the stores, their tills and the users: an Administrator with a home store sees and manages that store only; a
+user whose role has `stores.all` (Super administrator) sees every store and changes what the stores share (clients,
+suppliers, departments, categories, roles, commission rules).
+
+**The web back office** is the web app's static export (`web/out`, made by building `web/`), served at `/`; while the web
+app is developed, its own server on port 3000 calls the API instead (allowed by `Cors:Origins`). Signing in sets an
+httpOnly `rp_session` cookie. The API is described in [docs/API.md](docs/API.md); the OpenAPI document is at
+`/openapi/v1.json`.
 
 An administrator adds a till to a store (`POST /api/stores/{id}/stations`) and gets a one-time enrolment code (24
 hours). At the till, *Setup › Server* takes the server's address and the code: the till joins, its data moves to the
