@@ -10,7 +10,7 @@ internal sealed class LocationConfiguration : IEntityTypeConfiguration<Location>
     {
         e.Property(x => x.Code).HasMaxLength(3);
         e.Property(x => x.Name).HasMaxLength(50);
-        e.HasIndex(x => x.Code).IsUnique();
+        e.HasIndex(x => new { x.StoreId, x.Code }).IsUnique();
     }
 }
 
@@ -79,7 +79,6 @@ internal sealed class ItemConfiguration : IEntityTypeConfiguration<Item>
         e.Property(x => x.LastCost).UnitCost();
         e.Property(x => x.AverageCost).UnitCost();
         e.Property(x => x.MarginPercent).Rate();
-        e.Property(x => x.RowVersion).IsRowVersion();
 
         e.HasIndex(x => new { x.LocationId, x.Barcode });
 

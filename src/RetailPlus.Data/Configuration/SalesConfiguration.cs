@@ -196,15 +196,17 @@ internal sealed class StaffPeriodConfiguration : IEntityTypeConfiguration<StaffP
     }
 }
 
-internal sealed class StockAdjustmentConfiguration : IEntityTypeConfiguration<StockAdjustment>
+internal sealed class StockMovementConfiguration : IEntityTypeConfiguration<StockMovement>
 {
-    public void Configure(EntityTypeBuilder<StockAdjustment> e)
+    public void Configure(EntityTypeBuilder<StockMovement> e)
     {
+        e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(12);
         e.Property(x => x.Quantity).Quantity();
         e.Property(x => x.OnHandAfter).Quantity();
         e.Property(x => x.Reason).HasMaxLength(100);
         e.Property(x => x.User).HasMaxLength(15);
         e.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Cascade);
         e.HasIndex(x => new { x.ItemId, x.At });
+        e.HasIndex(x => new { x.Kind, x.At });
     }
 }

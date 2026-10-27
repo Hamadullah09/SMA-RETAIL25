@@ -4,10 +4,10 @@ using RetailPlus.Data.Services;
 
 namespace RetailPlus.Data.Tests;
 
-/// <summary>Item barcodes (UPC-A and EAN-13) against a real SQL Server database.</summary>
-public sealed class BarcodeTests(LocalDbFixture db) : IClassFixture<LocalDbFixture>
+/// <summary>Item barcodes (UPC-A and EAN-13) against a real database.</summary>
+public abstract class BarcodeTests(DatabaseFixture db)
 {
-    private DataContext Data => new(db.ConnectionString);
+    private DataContext Data => db.Data;
 
     private async Task<Location> LocationAsync()
     {
@@ -50,3 +50,7 @@ public sealed class BarcodeTests(LocalDbFixture db) : IClassFixture<LocalDbFixtu
         Assert.NotEqual(given, await inventory.NewInStoreBarcodeAsync());
     }
 }
+
+public sealed class BarcodeTestsOnSqlite(SqliteFixture db) : BarcodeTests(db), IClassFixture<SqliteFixture>;
+
+public sealed class BarcodeTestsOnSqlServer(SqlServerFixture db) : BarcodeTests(db), IClassFixture<SqlServerFixture>;

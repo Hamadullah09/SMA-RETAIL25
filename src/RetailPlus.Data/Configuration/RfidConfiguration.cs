@@ -19,10 +19,9 @@ internal sealed class RfidReaderConfiguration : IEntityTypeConfiguration<RfidRea
         e.Property(x => x.LinkProfile).HasConversion<string>().HasMaxLength(10);
         e.Property(x => x.FirmwareVersion).HasMaxLength(20);
         e.Property(x => x.Notes).HasMaxLength(500);
-        e.Property(x => x.RowVersion).IsRowVersion();
         e.Ignore(x => x.Endpoint);
         e.HasMany(x => x.Antennas).WithOne().HasForeignKey(a => a.ReaderId).OnDelete(DeleteBehavior.Cascade);
-        e.HasIndex(x => x.Name).IsUnique();
+        e.HasIndex(x => new { x.StoreId, x.Name }).IsUnique();
         e.HasIndex(x => x.HubKey);
     }
 }

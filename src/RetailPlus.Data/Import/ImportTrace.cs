@@ -27,7 +27,7 @@ public class ImportSourceRow
     public int ImportBatchId { get; set; }
     /// <summary>Target entity name, e.g. "Item".</summary>
     public string Entity { get; set; } = "";
-    public int? EntityId { get; set; }
+    public Guid? EntityId { get; set; }
     /// <summary>Source file path relative to the imported folder.</summary>
     public string SourceFile { get; set; } = "";
     public int SourceRecordNumber { get; set; }

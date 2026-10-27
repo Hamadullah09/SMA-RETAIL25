@@ -4,9 +4,8 @@ namespace RetailPlus.Core.Model;
 /// Contact fields shared by clients and suppliers. In the original, CLIENTS.DBF and SUPPLIER.DBF have exactly the
 /// same structure; here the commerce fields only exist on <see cref="Client"/>.
 /// </summary>
-public abstract class Party : ISoftDeletable, IFlaggable, IVersioned
+public abstract class Party : Entity, ISoftDeletable, IFlaggable, IVersioned
 {
-    public int Id { get; set; }
     /// <summary>[FNAME]</summary>
     public string? FirstName { get; set; }
     /// <summary>[LNAME]</summary>
@@ -50,7 +49,7 @@ public abstract class Party : ISoftDeletable, IFlaggable, IVersioned
     public bool IsFlagged { get; set; }
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
-    public byte[] RowVersion { get; set; } = [];
+    public Guid Version { get; set; }
 }
 
 /// <summary>A customer (one record of CLIENTS.DBF).</summary>

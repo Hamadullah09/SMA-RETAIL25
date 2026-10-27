@@ -18,11 +18,12 @@ public enum OrderMethod
 }
 
 /// <summary>A purchase order (the original kept one DBF file per PO: PO&lt;number&gt;.&lt;LOC&gt;).</summary>
-public class PurchaseOrder : IVersioned
+public class PurchaseOrder : Entity, IVersioned, IStationStamped
 {
-    public int Id { get; set; }
+    public Guid StoreId { get; set; }
+    public int StationNumber { get; set; }
     public long Number { get; set; }
-    public int LocationId { get; set; }
+    public Guid LocationId { get; set; }
     public Location? Location { get; set; }
     public DateTime CreatedAt { get; set; }
     public PurchaseOrderStatus Status { get; set; }
@@ -30,16 +31,15 @@ public class PurchaseOrder : IVersioned
     public string? Description { get; set; }
     public DateTime? PostedAt { get; set; }
     public DateTime? ReceivedAt { get; set; }
-    public byte[] RowVersion { get; set; } = [];
+    public Guid Version { get; set; }
     public List<PurchaseOrderLine> Lines { get; set; } = [];
 }
 
 /// <summary>One item on a purchase order (one record of a PO file).</summary>
-public class PurchaseOrderLine : IFlaggable
+public class PurchaseOrderLine : Entity, IFlaggable
 {
-    public int Id { get; set; }
-    public int PurchaseOrderId { get; set; }
-    public int? ItemId { get; set; }
+    public Guid PurchaseOrderId { get; set; }
+    public Guid? ItemId { get; set; }
     public string Plu { get; set; } = "";
     public string Description { get; set; } = "";
     public string? Size { get; set; }
@@ -59,7 +59,7 @@ public class PurchaseOrderLine : IFlaggable
     public decimal BackOrders { get; set; }
     /// <summary>Pieces received, not cases [RECVD].</summary>
     public decimal QuantityReceived { get; set; }
-    public int? SupplierId { get; set; }
+    public Guid? SupplierId { get; set; }
     public string? SupplierName { get; set; }
     /// <summary>The supplier's stock code [REORDERNO].</summary>
     public string? ReorderNumber { get; set; }

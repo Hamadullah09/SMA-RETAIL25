@@ -8,12 +8,14 @@ public enum InvoiceKind
 }
 
 /// <summary>An on-account invoice, price quote or layaway (INVOICES.DBF).</summary>
-public class Invoice : IFlaggable, IVersioned
+public class Invoice : Entity, IFlaggable, IVersioned, IStationStamped
 {
-    public int Id { get; set; }
+    public Guid StoreId { get; set; }
+    /// <summary>The station the invoice was made at; 0 for imported invoices.</summary>
+    public int StationNumber { get; set; }
     public long InvoiceNumber { get; set; }
     public InvoiceKind Kind { get; set; } = InvoiceKind.Invoice;
-    public int? ClientId { get; set; }
+    public Guid? ClientId { get; set; }
     public Client? Client { get; set; }
     public string? AccountNumber { get; set; }
     public string? CustomerNumber { get; set; }
@@ -37,10 +39,10 @@ public class Invoice : IFlaggable, IVersioned
     /// <summary>For imported invoices: the original NOTES memo, which holds the line detail.</summary>
     public string? Notes { get; set; }
     public string? Email { get; set; }
-    public int? SaleId { get; set; }
+    public Guid? SaleId { get; set; }
     public bool IsVoided { get; set; }
     public bool IsFlagged { get; set; }
-    public byte[] RowVersion { get; set; } = [];
+    public Guid Version { get; set; }
     public List<InvoiceLine> Lines { get; set; } = [];
     public List<InvoicePayment> Payments { get; set; } = [];
 
@@ -48,10 +50,9 @@ public class Invoice : IFlaggable, IVersioned
         !string.IsNullOrWhiteSpace(Company) ? Company! : $"{FirstName} {LastName}".Trim();
 }
 
-public class InvoiceLine
+public class InvoiceLine : Entity
 {
-    public int Id { get; set; }
-    public int InvoiceId { get; set; }
+    public Guid InvoiceId { get; set; }
     public int LineNumber { get; set; }
     public string? Plu { get; set; }
     public string Description { get; set; } = "";
@@ -61,10 +62,12 @@ public class InvoiceLine
     public decimal LineTotal { get; set; }
 }
 
-public class InvoicePayment
+/// <summary>A payment on an invoice, with the store and station that took the money.</summary>
+public class InvoicePayment : Entity, IStationStamped
 {
-    public int Id { get; set; }
-    public int InvoiceId { get; set; }
+    public Guid StoreId { get; set; }
+    public int StationNumber { get; set; }
+    public Guid InvoiceId { get; set; }
     public DateOnly PaidOn { get; set; }
     public decimal Amount { get; set; }
     public string TenderType { get; set; } = "";

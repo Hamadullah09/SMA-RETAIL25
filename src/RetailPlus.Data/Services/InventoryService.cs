@@ -5,7 +5,7 @@ using RetailPlus.Core.Rules;
 namespace RetailPlus.Data.Services;
 
 /// <summary>A row of the Inventory window's browse list.</summary>
-public sealed record ItemRow(int Id, string Plu, string Name, string? Department, string? Category, string? Supplier, string? Size,
+public sealed record ItemRow(Guid Id, string Plu, string Name, string? Department, string? Category, string? Supplier, string? Size,
     decimal OnHand, decimal OnOrder, decimal Price1, decimal LastCost, decimal AverageCost, ItemType ItemType, bool IsFlagged, bool IsDeleted,
     decimal Weight = 0, string? WeightUnit = null, int Tags = 0, string? Barcode = null)
 {
@@ -32,7 +32,7 @@ public enum ItemSearchField
 /// <summary>Inventory window operations for one location.</summary>
 public sealed class InventoryService(DataContext data)
 {
-    public async Task<List<ItemRow>> SearchAsync(int locationId, string? text, ItemSearchField field = ItemSearchField.Any,
+    public async Task<List<ItemRow>> SearchAsync(Guid locationId, string? text, ItemSearchField field = ItemSearchField.Any,
         bool includeDeleted = false, bool flaggedOnly = false, int take = 2000)
     {
         await using var db = data.Create();
@@ -64,14 +64,14 @@ public sealed class InventoryService(DataContext data)
             .ToListAsync();
     }
 
-    public async Task<int> CountAsync(int locationId)
+    public async Task<int> CountAsync(Guid locationId)
     {
         await using var db = data.Create();
         return await db.Items.CountAsync(i => i.LocationId == locationId && !i.IsDeleted);
     }
 
     /// <summary>The item with everything the Item Detail window shows.</summary>
-    public async Task<Item?> GetAsync(int id)
+    public async Task<Item?> GetAsync(Guid id)
     {
         await using var db = data.Create();
         return await db.Items.AsNoTracking().AsSplitQuery()
@@ -88,7 +88,7 @@ public sealed class InventoryService(DataContext data)
     /// Looks up a scanned or typed code the way the POS does: stock code, then matrix line code, then the supplier's code.
     /// Returns the variant when a matrix code matched.
     /// </summary>
-    public async Task<(Item? Item, ItemVariant? Variant)> FindByCodeAsync(int locationId, string code)
+    public async Task<(Item? Item, ItemVariant? Variant)> FindByCodeAsync(Guid locationId, string code)
     {
         code = code.Trim();
         if (code.Length == 0) return (null, null);
@@ -110,14 +110,14 @@ public sealed class InventoryService(DataContext data)
     }
 
     /// <summary>The item's picture (a JPEG), or null when it has none.</summary>
-    public async Task<byte[]?> GetPictureAsync(int itemId)
+    public async Task<byte[]?> GetPictureAsync(Guid itemId)
     {
         await using var db = data.Create();
         return await db.ItemPictures.Where(p => p.ItemId == itemId).Select(p => p.Data).FirstOrDefaultAsync();
     }
 
     /// <summary>Stores the item's picture (null removes it). Pictures are kept small: at most 2 MB.</summary>
-    public async Task SetPictureAsync(int itemId, byte[]? picture)
+    public async Task SetPictureAsync(Guid itemId, byte[]? picture)
     {
         if (picture is { Length: > 2 * 1024 * 1024 }) throw new BusinessRuleException("The picture is too large (more than 2 MB).");
         await using var db = data.Create();
@@ -130,7 +130,6 @@ public sealed class InventoryService(DataContext data)
         {
             if (row is null) db.ItemPictures.Add(row = new ItemPicture { ItemId = itemId });
             row.Data = picture;
-            row.UpdatedAt = DateTime.Now;
         }
         await db.SaveChangesAsync();
     }
@@ -144,7 +143,7 @@ public sealed class InventoryService(DataContext data)
     }
 
     /// <summary>Gives each of the items that has no barcode the next in-store UPC-A. Returns how many got one.</summary>
-    public async Task<int> AssignInStoreBarcodesAsync(IEnumerable<int> itemIds)
+    public async Task<int> AssignInStoreBarcodesAsync(IEnumerable<Guid> itemIds)
     {
         int count = 0;
         foreach (var id in itemIds.Distinct())
@@ -157,7 +156,7 @@ public sealed class InventoryService(DataContext data)
         return count;
     }
 
-    public async Task<bool> PluExistsAsync(int locationId, string plu, int exceptId = 0)
+    public async Task<bool> PluExistsAsync(Guid locationId, string plu, Guid exceptId = default)
     {
         await using var db = data.Create();
         return await db.Items.AnyAsync(i => i.LocationId == locationId && i.Plu == plu && !i.IsDeleted && i.Id != exceptId);
@@ -189,7 +188,7 @@ public sealed class InventoryService(DataContext data)
         item.DepartmentId = await LookupAsync(db.Departments, departmentName, n => new Department { Name = n }, db);
         item.CategoryId = await LookupAsync(db.Categories, categoryName, n => new Category { Name = n }, db);
         item.SupplierId = string.IsNullOrWhiteSpace(supplierName) ? null
-            : (await db.Suppliers.Where(s => !s.IsDeleted && s.Company == supplierName.Trim()).Select(s => (int?)s.Id).FirstOrDefaultAsync());
+            : (await db.Suppliers.Where(s => !s.IsDeleted && s.Company == supplierName.Trim()).Select(s => (Guid?)s.Id).FirstOrDefaultAsync());
         if (item.Price1 > 0) item.MarginPercent = Money.MarginPercent(item.Price1, item.AverageCost > 0 ? item.AverageCost : item.LastCost);
         item.LastUpdated = DateOnly.FromDateTime(DateTime.Today);
 
@@ -198,8 +197,18 @@ public sealed class InventoryService(DataContext data)
         item.Department = null; item.Category = null; item.Supplier = null; item.Location = null;
         item.Suppliers = []; item.MatrixColumns = []; item.Variants = []; item.KitComponents = []; item.Serials = []; item.PeriodSales = [];
 
-        if (item.Id == 0) db.Items.Add(item);
-        else db.Items.Update(item);
+        bool isNew = item.Id == Guid.Empty;
+        decimal storedOnHand = 0;
+        if (isNew) db.Items.Add(item);
+        else
+        {
+            storedOnHand = await db.Items.Where(i => i.Id == item.Id).Select(i => i.OnHand).SingleOrDefaultAsync();
+            db.Items.Update(item);
+            // Counts kept by sales, receipts and adjustments are never written back from the editor, which may have read
+            // them before the last sale; a changed price or name does not need the editor to reload.
+            var entry = db.Entry(item);
+            foreach (var name in KeptByTheSystem) entry.Property(name).IsModified = false;
+        }
         try
         {
             await db.SaveChangesAsync();
@@ -228,18 +237,56 @@ public sealed class InventoryService(DataContext data)
         foreach (var k in kit.Where(k => !string.IsNullOrWhiteSpace(k.ComponentPlu)))
         {
             var plu = k.ComponentPlu.Trim().ToUpperInvariant();
-            var componentId = await db.Items.Where(i => i.LocationId == item.LocationId && i.Plu == plu && !i.IsDeleted).Select(i => (int?)i.Id).FirstOrDefaultAsync();
+            var componentId = await db.Items.Where(i => i.LocationId == item.LocationId && i.Plu == plu && !i.IsDeleted).Select(i => (Guid?)i.Id).FirstOrDefaultAsync();
             db.KitComponents.Add(new KitComponent { KitItemId = item.Id, Ordinal = ++ord, ComponentPlu = plu, ComponentItemId = componentId, Description = k.Description, Quantity = k.Quantity == 0 ? 1 : k.Quantity });
         }
         foreach (var s in serials.Where(s => !string.IsNullOrWhiteSpace(s.SerialNumber)))
             db.ItemSerials.Add(new ItemSerial { ItemId = item.Id, SerialNumber = s.SerialNumber.Trim(), Status = s.Status ?? "IN STOCK", StatusDate = s.StatusDate });
         if (item.ItemType == ItemType.Matrix && variants.Count > 0)
-            item.OnHand = variants.Sum(v => v.OnHand);
+        {
+            // The matrix lines are counted in the editor; the item's count is their total.
+            decimal counted = variants.Sum(v => v.OnHand);
+            if (isNew || counted != storedOnHand)
+            {
+                var onHand = db.Entry(item).Property(i => i.OnHand);
+                onHand.CurrentValue = counted;
+                if (!isNew) onHand.IsModified = true;
+                if (counted != storedOnHand)
+                    Record(db, item.Id, isNew ? StockMovementKind.Opening : StockMovementKind.Adjustment, counted - storedOnHand, counted, reason: "Matrix counts");
+            }
+        }
+        else if (isNew && item.OnHand != 0)
+            Record(db, item.Id, StockMovementKind.Opening, item.OnHand, item.OnHand);
         await db.SaveChangesAsync();
+        if (!isNew) await db.Entry(item).ReloadAsync();
         return item;
     }
 
-    private static async Task<int?> LookupAsync<T>(DbSet<T> set, string? name, Func<string, T> create, RetailPlusDbContext db) where T : class
+    /// <summary>Item columns that only the system changes once the item exists.</summary>
+    private static readonly string[] KeptByTheSystem =
+    [
+        nameof(Item.OnHand), nameof(Item.OnOrder), nameof(Item.CustomerOrdered), nameof(Item.OnHandBeforeYearEnd),
+        nameof(Item.LastOrderDate), nameof(Item.LastReceivedDate), nameof(Item.LastReceivedQuantity),
+        nameof(Item.IsFlagged), nameof(Item.IsDeleted), nameof(Item.DeletedAt),
+    ];
+
+    /// <summary>
+    /// Adds the movement behind a change of an item's on-hand count (saved with the caller's next SaveChanges). Every
+    /// change of OnHand goes with one, so stock can be added up from the movements.
+    /// </summary>
+    public static StockMovement Record(RetailPlusDbContext db, Guid itemId, StockMovementKind kind, decimal quantity, decimal onHandAfter,
+        DateTime? at = null, long? document = null, string? reason = null, string? user = null, Guid? variantId = null)
+    {
+        var movement = new StockMovement
+        {
+            ItemId = itemId, VariantId = variantId, Kind = kind, At = at ?? DateTime.Now, Quantity = quantity, OnHandAfter = onHandAfter,
+            DocumentNumber = document, Reason = reason, User = user,
+        };
+        db.StockMovements.Add(movement);
+        return movement;
+    }
+
+    private static async Task<Guid?> LookupAsync<T>(DbSet<T> set, string? name, Func<string, T> create, RetailPlusDbContext db) where T : class
     {
         if (string.IsNullOrWhiteSpace(name)) return null;
         name = name.Trim().ToUpperInvariant();
@@ -250,16 +297,16 @@ public sealed class InventoryService(DataContext data)
             set.Add(entity);
             await db.SaveChangesAsync();
         }
-        return (int)db.Entry(entity).Property("Id").CurrentValue!;
+        return (Guid)db.Entry(entity).Property("Id").CurrentValue!;
     }
 
-    public async Task DeleteAsync(int id)
+    public async Task DeleteAsync(Guid id)
     {
         await using var db = data.Create();
         await db.Items.Where(i => i.Id == id).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsDeleted, true).SetProperty(i => i.DeletedAt, DateTime.Now));
     }
 
-    public async Task RestoreAsync(int id)
+    public async Task RestoreAsync(Guid id)
     {
         await using var db = data.Create();
         var item = await db.Items.SingleAsync(i => i.Id == id);
@@ -270,40 +317,41 @@ public sealed class InventoryService(DataContext data)
         await db.SaveChangesAsync();
     }
 
-    public async Task SetFlagAsync(IEnumerable<int> ids, bool flagged)
+    public async Task SetFlagAsync(IEnumerable<Guid> ids, bool flagged)
     {
         var list = ids.ToList();
         await using var db = data.Create();
         await db.Items.Where(i => list.Contains(i.Id)).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsFlagged, flagged));
     }
 
-    public async Task ClearFlagsAsync(int locationId)
+    public async Task ClearFlagsAsync(Guid locationId)
     {
         await using var db = data.Create();
         await db.Items.Where(i => i.LocationId == locationId && i.IsFlagged).ExecuteUpdateAsync(s => s.SetProperty(i => i.IsFlagged, false));
     }
 
     /// <summary>Adjust Stock: adds (or with <paramref name="setTo"/> replaces) the on-hand count and logs the change.</summary>
-    public async Task<decimal> AdjustStockAsync(int itemId, decimal quantity, string? reason, string? user, bool setTo = false)
+    public async Task<decimal> AdjustStockAsync(Guid itemId, decimal quantity, string? reason, string? user, bool setTo = false)
     {
         await using var db = data.Create();
         await using var tx = await db.Database.BeginTransactionAsync();
         var item = await db.Items.SingleAsync(i => i.Id == itemId);
         decimal delta = setTo ? quantity - item.OnHand : quantity;
         item.OnHand += delta;
-        db.StockAdjustments.Add(new StockAdjustment { ItemId = itemId, At = DateTime.Now, Quantity = delta, OnHandAfter = item.OnHand, Reason = reason, User = user });
+        Record(db, itemId, StockMovementKind.Adjustment, delta, item.OnHand, reason: reason, user: user);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         return item.OnHand;
     }
 
-    public async Task<List<StockAdjustment>> GetAdjustmentsAsync(int itemId)
+    /// <summary>Every change of the item's on-hand count, newest first.</summary>
+    public async Task<List<StockMovement>> GetStockMovementsAsync(Guid itemId)
     {
         await using var db = data.Create();
-        return await db.StockAdjustments.AsNoTracking().Where(a => a.ItemId == itemId).OrderByDescending(a => a.At).ToListAsync();
+        return await db.StockMovements.AsNoTracking().Where(a => a.ItemId == itemId).OrderByDescending(a => a.At).ThenByDescending(a => a.CreatedAtUtc).ToListAsync();
     }
 
-    public async Task<List<ItemPeriodSales>> GetPeriodSalesAsync(int itemId, int year, SalesPeriodKind kind)
+    public async Task<List<ItemPeriodSales>> GetPeriodSalesAsync(Guid itemId, int year, SalesPeriodKind kind)
     {
         await using var db = data.Create();
         return await db.ItemPeriodSales.AsNoTracking().Where(p => p.ItemId == itemId && p.Year == year && p.Kind == kind).OrderBy(p => p.Period).ToListAsync();
@@ -313,7 +361,7 @@ public sealed class InventoryService(DataContext data)
     /// Tools / Change Prices: raises or lowers Price 1 by a percentage, or sets prices from cost and margin, for all
     /// (or flagged, or one department's) items. Returns the number of items changed.
     /// </summary>
-    public async Task<int> ChangePricesAsync(int locationId, decimal percent, bool flaggedOnly, string? department, bool fromMargin = false, decimal margin = 0)
+    public async Task<int> ChangePricesAsync(Guid locationId, decimal percent, bool flaggedOnly, string? department, bool fromMargin = false, decimal margin = 0)
     {
         await using var db = data.Create();
         var q = db.Items.Where(i => i.LocationId == locationId && !i.IsDeleted);
@@ -340,7 +388,7 @@ public sealed class InventoryService(DataContext data)
     }
 
     /// <summary>Copies a list of items to another location (Tools / Copy to location), skipping codes already there.</summary>
-    public async Task<int> CopyToLocationAsync(IEnumerable<int> itemIds, int targetLocationId)
+    public async Task<int> CopyToLocationAsync(IEnumerable<Guid> itemIds, Guid targetLocationId)
     {
         var ids = itemIds.ToList();
         await using var db = data.Create();
@@ -349,7 +397,7 @@ public sealed class InventoryService(DataContext data)
         int n = 0;
         foreach (var s in source.Where(s => !existing.Contains(s.Plu)))
         {
-            s.Id = 0; s.LocationId = targetLocationId; s.OnHand = 0; s.OnOrder = 0; s.RowVersion = [];
+            s.Id = Guid.Empty; s.CreatedAtUtc = default; s.LocationId = targetLocationId; s.OnHand = 0; s.OnOrder = 0; s.Version = Guid.Empty;
             db.Items.Add(s);
             n++;
         }
@@ -358,7 +406,7 @@ public sealed class InventoryService(DataContext data)
     }
 
     /// <summary>Year End: snapshot on-hand counts so last year's closing stock can be reported.</summary>
-    public async Task<int> YearEndAsync(int locationId)
+    public async Task<int> YearEndAsync(Guid locationId)
     {
         await using var db = data.Create();
         return await db.Items.Where(i => i.LocationId == locationId && !i.IsDeleted)

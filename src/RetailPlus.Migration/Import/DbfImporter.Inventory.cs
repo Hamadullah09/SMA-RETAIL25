@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using RetailPlus.Core.Model;
+using RetailPlus.Data.Services;
 using RetailPlus.Migration.Codecs;
 
 namespace RetailPlus.Migration.Import;
@@ -16,11 +17,11 @@ public sealed partial class DbfImporter
     private sealed record InventoryNames(IReadOnlyCollection<string> Departments, IReadOnlyCollection<string> Categories, IReadOnlyCollection<string> Suppliers);
 
     /// <summary>Live item ids by location and stock code, for linking customer orders, sales and PO lines.</summary>
-    private readonly Dictionary<string, int> _items = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Guid> _items = new(StringComparer.OrdinalIgnoreCase);
 
-    private static string ItemKey(int locationId, string plu) => locationId.ToString(CultureInfo.InvariantCulture) + "|" + plu;
+    private static string ItemKey(Guid locationId, string plu) => locationId.ToString("N") + "|" + plu;
 
-    private int? ItemId(int locationId, string? plu) =>
+    private Guid? ItemId(Guid locationId, string? plu) =>
         plu is not null && _items.TryGetValue(ItemKey(locationId, plu), out var id) ? id : null;
 
     [GeneratedRegex(@"^[A-Za-z0-9]{3}$")]
@@ -82,7 +83,7 @@ public sealed partial class DbfImporter
         return new InventoryNames(departments, categories, suppliers);
     }
 
-    private async Task<Dictionary<string, int>> ImportLocationsAsync(List<SourceLocation> locations, CancellationToken ct)
+    private async Task<Dictionary<string, Guid>> ImportLocationsAsync(List<SourceLocation> locations, CancellationToken ct)
     {
         if (locations.Count == 0)
         {
@@ -91,10 +92,10 @@ public sealed partial class DbfImporter
         }
         await SaveAsync(locations.Select(l => new Pending(new Location { Code = l.Code })).ToList(), ct);
         await using var db = NewContext();
-        return await db.Locations.ToDictionaryAsync(l => l.Code, l => l.Id, StringComparer.OrdinalIgnoreCase, ct);
+        return await db.Locations.Where(l => l.StoreId == _storeId).ToDictionaryAsync(l => l.Code, l => l.Id, StringComparer.OrdinalIgnoreCase, ct);
     }
 
-    private async Task ImportInventoryAsync(string code, int locationId, string path, CancellationToken ct)
+    private async Task ImportInventoryAsync(string code, Guid locationId, string path, CancellationToken ct)
     {
         using var table = Open(path);
         var result = Result(table, nameof(Item));
@@ -132,18 +133,20 @@ public sealed partial class DbfImporter
         }
         result.Imported = await SaveAsync(rows, ct);
 
-        // Kit components point at items of the same location by stock code.
-        await ExecAsync(
-            "UPDATE k SET k.ComponentItemId = i.Id FROM [dbo].[KitComponents] k " +
-            "JOIN [dbo].[Items] kit ON kit.Id = k.KitItemId " +
-            "JOIN [dbo].[Items] i ON i.LocationId = kit.LocationId AND i.Plu = k.ComponentPlu AND i.IsDeleted = 0 " +
-            "WHERE k.ComponentItemId IS NULL AND kit.LocationId = " + locationId.ToString(CultureInfo.InvariantCulture), ct);
-
         await using (var db = NewContext())
         {
-            foreach (var i in await db.Items.Where(i => i.LocationId == locationId && !i.IsDeleted).Select(i => new { i.Id, i.Plu }).ToListAsync(ct))
+            foreach (var i in await db.Items.Where(i => i.LocationId == locationId && !i.IsDeleted).Select(i => new { i.Id, i.Plu, i.OnHand }).ToListAsync(ct))
+            {
                 _items[ItemKey(locationId, i.Plu)] = i.Id;
-            int unresolved = await db.KitComponents.CountAsync(k => k.ComponentItemId == null && db.Items.Any(i => i.Id == k.KitItemId && i.LocationId == locationId), ct);
+                // The stock the item starts with, so its count is the sum of its movements from here on.
+                if (i.OnHand != 0)
+                    InventoryService.Record(db, i.Id, StockMovementKind.Opening, i.OnHand, i.OnHand, _now, reason: "Imported from Retail Plus");
+            }
+            // Kit components point at live items of the same location by stock code.
+            var components = await db.KitComponents.Where(k => k.ComponentItemId == null && db.Items.Any(i => i.Id == k.KitItemId && i.LocationId == locationId)).ToListAsync(ct);
+            foreach (var k in components) k.ComponentItemId = ItemId(locationId, k.ComponentPlu);
+            await db.SaveChangesAsync(ct);
+            int unresolved = components.Count(k => k.ComponentItemId is null);
             if (unresolved > 0) _log.Warn($"Location {code}: {unresolved} kit components name stock codes that are not in the inventory");
         }
 
@@ -158,7 +161,7 @@ public sealed partial class DbfImporter
             async (db, t) => await db.ItemSerials.CountAsync(s => db.Items.Any(i => i.Id == s.ItemId && i.LocationId == locationId), t));
     }
 
-    private Item MapItem(SourceRecord record, int locationId, int year)
+    private Item MapItem(SourceRecord record, Guid locationId, int year)
     {
         var warnings = new List<string>();
         var item = new Item
@@ -303,7 +306,7 @@ public sealed partial class DbfImporter
     }
 
     /// <summary>The per-location files besides the inventory: return address, customer orders, sales, drawer totals and POs.</summary>
-    private async Task ImportLocationFolderAsync(string code, int locationId, string folder, CancellationToken ct)
+    private async Task ImportLocationFolderAsync(string code, Guid locationId, string folder, CancellationToken ct)
     {
         if (FindFile(folder, "RETADDR.ADD") is { } addressFile && ReadText(addressFile) is { } address)
         {
@@ -327,7 +330,7 @@ public sealed partial class DbfImporter
         }
     }
 
-    private async Task ImportCustomerOrdersAsync(string code, int locationId, string path, CancellationToken ct)
+    private async Task ImportCustomerOrdersAsync(string code, Guid locationId, string path, CancellationToken ct)
     {
         using var table = Open(path);
         var result = Result(table, nameof(CustomerOrder));

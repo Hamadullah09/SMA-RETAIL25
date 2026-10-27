@@ -1,26 +1,26 @@
 using System.Globalization;
-using Microsoft.Data.SqlClient;
 using RetailPlus.Data;
 using RetailPlus.Migration.Import;
 
-// RetailPlus.Import: one-time import of a Retail Plus 5.2 data folder into SQL Server.
+// RetailPlus.Import: one-time import of a Retail Plus 5.2 data folder into a till's SQLite file or a SQL Server database.
 // Exit codes: 0 imported and all control totals match, 1 failed or refused, 2 imported but totals differ, 64 usage.
 
 const string Usage = """
-    Usage: RetailPlus.Import --source <data folder> [--connection <connection string> | --localdb <database>]
+    Usage: RetailPlus.Import --source <data folder> [--db <file> | --connection <connection string> | --localdb <database>]
                              [--report <folder>] [--ini <Plus50.INI>] [--year <yyyy>] [--force]
 
       --source      Retail Plus data root (holds SETUP.DBF and one folder per location). Use a copy taken while
                     Retail Plus was closed.
+      --db          SQLite database file of a till. Default: %LOCALAPPDATA%\RetailPlus\smaretail.db.
       --connection  SQL Server connection string of the target database.
-      --localdb     Database name on (localdb)\MSSQLLocalDB, for development. Default: RetailPlus_App.
+      --localdb     Database name on (localdb)\MSSQLLocalDB, for development.
       --report      Folder for report.md and report.json. Default: %LOCALAPPDATA%\RetailPlus\ImportReports\<time>.
       --ini         A workstation's Plus50.INI, imported as that station's settings.
       --year        Year the inventory's monthly and weekly sales columns belong to. Default: the table date.
       --force       Replace the data of a database that already holds items or clients.
     """;
 
-string? source = null, connection = null, localDb = null, report = null, ini = null;
+string? source = null, file = null, connection = null, localDb = null, report = null, ini = null;
 int? year = null;
 bool force = false;
 for (int i = 0; i < args.Length; i++)
@@ -31,6 +31,7 @@ for (int i = 0; i < args.Length; i++)
         switch (args[i].ToLowerInvariant())
         {
             case "--source": source = Value(); break;
+            case "--db": file = Value(); break;
             case "--connection": connection = Value(); break;
             case "--localdb": localDb = Value(); break;
             case "--report": report = Value(); break;
@@ -48,23 +49,22 @@ for (int i = 0; i < args.Length; i++)
         return 64;
     }
 }
-if (source is null || (connection is not null && localDb is not null))
+if (source is null || new[] { file, connection, localDb }.Count(o => o is not null) > 1)
 {
-    Console.Error.WriteLine(source is null ? "--source is required." : "Give either --connection or --localdb, not both.");
+    Console.Error.WriteLine(source is null ? "--source is required." : "Give one of --db, --connection and --localdb.");
     Console.Error.WriteLine(Usage);
     return 64;
 }
 
-connection ??= RetailPlusDb.LocalDbConnectionString(localDb ?? "RetailPlus_App");
+var database = RetailPlusDb.FromOptions(file, connection, localDb);
 report ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RetailPlus", "ImportReports",
     DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture));
-var target = new SqlConnectionStringBuilder(connection);
-Console.WriteLine($"Importing {Path.GetFullPath(source)} into {target.DataSource}/{target.InitialCatalog}{(force ? " (replacing existing data)" : "")}");
+Console.WriteLine($"Importing {Path.GetFullPath(source)} into {database.Description}{(force ? " (replacing existing data)" : "")}");
 
 var importer = new DbfImporter(new ImportOptions
 {
     SourceFolder = source,
-    ConnectionString = connection,
+    Database = database,
     Overwrite = force,
     StationIniPath = ini,
     SalesYear = year,

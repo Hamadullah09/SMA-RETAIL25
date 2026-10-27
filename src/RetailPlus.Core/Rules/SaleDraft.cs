@@ -6,7 +6,7 @@ namespace RetailPlus.Core.Rules;
 public sealed class SaleDraftLine
 {
     public SaleLineKind Kind { get; set; } = SaleLineKind.Sale;
-    public int? ItemId { get; set; }
+    public Guid? ItemId { get; set; }
     public ItemType ItemType { get; set; }
     public string? Plu { get; set; }
     public string Description { get; set; } = "";
@@ -19,7 +19,7 @@ public sealed class SaleDraftLine
     public string? Department { get; set; }
     /// <summary>Cost per unit for the cost of goods sold (average cost, else last cost).</summary>
     public decimal UnitCost { get; set; }
-    public int? VariantId { get; set; }
+    public Guid? VariantId { get; set; }
     public string? VariantText { get; set; }
     public string? SerialNumber { get; set; }
     public string? SupplierName { get; set; }
@@ -40,7 +40,7 @@ public sealed class SaleDraftLine
 public sealed class SaleDraft
 {
     public List<SaleDraftLine> Lines { get; set; } = [];
-    public int? ClientId { get; set; }
+    public Guid? ClientId { get; set; }
     public string? ClientName { get; set; }
     public string? CustomerNumber { get; set; }
     public int ClientPriceLevel { get; set; }
@@ -71,7 +71,7 @@ public sealed class SaleDraft
     /// kind, whole quantities, no serial number and no hand-made discount. Null when the item needs a line of its own
     /// (serialized pieces, gift cards, weighed goods).
     /// </summary>
-    public static SaleDraftLine? LineToJoin(IEnumerable<SaleDraftLine> lines, Item item, int? variantId, SaleLineKind kind, decimal quantity)
+    public static SaleDraftLine? LineToJoin(IEnumerable<SaleDraftLine> lines, Item item, Guid? variantId, SaleLineKind kind, decimal quantity)
     {
         if (item.ItemType is ItemType.Serialized or ItemType.GiftCard || item.ReadScale || quantity != decimal.Truncate(quantity)) return null;
         return lines.LastOrDefault(l => l.ItemId == item.Id && l.VariantId == variantId && l.Kind == kind && l.SerialNumber is null

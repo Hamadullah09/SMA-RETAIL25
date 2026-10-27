@@ -1,10 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using RetailPlus.Core.Model;
 using RetailPlus.Data;
 
 namespace RetailPlus.Data.Tests;
 
-public sealed class SchemaTests(LocalDbFixture db) : IClassFixture<LocalDbFixture>
+public abstract class SchemaTests(DatabaseFixture db)
 {
     private void RequireDatabase() => Skip.IfNot(db.Available, db.UnavailableReason);
 
@@ -26,21 +28,31 @@ public sealed class SchemaTests(LocalDbFixture db) : IClassFixture<LocalDbFixtur
     }
 
     [SkippableFact]
-    public async Task Database_uses_the_case_insensitive_collation()
+    public async Task Text_columns_use_the_case_insensitive_collation()
     {
         RequireDatabase();
         await using var context = db.CreateContext();
-        var collation = await context.Database
-            .SqlQueryRaw<string>("SELECT CONVERT(nvarchar(128), DATABASEPROPERTYEX(DB_NAME(), 'Collation')) AS [Value]")
-            .SingleAsync();
-        Assert.Equal(RetailPlusDb.Collation, collation);
+        if (db.Connection.Provider == DatabaseProvider.SqlServer)
+        {
+            var collation = await context.Database
+                .SqlQueryRaw<string>("SELECT CONVERT(nvarchar(128), DATABASEPROPERTYEX(DB_NAME(), 'Collation')) AS [Value]")
+                .SingleAsync();
+            Assert.Equal(RetailPlusDb.Collation, collation);
+        }
+        else
+        {
+            // Collations are kept in the design-time model only.
+            var texts = context.GetService<IDesignTimeModel>().Model.GetEntityTypes().SelectMany(t => t.GetProperties()).Where(p => p.ClrType == typeof(string)).ToList();
+            Assert.NotEmpty(texts);
+            Assert.All(texts, p => Assert.Equal(RetailPlusDb.SqliteCollation, p.GetCollation()));
+        }
     }
 
     [SkippableFact]
     public async Task Item_with_all_child_lists_round_trips_with_full_precision()
     {
         RequireDatabase();
-        int itemId;
+        Guid itemId;
         await using (var context = db.CreateContext())
         {
             var location = await AddLocationAsync(context);
@@ -87,8 +99,34 @@ public sealed class SchemaTests(LocalDbFixture db) : IClassFixture<LocalDbFixtur
             Assert.Equal(15m, Assert.Single(item.Variants).OnHand);
             Assert.Equal(new DateOnly(2012, 2, 28), Assert.Single(item.Serials).StatusDate);
             Assert.Equal(2.5m, Assert.Single(item.PeriodSales).Units);
-            Assert.NotEmpty(item.RowVersion);
+            Assert.NotEqual(Guid.Empty, item.Version);
         }
+    }
+
+    [SkippableFact]
+    public async Task New_rows_get_a_time_ordered_id_their_store_and_station_and_times()
+    {
+        RequireDatabase();
+        var before = DateTime.UtcNow.AddSeconds(-1);
+        await using var context = db.CreateContext();
+        var location = await AddLocationAsync(context);
+        var sale = new Sale { LocationId = location.Id, SoldAt = DateTime.Now, InvoiceNumber = 1 };
+        var order = new CustomerOrder { LocationId = location.Id, Description = "Ordered", StationNumber = 7 };
+        context.AddRange(sale, order);
+        await context.SaveChangesAsync();
+
+        Assert.Equal(7, sale.Id.Version);
+        Assert.Equal(db.Station!.StoreId, sale.StoreId);
+        Assert.Equal(db.Station.StoreId, location.StoreId);
+        Assert.Equal(1, sale.StationNumber);
+        Assert.Equal(7, order.StationNumber);   // a station set on the row is kept
+        Assert.InRange(sale.CreatedAtUtc, before, DateTime.UtcNow.AddSeconds(1));
+        Assert.Equal(sale.CreatedAtUtc, sale.UpdatedAtUtc);
+
+        // Without a store to work for, a store's row cannot be added.
+        await using var storeless = RetailPlusDb.CreateContext(db.Connection);
+        storeless.Locations.Add(new Location { Code = "NOS" });
+        await Assert.ThrowsAsync<InvalidOperationException>(() => storeless.SaveChangesAsync());
     }
 
     [SkippableFact]
@@ -115,7 +153,7 @@ public sealed class SchemaTests(LocalDbFixture db) : IClassFixture<LocalDbFixtur
         context.Items.Add(new Item { LocationId = second.Id, Plu = "T400", Name = "Same code, other location" });
         await context.SaveChangesAsync();
 
-        context.Items.Add(new Item { LocationId = first.Id, Plu = "T400", Name = "Duplicate" });
+        context.Items.Add(new Item { LocationId = first.Id, Plu = "t400", Name = "Duplicate in other case" });
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
         context.ChangeTracker.Clear();
 
@@ -150,7 +188,7 @@ public sealed class SchemaTests(LocalDbFixture db) : IClassFixture<LocalDbFixtur
     public async Task Second_save_of_a_record_edited_elsewhere_is_rejected()
     {
         RequireDatabase();
-        int itemId;
+        Guid itemId;
         await using (var setup = db.CreateContext())
         {
             var location = await AddLocationAsync(setup);
@@ -174,7 +212,7 @@ public sealed class SchemaTests(LocalDbFixture db) : IClassFixture<LocalDbFixtur
     public async Task Stock_changes_applied_as_atomic_updates_are_not_lost()
     {
         RequireDatabase();
-        int itemId;
+        Guid itemId;
         await using (var setup = db.CreateContext())
         {
             var location = await AddLocationAsync(setup);
@@ -184,7 +222,7 @@ public sealed class SchemaTests(LocalDbFixture db) : IClassFixture<LocalDbFixtur
             itemId = item.Id;
         }
 
-        // Ten "tills" selling at the same moment; each sale decrements stock in the database, not in memory.
+        // Ten windows selling at the same moment; each sale decrements stock in the database, not in memory.
         await Task.WhenAll(Enumerable.Range(0, 10).Select(async _ =>
         {
             await using var till = db.CreateContext();
@@ -197,22 +235,30 @@ public sealed class SchemaTests(LocalDbFixture db) : IClassFixture<LocalDbFixtur
     }
 
     [SkippableFact]
-    public async Task Sequences_hand_out_increasing_numbers()
+    public async Task Each_station_numbers_documents_in_its_own_range()
     {
         RequireDatabase();
         await using var context = db.CreateContext();
         var first = await context.NextNumberAsync(RetailPlusDbContext.Sequences.InvoiceNumbers);
         var second = await context.NextNumberAsync(RetailPlusDbContext.Sequences.InvoiceNumbers);
+        Assert.InRange(first, NumberCounter.FirstNumber(1), NumberCounter.FirstNumber(2) - 1);
         Assert.Equal(first + 1, second);
+
+        await using var station2 = RetailPlusDb.CreateContext(db.Connection, new StationIdentity(db.Station!.StoreId, 2));
+        Assert.Equal(NumberCounter.FirstNumber(2), await station2.NextNumberAsync(RetailPlusDbContext.Sequences.InvoiceNumbers));
+        Assert.Equal(NumberCounter.FirstNumber(2), await station2.NextNumberAsync(RetailPlusDbContext.Sequences.RmaNumbers));
+
         await Assert.ThrowsAsync<ArgumentException>(() => context.NextNumberAsync("Invoices; DROP TABLE Items"));
+        await using var nowhere = RetailPlusDb.CreateContext(db.Connection);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => nowhere.NextNumberAsync(RetailPlusDbContext.Sequences.InvoiceNumbers));
     }
 
     [SkippableFact]
-    public async Task Store_settings_is_a_single_row()
+    public async Task Each_store_has_one_settings_row()
     {
         RequireDatabase();
         await using var context = db.CreateContext();
-        context.StoreSettings.Add(new StoreSettings { Id = 2, CompanyName = "Not allowed" });
+        context.StoreSettings.Add(new StoreSettings { CompanyName = "Second row of the same store" });
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
     }
 
@@ -227,3 +273,7 @@ public sealed class SchemaTests(LocalDbFixture db) : IClassFixture<LocalDbFixtur
         await Assert.ThrowsAsync<DbUpdateException>(() => context.SaveChangesAsync());
     }
 }
+
+public sealed class SchemaTestsOnSqlite(SqliteFixture db) : SchemaTests(db), IClassFixture<SqliteFixture>;
+
+public sealed class SchemaTestsOnSqlServer(SqlServerFixture db) : SchemaTests(db), IClassFixture<SqlServerFixture>;

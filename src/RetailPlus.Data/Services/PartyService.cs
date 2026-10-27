@@ -4,7 +4,7 @@ using RetailPlus.Core.Model;
 namespace RetailPlus.Data.Services;
 
 /// <summary>A row of the Clients or Suppliers browse list.</summary>
-public sealed record PartyRow(int Id, string? Number, string? Company, string? LastName, string? FirstName, string? City, string? WorkPhone,
+public sealed record PartyRow(Guid Id, string? Number, string? Company, string? LastName, string? FirstName, string? City, string? WorkPhone,
     string? Email, decimal Balance, decimal Points, DateOnly? LastPurchase, bool IsFlagged, bool IsDeleted)
 {
     public string DisplayName => !string.IsNullOrWhiteSpace(Company) ? Company! : $"{LastName}, {FirstName}".Trim(' ', ',');
@@ -52,7 +52,7 @@ public sealed class PartyService(DataContext data)
         return await db.Suppliers.Where(s => !s.IsDeleted && s.Company != null).OrderBy(s => s.Company).Select(s => s.Company!).Distinct().ToListAsync();
     }
 
-    public async Task<Client?> GetClientAsync(int id)
+    public async Task<Client?> GetClientAsync(Guid id)
     {
         await using var db = data.Create();
         return await db.Clients.AsNoTracking().SingleOrDefaultAsync(c => c.Id == id);
@@ -65,7 +65,7 @@ public sealed class PartyService(DataContext data)
         return await db.Clients.AsNoTracking().FirstOrDefaultAsync(c => !c.IsDeleted && (c.Number == number || c.AccountNumber == number));
     }
 
-    public async Task<Supplier?> GetSupplierAsync(int id)
+    public async Task<Supplier?> GetSupplierAsync(Guid id)
     {
         await using var db = data.Create();
         return await db.Suppliers.AsNoTracking().SingleOrDefaultAsync(c => c.Id == id);
@@ -83,7 +83,14 @@ public sealed class PartyService(DataContext data)
         if (!string.IsNullOrWhiteSpace(client.AccountNumber) && await db.Clients.AnyAsync(c => c.AccountNumber == client.AccountNumber && c.Id != client.Id && !c.IsDeleted))
             throw new BusinessRuleException($"Account number {client.AccountNumber} is already used.");
         if (string.IsNullOrWhiteSpace(client.AccountNumber)) client.AccountNumber = null;
-        if (client.Id == 0) db.Clients.Add(client); else db.Clients.Update(client);
+        if (client.Id == Guid.Empty) db.Clients.Add(client);
+        else
+        {
+            db.Clients.Update(client);
+            // The balance is kept by invoices and payments, which may have changed it since the editor read it.
+            var entry = db.Entry(client);
+            foreach (var name in KeptByTheSystem) entry.Property(name).IsModified = false;
+        }
         await SaveAsync(db, "client");
         return client;
     }
@@ -94,10 +101,14 @@ public sealed class PartyService(DataContext data)
         await using var db = data.Create();
         if (string.IsNullOrWhiteSpace(supplier.Number)) supplier.Number = null;
         if (string.IsNullOrWhiteSpace(supplier.AccountNumber)) supplier.AccountNumber = null;
-        if (supplier.Id == 0) db.Suppliers.Add(supplier); else db.Suppliers.Update(supplier);
+        if (supplier.Id == Guid.Empty) db.Suppliers.Add(supplier); else db.Suppliers.Update(supplier);
         await SaveAsync(db, "supplier");
         return supplier;
     }
+
+    /// <summary>Client columns that only the system changes once the client exists.</summary>
+    private static readonly string[] KeptByTheSystem =
+        [nameof(Client.Balance), nameof(Client.IsFlagged), nameof(Client.IsDeleted), nameof(Client.DeletedAt)];
 
     private static void Validate(Party p)
     {
@@ -117,7 +128,7 @@ public sealed class PartyService(DataContext data)
         }
     }
 
-    public async Task DeleteClientAsync(int id)
+    public async Task DeleteClientAsync(Guid id)
     {
         await using var db = data.Create();
         if (await db.Clients.AnyAsync(c => c.Id == id && c.Balance != 0))
@@ -125,13 +136,13 @@ public sealed class PartyService(DataContext data)
         await db.Clients.Where(c => c.Id == id).ExecuteUpdateAsync(s => s.SetProperty(c => c.IsDeleted, true).SetProperty(c => c.DeletedAt, DateTime.Now));
     }
 
-    public async Task DeleteSupplierAsync(int id)
+    public async Task DeleteSupplierAsync(Guid id)
     {
         await using var db = data.Create();
         await db.Suppliers.Where(c => c.Id == id).ExecuteUpdateAsync(s => s.SetProperty(c => c.IsDeleted, true).SetProperty(c => c.DeletedAt, DateTime.Now));
     }
 
-    public async Task SetClientFlagAsync(IEnumerable<int> ids, bool flagged)
+    public async Task SetClientFlagAsync(IEnumerable<Guid> ids, bool flagged)
     {
         var list = ids.ToList();
         await using var db = data.Create();
@@ -139,12 +150,12 @@ public sealed class PartyService(DataContext data)
     }
 
     /// <summary>The client's purchases, newest first (the History tab).</summary>
-    public async Task<List<SaleLine>> GetPurchaseHistoryAsync(int clientId, int take = 500)
+    public async Task<List<SaleLine>> GetPurchaseHistoryAsync(Guid clientId, int take = 500)
     {
         await using var db = data.Create();
         return await db.SaleLines.AsNoTracking()
-            .Where(l => db.Sales.Any(s => s.Id == l.SaleId && s.ClientId == clientId && s.Status == SaleStatus.Completed))
-            .OrderByDescending(l => l.SaleId).ThenBy(l => l.LineNumber).Take(take).ToListAsync();
+            .Join(db.Sales.Where(s => s.ClientId == clientId && s.Status == SaleStatus.Completed), l => l.SaleId, s => s.Id, (l, s) => new { Line = l, s.SoldAt })
+            .OrderByDescending(x => x.SoldAt).ThenBy(x => x.Line.LineNumber).Take(take).Select(x => x.Line).ToListAsync();
     }
 
     /// <summary>Clients whose birthday falls in a month (for mailing lists).</summary>
@@ -160,7 +171,7 @@ public sealed class PartyService(DataContext data)
     /// Recurring billing: creates an on-account invoice for each active client whose next billing date has come,
     /// then moves the next date on. Returns the number of invoices created.
     /// </summary>
-    public async Task<int> RunRecurringBillingAsync(int locationId, DateOnly today, InvoiceService invoices)
+    public async Task<int> RunRecurringBillingAsync(Guid locationId, DateOnly today, InvoiceService invoices)
     {
         await using var db = data.Create();
         var due = await db.Clients.Where(c => !c.IsDeleted && c.RecurringActive && c.RecurringNextBilling != null && c.RecurringNextBilling <= today && c.RecurringItemCode != null).ToListAsync();

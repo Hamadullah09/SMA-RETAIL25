@@ -7,16 +7,17 @@ public enum SaleStatus
 }
 
 /// <summary>A saved sale (the original wrote its lines to SALESnnn.DBF, one file per station).</summary>
-public class Sale : IFlaggable
+public class Sale : Entity, IFlaggable, IStationStamped
 {
-    public int Id { get; set; }
     public long InvoiceNumber { get; set; }
+    public Guid StoreId { get; set; }
     public int StationNumber { get; set; }
-    public int LocationId { get; set; }
+    public Guid LocationId { get; set; }
     public Location? Location { get; set; }
+    /// <summary>The store's local time, as are all business times; <see cref="Entity.CreatedAtUtc"/> is UTC.</summary>
     public DateTime SoldAt { get; set; }
     public string? Staff { get; set; }
-    public int? ClientId { get; set; }
+    public Guid? ClientId { get; set; }
     public Client? Client { get; set; }
     public string? ClientName { get; set; }
     public string? CustomerNumber { get; set; }
@@ -60,13 +61,12 @@ public enum SaleLineKind
 }
 
 /// <summary>One line of a sale (one record of SALESnnn.DBF).</summary>
-public class SaleLine
+public class SaleLine : Entity
 {
-    public int Id { get; set; }
-    public int SaleId { get; set; }
+    public Guid SaleId { get; set; }
     public int LineNumber { get; set; }
     public SaleLineKind Kind { get; set; }
-    public int? ItemId { get; set; }
+    public Guid? ItemId { get; set; }
     public string? Plu { get; set; }
     public string Description { get; set; } = "";
     /// <summary>Negative for returns and credits.</summary>
@@ -81,7 +81,7 @@ public class SaleLine
     public decimal Tax1 { get; set; }
     public decimal Tax2 { get; set; }
     public string? SerialNumber { get; set; }
-    public int? VariantId { get; set; }
+    public Guid? VariantId { get; set; }
     public string? SupplierName { get; set; }
     public decimal Commission { get; set; }
     /// <summary>For returns: put the item back into stock.</summary>
@@ -91,18 +91,16 @@ public class SaleLine
 }
 
 /// <summary>An RFID tag sold (or returned) on a sale line; a line of three tagged pieces has three.</summary>
-public class SaleLineTag
+public class SaleLineTag : Entity
 {
-    public int Id { get; set; }
-    public int SaleLineId { get; set; }
+    public Guid SaleLineId { get; set; }
     public string Epc { get; set; } = "";
 }
 
 /// <summary>A payment on a sale; split tender gives two rows.</summary>
-public class SalePayment
+public class SalePayment : Entity
 {
-    public int Id { get; set; }
-    public int SaleId { get; set; }
+    public Guid SaleId { get; set; }
     public string TenderType { get; set; } = "";
     public decimal Amount { get; set; }
     public decimal Tendered { get; set; }
@@ -112,11 +110,11 @@ public class SalePayment
 }
 
 /// <summary>Cash drawer totals of one station between two End of Day closings (one record of TOTALnnn.DBF).</summary>
-public class DrawerSession
+public class DrawerSession : Entity, IStationStamped
 {
-    public int Id { get; set; }
+    public Guid StoreId { get; set; }
     public int StationNumber { get; set; }
-    public int LocationId { get; set; }
+    public Guid LocationId { get; set; }
     public DateTime OpenedAt { get; set; }
     public DateTime? ClosedAt { get; set; }
     public DateTime? LastSaleAt { get; set; }
@@ -137,10 +135,9 @@ public class DrawerSession
     public List<DrawerMovement> Movements { get; set; } = [];
 }
 
-public class DrawerSessionTender
+public class DrawerSessionTender : Entity
 {
-    public int Id { get; set; }
-    public int DrawerSessionId { get; set; }
+    public Guid DrawerSessionId { get; set; }
     public string TenderType { get; set; } = "";
     public decimal Amount { get; set; }
 }
@@ -153,10 +150,9 @@ public enum DrawerMovementKind
     NoSale,
 }
 
-public class DrawerMovement
+public class DrawerMovement : Entity
 {
-    public int Id { get; set; }
-    public int DrawerSessionId { get; set; }
+    public Guid DrawerSessionId { get; set; }
     public DrawerMovementKind Kind { get; set; }
     public decimal Amount { get; set; }
     public DateTime At { get; set; }
@@ -165,9 +161,9 @@ public class DrawerMovement
 }
 
 /// <summary>A sale put away with Suspend, to be recalled later (SUSPEND.DBF).</summary>
-public class SuspendedSale
+public class SuspendedSale : Entity, IStationStamped
 {
-    public int Id { get; set; }
+    public Guid StoreId { get; set; }
     public int StationNumber { get; set; }
     public DateTime SuspendedAt { get; set; }
     public string? Label { get; set; }
@@ -175,11 +171,12 @@ public class SuspendedSale
 }
 
 /// <summary>A customer order / back order (BACKORD.DBF).</summary>
-public class CustomerOrder : IFlaggable
+public class CustomerOrder : Entity, IFlaggable, IStationStamped
 {
-    public int Id { get; set; }
-    public int LocationId { get; set; }
-    public int? ClientId { get; set; }
+    public Guid StoreId { get; set; }
+    public int StationNumber { get; set; }
+    public Guid LocationId { get; set; }
+    public Guid? ClientId { get; set; }
     public string? Name { get; set; }
     public string? Company { get; set; }
     public string? Phone { get; set; }
@@ -187,7 +184,7 @@ public class CustomerOrder : IFlaggable
     public string? SoldBy { get; set; }
     public long InvoiceNumber { get; set; }
     public string? CustomerNumber { get; set; }
-    public int? ItemId { get; set; }
+    public Guid? ItemId { get; set; }
     public string? Plu { get; set; }
     public string Description { get; set; } = "";
     public string? Size { get; set; }
@@ -198,9 +195,10 @@ public class CustomerOrder : IFlaggable
 }
 
 /// <summary>A returned merchandise authorization, to or from a customer or supplier (RMA.DBF).</summary>
-public class Rma : IFlaggable
+public class Rma : Entity, IFlaggable, IStationStamped
 {
-    public int Id { get; set; }
+    public Guid StoreId { get; set; }
+    public int StationNumber { get; set; }
     public string? Plu { get; set; }
     public string? Description { get; set; }
     public string? Size { get; set; }
@@ -240,9 +238,8 @@ public enum TenderKind
 }
 
 /// <summary>An accepted method of payment (Tools / Payment Options).</summary>
-public class TenderType
+public class TenderType : Entity
 {
-    public int Id { get; set; }
     public string Name { get; set; } = "";
     public TenderKind Kind { get; set; }
     public int SortOrder { get; set; }
@@ -251,9 +248,8 @@ public class TenderType
 }
 
 /// <summary>An out-of-state / out-of-province tax configuration (up to 12).</summary>
-public class TaxConfiguration
+public class TaxConfiguration : Entity
 {
-    public int Id { get; set; }
     public string Name { get; set; } = "";
     public string? Tax1Name { get; set; }
     public decimal Tax1Rate { get; set; }
@@ -262,17 +258,15 @@ public class TaxConfiguration
 }
 
 /// <summary>Foreign exchange rate: how many units of the currency one unit of local currency buys.</summary>
-public class FxRate
+public class FxRate : Entity
 {
-    public int Id { get; set; }
     public string Currency { get; set; } = "";
     public decimal Rate { get; set; }
 }
 
 /// <summary>A programmable POS key. Panel 0 holds the 25 main keys; panel n holds the sub-keys of category key n.</summary>
-public class FastKey
+public class FastKey : Entity
 {
-    public int Id { get; set; }
     public int Panel { get; set; }
     public int KeyNumber { get; set; }
     public string? Name { get; set; }
@@ -286,9 +280,8 @@ public class FastKey
 }
 
 /// <summary>Staff sales and commission for a period (STAFF.DBF).</summary>
-public class StaffPeriod
+public class StaffPeriod : Entity
 {
-    public int Id { get; set; }
     public string UserName { get; set; } = "";
     public DateOnly? FromDate { get; set; }
     public DateOnly? ToDate { get; set; }
@@ -299,14 +292,43 @@ public class StaffPeriod
     public decimal Hours { get; set; }
 }
 
-/// <summary>A manual or batch on-hand adjustment, kept as a log.</summary>
-public class StockAdjustment
+/// <summary>Why an item's on-hand count changed.</summary>
+public enum StockMovementKind
 {
-    public int Id { get; set; }
-    public int ItemId { get; set; }
+    /// <summary>Stock the item started with: entered with a new item or brought over by the import.</summary>
+    Opening,
+    Sale,
+    /// <summary>A customer return put back into stock.</summary>
+    Return,
+    /// <summary>A voided sale or return, undone.</summary>
+    Void,
+    /// <summary>A purchase order shipment received.</summary>
+    Receipt,
+    /// <summary>Adjust Stock, or matrix counts changed in the item editor.</summary>
+    Adjustment,
+    /// <summary>On-hand counts set from an inventory CSV file.</summary>
+    Import,
+}
+
+/// <summary>
+/// One change to an item's on-hand count. Every change writes a row, so an item's stock is the sum of its movements
+/// and the server can add up the movements of every till instead of trusting each till's count.
+/// </summary>
+public class StockMovement : Entity, IStationStamped
+{
+    public Guid StoreId { get; set; }
+    public int StationNumber { get; set; }
+    public Guid ItemId { get; set; }
+    /// <summary>The matrix line, when the movement was for one.</summary>
+    public Guid? VariantId { get; set; }
+    public StockMovementKind Kind { get; set; }
+    /// <summary>Store local time.</summary>
     public DateTime At { get; set; }
+    /// <summary>Positive in, negative out.</summary>
     public decimal Quantity { get; set; }
     public decimal OnHandAfter { get; set; }
+    /// <summary>The document behind the movement: an invoice or purchase order number.</summary>
+    public long? DocumentNumber { get; set; }
     public string? Reason { get; set; }
     public string? User { get; set; }
 }

@@ -55,7 +55,7 @@ public partial class ReaderEditorWindow : Window
         InitializeComponent();
         _reader = reader;
         DataContext = reader;
-        HeaderText.Text = reader.Id == 0 ? "New RFID reader" : $"Reader {reader.Name}";
+        HeaderText.Text = reader.Id == Guid.Empty ? "New RFID reader" : $"Reader {reader.Name}";
         Title = HeaderText.Text;
         PortBox.ItemsSource = SerialPort.GetPortNames();
         BaudBox.ItemsSource = new[] { 9600, 19200, 38400, 57600, 115200 };
@@ -141,7 +141,7 @@ public partial class ReaderEditorWindow : Window
             var existing = _reader.Antennas.FirstOrDefault(x => x.Port == a.Port);
             return new RfidAntenna
             {
-                Id = existing?.Id ?? 0, ReaderId = _reader.Id, Port = a.Port, Name = a.Name, IsEnabled = a.IsEnabled, PowerDbm = a.PowerDbm,
+                Id = existing?.Id ?? Guid.Empty, ReaderId = _reader.Id, Port = a.Port, Name = a.Name, IsEnabled = a.IsEnabled, PowerDbm = a.PowerDbm,
                 Purpose = a.Purpose, StationNumber = a.Station,
             };
         }).ToList();
@@ -154,7 +154,7 @@ public partial class ReaderEditorWindow : Window
         RfidReader? saved = null;
         if (!await Ui.Try(async () => saved = await AppServices.RfidData.SaveReaderAsync(_reader)) || saved is null) return false;
         _reader.Id = saved.Id;
-        _reader.RowVersion = saved.RowVersion;
+        _reader.Version = saved.Version;
         foreach (var a in saved.Antennas)
             if (_reader.Antennas.FirstOrDefault(x => x.Port == a.Port) is { } mine) mine.Id = a.Id;
         HeaderText.Text = $"Reader {_reader.Name}";
@@ -191,7 +191,7 @@ public partial class ReaderEditorWindow : Window
 
     private IRfidControl? Device()
     {
-        if (_reader.Id == 0)
+        if (_reader.Id == Guid.Empty)
         {
             Ui.Info("Save the reader first.");
             return null;

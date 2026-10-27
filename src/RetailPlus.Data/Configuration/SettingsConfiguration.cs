@@ -5,11 +5,21 @@ using RetailPlus.Data.Import;
 
 namespace RetailPlus.Data.Configuration;
 
+internal sealed class StoreConfiguration : IEntityTypeConfiguration<Store>
+{
+    public void Configure(EntityTypeBuilder<Store> e)
+    {
+        e.Property(x => x.Code).HasMaxLength(10);
+        e.Property(x => x.Name).HasMaxLength(50);
+        e.Property(x => x.TimeZoneId).HasMaxLength(64);
+        e.HasIndex(x => x.Code).IsUnique();
+    }
+}
+
 internal sealed class StoreSettingsConfiguration : IEntityTypeConfiguration<StoreSettings>
 {
     public void Configure(EntityTypeBuilder<StoreSettings> e)
     {
-        e.Property(x => x.Id).ValueGeneratedNever();
         e.Property(x => x.CompanyName).HasMaxLength(30);
         e.Property(x => x.Address1).HasMaxLength(30);
         e.Property(x => x.Address2).HasMaxLength(30);
@@ -29,7 +39,8 @@ internal sealed class StoreSettingsConfiguration : IEntityTypeConfiguration<Stor
         e.Property(x => x.PointsPerDollar).Rate();
         e.Property(x => x.RewardPercent).Rate();
         e.Property(x => x.InterestRatePerMonth).Rate();
-        e.ToTable(t => t.HasCheckConstraint("CK_StoreSettings_SingleRow", "[Id] = 1"));
+        // One settings row per store.
+        e.HasIndex(x => x.StoreId).IsUnique();
     }
 }
 
@@ -39,7 +50,16 @@ internal sealed class StoreSettingExtraConfiguration : IEntityTypeConfiguration<
     {
         e.Property(x => x.Name).HasMaxLength(20);
         e.Property(x => x.Value).HasMaxLength(255);
-        e.HasIndex(x => x.Name).IsUnique();
+        e.HasIndex(x => new { x.StoreId, x.Name }).IsUnique();
+    }
+}
+
+internal sealed class NumberCounterConfiguration : IEntityTypeConfiguration<NumberCounter>
+{
+    public void Configure(EntityTypeBuilder<NumberCounter> e)
+    {
+        e.Property(x => x.Kind).HasMaxLength(30);
+        e.HasIndex(x => new { x.Kind, x.StationNumber }).IsUnique();
     }
 }
 
@@ -71,9 +91,10 @@ internal sealed class DocumentTextConfiguration : IEntityTypeConfiguration<Docum
     {
         e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(30);
         e.HasOne(x => x.Location).WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Cascade);
-        // One store-wide text per kind (NULL location) and one per location. No filter: SQL Server then treats
-        // NULL as a single value, which is what keeps the store-wide text unique.
-        e.HasIndex(x => new { x.Kind, x.LocationId }).IsUnique().HasFilter(null);
+        // One store-wide text per kind (no location) and one per location. Two filtered indexes, because SQLite treats
+        // NULLs in a unique index as all different.
+        e.HasIndex(x => new { x.StoreId, x.Kind }).IsUnique().HasFilter("[LocationId] IS NULL");
+        e.HasIndex(x => new { x.Kind, x.LocationId }).IsUnique().HasFilter("[LocationId] IS NOT NULL");
     }
 }
 

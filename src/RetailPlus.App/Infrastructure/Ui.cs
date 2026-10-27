@@ -47,7 +47,7 @@ public static class Ui
         catch (BusinessRuleException ex) { Error(ex.Message); }
         catch (ConcurrencyConflictException ex) { Error(ex.Message, "Changed at another station"); }
         catch (Microsoft.EntityFrameworkCore.DbUpdateException ex) { Error("The database refused the change: " + (ex.InnerException?.Message ?? ex.Message)); Log.Write(ex.ToString()); }
-        catch (Microsoft.Data.SqlClient.SqlException ex) { Error("Database error: " + ex.Message); Log.Write(ex.ToString()); }
+        catch (System.Data.Common.DbException ex) { Error("Database error: " + ex.Message); Log.Write(ex.ToString()); }
         catch (Exception ex) { Error("Something went wrong: " + ex.Message); Log.Write(ex.ToString()); }
         finally
         {

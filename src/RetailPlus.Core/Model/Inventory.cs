@@ -1,24 +1,24 @@
 namespace RetailPlus.Core.Model;
 
-/// <summary>A stock location: one inventory, identified by a three-character code (the original's location folder).</summary>
-public class Location
+/// <summary>
+/// A stock location of a store: one inventory, identified by a three-character code (the original's location folder).
+/// </summary>
+public class Location : Entity, IStoreScoped
 {
-    public int Id { get; set; }
+    public Guid StoreId { get; set; }
     public string Code { get; set; } = "";
     public string? Name { get; set; }
 }
 
 /// <summary>Entry of the Department List (DEPT.DBF).</summary>
-public class Department
+public class Department : Entity
 {
-    public int Id { get; set; }
     public string Name { get; set; } = "";
 }
 
 /// <summary>Entry of the Category List (CATEGORY.DBF).</summary>
-public class Category
+public class Category : Entity
 {
-    public int Id { get; set; }
     public string Name { get; set; } = "";
 }
 
@@ -41,10 +41,9 @@ public enum ItemType
 /// An inventory item of one location (one record of &lt;LOC&gt;INV.DBF). Source field names are given in brackets
 /// where they differ from the property name.
 /// </summary>
-public class Item : ISoftDeletable, IFlaggable, IVersioned
+public class Item : Entity, ISoftDeletable, IFlaggable, IVersioned
 {
-    public int Id { get; set; }
-    public int LocationId { get; set; }
+    public Guid LocationId { get; set; }
     public Location? Location { get; set; }
 
     /// <summary>Stock code [PLU].</summary>
@@ -54,9 +53,9 @@ public class Item : ISoftDeletable, IFlaggable, IVersioned
     /// <summary>The product barcode (UPC-A, EAN-13, EAN-8), the maker's or an in-store one; see <see cref="Rules.Upc"/>.</summary>
     public string? Barcode { get; set; }
     public ItemType ItemType { get; set; }
-    public int? DepartmentId { get; set; }
+    public Guid? DepartmentId { get; set; }
     public Department? Department { get; set; }
-    public int? CategoryId { get; set; }
+    public Guid? CategoryId { get; set; }
     public Category? Category { get; set; }
     public string? Brand { get; set; }
     /// <summary>[BSIZE]</summary>
@@ -72,7 +71,7 @@ public class Item : ISoftDeletable, IFlaggable, IVersioned
     /// <summary>mg or g.</summary>
     public string? WeightToleranceUnit { get; set; }
     /// <summary>Supplier shown on the item; the original stores the name [SUPPLIER].</summary>
-    public int? SupplierId { get; set; }
+    public Guid? SupplierId { get; set; }
     public Supplier? Supplier { get; set; }
     /// <summary>The supplier's stock code [SUPPCODE].</summary>
     public string? SupplierCode { get; set; }
@@ -168,7 +167,7 @@ public class Item : ISoftDeletable, IFlaggable, IVersioned
     public bool IsFlagged { get; set; }
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
-    public byte[] RowVersion { get; set; } = [];
+    public Guid Version { get; set; }
 
     public List<ItemSupplier> Suppliers { get; set; } = [];
     public List<ItemMatrixColumn> MatrixColumns { get; set; } = [];
@@ -179,13 +178,12 @@ public class Item : ISoftDeletable, IFlaggable, IVersioned
 }
 
 /// <summary>One entry of the item's supplier list, in order of preference [SUPLIST memo].</summary>
-public class ItemSupplier
+public class ItemSupplier : Entity
 {
-    public int Id { get; set; }
-    public int ItemId { get; set; }
+    public Guid ItemId { get; set; }
     /// <summary>1 = preferred supplier.</summary>
     public int Rank { get; set; }
-    public int? SupplierId { get; set; }
+    public Guid? SupplierId { get; set; }
     public Supplier? Supplier { get; set; }
     /// <summary>Supplier name as stored in the source, kept even when no Supplier row matches.</summary>
     public string SupplierName { get; set; } = "";
@@ -196,19 +194,17 @@ public class ItemSupplier
 }
 
 /// <summary>A matrix column heading, 1 to 3 per item [first segment of the MATRIX memo].</summary>
-public class ItemMatrixColumn
+public class ItemMatrixColumn : Entity
 {
-    public int Id { get; set; }
-    public int ItemId { get; set; }
+    public Guid ItemId { get; set; }
     public int Ordinal { get; set; }
     public string Heading { get; set; } = "";
 }
 
 /// <summary>One matrix line (colour/size/style combination) with its own stock count [MATRIX memo rows].</summary>
-public class ItemVariant
+public class ItemVariant : Entity
 {
-    public int Id { get; set; }
-    public int ItemId { get; set; }
+    public Guid ItemId { get; set; }
     public int Ordinal { get; set; }
     public string? Value1 { get; set; }
     public string? Value2 { get; set; }
@@ -219,14 +215,13 @@ public class ItemVariant
 }
 
 /// <summary>One component of a kit [KIT memo].</summary>
-public class KitComponent
+public class KitComponent : Entity
 {
-    public int Id { get; set; }
-    public int KitItemId { get; set; }
+    public Guid KitItemId { get; set; }
     public int Ordinal { get; set; }
     /// <summary>Component stock code as stored in the source.</summary>
     public string ComponentPlu { get; set; } = "";
-    public int? ComponentItemId { get; set; }
+    public Guid? ComponentItemId { get; set; }
     public Item? ComponentItem { get; set; }
     public string? Description { get; set; }
     public decimal Quantity { get; set; }
@@ -236,18 +231,18 @@ public class KitComponent
 /// The product's picture, kept in the database so every station shows it without a shared folder. The app stores a
 /// JPEG of at most 800 pixels a side. (Pictures imported from Retail Plus stay a file path in <see cref="Item.PhotoPath"/>.)
 /// </summary>
-public class ItemPicture
+public class ItemPicture : ITracked
 {
-    public int ItemId { get; set; }
+    public Guid ItemId { get; set; }
     public byte[] Data { get; set; } = [];
-    public DateTime UpdatedAt { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+    public DateTime UpdatedAtUtc { get; set; }
 }
 
 /// <summary>A serial number of a serialized item [SERNO memo].</summary>
-public class ItemSerial
+public class ItemSerial : Entity
 {
-    public int Id { get; set; }
-    public int ItemId { get; set; }
+    public Guid ItemId { get; set; }
     public string SerialNumber { get; set; } = "";
     /// <summary>For example "IN STOCK".</summary>
     public string? Status { get; set; }
@@ -264,10 +259,9 @@ public enum SalesPeriodKind
 /// Sales statistics of an item for one month or week of a year. Replaces the monthly columns, LASTYR and WEEKLY
 /// of the source; year-to-date figures are computed from these rows.
 /// </summary>
-public class ItemPeriodSales
+public class ItemPeriodSales : Entity
 {
-    public int Id { get; set; }
-    public int ItemId { get; set; }
+    public Guid ItemId { get; set; }
     public int Year { get; set; }
     public SalesPeriodKind Kind { get; set; }
     /// <summary>Month 1–12 or week 1–54.</summary>

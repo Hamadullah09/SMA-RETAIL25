@@ -21,6 +21,8 @@
     <ProjectReference Include="..\..\src\RetailPlus.Data\RetailPlus.Data.csproj" />
     <ProjectReference Include="..\..\src\RetailPlus.Reports\RetailPlus.Reports.csproj" />
     <ProjectReference Include="..\..\src\RetailPlus.Integrations\RetailPlus.Integrations.csproj" />
+    <ProjectReference Include="..\..\src\RetailPlus.Data.Sqlite\RetailPlus.Data.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\RetailPlus.Data.SqlServer\RetailPlus.Data.SqlServer.csproj" />
   </ItemGroup>
 
 </Project>

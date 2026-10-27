@@ -50,9 +50,9 @@ public enum RfidAntennaPurpose
 /// settings are kept here and pushed to the reader by an administrator, so a replaced reader is set up again in one
 /// click.
 /// </summary>
-public class RfidReader : IVersioned
+public class RfidReader : Entity, IVersioned, IStoreScoped
 {
-    public int Id { get; set; }
+    public Guid StoreId { get; set; }
     public string Name { get; set; } = "";
     /// <summary>Which RFID hub owns the connection; several hubs can share a large installation.</summary>
     public string HubKey { get; set; } = "main";
@@ -94,17 +94,16 @@ public class RfidReader : IVersioned
     public string? FirmwareVersion { get; set; }
     public DateTime? SettingsAppliedAt { get; set; }
     public string? Notes { get; set; }
-    public byte[] RowVersion { get; set; } = [];
+    public Guid Version { get; set; }
     public List<RfidAntenna> Antennas { get; set; } = [];
 
     public string Endpoint => Transport == RfidTransport.Tcp ? $"{Host}:{Port}" : $"{SerialPort} @ {BaudRate}";
 }
 
 /// <summary>One of the four antenna ports of a reader, and the POS station it serves.</summary>
-public class RfidAntenna
+public class RfidAntenna : Entity
 {
-    public int Id { get; set; }
-    public int ReaderId { get; set; }
+    public Guid ReaderId { get; set; }
     /// <summary>1 to 4.</summary>
     public int Port { get; set; }
     public string? Name { get; set; }
@@ -124,13 +123,12 @@ public enum ItemTagStatus
 }
 
 /// <summary>An RFID tag (EPC) attached to one physical item, so ringing it up twice or walking out with it can be told.</summary>
-public class ItemTag
+public class ItemTag : Entity
 {
-    public int Id { get; set; }
     /// <summary>Upper-case hexadecimal, no spaces.</summary>
     public string Epc { get; set; } = "";
-    public int ItemId { get; set; }
-    public int? VariantId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid? VariantId { get; set; }
     public string? SerialNumber { get; set; }
     public ItemTagStatus Status { get; set; }
     public DateTime RegisteredAt { get; set; }

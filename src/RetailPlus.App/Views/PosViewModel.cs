@@ -211,14 +211,14 @@ public sealed partial class PosViewModel : ObservableObject
             await AddCodeAsync(item.TagAlongCode!, qty);
     }
 
-    private readonly Dictionary<int, Item> _itemCache = [];
-    private readonly Dictionary<int, System.Windows.Media.ImageSource?> _pictures = [];
+    private readonly Dictionary<Guid, Item> _itemCache = [];
+    private readonly Dictionary<Guid, System.Windows.Media.ImageSource?> _pictures = [];
 
     partial void OnSelectedLineChanged(SaleDraftLine? value) => _ = ShowLinePictureAsync(value);
 
     private async Task ShowLinePictureAsync(SaleDraftLine? line)
     {
-        if (line?.ItemId is not int id) { LinePicture = null; return; }
+        if (line?.ItemId is not Guid id) { LinePicture = null; return; }
         if (!_pictures.TryGetValue(id, out var picture))
         {
             try
@@ -301,7 +301,7 @@ public sealed partial class PosViewModel : ObservableObject
 
     private void Price(SaleDraftLine line)
     {
-        if (!line.AutoPriced || line.ItemId is not int id || !_itemCache.TryGetValue(id, out var item)) return;
+        if (!line.AutoPriced || line.ItemId is not Guid id || !_itemCache.TryGetValue(id, out var item)) return;
         var r = PricingEngine.Price(item, line.Quantity, DateOnly.FromDateTime(DateTime.Today), _draft.ClientPriceLevel, _draft.ClientDiscountPercent);
         line.UnitPrice = r.UnitPrice;
         line.DiscountAmount = r.DiscountAmount;
@@ -373,7 +373,7 @@ public sealed partial class PosViewModel : ObservableObject
         var q = Ui.PromptDecimal($"Quantity of {line.Description}:", "Quantity", line.Quantity);
         if (q is null || q == 0) return;
         if (line.SerialNumber is not null && Math.Abs(q.Value) != 1) { Ui.Error("A serialized item is sold one at a time."); return; }
-        if (line.Kind == SaleLineKind.Sale && q > line.Quantity && line.ItemId is int itemId && _itemCache.TryGetValue(itemId, out var item)
+        if (line.Kind == SaleLineKind.Sale && q > line.Quantity && line.ItemId is Guid itemId && _itemCache.TryGetValue(itemId, out var item)
             && await TaggedPiecesAsync(item) is { } pieces && q - line.Quantity > pieces.Left)
         {
             Ui.Error(NoMorePieces(item, pieces) + $" This line can have at most {(line.Quantity + pieces.Left).ToString("0.###", C)}.");
@@ -456,7 +456,7 @@ public sealed partial class PosViewModel : ObservableObject
 
     private decimal? _clientPoints;
 
-    public async Task SetClientAsync(int clientId)
+    public async Task SetClientAsync(Guid clientId)
     {
         var c = await AppServices.Parties.GetClientAsync(clientId);
         if (c is null) return;
@@ -601,10 +601,10 @@ public sealed partial class PosViewModel : ObservableObject
         _draft = draft;
         foreach (var l in lines)
         {
-            if (l.ItemId is int id && await AppServices.Inventory.GetAsync(id) is { } item) _itemCache[id] = item;
+            if (l.ItemId is Guid id && await AppServices.Inventory.GetAsync(id) is { } item) _itemCache[id] = item;
             Lines.Add(l);
         }
-        if (draft.ClientId is int cid)
+        if (draft.ClientId is Guid cid)
         {
             var keep = (draft.SubtotalDiscountPercent, draft.PointsRedeemed);
             await SetClientAsync(cid);

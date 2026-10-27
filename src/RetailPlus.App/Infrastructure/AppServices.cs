@@ -43,7 +43,7 @@ public static class AppServices
     public static void Initialize(StationConfig config)
     {
         Config = config;
-        Data = new DataContext(config.EffectiveConnectionString);
+        Data = new DataContext(config.EffectiveDatabase);
         Setup = new SetupService(Data);
         Inventory = new InventoryService(Data);
         Parties = new PartyService(Data);

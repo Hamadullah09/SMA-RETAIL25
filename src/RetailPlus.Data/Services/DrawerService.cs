@@ -15,10 +15,10 @@ public sealed record DrawerReport(DrawerSession Session, IReadOnlyList<DrawerSes
 public sealed class DrawerService(DataContext data)
 {
     /// <summary>The station's open session; a new one is started when the last was closed by End of Day.</summary>
-    internal static async Task<DrawerSession> GetOpenSessionAsync(RetailPlusDbContext db, int stationNumber, int locationId)
+    internal static async Task<DrawerSession> GetOpenSessionAsync(RetailPlusDbContext db, int stationNumber, Guid locationId)
     {
         var session = await db.DrawerSessions.Include(s => s.Tenders)
-            .Where(s => s.StationNumber == stationNumber && s.ClosedAt == null).OrderByDescending(s => s.Id).FirstOrDefaultAsync();
+            .Where(s => s.StationNumber == stationNumber && s.ClosedAt == null).OrderByDescending(s => s.OpenedAt).FirstOrDefaultAsync();
         if (session is null)
         {
             session = new DrawerSession { StationNumber = stationNumber, LocationId = locationId, OpenedAt = DateTime.Now };
@@ -35,7 +35,7 @@ public sealed class DrawerService(DataContext data)
         return await BuildReportAsync(db, session);
     }
 
-    public async Task<DrawerReport?> GetAsync(int sessionId)
+    public async Task<DrawerReport?> GetAsync(Guid sessionId)
     {
         await using var db = data.Create();
         var session = await db.DrawerSessions.Include(s => s.Tenders).SingleOrDefaultAsync(s => s.Id == sessionId);

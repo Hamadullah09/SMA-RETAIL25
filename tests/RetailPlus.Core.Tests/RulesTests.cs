@@ -231,17 +231,19 @@ public class LoyaltyAndCreditTests
 
 public class SaleLineJoinTests
 {
+    private static Guid Id(int n) => new(n, 0, 0, [0, 0, 0, 0, 0, 0, 0, 0]);
+
     private static SaleDraftLine Line(int itemId, decimal qty = 1, SaleLineKind kind = SaleLineKind.Sale) =>
-        new() { ItemId = itemId, Kind = kind, Quantity = qty, UnitPrice = 250m };
+        new() { ItemId = Id(itemId), Kind = kind, Quantity = qty, UnitPrice = 250m };
 
     [Fact]
     public void The_same_item_joins_its_line()
     {
-        var chocolate = new Item { Id = 7, ItemType = ItemType.Standard };
+        var chocolate = new Item { Id = Id(7), ItemType = ItemType.Standard };
         var lines = new List<SaleDraftLine> { Line(7), Line(8) };
         Assert.Same(lines[0], SaleDraft.LineToJoin(lines, chocolate, null, SaleLineKind.Sale, 1));
         Assert.Null(SaleDraft.LineToJoin(lines, chocolate, null, SaleLineKind.Return, 1));
-        Assert.Null(SaleDraft.LineToJoin(lines, chocolate, 3, SaleLineKind.Sale, 1));
+        Assert.Null(SaleDraft.LineToJoin(lines, chocolate, Id(3), SaleLineKind.Sale, 1));
     }
 
     [Fact]
@@ -250,12 +252,12 @@ public class SaleLineJoinTests
         var lines = new List<SaleDraftLine> { Line(1), Line(2, 0.75m), Line(3) };
         lines[2].AutoPriced = false;
         lines[2].DiscountAmount = 20m;
-        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = 1, ItemType = ItemType.Serialized }, null, SaleLineKind.Sale, 1));
-        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = 1, ReadScale = true }, null, SaleLineKind.Sale, 1));
-        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = 1 }, null, SaleLineKind.Sale, 0.5m));
-        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = 2 }, null, SaleLineKind.Sale, 1));
-        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = 3 }, null, SaleLineKind.Sale, 1));
-        Assert.Null(SaleDraft.LineToJoin([new SaleDraftLine { ItemId = 4, SerialNumber = "S1" }], new Item { Id = 4 }, null, SaleLineKind.Sale, 1));
+        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = Id(1), ItemType = ItemType.Serialized }, null, SaleLineKind.Sale, 1));
+        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = Id(1), ReadScale = true }, null, SaleLineKind.Sale, 1));
+        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = Id(1) }, null, SaleLineKind.Sale, 0.5m));
+        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = Id(2) }, null, SaleLineKind.Sale, 1));
+        Assert.Null(SaleDraft.LineToJoin(lines, new Item { Id = Id(3) }, null, SaleLineKind.Sale, 1));
+        Assert.Null(SaleDraft.LineToJoin([new SaleDraftLine { ItemId = Id(4), SerialNumber = "S1" }], new Item { Id = Id(4) }, null, SaleLineKind.Sale, 1));
     }
 }
 

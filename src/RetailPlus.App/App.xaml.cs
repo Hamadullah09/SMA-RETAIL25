@@ -8,7 +8,7 @@ namespace RetailPlus.App;
 
 /// <summary>
 /// Start-up: read the station settings, open (and if needed create or upgrade) the database, log in, show the main
-/// window. Command line: <c>--config &lt;station.json&gt;</c>, <c>--localdb &lt;name&gt;</c>, <c>--station &lt;n&gt;</c>,
+/// window. Command line: <c>--config &lt;station.json&gt;</c>, <c>--db &lt;SQLite file&gt;</c>, <c>--localdb &lt;name&gt;</c>, <c>--station &lt;n&gt;</c>,
 /// <c>--smoke</c> (exercise every screen and exit), <c>--screenshot-tour &lt;folder&gt;</c> (save a PNG of every screen and exit).
 /// </summary>
 public partial class App : Application
@@ -27,7 +27,8 @@ public partial class App : Application
         }
 
         var config = StationConfig.Load(Arg("--config"));
-        if (Arg("--localdb") is { } localDb) { config.LocalDbDatabase = localDb; config.ConnectionString = null; }
+        if (Arg("--db") is { } file) { config.DatabaseProvider = Data.DatabaseProvider.Sqlite; config.DatabaseFile = file; }
+        if (Arg("--localdb") is { } localDb) { config.DatabaseProvider = Data.DatabaseProvider.SqlServer; config.LocalDbDatabase = localDb; config.ConnectionString = null; }
         if (int.TryParse(Arg("--station"), out var station)) config.StationNumber = station;
         var tourFolder = Arg("--screenshot-tour");
         bool smoke = args.Any(a => string.Equals(a, "--smoke", StringComparison.OrdinalIgnoreCase));

@@ -21,11 +21,11 @@ internal sealed class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         e.Property(x => x.ShipTo).HasMaxLength(200);
         e.Property(x => x.BillTo).HasMaxLength(200);
         e.Property(x => x.Email).HasMaxLength(100);
-        e.Property(x => x.RowVersion).IsRowVersion();
         e.Ignore(x => x.DisplayName);
         e.HasOne(x => x.Client).WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.ClientSetNull);
-        // Tags: INV_NO, ACCTNO, COMPANY, INVOICES (last name), INV_DATE (descending).
-        e.HasIndex(x => new { x.Kind, x.InvoiceNumber }).IsUnique();
+        // Tags: INV_NO, ACCTNO, COMPANY, INVOICES (last name), INV_DATE (descending). Numbers are unique per store:
+        // each store's imported invoices keep the numbers they had in Retail Plus.
+        e.HasIndex(x => new { x.StoreId, x.Kind, x.InvoiceNumber }).IsUnique();
         e.HasIndex(x => x.AccountNumber);
         e.HasIndex(x => x.Company);
         e.HasIndex(x => x.LastName);
@@ -62,9 +62,8 @@ internal sealed class PurchaseOrderConfiguration : IEntityTypeConfiguration<Purc
         e.Property(x => x.Status).HasConversion<string>().HasMaxLength(10);
         e.Property(x => x.Method).HasConversion<string>().HasMaxLength(16);
         e.Property(x => x.Description).HasMaxLength(100);
-        e.Property(x => x.RowVersion).IsRowVersion();
         e.HasOne(x => x.Location).WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
-        e.HasIndex(x => x.Number).IsUnique();
+        e.HasIndex(x => new { x.StoreId, x.Number }).IsUnique();
     }
 }
 

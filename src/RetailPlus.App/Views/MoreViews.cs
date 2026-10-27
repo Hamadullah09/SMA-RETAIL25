@@ -345,7 +345,7 @@ public sealed class ToolsView : UserControl, IRefreshable
     {
         var cards = new WrapPanel();
         cards.Children.Add(Card("Import from Retail Plus 5", "Brings in the data of the old Retail Plus 5 program. Use a copy made while the old program was closed.", "Import…", Import_Click));
-        cards.Children.Add(Card("Backup", "Saves a full copy of the database to a .bak file.", "Back up now", Backup_Click));
+        cards.Children.Add(Card("Backup", "Saves a full copy of the database to a file (.db on this computer's own database, .bak on SQL Server).", "Back up now", Backup_Click));
         cards.Children.Add(Card("Restore", "Replaces the database with a backup. Every station must be closed.", "Restore…", Restore_Click));
         cards.Children.Add(Card("Rebuild", "Checks the database and rebuilds its indexes (the old Reindex).", "Rebuild", Rebuild_Click));
         cards.Children.Add(Card("Recurring billing", "Creates the on-account invoices of clients whose next billing date has come.", "Run billing", Recurring_Click));
@@ -388,7 +388,7 @@ public sealed class ToolsView : UserControl, IRefreshable
             Write($"Importing {folder}…");
             var importer = new DbfImporter(new ImportOptions
             {
-                SourceFolder = folder, ConnectionString = AppServices.Data.ConnectionString, Overwrite = hasData,
+                SourceFolder = folder, Database = AppServices.Data.Connection, Overwrite = hasData,
                 StationIniPath = File.Exists(ini) ? ini : null, Progress = Write,
             });
             var report = await Task.Run(() => importer.RunAsync());
@@ -399,6 +399,8 @@ public sealed class ToolsView : UserControl, IRefreshable
             foreach (var t in report.Totals) Write($"  {t.Name}: source {t.Source} / database {t.Database} {(t.Matches ? "OK" : "DIFFERENT")}");
             Write(report.VerificationPassed ? "Import finished; all control totals match." : "Import finished, but some totals differ — see the report.");
             Write("Report: " + dir);
+            // The import replaced everything but the store; this station and its location come back.
+            await AppServices.Setup.SeedAsync(AppServices.Config.StationNumber);
             await AppServices.RefreshSettingsAsync();
             (Window.GetWindow(this) as MainWindow)?.RefreshChrome();
         });
@@ -416,7 +418,7 @@ public sealed class ToolsView : UserControl, IRefreshable
 
     private async void Restore_Click(object sender, RoutedEventArgs e)
     {
-        var file = Ui.OpenFile("SQL Server backup|*.bak");
+        var file = Ui.OpenFile(AppServices.Data.Connection.Provider == Data.DatabaseProvider.Sqlite ? "Database backup|*.db" : "SQL Server backup|*.bak");
         if (file is null || !Ui.Confirm("Replace the whole database with this backup? Everything entered since the backup is lost.")) return;
         await Ui.Try(async () =>
         {

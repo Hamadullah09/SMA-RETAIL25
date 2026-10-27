@@ -152,7 +152,7 @@ public sealed partial class DbfImporter
     /// SALESnnn.DBF (sale lines of station nnn) and TOTALnnn.DBF (its End of Day totals). Best effort: lines are
     /// grouped into sales by invoice number and date, and the payment is taken from the line's method of payment.
     /// </summary>
-    private async Task ImportSalesAsync(string code, int locationId, string folder, CancellationToken ct)
+    private async Task ImportSalesAsync(string code, Guid locationId, string folder, CancellationToken ct)
     {
         int saleLines = 0, sessions = 0;
         foreach (var file in Directory.EnumerateFiles(folder).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
@@ -173,7 +173,7 @@ public sealed partial class DbfImporter
         Check($"Sales {code}: End of Day totals", totals, async (db, t) => await db.DrawerSessions.CountAsync(s => s.LocationId == locationId, t));
     }
 
-    private async Task<int> ImportSaleLinesAsync(int locationId, int station, string path, CancellationToken ct)
+    private async Task<int> ImportSaleLinesAsync(Guid locationId, int station, string path, CancellationToken ct)
     {
         using var table = Open(path);
         var result = Result(table, nameof(Sale));
@@ -275,7 +275,7 @@ public sealed partial class DbfImporter
         return lineCount;
     }
 
-    private async Task<int> ImportDrawerTotalsAsync(int locationId, int station, string path, CancellationToken ct)
+    private async Task<int> ImportDrawerTotalsAsync(Guid locationId, int station, string path, CancellationToken ct)
     {
         using var table = Open(path);
         var result = Result(table, nameof(DrawerSession));
@@ -324,7 +324,7 @@ public sealed partial class DbfImporter
     /// One purchase order per file PO&lt;number&gt;.&lt;LOC&gt; in the location's PO folder (PO.DBF is the empty template).
     /// The status is inferred: received when any line has a quantity received, posted when it was sent or read.
     /// </summary>
-    private async Task ImportPurchaseOrdersAsync(string code, int locationId, string folder, CancellationToken ct)
+    private async Task ImportPurchaseOrdersAsync(string code, Guid locationId, string folder, CancellationToken ct)
     {
         int orders = 0, lineCount = 0;
         foreach (var file in Directory.EnumerateFiles(folder).OrderBy(f => f, StringComparer.OrdinalIgnoreCase))

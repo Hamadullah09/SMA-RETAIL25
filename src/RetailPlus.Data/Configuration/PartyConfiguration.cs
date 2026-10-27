@@ -29,7 +29,6 @@ internal static class PartyColumns
         e.Property(x => x.AccountNumber).HasMaxLength(10);
         e.Property(x => x.Type).HasMaxLength(15);
         e.Property(x => x.PhotoPath).HasMaxLength(260);
-        e.Property(x => x.RowVersion).IsRowVersion();
 
         // Tags: CLIENTS/SUPPLIER (last name), COMPANY, CUSTNO, ZIP, STATE (state+city), LASTPURCHA (descending),
         // EMAIL, WORKPHONE, CLIENTTYPE, ACCTNO. Numbers must be unique among live rows.

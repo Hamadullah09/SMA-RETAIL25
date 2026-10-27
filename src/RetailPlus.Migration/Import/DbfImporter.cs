@@ -1,8 +1,13 @@
+using System.Data.Common;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage;
+using RetailPlus.Core.Model;
 using RetailPlus.Data;
 using RetailPlus.Data.Import;
 using RetailPlus.Migration.Dbf;
@@ -14,7 +19,9 @@ public sealed class ImportOptions
 {
     /// <summary>The Retail Plus data root (the folder holding SETUP.DBF and one folder per location).</summary>
     public required string SourceFolder { get; init; }
-    public required string ConnectionString { get; init; }
+    public required DatabaseConnection Database { get; init; }
+    /// <summary>The store the data belongs to; by default the database's store, or a new one in an empty database.</summary>
+    public Guid? StoreId { get; init; }
     /// <summary>Empty a database that already holds data instead of refusing to import into it.</summary>
     public bool Overwrite { get; init; }
     /// <summary>Optional Plus50.INI of a workstation, imported as that station's settings.</summary>
@@ -36,10 +43,11 @@ public sealed class ImportRefusedException : Exception
 }
 
 /// <summary>
-/// One-time import of a Retail Plus 5.2 data folder into the SQL Server database (docs/DATA_LAYER_PLAN.md). Reads
+/// One-time import of a Retail Plus 5.2 data folder into one store of the database (docs/DATA_LAYER_PLAN.md). Reads
 /// copies of the DBF/FPT files (never writes them), maps every known table per docs/DATA_FORMATS.md, keeps each
 /// source record as JSON in <see cref="ImportSourceRow"/>, and checks control totals afterwards. All rows are written
-/// in one transaction, so a failed import leaves the database as it was.
+/// in one transaction, so a failed import leaves the database as it was. Everything but the store itself is replaced,
+/// including what a new database was seeded with.
 /// </summary>
 [System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "The connection only lives during RunAsync, which disposes it.")]
 public sealed partial class DbfImporter(ImportOptions options)
@@ -51,8 +59,9 @@ public sealed partial class DbfImporter(ImportOptions options)
     private readonly HashSet<string> _filesRead = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<(string Name, decimal Source, Func<RetailPlusDbContext, CancellationToken, Task<decimal>> Query)> _checks = [];
     private readonly Dictionary<object, string> _where = new(ReferenceEqualityComparer.Instance);
-    private SqlConnection _connection = null!;
-    private SqlTransaction? _transaction;
+    private DbConnection _connection = null!;
+    private DbTransaction? _transaction;
+    private Guid _storeId;
     private string _root = "";
     private int _batchId;
     private DateTime _now;
@@ -69,33 +78,43 @@ public sealed partial class DbfImporter(ImportOptions options)
         if (FindFile(_root, "SETUP.DBF") is null && FindLocations().Count == 0)
             throw new ImportRefusedException($"{_root} does not look like a Retail Plus data folder (no SETUP.DBF and no inventory).");
 
-        var csb = new SqlConnectionStringBuilder(options.ConnectionString);
         _report.StartedAt = _now;
         _report.SourceFolder = _root;
-        _report.Database = $"{csb.DataSource}/{csb.InitialCatalog}";
+        _report.Database = options.Database.Description;
         _report.ToolVersion = ToolVersion;
 
         _log.Info($"Preparing database {_report.Database}");
-        await using (var db = RetailPlusDb.CreateContext(options.ConnectionString))
+        await using (var db = RetailPlusDb.CreateContext(options.Database))
         {
             db.Database.SetCommandTimeout(600);
             await db.Database.MigrateAsync(cancellationToken);
             bool hasData = await db.Items.AnyAsync(cancellationToken) || await db.Clients.AnyAsync(cancellationToken);
             if (hasData && !options.Overwrite)
                 throw new ImportRefusedException($"Database {_report.Database} already holds items or clients. Use the overwrite option to replace them.");
+            var store = options.StoreId is Guid storeId
+                ? await db.Stores.SingleOrDefaultAsync(s => s.Id == storeId, cancellationToken) ?? throw new ImportRefusedException($"Store {storeId} is not in the database.")
+                : await db.Stores.OrderBy(s => s.CreatedAtUtc).FirstOrDefaultAsync(cancellationToken);
+            if (store is null)
+            {
+                store = new Store { Code = "MAIN", Name = "Main store", TimeZoneId = TimeZoneInfo.Local.Id };
+                db.Stores.Add(store);
+            }
             var batch = new ImportBatch { StartedAt = _now, SourcePath = Truncate(_root, 260), ToolVersion = ToolVersion, Status = "Running" };
             db.ImportBatches.Add(batch);
             await db.SaveChangesAsync(cancellationToken);
+            _storeId = store.Id;
             _batchId = batch.Id;
             _report.ImportBatchId = _batchId;
         }
 
-        _connection = new SqlConnection(options.ConnectionString);
+        _connection = options.Database.Provider == DatabaseProvider.Sqlite
+            ? new SqliteConnection(options.Database.ConnectionString)
+            : new SqlConnection(options.Database.ConnectionString);
         try
         {
             await _connection.OpenAsync(cancellationToken);
-            _transaction = (SqlTransaction)await _connection.BeginTransactionAsync(cancellationToken);
-            if (options.Overwrite) await WipeAsync(cancellationToken);
+            _transaction = await _connection.BeginTransactionAsync(cancellationToken);
+            await WipeAsync(cancellationToken);
             await ImportAllAsync(cancellationToken);
             await _transaction.CommitAsync(cancellationToken);
             _report.Succeeded = true;
@@ -134,7 +153,7 @@ public sealed partial class DbfImporter(ImportOptions options)
         var locationIds = await ImportLocationsAsync(locations, ct);
         foreach (var location in locations)
         {
-            int locationId = locationIds[location.Code];
+            Guid locationId = locationIds[location.Code];
             if (location.InventoryPath is not null) await ImportInventoryAsync(location.Code, locationId, location.InventoryPath, ct);
             if (location.Folder is not null) await ImportLocationFolderAsync(location.Code, locationId, location.Folder, ct);
         }
@@ -146,18 +165,17 @@ public sealed partial class DbfImporter(ImportOptions options)
         await ImportFastKeysAsync(ct);
         await ImportStationsAsync(ct);
         await SeedTenderTypesAsync(ct);
-        await RestartSequencesAsync(numbers, ct);
+        NoteNumbering(numbers);
         NoteUnimportedFiles();
     }
 
     // Database helpers -----------------------------------------------------------------------------------------
 
-    /// <summary>A context on the import connection, enlisted in the import transaction.</summary>
+    /// <summary>A context on the import connection, enlisted in the import transaction; new rows go to the import's store.</summary>
     private RetailPlusDbContext NewContext()
     {
-        var builder = new DbContextOptionsBuilder<RetailPlusDbContext>()
-            .UseSqlServer(_connection, sql => sql.UseCompatibilityLevel(RetailPlusDb.CompatibilityLevel).CommandTimeout(600));
-        var db = new RetailPlusDbContext(builder.Options);
+        var builder = RetailPlusDb.Configure(new DbContextOptionsBuilder<RetailPlusDbContext>(), _connection, options.Database.Provider, 600);
+        var db = new RetailPlusDbContext(builder.Options) { Station = new StationIdentity(_storeId, 0) };
         db.Database.UseTransaction(_transaction);
         return db;
     }
@@ -172,16 +190,18 @@ public sealed partial class DbfImporter(ImportOptions options)
     }
 
     /// <summary>
-    /// Empties every table of the model except the current import batch, children before parents, for the
-    /// overwrite option. Sequences are restarted later from NUMBERS.DBF.
+    /// Empties every table of the model except the stores and the current import batch, children before parents:
+    /// the data of the overwrite option, or what a new database was seeded with.
     /// </summary>
     private async Task WipeAsync(CancellationToken ct)
     {
         _log.Info("Emptying the existing database (overwrite)");
         await using var db = NewContext();
         var types = db.Model.GetEntityTypes().Where(t => t.GetTableName() is not null && t.FindOwnership() is null).ToList();
-        string Name(Microsoft.EntityFrameworkCore.Metadata.IEntityType t) => $"[{t.GetSchema() ?? "dbo"}].[{t.GetTableName()}]";
-        var remaining = types.Select(Name).ToHashSet(StringComparer.Ordinal);
+        var sql = db.GetService<ISqlGenerationHelper>();
+        string Name(Microsoft.EntityFrameworkCore.Metadata.IEntityType t) => sql.DelimitIdentifier(t.GetTableName()!, t.GetSchema());
+        string stores = Name(db.Model.FindEntityType(typeof(Store))!), batches = Name(db.Model.FindEntityType(typeof(ImportBatch))!);
+        var remaining = types.Select(Name).Where(t => t != stores).ToHashSet(StringComparer.Ordinal);
         var references = types
             .SelectMany(t => t.GetForeignKeys().Select(fk => (Dependent: Name(t), Principal: Name(fk.PrincipalEntityType))))
             .Where(r => r.Dependent != r.Principal)
@@ -193,10 +213,9 @@ public sealed partial class DbfImporter(ImportOptions options)
             if (next.Count == 0) throw new InvalidOperationException("Foreign keys form a cycle; cannot empty the database.");
             foreach (var table in next)
             {
-                var sql = table == "[dbo].[ImportBatches]"
-                    ? "DELETE FROM [dbo].[ImportBatches] WHERE [Id] <> " + _batchId.ToString(CultureInfo.InvariantCulture)
-                    : "DELETE FROM " + table;
-                await ExecAsync(sql, ct);
+                await ExecAsync(table == batches
+                    ? "DELETE FROM " + table + " WHERE " + sql.DelimitIdentifier(nameof(ImportBatch.Id)) + " <> " + _batchId.ToString(CultureInfo.InvariantCulture)
+                    : "DELETE FROM " + table, ct);
                 remaining.Remove(table);
             }
         }
@@ -247,7 +266,7 @@ public sealed partial class DbfImporter(ImportOptions options)
             foreach (var p in part)
                 foreach (var (entity, name, source, json) in p.Traces)
                 {
-                    int? id = entity is null ? null : Convert.ToInt32(db.Entry(entity).Property("Id").CurrentValue, CultureInfo.InvariantCulture);
+                    Guid? id = entity is null ? null : (Guid?)db.Entry(entity).Property("Id").CurrentValue;
                     db.ImportSourceRows.Add(new ImportSourceRow
                     {
                         ImportBatchId = _batchId,
@@ -286,7 +305,7 @@ public sealed partial class DbfImporter(ImportOptions options)
 
     private async Task VerifyAsync(CancellationToken ct)
     {
-        await using var db = RetailPlusDb.CreateContext(options.ConnectionString);
+        await using var db = RetailPlusDb.CreateContext(options.Database);
         db.Database.SetCommandTimeout(600);
         foreach (var (name, source, query) in _checks)
             _report.Totals.Add(new ControlTotal(name, source, await query(db, ct)));
@@ -301,7 +320,7 @@ public sealed partial class DbfImporter(ImportOptions options)
             using var stream = File.OpenRead(path);
             return new { File = Path.GetRelativePath(_root, path), info.Length, Sha256 = Convert.ToHexString(SHA256.HashData(stream)) };
         }).ToList();
-        await using var db = RetailPlusDb.CreateContext(options.ConnectionString);
+        await using var db = RetailPlusDb.CreateContext(options.Database);
         var batch = await db.ImportBatches.FindAsync(_batchId);
         if (batch is null) return;
         batch.FinishedAt = _report.FinishedAt.AddTicks(-(_report.FinishedAt.Ticks % TimeSpan.TicksPerSecond));

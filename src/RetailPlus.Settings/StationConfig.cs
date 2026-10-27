@@ -33,7 +33,14 @@ public sealed class StationConfig
         Converters = { new JsonStringEnumConverter() },
     };
 
-    /// <summary>Full connection string; when empty, <see cref="LocalDbDatabase"/> on LocalDB is used.</summary>
+    /// <summary>
+    /// SQLite (the default): this till keeps its own database file and sells without a network. SQL Server: the till
+    /// opens a shared database on the network, as before.
+    /// </summary>
+    public DatabaseProvider DatabaseProvider { get; set; } = DatabaseProvider.Sqlite;
+    /// <summary>The SQLite file; empty uses smaretail.db in <see cref="DefaultFolder"/>.</summary>
+    public string? DatabaseFile { get; set; }
+    /// <summary>SQL Server only: full connection string; when empty, <see cref="LocalDbDatabase"/> on LocalDB is used.</summary>
     public string? ConnectionString { get; set; }
     public string LocalDbDatabase { get; set; } = "RetailPlus_App";
     public int StationNumber { get; set; } = 1;
@@ -70,11 +77,18 @@ public sealed class StationConfig
     [JsonIgnore]
     public string? FilePath { get; private set; }
 
+    /// <summary>The database to open. RETAILPLUS_CONNECTION (a SQL Server connection string) overrides the file.</summary>
     [JsonIgnore]
-    public string EffectiveConnectionString =>
-        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RETAILPLUS_CONNECTION")) ? Environment.GetEnvironmentVariable("RETAILPLUS_CONNECTION")!
-        : !string.IsNullOrWhiteSpace(ConnectionString) ? ConnectionString!
-        : RetailPlusDb.LocalDbConnectionString(LocalDbDatabase);
+    public DatabaseConnection EffectiveDatabase =>
+        !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RETAILPLUS_CONNECTION")) ? DatabaseConnection.SqlServer(Environment.GetEnvironmentVariable("RETAILPLUS_CONNECTION")!)
+        : DatabaseProvider == DatabaseProvider.Sqlite ? DatabaseConnection.SqliteFile(DatabaseFileOrDefault)
+        : !string.IsNullOrWhiteSpace(ConnectionString) ? DatabaseConnection.SqlServer(ConnectionString!)
+        : DatabaseConnection.LocalDb(LocalDbDatabase);
+
+    [JsonIgnore]
+    public string DatabaseFileOrDefault => string.IsNullOrWhiteSpace(DatabaseFile) ? DefaultDatabaseFile : DatabaseFile!;
+
+    public static string DefaultDatabaseFile => RetailPlusDb.DefaultSqliteFile;
 
     public static string DefaultFolder => Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "RetailPlus");
 

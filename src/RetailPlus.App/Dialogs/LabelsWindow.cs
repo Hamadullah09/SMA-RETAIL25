@@ -22,7 +22,7 @@ public sealed class LabelLine : INotifyPropertyChanged
 {
     private int _copies;
 
-    public required int ItemId { get; init; }
+    public required Guid ItemId { get; init; }
     public required string Plu { get; init; }
     public required string Name { get; init; }
     public string? Barcode { get; set; }

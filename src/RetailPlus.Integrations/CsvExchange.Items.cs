@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using RetailPlus.Core.Model;
 using RetailPlus.Core.Rules;
+using RetailPlus.Data.Services;
 
 namespace RetailPlus.Integrations;
 
@@ -70,7 +71,7 @@ public sealed partial class CsvExchange
         static Dictionary<string, string?> Row(Dictionary<string, string?> values) => new(values, StringComparer.OrdinalIgnoreCase);
     }
 
-    public async Task<string> ExportItemsAsync(int locationId)
+    public async Task<string> ExportItemsAsync(Guid locationId)
     {
         await using var db = data.Create();
         var items = await db.Items.AsNoTracking().Include(i => i.Department).Include(i => i.Category).Include(i => i.Supplier)
@@ -164,7 +165,7 @@ public sealed partial class CsvExchange
     /// PLU sets the item; every row's EPC registers one tagged piece with its SSTATUS and RECEIPT#. New items need PLU and
     /// PROD. Template example rows (stock code EXAMPLE…) and rows without a PLU (notes under the table) are skipped.
     /// </summary>
-    public async Task<CsvImportResult> ImportItemsAsync(int locationId, string csv)
+    public async Task<CsvImportResult> ImportItemsAsync(Guid locationId, string csv)
     {
         var rows = CsvRecord.Read(csv).ToList();
         await using var db = data.Create();
@@ -182,6 +183,7 @@ public sealed partial class CsvExchange
         var firstRow = new Dictionary<string, (int Row, string Name)>(StringComparer.OrdinalIgnoreCase);
         var pieces = new List<(Item Item, string Epc, ItemTagStatus Status, long? Receipt)>();
         var piecesInFile = new HashSet<string>();
+        var counted = new List<(Item Item, bool IsNew, decimal Change)>();
         int added = 0, updated = 0, skipped = 0, rowNo = 1;
         var problems = new List<string>();
         foreach (var r in rows)
@@ -219,6 +221,7 @@ public sealed partial class CsvExchange
                     db.Items.Add(item);
                     existing[plu] = item;
                 }
+                decimal before = isNew ? 0 : item.OnHand;
                 try
                 {
                     Apply(r, item, lookups, barcodes);
@@ -231,6 +234,7 @@ public sealed partial class CsvExchange
                     continue;
                 }
                 firstRow[plu] = (rowNo, item.Name);
+                if (item.OnHand != before) counted.Add((item, isNew, item.OnHand - before));
                 if (isNew) added++; else updated++;
             }
 
@@ -252,6 +256,8 @@ public sealed partial class CsvExchange
         }
 
         await db.SaveChangesAsync();   // new items get their ids before their tags are added
+        foreach (var (item, isNew, change) in counted)
+            InventoryService.Record(db, item.Id, isNew ? StockMovementKind.Opening : StockMovementKind.Import, change, item.OnHand, reason: "Inventory CSV");
         foreach (var (item, epc, status, receipt) in pieces)
         {
             if (!knownTags.TryGetValue(epc, out var tag))

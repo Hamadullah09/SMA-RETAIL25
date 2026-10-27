@@ -4,11 +4,11 @@ using RetailPlus.Core.Rules;
 
 namespace RetailPlus.Data.Services;
 
-public sealed record InvoiceRow(int Id, long InvoiceNumber, InvoiceKind Kind, DateOnly InvoiceDate, string Name, string? AccountNumber,
-    decimal Total, decimal Balance, decimal Penalty, DateOnly? LastPaidDate, bool IsVoided, int? ClientId);
+public sealed record InvoiceRow(Guid Id, long InvoiceNumber, InvoiceKind Kind, DateOnly InvoiceDate, string Name, string? AccountNumber,
+    decimal Total, decimal Balance, decimal Penalty, DateOnly? LastPaidDate, bool IsVoided, Guid? ClientId);
 
 /// <summary>One client's line of the aged receivables report.</summary>
-public sealed record AgingRow(int? ClientId, string Name, decimal Current, decimal Days30, decimal Days60, decimal Days90Plus)
+public sealed record AgingRow(Guid? ClientId, string Name, decimal Current, decimal Days30, decimal Days60, decimal Days90Plus)
 {
     public decimal Total => Current + Days30 + Days60 + Days90Plus;
 }
@@ -16,13 +16,13 @@ public sealed record AgingRow(int? ClientId, string Name, decimal Current, decim
 /// <summary>Accounts receivable: on-account invoices, quotes and layaways, payments, late charges and statements.</summary>
 public sealed class InvoiceService(DataContext data)
 {
-    public async Task<List<InvoiceRow>> ListAsync(InvoiceKind? kind, bool openOnly, string? text = null, int? clientId = null, int take = 3000)
+    public async Task<List<InvoiceRow>> ListAsync(InvoiceKind? kind, bool openOnly, string? text = null, Guid? clientId = null, int take = 3000)
     {
         await using var db = data.Create();
         var q = db.Invoices.AsNoTracking().AsQueryable();
         if (kind is { } k) q = q.Where(i => i.Kind == k);
         if (openOnly) q = q.Where(i => i.Balance != 0 && !i.IsVoided);
-        if (clientId is int cid) q = q.Where(i => i.ClientId == cid);
+        if (clientId is Guid cid) q = q.Where(i => i.ClientId == cid);
         if (!string.IsNullOrWhiteSpace(text))
         {
             var t = text.Trim();
@@ -34,7 +34,7 @@ public sealed class InvoiceService(DataContext data)
         return rows.Select(i => new InvoiceRow(i.Id, i.InvoiceNumber, i.Kind, i.InvoiceDate, i.DisplayName, i.AccountNumber, i.Total, i.Balance, i.Penalty, i.LastPaidDate, i.IsVoided, i.ClientId)).ToList();
     }
 
-    public async Task<Invoice?> GetAsync(int id)
+    public async Task<Invoice?> GetAsync(Guid id)
     {
         await using var db = data.Create();
         return await db.Invoices.AsNoTracking().Include(i => i.Lines.OrderBy(l => l.LineNumber)).Include(i => i.Payments.OrderBy(p => p.PaidOn))
@@ -42,12 +42,12 @@ public sealed class InvoiceService(DataContext data)
     }
 
     /// <summary>Creates an invoice (or quote) for a client without a POS sale, e.g. recurring billing.</summary>
-    public async Task<Invoice> CreateAsync(int clientId, InvoiceKind kind, DateOnly date, IReadOnlyList<InvoiceLine> lines, string? notes)
+    public async Task<Invoice> CreateAsync(Guid clientId, InvoiceKind kind, DateOnly date, IReadOnlyList<InvoiceLine> lines, string? notes)
     {
         await using var db = data.Create();
         await using var tx = await db.Database.BeginTransactionAsync();
         var client = await db.Clients.SingleAsync(c => c.Id == clientId);
-        var settings = await db.StoreSettings.AsNoTracking().SingleOrDefaultAsync() ?? new StoreSettings();
+        var settings = await db.CurrentStoreSettings.AsNoTracking().SingleOrDefaultAsync() ?? new StoreSettings();
         var invoice = NewInvoice(client, kind, date, settings);
         invoice.InvoiceNumber = await db.NextNumberAsync(RetailPlusDbContext.Sequences.InvoiceNumbers);
         invoice.Notes = notes;
@@ -79,7 +79,7 @@ public sealed class InvoiceService(DataContext data)
     {
         if (draft.ClientId is null) throw new BusinessRuleException("Select a client for the quote.");
         await using var db = data.Create();
-        var settings = await db.StoreSettings.AsNoTracking().SingleOrDefaultAsync() ?? new StoreSettings();
+        var settings = await db.CurrentStoreSettings.AsNoTracking().SingleOrDefaultAsync() ?? new StoreSettings();
         var client = await db.Clients.AsNoTracking().SingleAsync(c => c.Id == draft.ClientId);
         var totals = draft.Calculate(draft.EffectiveTax(settings));
         var quote = NewInvoice(client, InvoiceKind.Quote, DateOnly.FromDateTime(DateTime.Today), settings);
@@ -97,11 +97,11 @@ public sealed class InvoiceService(DataContext data)
     }
 
     /// <summary>Loads a quote back into a POS draft so it can be sold.</summary>
-    public async Task<SaleDraft> QuoteToDraftAsync(int invoiceId, int locationId)
+    public async Task<SaleDraft> QuoteToDraftAsync(Guid invoiceId, Guid locationId)
     {
         await using var db = data.Create();
         var quote = await db.Invoices.AsNoTracking().Include(i => i.Lines).SingleAsync(i => i.Id == invoiceId);
-        var client = quote.ClientId is int cid ? await db.Clients.AsNoTracking().SingleOrDefaultAsync(c => c.Id == cid) : null;
+        var client = quote.ClientId is Guid cid ? await db.Clients.AsNoTracking().SingleOrDefaultAsync(c => c.Id == cid) : null;
         var draft = new SaleDraft
         {
             ClientId = quote.ClientId, ClientName = quote.DisplayName, CustomerNumber = quote.CustomerNumber,
@@ -126,7 +126,7 @@ public sealed class InvoiceService(DataContext data)
     /// Records a payment on an invoice: the late charge is paid first, then the balance. The money goes into the
     /// station's drawer totals.
     /// </summary>
-    public async Task ApplyPaymentAsync(int invoiceId, decimal amount, string tenderType, DateOnly paidOn, SessionInfo session, string? note = null)
+    public async Task ApplyPaymentAsync(Guid invoiceId, decimal amount, string tenderType, DateOnly paidOn, SessionInfo session, string? note = null)
     {
         if (amount <= 0) throw new BusinessRuleException("Enter a payment above zero.");
         await using var db = data.Create();
@@ -148,7 +148,7 @@ public sealed class InvoiceService(DataContext data)
         invoice.LastPaidDate = paidOn;
         invoice.LastPaidAmount = amount;
         db.InvoicePayments.Add(new InvoicePayment { InvoiceId = invoice.Id, PaidOn = paidOn, Amount = amount, TenderType = tenderType, AppliedToPenalty = toPenalty, Note = note });
-        if (invoice.ClientId is int cid)
+        if (invoice.ClientId is Guid cid)
             await db.Clients.Where(c => c.Id == cid).ExecuteUpdateAsync(s => s.SetProperty(c => c.Balance, c => c.Balance - amount));
     }
 
@@ -178,7 +178,7 @@ public sealed class InvoiceService(DataContext data)
     /// Distribute Payment: spreads one payment over the client's open invoices, oldest first. Returns what is left
     /// over (a credit), which is applied to the newest invoice so the client's balance stays right.
     /// </summary>
-    public async Task<decimal> DistributePaymentAsync(int clientId, decimal amount, string tenderType, DateOnly paidOn, SessionInfo session)
+    public async Task<decimal> DistributePaymentAsync(Guid clientId, decimal amount, string tenderType, DateOnly paidOn, SessionInfo session)
     {
         if (amount <= 0) throw new BusinessRuleException("Enter a payment above zero.");
         await using var db = data.Create();
@@ -208,7 +208,7 @@ public sealed class InvoiceService(DataContext data)
     public async Task<(int Invoices, decimal Total)> ApplyLateChargesAsync(DateOnly today)
     {
         await using var db = data.Create();
-        var settings = await db.StoreSettings.AsNoTracking().SingleOrDefaultAsync() ?? new StoreSettings();
+        var settings = await db.CurrentStoreSettings.AsNoTracking().SingleOrDefaultAsync() ?? new StoreSettings();
         if (settings.InterestRatePerMonth <= 0) return (0, 0);
         var open = await db.Invoices.Where(i => i.Kind == InvoiceKind.Invoice && i.Balance > 0 && !i.IsVoided).ToListAsync();
         int count = 0; decimal sum = 0;
@@ -219,7 +219,7 @@ public sealed class InvoiceService(DataContext data)
             if (delta <= 0) continue;
             invoice.Penalty += delta;
             invoice.Balance += delta;
-            if (invoice.ClientId is int cid)
+            if (invoice.ClientId is Guid cid)
                 await db.Clients.Where(c => c.Id == cid).ExecuteUpdateAsync(s => s.SetProperty(c => c.Balance, c => c.Balance + delta));
             count++; sum += delta;
         }
@@ -227,12 +227,12 @@ public sealed class InvoiceService(DataContext data)
         return (count, sum);
     }
 
-    public async Task VoidAsync(int invoiceId)
+    public async Task VoidAsync(Guid invoiceId)
     {
         await using var db = data.Create();
         var invoice = await db.Invoices.SingleAsync(i => i.Id == invoiceId);
         if (invoice.IsVoided) return;
-        if (invoice.ClientId is int cid && invoice.Kind != InvoiceKind.Quote)
+        if (invoice.ClientId is Guid cid && invoice.Kind != InvoiceKind.Quote)
             await db.Clients.Where(c => c.Id == cid).ExecuteUpdateAsync(s => s.SetProperty(c => c.Balance, c => c.Balance - invoice.Balance));
         invoice.Balance = 0;
         invoice.IsVoided = true;
@@ -259,7 +259,7 @@ public sealed class InvoiceService(DataContext data)
     }
 
     /// <summary>A client statement: open invoices and the payments of the last <paramref name="days"/> days.</summary>
-    public async Task<(Client Client, List<Invoice> Open, List<InvoicePayment> Payments)> StatementAsync(int clientId, int days = 90)
+    public async Task<(Client Client, List<Invoice> Open, List<InvoicePayment> Payments)> StatementAsync(Guid clientId, int days = 90)
     {
         await using var db = data.Create();
         var client = await db.Clients.AsNoTracking().SingleAsync(c => c.Id == clientId);

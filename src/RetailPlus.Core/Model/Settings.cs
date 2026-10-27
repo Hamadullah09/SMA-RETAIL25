@@ -1,13 +1,25 @@
 namespace RetailPlus.Core.Model;
 
 /// <summary>
-/// Store-wide settings: the single record of SETUP.DBF. Only fields whose meaning is clear from the manual are typed
-/// here; the others are kept as <see cref="StoreSettingExtra"/> rows under their original field names.
+/// A shop. A till's database holds its own store; the server's database holds every store of the company. Stations,
+/// locations, settings and everything sold are tied to one store.
 /// </summary>
-public class StoreSettings
+public class Store : Entity
 {
-    /// <summary>Always 1.</summary>
-    public int Id { get; set; }
+    /// <summary>Short code, e.g. MAIN.</summary>
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    /// <summary>Windows time zone id. Business times (when a sale was made, a drawer closed) are this store's local time.</summary>
+    public string? TimeZoneId { get; set; }
+}
+
+/// <summary>
+/// The settings of one store: the single record of SETUP.DBF. Only fields whose meaning is clear from the manual are
+/// typed here; the others are kept as <see cref="StoreSettingExtra"/> rows under their original field names.
+/// </summary>
+public class StoreSettings : Entity, IStoreScoped
+{
+    public Guid StoreId { get; set; }
 
     // Business ID [COMPANY, ADDR1, ADDR2, CITY, STATE, ZIP, COUNTRY, PHONE, FAX]
     public string? CompanyName { get; set; }
@@ -84,27 +96,47 @@ public class StoreSettings
 }
 
 /// <summary>A SETUP.DBF field whose meaning isn't confirmed yet, kept under its original name.</summary>
-public class StoreSettingExtra
+public class StoreSettingExtra : Entity, IStoreScoped
 {
-    public int Id { get; set; }
+    public Guid StoreId { get; set; }
     public string Name { get; set; } = "";
     public string? Value { get; set; }
 }
 
-/// <summary>A POS station (workstation), numbered 1–999 as in the original's POS Station ID.</summary>
-public class Station
+/// <summary>
+/// A POS station (workstation, till), numbered 1–999 as in the original's POS Station ID. Numbers are unique across
+/// the company, not only the store, because each station hands out document numbers from its own range
+/// (<see cref="NumberCounter"/>).
+/// </summary>
+public class Station : Entity, IStoreScoped
 {
-    public int Id { get; set; }
+    public Guid StoreId { get; set; }
     public int Number { get; set; }
     public string? Name { get; set; }
     public List<StationSetting> Settings { get; set; } = [];
 }
 
-/// <summary>A per-workstation setting, mirroring one key of Plus50.INI.</summary>
-public class StationSetting
+/// <summary>
+/// The last document number of one kind a station handed out. Station n numbers from n × 10,000,000 + 1 up, so tills
+/// working without a connection never issue the same invoice, customer, PO or RMA number.
+/// </summary>
+public class NumberCounter : Entity
 {
-    public int Id { get; set; }
-    public int StationId { get; set; }
+    /// <summary>Numbers each station has for each kind of document.</summary>
+    public const long NumbersPerStation = 10_000_000;
+
+    /// <summary>One of the names in RetailPlusDbContext.Sequences.</summary>
+    public string Kind { get; set; } = "";
+    public int StationNumber { get; set; }
+    public long LastValue { get; set; }
+
+    public static long FirstNumber(int stationNumber) => stationNumber * NumbersPerStation + 1;
+}
+
+/// <summary>A per-workstation setting, mirroring one key of Plus50.INI.</summary>
+public class StationSetting : Entity
+{
+    public Guid StationId { get; set; }
     public string Section { get; set; } = "";
     public string Key { get; set; } = "";
     public string? Value { get; set; }
@@ -119,20 +151,19 @@ public enum DocumentTextKind
 }
 
 /// <summary>Header, footer and address texts (HEADER.TXT, FOOTER.TXT, POHEADER.TXT, RETADDR.ADD).</summary>
-public class DocumentText
+public class DocumentText : Entity, IStoreScoped
 {
-    public int Id { get; set; }
+    public Guid StoreId { get; set; }
     public DocumentTextKind Kind { get; set; }
     /// <summary>Null for store-wide texts; set for per-location ones such as the return address.</summary>
-    public int? LocationId { get; set; }
+    public Guid? LocationId { get; set; }
     public Location? Location { get; set; }
     public string Text { get; set; } = "";
 }
 
 /// <summary>A login (USERS.DBF). Passwords are never stored in a readable form.</summary>
-public class UserAccount
+public class UserAccount : Entity
 {
-    public int Id { get; set; }
     public string UserName { get; set; } = "";
     public string? PasswordHash { get; set; }
     /// <summary>0 = trainee, 1–4 as in the Security tab.</summary>

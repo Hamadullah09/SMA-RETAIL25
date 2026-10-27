@@ -272,7 +272,7 @@ public sealed class InvoicesView : UserControl, IRefreshable
 
     private async void Distribute_Click(object sender, RoutedEventArgs e)
     {
-        int? clientId = Current?.ClientId;
+        Guid? clientId = Current?.ClientId;
         if (clientId is null)
         {
             var picker = new PartyPickerWindow();
@@ -306,7 +306,7 @@ public sealed class InvoicesView : UserControl, IRefreshable
 
     private async void Statement_Click(object sender, RoutedEventArgs e)
     {
-        if (Current?.ClientId is not int clientId) { Ui.Info("Select an invoice of the client."); return; }
+        if (Current?.ClientId is not Guid clientId) { Ui.Info("Select an invoice of the client."); return; }
         await Ui.Try(async () =>
         {
             var (client, open, payments) = await AppServices.Invoices.StatementAsync(clientId);

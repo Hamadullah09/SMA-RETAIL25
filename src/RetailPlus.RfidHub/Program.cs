@@ -6,9 +6,10 @@ using RetailPlus.Rfid;
 // SMA RETAIL RFID hub: owns the connections to the RFID readers (any number, through an Ethernet switch), reads the
 // antennas assigned to POS stations, and streams each station its tag reads. Run it on the PC the readers are
 // connected to; install it as a Windows service with
-//   sc create SmaRetailRfidHub binPath= "C:\path\SmaRetail.RfidHub.exe --connection \"...\"" start= auto
+//   sc create SmaRetailRfidHub binPath= "C:\path\SmaRetail.RfidHub.exe --db \"C:\...\smaretail.db\"" start= auto
 //
-// Options: --connection <sql connection string> | --localdb <database>   (default LocalDB RetailPlus_App)
+// Options: --db <SQLite file> | --connection <SQL Server connection string> | --localdb <database>
+//                            (default: smaretail.db in %LOCALAPPDATA%\RetailPlus of the account the hub runs as)
 //          --hub <key>        readers whose hub key matches (default "main"); split big sites over several hubs
 //          --urls <url>       where to listen (default http://0.0.0.0:5280)
 //          --apikey <secret>  require this key from stations (header X-SMA-Key)
@@ -16,14 +17,13 @@ using RetailPlus.Rfid;
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseWindowsService(o => o.ServiceName = "SmaRetailRfidHub");
 var config = builder.Configuration;
-string connection = config.GetConnectionString("RetailPlus") ?? config["connection"]
-                    ?? RetailPlusDb.LocalDbConnectionString(config["localdb"] ?? "RetailPlus_App");
+var database = RetailPlusDb.FromOptions(config["db"], config.GetConnectionString("RetailPlus") ?? config["connection"], config["localdb"]);
 string hubKey = config["hub"] ?? "main";
 string? apiKey = config["apikey"];
 builder.WebHost.UseUrls(config["urls"] ?? "http://0.0.0.0:5280");
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
 
-var data = new DataContext(connection);
+var data = new DataContext(database);
 var rfid = new RfidService(data);
 builder.Services.AddSingleton(data);
 builder.Services.AddSingleton(rfid);
@@ -64,9 +64,9 @@ app.MapPost("/reload", async (RfidHub hub, CancellationToken ct) =>
     return Results.Ok();
 });
 
-app.MapGet("/readers/{id:int}/info", (int id, RfidHub hub, CancellationToken ct) => Run(async () => Results.Ok(await hub.ReadInfoAsync(id, ct))));
+app.MapGet("/readers/{id:guid}/info", (Guid id, RfidHub hub, CancellationToken ct) => Run(async () => Results.Ok(await hub.ReadInfoAsync(id, ct))));
 
-app.MapPost("/readers/{id:int}/apply", (int id, RfidHub hub, CancellationToken ct) => Run(async () =>
+app.MapPost("/readers/{id:guid}/apply", (Guid id, RfidHub hub, CancellationToken ct) => Run(async () =>
 {
     var problems = await hub.ApplySettingsAsync(id, ct);
     var firmware = (await hub.GetStatusAsync(ct)).FirstOrDefault(r => r.ReaderId == id)?.Firmware;
@@ -74,16 +74,16 @@ app.MapPost("/readers/{id:int}/apply", (int id, RfidHub hub, CancellationToken c
     return Results.Ok(problems);
 }));
 
-app.MapPost("/readers/{id:int}/reset", (int id, RfidHub hub, CancellationToken ct) => Run(async () =>
+app.MapPost("/readers/{id:guid}/reset", (Guid id, RfidHub hub, CancellationToken ct) => Run(async () =>
 {
     await hub.ResetAsync(id, ct);
     return Results.Ok();
 }));
 
-app.MapPost("/readers/{id:int}/return-loss", (int id, int antenna, int frequency, RfidHub hub, CancellationToken ct) =>
+app.MapPost("/readers/{id:guid}/return-loss", (Guid id, int antenna, int frequency, RfidHub hub, CancellationToken ct) =>
     Run(async () => Results.Ok(await hub.MeasureReturnLossAsync(id, antenna, frequency, ct))));
 
-app.MapPost("/readers/{id:int}/gpio", (int id, int gpio, bool high, RfidHub hub, CancellationToken ct) => Run(async () =>
+app.MapPost("/readers/{id:guid}/gpio", (Guid id, int gpio, bool high, RfidHub hub, CancellationToken ct) => Run(async () =>
 {
     await hub.WriteGpioAsync(id, gpio, high, ct);
     return Results.Ok();

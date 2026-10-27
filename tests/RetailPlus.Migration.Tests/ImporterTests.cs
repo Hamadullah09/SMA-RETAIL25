@@ -1,4 +1,5 @@
 using Microsoft.Data.SqlClient;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using RetailPlus.Core.Model;
 using RetailPlus.Data;
@@ -7,21 +8,28 @@ using RetailPlus.Migration.Import;
 namespace RetailPlus.Migration.Tests;
 
 /// <summary>
-/// A database name on LocalDB (or the server in RETAILPLUS_TEST_SQL) that is dropped afterwards. The importer creates
-/// and migrates it itself. Tests skip when no server is reachable.
+/// A database the importer creates and migrates itself, removed afterwards: a SQLite file in the temp folder (a till), or
+/// a database on LocalDB or the server in RETAILPLUS_TEST_SQL (the server). The SQL Server tests skip when no server is
+/// reachable.
 /// </summary>
 internal sealed class ThrowawayDatabase : IDisposable
 {
-    public ThrowawayDatabase()
+    public ThrowawayDatabase(DatabaseProvider provider)
     {
         var name = "RetailPlus_ImportTest_" + Guid.NewGuid().ToString("N")[..12];
+        if (provider == DatabaseProvider.Sqlite)
+        {
+            Connection = DatabaseConnection.SqliteFile(Path.Combine(Path.GetTempPath(), name + ".db"));
+            Available = true;
+            return;
+        }
         var server = Environment.GetEnvironmentVariable("RETAILPLUS_TEST_SQL");
-        ConnectionString = server is { Length: > 0 }
-            ? new SqlConnectionStringBuilder(server) { InitialCatalog = name }.ConnectionString
-            : RetailPlusDb.LocalDbConnectionString(name);
+        Connection = server is { Length: > 0 }
+            ? DatabaseConnection.SqlServer(new SqlConnectionStringBuilder(server) { InitialCatalog = name }.ConnectionString)
+            : DatabaseConnection.LocalDb(name);
         try
         {
-            using var master = new SqlConnection(new SqlConnectionStringBuilder(ConnectionString) { InitialCatalog = "master" }.ConnectionString);
+            using var master = new SqlConnection(new SqlConnectionStringBuilder(Connection.ConnectionString) { InitialCatalog = "master" }.ConnectionString);
             master.Open();
             Available = true;
         }
@@ -31,34 +39,43 @@ internal sealed class ThrowawayDatabase : IDisposable
         }
     }
 
-    public string ConnectionString { get; }
+    public DatabaseConnection Connection { get; }
     public bool Available { get; }
     public string UnavailableReason { get; } = "";
 
-    public RetailPlusDbContext CreateContext() => RetailPlusDb.CreateContext(ConnectionString);
+    public RetailPlusDbContext CreateContext(StationIdentity? station = null) => RetailPlusDb.CreateContext(Connection, station);
 
     public void Dispose()
     {
         if (!Available) return;
+        if (Connection.Provider == DatabaseProvider.Sqlite)
+        {
+            SqliteConnection.ClearAllPools();
+            foreach (var file in new[] { Connection.DatabaseName, Connection.DatabaseName + "-wal", Connection.DatabaseName + "-shm" })
+                if (File.Exists(file)) File.Delete(file);
+            return;
+        }
         SqlConnection.ClearAllPools();
         using var db = CreateContext();
         db.Database.EnsureDeleted();
     }
 }
 
-public sealed class ImporterTests : IDisposable
+/// <summary>The importer on both engines: into a till's SQLite file and into the server's SQL Server database.</summary>
+public abstract class ImporterTests(DatabaseProvider provider) : IDisposable
 {
-    private readonly ThrowawayDatabase _database = new();
+    private readonly ThrowawayDatabase _database = new(provider);
     private readonly SyntheticDataRoot _source = new();
 
     public void Dispose()
     {
         _database.Dispose();
         _source.Dispose();
+        GC.SuppressFinalize(this);
     }
 
     private Task<ImportReport> ImportAsync(string folder, bool overwrite = false) =>
-        new DbfImporter(new ImportOptions { SourceFolder = folder, ConnectionString = _database.ConnectionString, Overwrite = overwrite }).RunAsync();
+        new DbfImporter(new ImportOptions { SourceFolder = folder, Database = _database.Connection, Overwrite = overwrite }).RunAsync();
 
     [SkippableFact]
     public async Task Synthetic_folder_imports_with_matching_control_totals()
@@ -70,8 +87,10 @@ public sealed class ImporterTests : IDisposable
         Assert.True(report.VerificationPassed, string.Join("; ", report.Totals.Where(t => !t.Matches)));
         await using var db = _database.CreateContext();
 
+        var store = await db.Stores.SingleAsync();
         var location = await db.Locations.SingleAsync();
         Assert.Equal("TST", location.Code);
+        Assert.Equal(store.Id, location.StoreId);
         var items = await db.Items.Include(i => i.Variants).Include(i => i.Suppliers).Include(i => i.PeriodSales)
             .Include(i => i.Serials).Include(i => i.KitComponents).ToListAsync();
         Assert.Equal(7, items.Count);
@@ -108,7 +127,9 @@ public sealed class ImporterTests : IDisposable
         Assert.Equal(["TOPS"], await db.Categories.Select(c => c.Name).ToListAsync());
         Assert.Equal(["ACME SUPPLY", "NEW SUPPLIER"], await db.Suppliers.OrderBy(s => s.Company).Select(s => s.Company!).ToListAsync());
 
-        var clients = await db.Clients.OrderBy(c => c.Id).ToListAsync();
+        // In the order of CLIENTS.DBF.
+        var record = await db.ImportSourceRows.Where(r => r.Entity == nameof(Client) && r.EntityId != null).ToDictionaryAsync(r => r.EntityId!.Value, r => r.SourceRecordNumber);
+        var clients = (await db.Clients.ToListAsync()).OrderBy(c => record[c.Id]).ToList();
         Assert.Equal(3, clients.Count);
         Assert.Equal(15.75m, clients.Where(c => !c.IsDeleted).Sum(c => c.Balance));
         Assert.Null(clients[2].Number);              // duplicate CUSTNO cleared ...
@@ -157,12 +178,14 @@ public sealed class ImporterTests : IDisposable
         Assert.Equal(8, await db.TenderTypes.CountAsync());
         Assert.True(await db.Stations.AnyAsync(s => s.Number == 1));
 
-        // Numbering continues after NUMBERS.DBF or the highest imported number, whichever is higher.
-        Assert.Equal(503m, report.Totals.Single(t => t.Name == "Sequence InvoiceNumbers: next number").Database);
-        Assert.Equal(23m, report.Totals.Single(t => t.Name == "Sequence CustomerNumbers: next number").Database);
-        Assert.Equal(9m, report.Totals.Single(t => t.Name == "Sequence PurchaseOrderNumbers: next number").Database);
-        Assert.Equal(13m, report.Totals.Single(t => t.Name == "Sequence RmaNumbers: next number").Database);
-        Assert.Equal(503, await db.NextNumberAsync(RetailPlusDbContext.Sequences.InvoiceNumbers));
+        // Imported documents keep their numbers; new ones come from each station's own range. An imported number that
+        // already reaches a station's range is reported.
+        await using (var station1 = _database.CreateContext(new StationIdentity(store.Id, 1)))
+            Assert.Equal(NumberCounter.FirstNumber(1), await station1.NextNumberAsync(RetailPlusDbContext.Sequences.InvoiceNumbers));
+        Assert.Contains(report.Warnings, w => w.Contains("900000001", StringComparison.Ordinal));
+
+        // The stock each live item starts with is its first stock movement.
+        Assert.Equal(15m, await db.StockMovements.Where(m => m.Kind == StockMovementKind.Opening).SumAsync(m => m.Quantity));
 
         // Every source record is traced, and the batch is recorded.
         Assert.Equal(7, await db.ImportSourceRows.CountAsync(r => r.Entity == nameof(Item)));
@@ -202,6 +225,24 @@ public sealed class ImporterTests : IDisposable
         Assert.Equal(7, await db.Items.CountAsync());
         Assert.Equal(3, await db.Clients.CountAsync());
         Assert.Equal(1, await db.ImportBatches.CountAsync());
+        Assert.Equal(1, await db.Stores.CountAsync());
+    }
+
+    [SkippableFact]
+    public async Task A_new_till_database_is_imported_into_its_own_store()
+    {
+        Skip.IfNot(_database.Available, _database.UnavailableReason);
+        // What the app does on its first start: a store with settings, location POS and station 1.
+        var data = new Data.Services.DataContext(_database.Connection);
+        await data.MigrateAsync();
+        var station = await new Data.Services.SetupService(data).SeedAsync(1);
+
+        var report = await ImportAsync(_source.Folder);
+        Assert.True(report.VerificationPassed, string.Join("; ", report.Totals.Where(t => !t.Matches)));
+        await using var db = _database.CreateContext();
+        Assert.Equal(station.StoreId, (await db.Stores.SingleAsync()).Id);
+        Assert.Equal(["TST"], await db.Locations.Select(l => l.Code).ToListAsync());
+        Assert.Equal(station.StoreId, (await db.StoreSettings.SingleAsync()).StoreId);
     }
 
     [SkippableFact]
@@ -221,3 +262,7 @@ public sealed class ImporterTests : IDisposable
         }
     }
 }
+
+public sealed class ImporterTestsOnSqlite() : ImporterTests(DatabaseProvider.Sqlite);
+
+public sealed class ImporterTestsOnSqlServer() : ImporterTests(DatabaseProvider.SqlServer);

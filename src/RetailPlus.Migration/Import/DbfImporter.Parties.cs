@@ -7,12 +7,14 @@ public sealed partial class DbfImporter
 {
     private const string CreatedSupplierNote = "Created by the import: named on inventory items but missing from SUPPLIER.DBF.";
 
-    private readonly Dictionary<string, int> _departments = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, int> _categories = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Guid> _departments = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Guid> _categories = new(StringComparer.OrdinalIgnoreCase);
     /// <summary>Suppliers by company name and by "first last", for the name references in inventory and POs.</summary>
-    private readonly Dictionary<string, int> _suppliers = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, int> _clientsByNumber = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, int> _clientsByAccount = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Guid> _suppliers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Guid> _clientsByNumber = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, Guid> _clientsByAccount = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>The imported suppliers in the order of the source file, then the ones the import created.</summary>
+    private readonly List<Supplier> _supplierRows = [];
 
     private async Task ImportPartiesAsync(IReadOnlyCollection<string> supplierNamesOnItems, CancellationToken ct)
     {
@@ -20,19 +22,20 @@ public sealed partial class DbfImporter
         int supplierSource = await ImportPartyTableAsync("SUPPLIER.DBF", () => new Supplier(), ct);
         int created = 0;
         var createdRows = new List<Pending>();
-        await LoadSupplierLookupAsync(ct);
+        LoadSupplierLookup();
         foreach (var name in supplierNamesOnItems)
         {
             if (_suppliers.ContainsKey(name)) continue;
             createdRows.Add(new Pending(new Supplier { Company = name, Notes = CreatedSupplierNote }));
-            _suppliers[name] = 0;
+            _suppliers[name] = Guid.Empty;
             created++;
         }
         if (created > 0)
         {
             await SaveAsync(createdRows, ct);
+            _supplierRows.AddRange(createdRows.Select(r => (Supplier)r.Root!));
             _log.Warn($"{created} suppliers named on inventory items but missing from SUPPLIER.DBF were created (see their notes)");
-            await LoadSupplierLookupAsync(ct);
+            LoadSupplierLookup();
         }
         int expectedSuppliers = supplierSource + created;
         Check($"Suppliers: records (incl. {created} created from inventory)", expectedSuppliers, async (db, t) => await db.Suppliers.CountAsync(t));
@@ -49,11 +52,9 @@ public sealed partial class DbfImporter
         }
     }
 
-    private async Task LoadSupplierLookupAsync(CancellationToken ct)
+    private void LoadSupplierLookup()
     {
-        await using var db = NewContext();
-        var all = await db.Suppliers.Where(s => !s.IsDeleted).OrderBy(s => s.Id)
-            .Select(s => new { s.Id, s.Company, s.FirstName, s.LastName }).ToListAsync(ct);
+        var all = _supplierRows.Where(s => !s.IsDeleted).ToList();
         foreach (var s in all)
         {
             var person = $"{s.FirstName} {s.LastName}".Trim();
@@ -64,10 +65,10 @@ public sealed partial class DbfImporter
             if (!string.IsNullOrWhiteSpace(s.Company)) _suppliers[s.Company.Trim()] = s.Id;
     }
 
-    private int? SupplierId(string? name) =>
-        name is not null && _suppliers.TryGetValue(name, out var id) && id > 0 ? id : null;
+    private Guid? SupplierId(string? name) =>
+        name is not null && _suppliers.TryGetValue(name, out var id) && id != Guid.Empty ? id : null;
 
-    private int? ClientId(string? accountNumber, string? customerNumber)
+    private Guid? ClientId(string? accountNumber, string? customerNumber)
     {
         if (accountNumber is not null && _clientsByAccount.TryGetValue(accountNumber, out var a)) return a;
         if (customerNumber is not null && _clientsByNumber.TryGetValue(customerNumber, out var c)) return c;
@@ -159,6 +160,7 @@ public sealed partial class DbfImporter
             rows.Add(One(party, entity, record));
         }
         result.Imported = await SaveAsync(rows, ct);
+        if (typeof(T) == typeof(Supplier)) _supplierRows.AddRange(rows.Select(r => r.Root).OfType<Supplier>());
 
         int expected = result.Records - result.Blank;
         if (typeof(T) == typeof(Client))

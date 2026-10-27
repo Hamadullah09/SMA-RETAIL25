@@ -91,29 +91,29 @@ public sealed class RfidHubClient : IRfidControl, IDisposable
     public async Task ReloadAsync(CancellationToken cancellationToken = default) =>
         await PostAsync("reload", cancellationToken);
 
-    public async Task<ReaderInfo> ReadInfoAsync(int readerId, CancellationToken cancellationToken = default)
+    public async Task<ReaderInfo> ReadInfoAsync(Guid readerId, CancellationToken cancellationToken = default)
     {
         using var response = await _http.GetAsync($"readers/{readerId}/info", cancellationToken);
         await ThrowIfFailedAsync(response, cancellationToken);
         return await response.Content.ReadFromJsonAsync<ReaderInfo>(Json, cancellationToken) ?? new ReaderInfo();
     }
 
-    public async Task<IReadOnlyList<string>> ApplySettingsAsync(int readerId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<string>> ApplySettingsAsync(Guid readerId, CancellationToken cancellationToken = default)
     {
         using var response = await PostAsync($"readers/{readerId}/apply", cancellationToken);
         return await response.Content.ReadFromJsonAsync<List<string>>(Json, cancellationToken) ?? [];
     }
 
-    public async Task ResetAsync(int readerId, CancellationToken cancellationToken = default) =>
+    public async Task ResetAsync(Guid readerId, CancellationToken cancellationToken = default) =>
         (await PostAsync($"readers/{readerId}/reset", cancellationToken)).Dispose();
 
-    public async Task<int> MeasureReturnLossAsync(int readerId, int antenna, int frequencyIndex, CancellationToken cancellationToken = default)
+    public async Task<int> MeasureReturnLossAsync(Guid readerId, int antenna, int frequencyIndex, CancellationToken cancellationToken = default)
     {
         using var response = await PostAsync($"readers/{readerId}/return-loss?antenna={antenna}&frequency={frequencyIndex}", cancellationToken);
         return await response.Content.ReadFromJsonAsync<int>(Json, cancellationToken);
     }
 
-    public async Task WriteGpioAsync(int readerId, int gpio, bool high, CancellationToken cancellationToken = default) =>
+    public async Task WriteGpioAsync(Guid readerId, int gpio, bool high, CancellationToken cancellationToken = default) =>
         (await PostAsync($"readers/{readerId}/gpio?gpio={gpio}&high={high}", cancellationToken)).Dispose();
 
     private async Task<HttpResponseMessage> PostAsync(string path, CancellationToken cancellationToken)

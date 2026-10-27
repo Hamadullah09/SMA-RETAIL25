@@ -33,14 +33,14 @@ public sealed record PurposeChoice(RfidAntennaPurpose Value, string Text)
 /// <summary>Administration of RFID readers: status, settings, antenna-to-station assignment and a live tag monitor.</summary>
 public partial class RfidView : UserControl, IRefreshable
 {
-    public sealed record ReaderRow(int Id, string Name, string? Location, string Endpoint, string State, Brush StatusBrush, string ActiveAntennas,
+    public sealed record ReaderRow(Guid Id, string Name, string? Location, string Endpoint, string State, Brush StatusBrush, string ActiveAntennas,
         long TagsRead, string LastTag, string? Firmware, string? Problem);
 
     /// <summary>An editable row of the antenna grid.</summary>
     public sealed class AntennaEdit
     {
-        public int AntennaId { get; init; }
-        public int ReaderId { get; init; }
+        public Guid AntennaId { get; init; }
+        public Guid ReaderId { get; init; }
         public string ReaderName { get; init; } = "";
         public string Endpoint { get; init; } = "";
         public int Port { get; init; }
@@ -74,7 +74,7 @@ public partial class RfidView : UserControl, IRefreshable
         };
     }
 
-    private int? SelectedReaderId => (ReadersGrid.SelectedItem as ReaderRow)?.Id;
+    private Guid? SelectedReaderId => (ReadersGrid.SelectedItem as ReaderRow)?.Id;
 
     public static async Task<List<StationChoice>> StationChoicesAsync(bool includeNone)
     {
@@ -174,7 +174,7 @@ public partial class RfidView : UserControl, IRefreshable
 
     private async void Edit_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedReaderId is not int id) return;
+        if (SelectedReaderId is not Guid id) return;
         var reader = await AppServices.RfidData.GetReaderAsync(id);
         if (reader is null) return;
         if (new ReaderEditorWindow(reader) { Owner = Window.GetWindow(this) }.ShowDialog() == true) await Ui.Try(ReloadHubAsync);

@@ -4,11 +4,11 @@ using RetailPlus.Data.Services;
 
 namespace RetailPlus.Data.Tests;
 
-/// <summary>RFID readers, antenna assignment and tags against a real SQL Server database.</summary>
-public sealed class RfidServiceTests(LocalDbFixture db) : IClassFixture<LocalDbFixture>
+/// <summary>RFID readers, antenna assignment and tags against a real database.</summary>
+public abstract class RfidServiceTests(DatabaseFixture db)
 {
     private static int _station = 300;
-    private DataContext Data => new(db.ConnectionString);
+    private DataContext Data => db.Data;
 
     private async Task<(SessionInfo Session, Location Location)> SetUpAsync()
     {
@@ -18,7 +18,7 @@ public sealed class RfidServiceTests(LocalDbFixture db) : IClassFixture<LocalDbF
         return (new SessionInfo { StationNumber = Interlocked.Increment(ref _station), LocationId = location.Id, LocationCode = location.Code, UserName = "tester", AccessLevel = 4 }, location);
     }
 
-    private async Task<Item> ItemAsync(int locationId, string plu, decimal onHand = 10) =>
+    private async Task<Item> ItemAsync(Guid locationId, string plu, decimal onHand = 10) =>
         await new InventoryService(Data).SaveAsync(new Item { LocationId = locationId, Plu = plu, Name = "Item " + plu, Price1 = 10m, OnHand = onHand, LastCost = 4m, AverageCost = 4m }, null, null, null);
 
     private static string UniqueHost() => $"10.{Random.Shared.Next(1, 250)}.{Random.Shared.Next(1, 250)}.{Random.Shared.Next(1, 250)}";
@@ -185,3 +185,7 @@ public sealed class RfidServiceTests(LocalDbFixture db) : IClassFixture<LocalDbF
         Assert.Equal("90 g", (await new InventoryService(Data).SearchAsync(location.Id, "WEIGHT-1")).Single().WeightText);
     }
 }
+
+public sealed class RfidServiceTestsOnSqlite(SqliteFixture db) : RfidServiceTests(db), IClassFixture<SqliteFixture>;
+
+public sealed class RfidServiceTestsOnSqlServer(SqlServerFixture db) : RfidServiceTests(db), IClassFixture<SqlServerFixture>;

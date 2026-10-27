@@ -10,7 +10,7 @@ public sealed record DaySales(DateOnly Day, decimal Total, int Customers);
 public sealed record TenderShare(string Name, decimal Amount, decimal Percent);
 
 /// <summary>An item that needs ordering.</summary>
-public sealed record LowStockItem(int Id, string Plu, string Name, decimal OnHand, decimal ReorderPoint);
+public sealed record LowStockItem(Guid Id, string Plu, string Name, decimal OnHand, decimal ReorderPoint);
 
 /// <summary>A recent sale for the dashboard list.</summary>
 public sealed record RecentSale(long InvoiceNumber, DateTime SoldAt, string? ClientName, decimal Total, int Lines, string Tenders);
@@ -90,7 +90,7 @@ public sealed class DashboardService(DataContext data)
         int suspended = await db.SuspendedSales.CountAsync();
 
         var drawer = await db.DrawerSessions.AsNoTracking().Include(d => d.Tenders)
-            .Where(d => d.StationNumber == session.StationNumber && d.ClosedAt == null).OrderByDescending(d => d.Id).FirstOrDefaultAsync();
+            .Where(d => d.StationNumber == session.StationNumber && d.ClosedAt == null).OrderByDescending(d => d.OpenedAt).FirstOrDefaultAsync();
         decimal expectedCash = 0;
         if (drawer is not null)
         {

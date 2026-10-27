@@ -1,6 +1,6 @@
 # SMA RETAIL
 
-SMA RETAIL, by SMA Technology: a clean-room rewrite of the Retail Plus 5.2 point-of-sale system on .NET 10 and SQL Server Express. Each store's Retail Plus data is imported once at cutover.
+SMA RETAIL, by SMA Technology: a clean-room rewrite of the Retail Plus 5.2 point-of-sale system on .NET 10. Each till keeps its own SQLite database, so it sells without a network; the central server uses the same data model on SQL Server ([docs/WEB_INTEGRATION_PLAN.md](docs/WEB_INTEGRATION_PLAN.md)). Each store's Retail Plus data is imported once at cutover.
 
 - Plan: [docs/REWRITE_PLAN.md](docs/REWRITE_PLAN.md)
 - Data layer: [docs/DATA_LAYER_PLAN.md](docs/DATA_LAYER_PLAN.md)
@@ -12,7 +12,9 @@ SMA RETAIL, by SMA Technology: a clean-room rewrite of the Retail Plus 5.2 point
 | Folder | Contents |
 |---|---|
 | `src/RetailPlus.Core` | Domain model (`Model/`) and business rules (`Rules/`: pricing, taxes, cash rounding, bonus points, late charges, reordering, random-weight barcodes). No I/O |
-| `src/RetailPlus.Data` | EF Core 10 on SQL Server: `RetailPlusDbContext`, configuration, migrations, sequences, and the application services (`Services/`: setup, inventory, clients/suppliers, sales, drawer, A/R, purchasing, backup) |
+| `src/RetailPlus.Data` | The data model on EF Core 10, the same on SQLite and SQL Server: `RetailPlusDbContext` (version 7 GUID keys, store and station on every till-made row, UTC change times, per-station document numbers), configuration, and the application services (`Services/`: setup, inventory with its stock movement ledger, clients/suppliers, sales, drawer, A/R, purchasing, backup) |
+| `src/RetailPlus.Data.Sqlite` | The SQLite migrations (the tills) |
+| `src/RetailPlus.Data.SqlServer` | The SQL Server migrations (the server) |
 | `src/RetailPlus.Migration` | The one-time import: DBF/FPT reader (`Dbf/`), memo codecs (`Codecs/`), importer with verification and report (`Import/`) |
 | `src/RetailPlus.Import` | Command-line importer |
 | `src/RetailPlus.Reports` | Report queries, CSV/HTML output, receipt / statement / drawer report text |
@@ -23,7 +25,7 @@ SMA RETAIL, by SMA Technology: a clean-room rewrite of the Retail Plus 5.2 point
 | `src/RetailPlus.Integrations` | CSV import and export of inventory and clients |
 | `src/RetailPlus.App` | The WPF desktop app |
 | `tests/RetailPlus.Core.Tests` | Business rule tests |
-| `tests/RetailPlus.Data.Tests` | Schema and service integration tests on a throwaway LocalDB database |
+| `tests/RetailPlus.Data.Tests` | Schema and service integration tests, each run on a throwaway SQLite file and on a throwaway LocalDB database |
 | `tests/RetailPlus.Rfid.Tests` | Protocol, driver (against a fake reader on a socket), hub routing with 63 simulated readers, hub client |
 | `tests/RetailPlus.Migration.Tests` | Reader, codec and importer tests: synthetic fixtures, plus live runs on real data when present |
 | `tests/RetailPlus.Parity` | Placeholder for old-vs-new comparison runs |
@@ -37,7 +39,7 @@ SMA RETAIL, by SMA Technology: a clean-room rewrite of the Retail Plus 5.2 point
 dotnet run --project src/RetailPlus.App
 ```
 
-On first start the app creates (or upgrades) its database, by default `RetailPlus_App` on `(localdb)\MSSQLLocalDB`, and seeds a store, the `POS` location, tender types and station 1. Station settings live in `%LOCALAPPDATA%\RetailPlus\station.json` (Setup › This station); `--localdb <name>`, `--station <n>` and `--config <file>` override them. When the database has users, the app asks for a login; users imported from Retail Plus choose a new password on their first login, because the old passwords are not carried over.
+On first start the app creates (or upgrades) its database, by default the SQLite file `%LOCALAPPDATA%\RetailPlus\smaretail.db`, and seeds a store, the `POS` location, tender types and station 1. Station settings live in `%LOCALAPPDATA%\RetailPlus\station.json` (Setup › This station, where the database can also be switched to a shared SQL Server one); `--db <file>`, `--localdb <name>`, `--station <n>` and `--config <file>` override them. When the database has users, the app asks for a login; users imported from Retail Plus choose a new password on their first login, because the old passwords are not carried over.
 
 Screens: Point of Sale, Sales Journal, Inventory, Clients, Suppliers, Invoices & A/R, Purchase Orders, Orders & RMAs, Reports, Tools (import, backup, restore, rebuild, recurring billing, year end) and Setup.
 
@@ -69,7 +71,7 @@ antennas and the station each antenna serves are set up in *RFID readers*; a sit
 switch runs the RFID hub service on one PC:
 
 ```
-dotnet run --project src/RetailPlus.RfidHub -- --localdb RetailPlus_App
+dotnet run --project src/RetailPlus.RfidHub -- --db "%LOCALAPPDATA%\RetailPlus\smaretail.db"
 ```
 
 and every station points at it in *Setup › This station › RFID*. Design, installation and capacity:
@@ -80,31 +82,31 @@ and every station points at it in *Setup › This station › RFID*. Design, ins
 From the app: Tools › Import from Retail Plus 5. From the command line:
 
 ```
-dotnet run --project src/RetailPlus.Import -- --source <data folder> --localdb RetailPlus_App [--ini <Plus50.INI>] [--force]
+dotnet run --project src/RetailPlus.Import -- --source <data folder> [--db <file> | --connection <string> | --localdb <name>] [--ini <Plus50.INI>] [--force]
 ```
 
-The import runs in one transaction, checks control totals (record counts, stock, balances) against the source, and writes `report.md` and `report.json`.
+Without a database option the import goes into the app's default SQLite file. It runs in one transaction, replaces everything but the store itself, records each item's opening stock as its first stock movement, checks control totals (record counts, stock, balances) against the source, and writes `report.md` and `report.json`. Imported documents keep their Retail Plus numbers; new ones are numbered per station from station × 10,000,000 + 1.
 
 ## Build and test
 
-Requires the .NET 10 SDK (see `global.json`), SQL Server LocalDB for the database tests, and Python 3 for the live oracle test.
+Requires the .NET 10 SDK (see `global.json`), SQL Server LocalDB for the SQL Server half of the database tests, and Python 3 for the live oracle test.
 
 ```
 dotnet build RetailPlus.sln
 dotnet test RetailPlus.sln
 ```
 
-- **Database tests** create and drop their own database on `(localdb)\MSSQLLocalDB`. Set `RETAILPLUS_TEST_SQL` to a connection string (without a database name) to use another server. Without a server they're skipped.
+- **Database tests** run twice: on a SQLite file in the temp folder (always) and on their own database on `(localdb)\MSSQLLocalDB`. Set `RETAILPLUS_TEST_SQL` to a connection string (without a database name) to use another server. Without a server the SQL Server half is skipped.
 - **The live oracle test** reads every table in `spike-data/baseline` and `spike-data/run2`, or in the folders listed in `RETAILPLUS_DBF_SAMPLES` (separated by `;`), and compares the reader with `tools/dbf/dbf_to_json.py`. Without data or Python it's skipped; the fixture tests always run.
 
 ## Database migrations
 
 ```
 dotnet tool restore
-dotnet ef migrations add <Name> --project src/RetailPlus.Data --startup-project src/RetailPlus.Data --output-dir Migrations
-dotnet ef database update --project src/RetailPlus.Data --startup-project src/RetailPlus.Data
+dotnet ef migrations add <Name> --project src/RetailPlus.Data.Sqlite --startup-project src/RetailPlus.Data.Sqlite --output-dir Migrations
+dotnet ef migrations add <Name> --project src/RetailPlus.Data.SqlServer --startup-project src/RetailPlus.Data.SqlServer --output-dir Migrations
 ```
 
-The tools target the LocalDB database `RetailPlus_Dev` unless `RETAILPLUS_DESIGN_DB` holds a connection string.
+Every model change gets a migration in both projects (a schema test fails otherwise). The app applies them on start. The SQL Server tools target the LocalDB database `RetailPlus_Dev` unless `RETAILPLUS_DESIGN_DB` holds a connection string.
 
 The vendor installer (`Retail52.exe`) and manual (`Retail Plus 50.pdf`) in this folder are reference material only and are excluded from git.

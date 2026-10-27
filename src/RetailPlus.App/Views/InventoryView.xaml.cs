@@ -50,7 +50,7 @@ public partial class InventoryView : UserControl, IRefreshable
         await Ui.Try(RefreshAsync);
     }
 
-    private int LocationId => (LocationBox.SelectedItem as Location)?.Id ?? AppServices.Session.LocationId;
+    private Guid LocationId => (LocationBox.SelectedItem as Location)?.Id ?? AppServices.Session.LocationId;
 
     public async Task RefreshAsync()
     {
@@ -81,7 +81,7 @@ public partial class InventoryView : UserControl, IRefreshable
     private async void Location_SelectionChanged(object sender, SelectionChangedEventArgs e) { if (IsLoaded) await Ui.Try(RefreshAsync); }
 
     private ItemRow? Current => ItemsGrid.SelectedItem as ItemRow;
-    private List<int> SelectedIds => ItemsGrid.SelectedItems.OfType<ItemRow>().Select(r => r.Id).ToList();
+    private List<Guid> SelectedIds => ItemsGrid.SelectedItems.OfType<ItemRow>().Select(r => r.Id).ToList();
 
     private async void New_Click(object sender, RoutedEventArgs e)
     {
@@ -102,8 +102,9 @@ public partial class InventoryView : UserControl, IRefreshable
         if (Current is null) return;
         var item = await AppServices.Inventory.GetAsync(Current.Id);
         if (item is null) return;
-        item.Id = 0;
-        item.RowVersion = [];
+        item.Id = Guid.Empty;
+        item.CreatedAtUtc = default;
+        item.Version = Guid.Empty;
         item.Plu = "";
         item.Barcode = null;
         item.OnHand = 0;

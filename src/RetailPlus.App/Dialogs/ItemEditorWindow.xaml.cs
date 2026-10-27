@@ -25,14 +25,14 @@ public partial class ItemEditorWindow : Window
         Views.Layout.AddIcons(this);
         _item = item;
         DataContext = item;
-        HeaderText.Text = item.Id == 0 ? "New item" : $"{item.Plu} — {item.Name}";
-        Title = item.Id == 0 ? "New item" : $"Item {item.Plu}";
+        HeaderText.Text = item.Id == Guid.Empty ? "New item" : $"{item.Plu} — {item.Name}";
+        Title = item.Id == Guid.Empty ? "New item" : $"Item {item.Plu}";
         TypeBox.ItemsSource = Enum.GetValues<ItemType>();
         WeightUnitBox.ItemsSource = Weights.Units;
         ToleranceUnitBox.ItemsSource = Weights.ToleranceUnits;
         Tax1Label.Text = AppServices.Settings.Tax1Name ?? "Tax 1";
         Tax2Label.Text = AppServices.Settings.Tax2Name ?? "Tax 2";
-        OnHandBox.IsEnabled = item.Id == 0;
+        OnHandBox.IsEnabled = item.Id == Guid.Empty;
         _suppliers = new(item.Suppliers.OrderBy(s => s.Rank));
         _variants = new(item.Variants.OrderBy(v => v.Ordinal));
         _kit = new(item.KitComponents.OrderBy(k => k.Ordinal));
@@ -67,7 +67,7 @@ public partial class ItemEditorWindow : Window
         CatBox.Text = _item.Category?.Name ?? "";
         SupplierBox.Text = _item.Supplier?.Company ?? "";
         PluBox.Focus();
-        if (_item.Id != 0)
+        if (_item.Id != Guid.Empty)
         {
             int year = DateTime.Today.Year;
             ThisYearTitle.Text = $"{year} by month";
@@ -159,7 +159,7 @@ public partial class ItemEditorWindow : Window
 
     private bool SavedFirst()
     {
-        if (_item.Id != 0) return true;
+        if (_item.Id != Guid.Empty) return true;
         Ui.Info("Save the item first, then add its RFID tags.");
         return false;
     }

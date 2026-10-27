@@ -29,6 +29,7 @@ public partial class SetupView : UserControl, IRefreshable
         KindColumn.ItemsSource = Enum.GetValues<TenderKind>();
         PanelBox.ItemsSource = Enumerable.Range(0, 26).ToList();
         PrinterBox.ItemsSource = InstalledPrinters();
+        ProviderBox.ItemsSource = Enum.GetValues<Data.DatabaseProvider>();
         StationPanel.DataContext = AppServices.Config;
         StationFile.Text = $"These settings belong to this computer only and are kept in {AppServices.Config.FilePath}. Restart the program after changing the database, station or location.";
     }
@@ -88,7 +89,7 @@ public partial class SetupView : UserControl, IRefreshable
             await AppServices.Setup.SetTextAsync(DocumentTextKind.InvoiceFooter, FooterBox.Text);
             await AppServices.Setup.SetTextAsync(DocumentTextKind.PurchaseOrderHeader, PoHeaderBox.Text);
             await AppServices.Setup.SetTextAsync(DocumentTextKind.ReturnAddress, ReturnBox.Text);
-            foreach (var k in _keys.Where(k => k.Id != 0 || !string.IsNullOrWhiteSpace(k.Name) || !string.IsNullOrWhiteSpace(k.Plu)))
+            foreach (var k in _keys.Where(k => k.Id != Guid.Empty || !string.IsNullOrWhiteSpace(k.Name) || !string.IsNullOrWhiteSpace(k.Plu)))
                 await AppServices.Setup.SaveFastKeyAsync(k);
             AppServices.Config.RfidHubApiKey = string.IsNullOrEmpty(HubKeyBox.Password) ? null : HubKeyBox.Password;
             AppServices.Config.Save();

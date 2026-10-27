@@ -203,8 +203,11 @@
                     <TextBlock Foreground="{StaticResource Muted}" Margin="0,0,0,10" TextWrapping="Wrap" x:Name="StationFile" />
                     <DockPanel><TextBlock Text="Station number" Style="{StaticResource L}" /><TextBox Text="{Binding StationNumber}" Width="100" HorizontalAlignment="Left" /></DockPanel>
                     <DockPanel><TextBlock Text="Location code" Style="{StaticResource L}" /><TextBox Text="{Binding LocationCode}" Width="100" HorizontalAlignment="Left" CharacterCasing="Upper" /></DockPanel>
-                    <DockPanel><TextBlock Text="SQL Server connection" Style="{StaticResource L}" /><TextBox Text="{Binding ConnectionString}" ToolTip="Empty = LocalDB on this computer" /></DockPanel>
-                    <DockPanel><TextBlock Text="LocalDB database" Style="{StaticResource L}" /><TextBox Text="{Binding LocalDbDatabase}" /></DockPanel>
+                    <DockPanel><TextBlock Text="Database" Style="{StaticResource L}" /><ComboBox x:Name="ProviderBox" SelectedItem="{Binding DatabaseProvider}" Width="200" HorizontalAlignment="Left"
+                        ToolTip="Sqlite: this computer keeps its own database file and sells without a network. SqlServer: a shared database on the network." /></DockPanel>
+                    <DockPanel><TextBlock Text="Database file (Sqlite)" Style="{StaticResource L}" /><TextBox Text="{Binding DatabaseFile}" ToolTip="Empty = smaretail.db in this computer's program data folder" /></DockPanel>
+                    <DockPanel><TextBlock Text="SQL Server connection" Style="{StaticResource L}" /><TextBox Text="{Binding ConnectionString}" ToolTip="SqlServer only. Empty = LocalDB on this computer" /></DockPanel>
+                    <DockPanel><TextBlock Text="LocalDB database" Style="{StaticResource L}" /><TextBox Text="{Binding LocalDbDatabase}" ToolTip="SqlServer only" /></DockPanel>
                     <DockPanel><TextBlock Text="Receipt printer" Style="{StaticResource L}" /><ComboBox x:Name="PrinterBox" IsEditable="True" Text="{Binding ReceiptPrinter}" /></DockPanel>
                     <DockPanel><TextBlock Text="Receipt width (characters)" Style="{StaticResource L}" /><TextBox Text="{Binding ReceiptWidth}" Width="100" HorizontalAlignment="Left" /></DockPanel>
                     <DockPanel><TextBlock Text="" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding PrintReceipts}" Content="Print a receipt after each sale" /></DockPanel>

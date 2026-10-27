@@ -16,7 +16,7 @@ public enum TagMatch
 public sealed record TagLookup(Item Item, ItemVariant? Variant, ItemTag? Tag, TagMatch Match);
 
 /// <summary>An antenna with its reader, for the assignment screen.</summary>
-public sealed record AntennaRow(int AntennaId, int ReaderId, string ReaderName, string Endpoint, int Port, string? Name, bool IsEnabled,
+public sealed record AntennaRow(Guid AntennaId, Guid ReaderId, string ReaderName, string Endpoint, int Port, string? Name, bool IsEnabled,
     int PowerDbm, RfidAntennaPurpose Purpose, int? StationNumber);
 
 /// <summary>RFID readers, their antennas, which station each antenna serves, and the tags put on items.</summary>
@@ -32,7 +32,7 @@ public sealed class RfidService(DataContext data)
         return await q.OrderBy(r => r.Name).ToListAsync(cancellationToken);
     }
 
-    public async Task<RfidReader?> GetReaderAsync(int id)
+    public async Task<RfidReader?> GetReaderAsync(Guid id)
     {
         await using var db = data.Create();
         return await db.RfidReaders.AsNoTracking().Include(r => r.Antennas.OrderBy(a => a.Port)).SingleOrDefaultAsync(r => r.Id == id);
@@ -70,15 +70,15 @@ public sealed class RfidService(DataContext data)
         }
 
         await using var db = data.Create();
-        if (await db.RfidReaders.AnyAsync(r => r.Id != reader.Id && r.Name == reader.Name))
+        if (await db.RfidReaders.AnyAsync(r => r.Id != reader.Id && r.Name == reader.Name && (data.Station == null || r.StoreId == data.Station.StoreId)))
             throw new BusinessRuleException($"There is already a reader called {reader.Name}.");
         if (reader.Transport == RfidTransport.Tcp && !string.Equals(reader.Host, "sim", StringComparison.OrdinalIgnoreCase)
             && await db.RfidReaders.AnyAsync(r => r.Id != reader.Id && r.Transport == RfidTransport.Tcp && r.Host == reader.Host && r.Port == reader.Port))
             throw new BusinessRuleException($"Another reader already uses {reader.Host}:{reader.Port}. Every reader needs its own IP address.");
 
-        if (reader.Id == 0)
+        if (reader.Id == Guid.Empty)
         {
-            foreach (var a in reader.Antennas) a.Id = 0;
+            foreach (var a in reader.Antennas) a.Id = Guid.Empty;
             db.RfidReaders.Add(reader);
         }
         else
@@ -87,7 +87,7 @@ public sealed class RfidService(DataContext data)
                            ?? throw new BusinessRuleException("This reader was deleted at another station.");
             var antennas = reader.Antennas;
             db.Entry(existing).CurrentValues.SetValues(reader);
-            db.Entry(existing).Property(r => r.RowVersion).OriginalValue = reader.RowVersion;
+            db.Entry(existing).Property(r => r.Version).OriginalValue = reader.Version;
             foreach (var a in antennas)
             {
                 var target = existing.Antennas.FirstOrDefault(x => x.Port == a.Port);
@@ -111,14 +111,14 @@ public sealed class RfidService(DataContext data)
         return reader;
     }
 
-    public async Task DeleteReaderAsync(int id)
+    public async Task DeleteReaderAsync(Guid id)
     {
         await using var db = data.Create();
         await db.RfidReaders.Where(r => r.Id == id).ExecuteDeleteAsync();
     }
 
     /// <summary>Records that the settings were written to the reader (and its firmware version, when known).</summary>
-    public async Task MarkAppliedAsync(int readerId, string? firmware)
+    public async Task MarkAppliedAsync(Guid readerId, string? firmware)
     {
         await using var db = data.Create();
         var now = DateTime.Now;
@@ -164,13 +164,13 @@ public sealed class RfidService(DataContext data)
 
     // Tags --------------------------------------------------------------------------------------------------
 
-    public async Task<List<ItemTag>> GetTagsAsync(int itemId)
+    public async Task<List<ItemTag>> GetTagsAsync(Guid itemId)
     {
         await using var db = data.Create();
         return await db.ItemTags.AsNoTracking().Where(t => t.ItemId == itemId).OrderBy(t => t.RegisteredAt).ToListAsync();
     }
 
-    public async Task<int> CountTagsAsync(int itemId, ItemTagStatus status)
+    public async Task<int> CountTagsAsync(Guid itemId, ItemTagStatus status)
     {
         await using var db = data.Create();
         return await db.ItemTags.CountAsync(t => t.ItemId == itemId && t.Status == status);
@@ -180,7 +180,7 @@ public sealed class RfidService(DataContext data)
     /// Ties a tag to an item. A tag already on another item is refused unless <paramref name="move"/> is set
     /// (relabelling).
     /// </summary>
-    public async Task<ItemTag> RegisterTagAsync(string epc, int itemId, int? variantId = null, string? serialNumber = null, bool move = false)
+    public async Task<ItemTag> RegisterTagAsync(string epc, Guid itemId, Guid? variantId = null, string? serialNumber = null, bool move = false)
     {
         var code = Epc.Normalize(epc) ?? throw new BusinessRuleException("A tag code is hexadecimal (0-9, A-F) with an even number of digits.");
         await using var db = data.Create();
@@ -207,7 +207,7 @@ public sealed class RfidService(DataContext data)
         return tag;
     }
 
-    public async Task RemoveTagAsync(int tagId)
+    public async Task RemoveTagAsync(Guid tagId)
     {
         await using var db = data.Create();
         await db.ItemTags.Where(t => t.Id == tagId).ExecuteDeleteAsync();
@@ -217,7 +217,7 @@ public sealed class RfidService(DataContext data)
     /// Finds the item a tag stands for at a location: a registered tag first, then a GS1 SGTIN-96 tag by its GTIN
     /// (the product barcode), then a tag holding the item code as text, then the hex code itself as a stock code.
     /// </summary>
-    public async Task<TagLookup?> ResolveAsync(int locationId, string epc)
+    public async Task<TagLookup?> ResolveAsync(Guid locationId, string epc)
     {
         var code = Epc.Normalize(epc);
         if (code is null) return null;

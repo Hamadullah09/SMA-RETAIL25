@@ -35,7 +35,7 @@ public sealed class ReportService(DataContext data)
         new("drawer", "Drawer", "End of day history", true),
     ];
 
-    public async Task<ReportTable> RunAsync(string key, int locationId, DateOnly from, DateOnly to)
+    public async Task<ReportTable> RunAsync(string key, Guid locationId, DateOnly from, DateOnly to)
     {
         var start = from.ToDateTime(TimeOnly.MinValue);
         var end = to.AddDays(1).ToDateTime(TimeOnly.MinValue);
@@ -142,7 +142,7 @@ public sealed class ReportService(DataContext data)
             }
             case "adjust":
             {
-                var rows = await db.StockAdjustments.AsNoTracking().Where(a => a.At >= start && a.At < end)
+                var rows = await db.StockMovements.AsNoTracking().Where(a => a.At >= start && a.At < end && (a.Kind == StockMovementKind.Adjustment || a.Kind == StockMovementKind.Import))
                     .Join(items, a => a.ItemId, i => i.Id, (a, i) => new { a.At, i.Plu, i.Name, a.Quantity, a.OnHandAfter, a.Reason, a.User })
                     .OrderBy(r => r.At).ToListAsync();
                 return Table("Stock adjustments", period, [Col("When", ColumnKind.Date), Col("Stock code"), Col("Description"), Col("Change", ColumnKind.Quantity, true), Col("On hand after", ColumnKind.Quantity), Col("Reason"), Col("User")],

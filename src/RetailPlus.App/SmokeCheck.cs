@@ -168,7 +168,7 @@ public static class SmokeCheck
         pos.Vm.StopRfid();
         try
         {
-            Rfid.RfidTagEvent Read(string epc) => new(epc, AppServices.Session.StationNumber, 0, "smoke", 1, -40, DateTime.Now);
+            Rfid.RfidTagEvent Read(string epc) => new(epc, AppServices.Session.StationNumber, Guid.Empty, "smoke", 1, -40, DateTime.Now);
             await pos.Vm.ClearSaleAsync(ask: false);
             await pos.Vm.OnTagAsync(Read(epc1));
             await pos.Vm.OnTagAsync(Read(epc2));

@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using RetailPlus.App.Infrastructure;
+using RetailPlus.Data;
 using RetailPlus.Data.Services;
 using RetailPlus.Settings;
 
@@ -37,6 +38,8 @@ public sealed class SplashWindow : Window
 /// <summary>Asks where the database is when it cannot be opened.</summary>
 public sealed class DatabaseWindow : Window
 {
+    private readonly ComboBox _provider = new() { ItemsSource = Enum.GetValues<DatabaseProvider>() };
+    private readonly TextBox _file = new();
     private readonly TextBox _connection = new();
     private readonly TextBox _localDb = new();
     private readonly TextBox _station = new();
@@ -55,7 +58,13 @@ public sealed class DatabaseWindow : Window
         var p = new StackPanel { Margin = new Thickness(20) };
         p.Children.Add(new TextBlock { Text = "The database could not be opened", FontSize = 18, FontWeight = FontWeights.SemiBold });
         p.Children.Add(new TextBlock { Text = error, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)Application.Current.FindResource("Danger"), Margin = new Thickness(0, 6, 0, 12) });
-        p.Children.Add(new TextBlock { Text = "SQL Server connection string (leave empty to use LocalDB on this computer):" });
+        p.Children.Add(new TextBlock { Text = "Database (Sqlite: a file on this computer, works without a network; SqlServer: a shared database):" });
+        _provider.SelectedItem = config.DatabaseProvider;
+        p.Children.Add(_provider);
+        p.Children.Add(new TextBlock { Text = "Sqlite database file:", Margin = new Thickness(0, 10, 0, 0) });
+        _file.Text = config.DatabaseFileOrDefault;
+        p.Children.Add(_file);
+        p.Children.Add(new TextBlock { Text = "SqlServer connection string (leave empty to use LocalDB on this computer):", Margin = new Thickness(0, 10, 0, 0) });
         _connection.Text = config.ConnectionString ?? "";
         p.Children.Add(_connection);
         p.Children.Add(new TextBlock { Text = "LocalDB database name:", Margin = new Thickness(0, 10, 0, 0) });
@@ -71,6 +80,8 @@ public sealed class DatabaseWindow : Window
         var ok = new Button { Content = "Connect", IsDefault = true, MinWidth = 90, Margin = new Thickness(0, 0, 8, 0), Style = (Style)Application.Current.FindResource("AccentButton") };
         ok.Click += (_, _) =>
         {
+            Config.DatabaseProvider = _provider.SelectedItem is DatabaseProvider provider ? provider : DatabaseProvider.Sqlite;
+            Config.DatabaseFile = string.IsNullOrWhiteSpace(_file.Text) || _file.Text.Trim() == StationConfig.DefaultDatabaseFile ? null : _file.Text.Trim();
             Config.ConnectionString = string.IsNullOrWhiteSpace(_connection.Text) ? null : _connection.Text.Trim();
             Config.LocalDbDatabase = string.IsNullOrWhiteSpace(_localDb.Text) ? "RetailPlus_App" : _localDb.Text.Trim();
             Config.StationNumber = int.TryParse(_station.Text, out var n) && n is >= 1 and <= 999 ? n : 1;

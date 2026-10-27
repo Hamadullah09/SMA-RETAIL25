@@ -73,11 +73,11 @@ public interface IRfidDevice : IAsyncDisposable
 }
 
 /// <summary>A tag read routed to the POS station its antenna is assigned to.</summary>
-public sealed record RfidTagEvent(string Epc, int StationNumber, int ReaderId, string ReaderName, int Antenna, int RssiDbm, DateTime SeenAt);
+public sealed record RfidTagEvent(string Epc, int StationNumber, Guid ReaderId, string ReaderName, int Antenna, int RssiDbm, DateTime SeenAt);
 
 /// <summary>The live state of a reader as the hub sees it.</summary>
 public sealed record ReaderStatus(
-    int ReaderId,
+    Guid ReaderId,
     string Name,
     string Endpoint,
     bool Enabled,
@@ -102,9 +102,9 @@ public interface IRfidControl
     Task<IReadOnlyList<ReaderStatus>> GetStatusAsync(CancellationToken cancellationToken = default);
     /// <summary>Re-reads readers, antennas and station assignments from the database.</summary>
     Task ReloadAsync(CancellationToken cancellationToken = default);
-    Task<ReaderInfo> ReadInfoAsync(int readerId, CancellationToken cancellationToken = default);
-    Task<IReadOnlyList<string>> ApplySettingsAsync(int readerId, CancellationToken cancellationToken = default);
-    Task ResetAsync(int readerId, CancellationToken cancellationToken = default);
-    Task<int> MeasureReturnLossAsync(int readerId, int antenna, int frequencyIndex, CancellationToken cancellationToken = default);
-    Task WriteGpioAsync(int readerId, int gpio, bool high, CancellationToken cancellationToken = default);
+    Task<ReaderInfo> ReadInfoAsync(Guid readerId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<string>> ApplySettingsAsync(Guid readerId, CancellationToken cancellationToken = default);
+    Task ResetAsync(Guid readerId, CancellationToken cancellationToken = default);
+    Task<int> MeasureReturnLossAsync(Guid readerId, int antenna, int frequencyIndex, CancellationToken cancellationToken = default);
+    Task WriteGpioAsync(Guid readerId, int gpio, bool high, CancellationToken cancellationToken = default);
 }

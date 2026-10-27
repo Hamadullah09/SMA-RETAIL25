@@ -17,8 +17,8 @@ public partial class PartyEditorWindow : Window
         DataContext = party;
         bool isClient = party is Client;
         string what = isClient ? "client" : "supplier";
-        HeaderText.Text = party.Id == 0 ? $"New {what}" : (party.Company ?? $"{party.FirstName} {party.LastName}".Trim());
-        Title = party.Id == 0 ? $"New {what}" : $"{(isClient ? "Client" : "Supplier")} {party.Number}";
+        HeaderText.Text = party.Id == Guid.Empty ? $"New {what}" : (party.Company ?? $"{party.FirstName} {party.LastName}".Trim());
+        Title = party.Id == Guid.Empty ? $"New {what}" : $"{(isClient ? "Client" : "Supplier")} {party.Number}";
         if (!isClient)
         {
             AccountTab.Visibility = Visibility.Collapsed;
@@ -30,7 +30,7 @@ public partial class PartyEditorWindow : Window
         UnitBox.ItemsSource = new[] { "Days", "Weeks", "Months" };
         Exempt1Label.Text = AppServices.Settings.Tax1Name ?? "Tax 1";
         Exempt2Label.Text = AppServices.Settings.Tax2Name ?? "Tax 2";
-        if (isClient && party.Id != 0)
+        if (isClient && party.Id != Guid.Empty)
             Loaded += async (_, _) => await Ui.Try(async () => HistoryGrid.ItemsSource = await AppServices.Parties.GetPurchaseHistoryAsync(party.Id));
     }
 

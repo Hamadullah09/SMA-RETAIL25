@@ -31,7 +31,7 @@ public sealed partial class DbfImporter
         if (path is null)
         {
             _log.Warn("SETUP.DBF not found; default store settings created");
-            await SaveAsync([new Pending(new StoreSettings { Id = 1, CompanyName = "My Store", MinimumTender = 0.01m })], ct);
+            await SaveAsync([new Pending(new StoreSettings { CompanyName = "My Store", MinimumTender = 0.01m })], ct);
             return;
         }
         using var table = Open(path);
@@ -40,12 +40,11 @@ public sealed partial class DbfImporter
         if (record is null)
         {
             _log.Warn(table.RelativePath, "no live record; default store settings created");
-            await SaveAsync([new Pending(new StoreSettings { Id = 1, CompanyName = "My Store", MinimumTender = 0.01m })], ct);
+            await SaveAsync([new Pending(new StoreSettings { CompanyName = "My Store", MinimumTender = 0.01m })], ct);
             return;
         }
         var s = new StoreSettings
         {
-            Id = 1,
             CompanyName = record.Text("COMPANY"),
             Address1 = record.Text("ADDR1"),
             Address2 = record.Text("ADDR2"),
@@ -112,47 +111,24 @@ public sealed partial class DbfImporter
         return new Numbers((long)record.Dec("LASTINVNO"), (long)record.Dec("LASTCUSTNO"), (long)record.Dec("LAST_PO"), (long)record.Dec("LAST_RMA"));
     }
 
-    /// <summary>Restarts each sequence after the larger of the NUMBERS.DBF value and the highest number imported.</summary>
-    private async Task RestartSequencesAsync(Numbers numbers, CancellationToken ct)
+    /// <summary>
+    /// Imported documents keep their Retail Plus numbers. New ones are numbered per station from station × 10,000,000 + 1
+    /// (<see cref="NumberCounter"/>), so they cannot meet the old numbers unless those already reached that range.
+    /// </summary>
+    private void NoteNumbering(Numbers numbers)
     {
-        var restarts = new (string Sequence, long Next)[]
+        var last = new (string Kind, long Value)[]
         {
-            (RetailPlusDbContext.Sequences.InvoiceNumbers, Math.Max(numbers.LastInvoice, _maxInvoiceNumber) + 1),
-            (RetailPlusDbContext.Sequences.CustomerNumbers, Math.Max(numbers.LastCustomer, _maxCustomerNumber) + 1),
-            (RetailPlusDbContext.Sequences.PurchaseOrderNumbers, Math.Max(numbers.LastPurchaseOrder, _maxPurchaseOrderNumber) + 1),
-            (RetailPlusDbContext.Sequences.RmaNumbers, Math.Max(numbers.LastRma, _maxRmaNumber) + 1),
+            ("invoice", Math.Max(numbers.LastInvoice, _maxInvoiceNumber)),
+            ("customer", Math.Max(numbers.LastCustomer, _maxCustomerNumber)),
+            ("purchase order", Math.Max(numbers.LastPurchaseOrder, _maxPurchaseOrderNumber)),
+            ("RMA", Math.Max(numbers.LastRma, _maxRmaNumber)),
         };
-        foreach (var (sequence, next) in restarts)
+        foreach (var (kind, value) in last)
         {
-            // Names come from the fixed list in RetailPlusDbContext.Sequences; the value is a number.
-            await ExecAsync($"ALTER SEQUENCE [dbo].[{sequence}] RESTART WITH {next.ToString(CultureInfo.InvariantCulture)}", ct);
-            _log.Info($"Sequence {sequence} continues at {next}");
-            var expected = next;
-            var name = sequence;
-            Check($"Sequence {sequence}: next number", expected, (db, token) => NextSequenceValueAsync(db, name, token));
-        }
-    }
-
-    /// <summary>The value NEXT VALUE FOR would return, read without taking it.</summary>
-    private static async Task<decimal> NextSequenceValueAsync(RetailPlusDbContext db, string sequence, CancellationToken ct)
-    {
-        var conn = db.Database.GetDbConnection();
-        await db.Database.OpenConnectionAsync(ct);
-        try
-        {
-            await using var command = conn.CreateCommand();
-            command.CommandText = "SELECT CASE WHEN last_used_value IS NULL THEN CONVERT(bigint, current_value) " +
-                "ELSE CONVERT(bigint, last_used_value) + CONVERT(bigint, increment) END FROM sys.sequences WHERE name = @name";
-            var p = command.CreateParameter();
-            p.ParameterName = "@name";
-            p.Value = sequence;
-            command.Parameters.Add(p);
-            var value = await command.ExecuteScalarAsync(ct);
-            return Convert.ToDecimal(value, CultureInfo.InvariantCulture);
-        }
-        finally
-        {
-            await db.Database.CloseConnectionAsync();
+            _log.Info($"Last Retail Plus {kind} number: {value}");
+            if (value >= NumberCounter.NumbersPerStation)
+                _log.Warn($"Retail Plus {kind} numbers reach {value}, into the range of station 1 and up; new {kind} numbers may repeat old ones");
         }
     }
 

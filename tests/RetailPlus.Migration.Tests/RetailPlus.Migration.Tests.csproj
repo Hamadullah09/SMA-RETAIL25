@@ -19,6 +19,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\RetailPlus.Migration\RetailPlus.Migration.csproj" />
+    <ProjectReference Include="..\..\src\RetailPlus.Data.Sqlite\RetailPlus.Data.Sqlite.csproj" />
+    <ProjectReference Include="..\..\src\RetailPlus.Data.SqlServer\RetailPlus.Data.SqlServer.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -8,12 +8,12 @@ using RetailPlus.Reports;
 
 namespace RetailPlus.Data.Tests;
 
-/// <summary>The application services against a real SQL Server database: sales, A/R, purchasing, drawer, reports.</summary>
-public sealed class ServiceTests(LocalDbFixture db) : IClassFixture<LocalDbFixture>
+/// <summary>The application services against a real database: sales, A/R, purchasing, drawer, reports.</summary>
+public abstract class ServiceTests(DatabaseFixture db)
 {
     private static int _station = 100;
 
-    private DataContext Data => new(db.ConnectionString);
+    private DataContext Data => db.Data;
 
     private async Task<(SessionInfo Session, Location Location)> SetUpAsync()
     {
@@ -31,7 +31,7 @@ public sealed class ServiceTests(LocalDbFixture db) : IClassFixture<LocalDbFixtu
         return (new SessionInfo { StationNumber = Interlocked.Increment(ref _station), LocationId = location.Id, LocationCode = location.Code, UserName = "tester", AccessLevel = 4 }, location);
     }
 
-    private async Task<Item> ItemAsync(int locationId, string plu, decimal price, decimal onHand, decimal cost = 4m) =>
+    private async Task<Item> ItemAsync(Guid locationId, string plu, decimal price, decimal onHand, decimal cost = 4m) =>
         await new InventoryService(Data).SaveAsync(new Item
         {
             LocationId = locationId, Plu = plu, Name = "Item " + plu, Price1 = price, LastCost = cost, AverageCost = cost, OnHand = onHand, Taxable1 = true, Taxable2 = true,
@@ -87,7 +87,7 @@ public sealed class ServiceTests(LocalDbFixture db) : IClassFixture<LocalDbFixtu
         session.AccessLevel = 0;
         var item = await ItemAsync(location.Id, "A3", 10m, 5);
         var sale = await new SalesService(Data).PostSaleAsync(new SaleDraft { Lines = [Line(item, 1)] }, [Cash(11.20m)], session);
-        Assert.Equal(0, sale.Id);
+        Assert.Equal(Guid.Empty, sale.Id);
         Assert.Equal(5m, (await new InventoryService(Data).GetAsync(item.Id))!.OnHand);
     }
 
@@ -215,7 +215,7 @@ public sealed class ServiceTests(LocalDbFixture db) : IClassFixture<LocalDbFixtu
         var (session, location) = await SetUpAsync();
         var item = await ItemAsync(location.Id, "S1", 3m, 5);
         var sales = new SalesService(Data);
-        int id = await sales.SuspendAsync(new SaleDraft { Lines = [Line(item, 4)], SubtotalDiscountPercent = 5 }, "Table 4", session.StationNumber);
+        var id = await sales.SuspendAsync(new SaleDraft { Lines = [Line(item, 4)], SubtotalDiscountPercent = 5 }, "Table 4", session.StationNumber);
         var draft = await sales.RecallAsync(id);
         Assert.NotNull(draft);
         Assert.Equal(4m, Assert.Single(draft.Lines).Quantity);
@@ -425,4 +425,74 @@ public sealed class ServiceTests(LocalDbFixture db) : IClassFixture<LocalDbFixtu
             File.Delete(file);
         }
     }
+
+    [SkippableFact]
+    public async Task Every_stock_change_is_a_movement_that_adds_up_to_on_hand()
+    {
+        var (session, location) = await SetUpAsync();
+        var item = await ItemAsync(location.Id, "M1", 10m, 10);
+        var sales = new SalesService(Data);
+        var inventory = new InventoryService(Data);
+        var sale = await sales.PostSaleAsync(new SaleDraft { Lines = [Line(item, 3)] }, [Cash(33.60m)], session);
+        await sales.VoidSaleAsync(sale.Id, session);
+        await inventory.AdjustStockAsync(item.Id, 5, "Found in the back", "tester");
+        var purchasing = new PurchasingService(Data);
+        var po = await purchasing.CreateAsync(location.Id, OrderMethod.Blank, "Restock");
+        await purchasing.AddItemAsync(po.Id, "M1", 4);
+        var line = (await purchasing.GetAsync(po.Id))!.Lines.Single();
+        await purchasing.PostShipmentAsync(po.Id, [new ReceivedLine(line.Id, 4m, 4m)]);
+
+        var movements = await inventory.GetStockMovementsAsync(item.Id);
+        Assert.Equal([StockMovementKind.Opening, StockMovementKind.Sale, StockMovementKind.Void, StockMovementKind.Adjustment, StockMovementKind.Receipt],
+            movements.OrderBy(m => m.CreatedAtUtc).ThenBy(m => m.Kind == StockMovementKind.Opening ? 0 : 1).Select(m => m.Kind));
+        Assert.Equal(sale.InvoiceNumber, movements.Single(m => m.Kind == StockMovementKind.Sale).DocumentNumber);
+        Assert.Equal(-3m, movements.Single(m => m.Kind == StockMovementKind.Sale).Quantity);
+        var onHand = (await inventory.GetAsync(item.Id))!.OnHand;
+        Assert.Equal(19m, onHand);
+        Assert.Equal(onHand, movements.Sum(m => m.Quantity));
+        Assert.All(movements, m => Assert.Equal(db.Station!.StoreId, m.StoreId));
+    }
+
+    [SkippableFact]
+    public async Task Saving_an_item_from_the_editor_keeps_the_stock_sold_meanwhile()
+    {
+        var (session, location) = await SetUpAsync();
+        var item = await ItemAsync(location.Id, "ED1", 10m, 8);
+        var inventory = new InventoryService(Data);
+        var editing = (await inventory.GetAsync(item.Id))!;     // the editor opens with 8 on hand
+        await new SalesService(Data).PostSaleAsync(new SaleDraft { Lines = [Line(item, 2)] }, [Cash(22.40m)], session);
+
+        editing.Price1 = 12m;
+        var saved = await inventory.SaveAsync(editing, "TESTDEPT", null, null);
+
+        Assert.Equal(6m, saved.OnHand);
+        var back = (await inventory.GetAsync(item.Id))!;
+        Assert.Equal((12m, 6m), (back.Price1, back.OnHand));
+    }
+
+    [SkippableFact]
+    public async Task A_till_database_is_backed_up_restored_and_rebuilt_while_open()
+    {
+        Skip.IfNot(db.Available, db.UnavailableReason);
+        Skip.If(db.Connection.Provider != DatabaseProvider.Sqlite, "Restore on SQL Server needs the server's backup folder; covered by Backup_writes_a_file.");
+        var (_, location) = await SetUpAsync();
+        var backup = new BackupService(Data);
+        var file = await backup.BackupAsync(Path.Combine(Path.GetTempPath(), "RetailPlusBackupTest"));
+        try
+        {
+            var later = await ItemAsync(location.Id, "AFTER-BACKUP", 1m, 1);
+            await backup.RestoreAsync(file);
+            Assert.Null(await new InventoryService(Data).GetAsync(later.Id));
+            Assert.Contains("Checked", await backup.RebuildAsync(), StringComparison.Ordinal);
+            Assert.NotNull(await ItemAsync(location.Id, "AFTER-RESTORE", 1m, 1));
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
 }
+
+public sealed class ServiceTestsOnSqlite(SqliteFixture db) : ServiceTests(db), IClassFixture<SqliteFixture>;
+
+public sealed class ServiceTestsOnSqlServer(SqlServerFixture db) : ServiceTests(db), IClassFixture<SqlServerFixture>;

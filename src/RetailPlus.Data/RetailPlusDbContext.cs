@@ -1,6 +1,6 @@
-using System.Globalization;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.ValueGeneration;
 using RetailPlus.Core.Model;
 using RetailPlus.Data.Import;
 
@@ -8,7 +8,7 @@ namespace RetailPlus.Data;
 
 public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) : DbContext(options)
 {
-    /// <summary>Sequences for the document numbers the original kept in NUMBERS.DBF.</summary>
+    /// <summary>The kinds of document number the original kept in NUMBERS.DBF; see <see cref="NumberCounter"/>.</summary>
     public static class Sequences
     {
         public const string InvoiceNumbers = "InvoiceNumbers";
@@ -18,6 +18,13 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
         public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers];
     }
 
+    /// <summary>
+    /// The store and station this context works for. Rows it adds without a store or station get these, and document
+    /// numbers come from this station's range. Null for tools that only read, or that set the store on every row.
+    /// </summary>
+    public StationIdentity? Station { get; set; }
+
+    public DbSet<Store> Stores => Set<Store>();
     public DbSet<Location> Locations => Set<Location>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<Category> Categories => Set<Category>();
@@ -34,6 +41,7 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
     public DbSet<StoreSettingExtra> StoreSettingExtras => Set<StoreSettingExtra>();
     public DbSet<Station> Stations => Set<Station>();
     public DbSet<StationSetting> StationSettings => Set<StationSetting>();
+    public DbSet<NumberCounter> NumberCounters => Set<NumberCounter>();
     public DbSet<DocumentText> DocumentTexts => Set<DocumentText>();
     public DbSet<UserAccount> UserAccounts => Set<UserAccount>();
     public DbSet<Sale> Sales => Set<Sale>();
@@ -51,7 +59,7 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
     public DbSet<FxRate> FxRates => Set<FxRate>();
     public DbSet<FastKey> FastKeys => Set<FastKey>();
     public DbSet<StaffPeriod> StaffPeriods => Set<StaffPeriod>();
-    public DbSet<StockAdjustment> StockAdjustments => Set<StockAdjustment>();
+    public DbSet<StockMovement> StockMovements => Set<StockMovement>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
     public DbSet<InvoicePayment> InvoicePayments => Set<InvoicePayment>();
@@ -64,25 +72,78 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportSourceRow> ImportSourceRows => Set<ImportSourceRow>();
 
-    /// <summary>Takes the next value of one of the <see cref="Sequences"/>.</summary>
+    /// <summary>The settings row of this context's store (of the only store when no station is set).</summary>
+    public IQueryable<StoreSettings> CurrentStoreSettings =>
+        Station is { } station ? StoreSettings.Where(s => s.StoreId == station.StoreId) : StoreSettings;
+
+    /// <summary>
+    /// Takes the next number of one of the <see cref="Sequences"/> from this station's range. The counter is raised
+    /// and read in one transaction (the caller's, or one of its own), so two windows never get the same number.
+    /// </summary>
     public async Task<long> NextNumberAsync(string sequence, CancellationToken cancellationToken = default)
     {
         if (Array.IndexOf(Sequences.All, sequence) < 0)
             throw new ArgumentException($"Unknown sequence {sequence}", nameof(sequence));
-        // A plain command rather than SqlQueryRaw: EF would wrap the statement in a subquery, and SQL Server does
-        // not allow NEXT VALUE FOR there. The name is checked against the fixed list above.
-        await Database.OpenConnectionAsync(cancellationToken);
+        int station = Station is { StationNumber: > 0 } here ? here.StationNumber
+            : throw new InvalidOperationException("Document numbers need the station this database works for.");
+        var own = Database.CurrentTransaction is null ? await Database.BeginTransactionAsync(cancellationToken) : null;
         try
         {
-            await using var command = Database.GetDbConnection().CreateCommand();
-            command.CommandText = "SELECT NEXT VALUE FOR [dbo].[" + sequence + "]";
-            command.Transaction = Database.CurrentTransaction?.GetDbTransaction();
-            var value = await command.ExecuteScalarAsync(cancellationToken);
-            return Convert.ToInt64(value, CultureInfo.InvariantCulture);
+            var counter = NumberCounters.Where(c => c.Kind == sequence && c.StationNumber == station);
+            var now = DateTime.UtcNow;
+            if (await counter.ExecuteUpdateAsync(s => s.SetProperty(c => c.LastValue, c => c.LastValue + 1).SetProperty(c => c.UpdatedAtUtc, now), cancellationToken) == 0)
+            {
+                // The station's first number of this kind. Inserted directly so nothing else pending in the context is saved.
+                var id = Guid.CreateVersion7();
+                long first = NumberCounter.FirstNumber(station);
+                await Database.ExecuteSqlAsync(
+                    $"""INSERT INTO "NumberCounters" ("Id", "Kind", "StationNumber", "LastValue", "CreatedAtUtc", "UpdatedAtUtc") VALUES ({id}, {sequence}, {station}, {first}, {now}, {now})""",
+                    cancellationToken);
+            }
+            var value = await counter.Select(c => c.LastValue).SingleAsync(cancellationToken);
+            if (own is not null) await own.CommitAsync(cancellationToken);
+            return value;
         }
         finally
         {
-            await Database.CloseConnectionAsync();
+            if (own is not null) await own.DisposeAsync();
+        }
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        Stamp();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        Stamp();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
+    /// <summary>Times, versions, and the store and station of new rows.</summary>
+    private void Stamp()
+    {
+        var now = DateTime.UtcNow;
+        foreach (var entry in ChangeTracker.Entries())
+        {
+            if (entry.State is not (EntityState.Added or EntityState.Modified)) continue;
+            bool added = entry.State == EntityState.Added;
+            if (entry.Entity is ITracked tracked)
+            {
+                // Rows that arrive from another database keep the time they were made.
+                if (added && tracked.CreatedAtUtc == default) tracked.CreatedAtUtc = now;
+                else if (!added && tracked.CreatedAtUtc == default) entry.Property(nameof(ITracked.CreatedAtUtc)).IsModified = false;
+                tracked.UpdatedAtUtc = now;
+            }
+            if (entry.Entity is IVersioned versioned) versioned.Version = Guid.NewGuid();
+            if (!added) continue;
+            if (entry.Entity is IStoreScoped scoped && scoped.StoreId == Guid.Empty)
+                scoped.StoreId = Station?.StoreId
+                    ?? throw new InvalidOperationException($"A new {entry.Metadata.ClrType.Name} needs a store, and this database session has none.");
+            if (entry.Entity is IStationStamped stamped && stamped.StationNumber == 0 && Station is { StationNumber: > 0 } station)
+                stamped.StationNumber = station.StationNumber;
         }
     }
 
@@ -96,9 +157,38 @@ public class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> options) 
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
-        modelBuilder.UseCollation(RetailPlusDb.Collation);
-        foreach (var name in Sequences.All)
-            modelBuilder.HasSequence<long>(name, "dbo").StartsAt(1).IncrementsBy(1);
+        if (Database.IsSqlServer()) modelBuilder.UseCollation(RetailPlusDb.Collation);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(RetailPlusDbContext).Assembly);
+
+        foreach (var type in modelBuilder.Model.GetEntityTypes().Select(t => t.ClrType).ToList())
+        {
+            var entity = modelBuilder.Entity(type);
+            if (typeof(Entity).IsAssignableFrom(type))
+                entity.Property(nameof(Entity.Id)).HasValueGenerator<Version7GuidGenerator>().ValueGeneratedOnAdd();
+            if (typeof(ITracked).IsAssignableFrom(type))
+            {
+                // Milliseconds, so changes in the same second can be told apart when synchronising.
+                entity.Property(nameof(ITracked.CreatedAtUtc)).HasPrecision(3);
+                entity.Property(nameof(ITracked.UpdatedAtUtc)).HasPrecision(3);
+                entity.HasIndex(nameof(ITracked.UpdatedAtUtc));
+            }
+            if (typeof(IVersioned).IsAssignableFrom(type))
+                entity.Property(nameof(IVersioned.Version)).IsConcurrencyToken();
+            if (typeof(IStoreScoped).IsAssignableFrom(type) && type != typeof(Store))
+                entity.HasOne(typeof(Store)).WithMany().HasForeignKey(nameof(IStoreScoped.StoreId)).OnDelete(DeleteBehavior.Restrict);
+        }
+
+        // SQLite compares text case-sensitively unless told otherwise; the original's index tags were upper case.
+        if (Database.IsSqlite())
+            foreach (var property in modelBuilder.Model.GetEntityTypes().SelectMany(t => t.GetDeclaredProperties()).Where(p => p.ClrType == typeof(string)))
+                property.SetCollation(RetailPlusDb.SqliteCollation);
     }
+}
+
+/// <summary>Version 7 GUIDs: unique without a central server, and in the order they were made.</summary>
+internal sealed class Version7GuidGenerator : ValueGenerator<Guid>
+{
+    public override bool GeneratesTemporaryValues => false;
+
+    public override Guid Next(EntityEntry entry) => Guid.CreateVersion7();
 }

@@ -4,16 +4,16 @@ using RetailPlus.Core.Rules;
 
 namespace RetailPlus.Data.Services;
 
-public sealed record PurchaseOrderRow(int Id, long Number, DateTime CreatedAt, PurchaseOrderStatus Status, OrderMethod Method, string? Description,
+public sealed record PurchaseOrderRow(Guid Id, long Number, DateTime CreatedAt, PurchaseOrderStatus Status, OrderMethod Method, string? Description,
     int Lines, decimal TotalCost);
 
 /// <summary>What arrived for one purchase order line.</summary>
-public sealed record ReceivedLine(int LineId, decimal PiecesReceived, decimal CostEach);
+public sealed record ReceivedLine(Guid LineId, decimal PiecesReceived, decimal CostEach);
 
 /// <summary>The Purchase Order window: generate, edit, post the order, post the shipment.</summary>
 public sealed class PurchasingService(DataContext data)
 {
-    public async Task<List<PurchaseOrderRow>> ListAsync(int locationId, PurchaseOrderStatus? status = null)
+    public async Task<List<PurchaseOrderRow>> ListAsync(Guid locationId, PurchaseOrderStatus? status = null)
     {
         await using var db = data.Create();
         var q = db.PurchaseOrders.AsNoTracking().Where(p => p.LocationId == locationId);
@@ -23,7 +23,7 @@ public sealed class PurchasingService(DataContext data)
             .ToListAsync();
     }
 
-    public async Task<PurchaseOrder?> GetAsync(int id)
+    public async Task<PurchaseOrder?> GetAsync(Guid id)
     {
         await using var db = data.Create();
         return await db.PurchaseOrders.AsNoTracking().Include(p => p.Lines.OrderBy(l => l.SupplierName).ThenBy(l => l.Plu)).SingleOrDefaultAsync(p => p.Id == id);
@@ -33,7 +33,7 @@ public sealed class PurchasingService(DataContext data)
     /// File / New: creates an order and fills it with the items that need ordering by the chosen method, optionally
     /// only one supplier's, one department's or the flagged items.
     /// </summary>
-    public async Task<PurchaseOrder> CreateAsync(int locationId, OrderMethod method, string? description, string? supplierName = null,
+    public async Task<PurchaseOrder> CreateAsync(Guid locationId, OrderMethod method, string? description, string? supplierName = null,
         string? department = null, bool flaggedOnly = false, DateOnly? today = null)
     {
         var day = today ?? DateOnly.FromDateTime(DateTime.Today);
@@ -94,7 +94,7 @@ public sealed class PurchasingService(DataContext data)
     }
 
     /// <summary>Adds an item to a draft order by its stock code; returns false when no such item exists.</summary>
-    public async Task<bool> AddItemAsync(int purchaseOrderId, string plu, decimal pieces = 1)
+    public async Task<bool> AddItemAsync(Guid purchaseOrderId, string plu, decimal pieces = 1)
     {
         await using var db = data.Create();
         var po = await db.PurchaseOrders.Include(p => p.Lines).SingleAsync(p => p.Id == purchaseOrderId);
@@ -138,7 +138,7 @@ public sealed class PurchasingService(DataContext data)
     }
 
     /// <summary>Post Order: the ordered pieces are added to each item's On Order count.</summary>
-    public async Task PostOrderAsync(int purchaseOrderId)
+    public async Task PostOrderAsync(Guid purchaseOrderId)
     {
         await using var db = data.Create();
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -161,7 +161,7 @@ public sealed class PurchasingService(DataContext data)
     /// Post Shipment: adds what arrived to On Hand, takes the ordered pieces off On Order, and updates last cost and
     /// average cost (with the shipping cost spread over the pieces received, by value).
     /// </summary>
-    public async Task PostShipmentAsync(int purchaseOrderId, IReadOnlyList<ReceivedLine> received, decimal shippingCost = 0)
+    public async Task PostShipmentAsync(Guid purchaseOrderId, IReadOnlyList<ReceivedLine> received, decimal shippingCost = 0)
     {
         await using var db = data.Create();
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -178,7 +178,7 @@ public sealed class PurchasingService(DataContext data)
             decimal cost = r?.CostEach ?? line.CostEach;
             line.QuantityReceived = pieces;
             line.CostEach = cost;
-            if (line.ItemId is not int itemId) continue;
+            if (line.ItemId is not Guid itemId) continue;
             var item = await db.Items.SingleAsync(i => i.Id == itemId);
             if (wasPosted) item.OnOrder = Math.Max(0, item.OnOrder - line.OrderQuantity * line.CaseQuantity);
             if (pieces == 0) continue;
@@ -188,6 +188,7 @@ public sealed class PurchasingService(DataContext data)
             item.OnHand += pieces;
             item.LastReceivedDate = today;
             item.LastReceivedQuantity = pieces;
+            InventoryService.Record(db, itemId, StockMovementKind.Receipt, pieces, item.OnHand, document: po.Number);
             if (item.Price1 > 0) item.MarginPercent = Money.MarginPercent(item.Price1, item.AverageCost);
         }
         po.Status = PurchaseOrderStatus.Received;
@@ -197,7 +198,7 @@ public sealed class PurchasingService(DataContext data)
     }
 
     /// <summary>Deletes an order; a posted (not received) order first takes its pieces back off On Order.</summary>
-    public async Task DeleteAsync(int purchaseOrderId)
+    public async Task DeleteAsync(Guid purchaseOrderId)
     {
         await using var db = data.Create();
         await using var tx = await db.Database.BeginTransactionAsync();

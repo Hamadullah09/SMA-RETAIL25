@@ -13,24 +13,43 @@ public sealed class SetupService(DataContext data)
         ("Debit", TenderKind.Card), ("Cheque", TenderKind.Cheque), ("Gift Card", TenderKind.GiftCard), ("On Account", TenderKind.OnAccount),
     ];
 
-    /// <summary>Creates the minimum a new database needs: the settings row, a location, tender types and the station.</summary>
-    public async Task SeedAsync(int stationNumber, CancellationToken cancellationToken = default)
+    /// <summary>
+    /// Creates the minimum a new database needs (a store with its settings row and a location, tender types and the
+    /// station) and from then on works for that station: rows saved through <see cref="DataContext"/> get its store and
+    /// station, and document numbers come from its range. The station's store is used when it already has one.
+    /// </summary>
+    public async Task<StationIdentity> SeedAsync(int stationNumber, CancellationToken cancellationToken = default)
     {
         await using var db = data.Create();
-        if (!await db.StoreSettings.AnyAsync(cancellationToken))
-            db.StoreSettings.Add(new StoreSettings { Id = 1, CompanyName = "My Store", Tax1Name = "Tax 1", Tax2Name = "Tax 2", MinimumTender = 0.01m, GracePeriodDays = 30 });
-        if (!await db.Locations.AnyAsync(cancellationToken))
-            db.Locations.Add(new Location { Code = "POS", Name = "Main store" });
+        var station = await db.Stations.AsNoTracking().SingleOrDefaultAsync(s => s.Number == stationNumber, cancellationToken);
+        var store = station is not null
+            ? await db.Stores.SingleAsync(s => s.Id == station.StoreId, cancellationToken)
+            : await db.Stores.OrderBy(s => s.CreatedAtUtc).FirstOrDefaultAsync(cancellationToken);
+        if (store is null)
+        {
+            store = new Store { Code = "MAIN", Name = "Main store", TimeZoneId = TimeZoneInfo.Local.Id };
+            db.Stores.Add(store);
+        }
+        if (!await db.StoreSettings.AnyAsync(s => s.StoreId == store.Id, cancellationToken))
+            db.StoreSettings.Add(new StoreSettings { StoreId = store.Id, CompanyName = "My Store", Tax1Name = "Tax 1", Tax2Name = "Tax 2", MinimumTender = 0.01m, GracePeriodDays = 30 });
+        if (!await db.Locations.AnyAsync(l => l.StoreId == store.Id, cancellationToken))
+            db.Locations.Add(new Location { StoreId = store.Id, Code = "POS", Name = "Main store" });
         if (!await db.TenderTypes.AnyAsync(cancellationToken))
         {
             int order = 0;
             foreach (var (name, kind) in DefaultTenders)
                 db.TenderTypes.Add(new TenderType { Name = name, Kind = kind, SortOrder = ++order, OpensDrawer = kind is TenderKind.Cash or TenderKind.Cheque });
         }
-        if (!await db.Stations.AnyAsync(s => s.Number == stationNumber, cancellationToken))
-            db.Stations.Add(new Station { Number = stationNumber, Name = $"Station {stationNumber:000}" });
+        if (station is null)
+            db.Stations.Add(new Station { StoreId = store.Id, Number = stationNumber, Name = $"Station {stationNumber:000}" });
         await db.SaveChangesAsync(cancellationToken);
+        data.Station = new StationIdentity(store.Id, stationNumber);
+        return data.Station;
     }
+
+    /// <summary>Rows of this program's store (all rows when no station is set).</summary>
+    private IQueryable<T> OfThisStore<T>(IQueryable<T> rows) where T : class, IStoreScoped =>
+        data.Station is { } here ? rows.Where(r => r.StoreId == here.StoreId) : rows;
 
     public async Task<bool> HasDataAsync(CancellationToken cancellationToken = default)
     {
@@ -44,13 +63,13 @@ public sealed class SetupService(DataContext data)
     public async Task<string?> GetExtraAsync(string name)
     {
         await using var db = data.Create();
-        return await db.StoreSettingExtras.Where(x => x.Name == name).Select(x => x.Value).FirstOrDefaultAsync();
+        return await OfThisStore(db.StoreSettingExtras).Where(x => x.Name == name).Select(x => x.Value).FirstOrDefaultAsync();
     }
 
     public async Task SetExtraAsync(string name, string? value)
     {
         await using var db = data.Create();
-        var row = await db.StoreSettingExtras.FirstOrDefaultAsync(x => x.Name == name);
+        var row = await OfThisStore(db.StoreSettingExtras).FirstOrDefaultAsync(x => x.Name == name);
         if (string.IsNullOrWhiteSpace(value))
         {
             if (row is not null) db.StoreSettingExtras.Remove(row);
@@ -63,15 +82,26 @@ public sealed class SetupService(DataContext data)
     public async Task<StoreSettings> GetSettingsAsync()
     {
         await using var db = data.Create();
-        return await db.StoreSettings.AsNoTracking().SingleOrDefaultAsync() ?? new StoreSettings { Id = 1 };
+        return await db.CurrentStoreSettings.AsNoTracking().SingleOrDefaultAsync() ?? new StoreSettings();
     }
 
+    /// <summary>Saves the settings of this program's store (the row is matched by store, whatever id the copy has).</summary>
     public async Task SaveSettingsAsync(StoreSettings settings)
     {
         await using var db = data.Create();
-        settings.Id = 1;
-        if (await db.StoreSettings.AnyAsync()) db.StoreSettings.Update(settings);
-        else db.StoreSettings.Add(settings);
+        var existing = await db.CurrentStoreSettings.AsNoTracking().Select(s => new { s.Id, s.StoreId, s.CreatedAtUtc }).SingleOrDefaultAsync();
+        if (existing is null)
+        {
+            settings.Id = Guid.Empty;
+            db.StoreSettings.Add(settings);
+        }
+        else
+        {
+            settings.Id = existing.Id;
+            settings.StoreId = existing.StoreId;
+            settings.CreatedAtUtc = existing.CreatedAtUtc;
+            db.StoreSettings.Update(settings);
+        }
         await db.SaveChangesAsync();
     }
 
@@ -80,7 +110,7 @@ public sealed class SetupService(DataContext data)
     public async Task<List<Location>> GetLocationsAsync()
     {
         await using var db = data.Create();
-        return await db.Locations.AsNoTracking().OrderBy(l => l.Code).ToListAsync();
+        return await OfThisStore(db.Locations.AsNoTracking()).OrderBy(l => l.Code).ToListAsync();
     }
 
     public async Task<Location> AddLocationAsync(string code, string? name)
@@ -88,7 +118,7 @@ public sealed class SetupService(DataContext data)
         code = code.Trim().ToUpperInvariant();
         if (code.Length is < 1 or > 3) throw new BusinessRuleException("A location code has 1 to 3 characters.");
         await using var db = data.Create();
-        if (await db.Locations.AnyAsync(l => l.Code == code)) throw new BusinessRuleException($"Location {code} already exists.");
+        if (await OfThisStore(db.Locations).AnyAsync(l => l.Code == code)) throw new BusinessRuleException($"Location {code} already exists.");
         var location = new Location { Code = code, Name = name };
         db.Locations.Add(location);
         await db.SaveChangesAsync();
@@ -134,7 +164,7 @@ public sealed class SetupService(DataContext data)
         if (string.IsNullOrWhiteSpace(user.UserName)) throw new BusinessRuleException("Enter a user name.");
         if (user.AccessLevel is < 0 or > 4) throw new BusinessRuleException("Access levels are 0 to 4.");
         await using var db = data.Create();
-        var existing = user.Id == 0 ? null : await db.UserAccounts.FindAsync(user.Id);
+        var existing = user.Id == Guid.Empty ? null : await db.UserAccounts.FindAsync(user.Id);
         if (existing is null)
         {
             existing = new UserAccount();
@@ -151,7 +181,7 @@ public sealed class SetupService(DataContext data)
         await db.SaveChangesAsync();
     }
 
-    public async Task DeleteUserAsync(int id)
+    public async Task DeleteUserAsync(Guid id)
     {
         await using var db = data.Create();
         await db.UserAccounts.Where(u => u.Id == id).ExecuteDeleteAsync();
@@ -199,7 +229,7 @@ public sealed class SetupService(DataContext data)
         foreach (var t in tenders)
         {
             if (string.IsNullOrWhiteSpace(t.Name)) continue;
-            if (t.Id == 0) db.TenderTypes.Add(t);
+            if (t.Id == Guid.Empty) db.TenderTypes.Add(t);
             else db.TenderTypes.Update(t);
         }
         await db.SaveChangesAsync();
@@ -240,7 +270,7 @@ public sealed class SetupService(DataContext data)
         await using var db = data.Create();
         var dept = await db.Departments.SingleOrDefaultAsync(d => d.Name == name);
         if (dept is null) return;
-        await db.Items.Where(i => i.DepartmentId == dept.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.DepartmentId, (int?)null));
+        await db.Items.Where(i => i.DepartmentId == dept.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.DepartmentId, (Guid?)null));
         db.Departments.Remove(dept);
         await db.SaveChangesAsync();
     }
@@ -250,7 +280,7 @@ public sealed class SetupService(DataContext data)
         await using var db = data.Create();
         var cat = await db.Categories.SingleOrDefaultAsync(d => d.Name == name);
         if (cat is null) return;
-        await db.Items.Where(i => i.CategoryId == cat.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.CategoryId, (int?)null));
+        await db.Items.Where(i => i.CategoryId == cat.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.CategoryId, (Guid?)null));
         db.Categories.Remove(cat);
         await db.SaveChangesAsync();
     }
@@ -286,16 +316,16 @@ public sealed class SetupService(DataContext data)
         await db.SaveChangesAsync();
     }
 
-    public async Task<string> GetTextAsync(DocumentTextKind kind, int? locationId = null)
+    public async Task<string> GetTextAsync(DocumentTextKind kind, Guid? locationId = null)
     {
         await using var db = data.Create();
-        return await db.DocumentTexts.Where(t => t.Kind == kind && t.LocationId == locationId).Select(t => t.Text).SingleOrDefaultAsync() ?? "";
+        return await OfThisStore(db.DocumentTexts).Where(t => t.Kind == kind && t.LocationId == locationId).Select(t => t.Text).SingleOrDefaultAsync() ?? "";
     }
 
-    public async Task SetTextAsync(DocumentTextKind kind, string text, int? locationId = null)
+    public async Task SetTextAsync(DocumentTextKind kind, string text, Guid? locationId = null)
     {
         await using var db = data.Create();
-        var row = await db.DocumentTexts.SingleOrDefaultAsync(t => t.Kind == kind && t.LocationId == locationId);
+        var row = await OfThisStore(db.DocumentTexts).SingleOrDefaultAsync(t => t.Kind == kind && t.LocationId == locationId);
         if (row is null) db.DocumentTexts.Add(new DocumentText { Kind = kind, LocationId = locationId, Text = text });
         else row.Text = text;
         await db.SaveChangesAsync();

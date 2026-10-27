@@ -6,7 +6,7 @@ using RetailPlus.Core.Rules;
 namespace RetailPlus.Data.Services;
 
 /// <summary>A row of the sales journal.</summary>
-public sealed record SaleRow(int Id, long InvoiceNumber, int StationNumber, DateTime SoldAt, string? Staff, string? ClientName,
+public sealed record SaleRow(Guid Id, long InvoiceNumber, int StationNumber, DateTime SoldAt, string? Staff, string? ClientName,
     decimal Subtotal, decimal Tax1, decimal Tax2, decimal Total, SaleStatus Status, string Tenders);
 
 /// <summary>
@@ -22,7 +22,7 @@ public sealed class SalesService(DataContext data)
 
     /// <summary>
     /// Saves a sale. In training mode (<see cref="SessionInfo.IsTrainee"/>) nothing is written and the returned sale
-    /// has Id 0. Payments by "On Account" tenders, and the unpaid rest of a layaway, become an invoice on the client's
+    /// has an empty Id. Payments by "On Account" tenders, and the unpaid rest of a layaway, become an invoice on the client's
     /// account.
     /// </summary>
     public async Task<Sale> PostSaleAsync(SaleDraft draft, IReadOnlyList<TenderEntry> tenders, SessionInfo session)
@@ -31,7 +31,7 @@ public sealed class SalesService(DataContext data)
         if (lines.Count == 0) throw new BusinessRuleException("There is nothing to sell.");
 
         await using var db = data.Create();
-        var settings = await db.StoreSettings.AsNoTracking().SingleOrDefaultAsync() ?? new StoreSettings();
+        var settings = await db.CurrentStoreSettings.AsNoTracking().SingleOrDefaultAsync() ?? new StoreSettings();
         var tax = draft.EffectiveTax(settings);
         var totals = draft.Calculate(tax);
 
@@ -96,7 +96,7 @@ public sealed class SalesService(DataContext data)
 
         await using var tx = await db.Database.BeginTransactionAsync();
         Client? client = null;
-        if (draft.ClientId is int clientId)
+        if (draft.ClientId is Guid clientId)
         {
             client = await db.Clients.SingleAsync(c => c.Id == clientId);
             decimal owing = onAccount + layawayOwing;
@@ -148,28 +148,37 @@ public sealed class SalesService(DataContext data)
         return invoice;
     }
 
-    /// <summary>Stock counts, serial numbers and sales statistics; <paramref name="sign"/> is -1 when voiding.</summary>
+    /// <summary>
+    /// Stock counts, stock movements, serial numbers and sales statistics; <paramref name="sign"/> is -1 when voiding.
+    /// <paramref name="at"/> is the sale's time, which the statistics are counted in.
+    /// </summary>
     private static async Task ApplyStockAndStatisticsAsync(RetailPlusDbContext db, Sale sale, int sign, DateTime at)
     {
         int year = at.Year, month = at.Month, week = (at.DayOfYear - 1) / 7 + 1;
+        var movedAt = sign > 0 ? at : DateTime.Now;
         foreach (var line in sale.Lines.Where(l => l.ItemId is not null && l.Kind is SaleLineKind.Sale or SaleLineKind.Return))
         {
-            int itemId = line.ItemId!.Value;
+            Guid itemId = line.ItemId!.Value;
             var type = await db.Items.Where(i => i.Id == itemId).Select(i => i.ItemType).SingleAsync();
             bool moves = IsStocked(type) && (line.Kind == SaleLineKind.Sale || line.Restock);
             decimal qty = line.Quantity * sign;
             if (moves)
             {
+                var kind = sign < 0 ? StockMovementKind.Void : line.Kind == SaleLineKind.Return ? StockMovementKind.Return : StockMovementKind.Sale;
                 await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - qty));
-                if (line.VariantId is int variantId)
+                if (line.VariantId is Guid variantId)
                     await db.ItemVariants.Where(v => v.Id == variantId).ExecuteUpdateAsync(s => s.SetProperty(v => v.OnHand, v => v.OnHand - qty));
+                InventoryService.Record(db, itemId, kind, -qty, await OnHandAsync(db, itemId), movedAt, sale.InvoiceNumber, variantId: line.VariantId, user: sale.Staff);
                 if (type == ItemType.Kit)
                 {
                     var components = await db.KitComponents.Where(k => k.KitItemId == itemId && k.ComponentItemId != null).ToListAsync();
                     foreach (var c in components)
                     {
                         decimal cq = qty * c.Quantity;
-                        await db.Items.Where(i => i.Id == c.ComponentItemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - cq));
+                        var componentId = c.ComponentItemId!.Value;
+                        await db.Items.Where(i => i.Id == componentId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - cq));
+                        InventoryService.Record(db, componentId, kind, -cq, await OnHandAsync(db, componentId), movedAt, sale.InvoiceNumber,
+                            reason: $"Kit {line.Plu}", user: sale.Staff);
                     }
                 }
                 if (type == ItemType.Serialized && !string.IsNullOrWhiteSpace(line.SerialNumber))
@@ -188,6 +197,9 @@ public sealed class SalesService(DataContext data)
         }
     }
 
+    private static Task<decimal> OnHandAsync(RetailPlusDbContext db, Guid itemId) =>
+        db.Items.Where(i => i.Id == itemId).Select(i => i.OnHand).SingleAsync();
+
     /// <summary>RFID tags of sold lines become Sold, of returned lines In stock; <paramref name="sign"/> -1 undoes a sale.</summary>
     private static async Task UpdateTagsAsync(RetailPlusDbContext db, Sale sale, int sign)
     {
@@ -204,7 +216,7 @@ public sealed class SalesService(DataContext data)
                 .SetProperty(t => t.Status, ItemTagStatus.InStock).SetProperty(t => t.SoldAt, (DateTime?)null).SetProperty(t => t.SoldOnInvoice, (long?)null));
     }
 
-    private static async Task AddPeriodAsync(RetailPlusDbContext db, int itemId, int year, SalesPeriodKind kind, int period, decimal units, decimal gross)
+    private static async Task AddPeriodAsync(RetailPlusDbContext db, Guid itemId, int year, SalesPeriodKind kind, int period, decimal units, decimal gross)
     {
         int n = await db.ItemPeriodSales.Where(p => p.ItemId == itemId && p.Year == year && p.Kind == kind && p.Period == period)
             .ExecuteUpdateAsync(s => s.SetProperty(p => p.Units, p => p.Units + units).SetProperty(p => p.Gross, p => p.Gross + gross));
@@ -237,7 +249,7 @@ public sealed class SalesService(DataContext data)
     }
 
     /// <summary>Voids a saved sale: puts stock back, takes it out of the drawer totals and cancels its invoice.</summary>
-    public async Task VoidSaleAsync(int saleId, SessionInfo session, string? reason = null)
+    public async Task VoidSaleAsync(Guid saleId, SessionInfo session, string? reason = null)
     {
         await using var db = data.Create();
         await using var tx = await db.Database.BeginTransactionAsync();
@@ -251,7 +263,7 @@ public sealed class SalesService(DataContext data)
         var drawer = await DrawerService.GetOpenSessionAsync(db, sale.StationNumber, sale.LocationId);
         AddToDrawer(drawer, sale, tenders.Where(t => t.Kind != TenderKind.OnAccount), -1);
 
-        if (sale.ClientId is int clientId)
+        if (sale.ClientId is Guid clientId)
         {
             var client = await db.Clients.SingleAsync(c => c.Id == clientId);
             client.Points -= sale.PointsEarned - sale.PointsRedeemed;
@@ -271,7 +283,7 @@ public sealed class SalesService(DataContext data)
         await tx.CommitAsync();
     }
 
-    public async Task<Sale?> GetSaleAsync(int id)
+    public async Task<Sale?> GetSaleAsync(Guid id)
     {
         await using var db = data.Create();
         return await db.Sales.AsNoTracking().AsSplitQuery().Include(s => s.Lines.OrderBy(l => l.LineNumber)).ThenInclude(l => l.Tags)
@@ -282,7 +294,7 @@ public sealed class SalesService(DataContext data)
     {
         await using var db = data.Create();
         return await db.Sales.AsNoTracking().AsSplitQuery().Include(s => s.Lines.OrderBy(l => l.LineNumber)).ThenInclude(l => l.Tags).Include(s => s.Payments)
-            .Where(s => s.InvoiceNumber == invoiceNumber).OrderByDescending(s => s.Id).FirstOrDefaultAsync();
+            .Where(s => s.InvoiceNumber == invoiceNumber).OrderByDescending(s => s.SoldAt).FirstOrDefaultAsync();
     }
 
     /// <summary>The sales journal between two dates (inclusive), newest first.</summary>
@@ -301,7 +313,7 @@ public sealed class SalesService(DataContext data)
 
     // Suspend / recall ----------------------------------------------------------------------------------------
 
-    public async Task<int> SuspendAsync(SaleDraft draft, string? label, int stationNumber)
+    public async Task<Guid> SuspendAsync(SaleDraft draft, string? label, int stationNumber)
     {
         await using var db = data.Create();
         var row = new SuspendedSale { StationNumber = stationNumber, SuspendedAt = DateTime.Now, Label = label ?? draft.ClientName ?? $"{draft.Lines.Count} lines", PayloadJson = JsonSerializer.Serialize(draft, Json) };
@@ -317,7 +329,7 @@ public sealed class SalesService(DataContext data)
     }
 
     /// <summary>Takes a suspended sale back (any station may recall it) and removes it from the list.</summary>
-    public async Task<SaleDraft?> RecallAsync(int id)
+    public async Task<SaleDraft?> RecallAsync(Guid id)
     {
         await using var db = data.Create();
         var row = await db.SuspendedSales.SingleOrDefaultAsync(s => s.Id == id);
@@ -338,18 +350,18 @@ public sealed class SalesService(DataContext data)
     public async Task SaveCustomerOrderAsync(CustomerOrder order)
     {
         await using var db = data.Create();
-        var isNew = order.Id == 0;
+        var isNew = order.Id == Guid.Empty;
         if (isNew) db.CustomerOrders.Add(order); else db.CustomerOrders.Update(order);
-        if (isNew && order.ItemId is int itemId)
+        if (isNew && order.ItemId is Guid itemId)
             await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.CustomerOrdered, i => i.CustomerOrdered + order.Quantity));
         await db.SaveChangesAsync();
     }
 
-    public async Task DeleteCustomerOrderAsync(int id)
+    public async Task DeleteCustomerOrderAsync(Guid id)
     {
         await using var db = data.Create();
         var order = await db.CustomerOrders.SingleAsync(o => o.Id == id);
-        if (order.ItemId is int itemId)
+        if (order.ItemId is Guid itemId)
             await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.CustomerOrdered, i => i.CustomerOrdered - order.Quantity));
         db.CustomerOrders.Remove(order);
         await db.SaveChangesAsync();
@@ -358,13 +370,13 @@ public sealed class SalesService(DataContext data)
     public async Task<List<Rma>> GetRmasAsync(bool activeOnly)
     {
         await using var db = data.Create();
-        return await db.Rmas.AsNoTracking().Where(r => !activeOnly || r.IsActive).OrderByDescending(r => r.Id).ToListAsync();
+        return await db.Rmas.AsNoTracking().Where(r => !activeOnly || r.IsActive).OrderByDescending(r => r.CreatedAtUtc).ToListAsync();
     }
 
     public async Task SaveRmaAsync(Rma rma)
     {
         await using var db = data.Create();
-        if (rma.Id == 0)
+        if (rma.Id == Guid.Empty)
         {
             if (string.IsNullOrWhiteSpace(rma.CustomerRmaNumber) && rma.IsCustomerRma)
                 rma.CustomerRmaNumber = (await db.NextNumberAsync(RetailPlusDbContext.Sequences.RmaNumbers)).ToString(System.Globalization.CultureInfo.InvariantCulture);

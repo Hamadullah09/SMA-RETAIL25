@@ -24,7 +24,7 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
     Func<RfidReader, IRfidDevice>? deviceFactory = null) : IRfidControl, IAsyncDisposable
 {
     private readonly Func<RfidReader, IRfidDevice> _deviceFactory = deviceFactory ?? DefaultDevice;
-    private readonly ConcurrentDictionary<int, Worker> _workers = new();
+    private readonly ConcurrentDictionary<Guid, Worker> _workers = new();
     private readonly ConcurrentDictionary<int, ConcurrentDictionary<Guid, Channel<RfidTagEvent>>> _listeners = new();
     private readonly ConcurrentDictionary<(int Station, string Epc), DateTime> _lastSent = new();
     private readonly SemaphoreSlim _reloadGate = new(1, 1);
@@ -39,7 +39,7 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
         string.Equals(reader.Host, "sim", StringComparison.OrdinalIgnoreCase) ? new SimulatedRfidDevice(reader) : new D2184Device(reader);
 
     /// <summary>The device behind a reader (the tests use this to place simulated tags).</summary>
-    public IRfidDevice? DeviceOf(int readerId) => _workers.TryGetValue(readerId, out var w) ? w.Device : null;
+    public IRfidDevice? DeviceOf(Guid readerId) => _workers.TryGetValue(readerId, out var w) ? w.Device : null;
 
     public Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -339,7 +339,7 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
     /// Runs an administrator command on a reader between two inventory rounds. A reader that is disabled (or not
     /// loaded yet) gets a short-lived connection of its own.
     /// </summary>
-    private async Task<T> OnReaderAsync<T>(int readerId, Func<IRfidDevice, RfidReader, Task<T>> operation, CancellationToken cancellationToken)
+    private async Task<T> OnReaderAsync<T>(Guid readerId, Func<IRfidDevice, RfidReader, Task<T>> operation, CancellationToken cancellationToken)
     {
         var fresh = (await loadConfiguration(cancellationToken)).FirstOrDefault(r => r.Id == readerId)
                     ?? throw new RfidException("This reader is no longer in the list.");
@@ -361,23 +361,23 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
         }
     }
 
-    public Task<ReaderInfo> ReadInfoAsync(int readerId, CancellationToken cancellationToken = default) =>
+    public Task<ReaderInfo> ReadInfoAsync(Guid readerId, CancellationToken cancellationToken = default) =>
         OnReaderAsync(readerId, (d, _) => d.ReadInfoAsync(cancellationToken), cancellationToken);
 
-    public async Task<IReadOnlyList<string>> ApplySettingsAsync(int readerId, CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<string>> ApplySettingsAsync(Guid readerId, CancellationToken cancellationToken = default)
     {
         var problems = await OnReaderAsync(readerId, (d, r) => d.ApplySettingsAsync(r, cancellationToken), cancellationToken);
         await ReloadAsync(cancellationToken);
         return problems;
     }
 
-    public Task ResetAsync(int readerId, CancellationToken cancellationToken = default) =>
+    public Task ResetAsync(Guid readerId, CancellationToken cancellationToken = default) =>
         OnReaderAsync(readerId, async (d, _) => { await d.ResetAsync(cancellationToken); return 0; }, cancellationToken);
 
-    public Task<int> MeasureReturnLossAsync(int readerId, int antenna, int frequencyIndex, CancellationToken cancellationToken = default) =>
+    public Task<int> MeasureReturnLossAsync(Guid readerId, int antenna, int frequencyIndex, CancellationToken cancellationToken = default) =>
         OnReaderAsync(readerId, (d, _) => d.MeasureReturnLossAsync(antenna, frequencyIndex, cancellationToken), cancellationToken);
 
-    public Task WriteGpioAsync(int readerId, int gpio, bool high, CancellationToken cancellationToken = default) =>
+    public Task WriteGpioAsync(Guid readerId, int gpio, bool high, CancellationToken cancellationToken = default) =>
         OnReaderAsync(readerId, async (d, _) => { await d.WriteGpioAsync(gpio, high, cancellationToken); return 0; }, cancellationToken);
 
     /// <summary>

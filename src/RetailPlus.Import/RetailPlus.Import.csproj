@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RetailPlus.Migration\RetailPlus.Migration.csproj" />
+    <ProjectReference Include="..\RetailPlus.Data.Sqlite\RetailPlus.Data.Sqlite.csproj" />
+    <ProjectReference Include="..\RetailPlus.Data.SqlServer\RetailPlus.Data.SqlServer.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
