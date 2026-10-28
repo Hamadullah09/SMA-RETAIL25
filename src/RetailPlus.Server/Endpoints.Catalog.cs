@@ -13,6 +13,17 @@ public sealed record ItemDetail(Guid? Id, string? Version, string Plu, string Na
     decimal Price1, decimal Price2, decimal Price3, decimal LastCost, decimal AverageCost, bool Taxable1, bool Taxable2, bool Taxable3,
     decimal ReorderPoint, decimal ReorderQuantity, decimal UnitsPerCase, bool IsActive, string? Notes, IReadOnlyList<ItemStock>? Stock,
     Guid? LocationId = null, string? Barcode = null);
+/// <summary>One location's row of a stock code.</summary>
+public sealed record ItemPlace(Guid ItemId, string StoreCode, string LocationCode);
+/// <summary>A location an every-store change did not reach, and why.</summary>
+public sealed record ItemSkip(string StoreCode, string LocationCode, string Reason);
+/// <summary>Where a change at every store would go: the rows of the stock code the user may change, and the locations without it.</summary>
+public sealed record ItemEveryStorePlan(IReadOnlyList<ItemPlace> Rows, IReadOnlyList<ItemSkip> Skipped);
+/// <summary>
+/// What <c>PUT /api/items/{id}?everyStore=true</c> did: the saved item, the fields copied, every row changed (the one
+/// edited first) and the locations left alone.
+/// </summary>
+public sealed record ItemEveryStoreResult(ItemDetail Item, int Changed, IReadOnlyList<string> Fields, IReadOnlyList<ItemPlace> ChangedAt, IReadOnlyList<ItemSkip> Skipped);
 public sealed record NamedRow(Guid Id, string Name);
 public sealed record CategoryRow(Guid Id, string Name, Guid? DepartmentId);
 public sealed record NameRequest(string Name);
@@ -37,6 +48,11 @@ public static partial class Endpoints
         api.MapGet("/items/{id:guid}", ItemAsync).RequireAuthorization(Need(Permissions.InventoryView));
         api.MapPost("/items", (ItemDetail body, ApiRequest api) => SaveItemAsync(null, body, api)).RequireAuthorization(Need(Permissions.InventoryEdit));
         api.MapPut("/items/{id:guid}", (Guid id, ItemDetail body, ApiRequest api) => SaveItemAsync(id, body, api)).RequireAuthorization(Need(Permissions.InventoryEdit));
+        api.MapGet("/items/{id:guid}/every-store", async (Guid id, ApiRequest api) =>
+        {
+            var (item, _) = await LoadItemAsync(api, id);
+            return Results.Ok(await EveryStorePlanAsync(api, item.Plu));
+        }).RequireAuthorization(Need(Permissions.InventoryEdit));
         api.MapDelete("/items/{id:guid}", (Guid id, ApiRequest api) => ItemTrashAsync(id, api, delete: true)).RequireAuthorization(Need(Permissions.InventoryEdit));
         api.MapPost("/items/{id:guid}/undelete", (Guid id, ApiRequest api) => ItemTrashAsync(id, api, delete: false)).RequireAuthorization(Need(Permissions.InventoryEdit));
 
@@ -191,9 +207,15 @@ public static partial class Endpoints
     {
         Item item;
         Guid store;
+        // A change at every store copies what the user changed on this row: what it held before is kept to tell.
+        ItemFields? before = null;
+        string plu = "";
+        bool everyStore = id is not null && api.Bool("everyStore") == true;
         if (id is { } existing)
         {
             (item, store) = await LoadItemAsync(api, existing);
+            before = ItemFields.Of(item);
+            plu = item.Plu;
             item.Version = ApiRequest.ParseVersion(body.Version);
         }
         else
@@ -224,8 +246,161 @@ public static partial class Endpoints
             }
         }
         var saved = (await new InventoryService(api.Root).GetAsync(item.Id))!;
+        if (everyStore) return Results.Ok(await CopyToEveryStoreAsync(api, saved, plu, before!, body.IsActive));
         var detail = await ToDetailAsync(api, saved);
         return id is null ? Results.Created($"/api/items/{saved.Id}", detail) : Results.Ok(detail);
+    }
+
+    // Every store -------------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The fields a change at every store copies to the code's other rows. Supplier, units per case, stock and the stock
+    /// code itself stay each location's own.
+    /// </summary>
+    private sealed record ItemFields(string Name, string? Description, string? Notes, string? Barcode, decimal Price1, decimal Price2, decimal Price3,
+        decimal LastCost, decimal AverageCost, Guid? DepartmentId, Guid? CategoryId, bool Taxable1, bool Taxable2, decimal ReorderPoint, decimal ReorderQuantity,
+        bool IsActive)
+    {
+        public static ItemFields Of(Item i) => new(i.Name, i.Notes, i.PosMessage, string.IsNullOrWhiteSpace(i.Barcode) ? null : i.Barcode.Trim(), i.Price1, i.Price2,
+            i.Price3, i.LastCost, i.AverageCost, i.DepartmentId, i.CategoryId, i.Taxable1, i.Taxable2, i.ReorderPoint, i.ReorderQuantity, !i.IsDeleted);
+
+        /// <summary>The names (as in <see cref="ItemDetail"/>) of the fields that differ.</summary>
+        public static List<string> Changed(ItemFields a, ItemFields b)
+        {
+            var names = new List<string>();
+            if (a.Name != b.Name) names.Add("name");
+            if (a.Description != b.Description) names.Add("description");
+            if (a.Notes != b.Notes) names.Add("notes");
+            if (a.Barcode != b.Barcode) names.Add("barcode");
+            if (a.Price1 != b.Price1) names.Add("price1");
+            if (a.Price2 != b.Price2) names.Add("price2");
+            if (a.Price3 != b.Price3) names.Add("price3");
+            if (a.LastCost != b.LastCost) names.Add("lastCost");
+            if (a.AverageCost != b.AverageCost) names.Add("averageCost");
+            if (a.DepartmentId != b.DepartmentId) names.Add("departmentId");
+            if (a.CategoryId != b.CategoryId) names.Add("categoryId");
+            if (a.Taxable1 != b.Taxable1) names.Add("taxable1");
+            if (a.Taxable2 != b.Taxable2) names.Add("taxable2");
+            if (a.ReorderPoint != b.ReorderPoint) names.Add("reorderPoint");
+            if (a.ReorderQuantity != b.ReorderQuantity) names.Add("reorderQuantity");
+            if (a.IsActive != b.IsActive) names.Add("isActive");
+            return names;
+        }
+
+        /// <summary>This row's fields once the named ones are taken from <paramref name="source"/>.</summary>
+        public ItemFields Take(ItemFields source, List<string> fields) => new(
+            fields.Contains("name") ? source.Name : Name,
+            fields.Contains("description") ? source.Description : Description,
+            fields.Contains("notes") ? source.Notes : Notes,
+            fields.Contains("barcode") ? source.Barcode : Barcode,
+            fields.Contains("price1") ? source.Price1 : Price1,
+            fields.Contains("price2") ? source.Price2 : Price2,
+            fields.Contains("price3") ? source.Price3 : Price3,
+            fields.Contains("lastCost") ? source.LastCost : LastCost,
+            fields.Contains("averageCost") ? source.AverageCost : AverageCost,
+            fields.Contains("departmentId") ? source.DepartmentId : DepartmentId,
+            fields.Contains("categoryId") ? source.CategoryId : CategoryId,
+            fields.Contains("taxable1") ? source.Taxable1 : Taxable1,
+            fields.Contains("taxable2") ? source.Taxable2 : Taxable2,
+            fields.Contains("reorderPoint") ? source.ReorderPoint : ReorderPoint,
+            fields.Contains("reorderQuantity") ? source.ReorderQuantity : ReorderQuantity,
+            fields.Contains("isActive") ? source.IsActive : IsActive);
+
+        /// <summary>Writes the fields onto an item (not the department, category or deletion, which the service sets).</summary>
+        public void WriteTo(Item i)
+        {
+            i.Name = Name; i.Notes = Description; i.PosMessage = Notes; i.Barcode = Barcode;
+            i.Price1 = Price1; i.Price2 = Price2; i.Price3 = Price3; i.LastCost = LastCost; i.AverageCost = AverageCost;
+            i.Taxable1 = Taxable1; i.Taxable2 = Taxable2; i.ReorderPoint = ReorderPoint; i.ReorderQuantity = ReorderQuantity;
+        }
+    }
+
+    /// <summary>
+    /// The rows of a stock code the user may change (a store administrator: their store's locations; a super administrator:
+    /// every store's), in store and location order, and the locations of those stores where the code is missing or deleted.
+    /// </summary>
+    private static async Task<ItemEveryStorePlan> EveryStorePlanAsync(ApiRequest api, string plu)
+    {
+        await using var db = api.Root.Create();
+        var locations = (await db.Locations.AsNoTracking().Join(db.Stores, l => l.StoreId, s => s.Id, (l, s) => new { l.Id, l.StoreId, l.Code, Store = s.Code }).ToListAsync())
+            .Where(l => api.User.CanSee(l.StoreId)).OrderBy(l => l.Store, StringComparer.Ordinal).ThenBy(l => l.Code, StringComparer.Ordinal).ToList();
+        var rows = await db.Items.AsNoTracking().Where(i => i.Plu == plu).Select(i => new { i.Id, i.LocationId, i.IsDeleted }).ToListAsync();
+        var places = new List<ItemPlace>();
+        var skipped = new List<ItemSkip>();
+        foreach (var l in locations)
+        {
+            var here = rows.Where(r => r.LocationId == l.Id).ToList();
+            if (here.FirstOrDefault(r => !r.IsDeleted) is { } row) places.Add(new ItemPlace(row.Id, l.Store, l.Code));
+            else skipped.Add(new ItemSkip(l.Store, l.Code, here.Count > 0 ? "The item is deleted here." : "No item with this stock code here."));
+        }
+        return new ItemEveryStorePlan(places, skipped);
+    }
+
+    /// <summary>
+    /// After the row the user edited is saved (its version checked), copies the fields they changed on it to the code's
+    /// other rows they may change. Each row is saved as its own store's change, so it is audited under that store and goes
+    /// down to that store's tills. Nothing is created; a row that refuses the change (a barcode already used there) is
+    /// listed with the reason, and a row that already holds the values is left alone.
+    /// </summary>
+    private static async Task<ItemEveryStoreResult> CopyToEveryStoreAsync(ApiRequest api, Item saved, string plu, ItemFields before, bool isActive)
+    {
+        var after = ItemFields.Of(saved) with { IsActive = isActive };
+        var fields = ItemFields.Changed(before, after);
+        var plan = await EveryStorePlanAsync(api, plu);
+        var changedAt = new List<ItemPlace>();
+        var skipped = new List<ItemSkip>(plan.Skipped);
+        if (plan.Rows.FirstOrDefault(r => r.ItemId == saved.Id) is { } self) changedAt.Add(self);
+        else if (await StoreAndLocationAsync(api, saved.LocationId) is { } where) changedAt.Add(new ItemPlace(saved.Id, where.Store, where.Location));
+
+        foreach (var place in plan.Rows.Where(r => r.ItemId != saved.Id))
+        {
+            if (fields.Count == 0)
+            {
+                skipped.Add(new ItemSkip(place.StoreCode, place.LocationCode, "Nothing was changed."));
+                continue;
+            }
+            if (await new InventoryService(api.Root).GetAsync(place.ItemId) is not { } row) continue;
+            var mine = ItemFields.Of(row);
+            var wanted = mine.Take(after, fields);
+            if (ItemFields.Changed(mine, wanted).Count == 0)
+            {
+                skipped.Add(new ItemSkip(place.StoreCode, place.LocationCode, "It is already the same here."));
+                continue;
+            }
+            wanted.WriteTo(row);
+            try
+            {
+                var inventory = new InventoryService(await api.ForChangeAsync(await StoreOfLocationAsync(api, row.LocationId)));
+                // Only the row the user edited is checked against the version they read; each other row is saved with its own.
+                await inventory.SaveAsync(row, fields.Contains("departmentId") ? saved.Department?.Name : row.Department?.Name,
+                    fields.Contains("categoryId") ? saved.Category?.Name : row.Category?.Name, row.Supplier?.Company);
+                if (fields.Contains("isActive"))
+                {
+                    if (isActive) await inventory.RestoreAsync(row.Id); else await inventory.DeleteAsync(row.Id);
+                }
+                changedAt.Add(place);
+            }
+            catch (Exception ex) when (ex is BusinessRuleException or ConcurrencyConflictException)
+            {
+                skipped.Add(new ItemSkip(place.StoreCode, place.LocationCode, ex.Message));
+            }
+        }
+        var detail = await ToDetailAsync(api, (await new InventoryService(api.Root).GetAsync(saved.Id))!);
+        return new ItemEveryStoreResult(detail, changedAt.Count, fields, changedAt, skipped);
+    }
+
+    private static async Task<Guid> StoreOfLocationAsync(ApiRequest api, Guid locationId)
+    {
+        await using var db = api.Root.Create();
+        return await db.Locations.Where(l => l.Id == locationId).Select(l => l.StoreId).SingleAsync();
+    }
+
+    private static async Task<(string Store, string Location)?> StoreAndLocationAsync(ApiRequest api, Guid locationId)
+    {
+        await using var db = api.Root.Create();
+        var found = await db.Locations.AsNoTracking().Where(l => l.Id == locationId).Join(db.Stores, l => l.StoreId, s => s.Id, (l, s) => new { Store = s.Code, l.Code })
+            .FirstOrDefaultAsync();
+        return found is null ? null : (found.Store, found.Code);
     }
 
     /// <summary>

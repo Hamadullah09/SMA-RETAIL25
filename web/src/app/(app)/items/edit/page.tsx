@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Save, Trash2, X } from 'lucide-react';
+import { Save, Store, Trash2, X } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,7 @@ import { checkBarcode, checkNumber, numberText, parseNumber, textOrNull, type Er
 import { formatMoney, formatPercent, formatQuantity } from '@/lib/format';
 import { useHotkey } from '@/lib/hotkeys';
 import { useStore } from '@/lib/store';
-import type { ItemDetail, ItemStock } from '@/lib/types';
+import type { ItemDetail, ItemEveryStoreResult, ItemPlace, ItemSkip, ItemStock } from '@/lib/types';
 
 export default function ItemEditorPage() {
   return (
@@ -157,6 +157,13 @@ function ItemEditor() {
   const [dirty, setDirty] = useState(false);
 
   const item = useQuery({ queryKey: ['item', id], queryFn: () => api.item(id!), enabled: !isNew, staleTime: 0 });
+  // The same stock code at the other locations the user may change: "Apply to every store" is offered when there are some.
+  const plan = useQuery({ queryKey: ['item-every-store', id], queryFn: () => api.itemEveryStore(id!), enabled: !isNew });
+  const [everyStore, setEveryStore] = useState(false);
+  const [confirming, setConfirming] = useState<ItemDetail | null>(null);
+  const [outcome, setOutcome] = useState<ItemEveryStoreResult | null>(null);
+  const reach = plan.data?.rows.length ?? 0;
+  const canEveryStore = !isNew && reach > 1;
   const departments = useQuery({ queryKey: ['departments'], queryFn: () => api.departments(), staleTime: 5 * 60_000 });
   // Categories are not kept under a department, so every category is offered.
   const categories = useQuery({ queryKey: ['categories', ''], queryFn: () => api.categories(null), staleTime: 5 * 60_000 });
@@ -188,9 +195,21 @@ function ItemEditor() {
   }
 
   const save = useMutation({
-    mutationFn: (body: ItemDetail) => (isNew ? api.addItem(body, newStoreId || null) : api.saveItem(id!, body)),
-    onSuccess: (saved) => {
-      toast.ok(`${saved.name || 'The item'} is saved.`);
+    mutationFn: async ({ body, every }: { body: ItemDetail; every: boolean }): Promise<{ saved: ItemDetail; result?: ItemEveryStoreResult }> => {
+      if (every) {
+        const result = await api.saveItemEveryStore(id!, body);
+        return { saved: result.item, result };
+      }
+      return { saved: await (isNew ? api.addItem(body, newStoreId || null) : api.saveItem(id!, body)) };
+    },
+    onSuccess: ({ saved, result }) => {
+      setConfirming(null);
+      setOutcome(result ?? null);
+      if (result) {
+        setEveryStore(false);
+        void queryClient.invalidateQueries({ queryKey: ['item-every-store', id] });
+        toast.ok(`${saved.name || 'The item'} is saved at ${result.changed} ${result.changed === 1 ? 'location' : 'locations'}.`);
+      } else toast.ok(`${saved.name || 'The item'} is saved.`);
       setDirty(false);
       void queryClient.invalidateQueries({ queryKey: ['items'] });
       queryClient.setQueryData(['item', saved.id], saved);
@@ -199,6 +218,7 @@ function ItemEditor() {
       if (isNew && saved.id) router.replace(`/items/edit/?id=${encodeURIComponent(saved.id)}`);
     },
     onError: (e) => {
+      setConfirming(null);
       if (e instanceof ApiError && e.isConflict) setConflict(true);
     },
   });
@@ -250,7 +270,8 @@ function ItemEditor() {
       isActive: form.isActive,
       notes: textOrNull(form.notes),
     };
-    save.mutate(body);
+    if (canEveryStore && everyStore) setConfirming(body);
+    else save.mutate({ body, every: false });
   }
 
   useHotkey('Ctrl+S', submit, !save.isPending);
@@ -314,6 +335,19 @@ function ItemEditor() {
           )}
         </Toolbar>
       </header>
+
+      {canEveryStore && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-card bg-card/85 px-4 py-2 shadow-card">
+          <Store className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" />
+          <Checkbox
+            label={`Apply to every store (${reach} locations stock ${item.data?.plu ?? 'this code'})`}
+            hint="What you change here is copied to the same stock code at the other locations. Each keeps its own stock, supplier and the prices you leave alone."
+            checked={everyStore}
+            onChange={setEveryStore}
+          />
+        </div>
+      )}
+      {outcome && <EveryStoreOutcome result={outcome} onClose={() => setOutcome(null)} />}
 
       <Tabs label="Item" tabs={TABS} value={tab} onChange={setTab} className="mb-4" />
 
@@ -481,6 +515,16 @@ function ItemEditor() {
         onClose={() => setConflict(false)}
       />
       <ConfirmDialog
+        open={!!confirming}
+        title={`Save this change at ${reach} locations?`}
+        message={<EveryStorePlanText rows={plan.data?.rows ?? []} skipped={plan.data?.skipped ?? []} />}
+        confirmLabel="Save at every store"
+        cancelLabel="Cancel"
+        busy={save.isPending}
+        onConfirm={() => confirming && save.mutate({ body: confirming, every: true })}
+        onClose={() => setConfirming(null)}
+      />
+      <ConfirmDialog
         open={deleting}
         title={`Delete ${form.name || 'this item'}?`}
         message="It leaves the item list and the tills with the next download. Its sales and stock history stay, and Undelete brings it back."
@@ -494,3 +538,70 @@ function ItemEditor() {
     </form>
   );
 }
+
+function placeName(p: { storeCode: string; locationCode: string }) {
+  return `${p.storeCode} · ${p.locationCode}`;
+}
+
+/** The confirmation's list: where the change goes, and where it does not. */
+function EveryStorePlanText({ rows, skipped }: { rows: ItemPlace[]; skipped: ItemSkip[] }) {
+  return (
+    <div className="space-y-3">
+      <div>
+        <p>The fields you changed are copied to:</p>
+        <ul className="mt-1 list-disc pl-5" aria-label="Locations changed">
+          {rows.map((r) => (
+            <li key={r.itemId} className="font-semibold">
+              {placeName(r)}
+            </li>
+          ))}
+        </ul>
+      </div>
+      {skipped.length > 0 && (
+        <div>
+          <p>Left alone:</p>
+          <ul className="mt-1 list-disc pl-5" aria-label="Locations left alone">
+            {skipped.map((s) => (
+              <li key={placeName(s)}>
+                {placeName(s)}: {s.reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <p>Each location keeps its own stock. The tills get the change with their next download.</p>
+    </div>
+  );
+}
+
+/** What a save at every store did, until it is dismissed. */
+function EveryStoreOutcome({ result, onClose }: { result: ItemEveryStoreResult; onClose(): void }) {
+  const refused = result.skipped.filter((s) => !BENIGN.has(s.reason));
+  return (
+    <section className="mb-4 rounded-card bg-card p-4 shadow-card" aria-label="Saved at every store" role="status">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-semibold">
+            Saved at {result.changed} {result.changed === 1 ? 'location' : 'locations'}: {result.changedAt.map(placeName).join(', ')}.
+          </p>
+          {result.fields.length === 0 && <p className="text-muted">Nothing was changed, so the other locations were left alone.</p>}
+          {result.skipped.length > 0 && (
+            <ul className="mt-1 text-ink">
+              {result.skipped.map((s) => (
+                <li key={placeName(s)} className={refused.includes(s) ? 'font-semibold text-danger' : undefined}>
+                  {placeName(s)}: {s.reason}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <button type="button" onClick={onClose} className="rounded-full p-2 text-muted hover:bg-stone-light hover:text-ink" aria-label="Close">
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/** Reasons that only say there was nothing to do there. */
+const BENIGN = new Set(['No item with this stock code here.', 'The item is deleted here.', 'It is already the same here.', 'Nothing was changed.']);

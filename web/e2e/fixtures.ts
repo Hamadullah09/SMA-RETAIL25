@@ -16,6 +16,8 @@ import type {
   GiftCardRow,
   HoursRow,
   ItemDetail,
+  ItemEveryStorePlan,
+  ItemEveryStoreResult,
   ItemRow,
   PermissionInfo,
   ReportInfo,
@@ -422,6 +424,22 @@ export function itemDetail(id: string): ItemDetail {
       { storeCode: 'WEST', locationCode: 'POS', onHand: 40 },
     ],
   };
+}
+
+/** Where a change at every store goes: TS-100-M is stocked at Downtown and Westside, not at Northgate. */
+export function everyStorePlan(id: string): ItemEveryStorePlan {
+  const row = items.find((i) => i.id === id) ?? items[0];
+  const rows = items.filter((i) => i.plu === row.plu).map((i) => ({ itemId: i.id, storeCode: i.storeCode ?? '', locationCode: i.locationCode ?? '' }));
+  const stocked = new Set(rows.map((r) => r.storeCode));
+  const skipped = stores.filter((s) => !stocked.has(s.code)).map((s) => ({ storeCode: s.code, locationCode: 'POS', reason: 'No item with this stock code here.' }));
+  return { rows, skipped };
+}
+
+export function everyStoreResult(id: string, item: ItemDetail): ItemEveryStoreResult {
+  const plan = everyStorePlan(id);
+  const self = plan.rows.find((r) => r.itemId === id) ?? plan.rows[0];
+  const changedAt = [self, ...plan.rows.filter((r) => r !== self)];
+  return { item, changed: changedAt.length, fields: ['price1'], changedAt, skipped: plan.skipped };
 }
 
 // Clients and suppliers -------------------------------------------------------------------------------------------

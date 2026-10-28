@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page, Request, Route } from '@playwright/test';
 import * as f from './fixtures';
-import type { UserInfo } from '../src/lib/types';
+import type { ItemDetail, UserInfo } from '../src/lib/types';
 
 export interface SentRequest {
   method: string;
@@ -114,6 +114,10 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
         return { json: paged(search(f.items, query, (i) => `${i.plu} ${i.name}`), query) };
       case /^GET \/api\/items\/[^/]+$/.test(key):
         return { json: f.itemDetail(id) };
+      case /^GET \/api\/items\/[^/]+\/every-store$/.test(key):
+        return { json: f.everyStorePlan(id) };
+      case /^PUT \/api\/items\/[^/]+$/.test(key) && query.get('everyStore') === 'true':
+        return { json: f.everyStoreResult(id, { ...(r.body as ItemDetail), version: 'v-2' }) };
       case /^PUT \/api\/items\/[^/]+$/.test(key):
         return { json: { ...(r.body as object), version: 'v-2' } };
       case key === 'POST /api/items':
