@@ -129,12 +129,15 @@ stations, enrollment, sync batches, package upload).
 ### Stock — `inventory.view`
 - `GET /api/stock/movements?storeId&itemId&from&to&kind` (*paged*). Each row: `{ "at", "storeCode", "locationCode",
   "plu", "name", "kind", "quantity", "onHandAfter", "unitCost", "documentNumber", "reason", "user" }`.
-- `GET /api/transfers?storeId&status` returns `[{ "id", "number", "status", "fromStore", "fromLocation", "toStore",
-  "toLocation", "createdAt", "shippedAt", "receivedAt", "lines", "units", "value" }]`.
+- `GET /api/transfers?storeId&status&search` (*paged*, newest first). Each row: `{ "id", "number", "status", "fromStore",
+  "fromLocation", "toStore", "toLocation", "createdAt", "shippedAt", "receivedAt", "lines", "units", "value" }`.
   - A transfer is shown to both its sending and its receiving store (`StockTransfer.OfStore`).
+  - `search` finds the transfer number (all digits), or a location it leaves from or goes to: the location code
+    starting with the text, or its name containing it.
 - `GET /api/transfers/{id}` adds `lines: [{ "plu", "description", "quantityShipped", "quantityReceived", "unitCost" }]`.
-- `GET /api/stock-counts?storeId&status` returns `[{ "id", "number", "status", "storeCode", "locationCode",
-  "startedAt", "postedAt", "lines", "varianceUnits", "varianceValue" }]`.
+- `GET /api/stock-counts?storeId&status&search` (*paged*, newest first). Each row: `{ "id", "number", "status",
+  "storeCode", "locationCode", "startedAt", "postedAt", "lines", "varianceUnits", "varianceValue" }`.
+  - `search` finds the count number, or the location counted (code starting with the text, or name containing it).
 - `GET /api/stock-counts/{id}` adds `lines: [{ "plu", "description", "expected", "counted", "variance",
   "varianceCost", "notCounted" }]`.
 

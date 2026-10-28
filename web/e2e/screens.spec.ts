@@ -85,6 +85,14 @@ for (const [size, viewport] of SIZES) {
       await page.screenshot({ animations: 'disabled', path: join(dir, `${size}-26-departments.png`) });
     });
 
+    test('transfers', async ({ page }) => {
+      await mockApi(page);
+      await page.goto('/stock/');
+      await page.getByRole('tab', { name: 'Transfers' }).click();
+      await expect(page.getByPlaceholder('Transfer number or location')).toBeVisible();
+      await page.screenshot({ animations: 'disabled', path: join(dir, `${size}-27-transfers.png`) });
+    });
+
     test('report printout', async ({ page }) => {
       await mockApi(page);
       await page.goto('/reports/view/?key=daily');

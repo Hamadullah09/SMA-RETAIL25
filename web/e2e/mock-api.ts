@@ -133,11 +133,11 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
       case key === 'GET /api/stock/movements':
         return { json: paged(f.movements, query) };
       case key === 'GET /api/transfers':
-        return { json: f.transfers };
+        return { json: paged(search(f.transfers, query, (t) => `${t.number} ${t.fromLocation} ${t.toLocation} ${t.fromStore} ${t.toStore}`), query) };
       case /^GET \/api\/transfers\/[^/]+$/.test(key):
         return { json: f.transferDetail(id) };
       case key === 'GET /api/stock-counts':
-        return { json: f.counts };
+        return { json: paged(search(f.counts, query, (c) => `${c.number} ${c.locationCode}`), query) };
       case /^GET \/api\/stock-counts\/[^/]+$/.test(key):
         return { json: f.countDetail(id) };
       case key === 'GET /api/gift-cards':

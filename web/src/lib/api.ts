@@ -358,9 +358,9 @@ export function createApi(options: ApiOptions = {}) {
 
     // Stock
     movements: (query: Query, signal?: AbortSignal) => get<Paged<StockMovementRow>>('/stock/movements', query, signal),
-    transfers: (query: Query) => get<TransferRow[]>('/transfers', query),
+    transfers: (query: Query, signal?: AbortSignal) => get<Paged<TransferRow>>('/transfers', query, signal),
     transfer: (transferId: string) => get<TransferDetail>(`/transfers/${id(transferId)}`),
-    counts: (query: Query) => get<StockCountRow[]>('/stock-counts', query),
+    counts: (query: Query, signal?: AbortSignal) => get<Paged<StockCountRow>>('/stock-counts', query, signal),
     count: (countId: string) => get<StockCountDetail>(`/stock-counts/${id(countId)}`),
 
     // Gift cards

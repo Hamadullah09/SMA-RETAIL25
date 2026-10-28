@@ -78,6 +78,7 @@ The first time, install the browser: `npx playwright install chromium`.
   the browser's local days; weeks start on Monday.
 - Items are kept per location on the server, so Inventory has a line per store that stocks a code, and a new item is
   added to the store and location chosen in its editor.
+- Transfers and stock counts are listed a page at a time, searched by number or location.
 - Shared lists (clients, suppliers, departments, categories, roles, commission rules) change only for users whose
   `/api/auth/me` says `canChangeShared` (super administrators, or anyone while there is one store); for the others the
   add, edit and delete buttons are hidden or disabled. Departments and categories are kept from Inventory.
