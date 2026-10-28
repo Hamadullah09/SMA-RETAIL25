@@ -287,6 +287,23 @@ server's is kept). The server records every package, refused and duplicate ones 
 upload and download, last batch, failures since the last good package, app version, and "behind" after
 `Server:BehindAfterHours` (24) without an upload.
 
+**Large packages (round 2).** A till writes its changes as a series of packages of at most `MaxRowsPerPackage` rows
+(10,000): deletions first, then the tables parents before children, each package with its own batch id, the series id,
+its place, and the batch id of the one before it. The server applies a package only after the one before it (otherwise it
+refuses it, and the till sets the rest of the series aside); only the last package says how far the changes are packaged,
+so nothing counts as sent before the whole series is. The packages are written in a folder of their own and moved into
+the outbox when all are done; a run that stops half way (no connection) leaves the rest waiting, and the next run goes on
+from there. Rows go from the database into the package as they are read, and are applied a thousand at a time inside the
+package's transaction, so neither side holds a package in memory. The server's packages are written that way into a
+file and sent from it; a till that joins downloads its first package like any other, with the key the enrolment gave
+(the enrolment answer no longer carries it). A package saved to a file for a USB stick stays one file.
+
+**Two shifts for one user (round 2).** Two tills without a connection can each punch the same user in. When the sync
+brings the shifts together, on the server or on a till that receives the other's shift first, every open shift of a user
+that has a later shift is closed when that later one began, with an edit reason that says so ("Closed by the sync…",
+edited by "Sync") and a time clock edit in the audit log. The result depends only on the shifts (times, then ids), so
+every database ends the same. Hours count time covered by two shifts of the same user once.
+
 ### Known limits
 
 - Tills on a shared SQL Server database (the old LAN set-up) cannot join a server; the till side relies on SQLite
@@ -294,9 +311,10 @@ upload and download, last batch, failures since the last good package, app versi
 - Concurrent edits of one invoice at two tills (two payments before either synchronises) keep the later invoice row; both
   payments are kept, but the invoice balance is the later till's.
 - On order and customer-order counts are each database's own (imported values cannot be worked out again).
-- A till's first package after joining holds every row it has, including what the server just sent it; nothing changes
-  on the server, but it is large.
-- Downloads are built in memory; a store with a very large history makes a large first download.
+- A till's first package after joining still holds every row it has, including what the server just sent it (now as a
+  series of bounded packages); nothing changes on the server, but it takes as long as the till's data is large.
+- The server's package for a till is one package (written and applied a few rows at a time); the deletions it carries are
+  read into memory, which is small next to the rows.
 - Uploads are applied one at a time per station on one server process; several server processes would need a lock in
   the database.
 - Re-importing Retail Plus data into a till that already joined a server wipes rows without tombstones; import before
