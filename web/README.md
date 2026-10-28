@@ -77,7 +77,10 @@ The first time, install the browser: `npx playwright install chromium`.
   formatting. Business dates are
   the browser's local days; weeks start on Monday.
 - Items are kept per location on the server, so Inventory has a line per store that stocks a code, and a new item is
-  added to the store and location chosen in its editor.
+  added to the store and location chosen in its editor. When the same code is at more than one location the user may
+  change, the editor offers "Apply to every store": after a confirmation that lists the locations, what was changed on
+  this row is copied to the others (`PUT /api/items/{id}?everyStore=true`).
+- Transfers and stock counts are listed a page at a time, searched by number or location.
 - Shared lists (clients, suppliers, departments, categories, roles, commission rules) change only for users whose
   `/api/auth/me` says `canChangeShared` (super administrators, or anyone while there is one store); for the others the
   add, edit and delete buttons are hidden or disabled. Departments and categories are kept from Inventory.

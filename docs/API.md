@@ -129,12 +129,15 @@ stations, enrollment, sync batches, package upload).
 ### Stock — `inventory.view`
 - `GET /api/stock/movements?storeId&itemId&from&to&kind` (*paged*). Each row: `{ "at", "storeCode", "locationCode",
   "plu", "name", "kind", "quantity", "onHandAfter", "unitCost", "documentNumber", "reason", "user" }`.
-- `GET /api/transfers?storeId&status` returns `[{ "id", "number", "status", "fromStore", "fromLocation", "toStore",
-  "toLocation", "createdAt", "shippedAt", "receivedAt", "lines", "units", "value" }]`.
+- `GET /api/transfers?storeId&status&search` (*paged*, newest first). Each row: `{ "id", "number", "status", "fromStore",
+  "fromLocation", "toStore", "toLocation", "createdAt", "shippedAt", "receivedAt", "lines", "units", "value" }`.
   - A transfer is shown to both its sending and its receiving store (`StockTransfer.OfStore`).
+  - `search` finds the transfer number (all digits), or a location it leaves from or goes to: the location code
+    starting with the text, or its name containing it.
 - `GET /api/transfers/{id}` adds `lines: [{ "plu", "description", "quantityShipped", "quantityReceived", "unitCost" }]`.
-- `GET /api/stock-counts?storeId&status` returns `[{ "id", "number", "status", "storeCode", "locationCode",
-  "startedAt", "postedAt", "lines", "varianceUnits", "varianceValue" }]`.
+- `GET /api/stock-counts?storeId&status&search` (*paged*, newest first). Each row: `{ "id", "number", "status",
+  "storeCode", "locationCode", "startedAt", "postedAt", "lines", "varianceUnits", "varianceValue" }`.
+  - `search` finds the count number, or the location counted (code starting with the text, or name containing it).
 - `GET /api/stock-counts/{id}` adds `lines: [{ "plu", "description", "expected", "counted", "variance",
   "varianceCost", "notCounted" }]`.
 
@@ -257,6 +260,22 @@ In the model each location of a store has its own row (and price and stock) for 
   else of the user's store, else of the only store (400 when none can be told).
 - Extra field `barcode`. `description` is the item's long description and `notes` its message shown at the till.
   `taxable3` is always false (stores have two taxes).
+- **A change at every store.** `GET /api/items/{id}/every-store` (`inventory.edit`) returns where it would go:
+  `{ "rows": [{ "itemId", "storeCode", "locationCode" }], "skipped": [{ "storeCode", "locationCode", "reason" }] }`, the
+  rows of the same stock code at the locations the user may change (a store administrator: their store's; `stores.all`:
+  every store's), in store and location order, and those locations where the code is missing or deleted.
+  `PUT /api/items/{id}?everyStore=true` takes the same `ItemDetail` as a plain PUT and:
+  - saves this row first, its `version` checked as usual (409 changes nothing anywhere);
+  - copies to the code's other rows only the fields that the PUT changed on this row: `name`, `description`, `notes`,
+    `barcode`, `price1`–`price3`, `lastCost`, `averageCost`, `departmentId`, `categoryId`, `taxable1`, `taxable2`,
+    `reorderPoint`, `reorderQuantity`, `isActive` (false deletes them). Supplier, units per case, stock and the stock code
+    stay each location's own. Nothing is created; each other row is saved with its own version;
+  - writes each row as a change of its own store (audit line under that store, station 0, the web user), so it goes down to
+    that store's tills with their next download;
+  - answers `{ "item": ItemDetail, "changed", "fields": [...], "changedAt": [{ "itemId", "storeCode", "locationCode" }],
+    "skipped": [{ "storeCode", "locationCode", "reason" }] }`: `changed` counts the rows changed, this one included
+    (it is first in `changedAt`); `skipped` lists the locations without the code, where it is deleted, where it already
+    held the values, or where the change was refused (a barcode used by another item there), with the reason.
 - A category is not kept under a department: `departmentId` in category rows is null, and
   `GET /api/categories?departmentId=` returns the categories used by that department's items. Extra endpoints:
   `POST /api/departments` and `POST /api/categories` take `{ name }` (names are kept in capitals);

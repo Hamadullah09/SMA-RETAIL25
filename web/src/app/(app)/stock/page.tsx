@@ -5,13 +5,14 @@ import { useEffect, useState } from 'react';
 import { SidePanel } from '@/components/ui/dialog';
 import { DateRangeBar, useDateRange } from '@/components/ui/date-range';
 import { Select } from '@/components/ui/field';
-import { Chip, Detail, PageHeader, Pager, Toolbar } from '@/components/ui/page';
+import { Chip, Detail, PageHeader, Pager, SearchBox, Toolbar } from '@/components/ui/page';
 import { EmptyState, ErrorState, Skeleton } from '@/components/ui/states';
 import { DataTable } from '@/components/ui/table';
 import { Tabs } from '@/components/ui/tabs';
 import { api } from '@/lib/api';
 import { cx } from '@/lib/cx';
 import { formatCount, formatLocalDateTime, formatMoney, formatQuantity, formatShortDateTime } from '@/lib/format';
+import { useDebounced } from '@/lib/hooks';
 import { COUNT_STATUS, label, MOVEMENT_KINDS, TRANSFER_STATUS, words } from '@/lib/labels';
 import { useStore } from '@/lib/store';
 import type { StockCountLine, StockCountRow, StockMovementRow, TransferLine, TransferRow } from '@/lib/types';
@@ -126,19 +127,36 @@ function StatusFilter({ id, value, onChange, options }: { id: string; value: str
   );
 }
 
+const LIST_PAGE = 50;
+
+/** A status, a search (number or location) and the page, reset to the first page when a filter changes. */
+function useListFilters(storeId: string | null) {
+  const [status, setStatus] = useState('');
+  const [text, setText] = useState('');
+  const [page, setPage] = useState(1);
+  const search = useDebounced(text.trim());
+  useEffect(() => setPage(1), [storeId, status, search]);
+  return { status, setStatus, text, setText, search, page, setPage };
+}
+
 function Transfers() {
   const { storeId, currencySymbol: symbol } = useStore();
-  const [status, setStatus] = useState('');
+  const f = useListFilters(storeId);
   const [open, setOpen] = useState<TransferRow | null>(null);
-  const query = useQuery({ queryKey: ['transfers', storeId, status], queryFn: () => api.transfers({ storeId, status }) });
-  const rows = query.data;
+  const query = useQuery({
+    queryKey: ['transfers', storeId, f.status, f.search, f.page],
+    queryFn: ({ signal }) => api.transfers({ storeId, status: f.status, search: f.search, page: f.page, pageSize: LIST_PAGE }, signal),
+    placeholderData: keepPreviousData,
+  });
+  const rows = query.data?.items;
 
   return (
     <>
       <Toolbar>
-        <StatusFilter id="transfer-status" value={status} onChange={setStatus} options={TRANSFER_STATUS} />
-        <span className="text-ink">A transfer shows in both the sending and the receiving store.</span>
+        <SearchBox value={f.text} onChange={f.setText} placeholder="Transfer number or location" />
+        <StatusFilter id="transfer-status" value={f.status} onChange={f.setStatus} options={TRANSFER_STATUS} />
       </Toolbar>
+      <p className="mb-3 px-1 text-ink">A transfer shows in both the sending and the receiving store.</p>
       <DataTable<TransferRow>
         rows={rows}
         loading={query.isLoading}
@@ -148,7 +166,7 @@ function Transfers() {
         onRowClick={setOpen}
         caption="Transfers"
         showTotals={!!rows && rows.length > 1}
-        empty={<EmptyState title="No transfers">Transfers are made at the tills (Transfers screen).</EmptyState>}
+        empty={<EmptyState title="No transfers">{f.search ? 'Nothing matches the number or location.' : 'Transfers are made at the tills (Transfers screen).'}</EmptyState>}
         columns={[
           { key: 'n', header: 'Transfer', cell: (t) => <span className="font-semibold">{t.number}</span> },
           { key: 'status', header: 'Status', cell: (t) => <Chip tone={TRANSFER_STATUS[t.status]?.tone ?? 'plain'}>{TRANSFER_STATUS[t.status]?.label ?? words(t.status)}</Chip> },
@@ -160,6 +178,7 @@ function Transfers() {
           { key: 'units', header: 'Units', numeric: true, cell: (t) => formatQuantity(t.units), hideBelow: 'sm', total: formatQuantity((rows ?? []).reduce((s, t) => s + t.units, 0)) },
           { key: 'value', header: 'Value', numeric: true, cell: (t) => formatMoney(t.value, symbol), total: formatMoney((rows ?? []).reduce((s, t) => s + t.value, 0), symbol) },
         ]}
+        footer={query.data && <Pager page={f.page} pageSize={LIST_PAGE} total={query.data.total} onPage={f.setPage} noun="transfers" />}
       />
       {open && <TransferPanel row={open} onClose={() => setOpen(null)} />}
     </>
@@ -218,24 +237,29 @@ function TransferPanel({ row, onClose }: { row: TransferRow; onClose(): void }) 
 
 function Counts() {
   const { storeId, currencySymbol: symbol } = useStore();
-  const [status, setStatus] = useState('');
+  const f = useListFilters(storeId);
   const [open, setOpen] = useState<StockCountRow | null>(null);
-  const query = useQuery({ queryKey: ['counts', storeId, status], queryFn: () => api.counts({ storeId, status }) });
+  const query = useQuery({
+    queryKey: ['counts', storeId, f.status, f.search, f.page],
+    queryFn: ({ signal }) => api.counts({ storeId, status: f.status, search: f.search, page: f.page, pageSize: LIST_PAGE }, signal),
+    placeholderData: keepPreviousData,
+  });
 
   return (
     <>
       <Toolbar>
-        <StatusFilter id="count-status" value={status} onChange={setStatus} options={COUNT_STATUS} />
+        <SearchBox value={f.text} onChange={f.setText} placeholder="Count number or location" />
+        <StatusFilter id="count-status" value={f.status} onChange={f.setStatus} options={COUNT_STATUS} />
       </Toolbar>
       <DataTable<StockCountRow>
-        rows={query.data}
+        rows={query.data?.items}
         loading={query.isLoading}
         error={query.error}
         onRetry={() => void query.refetch()}
         rowKey={(c) => c.id}
         onRowClick={setOpen}
         caption="Stock counts"
-        empty={<EmptyState title="No stock counts">Counts are made at the tills (Stock counts screen).</EmptyState>}
+        empty={<EmptyState title="No stock counts">{f.search ? 'Nothing matches the number or location.' : 'Counts are made at the tills (Stock counts screen).'}</EmptyState>}
         columns={[
           { key: 'n', header: 'Count', cell: (c) => <span className="font-semibold">{c.number}</span> },
           { key: 'status', header: 'Status', cell: (c) => <Chip tone={COUNT_STATUS[c.status]?.tone ?? 'plain'}>{COUNT_STATUS[c.status]?.label ?? words(c.status)}</Chip> },
@@ -246,6 +270,7 @@ function Counts() {
           { key: 'vu', header: 'Variance', numeric: true, cell: (c) => <Variance n={c.varianceUnits} text={signed(c.varianceUnits)} />, hideBelow: 'sm' },
           { key: 'vv', header: 'Variance value', numeric: true, cell: (c) => <Variance n={c.varianceValue} text={formatMoney(c.varianceValue, symbol)} /> },
         ]}
+        footer={query.data && <Pager page={f.page} pageSize={LIST_PAGE} total={query.data.total} onPage={f.setPage} noun="counts" />}
       />
       {open && <CountPanel row={open} onClose={() => setOpen(null)} />}
     </>

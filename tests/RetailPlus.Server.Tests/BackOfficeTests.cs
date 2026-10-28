@@ -322,18 +322,18 @@ public sealed class BackOfficeTests(BackOffice office) : IClassFixture<BackOffic
         // The transfer belongs to both stores.
         foreach (var admin in new[] { adminA, adminB })
         {
-            var transfer = Assert.Single(await GetAsync<List<TransferListRow>>(admin, "/api/transfers"), t => t.Id == office.TransferId);
+            var transfer = Assert.Single((await GetAsync<PageOf<TransferListRow>>(admin, "/api/transfers")).Items, t => t.Id == office.TransferId);
             Assert.Equal((StockTransferStatus.Received, office.StoreA.Code, office.StoreB.Code, 4m), (transfer.Status, transfer.FromStore, transfer.ToStore, transfer.Units));
         }
         var detail = await GetAsync<TransferDetail>(adminB, $"/api/transfers/{office.TransferId}");
         var line = Assert.Single(detail.Lines);
         Assert.Equal(("A-SNACK", 4m, 4m), (line.Plu, line.QuantityShipped, line.QuantityReceived));
-        Assert.Empty(await GetAsync<List<TransferListRow>>(adminA, "/api/transfers?status=shipped"));
+        Assert.Empty((await GetAsync<PageOf<TransferListRow>>(adminA, "/api/transfers?status=shipped")).Items);
 
         // The count was made at store B.
-        Assert.DoesNotContain(await GetAsync<List<CountListRow>>(adminA, "/api/stock-counts"), c => c.Id == office.CountId);
+        Assert.DoesNotContain((await GetAsync<PageOf<CountListRow>>(adminA, "/api/stock-counts")).Items, c => c.Id == office.CountId);
         Assert.Equal(HttpStatusCode.NotFound, await StatusAsync(adminA.GetAsync($"/api/stock-counts/{office.CountId}")));
-        var count = Assert.Single(await GetAsync<List<CountListRow>>(adminB, "/api/stock-counts?status=posted"), c => c.Id == office.CountId);
+        var count = Assert.Single((await GetAsync<PageOf<CountListRow>>(adminB, "/api/stock-counts?status=posted")).Items, c => c.Id == office.CountId);
         Assert.Equal(office.StoreB.Code, count.StoreCode);
         var counted = await GetAsync<CountDetail>(adminB, $"/api/stock-counts/{office.CountId}");
         var tea = Assert.Single(counted.Lines);

@@ -85,6 +85,25 @@ for (const [size, viewport] of SIZES) {
       await page.screenshot({ animations: 'disabled', path: join(dir, `${size}-26-departments.png`) });
     });
 
+    test('transfers', async ({ page }) => {
+      await mockApi(page);
+      await page.goto('/stock/');
+      await page.getByRole('tab', { name: 'Transfers' }).click();
+      await expect(page.getByPlaceholder('Transfer number or location')).toBeVisible();
+      await page.screenshot({ animations: 'disabled', path: join(dir, `${size}-27-transfers.png`) });
+    });
+
+    test('every store', async ({ page }) => {
+      await mockApi(page);
+      await page.goto('/items/edit/?id=i-1');
+      await page.getByLabel(/Apply to every store/).check();
+      await page.getByRole('tab', { name: 'Pricing' }).click();
+      await page.getByLabel('Price 1').fill('19.95');
+      await page.getByRole('button', { name: /^Save/ }).first().click();
+      await expect(page.getByRole('dialog', { name: /Save this change at 2 locations/ })).toBeVisible();
+      await page.screenshot({ animations: 'disabled', path: join(dir, `${size}-28-every-store.png`) });
+    });
+
     test('report printout', async ({ page }) => {
       await mockApi(page);
       await page.goto('/reports/view/?key=daily');

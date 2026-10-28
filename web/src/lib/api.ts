@@ -24,6 +24,8 @@ import type {
   HoursRow,
   ImageKind,
   ItemDetail,
+  ItemEveryStorePlan,
+  ItemEveryStoreResult,
   ItemRow,
   NewStationRequest,
   Paged,
@@ -331,6 +333,11 @@ export function createApi(options: ApiOptions = {}) {
     /** Without `locationId`, the item goes to the first location of `storeId` (or the user's store). */
     addItem: (item: ItemDetail, storeId?: string | null) => json<ItemDetail>('/items', { method: 'POST', body: item, query: { storeId } }),
     saveItem: (itemId: string, item: ItemDetail) => put<ItemDetail>(`/items/${id(itemId)}`, item),
+    /** Where a change at every store would go. */
+    itemEveryStore: (itemId: string) => get<ItemEveryStorePlan>(`/items/${id(itemId)}/every-store`),
+    /** Saves this row and copies what changed on it to the code's rows at every location the user may change. */
+    saveItemEveryStore: (itemId: string, item: ItemDetail) =>
+      json<ItemEveryStoreResult>(`/items/${id(itemId)}`, { method: 'PUT', body: item, query: { everyStore: true } }),
     deleteItem: (itemId: string) => del(`/items/${id(itemId)}`),
     undeleteItem: (itemId: string) => post<void>(`/items/${id(itemId)}/undelete`),
     departments: () => get<Department[]>('/departments'),
@@ -358,9 +365,9 @@ export function createApi(options: ApiOptions = {}) {
 
     // Stock
     movements: (query: Query, signal?: AbortSignal) => get<Paged<StockMovementRow>>('/stock/movements', query, signal),
-    transfers: (query: Query) => get<TransferRow[]>('/transfers', query),
+    transfers: (query: Query, signal?: AbortSignal) => get<Paged<TransferRow>>('/transfers', query, signal),
     transfer: (transferId: string) => get<TransferDetail>(`/transfers/${id(transferId)}`),
-    counts: (query: Query) => get<StockCountRow[]>('/stock-counts', query),
+    counts: (query: Query, signal?: AbortSignal) => get<Paged<StockCountRow>>('/stock-counts', query, signal),
     count: (countId: string) => get<StockCountDetail>(`/stock-counts/${id(countId)}`),
 
     // Gift cards

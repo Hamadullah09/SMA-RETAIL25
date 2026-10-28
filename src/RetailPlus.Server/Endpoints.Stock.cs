@@ -73,15 +73,27 @@ public static partial class Endpoints
         if (store is { } s) transfers = transfers.Where(StockTransfer.OfStore(s));
         if (api.Text("status") is { } statusText)
             transfers = Enum.TryParse<StockTransferStatus>(statusText, true, out var status) ? transfers.Where(t => t.Status == status) : throw ApiException.Bad($"{statusText} is not a transfer status.");
-        var rows = await transfers.OrderByDescending(t => t.CreatedAt).Take(1000).Select(t => new
+        // The number, or a location (code or name) it leaves from or goes to.
+        if (api.Text("search") is { } text)
+        {
+            long? number = SearchNumber(text);
+            transfers = transfers.Where(t => (number != null && t.Number == number)
+                                             || t.FromLocation!.Code.StartsWith(text) || (t.FromLocation.Name ?? "").Contains(text)
+                                             || t.ToLocation!.Code.StartsWith(text) || (t.ToLocation.Name ?? "").Contains(text));
+        }
+        var codes = await StoreCodesAsync(db);
+        var rows = transfers.OrderByDescending(t => t.CreatedAt).ThenByDescending(t => t.Number).Select(t => new
         {
             t.Id, t.Number, t.Status, t.StoreId, t.ToStoreId, From = t.FromLocation!.Code, To = t.ToLocation!.Code, t.CreatedAt, t.ShippedAt, t.ReceivedAt,
             Lines = t.Lines.Count, Units = t.Lines.Sum(l => l.QuantityShipped), Value = t.Lines.Sum(l => l.QuantityShipped * l.UnitCost),
-        }).ToListAsync();
-        var codes = await StoreCodesAsync(db);
-        return Results.Ok(rows.Select(t => new TransferListRow(t.Id, t.Number, t.Status, codes.GetValueOrDefault(t.StoreId) ?? "", t.From, codes.GetValueOrDefault(t.ToStoreId) ?? "",
-            t.To, t.CreatedAt, t.ShippedAt, t.ReceivedAt, t.Lines, t.Units, Math.Round(t.Value, 2))));
+        });
+        return Results.Ok(await api.PageAsync(rows, t => new TransferListRow(t.Id, t.Number, t.Status, codes.GetValueOrDefault(t.StoreId) ?? "", t.From,
+            codes.GetValueOrDefault(t.ToStoreId) ?? "", t.To, t.CreatedAt, t.ShippedAt, t.ReceivedAt, t.Lines, t.Units, Math.Round(t.Value, 2))));
     }
+
+    /// <summary>A search that is a whole number may be a document number.</summary>
+    private static long? SearchNumber(string text) =>
+        long.TryParse(text, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : null;
 
     private static async Task<IResult> TransferAsync(Guid id, ApiRequest api)
     {
@@ -106,13 +118,20 @@ public static partial class Endpoints
         if (store is { } s) counts = counts.Where(c => c.StoreId == s);
         if (api.Text("status") is { } statusText)
             counts = Enum.TryParse<StockCountStatus>(statusText, true, out var status) ? counts.Where(c => c.Status == status) : throw ApiException.Bad($"{statusText} is not a count status.");
-        var rows = await counts.OrderByDescending(c => c.StartedAt).Take(1000).Select(c => new
+        // The number, or the location (code or name) counted.
+        if (api.Text("search") is { } text)
+        {
+            long? number = SearchNumber(text);
+            counts = counts.Where(c => (number != null && c.Number == number) || c.Location!.Code.StartsWith(text) || (c.Location.Name ?? "").Contains(text));
+        }
+        var codes = await StoreCodesAsync(db);
+        var rows = counts.OrderByDescending(c => c.StartedAt).ThenByDescending(c => c.Number).Select(c => new
         {
             c.Id, c.Number, c.Status, c.StoreId, Location = c.Location!.Code, c.StartedAt, c.PostedAt, Lines = c.Lines.Count,
             Units = c.Lines.Sum(l => l.Variance), Value = c.Lines.Sum(l => l.VarianceCost),
-        }).ToListAsync();
-        var codes = await StoreCodesAsync(db);
-        return Results.Ok(rows.Select(c => new CountListRow(c.Id, c.Number, c.Status, codes.GetValueOrDefault(c.StoreId) ?? "", c.Location, c.StartedAt, c.PostedAt, c.Lines, c.Units, c.Value)));
+        });
+        return Results.Ok(await api.PageAsync(rows, c => new CountListRow(c.Id, c.Number, c.Status, codes.GetValueOrDefault(c.StoreId) ?? "", c.Location, c.StartedAt,
+            c.PostedAt, c.Lines, c.Units, c.Value)));
     }
 
     private static async Task<IResult> CountAsync(Guid id, ApiRequest api)

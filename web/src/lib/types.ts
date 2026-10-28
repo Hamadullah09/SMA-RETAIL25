@@ -327,6 +327,35 @@ export interface ItemDetail {
   stock?: ItemStock[];
 }
 
+/** One location's row of a stock code. */
+export interface ItemPlace {
+  itemId: string;
+  storeCode: string;
+  locationCode: string;
+}
+
+/** A location a change at every store does not reach, and why. */
+export interface ItemSkip {
+  storeCode: string;
+  locationCode: string;
+  reason: string;
+}
+
+/** `GET /api/items/{id}/every-store`: the code's rows the user may change, and the locations without it. */
+export interface ItemEveryStorePlan {
+  rows: ItemPlace[];
+  skipped: ItemSkip[];
+}
+
+/** `PUT /api/items/{id}?everyStore=true`: the rows changed (this one first), the fields copied, what was left alone. */
+export interface ItemEveryStoreResult {
+  item: ItemDetail;
+  changed: number;
+  fields: string[];
+  changedAt: ItemPlace[];
+  skipped: ItemSkip[];
+}
+
 export interface Department {
   id: string;
   name: string;
