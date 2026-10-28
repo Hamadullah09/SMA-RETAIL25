@@ -8,26 +8,16 @@ internal static class RowJson
 {
     private static readonly JsonSerializerOptions Options = new() { WriteIndented = false };
 
-    /// <summary>A JSON array of rows, each given as values in the order of <paramref name="columns"/>.</summary>
-    public static byte[] Write(IReadOnlyList<IProperty> columns, IEnumerable<object?[]> rows)
+    /// <summary>One row as a JSON object, its values in the order of <paramref name="columns"/>.</summary>
+    public static void WriteRow(Utf8JsonWriter writer, IReadOnlyList<IProperty> columns, object?[] row)
     {
-        using var buffer = new MemoryStream();
-        using (var writer = new Utf8JsonWriter(buffer))
+        writer.WriteStartObject();
+        for (int i = 0; i < columns.Count; i++)
         {
-            writer.WriteStartArray();
-            foreach (var row in rows)
-            {
-                writer.WriteStartObject();
-                for (int i = 0; i < columns.Count; i++)
-                {
-                    writer.WritePropertyName(columns[i].Name);
-                    JsonSerializer.Serialize(writer, row[i], columns[i].ClrType, Options);
-                }
-                writer.WriteEndObject();
-            }
-            writer.WriteEndArray();
+            writer.WritePropertyName(columns[i].Name);
+            JsonSerializer.Serialize(writer, row[i], columns[i].ClrType, Options);
         }
-        return buffer.ToArray();
+        writer.WriteEndObject();
     }
 
     /// <summary>

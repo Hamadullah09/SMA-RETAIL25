@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -19,6 +20,11 @@ public sealed class TillSyncSettings
     /// <summary>Where packages wait until the server has them: the outbox folder next to the database file.</summary>
     public required string Outbox { get; set; }
     public string? AppVersion { get; set; }
+    /// <summary>
+    /// At most this many rows in one package: more changes (the first package after joining holds everything) are written
+    /// as a series of packages, sent one after another. Also the rows applied at a time from the server's package.
+    /// </summary>
+    public int MaxRowsPerPackage { get; set; } = 10_000;
 
     public bool Joined => !string.IsNullOrWhiteSpace(ServerUrl) && !string.IsNullOrWhiteSpace(StationKey);
 }
@@ -45,10 +51,14 @@ public sealed record JoinResult(Guid StoreId, string StoreName, int StationNumbe
 public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<Uri, HttpClient>? httpFactory = null)
 {
     private static readonly ConcurrentDictionary<string, SemaphoreSlim> Locks = new(StringComparer.OrdinalIgnoreCase);
+    private const string Unfinished = ".writing-";
     private readonly PackageWriter _writer = new();
-    private readonly PackageApplier _applier = new();
 
     public TillSyncSettings Settings { get; } = settings;
+
+    private int MaxRows => Math.Max(1, Settings.MaxRowsPerPackage);
+
+    private PackageApplier Applier() => new() { RowsAtATime = Math.Min(MaxRows, 1000) };
 
     /// <summary>The outbox of a till whose database is <paramref name="databaseFile"/>: a folder next to it.</summary>
     public static string OutboxFor(string databaseFile) => Path.Combine(Path.GetDirectoryName(Path.GetFullPath(databaseFile))!, "outbox");
@@ -108,32 +118,47 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
     // Packages ----------------------------------------------------------------------------------------------------------
 
     /// <summary>
-    /// Writes a package of everything changed since the last one into the outbox and moves the mark on; null when nothing
-    /// changed. With <paramref name="includeDatabase"/> the package also carries a copy of the whole database file.
+    /// Writes everything changed since the last package into the outbox and moves the mark on; returns the last file
+    /// written, or null when nothing changed. See <see cref="CreatePackagesAsync"/>.
     /// </summary>
-    public async Task<string?> CreatePackageAsync(bool includeDatabase = false, CancellationToken cancellationToken = default)
+    public async Task<string?> CreatePackageAsync(bool includeDatabase = false, CancellationToken cancellationToken = default) =>
+        await CreatePackagesAsync(includeDatabase, cancellationToken) is [.., var last] ? last : null;
+
+    /// <summary>
+    /// Writes everything changed since the last package into the outbox as a series of packages of at most
+    /// <see cref="TillSyncSettings.MaxRowsPerPackage"/> rows, and moves the mark on; returns the files in the order they
+    /// are to be sent (none when nothing changed). With <paramref name="includeDatabase"/> the last package also carries a
+    /// copy of the whole database file.
+    /// </summary>
+    public async Task<IReadOnlyList<string>> CreatePackagesAsync(bool includeDatabase = false, CancellationToken cancellationToken = default)
     {
+        RemoveUnfinished(Settings.Outbox);
         await using var db = data.Create();
         var state = await StateAsync(db, cancellationToken);
-        var (manifest, file) = await WriteAsync(db, state.PackagedThroughUtc, state.DownloadCursor, includeDatabase, Settings.Outbox, cancellationToken);
-        if (manifest is null) return null;
-        state.PackagedThroughUtc = manifest.PackagedThroughUtc!.Value;
-        db.SyncBatches.Add(new SyncBatch
-        {
-            BatchId = manifest.BatchId, StoreId = manifest.StoreId, StationNumber = manifest.StationNumber, Direction = SyncDirection.Upload,
-            FileName = Path.GetFileName(file), Rows = manifest.Rows, AppVersion = manifest.AppVersion, ReceivedAtUtc = manifest.CreatedAtUtc,
-            Status = SyncBatchStatus.Waiting,
-        });
+        var written = await WriteAsync(db, state.PackagedThroughUtc, state.DownloadCursor, includeDatabase, Settings.Outbox, MaxRows, cancellationToken);
+        if (written.Count == 0) return [];
+        state.PackagedThroughUtc = written[^1].Manifest.PackagedThroughUtc!.Value;
+        foreach (var (manifest, file) in written)
+            db.SyncBatches.Add(new SyncBatch
+            {
+                BatchId = manifest.BatchId, StoreId = manifest.StoreId, StationNumber = manifest.StationNumber, Direction = SyncDirection.Upload,
+                FileName = Path.GetFileName(file), Rows = manifest.Rows, AppVersion = manifest.AppVersion, ReceivedAtUtc = manifest.CreatedAtUtc,
+                Status = SyncBatchStatus.Waiting, Notes = written.Count > 1 ? $"Package {manifest.Part} of {written.Count}." : null,
+            });
         await db.SaveChangesAsync(cancellationToken);
-        return file;
+        return [.. written.Select(w => w.File)];
     }
 
-    private async Task<(PackageManifest? Manifest, string? File)> WriteAsync(RetailPlusDbContext db, DateTime changedAfter, long cursor, bool includeDatabase,
-        string folder, CancellationToken cancellationToken, bool evenIfEmpty = false)
+    /// <summary>
+    /// Writes the packages into a folder of their own and moves them into <paramref name="folder"/> when all are done, so
+    /// a till that stops half way leaves no half series to send (the mark has not moved; the next run writes them again).
+    /// </summary>
+    private async Task<IReadOnlyList<(PackageManifest Manifest, string File)>> WriteAsync(RetailPlusDbContext db, DateTime changedAfter, long cursor, bool includeDatabase,
+        string folder, int? maxRows, CancellationToken cancellationToken, bool evenIfEmpty = false)
     {
         Directory.CreateDirectory(folder);
         string? copy = null;
-        var temp = Path.Combine(folder, ".writing-" + Guid.NewGuid().ToString("N"));
+        var work = Directory.CreateDirectory(Path.Combine(folder, Unfinished + Guid.NewGuid().ToString("N"))).FullName;
         try
         {
             if (includeDatabase)
@@ -142,21 +167,51 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
                 var copies = Path.Combine(Path.GetTempPath(), "smaretail-copy-" + Guid.NewGuid().ToString("N"));
                 copy = await new BackupService(data).BackupAsync(copies, cancellationToken);
             }
-            PackageManifest? manifest;
-            await using (var output = File.Create(temp))
-                manifest = await _writer.WriteUploadAsync(db, output, new UploadOptions(Till, Key, changedAfter == default ? null : changedAfter, cursor, Settings.AppVersion)
-                {
-                    DatabaseCopy = copy, EvenIfEmpty = evenIfEmpty,
-                }, cancellationToken);
-            if (manifest is null) return (null, null);
-            var file = Path.Combine(folder, SyncPackage.FileName(manifest));
-            File.Move(temp, file);
-            return (manifest, file);
+            var files = new List<string>();
+            var manifests = await _writer.WriteUploadAsync(db, part =>
+            {
+                var file = Path.Combine(work, part.ToString("00000", CultureInfo.InvariantCulture) + SyncPackage.Extension);
+                files.Add(file);
+                return File.Create(file);
+            }, new UploadOptions(Till, Key, changedAfter == default ? null : changedAfter, cursor, Settings.AppVersion)
+            {
+                DatabaseCopy = copy, EvenIfEmpty = evenIfEmpty, MaxRowsPerPackage = maxRows,
+            }, cancellationToken);
+            var written = new List<(PackageManifest, string)>();
+            for (int i = 0; i < manifests.Count; i++)
+            {
+                var file = Path.Combine(folder, SyncPackage.FileName(manifests[i]));
+                File.Move(files[i], file);
+                written.Add((manifests[i], file));
+            }
+            return written;
         }
         finally
         {
-            if (File.Exists(temp)) File.Delete(temp);
+            Directory.Delete(work, true);
             if (copy is not null) Directory.Delete(Path.GetDirectoryName(copy)!, true);
+        }
+    }
+
+    /// <summary>What a run that stopped half way (the program closed, the disk full) left behind in the outbox.</summary>
+    private static void RemoveUnfinished(string outbox)
+    {
+        if (!Directory.Exists(outbox)) return;
+        var before = DateTime.UtcNow.AddHours(-1);
+        foreach (var path in Directory.EnumerateFileSystemEntries(outbox, Unfinished + "*").Concat(Directory.EnumerateFiles(outbox, ".download-*")))
+        {
+            try
+            {
+                if (Directory.Exists(path))
+                {
+                    if (Directory.GetLastWriteTimeUtc(path) < before) Directory.Delete(path, true);
+                }
+                else if (File.GetLastWriteTimeUtc(path) < before) File.Delete(path);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Still in use; the next run tries again.
+            }
         }
     }
 
@@ -171,9 +226,10 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
         {
             await using var db = data.Create();
             var state = await StateAsync(db, cancellationToken);
-            await CreatePackageAsync(false, cancellationToken);   // what is new also waits in the outbox, in case the stick is lost
-            var (_, file) = await WriteAsync(db, state.SentThroughUtc, state.DownloadCursor, includeDatabase, folder, cancellationToken, evenIfEmpty: true);
-            return file!;
+            await CreatePackagesAsync(false, cancellationToken);   // what is new also waits in the outbox, in case the stick is lost
+            // One file, however large: it is carried and uploaded by hand.
+            var written = await WriteAsync(db, state.SentThroughUtc, state.DownloadCursor, includeDatabase, folder, null, cancellationToken, evenIfEmpty: true);
+            return written[0].File;
         }
         finally
         {
@@ -218,7 +274,7 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
             });
             return new ApplyResult(SyncBatchStatus.Applied, manifest.BatchId, 0, 0, 0, 0, [], null);
         }
-        return await _applier.ApplyAsync(data, package, Key, new ApplyOptions
+        return await Applier().ApplyAsync(data, package, Key, new ApplyOptions
         {
             Side = SyncSide.Till, Till = Till, FileName = Path.GetFileName(file),
             AfterApply = async (db, m) =>
@@ -256,12 +312,12 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
         if (!Settings.Joined) return new SyncRunResult(null, 0, 0, null, "This till has not joined a server.");
         await Gate.WaitAsync(cancellationToken);
         string? written = null;
-        int sent = 0, refused = 0;
+        var outbox = new OutboxProgress();
         ApplyResult? received = null;
         try
         {
             written = await CreatePackageAsync(false, cancellationToken);
-            (sent, refused) = await SendOutboxAsync(cancellationToken);
+            await SendOutboxAsync(outbox, cancellationToken);
             var file = Path.Combine(Settings.Outbox, ".download-" + Guid.NewGuid().ToString("N"));
             try
             {
@@ -275,16 +331,17 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
                 if (File.Exists(file)) File.Delete(file);
             }
             string? error = received.Status == SyncBatchStatus.Failed ? "The server's package could not be applied: " + received.Error
-                : refused > 0 ? $"The server refused {refused} package(s); see the refused folder." : null;
+                : outbox.Refused > 0 ? $"The server refused {outbox.Refused} package(s); see the refused folder." : null;
             await NoteAsync(error);
-            return new SyncRunResult(written, sent, refused, received, error);
+            return new SyncRunResult(written, outbox.Sent, outbox.Refused, received, error);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or SyncAuthException or SyncRefusedException
                                        or PackageRejectedException or BusinessRuleException or InvalidOperationException or DbUpdateException or JsonException)
         {
+            // What was sent before the problem stays sent: the next run goes on with the packages still waiting.
             var error = ex is HttpRequestException or TaskCanceledException ? "The server could not be reached: " + ex.Message : ex.Message;
             await NoteAsync(error);
-            return new SyncRunResult(written, sent, refused, received, error);
+            return new SyncRunResult(written, outbox.Sent, outbox.Refused, received, error);
         }
         finally
         {
@@ -292,12 +349,30 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
         }
     }
 
-    /// <summary>Sends the waiting packages, oldest first. Stops at the first connection problem; a refused package is set aside.</summary>
+    /// <summary>
+    /// Sends the waiting packages, oldest first and the packages of a series in order. Stops at the first connection
+    /// problem: the packages not sent stay in the outbox and the next run goes on from there. A refused package is set
+    /// aside, and with it the rest of its series, which the server would refuse too.
+    /// </summary>
     public async Task<(int Sent, int Refused)> SendOutboxAsync(CancellationToken cancellationToken = default)
     {
-        if (!Directory.Exists(Settings.Outbox)) return (0, 0);
-        int sent = 0, refused = 0;
+        var progress = new OutboxProgress();
+        await SendOutboxAsync(progress, cancellationToken);
+        return (progress.Sent, progress.Refused);
+    }
+
+    /// <summary>How far sending the outbox got, also when it stopped at a connection problem.</summary>
+    private sealed class OutboxProgress
+    {
+        public int Sent;
+        public int Refused;
+    }
+
+    private async Task SendOutboxAsync(OutboxProgress progress, CancellationToken cancellationToken)
+    {
+        if (!Directory.Exists(Settings.Outbox)) return;
         var client = Client();
+        var refusedSeries = new HashSet<Guid>();
         foreach (var file in Directory.GetFiles(Settings.Outbox, "*" + SyncPackage.Extension).Order(StringComparer.Ordinal))
         {
             PackageManifest manifest;
@@ -308,15 +383,18 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
             string? error = null;
             try
             {
+                if (manifest.SeriesId is { } series && refusedSeries.Contains(series))
+                    throw new SyncRefusedException($"Package {manifest.Part} was not sent: an earlier package of the same series was refused.");
                 var response = await client.UploadAsync(Till.StationNumber, Key, file, cancellationToken);
                 status = response.Status;
-                sent++;
+                progress.Sent++;
             }
             catch (SyncRefusedException ex)
             {
                 Directory.CreateDirectory(RefusedFolder);
                 File.Move(file, Path.Combine(RefusedFolder, Path.GetFileName(file)), overwrite: true);
-                refused++;
+                progress.Refused++;
+                if (manifest.SeriesId is { } series) refusedSeries.Add(series);
                 status = nameof(SyncBatchStatus.Failed);
                 error = ex.Message;
             }
@@ -339,7 +417,6 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
             }
             await db.SaveChangesAsync(cancellationToken);
         }
-        return (sent, refused);
     }
 
     // Joining ------------------------------------------------------------------------------------------------------------
@@ -348,8 +425,9 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
     /// Joins this till to a server with an enrolment code. The till becomes the station the server set up: its data, made
     /// under the store and station it was seeded with, is moved to the server's store and station number in one
     /// transaction together with the server's first package (where the same thing exists on both, such as the POS
-    /// location or a tender type, the server's is kept and the till's rows are moved over to it). Everything on the till
-    /// is sent with the next run.
+    /// location or a tender type, the server's is kept and the till's rows are moved over to it). The first package is
+    /// downloaded like any other, into a file, with the key the enrolment gave. Everything on the till is sent with the
+    /// next runs, as a series of packages.
     /// </summary>
     public static async Task<JoinResult> JoinAsync(DataContext data, string serverUrl, string code, string? appVersion,
         Func<Uri, HttpClient>? httpFactory = null, CancellationToken cancellationToken = default)
@@ -365,9 +443,9 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
         var old = data.Station;
 
         var file = Path.Combine(Path.GetTempPath(), "smaretail-join-" + Guid.NewGuid().ToString("N") + SyncPackage.Extension);
-        await File.WriteAllBytesAsync(file, Convert.FromBase64String(joined.Package), cancellationToken);
         try
         {
+            await DownloadFirstAsync(client, joined.StationNumber, key, file, cancellationToken);
             await using var stream = File.OpenRead(file);
             using var package = PackageReader.Open(stream);
             package.Verify(key);
@@ -395,6 +473,26 @@ public sealed class TillSync(DataContext data, TillSyncSettings settings, Func<U
         finally
         {
             File.Delete(file);
+        }
+    }
+
+    /// <summary>
+    /// The first package, tried three times: the enrolment code is used up by now, so a connection that drops here would
+    /// otherwise mean asking for a new code.
+    /// </summary>
+    private static async Task DownloadFirstAsync(SyncClient client, int station, byte[] key, string file, CancellationToken cancellationToken)
+    {
+        for (int attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await client.DownloadAsync(station, key, 0, file, cancellationToken);
+                return;
+            }
+            catch (Exception ex) when (ex is HttpRequestException or IOException or TaskCanceledException && attempt < 3 && !cancellationToken.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(2 * attempt), cancellationToken);
+            }
         }
     }
 

@@ -10,8 +10,11 @@ namespace RetailPlus.Sync;
 /// <summary>A request to join a till to the server with a one-time enrolment code.</summary>
 public sealed record EnrollRequest(string Code, string? AppVersion, string? MachineName);
 
-/// <summary>What the server tells a till that joins: its store, its station number, its key and its first package (Base64).</summary>
-public sealed record EnrollResponse(Guid StoreId, string StoreCode, string StoreName, int StationNumber, string StationKey, string Package);
+/// <summary>
+/// What the server tells a till that joins: its store, its station number and its key. The till then downloads its first
+/// package with that key, like any download (streamed, however large the store).
+/// </summary>
+public sealed record EnrollResponse(Guid StoreId, string StoreCode, string StoreName, int StationNumber, string StationKey);
 
 /// <summary>What the server did with a package.</summary>
 public sealed record UploadResponse(string Status, Guid BatchId, int Inserted, int Updated, int Deleted, IReadOnlyList<string> Notes, string? Error);
@@ -68,13 +71,16 @@ public sealed class SyncClient(HttpClient http)
         return await response.Content.ReadFromJsonAsync<EnrollResponse>(cancellationToken) ?? throw new SyncRefusedException("The server sent no answer.");
     }
 
-    /// <summary>Sends one package file.</summary>
+    /// <summary>Sends one package file, streamed from the disk.</summary>
     public async Task<UploadResponse> UploadAsync(int station, byte[] key, string packageFile, CancellationToken cancellationToken = default)
     {
-        var body = await File.ReadAllBytesAsync(packageFile, cancellationToken);
-        using var request = Signed(HttpMethod.Post, "api/sync/upload", station, key, body);
-        request.Content = new ByteArrayContent(body);
+        string sha;
+        await using (var hashed = File.OpenRead(packageFile)) sha = Convert.ToHexStringLower(await SHA256.HashDataAsync(hashed, cancellationToken));
+        await using var body = File.OpenRead(packageFile);
+        using var request = Signed(HttpMethod.Post, "api/sync/upload", station, key, sha);
+        request.Content = new StreamContent(body);
         request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        request.Content.Headers.ContentLength = body.Length;
         using var response = await Http.SendAsync(request, cancellationToken);
         if (response.StatusCode == HttpStatusCode.UnprocessableEntity)
             throw new SyncRefusedException(await ErrorAsync(response, "The server refused the package."));
@@ -85,22 +91,21 @@ public sealed class SyncClient(HttpClient http)
     /// <summary>Fetches the package of what changed on the server after <paramref name="cursor"/> into a file.</summary>
     public async Task DownloadAsync(int station, byte[] key, long cursor, string targetFile, CancellationToken cancellationToken = default)
     {
-        using var request = Signed(HttpMethod.Get, "api/sync/download?cursor=" + cursor.ToString(CultureInfo.InvariantCulture), station, key, null);
+        using var request = Signed(HttpMethod.Get, "api/sync/download?cursor=" + cursor.ToString(CultureInfo.InvariantCulture), station, key, StationAuth.EmptyBodySha256);
         using var response = await Http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         await EnsureAsync(response);
         await using var target = File.Create(targetFile);
         await response.Content.CopyToAsync(target, cancellationToken);
     }
 
-    private HttpRequestMessage Signed(HttpMethod method, string relative, int station, byte[] key, byte[]? body)
+    private HttpRequestMessage Signed(HttpMethod method, string relative, int station, byte[] key, string bodySha256)
     {
         var uri = new Uri(Http.BaseAddress ?? throw new InvalidOperationException("No server address."), relative);
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var request = new HttpRequestMessage(method, uri);
         request.Headers.Add(StationAuth.StationHeader, station.ToString(CultureInfo.InvariantCulture));
         request.Headers.Add(StationAuth.TimeHeader, now.ToString(CultureInfo.InvariantCulture));
-        request.Headers.Add(StationAuth.SignatureHeader,
-            StationAuth.Sign(key, method.Method, uri.PathAndQuery, now, body is null ? StationAuth.EmptyBodySha256 : SyncPackage.Sha256(body)));
+        request.Headers.Add(StationAuth.SignatureHeader, StationAuth.Sign(key, method.Method, uri.PathAndQuery, now, bodySha256));
         return request;
     }
 
