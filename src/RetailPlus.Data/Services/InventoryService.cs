@@ -29,7 +29,7 @@ public enum ItemSearchField
     Barcode,
 }
 
-/// <summary>How Change prices sets the new Price 1.</summary>
+/// <summary>How Change prices sets the new price.</summary>
 public enum PriceChangeMethod
 {
     /// <summary>Up or down by a percentage.</summary>
@@ -40,8 +40,11 @@ public enum PriceChangeMethod
     Amount,
 }
 
-/// <summary>A price change: the method and its value, and optionally the cents every new price ends in (.99).</summary>
-public sealed record PriceRule(PriceChangeMethod Method, decimal Value, decimal? Ending = null);
+/// <summary>
+/// A price change: the method and its value, optionally the cents every new price ends in (.99), and which of the item's
+/// four prices it changes (<paramref name="Level"/> 1 to 4).
+/// </summary>
+public sealed record PriceRule(PriceChangeMethod Method, decimal Value, decimal? Ending = null, int Level = 1);
 
 /// <summary>One item of the Change prices preview; the user may change the new price or leave the item out.</summary>
 public sealed class PriceChangePreview(Guid itemId, string plu, string name, string? department, decimal cost, decimal oldPrice)
@@ -53,6 +56,8 @@ public sealed class PriceChangePreview(Guid itemId, string plu, string name, str
     public decimal Cost { get; } = cost;
     public decimal OldPrice { get; } = oldPrice;
     public decimal NewPrice { get; set; }
+    /// <summary>Which price changes: 1 to 4.</summary>
+    public int Level { get; init; } = 1;
     public bool Apply { get; set; } = true;
     public decimal OldMargin => Money.MarginPercent(OldPrice, Cost);
     public decimal NewMargin => Money.MarginPercent(NewPrice, Cost);
@@ -463,34 +468,37 @@ public sealed class InventoryService(DataContext data)
     }
 
     /// <summary>
-    /// Change prices with a preview: the new Price 1 of every item the rule reaches, for the user to check (and change or
-    /// leave out) before <see cref="ApplyPriceChangesAsync"/>. Items whose price would not change are not listed; with a
-    /// margin, items without a cost are not either.
+    /// Change prices with a preview: the new price (of the rule's level) of every item the rule reaches, for the user to
+    /// check (and change or leave out) before <see cref="ApplyPriceChangesAsync"/>. Items whose price would not change are
+    /// not listed; with a margin, items without a cost are not either.
     /// </summary>
     public async Task<List<PriceChangePreview>> PreviewPriceChangesAsync(Guid locationId, PriceRule rule, bool flaggedOnly, string? department)
     {
         if (rule.Method == PriceChangeMethod.Margin && rule.Value >= 100) throw new BusinessRuleException("A margin must be below 100%.");
+        if (rule.Level is < 1 or > 4) throw new BusinessRuleException("Items have prices 1 to 4.");
         await using var db = data.Create();
         var q = db.Items.AsNoTracking().Where(i => i.LocationId == locationId && !i.IsDeleted);
         if (flaggedOnly) q = q.Where(i => i.IsFlagged);
         if (!string.IsNullOrWhiteSpace(department)) q = q.Where(i => i.Department != null && i.Department.Name == department);
         var items = await q.OrderBy(i => i.Plu)
-            .Select(i => new { i.Id, i.Plu, i.Name, Department = i.Department != null ? i.Department.Name : null, i.AverageCost, i.LastCost, i.Price1 }).ToListAsync();
+            .Select(i => new { i.Id, i.Plu, i.Name, Department = i.Department != null ? i.Department.Name : null, i.AverageCost, i.LastCost, i.Price1, i.Price2, i.Price3, i.Price4 })
+            .ToListAsync();
         var rows = new List<PriceChangePreview>();
         foreach (var i in items)
         {
             decimal cost = i.AverageCost > 0 ? i.AverageCost : i.LastCost;
+            decimal old = rule.Level switch { 2 => i.Price2, 3 => i.Price3, 4 => i.Price4, _ => i.Price1 };
             decimal price = rule.Method switch
             {
-                PriceChangeMethod.Margin when cost <= 0 => i.Price1,
+                PriceChangeMethod.Margin when cost <= 0 => old,
                 PriceChangeMethod.Margin => Money.SuggestPrice(cost, rule.Value),
-                PriceChangeMethod.Amount => Money.Round(i.Price1 + rule.Value),
-                _ => Money.Round(i.Price1 * (1 + rule.Value / 100m)),
+                PriceChangeMethod.Amount => Money.Round(old + rule.Value),
+                _ => Money.Round(old * (1 + rule.Value / 100m)),
             };
             if (rule.Ending is decimal ending && price > 0) price = EndIn(price, ending);
             price = Math.Max(0, price);
-            if (price == i.Price1) continue;
-            rows.Add(new PriceChangePreview(i.Id, i.Plu, i.Name, i.Department, cost, i.Price1) { NewPrice = price });
+            if (price == old) continue;
+            rows.Add(new PriceChangePreview(i.Id, i.Plu, i.Name, i.Department, cost, old) { NewPrice = price, Level = rule.Level });
         }
         return rows;
     }
@@ -502,18 +510,31 @@ public sealed class InventoryService(DataContext data)
         return Math.Ceiling(price - ending) + ending;
     }
 
-    /// <summary>Sets the checked rows' new Price 1 (and the margin that goes with it). Returns the number of items changed.</summary>
+    /// <summary>
+    /// Sets the checked rows' new price (with Price 1, also the margin that goes with it). Returns the number of items
+    /// changed.
+    /// </summary>
     public async Task<int> ApplyPriceChangesAsync(IEnumerable<PriceChangePreview> rows)
     {
-        var chosen = rows.Where(r => r.Apply && r.NewPrice >= 0).ToDictionary(r => r.ItemId, r => r.NewPrice);
+        var chosen = rows.Where(r => r.Apply && r.NewPrice >= 0).ToDictionary(r => r.ItemId);
         if (chosen.Count == 0) return 0;
         await using var db = data.Create();
         var ids = chosen.Keys.ToList();
         var items = await db.Items.Where(i => ids.Contains(i.Id)).ToListAsync();
         foreach (var i in items)
         {
-            i.Price1 = Money.Round(chosen[i.Id]);
-            i.MarginPercent = Math.Clamp(Money.MarginPercent(i.Price1, i.AverageCost > 0 ? i.AverageCost : i.LastCost), -9999m, 9999m);
+            var row = chosen[i.Id];
+            decimal price = Money.Round(row.NewPrice);
+            switch (row.Level)
+            {
+                case 2: i.Price2 = price; break;
+                case 3: i.Price3 = price; break;
+                case 4: i.Price4 = price; break;
+                default:
+                    i.Price1 = price;
+                    i.MarginPercent = Math.Clamp(Money.MarginPercent(i.Price1, i.AverageCost > 0 ? i.AverageCost : i.LastCost), -9999m, 9999m);
+                    break;
+            }
         }
         try
         {

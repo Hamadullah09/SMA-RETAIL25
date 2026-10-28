@@ -168,8 +168,10 @@ public partial class InventoryView : UserControl, IRefreshable
     private async void ChangePrices_Click(object sender, RoutedEventArgs e)
     {
         if (!Approval.Allowed(Permissions.InventoryPrices, "Changing prices")) return;
+        int level = Ui.Choose("Which price?", ["Price 1", "Price 2", "Price 3", "Price 4"], "Change prices") + 1;
+        if (level <= 0) return;
         var methods = new[] { PriceChangeMethod.Percent, PriceChangeMethod.Margin, PriceChangeMethod.Amount };
-        var how = Ui.Choose("How should Price 1 change?", ["By a percentage (e.g. +5 or -10)", "From cost, to a gross margin", "By an amount (e.g. +0.50 or -1)"], "Change prices");
+        var how = Ui.Choose($"How should Price {level} change?", ["By a percentage (e.g. +5 or -10)", "From cost, to a gross margin", "By an amount (e.g. +0.50 or -1)"], "Change prices");
         if (how < 0) return;
         var value = Ui.PromptDecimal(how switch { 0 => "Percent change:", 1 => "Gross margin in percent:", _ => "Amount to add (negative to take off):" }, "Change prices");
         if (value is null) return;
@@ -186,12 +188,12 @@ public partial class InventoryView : UserControl, IRefreshable
             if (d < 0) return;
             dept = depts[d];
         }
-        var rule = new PriceRule(methods[how], value.Value, endings[ending]);
+        var rule = new PriceRule(methods[how], value.Value, endings[ending], level);
         var text = (how switch
         {
-            0 => $"Price 1 {value.Value:+0.##;-0.##}%",
-            1 => $"Price 1 from cost at a {value.Value:0.##}% margin",
-            _ => $"Price 1 {value.Value:+0.00;-0.00}",
+            0 => $"Price {level} {value.Value:+0.##;-0.##}%",
+            1 => $"Price {level} from cost at a {value.Value:0.##}% margin",
+            _ => $"Price {level} {value.Value:+0.00;-0.00}",
         }) + (endings[ending] is decimal end ? $", rounded up to end in {end:.00}" : "") + (scope == 0 ? ", flagged items" : dept is not null ? $", department {dept}" : ", every item");
         await Ui.Try(async () =>
         {

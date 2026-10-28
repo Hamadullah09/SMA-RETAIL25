@@ -471,9 +471,17 @@ public abstract class StockAndMoneyTests(DatabaseFixture db)
         // A case broken at its cost moves value from the case item to the units: no gain or loss.
         Assert.DoesNotContain(export.Lines, l => l.Memo == "Case breaks");
         Assert.Contains(export.Lines, l => l.Account == "1100" && l.Memo == "Payments on account" && l.Credit > 0);
-        // A supervisor's correction: the card owes 5 more, against the adjustments account.
-        Assert.Contains(export.Lines, l => l.Account == "5200" && l.Memo == "Gift card corrections" && l.Debit == 5m);
-        Assert.Contains(export.Lines, l => l.Account == "2400" && l.Memo == "Gift card corrections" && l.Credit == 5m);
+        // A supervisor's correction (this test's +5 and any other test's of the day in a shared database) is posted
+        // against the adjustments account; corrections that belong to a sale are not.
+        var since = today.ToDateTime(TimeOnly.MinValue);
+        decimal corrected;
+        await using (var check = Data.Create())
+            corrected = (await check.GiftCardTransactions.AsNoTracking()
+                .Where(t => t.Kind == GiftCardTransactionKind.Adjust && t.SaleId == null && t.At >= since && t.StoreId == Data.Station!.StoreId)
+                .Select(t => t.Amount).ToListAsync()).Sum();
+        var corrections = export.Lines.Where(l => l.Date == today && l.Memo == "Gift card corrections").ToList();
+        Assert.Equal(corrected, corrections.Where(l => l.Account == "5200").Sum(l => l.Debit - l.Credit));
+        Assert.Equal(corrected, corrections.Where(l => l.Account == "2400").Sum(l => l.Credit - l.Debit));
         Assert.Contains("Tender Visa", export.Unmapped);
         Assert.StartsWith("Date,Journal,Store,Account,Account name,Debit,Credit,Memo", export.ToCsv(), StringComparison.Ordinal);
 
@@ -510,6 +518,18 @@ public abstract class StockAndMoneyTests(DatabaseFixture db)
         var margin = await inventory.PreviewPriceChangesAsync(location.Id, new PriceRule(PriceChangeMethod.Margin, 50), false, null);
         Assert.All(margin, p => Assert.Equal(10m, p.NewPrice));
         Assert.Equal(50m, margin[0].NewMargin);
+
+        // Another price level changes only that price.
+        await using (var edit = Data.Create())
+        {
+            await edit.Items.Where(i => i.Id == a.Id || i.Id == b.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.Price3, 8m).SetProperty(i => i.UpdatedAtUtc, DateTime.UtcNow));
+        }
+        var third = await inventory.PreviewPriceChangesAsync(location.Id, new PriceRule(PriceChangeMethod.Amount, 1.5m, Level: 3), false, null);
+        Assert.Equal([("PR1", 8m, 9.5m), ("PR2", 8m, 9.5m)], third.Select(p => (p.Plu, p.OldPrice, p.NewPrice)));
+        Assert.Equal(2, await inventory.ApplyPriceChangesAsync(third));
+        var after = (await inventory.GetAsync(a.Id))!;
+        Assert.Equal((11.49m, 9.5m), (after.Price1, after.Price3));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => inventory.PreviewPriceChangesAsync(location.Id, new PriceRule(PriceChangeMethod.Percent, 5, Level: 5), false, null));
     }
 
     [SkippableFact]
