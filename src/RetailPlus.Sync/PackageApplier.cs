@@ -54,6 +54,12 @@ public sealed partial class PackageApplier(SyncPolicy? policy = null)
 {
     public SyncPolicy Policy { get; } = policy ?? SyncPolicy.Default;
 
+    /// <summary>
+    /// Rows of a table read from the package and saved at a time, inside the package's one transaction, so a package of any
+    /// size is applied with the memory for this many rows.
+    /// </summary>
+    public int RowsAtATime { get; init; } = 1000;
+
     public async Task<ApplyResult> ApplyAsync(DataContext data, PackageReader package, byte[] key, ApplyOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
@@ -82,8 +88,17 @@ public sealed partial class PackageApplier(SyncPolicy? policy = null)
             await db.SaveChangesAsync(cancellationToken);
             return new ApplyResult(SyncBatchStatus.Duplicate, manifest.BatchId, 0, 0, 0, 0, [], null);
         }
+        // A package of a series comes after the one before it: that one may hold the rows this one's rows point at.
+        if (manifest.PreviousBatchId is { } previous && !await db.SyncBatches.AnyAsync(b => b.BatchId == previous && b.Status == SyncBatchStatus.Applied, cancellationToken))
+        {
+            return await RecordFailureAsync(data, manifest, options,
+                $"This is package {manifest.Part} of a series, and package {manifest.Part - 1} ({previous}) has not been applied here. The packages of a series are applied in order.",
+                cancellationToken);
+        }
 
         var run = new Run(db, model, options, Policy.NewDerivedRules(), cancellationToken);
+        if (manifest.SeriesId is not null && (manifest.Part > 1 || !manifest.LastPart))
+            run.Notes.Add($"Package {manifest.Part} of a series{(manifest.LastPart ? ", the last" : "")}.");
         try
         {
             await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
@@ -99,8 +114,10 @@ public sealed partial class PackageApplier(SyncPolicy? policy = null)
                     run.Notes.Add($"{entry.Rows} {table.Name} rows were not taken: they do not travel this way.");
                     continue;
                 }
-                using var rows = package.ReadTable(entry);
-                await (Task)ApplyTableMethod.MakeGenericMethod(table.ClrType).Invoke(this, [run, table, rows.RootElement])!;
+                var apply = ApplyTableMethod.MakeGenericMethod(table.ClrType);
+                // Rows that point at rows of their own table are saved together, so EF orders them.
+                await foreach (var rows in package.ReadRowsAsync(entry, table.RefersToItself ? int.MaxValue : RowsAtATime, cancellationToken))
+                    await (Task)apply.Invoke(this, [run, table, rows])!;
             }
             if (options.Side == SyncSide.Server) await CheckStoresAsync(run, manifest);
             foreach (var rule in run.Derived) await rule.ApplyAsync(db, cancellationToken);
@@ -187,7 +204,11 @@ public sealed partial class PackageApplier(SyncPolicy? policy = null)
         /// <summary>Per table: the rows this package inserted or changed.</summary>
         public Dictionary<string, HashSet<Guid>> Touched { get; } = new(StringComparer.Ordinal);
 
-        public void Touch(SyncTable table, Guid id) => (Touched.TryGetValue(table.Name, out var set) ? set : Touched[table.Name] = []).Add(id);
+        /// <summary>Notes a row for the store check the server makes (a till makes none, and keeps no list).</summary>
+        public void Touch(SyncTable table, Guid id)
+        {
+            if (Side == SyncSide.Server) (Touched.TryGetValue(table.Name, out var set) ? set : Touched[table.Name] = []).Add(id);
+        }
 
         public void Map(SyncTable table, Guid from, Guid to) =>
             (Merged.TryGetValue(table.Name, out var map) ? map : Merged[table.Name] = [])[from] = to;
@@ -290,11 +311,11 @@ public sealed partial class PackageApplier(SyncPolicy? policy = null)
 
     private static readonly MethodInfo ApplyTableMethod = typeof(PackageApplier).GetMethod(nameof(ApplyTableAsync), BindingFlags.NonPublic | BindingFlags.Instance)!;
 
-    private async Task ApplyTableAsync<T>(Run run, SyncTable table, JsonElement json) where T : class
+    private async Task ApplyTableAsync<T>(Run run, SyncTable table, List<JsonElement> json) where T : class
     {
         var db = run.Db;
         string key = table.Key.Name;
-        var rows = json.EnumerateArray().Select(r => RowJson.Read(r, table.Columns)).Where(r => r.ContainsKey(key)).ToList();
+        var rows = json.Select(r => RowJson.Read(r, table.Columns)).Where(r => r.ContainsKey(key)).ToList();
         if (rows.Count == 0) return;
         if (run.Side == SyncSide.Server) await LoadMergesAsync(run, table, rows);
         foreach (var row in rows)

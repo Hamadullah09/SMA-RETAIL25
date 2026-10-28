@@ -30,8 +30,9 @@ public sealed class ServerSync(DataContext data, StationKeys keys, ServerFolders
 
     /// <summary>
     /// Joins a till with its one-time code: a new key is made (any earlier one stops working), the code is used up, and
-    /// the till gets its store, number, key and a first package of everything it should have. Null when the code is
-    /// unknown, used or expired.
+    /// the till gets its store, number and key. With that key it then downloads its first package of everything it should
+    /// have, like any download (written and sent as a file, never held in memory). Null when the code is unknown, used or
+    /// expired.
     /// </summary>
     public async Task<EnrollResponse?> EnrollAsync(EnrollRequest request, CancellationToken cancellationToken)
     {
@@ -50,18 +51,7 @@ public sealed class ServerSync(DataContext data, StationKeys keys, ServerFolders
         link.DownloadCursor = 0;
         await db.SaveChangesAsync(cancellationToken);
         ServerLog.StationJoined(log, link.StationNumber, store.Code, request.MachineName);
-
-        using var package = new MemoryStream();
-        var manifest = await _writer.WriteDownloadAsync(db, package, new DownloadOptions(new TillScope(link.StoreId, link.StationNumber), StationKey.Parse(key), 0, AppVersion), cancellationToken);
-        await RecordDownloadAsync(manifest, cancellationToken);
-        await using (var acknowledged = data.Create())
-        {
-            // The first package is applied with the joining, so the till starts from its end (for packages on a USB stick).
-            var row = await acknowledged.StationLinks.SingleAsync(l => l.Id == link.Id, cancellationToken);
-            row.DownloadCursor = manifest.CursorTo ?? 0;
-            await acknowledged.SaveChangesAsync(cancellationToken);
-        }
-        return new EnrollResponse(store.Id, store.Code, store.Name, link.StationNumber, key, Convert.ToBase64String(package.ToArray()));
+        return new EnrollResponse(store.Id, store.Code, store.Name, link.StationNumber, key);
     }
 
     // Station requests --------------------------------------------------------------------------------------------------

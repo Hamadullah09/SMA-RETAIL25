@@ -158,7 +158,7 @@ public sealed class ServerApiTests(SyncWorld world) : IClassFixture<SyncWorld>
             Assert.Equal(HttpStatusCode.OK, first.StatusCode);
             var joined = await ReadAsync<EnrollResponse>(first);
             Assert.Equal((store.Id, code.Station.Number), (joined.StoreId, joined.StationNumber));
-            Assert.NotEmpty(joined.Package);
+            Assert.NotEmpty(joined.StationKey);   // the till downloads its first package with it
         }
         using (var twice = await anonymous.PostAsJsonAsync("/api/sync/enroll", new EnrollRequest(code.Code, "test", null)))
             Assert.Equal(HttpStatusCode.NotFound, twice.StatusCode);

@@ -26,6 +26,24 @@ public static class TimeClock
         return result;
     }
 
+    /// <summary>
+    /// The time a user was in, from their shifts: shifts that overlap (two tills that each punched the user in while
+    /// offline) count once; shifts that only meet stay apart, so the hours of shifts that do not overlap are unchanged.
+    /// </summary>
+    public static IReadOnlyList<(DateTime In, DateTime Out)> Merge(IEnumerable<(DateTime In, DateTime Out)> shifts)
+    {
+        var merged = new List<(DateTime In, DateTime Out)>();
+        foreach (var shift in shifts.Where(s => s.Out > s.In).OrderBy(s => s.In))
+        {
+            if (merged.Count > 0 && shift.In < merged[^1].Out)
+            {
+                if (shift.Out > merged[^1].Out) merged[^1] = (merged[^1].In, shift.Out);
+            }
+            else merged.Add(shift);
+        }
+        return merged;
+    }
+
     /// <summary>The Monday a day's week starts on.</summary>
     public static DateOnly WeekStart(DateOnly day) => day.AddDays(-(((int)day.DayOfWeek + 6) % 7));
 }

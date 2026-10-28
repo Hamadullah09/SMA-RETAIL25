@@ -1,4 +1,6 @@
 using System.Linq.Expressions;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using RetailPlus.Core.Model;
 using RetailPlus.Data;
@@ -12,6 +14,11 @@ public sealed record UploadOptions(TillScope Till, byte[] Key, DateTime? Changed
     public string? DatabaseCopy { get; init; }
     /// <summary>Write a package even when nothing changed.</summary>
     public bool EvenIfEmpty { get; init; }
+    /// <summary>
+    /// At most this many rows and deletions in one package: more are split into a series of packages, sent and applied
+    /// one after another. Null for one package however large (a package saved to a file).
+    /// </summary>
+    public int? MaxRowsPerPackage { get; init; }
 }
 
 /// <summary>What goes into the server's package for a till.</summary>
@@ -20,7 +27,8 @@ public sealed record DownloadOptions(TillScope Till, byte[] Key, long Cursor, st
 /// <summary>
 /// Writes packages from the EF model: every table the policy lets travel in that direction, parents before children,
 /// and the deletions. A till sends what changed since its last package; the server sends a till what changed since its
-/// last download (by the server's change numbers) among the rows that till receives.
+/// last download (by the server's change numbers) among the rows that till receives. Rows go from the database into the
+/// package as they are read, so neither side holds a package in memory.
 /// </summary>
 public sealed class PackageWriter(SyncPolicy? policy = null)
 {
@@ -33,42 +41,67 @@ public sealed class PackageWriter(SyncPolicy? policy = null)
     public SyncPolicy Policy { get; } = policy ?? SyncPolicy.Default;
 
     /// <summary>
-    /// Writes a till's package to <paramref name="output"/>; null (and nothing written) when nothing changed. The manifest's
-    /// <see cref="PackageManifest.PackagedThroughUtc"/> is where the next package starts.
+    /// Writes a till's changes to <paramref name="output"/> as one package; null (and nothing written) when nothing
+    /// changed. The manifest's <see cref="PackageManifest.PackagedThroughUtc"/> is where the next package starts.
     /// </summary>
     public async Task<PackageManifest?> WriteUploadAsync(RetailPlusDbContext db, Stream output, UploadOptions options, CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(output);
+        ArgumentNullException.ThrowIfNull(options);
+        var parts = await WriteUploadAsync(db, _ => output, false, options with { MaxRowsPerPackage = null }, cancellationToken);
+        return parts.Count == 0 ? null : parts[0];
+    }
+
+    /// <summary>
+    /// Writes a till's changes as a series of packages of at most <see cref="UploadOptions.MaxRowsPerPackage"/> rows, each
+    /// into the stream <paramref name="openPart"/> gives for its number (from 1), which is closed when that package is
+    /// done. Deletions come first (children before parents), then the tables parents before children, so applying the
+    /// packages in order never needs a row of a later one. Returns the manifests in order; none when nothing changed.
+    /// </summary>
+    public Task<IReadOnlyList<PackageManifest>> WriteUploadAsync(RetailPlusDbContext db, Func<int, Stream> openPart, UploadOptions options, CancellationToken cancellationToken = default) =>
+        WriteUploadAsync(db, openPart, true, options, cancellationToken);
+
+    private async Task<IReadOnlyList<PackageManifest>> WriteUploadAsync(RetailPlusDbContext db, Func<int, Stream> openPart, bool ownsStreams, UploadOptions options,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(openPart);
         ArgumentNullException.ThrowIfNull(options);
         var model = SyncModel.For(db.Model, Policy);
         DateTime? since = options.ChangedAfterUtc is { } after && after > DateTime.MinValue + Overlap ? after - Overlap : null;
-        var tables = new List<(SyncTable Table, List<object?[]> Rows)>();
-        List<Tombstone> tombstones;
-        DateTime through;
-        // On SQLite the transaction takes the write lock, so saves already under way finish first and their rows are read.
+        var up = model.Tables.Where(t => t.Flow.HasFlag(SyncFlow.Up)).ToList();
+        Guid? series = options.MaxRowsPerPackage is null ? null : Guid.CreateVersion7();
+        DateTime through = default;
+        using var parts = new PackageParts(openPart, ownsStreams, options.Key, options.MaxRowsPerPackage ?? int.MaxValue, () => new PackageManifest
+        {
+            Kind = SyncDirection.Upload, StoreId = options.Till.StoreId, StationNumber = options.Till.StationNumber, AppVersion = options.AppVersion,
+            CreatedAtUtc = through, ChangedAfterUtc = since, Cursor = options.Cursor, SeriesId = series,
+        });
+        // On SQLite the transaction takes the write lock, so saves already under way finish first and their rows are read,
+        // and nothing changes while the rows are read.
         await using (var transaction = await db.Database.BeginTransactionAsync(cancellationToken))
         {
             through = SyncColumns.Now();
-            foreach (var table in model.Tables.Where(t => t.Flow.HasFlag(SyncFlow.Up)))
+            for (int i = up.Count - 1; i >= 0; i--)
             {
-                var rows = await ReadRowsAsync(db, table, since is { } s ? ChangedAfter(table, s) : null, cancellationToken);
-                if (rows.Count > 0) tables.Add((table, rows));
+                var name = up[i].Name;
+                var deleted = db.Tombstones.AsNoTracking()
+                    .Where(t => t.EntityName == name && t.MergedIntoId == null && (since == null || t.UpdatedAtUtc > since))
+                    .OrderBy(t => t.DeletedAtUtc).AsAsyncEnumerable();
+                await foreach (var tombstone in deleted.WithCancellation(cancellationToken)) parts.AddTombstone(tombstone);
             }
-            var names = model.Tables.Where(t => t.Flow.HasFlag(SyncFlow.Up)).Select(t => t.Name).ToList();
-            tombstones = await db.Tombstones.AsNoTracking()
-                .Where(t => (since == null || t.UpdatedAtUtc > since) && t.MergedIntoId == null && names.Contains(t.EntityName))
-                .OrderBy(t => t.DeletedAtUtc).ToListAsync(cancellationToken);
+            foreach (var table in up)
+            {
+                // Rows that point at rows of their own table are never split over two packages.
+                if (table.RefersToItself) parts.Break();
+                await foreach (var row in StreamRowsAsync(db, table, since is { } s ? ChangedAfter(table, s) : null, cancellationToken))
+                    parts.AddRow(table, row, mayBreak: !table.RefersToItself);
+            }
             await transaction.CommitAsync(cancellationToken);
         }
-        if (tables.Count == 0 && tombstones.Count == 0 && options.DatabaseCopy is null && !options.EvenIfEmpty) return null;
-
-        var manifest = new PackageManifest
-        {
-            BatchId = Guid.CreateVersion7(), Kind = SyncDirection.Upload, StoreId = options.Till.StoreId, StationNumber = options.Till.StationNumber,
-            AppVersion = options.AppVersion, CreatedAtUtc = through, ChangedAfterUtc = since, PackagedThroughUtc = through, Cursor = options.Cursor,
-        };
-        await BuildAsync(output, manifest, tables, tombstones, options.DatabaseCopy, options.Key, cancellationToken);
-        return manifest;
+        if (parts.IsEmpty && options.DatabaseCopy is null && !options.EvenIfEmpty) return [];
+        if (options.DatabaseCopy is not null) await parts.AddDatabaseAsync(options.DatabaseCopy, cancellationToken);
+        return parts.Finish(packagedThrough: through);
     }
 
     /// <summary>
@@ -78,6 +111,7 @@ public sealed class PackageWriter(SyncPolicy? policy = null)
     public async Task<PackageManifest> WriteDownloadAsync(RetailPlusDbContext db, Stream output, DownloadOptions options, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(db);
+        ArgumentNullException.ThrowIfNull(output);
         ArgumentNullException.ThrowIfNull(options);
         if (!db.Database.IsSqlServer()) throw new InvalidOperationException("Packages for tills are written by the server, on SQL Server.");
         var model = SyncModel.For(db.Model, Policy);
@@ -85,48 +119,31 @@ public sealed class PackageWriter(SyncPolicy? policy = null)
         // commit one below it; so nothing below this mark can turn up later behind the till's cursor.
         long high = await db.Database.SqlQueryRaw<long>("SELECT CAST(MIN_ACTIVE_ROWVERSION() AS bigint) - 1 AS [Value]").SingleAsync(cancellationToken);
         long cursor = options.Cursor > high ? 0 : Math.Max(0, options.Cursor);   // a cursor from another database starts over
-        var tables = new List<(SyncTable Table, List<object?[]> Rows)>();
-        foreach (var table in model.Tables.Where(t => t.Flow.HasFlag(SyncFlow.Down)))
-        {
-            var filter = And(Between(table.ClrType, cursor, high), model.DownloadFilter(table, db, options.Till));
-            var rows = await ReadRowsAsync(db, table, filter, cancellationToken);
-            if (rows.Count > 0) tables.Add((table, rows));
-        }
-        var names = model.Tables.Where(t => t.Flow.HasFlag(SyncFlow.Down)).Select(t => t.Name).ToList();
         var store = options.Till.StoreId;
-        var tombstones = await db.Tombstones.AsNoTracking()
+        var created = SyncColumns.Now();
+        using var parts = new PackageParts(_ => output, false, options.Key, int.MaxValue, () => new PackageManifest
+        {
+            Kind = SyncDirection.Download, StoreId = store, StationNumber = options.Till.StationNumber, AppVersion = options.AppVersion,
+            CreatedAtUtc = created, Cursor = cursor, CursorTo = high,
+        });
+        var down = model.Tables.Where(t => t.Flow.HasFlag(SyncFlow.Down)).ToList();
+        var names = down.Select(t => t.Name).ToList();
+        var tombstones = db.Tombstones.AsNoTracking()
             .Where(t => EF.Property<long>(t, SyncColumns.ChangeNumber) > cursor && EF.Property<long>(t, SyncColumns.ChangeNumber) <= high)
             .Where(t => (t.StoreId == null || t.StoreId == store) && names.Contains(t.EntityName))
-            .OrderBy(t => t.DeletedAtUtc).ToListAsync(cancellationToken);
-
-        var manifest = new PackageManifest
+            .OrderBy(t => t.DeletedAtUtc).AsAsyncEnumerable();
+        await foreach (var tombstone in tombstones.WithCancellation(cancellationToken)) parts.AddTombstone(tombstone);
+        foreach (var table in down)
         {
-            BatchId = Guid.CreateVersion7(), Kind = SyncDirection.Download, StoreId = store, StationNumber = options.Till.StationNumber,
-            AppVersion = options.AppVersion, CreatedAtUtc = SyncColumns.Now(), Cursor = cursor, CursorTo = high,
-        };
-        await BuildAsync(output, manifest, tables, tombstones, null, options.Key, cancellationToken);
-        return manifest;
-    }
-
-    private static async Task BuildAsync(Stream output, PackageManifest manifest, List<(SyncTable Table, List<object?[]> Rows)> tables,
-        List<Tombstone> tombstones, string? databaseCopy, byte[] key, CancellationToken cancellationToken)
-    {
-        using var builder = new PackageBuilder(output, manifest);
-        foreach (var (table, rows) in tables)
-            manifest.Tables.Add(builder.Add(table.Name, $"tables/{table.Name}.json", RowJson.Write(table.Columns, rows), rows.Count));
-        if (tombstones.Count > 0)
-        {
-            var rows = tombstones.Select(t => new TombstoneRow(t.EntityName, t.RowId, t.DeletedAtUtc, t.StoreId, t.MergedIntoId)).ToList();
-            manifest.Tombstones = builder.Add(nameof(Tombstone), SyncPackage.TombstonesFile,
-                System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(rows, SyncPackage.Json), rows.Count);
+            var filter = And(Between(table.ClrType, cursor, high), model.DownloadFilter(table, db, options.Till));
+            await foreach (var row in StreamRowsAsync(db, table, filter, cancellationToken)) parts.AddRow(table, row, mayBreak: false);
         }
-        if (databaseCopy is not null)
-            manifest.Database = await builder.AddFileAsync("Database", SyncPackage.DatabaseFile, databaseCopy, cancellationToken);
-        builder.Finish(key);
+        return parts.Finish(packagedThrough: null)[0];
     }
 
-    /// <summary>The rows of a table that pass the filter, each as its column values in the table's column order.</summary>
-    internal static async Task<List<object?[]>> ReadRowsAsync(RetailPlusDbContext db, SyncTable table, LambdaExpression? filter, CancellationToken cancellationToken)
+    /// <summary>The rows of a table that pass the filter, each as its column values in the table's column order, as they are read.</summary>
+    internal static async IAsyncEnumerable<object?[]> StreamRowsAsync(RetailPlusDbContext db, SyncTable table, LambdaExpression? filter,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var rows = SyncModel.Rows(db, table.ClrType);
         if (filter is not null) rows = SyncModel.Where(rows, filter);
@@ -135,7 +152,8 @@ public sealed class PackageWriter(SyncPolicy? policy = null)
             table.Columns.Select(c => Expression.Convert(SyncModel.Column(e, c.Name, c.ClrType), typeof(object))));
         var select = Expression.Call(typeof(Queryable), nameof(Queryable.Select), [table.ClrType, typeof(object[])],
             rows.Expression, Expression.Quote(Expression.Lambda(values, e)));
-        return (await rows.Provider.CreateQuery<object?[]>(select).ToListAsync(cancellationToken))!;
+        await foreach (var row in rows.Provider.CreateQuery<object?[]>(select).AsAsyncEnumerable().WithCancellation(cancellationToken))
+            yield return row;
     }
 
     private static LambdaExpression ChangedAfter(SyncTable table, DateTime since)
@@ -162,5 +180,101 @@ public sealed class PackageWriter(SyncPolicy? policy = null)
     private sealed class Rebind(ParameterExpression from, ParameterExpression to) : ExpressionVisitor
     {
         protected override Expression VisitParameter(ParameterExpression node) => node == from ? to : base.VisitParameter(node);
+    }
+}
+
+/// <summary>
+/// Rows written into one package, or into a series of packages of at most <c>maxRows</c> rows each, as they are read.
+/// Each package of a series has its own batch id and names the one before it, so the receiver applies them in order;
+/// only the last one says how far the changes are packaged.
+/// </summary>
+internal sealed class PackageParts(Func<int, Stream> open, bool ownsStreams, byte[] key, int maxRows, Func<PackageManifest> newManifest) : IDisposable
+{
+    private readonly List<PackageManifest> _done = [];
+    private Stream? _stream;
+    private PackageBuilder? _builder;
+    private RowsWriter? _rows;
+    private int _rowsInPart;
+
+    /// <summary>True while no row has been written.</summary>
+    public bool IsEmpty => _done.Count == 0 && _builder is null;
+
+    public void AddRow(SyncTable table, object?[] row, bool mayBreak) =>
+        Add(table.Name, $"tables/{table.Name}.json", w => RowJson.WriteRow(w, table.Columns, row), mayBreak);
+
+    public void AddTombstone(Tombstone t) =>
+        Add(nameof(Tombstone), SyncPackage.TombstonesFile,
+            w => JsonSerializer.Serialize(w, new TombstoneRow(t.EntityName, t.RowId, t.DeletedAtUtc, t.StoreId, t.MergedIntoId), SyncPackage.Json), mayBreak: true);
+
+    /// <summary>The rows that follow start a new package, unless the current one is still empty.</summary>
+    public void Break()
+    {
+        if (_builder is not null && _rowsInPart > 0) FinishPart(last: false);
+    }
+
+    public async Task AddDatabaseAsync(string path, CancellationToken cancellationToken)
+    {
+        _builder ??= Start();
+        CloseRows();
+        _builder.Manifest.Database = await _builder.AddFileAsync("Database", SyncPackage.DatabaseFile, path, cancellationToken);
+    }
+
+    /// <summary>Finishes the last package (an empty one when nothing was written) and returns every manifest, in order.</summary>
+    public IReadOnlyList<PackageManifest> Finish(DateTime? packagedThrough)
+    {
+        _builder ??= Start();
+        _builder.Manifest.PackagedThroughUtc = packagedThrough;
+        FinishPart(last: true);
+        return _done;
+    }
+
+    private void Add(string entity, string file, Action<Utf8JsonWriter> write, bool mayBreak)
+    {
+        if (_builder is not null && mayBreak && _rowsInPart >= maxRows) FinishPart(last: false);
+        _builder ??= Start();
+        if (_rows is { } open && open.Entity != entity) CloseRows();
+        _rows ??= _builder.BeginRows(entity, file);
+        _rows.Write(write);
+        _rowsInPart++;
+    }
+
+    private PackageBuilder Start()
+    {
+        var manifest = newManifest();
+        manifest.BatchId = Guid.CreateVersion7();
+        manifest.Part = _done.Count + 1;
+        manifest.PreviousBatchId = _done.Count == 0 ? null : _done[^1].BatchId;
+        _stream = open(manifest.Part);
+        _rowsInPart = 0;
+        return new PackageBuilder(_stream, manifest);
+    }
+
+    private void CloseRows()
+    {
+        if (_rows is null) return;
+        var entry = _rows.Finish();
+        _rows = null;
+        if (entry.Entity == nameof(Tombstone)) _builder!.Manifest.Tombstones = entry;
+        else _builder!.Manifest.Tables.Add(entry);
+    }
+
+    private void FinishPart(bool last)
+    {
+        CloseRows();
+        var builder = _builder!;
+        builder.Manifest.LastPart = last;
+        if (!last) builder.Manifest.PackagedThroughUtc = null;
+        builder.Finish(key);
+        if (ownsStreams) _stream!.Dispose();
+        _done.Add(builder.Manifest);
+        _builder = null;
+        _stream = null;
+    }
+
+    public void Dispose()
+    {
+        _rows?.Dispose();
+        _builder?.Dispose();
+        if (ownsStreams) _stream?.Dispose();
     }
 }

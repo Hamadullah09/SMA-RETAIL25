@@ -166,7 +166,8 @@ public sealed class StaffService(DataContext data)
     private static DateTime Minute(DateTime at) => new(at.Year, at.Month, at.Day, at.Hour, at.Minute, 0, at.Kind);
 
     /// <summary>
-    /// Hours worked per user per day in the period, from finished shifts: a shift over midnight counts on both days.
+    /// Hours worked per user per day in the period, from finished shifts: a shift over midnight counts on both days, and
+    /// time covered by two shifts of the same user (two tills that punched them in while offline) counts once.
     /// </summary>
     public async Task<List<HoursRow>> HoursByDayAsync(DateOnly from, DateOnly to, Guid? userId = null)
     {
@@ -178,8 +179,9 @@ public sealed class StaffService(DataContext data)
         if (userId is Guid id) q = q.Where(t => t.UserId == id);
         var entries = await q.ToListAsync();
         var names = await db.UserAccounts.AsNoTracking().ToDictionaryAsync(u => u.Id, u => u.UserName);
-        return entries
-            .SelectMany(e => TimeClock.SplitByDay(e.ClockIn, e.ClockOut!.Value).Select(d => (e.UserId, d.Day, d.Hours)))
+        return entries.GroupBy(e => e.UserId)
+            .SelectMany(user => TimeClock.Merge(user.Select(e => (e.ClockIn, e.ClockOut!.Value)))
+                .SelectMany(shift => TimeClock.SplitByDay(shift.In, shift.Out)).Select(d => (UserId: user.Key, d.Day, d.Hours)))
             .Where(d => d.Day >= from && d.Day <= to)
             .GroupBy(d => (d.UserId, d.Day))
             .Select(g => new HoursRow(g.Key.UserId, names.GetValueOrDefault(g.Key.UserId) ?? entries.First(e => e.UserId == g.Key.UserId).UserName, g.Key.Day, g.Sum(d => d.Hours)))

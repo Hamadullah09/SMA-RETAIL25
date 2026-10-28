@@ -36,6 +36,8 @@ public sealed class SyncTable
     /// <summary>References from other tables to this one.</summary>
     public IReadOnlyList<IForeignKey> ReferencedBy { get; internal set; } = [];
     public IReadOnlyList<IIndex> UniqueIndexes => [.. EntityType.GetIndexes().Where(i => i.IsUnique)];
+    /// <summary>Rows point at other rows of this table (none today): they are kept together in one package and applied together.</summary>
+    public bool RefersToItself => References.Any(fk => fk.PrincipalEntityType == EntityType);
 
     public override string ToString() => Name;
 }
