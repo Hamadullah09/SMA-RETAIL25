@@ -104,6 +104,16 @@ for (const [size, viewport] of SIZES) {
       await page.screenshot({ animations: 'disabled', path: join(dir, `${size}-28-every-store.png`) });
     });
 
+    test('hub key', async ({ page }) => {
+      await mockApi(page);
+      await page.goto('/stores/');
+      await page.getByRole('region', { name: 'RFID hubs of Downtown' }).getByRole('button', { name: /Add a hub key/ }).click();
+      await page.getByLabel('Hub name').fill('Back room PC');
+      await page.getByRole('button', { name: /Make the key/ }).click();
+      await expect(page.getByTestId('hub-key')).toBeVisible();
+      await page.screenshot({ animations: 'disabled', path: join(dir, `${size}-29-hub-key.png`) });
+    });
+
     test('report printout', async ({ page }) => {
       await mockApi(page);
       await page.goto('/reports/view/?key=daily');

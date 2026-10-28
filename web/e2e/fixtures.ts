@@ -27,6 +27,7 @@ import type {
   SaleRow,
   LocationInfo,
   StaffMember,
+  RfidHubInfo,
   StationInfo,
   UploadResponse,
   StockCountDetail,
@@ -223,6 +224,21 @@ export function station(number: number, storeId = 's-main'): StationInfo {
     behind: false,
   };
 }
+
+/** Downtown's RFID hub keys: one in use, one revoked. */
+export const rfidHubs: RfidHubInfo[] = [
+  {
+    id: 'h-1', storeId: 's-main', name: 'Back office PC', keyHint: 'rfh_7Qx2', createdAtUtc: minutesAgo(60 * 24 * 12), createdBy: 'sara',
+    lastSeenAtUtc: minutesAgo(1), lastAddress: '192.168.1.20', revoked: false, revokedAtUtc: null,
+  },
+  {
+    id: 'h-0', storeId: 's-main', name: 'Old till PC', keyHint: 'rfh_K9pa', createdAtUtc: minutesAgo(60 * 24 * 90), createdBy: 'sara',
+    lastSeenAtUtc: minutesAgo(60 * 24 * 31), lastAddress: '192.168.1.14', revoked: true, revokedAtUtc: minutesAgo(60 * 24 * 30),
+  },
+];
+
+/** The key the mocked server makes: shown once, never in a list. */
+export const newHubKey = 'rfh_N3wK3yForTheBackRoomHub0123456789abcdefghij';
 
 export const stations: Record<string, StationInfo[]> = {
   's-main': [1, 2, 3].map((n) => ({ ...station(n), enrolled: true, enrollmentExpiresAtUtc: null, enrolledAtUtc: minutesAgo(60 * 24 * 30) })),

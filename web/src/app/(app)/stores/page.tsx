@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Pencil, Plus, Save } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { RfidHubs } from '@/components/rfid-hubs';
 import { Button, LinkButton } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Field, Input } from '@/components/ui/field';
@@ -145,6 +146,7 @@ function StoreCard({ store, onEdit }: { store: StoreInfo; onEdit(): void }) {
           { key: 'ver', header: 'Version', cell: (t) => t.appVersion ?? '', hideBelow: 'md' },
         ]}
       />
+      <RfidHubs store={store} />
     </section>
   );
 }
