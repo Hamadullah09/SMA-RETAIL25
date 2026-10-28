@@ -135,6 +135,8 @@ public sealed class SyncPolicy
         policy.Derive(() => new StockFromMovements());
         policy.Derive(() => new BalanceFromInvoices());
         policy.Derive(() => new PointsFromLoyalty());
+        // Two tills offline can each punch the same user in; when the entries meet, the earlier shift is closed.
+        policy.Derive(() => new OpenShiftsClosed());
         return policy;
     }
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using RetailPlus.Core.Model;
@@ -109,4 +110,78 @@ public sealed class PointsFromLoyalty : IDerivedRule
             db.ChangeTracker.Clear();
         }
     }
+}
+
+/// <summary>
+/// A user has at most one open shift, but two tills without a connection can each punch the same user in. When the
+/// entries meet (on the server, or on a till that receives the other till's entry), every open shift of a user that has a
+/// later shift is closed when that later one began: the user cannot still have been in. The entry says so in its edit
+/// reason, and the closing is written to the audit log. The result depends on the entries only (times, then ids), so
+/// every database closes the same shifts at the same times, whichever receives them first.
+/// </summary>
+public sealed class OpenShiftsClosed : IDerivedRule
+{
+    /// <summary>Who closed the shift, in the entry and in the audit log.</summary>
+    public const string Editor = "Sync";
+
+    private readonly HashSet<Guid> _users = [];
+
+    public void Observe(SyncTable table, IReadOnlyDictionary<string, object?> row, bool inserted, PropertyValues? before)
+    {
+        if (table.ClrType == typeof(TimeClockEntry) && row.GetValueOrDefault(nameof(TimeClockEntry.UserId)) is Guid user) _users.Add(user);
+    }
+
+    public async Task ApplyAsync(RetailPlusDbContext db, CancellationToken cancellationToken)
+    {
+        foreach (var chunk in _users.Chunk(500))
+        {
+            var ids = chunk.ToList();
+            var open = await db.TimeClockEntries.AsNoTracking().Where(t => ids.Contains(t.UserId) && t.ClockOut == null)
+                .GroupBy(t => t.UserId).Select(g => new { User = g.Key, From = g.Min(t => t.ClockIn) }).ToListAsync(cancellationToken);
+            foreach (var user in open)
+            {
+                // Ordered here, not by the database: the same order on SQLite and SQL Server.
+                var shifts = (await db.TimeClockEntries.Where(t => t.UserId == user.User && t.ClockIn >= user.From).ToListAsync(cancellationToken))
+                    .OrderBy(t => t.ClockIn).ThenBy(t => t.Id).ToList();
+                for (int i = 0; i < shifts.Count - 1; i++)
+                    if (shifts[i].ClockOut is null) Close(db, shifts[i], shifts[i + 1]);
+            }
+            await db.SaveChangesAsync(cancellationToken);
+            db.ChangeTracker.Clear();
+        }
+    }
+
+    private static void Close(RetailPlusDbContext db, TimeClockEntry shift, TimeClockEntry next)
+    {
+        var now = SyncColumns.Now();
+        var before = Times(shift);
+        shift.ClockOut = next.ClockIn;
+        shift.EditReason = Cut(string.Create(CultureInfo.InvariantCulture,
+            $"Closed by the sync: {shift.UserName} punched in again at {next.ClockIn:yyyy-MM-dd HH:mm} at station {next.StationNumber} before this shift was punched out."), 200);
+        shift.EditedBy = Editor;
+        shift.EditedById = null;
+        shift.EditedAtUtc = now;
+        // Rows saved while a package is applied keep the times they are given: this one is edited here, now, so it travels
+        // on and wins over the copies that are still open.
+        shift.UpdatedAtUtc = now;
+        db.Entry(shift).Property(SyncColumns.EditedAtUtc).CurrentValue = now;
+
+        var audit = new AuditEntry
+        {
+            StoreId = shift.StoreId, StationNumber = db.Station?.StationNumber ?? 0, AtUtc = now, UserName = Editor, Action = AuditActions.TimeClockEdit,
+            EntityName = nameof(TimeClockEntry), EntityId = shift.Id, Before = RetailPlusDbContext.AuditValues(before), After = RetailPlusDbContext.AuditValues(Times(shift)),
+            Details = Cut(string.Create(CultureInfo.InvariantCulture, $"{shift.UserName}, {shift.ClockIn:yyyy-MM-dd}: {shift.EditReason}"), 400),
+            CreatedAtUtc = now, UpdatedAtUtc = now,
+        };
+        db.AuditEntries.Add(audit);
+        db.Entry(audit).Property(SyncColumns.EditedAtUtc).CurrentValue = now;
+    }
+
+    private static Dictionary<string, object?> Times(TimeClockEntry e) => new()
+    {
+        [nameof(TimeClockEntry.ClockIn)] = e.ClockIn,
+        [nameof(TimeClockEntry.ClockOut)] = e.ClockOut,
+    };
+
+    private static string Cut(string text, int length) => text.Length <= length ? text : text[..length];
 }
