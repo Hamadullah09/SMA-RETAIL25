@@ -450,14 +450,27 @@ Added while putting the phases together:
 - A password changed on the web is in the audit log.
 - The desktop dashboard's greeting no longer runs into the day's figures on a narrow window.
 
+Round 2 (the same day) fixed the known limits the first pass left:
+
+| Limit | Now |
+|---|---|
+| Two offline tills could each open a shift for the same user | When the shifts meet (on the server, or on a till that receives the other's), the earlier one is closed when the later began, with an edit reason and an audit line; every database ends the same. Hours count overlapping time once |
+| A till's first package after joining was one package of everything; downloads were built in memory | Uploads go as a chain of packages of at most 10,000 rows, applied in order, resumed after a failure; downloads are written and applied streaming |
+| Transfers and stock counts on the web showed the latest 1,000 | Paged and searchable by number or location |
+| An item could be changed on the web at one location only | "Apply to every store" copies the changed fields to the same stock code at every location the user may change, each row audited and sent to its store's tills |
+| The RFID hub read its readers from a database only | A hub can read its store's readers from the server with a hub key (`--server`, `--serverkey`), keeps the last list for when the server is down, and follows changes; keys are made and revoked on the web's Stores page ([RFID.md](RFID.md)) |
+| A many-readers RFID test failed on a busy machine | It waits for every station instead of a fixed two seconds |
+| Retail25 staff PINs (Argon2id) were not carried over | They are, and are stored again in the program's format at the first PIN sign-in |
+| Gift card corrections were not in the accounting journal | Posted against the liability and a new "Gift card adjustments" account |
+| Change prices changed Price 1 only | Any of Prices 1 to 4 |
+
 Still open:
 
 - The decisions of section 8 (the defaults are in force).
 - The switch of pos.sma-techno.net itself (CUTOVER.md), and a trial cutover run on a copy of the live database.
-- Known limits listed in sections 10 to 12, chiefly:
-  - two offline tills can each open a shift for the same user;
-  - Retail25 PINs are not carried over;
-  - a till's first package after joining resends everything;
-  - transfers and counts lists on the web are not paged.
-- One RFID hub test (`Many_readers_and_stations_are_handled_together`) depends on timing and can fail on a busy machine;
-  it passes when run alone.
+- Testing on the shop's real till PCs and hardware (printers, drawers, scales, RFID readers), and with a large shop's
+  data (cutover and first sync have run on demo data only).
+- Smaller limits noted in sections 10 to 12, chiefly:
+  - an every-store item change is saved row by row, not as one transaction;
+  - a revoked RFID hub keeps its readers until it restarts;
+  - a large first download is one long transaction on the till.
