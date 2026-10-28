@@ -235,6 +235,32 @@ public class HubTests
         for (int s = 1; s <= 252; s++)
             Assert.Equal([TagOf(s)], heard[s].Distinct());
     }
+
+    [Fact]
+    public async Task A_hub_that_cannot_read_its_list_at_start_keeps_trying()
+    {
+        // The database or server is not reachable when the hub starts; it starts anyway and reads the list once it can.
+        int attempts = 0;
+        var readers = new List<RfidReader> { Reader(1, (1, 2)) };
+        await using var hub = new RfidHub(_ => ++attempts <= 2
+            ? throw new HttpRequestException("The server cannot be reached.")
+            : Task.FromResult<IReadOnlyList<RfidReader>>(readers));
+        await Assert.ThrowsAsync<HttpRequestException>(() => hub.StartAsync());
+        Assert.False(hub.Loaded);
+        Assert.Empty(await hub.GetStatusAsync());
+
+        var problems = new List<Exception>();
+        using var stop = new CancellationTokenSource();
+        var keepCurrent = hub.KeepCurrentAsync(TimeSpan.FromMilliseconds(100), problems.Add, stop.Token);
+        var until = DateTime.UtcNow.AddSeconds(30);
+        while (DateTime.UtcNow < until && !hub.Loaded) await Task.Delay(50);
+        await stop.CancelAsync();
+        await keepCurrent;
+
+        Assert.True(hub.Loaded);
+        Assert.Equal("R1", Assert.Single(await hub.GetStatusAsync()).Name);
+        Assert.IsType<HttpRequestException>(Assert.Single(problems));
+    }
 }
 
 public class HubClientTests

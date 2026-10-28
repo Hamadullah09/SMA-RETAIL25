@@ -95,12 +95,44 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
                 _workers[reader.Id] = StartWorker(reader);
             }
             _disabled = readers.Where(r => !r.IsEnabled).ToList();
+            Loaded = true;
             RetryOfflineNow();   // a Refresh also tries offline readers straight away
             WakeAll();
         }
         finally
         {
             _reloadGate.Release();
+        }
+    }
+
+    /// <summary>True once a reader list was read (a hub can start before its database or server can be reached).</summary>
+    public bool Loaded { get; private set; }
+
+    /// <summary>How soon a hub that has no reader list yet tries again.</summary>
+    private static readonly TimeSpan FirstLoadRetry = TimeSpan.FromSeconds(10);
+
+    /// <summary>
+    /// Reads the reader list again every <paramref name="every"/> until cancelled (at least every 10 seconds while no list
+    /// could be read yet), so readers and assignments changed elsewhere are picked up without a restart. A failed read is
+    /// passed to <paramref name="failed"/>, and the hub goes on with the readers it has.
+    /// </summary>
+    public async Task KeepCurrentAsync(TimeSpan every, Action<Exception>? failed = null, CancellationToken cancellationToken = default)
+    {
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(Loaded || every < FirstLoadRetry ? every : FirstLoadRetry, cancellationToken);
+                await ReloadAsync(cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                failed?.Invoke(ex);
+            }
         }
     }
 

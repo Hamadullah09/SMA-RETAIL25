@@ -135,3 +135,25 @@ public class ItemTag : Entity
     public DateTime? SoldAt { get; set; }
     public long? SoldOnInvoice { get; set; }
 }
+
+/// <summary>
+/// The server's side of an RFID hub that reads its store's readers from the server instead of a database: the hash of
+/// its key (the key itself is shown once, when it is made) and when it last asked. Kept on the server only; it never
+/// travels to a till.
+/// </summary>
+public class RfidHubLink : Entity, ILocalOnly
+{
+    public Guid StoreId { get; set; }
+    /// <summary>Where the hub runs, so an administrator can tell the keys apart ("Back office PC").</summary>
+    public string Name { get; set; } = "";
+    /// <summary>SHA-256 of the key, hexadecimal.</summary>
+    public string KeyHash { get; set; } = "";
+    /// <summary>The key's first characters, shown in the list.</summary>
+    public string KeyHint { get; set; } = "";
+    public string? CreatedBy { get; set; }
+    public DateTime? LastSeenAtUtc { get; set; }
+    /// <summary>The network address the hub last asked from.</summary>
+    public string? LastAddress { get; set; }
+    /// <summary>A revoked key is no longer accepted.</summary>
+    public DateTime? RevokedAtUtc { get; set; }
+}

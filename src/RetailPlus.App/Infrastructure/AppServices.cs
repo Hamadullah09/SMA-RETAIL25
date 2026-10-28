@@ -284,6 +284,17 @@ public static class AppServices
     /// <summary>The hub this station listens to, when it uses one.</summary>
     public static string? RfidHubAddress { get; private set; }
 
+    /// <summary>
+    /// After readers or antennas were changed here, while this station uses a hub on another computer: sends the change to
+    /// the server first (waiting up to 15 seconds), so a hub that reads its readers from the server has it when it reloads.
+    /// Does nothing on a till that has not joined a server.
+    /// </summary>
+    public static async Task SendRfidChangesAsync()
+    {
+        if (RfidHubAddress is null || Sync is null || Unattended) return;
+        await Task.WhenAny(SyncNowAsync(), Task.Delay(TimeSpan.FromSeconds(15)));
+    }
+
     /// <summary>What the start-up search for readers is doing (null when it is not running).</summary>
     public static string? RfidSearchText { get; private set; }
 

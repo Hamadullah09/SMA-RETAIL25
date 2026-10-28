@@ -192,6 +192,18 @@ stations, enrollment, sync batches, package upload).
   app does (`BrandingService`).
 - `DELETE /api/stores/{id}/images/{kind}` removes the image.
 
+### RFID hubs — `web.signin` to list, `stores.manage` to change (added in round 2)
+An RFID hub can read its store's readers from the server instead of a database (see [RFID.md](RFID.md), "A hub that
+reads its readers from the server").
+- `GET /api/stores/{id}/rfid-hubs` returns `[RfidHubInfo { "id", "storeId", "name", "keyHint", "createdAtUtc", "createdBy",
+  "lastSeenAtUtc", "lastAddress", "revoked", "revokedAtUtc" }]`, the keys in use first. 404 for a store the user cannot see.
+- `POST /api/stores/{id}/rfid-hubs` takes `{ name }` (where the hub runs, at most 40 characters) and returns 201
+  `{ "hub": RfidHubInfo, "key": "rfh_…" }`. The key is in this answer only; the server keeps its SHA-256.
+- `POST /api/rfid-hubs/{id}/revoke` returns the `RfidHubInfo`; the key is refused from then on.
+- `GET /api/rfid/readers?hub=` is for the hub itself: no sign-in, the key in the `X-RfidHub-Key` header (401 without it,
+  or with a wrong or revoked key). Returns `{ "storeId", "storeCode", "storeName", "hub", "readers": [...] }`: the key's
+  store's readers whose hub name is `hub` (every reader of the store without it), each with its antennas and settings.
+
 ## Web app pages (phase 4)
 
 The web app is a static export. It has no dynamic route segments: detail pages take `?id=`.

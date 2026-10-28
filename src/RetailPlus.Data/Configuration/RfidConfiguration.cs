@@ -50,3 +50,17 @@ internal sealed class ItemTagConfiguration : IEntityTypeConfiguration<ItemTag>
         e.HasIndex(x => new { x.ItemId, x.Status });
     }
 }
+
+internal sealed class RfidHubLinkConfiguration : IEntityTypeConfiguration<RfidHubLink>
+{
+    public void Configure(EntityTypeBuilder<RfidHubLink> e)
+    {
+        e.Property(x => x.Name).HasMaxLength(40);
+        e.Property(x => x.KeyHash).HasMaxLength(64).IsUnicode(false);
+        e.Property(x => x.KeyHint).HasMaxLength(12).IsUnicode(false);
+        e.Property(x => x.CreatedBy).HasMaxLength(40);
+        e.Property(x => x.LastAddress).HasMaxLength(64).IsUnicode(false);
+        e.HasOne<Store>().WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Restrict);
+        e.HasIndex(x => x.KeyHash).IsUnique();
+    }
+}

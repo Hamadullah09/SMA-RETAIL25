@@ -737,6 +737,35 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "RfidHubLinks",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    KeyHash = table.Column<string>(type: "varchar(64)", unicode: false, maxLength: 64, nullable: false),
+                    KeyHint = table.Column<string>(type: "varchar(12)", unicode: false, maxLength: 12, nullable: false),
+                    CreatedBy = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
+                    LastSeenAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    LastAddress = table.Column<string>(type: "varchar(64)", unicode: false, maxLength: 64, nullable: true),
+                    RevokedAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RfidHubLinks", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RfidHubLinks_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "RfidReaders",
                 columns: table => new
                 {
@@ -2982,6 +3011,27 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_RfidHubLinks_ChangeNumber",
+                table: "RfidHubLinks",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RfidHubLinks_KeyHash",
+                table: "RfidHubLinks",
+                column: "KeyHash",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RfidHubLinks_StoreId",
+                table: "RfidHubLinks",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RfidHubLinks_UpdatedAtUtc",
+                table: "RfidHubLinks",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RfidReaders_ChangeNumber",
                 table: "RfidReaders",
                 column: "ChangeNumber");
@@ -3726,6 +3776,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "RfidAntennas");
+
+            migrationBuilder.DropTable(
+                name: "RfidHubLinks");
 
             migrationBuilder.DropTable(
                 name: "Rmas");

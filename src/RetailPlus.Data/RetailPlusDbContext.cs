@@ -96,6 +96,7 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
     public DbSet<SyncBatch> SyncBatches => Set<SyncBatch>();
     public DbSet<SyncState> SyncStates => Set<SyncState>();
     public DbSet<StationLink> StationLinks => Set<StationLink>();
+    public DbSet<RfidHubLink> RfidHubLinks => Set<RfidHubLink>();
 
     /// <summary>
     /// Set while rows from a sync package are saved: they keep their times, store, station and version exactly as they

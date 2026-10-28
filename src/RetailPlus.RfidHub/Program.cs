@@ -1,4 +1,5 @@
 using System.Text.Json;
+using RetailPlus.Core.Model;
 using RetailPlus.Data;
 using RetailPlus.Data.Services;
 using RetailPlus.Rfid;
@@ -8,31 +9,59 @@ using RetailPlus.Rfid;
 // connected to; install it as a Windows service with
 //   sc create SmaRetailRfidHub binPath= "C:\path\SmaRetail.RfidHub.exe --db \"C:\...\smaretail.db\"" start= auto
 //
-// Options: --db <SQLite file> | --connection <SQL Server connection string> | --localdb <database>
-//                            (default: smaretail.db in %LOCALAPPDATA%\RetailPlus of the account the hub runs as)
-//          --hub <key>        readers whose hub key matches (default "main"); split big sites over several hubs
+// Where the readers come from, one of:
+//          --db <SQLite file> | --connection <SQL Server connection string> | --localdb <database>
+//                             (default: smaretail.db in %LOCALAPPDATA%\RetailPlus of the account the hub runs as)
+//          --server <url> --serverkey <key>
+//                             the SMA RETAIL server, with the RFID hub key made for the store (no database needed)
+//          --savedlist <file> with --server: where the last reader list is kept for a start without the server
+//                             (default %LOCALAPPDATA%\RetailPlus\RfidHub\readers.json)
+// Options: --hub <key>        readers whose hub key matches (default "main"); split big sites over several hubs
+//          --poll <seconds>   how often the reader list is read again (default 60)
 //          --urls <url>       where to listen (default http://0.0.0.0:5280)
 //          --apikey <secret>  require this key from stations (header X-SMA-Key)
+// Every option can also be set in appsettings.json next to the program (for example "serverkey"), which keeps the key
+// off the service's command line.
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Host.UseWindowsService(o => o.ServiceName = "SmaRetailRfidHub");
 var config = builder.Configuration;
-var database = RetailPlusDb.FromOptions(config["db"], config.GetConnectionString("RetailPlus") ?? config["connection"], config["localdb"]);
 string hubKey = config["hub"] ?? "main";
 string? apiKey = config["apikey"];
+var poll = TimeSpan.FromSeconds(Math.Clamp(int.TryParse(config["poll"], out var seconds) ? seconds : 60, 5, 3600));
 builder.WebHost.UseUrls(config["urls"] ?? "http://0.0.0.0:5280");
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase);
 
-var data = new DataContext(database);
-var rfid = new RfidService(data);
-builder.Services.AddSingleton(data);
-builder.Services.AddSingleton(rfid);
+// The reader list comes from the server, or from a database as before. With a database the hub also records there when
+// settings were sent to a reader; from the server, the station that sent them records it in its own database.
+RfidServerReaders? server = null;
+RfidService? rfid = null;
+Func<CancellationToken, Task<IReadOnlyList<RfidReader>>> loadReaders;
+if (config["server"] is { Length: > 0 } serverUrl)
+{
+    if (new[] { config["db"], config["connection"], config["localdb"], config.GetConnectionString("RetailPlus") }.Any(v => !string.IsNullOrWhiteSpace(v)))
+        throw new InvalidOperationException("Give the RFID hub either --server or a database (--db, --connection or --localdb), not both.");
+    if (config["serverkey"] is not { Length: > 0 } serverKey)
+        throw new InvalidOperationException("--server needs --serverkey: the RFID hub key made for the store on the server.");
+    server = new RfidServerReaders(serverUrl, serverKey, hubKey, config["savedlist"] ?? RfidServerReaders.DefaultSavedListFile);
+    loadReaders = server.LoadAsync;
+}
+else
+{
+    var database = RetailPlusDb.FromOptions(config["db"], config.GetConnectionString("RetailPlus") ?? config["connection"], config["localdb"]);
+    var data = new DataContext(database);
+    var service = rfid = new RfidService(data);
+    builder.Services.AddSingleton(data);
+    builder.Services.AddSingleton(service);
+    loadReaders = async ct => await service.GetReadersAsync(hubKey, ct);
+}
 builder.Services.AddSingleton(sp =>
 {
     var log = sp.GetRequiredService<ILoggerFactory>().CreateLogger("RfidHub");
-    return new RfidHub(async ct => await rfid.GetReadersAsync(hubKey, ct)) { Log = m => HubLog.Problem(log, m) };
+    if (server is not null) server.Log = m => HubLog.Problem(log, m);
+    return new RfidHub(loadReaders) { Log = m => HubLog.Problem(log, m) };
 });
-builder.Services.AddHostedService<HubLifetime>();
+builder.Services.AddHostedService(sp => new HubLifetime(sp.GetRequiredService<RfidHub>(), poll, server?.BaseAddress, sp.GetRequiredService<ILogger<HubLifetime>>()));
 
 var app = builder.Build();
 
@@ -53,7 +82,11 @@ if (!string.IsNullOrEmpty(apiKey))
 app.MapGet("/health", async (RfidHub hub) =>
 {
     var readers = await hub.GetStatusAsync();
-    return Results.Ok(new { status = "ok", hub = hubKey, readers = readers.Count, connected = readers.Count(r => r.Connected) });
+    return Results.Ok(new
+    {
+        status = "ok", hub = hubKey, source = server is null ? "database" : "server", store = server?.StoreName, loaded = hub.Loaded,
+        readers = readers.Count, connected = readers.Count(r => r.Connected),
+    });
 });
 
 app.MapGet("/readers", async (RfidHub hub, CancellationToken ct) => Results.Ok(await hub.GetStatusAsync(ct)));
@@ -69,8 +102,11 @@ app.MapGet("/readers/{id:guid}/info", (Guid id, RfidHub hub, CancellationToken c
 app.MapPost("/readers/{id:guid}/apply", (Guid id, RfidHub hub, CancellationToken ct) => Run(async () =>
 {
     var problems = await hub.ApplySettingsAsync(id, ct);
-    var firmware = (await hub.GetStatusAsync(ct)).FirstOrDefault(r => r.ReaderId == id)?.Firmware;
-    await rfid.MarkAppliedAsync(id, firmware);
+    if (rfid is not null)
+    {
+        var firmware = (await hub.GetStatusAsync(ct)).FirstOrDefault(r => r.ReaderId == id)?.Firmware;
+        await rfid.MarkAppliedAsync(id, firmware);
+    }
     return Results.Ok(problems);
 }));
 
@@ -203,32 +239,26 @@ static async Task<IResult> Run(Func<Task<IResult>> action)
     }
 }
 
-/// <summary>Starts the hub with the service and re-reads the reader list every minute (and on POST /reload).</summary>
-internal sealed class HubLifetime(RfidHub hub, ILogger<HubLifetime> log) : BackgroundService
+/// <summary>
+/// Starts the hub with the service and re-reads the reader list every <c>--poll</c> seconds (and on POST /reload). A hub
+/// that cannot read its list at start (the server or database not reachable) starts anyway and keeps trying.
+/// </summary>
+internal sealed class HubLifetime(RfidHub hub, TimeSpan poll, Uri? server, ILogger<HubLifetime> log) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await hub.StartAsync(stoppingToken);
-        var readers = await hub.GetStatusAsync(stoppingToken);
-        HubLog.Started(log, readers.Count);
-        using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
+        if (server is not null) HubLog.FromServer(log, server);
         try
         {
-            while (await timer.WaitForNextTickAsync(stoppingToken))
-            {
-                try
-                {
-                    await hub.ReloadAsync(stoppingToken);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    HubLog.ReloadFailed(log, ex);
-                }
-            }
+            await hub.StartAsync(stoppingToken);
+            var readers = await hub.GetStatusAsync(stoppingToken);
+            HubLog.Started(log, readers.Count);
         }
-        catch (OperationCanceledException)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
+            HubLog.ReloadFailed(log, ex);
         }
+        await hub.KeepCurrentAsync(poll, ex => HubLog.ReloadFailed(log, ex), stoppingToken);
         await hub.StopAsync();
     }
 }
@@ -243,4 +273,7 @@ internal static partial class HubLog
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Reloading the reader list failed")]
     public static partial void ReloadFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "The reader list comes from the server {Server}")]
+    public static partial void FromServer(ILogger logger, Uri server);
 }
