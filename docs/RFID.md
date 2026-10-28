@@ -123,7 +123,8 @@ browser dashboard, another system).
 ## Capacity and scaling
 
 * The hub uses asynchronous sockets: 63 readers are 63 sockets and a handful of threads, not 63 threads. The test
-  suite runs 63 simulated readers × 4 antennas routed to 252 stations at once.
+  suite runs 63 simulated readers × 4 antennas routed to 252 stations at once: every station listens until it has
+  heard its tag (up to a minute on a busy machine), then a little longer, and must have heard only its own tag.
 * Each listener has a bounded queue (1,000 reads, oldest dropped), so a slow station never slows the readers.
 * An offline reader is retried with back-off (1 s doubling to 5 s) without affecting the others; its problem shows
   in *RFID readers*.

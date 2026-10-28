@@ -199,13 +199,41 @@ public class HubTests
         foreach (var r in readers)
             for (int port = 1; port <= 4; port++)
                 ((SimulatedRfidDevice)hub.DeviceOf(r.Id)!).Place(port, $"{r.Port - 4000:X4}{port:X4}");
-        var listeners = Enumerable.Range(1, 252).Select(s => Collect(hub, s, TimeSpan.FromSeconds(2))).ToList();
-        var results = await Task.WhenAll(listeners);
-        for (int s = 1; s <= 252; s++)
+        static string TagOf(int station) => $"{(station + 3) / 4:X4}{(station - 1) % 4 + 1:X4}";
+
+        // All 252 stations listen until each has heard its own tag (on a busy machine that can take a while), then a
+        // little longer, so a read sent to the wrong station would still show up.
+        var heard = Enumerable.Range(0, 253).Select(_ => new List<string>()).ToArray();
+        int waiting = 252;
+        var everyoneHeard = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var stop = new CancellationTokenSource();
+        async Task ListenAsync(int station)
         {
-            int reader = (s + 3) / 4, port = (s - 1) % 4 + 1;
-            Assert.Equal([$"{reader:X4}{port:X4}"], results[s - 1].Select(e => e.Epc).Distinct());
+            bool own = false;
+            try
+            {
+                await foreach (var e in hub.ListenAsync(station, stop.Token))
+                {
+                    heard[station].Add(e.Epc);
+                    if (own || e.Epc != TagOf(station)) continue;
+                    own = true;
+                    if (Interlocked.Decrement(ref waiting) == 0) everyoneHeard.TrySetResult();
+                }
+            }
+            catch (OperationCanceledException)
+            {
+            }
         }
+        var listeners = Enumerable.Range(1, 252).Select(ListenAsync).ToList();
+        var deadline = TimeSpan.FromSeconds(60);
+        bool allHeard = await Task.WhenAny(everyoneHeard.Task, Task.Delay(deadline)) == everyoneHeard.Task;
+        await Task.Delay(TimeSpan.FromMilliseconds(500));
+        await stop.CancelAsync();
+        await Task.WhenAll(listeners);
+
+        Assert.True(allHeard, $"{Volatile.Read(ref waiting)} of 252 stations had not heard their tag after {deadline.TotalSeconds} seconds.");
+        for (int s = 1; s <= 252; s++)
+            Assert.Equal([TagOf(s)], heard[s].Distinct());
     }
 }
 
