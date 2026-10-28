@@ -81,6 +81,9 @@ The first time, install the browser: `npx playwright install chromium`.
   change, the editor offers "Apply to every store": after a confirmation that lists the locations, what was changed on
   this row is copied to the others (`PUT /api/items/{id}?everyStore=true`).
 - Transfers and stock counts are listed a page at a time, searched by number or location.
+- Stores lists each store's RFID hub keys. *Add a hub key* (`stores.manage`) shows the new key once, with the hub's
+  `--server … --serverkey …` command line (docs/RFID.md); afterwards only its first characters are known. *Revoke*
+  stops a key at once.
 - Shared lists (clients, suppliers, departments, categories, roles, commission rules) change only for users whose
   `/api/auth/me` says `canChangeShared` (super administrators, or anyone while there is one store); for the others the
   add, edit and delete buttons are hidden or disabled. Departments and categories are kept from Inventory.

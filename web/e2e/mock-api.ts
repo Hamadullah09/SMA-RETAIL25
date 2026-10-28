@@ -49,6 +49,8 @@ const LOGO = readFileSync(join(__dirname, 'logo.jpg'));
 
 export async function mockApi(page: Page, options: MockOptions = {}): Promise<MockApi> {
   let user: UserInfo | null = options.user === undefined ? f.superAdmin : options.user;
+  // RFID hub keys change as the test adds and revokes them.
+  let hubs = f.rfidHubs.map((h) => ({ ...h }));
   const requests: SentRequest[] = [];
   const overrides = options.overrides ?? {};
 
@@ -82,6 +84,21 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
         return { json: f.stations[id] ?? [] };
       case /^GET \/api\/stores\/[^/]+\/locations$/.test(key):
         return f.locations[id] ? { json: f.locations[id] } : { status: 404, json: { error: 'No such store.' } };
+      case /^GET \/api\/stores\/[^/]+\/rfid-hubs$/.test(key):
+        return { json: hubs.filter((h) => h.storeId === id).sort((a, b) => Number(a.revoked) - Number(b.revoked)) };
+      case /^POST \/api\/stores\/[^/]+\/rfid-hubs$/.test(key): {
+        const name = ((r.body as { name?: string })?.name ?? '').trim() || 'RFID hub';
+        const hub = { id: 'h-new', storeId: id, name, keyHint: f.newHubKey.slice(0, 8), createdAtUtc: new Date().toISOString(), createdBy: user.userName,
+          lastSeenAtUtc: null, lastAddress: null, revoked: false, revokedAtUtc: null };
+        hubs = [...hubs, hub];
+        return { status: 201, json: { hub, key: f.newHubKey } };
+      }
+      case /^POST \/api\/rfid-hubs\/[^/]+\/revoke$/.test(key): {
+        const hub = hubs.find((h) => h.id === id);
+        if (!hub) return { status: 404, json: { error: 'That RFID hub was not found.' } };
+        Object.assign(hub, { revoked: true, revokedAtUtc: new Date().toISOString() });
+        return { json: hub };
+      }
       case key === 'GET /api/staff':
         return { json: f.staff };
       case /^POST \/api\/stores\/[^/]+\/stations$/.test(key):

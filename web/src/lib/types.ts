@@ -125,6 +125,28 @@ export interface UploadResponse {
   error: string | null;
 }
 
+/** A store's RFID hub key (`GET /api/stores/{id}/rfid-hubs`); the key itself is shown only when it is made. */
+export interface RfidHubInfo {
+  id: string;
+  storeId: string;
+  /** Where the hub runs, e.g. "Back office PC". */
+  name: string;
+  /** The key's first characters, to tell keys apart. */
+  keyHint: string;
+  createdAtUtc: UtcDateTime;
+  createdBy: string | null;
+  lastSeenAtUtc: UtcDateTime | null;
+  lastAddress: string | null;
+  revoked: boolean;
+  revokedAtUtc: UtcDateTime | null;
+}
+
+/** `POST /api/stores/{id}/rfid-hubs`: the new key, in this answer only. */
+export interface NewRfidHubResponse {
+  hub: RfidHubInfo;
+  key: string;
+}
+
 export interface StationInfo {
   id: string;
   storeId: string;
