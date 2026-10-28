@@ -8,8 +8,8 @@ using RetailPlus.Data.Services;
 namespace RetailPlus.Data.Tests;
 
 /// <summary>
-/// Passwords carried over from Retail25: ASP.NET Core Identity version 3 hashes are accepted as they are, and replaced
-/// by this program's own format at the first sign-in.
+/// Passwords and PINs carried over from Retail25: ASP.NET Core Identity version 3 password hashes and Argon2id PIN hashes
+/// are accepted as they are, and replaced by this program's own format at the first sign-in.
 /// </summary>
 public static class IdentityHashes
 {
@@ -35,6 +35,69 @@ public static class IdentityHashes
         salt.CopyTo(bytes, 13);
         subkey.CopyTo(bytes, 13 + salt.Length);
         return Convert.ToBase64String(bytes);
+    }
+}
+
+/// <summary>A staff PIN hash made by Retail25's own Argon2PinHasher (Argon2id, 4 iterations, 64 MiB, 2 lanes).</summary>
+public static class Retail25Pins
+{
+    public const string Hash = "argon2id$4$65536$2$VuHfyaqut8xZTcPPVYCVNA==$xx6dCgcCmMrbNN5reZYyFztFAmRG++kr0ljicZANdPc=";
+
+    public const string Pin = "0042";
+}
+
+public class Retail25PinHashTests
+{
+    [Fact]
+    public void A_Retail25_PIN_hash_verifies_with_its_PIN_only()
+    {
+        Assert.True(SetupService.IsRetail25PinHash(Retail25Pins.Hash));
+        Assert.True(SetupService.VerifyPin(Retail25Pins.Pin, Retail25Pins.Hash));
+        foreach (var wrong in new[] { "0043", "42", "00420", "", " " })
+            Assert.False(SetupService.VerifyPin(wrong, Retail25Pins.Hash));
+    }
+
+    [Fact]
+    public void The_Argon2id_library_gives_the_RFC_9106_test_vector()
+    {
+        // RFC 9106, section 5.3: Argon2id, version 0x13, 32 KiB, 3 passes, 4 lanes, with a secret and associated data.
+        using var argon2 = new Konscious.Security.Cryptography.Argon2id(Enumerable.Repeat((byte)0x01, 32).ToArray())
+        {
+            Salt = Enumerable.Repeat((byte)0x02, 16).ToArray(),
+            KnownSecret = Enumerable.Repeat((byte)0x03, 8).ToArray(),
+            AssociatedData = Enumerable.Repeat((byte)0x04, 12).ToArray(),
+            Iterations = 3, MemorySize = 32, DegreeOfParallelism = 4,
+        };
+        Assert.Equal("0d640df58d78766c08c037a34a8b53c9d01ef0452d75b65eb52520e96b01e659", Convert.ToHexStringLower(argon2.GetBytes(32)));
+    }
+
+    [Fact]
+    public void Damaged_and_other_hashes_are_not_Retail25_PIN_hashes()
+    {
+        string salt = "VuHfyaqut8xZTcPPVYCVNA==", hash = "xx6dCgcCmMrbNN5reZYyFztFAmRG++kr0ljicZANdPc=";
+        var junk = new[]
+        {
+            "", "argon2id", $"argon2i$4$65536$2${salt}${hash}", $"argon2id$4$65536${salt}${hash}", $"argon2id$0$65536$2${salt}${hash}",
+            $"argon2id$999$65536$2${salt}${hash}", $"argon2id$4$4194304$2${salt}${hash}", $"argon2id$4$65536$0${salt}${hash}",
+            $"argon2id$4$65536$99${salt}${hash}", $"argon2id$4$8$2${salt}${hash}", $"argon2id$-4$65536$2${salt}${hash}",
+            $"argon2id$4$65536$2$not base64${hash}", $"argon2id$4$65536$2${salt}$c2hvcnQ=", "argon2id$4$65536$2$c2FsdA==$" + hash,
+            IdentityHashes.Cashier,
+        };
+        foreach (var stored in junk)
+        {
+            Assert.False(SetupService.IsRetail25PinHash(stored), stored);
+            Assert.False(SetupService.VerifyPin(Retail25Pins.Pin, stored), stored);
+        }
+        var ours = SetupService.HashPassword("1234");
+        Assert.False(SetupService.IsRetail25PinHash(ours));
+        Assert.True(SetupService.VerifyPin("1234", ours));
+    }
+
+    [Fact]
+    public async Task PINs_checked_at_the_same_time_all_come_out_right()
+    {
+        var checks = Enumerable.Range(0, 6).Select(i => Task.Run(() => (Right: i % 2 == 0, Matched: SetupService.VerifyPin(i % 2 == 0 ? Retail25Pins.Pin : "9999", Retail25Pins.Hash))));
+        foreach (var (right, matched) in await Task.WhenAll(checks)) Assert.Equal(right, matched);
     }
 }
 
@@ -74,11 +137,15 @@ public class IdentityHashTests
 
 public abstract class PasswordHashTests(DatabaseFixture db)
 {
-    private async Task<UserAccount> CarriedOverUserAsync(string hash)
+    private async Task<UserAccount> CarriedOverUserAsync(string hash, string? pinHash = null, string role = Permissions.CashierRole)
     {
         await using var ctx = db.CreateContext();
-        var role = await ctx.Roles.SingleAsync(r => r.Name == Permissions.CashierRole);
-        var user = new UserAccount { UserName = "r25" + Guid.NewGuid().ToString("N")[..8], RoleId = role.Id, AccessLevel = 1, PasswordHash = hash };
+        var found = await ctx.Roles.SingleAsync(r => r.Name == role);
+        var user = new UserAccount
+        {
+            UserName = "r25" + Guid.NewGuid().ToString("N")[..8], RoleId = found.Id, AccessLevel = found.Level, PasswordHash = hash,
+            StaffCode = pinHash is null ? null : "P" + Guid.NewGuid().ToString("N")[..8], PinHash = pinHash,
+        };
         ctx.UserAccounts.Add(user);
         await ctx.SaveChangesAsync();
         return user;
@@ -88,6 +155,12 @@ public abstract class PasswordHashTests(DatabaseFixture db)
     {
         await using var ctx = db.CreateContext();
         return await ctx.UserAccounts.Where(u => u.Id == userId).Select(u => u.PasswordHash).SingleAsync();
+    }
+
+    private async Task<string?> StoredPinAsync(Guid userId)
+    {
+        await using var ctx = db.CreateContext();
+        return await ctx.UserAccounts.Where(u => u.Id == userId).Select(u => u.PinHash).SingleAsync();
     }
 
     [SkippableFact]
@@ -128,6 +201,46 @@ public abstract class PasswordHashTests(DatabaseFixture db)
         Assert.Null(approver);
         Assert.NotNull(problem);
         Assert.StartsWith("pbkdf2$", await StoredHashAsync(user.Id), StringComparison.Ordinal);
+    }
+
+    [SkippableFact]
+    public async Task A_carried_over_PIN_signs_in_and_is_rehashed()
+    {
+        Skip.IfNot(db.Available, db.UnavailableReason);
+        var user = await CarriedOverUserAsync(IdentityHashes.Cashier, Retail25Pins.Hash);
+        var setup = new SetupService(db.Data);
+
+        Assert.Null((await setup.SignInWithPinAsync(user.StaffCode!, "0043")).User);
+        Assert.Equal(Retail25Pins.Hash, await StoredPinAsync(user.Id));
+
+        var signedIn = await setup.SignInWithPinAsync(user.StaffCode!.ToLowerInvariant(), Retail25Pins.Pin);
+        Assert.NotNull(signedIn.User);
+        var stored = await StoredPinAsync(user.Id);
+        Assert.StartsWith("pbkdf2$", stored, StringComparison.Ordinal);
+        Assert.False(SetupService.IsRetail25PinHash(stored!));
+        Assert.True(SetupService.VerifyPin(Retail25Pins.Pin, stored!));
+        // The password is left as it was: only the secret that was proved is stored again.
+        Assert.Equal(IdentityHashes.Cashier, await StoredHashAsync(user.Id));
+
+        Assert.NotNull((await setup.SignInWithPinAsync(user.StaffCode, Retail25Pins.Pin)).User);
+        Assert.Equal(stored, await StoredPinAsync(user.Id));
+
+        await using var ctx = db.CreateContext();
+        var lines = await ctx.AuditEntries.AsNoTracking().Where(a => a.EntityId == user.Id).ToListAsync();
+        Assert.Single(lines, a => a.Action == AuditActions.SignIn && a.Details!.Contains("PIN now stored in the new format", StringComparison.Ordinal));
+        Assert.Single(lines, a => a.Action == AuditActions.FailedSignIn);
+        Assert.DoesNotContain(lines, a => a.Action == AuditActions.Changed);
+    }
+
+    [SkippableFact]
+    public async Task Approval_with_a_carried_over_PIN_rehashes_too()
+    {
+        Skip.IfNot(db.Available, db.UnavailableReason);
+        var user = await CarriedOverUserAsync(IdentityHashes.Cashier, Retail25Pins.Hash, Permissions.SupervisorRole);
+        var (approver, problem) = await new SetupService(db.Data).ApproveAsync(user.StaffCode!, Retail25Pins.Pin, pin: true, Permissions.PosVoidSale, "Void sale");
+        Assert.Null(problem);
+        Assert.Equal(user.Id, approver!.Id);
+        Assert.StartsWith("pbkdf2$", await StoredPinAsync(user.Id), StringComparison.Ordinal);
     }
 }
 

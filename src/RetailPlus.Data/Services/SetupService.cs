@@ -413,22 +413,38 @@ public sealed class SetupService(DataContext data)
         var name = userName.Trim();
         return CheckAsync(u => u.UserName == name, name, false,
             user => user.PasswordHash is null ? user.MustChangePassword : VerifyPassword(password, user.PasswordHash), purpose,
-            user => user.PasswordHash is { } stored && IsIdentityHash(stored) ? HashPassword(password) : null);
-    }
-
-    /// <summary>Signs in with a staff code and PIN, by the same rules as <see cref="SignInAsync"/>.</summary>
-    public Task<SignInResult> SignInWithPinAsync(string staffCode, string pin, string? purpose = AuditActions.SignIn)
-    {
-        var code = staffCode.Trim();
-        return CheckAsync(u => u.StaffCode == code, code, true, user => user.PinHash is not null && VerifyPassword(pin, user.PinHash), purpose);
+            user =>
+            {
+                if (user.PasswordHash is not { } stored || !IsIdentityHash(stored)) return null;
+                user.PasswordHash = HashPassword(password);
+                return "password";
+            });
     }
 
     /// <summary>
-    /// The sign-in rules shared by passwords and PINs. <paramref name="rehash"/>, given a user whose secret matched,
-    /// returns a new hash to store instead of the old one (a carried-over hash in another format), or null.
+    /// Signs in with a staff code and PIN, by the same rules as <see cref="SignInAsync"/>. A PIN carried over from Retail25
+    /// (an Argon2id hash) is stored again in this program's own format on the first sign-in that proves it.
+    /// </summary>
+    public Task<SignInResult> SignInWithPinAsync(string staffCode, string pin, string? purpose = AuditActions.SignIn)
+    {
+        var code = staffCode.Trim();
+        return CheckAsync(u => u.StaffCode == code, code, true, user => user.PinHash is not null && VerifyPin(pin, user.PinHash), purpose,
+            user =>
+            {
+                if (user.PinHash is not { } stored || !IsRetail25PinHash(stored)) return null;
+                user.PinHash = HashPassword(pin);
+                return "PIN";
+            });
+    }
+
+    /// <summary>
+    /// The sign-in rules shared by passwords and PINs. <paramref name="upgrade"/>, given a user whose secret matched,
+    /// stores the secret again in this program's format when it was kept in another (carried over from Retail25), and
+    /// says which secret it was ("password", "PIN"), or returns null. The secret is checked on a worker thread: a
+    /// carried-over PIN takes about a second of Argon2 work, which must not freeze the login window.
     /// </summary>
     private async Task<SignInResult> CheckAsync(System.Linq.Expressions.Expression<Func<UserAccount, bool>> find, string typed, bool pin,
-        Func<UserAccount, bool> check, string? purpose, Func<UserAccount, string?>? rehash = null)
+        Func<UserAccount, bool> check, string? purpose, Func<UserAccount, string?> upgrade)
     {
         // Nothing typed: nothing to look up, and nothing worth a line in the audit log.
         if (typed.Length == 0) return new SignInResult(null, SignInFailure.WrongCredentials, null);
@@ -458,17 +474,16 @@ public sealed class SetupService(DataContext data)
             Failed($"{user.UserName} works at another store");
             result = new SignInResult(null, SignInFailure.OtherStore, null);
         }
-        else if (check(user))
+        else if (await Task.Run(() => check(user)))
         {
             user.FailedSignIns = 0;
             user.LockedUntilUtc = null;
             string upgraded = "";
-            if (rehash?.Invoke(user) is { } newHash)
+            if (upgrade(user) is { } secret)
             {
-                // Nobody changed the password, only how it is stored: no "Changed" line of its own, a note on the sign-in.
-                user.PasswordHash = newHash;
+                // Nobody changed the secret, only how it is stored: no "Changed" line of its own, a note on the sign-in.
                 db.SuppressAudit = true;
-                upgraded = "; password now stored in the new format";
+                upgraded = $"; {secret} now stored in the new format";
             }
             if (purpose is not null) db.Audit(purpose, user.UserName + why + upgraded, nameof(UserAccount), user.Id, userId: user.Id, userName: user.UserName);
             result = new SignInResult(user, SignInFailure.None, null);
@@ -533,6 +548,74 @@ public sealed class SetupService(DataContext data)
         var expected = Convert.FromBase64String(parts[3]);
         var actual = Rfc2898DeriveBytes.Pbkdf2(password, salt, iterations, HashAlgorithmName.SHA256, expected.Length);
         return CryptographicOperations.FixedTimeEquals(actual, expected);
+    }
+
+    /// <summary>
+    /// True when <paramref name="stored"/> matches the PIN: a hash made by <see cref="HashPassword"/>, or an Argon2id hash
+    /// carried over from Retail25 (see <see cref="IsRetail25PinHash"/>).
+    /// </summary>
+    public static bool VerifyPin(string pin, string stored)
+    {
+        if (!TryReadRetail25Pin(stored, out var iterations, out var memoryKiB, out var lanes, out var salt, out var expected))
+            return VerifyPassword(pin, stored);
+        // As in Retail25: an empty PIN never matches.
+        if (string.IsNullOrWhiteSpace(pin)) return false;
+        byte[] actual;
+        // One derivation at a time, as Retail25 does: each takes its memory (64 MiB with Retail25's settings), and the
+        // Argon2 library was seen to give wrong results to derivations running at the same moment.
+        Argon2Gate.Wait();
+        try
+        {
+            using var argon2 = new Konscious.Security.Cryptography.Argon2id(System.Text.Encoding.UTF8.GetBytes(pin))
+            {
+                Salt = salt, Iterations = iterations, MemorySize = memoryKiB, DegreeOfParallelism = lanes,
+            };
+            actual = argon2.GetBytes(Retail25PinHashBytes);
+        }
+        finally
+        {
+            Argon2Gate.Release();
+        }
+        return CryptographicOperations.FixedTimeEquals(actual, expected);
+    }
+
+    private static readonly SemaphoreSlim Argon2Gate = new(1, 1);
+
+    /// <summary>Retail25's Argon2PinHasher always derives 32 bytes.</summary>
+    private const int Retail25PinHashBytes = 32;
+
+    /// <summary>
+    /// True for a staff PIN hash carried over from Retail25: Argon2id (version 1.3) as Retail25's Argon2PinHasher writes it,
+    /// <c>argon2id$iterations$memory in KiB$lanes$salt$hash</c> with the salt and hash in base64 (Retail25 makes them with
+    /// 4 iterations, 64 MiB, 2 lanes, a 16-byte salt and a 32-byte hash). Such a hash is accepted by
+    /// <see cref="VerifyPin"/> and replaced at the next PIN sign-in.
+    /// </summary>
+    public static bool IsRetail25PinHash(string stored) => TryReadRetail25Pin(stored, out _, out _, out _, out _, out _);
+
+    /// <summary>
+    /// Reads a Retail25 PIN hash. The parameters come from the hash, as in Retail25, but only within limits that keep a
+    /// till safe from a damaged row (at most 64 iterations, 1 GiB and 16 lanes); anything else is not one.
+    /// </summary>
+    private static bool TryReadRetail25Pin(string stored, out int iterations, out int memoryKiB, out int lanes, out byte[] salt, out byte[] hash)
+    {
+        iterations = memoryKiB = lanes = 0;
+        salt = hash = [];
+        var parts = stored.Split('$');
+        var digits = System.Globalization.NumberStyles.None;
+        var invariant = System.Globalization.CultureInfo.InvariantCulture;
+        if (parts.Length != 6 || !string.Equals(parts[0], "argon2id", StringComparison.Ordinal)
+            || !int.TryParse(parts[1], digits, invariant, out iterations) || !int.TryParse(parts[2], digits, invariant, out memoryKiB)
+            || !int.TryParse(parts[3], digits, invariant, out lanes)
+            || iterations is < 1 or > 64 || lanes is < 1 or > 16 || memoryKiB < 8 * lanes || memoryKiB > 1024 * 1024)
+            return false;
+        var saltBytes = new byte[parts[4].Length];
+        var hashBytes = new byte[parts[5].Length];
+        if (!Convert.TryFromBase64String(parts[4], saltBytes, out int saltLength) || saltLength < 8
+            || !Convert.TryFromBase64String(parts[5], hashBytes, out int hashLength) || hashLength != Retail25PinHashBytes)
+            return false;
+        salt = saltBytes[..saltLength];
+        hash = hashBytes[..hashLength];
+        return true;
     }
 
     /// <summary>

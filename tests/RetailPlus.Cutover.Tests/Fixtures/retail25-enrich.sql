@@ -2,7 +2,8 @@
 -- units, 8 departments, 17 categories, 7 tenders, 1 admin user, 5 roles) with what the seed lacks, so that every mapping
 -- of the cutover is exercised: a second location with a clashing station code, branding, taxes past and future, a
 -- foreign currency, suppliers, matrix, kit, serialized, gift card and case items, customers with accounts, points and
--- clashing numbers, users with Identity v3 password hashes (passwords Cashier-2026, Manager-2026, Clerk-2026), a custom
+-- clashing numbers, users with Identity v3 password hashes (passwords Cashier-2026, Manager-2026, Clerk-2026) and
+-- Argon2id PIN hashes made by Retail25's own Argon2PinHasher (C01 with PIN 2468, K01 with 1357; X99's is damaged), a custom
 -- role, sales (split tender, on account, voided with Retail25's reversal, a return, a foreign currency, an add-on charge,
 -- a serialized unit, a gift card sold, a practice sale, one after midnight that belongs to the day before), invoices,
 -- layaways, quotes, gift cards and certificates, loyalty, purchase orders, customer orders, transfers, commission rules,
@@ -285,10 +286,10 @@ INSERT AspNetUserRoles (user_id, role_id) VALUES (2, 2), (3, 6), (4, 3), (5, 2);
 
 SET IDENTITY_INSERT staff_profiles ON;
 INSERT staff_profiles (id, user_id, staff_code, first_name, last_name, pin_hash, failed_pin_attempts, pin_locked_until, access_level, is_active, created_at, row_version)
-VALUES (2, 2, 'C01', 'Casey', 'Cashier', 'argon2id$4$65536$2$c2FsdHNhbHRzYWx0c2FsdA==$aGFzaGhhc2hoYXNoaGFzaGhhc2hoYXNoaGFzaGhhc2g=', 0, NULL, 1, 1, '2026-02-01T12:00:00+00:00', 0),
+VALUES (2, 2, 'C01', 'Casey', 'Cashier', 'argon2id$4$65536$2$bTXozNIvLFCz9nPcb4vv3w==$nhWPJ5W6fgfNCBUxIlCnB+4M+qFDZxCjAEZRAOEeNoo=', 0, NULL, 1, 1, '2026-02-01T12:00:00+00:00', 0),
        (3, 3, 'M01', 'Morgan', 'Manager', NULL, 0, NULL, 3, 1, '2026-02-01T12:00:00+00:00', 0),
-       (4, 4, 'K01', 'Kim', 'Clerk', 'argon2id$4$65536$2$c2FsdHNhbHRzYWx0c2FsdA==$aGFzaGhhc2hoYXNoaGFzaGhhc2hoYXNoaGFzaGhhc2g=', 0, NULL, 2, 1, '2026-02-01T12:00:00+00:00', 0),
-       (5, 5, 'X99', 'Former', 'Staff', NULL, 0, NULL, 1, 0, '2026-02-01T12:00:00+00:00', 0);
+       (4, 4, 'K01', 'Kim', 'Clerk', 'argon2id$4$65536$2$ojQb8fE3dDfS7XBfEwjDVQ==$8tNtCPO+7Kp043IoietqOD50ucGrrM/CybDhitBRBcg=', 0, NULL, 2, 1, '2026-02-01T12:00:00+00:00', 0),
+       (5, 5, 'X99', 'Former', 'Staff', 'argon2id$4$65536$2$c2FsdA==$c2hvcnQ=', 0, NULL, 1, 0, '2026-02-01T12:00:00+00:00', 0);
 SET IDENTITY_INSERT staff_profiles OFF;
 
 -- Sales -----------------------------------------------------------------------------------------------------------------
