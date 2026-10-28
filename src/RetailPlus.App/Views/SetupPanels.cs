@@ -99,6 +99,7 @@ public sealed class AccountingSetupPanel : UserControl
         AccountMappingKind.StockAdjustments => "Stock found or lost (adjustments, counts)",
         AccountMappingKind.PurchasesClearing => "Stock received, supplier not billed yet",
         AccountMappingKind.InventoryInTransit => "Stock in transit to another store",
+        AccountMappingKind.GiftCardAdjustments => "Gift card balances a supervisor corrected",
         _ => m.Kind.ToString(),
     };
 

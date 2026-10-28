@@ -27,6 +27,8 @@ public enum AccountMappingKind
     PurchasesClearing,
     /// <summary>Stock shipped to another store and not received yet.</summary>
     InventoryInTransit,
+    /// <summary>Gift card balances corrected by a supervisor: the other side of the liability (goodwill, write-offs).</summary>
+    GiftCardAdjustments,
 }
 
 /// <summary>

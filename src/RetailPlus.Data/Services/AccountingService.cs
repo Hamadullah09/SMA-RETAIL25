@@ -56,6 +56,7 @@ public sealed class AccountingService(DataContext data)
         AccountMappingKind.Sales, AccountMappingKind.Tax1, AccountMappingKind.Tax2, AccountMappingKind.GiftCardLiability, AccountMappingKind.CostOfGoods,
         AccountMappingKind.Inventory, AccountMappingKind.AccountsReceivable, AccountMappingKind.Discounts, AccountMappingKind.Rounding,
         AccountMappingKind.StockAdjustments, AccountMappingKind.PurchasesClearing, AccountMappingKind.InventoryInTransit,
+        AccountMappingKind.GiftCardAdjustments,
     ];
 
     /// <summary>This store's mappings (every store's when the database works for no store).</summary>
@@ -134,6 +135,18 @@ public sealed class AccountingService(DataContext data)
         {
             book.Post(p.StoreId, p.PaidOn, book.TenderAccount(p.StoreId, p.TenderType), p.Amount, "Payments on account");
             book.Post(p.StoreId, p.PaidOn, book.Account(p.StoreId, AccountMappingKind.AccountsReceivable), -p.Amount, "Payments on account");
+        }
+
+        // Gift card balances a supervisor corrected. An adjustment with a sale belongs to that sale (a card returned, or a
+        // voided sale undone, and voided sales are left out), so only those without one are posted here.
+        var corrections = db.GiftCardTransactions.AsNoTracking()
+            .Where(t => t.Kind == GiftCardTransactionKind.Adjust && t.SaleId == null && t.At >= start && t.At < end);
+        if (store is Guid s4) corrections = corrections.Where(t => t.StoreId == s4);
+        foreach (var t in await corrections.ToListAsync())
+        {
+            var day = DateOnly.FromDateTime(t.At);
+            book.Post(t.StoreId, day, book.Account(t.StoreId, AccountMappingKind.GiftCardAdjustments), t.Amount, "Gift card corrections");
+            book.Post(t.StoreId, day, book.Account(t.StoreId, AccountMappingKind.GiftCardLiability), -t.Amount, "Gift card corrections");
         }
 
         StockMovementKind[] kinds =
@@ -307,6 +320,7 @@ public sealed class AccountingService(DataContext data)
             AccountMappingKind.StockAdjustments => "Stock adjustments",
             AccountMappingKind.PurchasesClearing => "Purchases clearing",
             AccountMappingKind.InventoryInTransit => "Inventory in transit",
+            AccountMappingKind.GiftCardAdjustments => "Gift card adjustments",
             AccountMappingKind.Tax1 => "Tax 1",
             AccountMappingKind.Tax2 => "Tax 2",
             _ => kind.ToString(),

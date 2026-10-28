@@ -419,6 +419,7 @@ public abstract class StockAndMoneyTests(DatabaseFixture db)
                 AccountMappingKind.AccountsReceivable => "1100",
                 AccountMappingKind.StockAdjustments => "5100",
                 AccountMappingKind.PurchasesClearing => "2100",
+                AccountMappingKind.GiftCardAdjustments => "5200",
                 _ => "",
             };
             row.AccountName = row.AccountCode.Length > 0 ? row.Kind.ToString() : null;
@@ -454,6 +455,8 @@ public abstract class StockAndMoneyTests(DatabaseFixture db)
         var box = await ItemAsync(location.Id, "ACCASE", 40m, 2, cost: 36m);
         var unit = await ItemAsync(location.Id, "ACUNIT", 2m, 0, cost: 1.5m, parent: "ACCASE", unitsPerCase: 24);
         await new InventoryService(Data).BreakCaseAsync(unit.Id, 1, "tester");
+        var gift = new GiftCardService(Data);
+        await gift.AdjustAsync((await gift.FindAsync(card))!.Card.Id, 5m, "Goodwill", "tester");
 
         var today = DateOnly.FromDateTime(DateTime.Today);
         var export = await accounting.ExportAsync(today.AddDays(-1), today);
@@ -468,6 +471,9 @@ public abstract class StockAndMoneyTests(DatabaseFixture db)
         // A case broken at its cost moves value from the case item to the units: no gain or loss.
         Assert.DoesNotContain(export.Lines, l => l.Memo == "Case breaks");
         Assert.Contains(export.Lines, l => l.Account == "1100" && l.Memo == "Payments on account" && l.Credit > 0);
+        // A supervisor's correction: the card owes 5 more, against the adjustments account.
+        Assert.Contains(export.Lines, l => l.Account == "5200" && l.Memo == "Gift card corrections" && l.Debit == 5m);
+        Assert.Contains(export.Lines, l => l.Account == "2400" && l.Memo == "Gift card corrections" && l.Credit == 5m);
         Assert.Contains("Tender Visa", export.Unmapped);
         Assert.StartsWith("Date,Journal,Store,Account,Account name,Debit,Credit,Memo", export.ToCsv(), StringComparison.Ordinal);
 
