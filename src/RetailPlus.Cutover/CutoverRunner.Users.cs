@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using RetailPlus.Core.Model;
 using RetailPlus.Core.Rules;
 using RetailPlus.Cutover.Source;
+using RetailPlus.Data.Services;
 
 namespace RetailPlus.Cutover;
 
@@ -18,11 +19,14 @@ public sealed partial class CutoverRunner
 
     private CarriedUser? StaffOf(long? staffId) => staffId is long id ? _staff.GetValueOrDefault(id) : null;
 
+    /// <summary>The users whose Retail25 PIN was carried over, for the checks.</summary>
+    private readonly HashSet<Guid> _pinUsers = [];
+
     /// <summary>
     /// Roles and users. Retail25's five standard roles become the standard roles of the same job; another Retail25 role
     /// becomes a custom role with the permissions its keys translate to (<see cref="PermissionMap"/>). Users keep their
-    /// Retail25 password hash, which signs them in and is replaced by the new format then; PINs are Argon2 hashes, which
-    /// cannot be checked here, so staff keep their staff code and choose a new PIN.
+    /// Retail25 password hash and their staff code with the PIN's Argon2id hash; both sign them in as before and are
+    /// stored again in the program's own format at the first sign-in that proves them (<see cref="SetupService"/>).
     /// </summary>
     private async Task UsersAsync(CancellationToken ct)
     {
@@ -99,7 +103,7 @@ public sealed partial class CutoverRunner
         var users = new List<UserAccount>();
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var codes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        int pins = 0;
+        int damagedPins = 0;
         foreach (var row in _src["AspNetUsers"].Rows.OrderBy(r => r.Id))
         {
             userArea.Read++;
@@ -137,14 +141,22 @@ public sealed partial class CutoverRunner
                 Warn($"AspNetUsers {row.Id}: staff code {code} is too long or used twice; the user signs in with the password only");
                 code = null;
             }
-            if (profile?.Text("pin_hash") is not null) pins++;
             var id = usersByName.GetValueOrDefault(userName.ToUpperInvariant(), StableIds.For("user", row.Id));
+            // The PIN goes with the staff code it is typed with; one Retail25's hasher did not make cannot be checked.
+            string? pin = profile?.Text("pin_hash");
+            if (pin is not null && (code is null || !SetupService.IsRetail25PinHash(pin)))
+            {
+                Warn($"staff_profiles {profile!.Id} ({userName}): {(code is null ? "the PIN has no staff code to go with" : "the PIN hash is not one Retail25 makes")}; they set a new PIN");
+                damagedPins++;
+                pin = null;
+            }
+            if (pin is not null) _pinUsers.Add(id);
             var fullName = row.Text("display_name") ?? (profile is null ? null : $"{profile.Text("first_name")} {profile.Text("last_name")}".Trim());
             var hash = row.Text("password_hash");
             users.Add(From(new UserAccount
             {
                 Id = id, UserName = userName, FullName = fullName, PasswordHash = hash, MustChangePassword = hash is null,
-                AccessLevel = level, RoleId = roleId, StoreId = storeId, StaffCode = code,
+                AccessLevel = level, RoleId = roleId, StoreId = storeId, StaffCode = code, PinHash = pin,
                 IsActive = row.Bool("is_enabled") && (profile?.Bool("is_active") ?? true),
                 CreatedAtUtc = Utc(profile?.Instant("created_at")),
             }, row));
@@ -156,22 +168,25 @@ public sealed partial class CutoverRunner
         await _w.UpsertAsync(userArea, users, ct, merge: (stored, mapped) =>
         {
             // A password or PIN set in the new program (or a Retail25 hash already upgraded at a sign-in) stays.
-            if (stored.PasswordHash is { } kept && !RetailPlus.Data.Services.SetupService.IsIdentityHash(kept))
+            if (stored.PasswordHash is { } kept && !SetupService.IsIdentityHash(kept))
             {
                 mapped.PasswordHash = kept;
                 mapped.MustChangePassword = stored.MustChangePassword;
             }
-            mapped.PinHash = stored.PinHash;
-            if (stored.PinHash is not null && stored.StaffCode is not null) mapped.StaffCode = stored.StaffCode;
+            if (stored.PinHash is { } keptPin && !SetupService.IsRetail25PinHash(keptPin))
+            {
+                mapped.PinHash = keptPin;
+                mapped.StaffCode = stored.StaffCode;
+            }
             mapped.FailedSignIns = stored.FailedSignIns;
             mapped.LockedUntilUtc = stored.LockedUntilUtc;
         });
         foreach (var orphan in _src["staff_profiles"].Rows.Where(p => !_users.ContainsKey(p.Long("user_id"))))
             userArea.Skip("staff profile without a user");
-        if (pins > 0)
-            _report.NotCarriedOver.Add(new NotCarried("Staff PINs (staff_profiles.pin_hash)", pins,
-                "Argon2id hashes, which this program cannot check. Staff codes are kept; each person sets a new PIN (Setup › Users) or signs in with the password."));
+        if (damagedPins > 0)
+            _report.NotCarriedOver.Add(new NotCarried("Staff PINs that cannot be checked (staff_profiles.pin_hash)", damagedPins,
+                "Not an Argon2id hash as Retail25's PIN hasher writes it, or no usable staff code to type it with. Each person sets a new PIN (Setup › Users) or signs in with the password."));
         if (users.Count > 0)
-            Note("No carried-over user is a super administrator: Retail25 had one location per user. Give the person who looks after every store the role Super administrator (Setup › Users).");
+            Note("No carried-over user is a super administrator: Retail25 had one location per user. The server makes the user named in Bootstrap:AdminUserName super administrator on its first start (CUTOVER.md 2.6).");
     }
 }

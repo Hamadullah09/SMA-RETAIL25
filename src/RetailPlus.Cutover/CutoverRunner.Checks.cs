@@ -151,6 +151,10 @@ public sealed partial class CutoverRunner
         await Count<Client>("Clients", _clients.Values.Select(c => c.Id));
         await Count<Supplier>("Suppliers", _suppliers.Values.Select(s => s.Id));
         await Count<UserAccount>("Users", _users.Values.Select(u => u.Id).Distinct());
+        int pins = 0;
+        var pinUsers = _pinUsers.ToList();
+        foreach (var chunk in pinUsers.Chunk(2000)) pins += await db.UserAccounts.CountAsync(u => chunk.Contains(u.Id) && u.PinHash != null, ct);
+        _report.Check("Rows", "Staff PINs", pinUsers.Count, pins);
         await Count<Sale>("Sales", _sales.Values.Select(s => s.Sale.Id));
     }
 

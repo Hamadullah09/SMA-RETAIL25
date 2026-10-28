@@ -57,7 +57,8 @@ A row that is not there yet is added; a row that is there is updated with the va
   Retail25 no longer has (a supplier taken off an item, a kit component, an invoice line). Only rows the cutover itself
   made (version 8 ids) are ever removed;
 - what the new system owns stays: a password or PIN set in the new program (or a Retail25 hash already upgraded at a
-  sign-in), failed sign-ins and locks, a time clock entry a supervisor corrected, the flag on an item or client;
+  sign-in) with its staff code, failed sign-ins and locks, a time clock entry a supervisor corrected, the flag on an
+  item or client;
 - rows deleted outright in Retail25 between two runs (not soft-deleted) stay in the target.
 
 Each run adds an `ImportBatch` row and an Import audit line; those are the record of the runs, not data.
@@ -88,7 +89,7 @@ Each is worked out from Retail25 and again from the new database; the exit code 
 | Gift cards | liability: what is left on cards and certificates |
 | Loyalty | points held by clients; points in the loyalty transactions |
 | Sales, per store | sales (completed and voided); net total of completed sales; sales and net total per business day (every day up to 31 days, otherwise the days that differ and the number of days alike); amount per tender |
-| Rows | items, clients, suppliers, users and sales written |
+| Rows | items, clients, suppliers, users and sales written; staff PINs carried over |
 
 ### Time
 
@@ -110,8 +111,8 @@ Times below are an example; adjust to the trial run.
 - [ ] The desktop app is installed on every till PC (it can run on its own SQLite file until it is enrolled).
 - [ ] Each Retail25 location has its three-letter code (`locations.legacy_code`); each becomes a store with that code.
 - [ ] In Retail25, tidy what the report of the trial run complains about (long stock codes, duplicate names) or accept it.
-- [ ] Staff are told: they sign in with their Retail25 user name and password; **PINs must be set again**; Retail25's
-      "Clerk" is "Stock clerk" here.
+- [ ] Staff are told: they sign in with their Retail25 user name and password, or their staff code and PIN, as before
+      (the first sign-in takes a second longer); Retail25's "Clerk" is "Stock clerk" here.
 - [ ] The DNS record of pos.sma-techno.net has a short TTL (5 minutes) from the day before, if the server changes.
 - [ ] A rollback owner and a go/no-go time are agreed (2.11).
 
@@ -220,8 +221,9 @@ On each till, in the desktop app (Setup › This station):
 ### 2.9 The first master-data download
 
 Each enrolled till downloads the master data (items, prices, clients, users and roles, settings) of its store. Check on
-each till that the number of items and clients matches the report's, then sign in with a Retail25 user name and password,
-set the PINs (Setup › Users), and ring up a test sale and void it.
+each till that the number of items and clients matches the report's, then sign in with a Retail25 user name and password
+and with a staff code and PIN, and ring up a test sale and void it. Staff whose PIN the report lists as not carried over
+set a new one (Setup › Users).
 
 ### 2.10 Checks after the switch
 
@@ -262,7 +264,7 @@ set the PINs (Setup › Users), and ring up a test sale and void it.
 | `tender_types` | `TenderType` | Display name (16 characters). Behaviour Cash → Cash, Card → Card, GiftCard and GiftCertificate → Gift card, OnAccount → On account, Manual → Cheque when named like one, else Other. The tender's currency. Deleted ones come over inactive (old payments name them). |
 | `departments`, `categories` | `Department`, `Category` | Company-wide here: the same name at two locations is one entry. Names in capitals, as the program keeps them, cut to 15 characters (decision 6). |
 | `AspNetRoles`, `role_permissions` | `Role`, `RoleGrant` | Trainee, Cashier, Clerk, Supervisor, Administrator → the standard roles Trainee, Cashier, Stock clerk, Supervisor, Administrator. Any other role → a custom role with the keys its Retail25 keys translate to (`PermissionMap`), plus `pos.approve` (decision 16). The seven standard roles are created when the target has none. |
-| `AspNetUsers`, `AspNetUserRoles`, `staff_profiles` | `UserAccount` | User name (Retail25's, usually an e-mail address), full name, the password hash as it is (decision 8), the role with the most rights, the home location's store, the staff code, active. |
+| `AspNetUsers`, `AspNetUserRoles`, `staff_profiles` | `UserAccount` | User name (Retail25's, usually an e-mail address), full name, the password hash as it is (decision 8), the role with the most rights, the home location's store, the staff code with the PIN's hash as it is (decision 8), active. |
 | `suppliers` | `Supplier` | Company, contact, address, phones, e-mail, number (decision 5). |
 | `products` with `product_prices`, `price_breaks`, `sale_pricings`, `bonus_pricings` | `Item` | Stock code (16 characters, decision 7), name, type (same names), UPC/EAN as the barcode, department, category, tax flags, regular price (level 1) and levels 2–4, break quantities, last and average cost, margin, base stock, reorder point and quantity, on order, case quantity, ship weight, bin, messages, notes (description and notes), substitute, tag-along and case (parent) item, the current or next sale price (percent off, dates), bonus pricing (Retail25's "buy 3, 1 free" is "buy 2, get 1"), deleted. |
 | `product_suppliers` | `ItemSupplier` | By rank; the first is the item's supplier and its reorder number the item's supplier code. |
@@ -305,10 +307,14 @@ set the PINs (Setup › Users), and ring up a test sale and void it.
 7. **Text sizes.** The model keeps Retail Plus's column sizes (item name 30, stock code 16, client names 12 and 16…).
    Longer Retail25 values are cut and listed in the report; an item's full name and a cut stock code go into its notes,
    and an item whose stock code was cut or clashed is flagged for review.
-8. **Passwords and PINs.** Password hashes are carried over as they are (ASP.NET Identity version 3). The sign-in accepts
-   them and replaces each with the program's own format at the first sign-in that proves it; a later cutover run keeps
-   the new hash. Retail25's PINs are Argon2id hashes, which .NET cannot check without another package: staff codes are
-   kept, PINs are set again.
+8. **Passwords and PINs.** Password hashes are carried over as they are (ASP.NET Identity version 3), and so are the
+   staff PINs with their staff codes: Retail25 keeps them as Argon2id hashes, written by its `Argon2PinHasher` as
+   `argon2id$4$65536$2$<salt>$<hash>` (4 passes, 64 MiB, 2 lanes, a 16-byte salt and a 32-byte hash, the parameters in
+   the string). The sign-in and the supervisor approval accept both, checking the PIN with the same Argon2 library
+   Retail25 uses (Konscious.Security.Cryptography.Argon2 1.3.1, MIT licence, checked against the RFC 9106 test vector),
+   one at a time as Retail25 does; the first sign-in that proves a password or PIN stores it again in the program's own
+   format, and a later cutover run keeps what is stored here. A PIN hash that Retail25's hasher did not make, or one
+   without a usable staff code, cannot be checked: the report lists it, and that person sets a new PIN.
 9. **Sales history.** Practice (training) sales are left out, as the program does not keep trainees' sales. A voided sale
    is one voided sale here: Retail25's reversal transaction is how it recorded the void, so the reversal is not carried
    over and its time and user become the sale's void time and voided-by. Retail25's add-on charge has no column here and
@@ -350,7 +356,7 @@ set the PINs (Setup › Users), and ring up a test sale and void it.
 | paid-off and cancelled layaways; converted, expired and cancelled quotes; filled customer orders | History. |
 | `loyalty_ledger_entries` | Each client's balance comes over as one transaction. |
 | `ar_ledger_entries` | Invoices come over with balances, late charges and payments. |
-| Staff PINs | Argon2id (decision 8). |
+| Staff PINs that cannot be checked | Not an Argon2id hash as Retail25 writes it, or no usable staff code (decision 8). |
 | Tax configurations not in effect today | One current tax setup per store here; enter a future change when it is due. |
 | "Percent of profit" commission rules; commission caps | No such rule here; caps are set per item. |
 | "Do not reduce stock" on kit components | Kits always reduce their components here. |
@@ -367,10 +373,12 @@ set the PINs (Setup › Users), and ring up a test sale and void it.
 `tests/RetailPlus.Cutover.Tests` copies `Retail25_Source` with a copy-only backup and a restore under a new name, adds the
 rows the demo seed lacks with `Fixtures/retail25-enrich.sql` (a second store with a clashing station code, branding, a
 future tax change, a foreign currency, suppliers, matrix, kit, serialized, case and gift card items, clients with
-accounts and clashing numbers, users with real Identity password hashes and a custom role, sales of every kind,
+accounts and clashing numbers, users with real Identity password hashes, PIN hashes made by Retail25's own
+`Argon2PinHasher` (and a damaged one) and a custom role, sales of every kind,
 invoices, layaways, quotes, gift cards and certificates, loyalty, purchase orders, customer orders, transfers,
 commission rules, the time clock, a stock count in progress and a closed drawer), and runs the cutover into a new SQLite
 file and a new LocalDB database. It checks what lands where, that a second run changes nothing, that a run after Retail25
-changed updates only that, that a dry run writes nothing, that a carried-over user signs in with the old password and is
-rehashed, and that one store can be carried over on its own. Without LocalDB or `Retail25_Source` the tests skip
-(`RETAILPLUS_R25_SOURCE` names another source database, `RETAILPLUS_TEST_SQL` another server).
+changed updates only that, that a dry run writes nothing, that a carried-over user signs in with the old password and
+with the staff code and old PIN and both are rehashed, and that one store can be carried over on its own. Without
+LocalDB or `Retail25_Source` the tests skip (`RETAILPLUS_R25_SOURCE` names another source database,
+`RETAILPLUS_TEST_SQL` another server).

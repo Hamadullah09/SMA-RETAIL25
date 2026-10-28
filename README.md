@@ -152,7 +152,7 @@ Without a database option the import goes into the app's default SQLite file. It
 dotnet run --project src/RetailPlus.Cutover -- --source "<Retail25 connection>" --target "<connection string or .db file>" [--dry-run] [--report <file.md>] [--store-code <code>]
 ```
 
-Reads the Retail25 SQL Server database (never writes it) and carries stores, settings, users and roles, items with their stock, clients, gift cards, loyalty points, sales history and open documents into the new model, in one transaction. Running it again changes only what changed in Retail25; `--dry-run` writes nothing. Every run ends with a report and checks (stock per store, receivables, gift card liability, points, sales per day and per tender); the exit code is 2 when a check differs. Users keep their Retail25 passwords, which are stored again in the new format at their first sign-in. The runbook for the switch, the mapping and the decisions are in [docs/CUTOVER.md](docs/CUTOVER.md).
+Reads the Retail25 SQL Server database (never writes it) and carries stores, settings, users and roles, items with their stock, clients, gift cards, loyalty points, sales history and open documents into the new model, in one transaction. Running it again changes only what changed in Retail25; `--dry-run` writes nothing. Every run ends with a report and checks (stock per store, receivables, gift card liability, points, sales per day and per tender); the exit code is 2 when a check differs. Users keep their Retail25 passwords, and their staff codes and PINs, which are stored again in the new format at their first sign-in. The runbook for the switch, the mapping and the decisions are in [docs/CUTOVER.md](docs/CUTOVER.md).
 
 ## Build and test
 

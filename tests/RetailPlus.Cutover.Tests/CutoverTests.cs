@@ -119,8 +119,14 @@ public abstract class CutoverTests(Retail25SourceFixture source, CutoverTargets 
         // Users and roles.
         var users = await db.UserAccounts.Include(u => u.Role).ThenInclude(r => r!.Permissions).ToDictionaryAsync(u => u.UserName);
         Assert.Equal(5, users.Count);
-        Assert.Equal((Permissions.CashierRole, "C01", (string?)null, stores[TstCode].Id), (users["cashier1@corner.test"].Role!.Name, users["cashier1@corner.test"].StaffCode, users["cashier1@corner.test"].PinHash, users["cashier1@corner.test"].StoreId!.Value));
+        Assert.Equal((Permissions.CashierRole, "C01", stores[TstCode].Id), (users["cashier1@corner.test"].Role!.Name, users["cashier1@corner.test"].StaffCode, users["cashier1@corner.test"].StoreId!.Value));
         Assert.True(SetupService.IsIdentityHash(users["cashier1@corner.test"].PasswordHash!));
+        // PINs come over with their staff codes as Retail25's Argon2id hashes; a damaged one does not.
+        Assert.True(SetupService.IsRetail25PinHash(users["cashier1@corner.test"].PinHash!));
+        Assert.Equal("K01", users["clerk.north@corner.test"].StaffCode);
+        Assert.True(SetupService.IsRetail25PinHash(users["clerk.north@corner.test"].PinHash!));
+        Assert.Equal(("X99", (string?)null), (users["former@corner.test"].StaffCode, users["former@corner.test"].PinHash));
+        Assert.Null(users["manager1@corner.test"].PinHash);
         var manager = users["manager1@corner.test"].Role!;
         Assert.Equal(("Store manager", false, 3), (manager.Name, manager.IsSystem, manager.Level));
         Assert.Contains(manager.Permissions, p => p.Permission == Permissions.PosVoidSale);
@@ -182,7 +188,8 @@ public abstract class CutoverTests(Retail25SourceFixture source, CutoverTargets 
 
         // What has no place here is in the report.
         Assert.Contains(report.NotCarriedOver, n => n.What == "drawer_sessions" && n.Rows == 1);
-        Assert.Contains(report.NotCarriedOver, n => n.What.StartsWith("Staff PINs", StringComparison.Ordinal) && n.Rows == 2);
+        Assert.Contains(report.NotCarriedOver, n => n.What.StartsWith("Staff PINs that cannot be checked", StringComparison.Ordinal) && n.Rows == 1);
+        Assert.Contains(report.Checks, c => c.Name == "Staff PINs" && c.Source == 2 && c.Target == 2);
         Assert.Contains(report.Areas, a => a.Area == "Sales" && a.Skipped.ContainsKey("practice sale (training)"));
     }
 
@@ -340,9 +347,42 @@ public abstract class CutoverTests(Retail25SourceFixture source, CutoverTargets 
         AllChecksMatch(again);
         Assert.Equal(upgraded, await HashAsync());
         Assert.NotNull((await setup.SignInAsync("manager1@corner.test", "Manager-2026")).User);
-        // PINs are not carried over (Retail25 kept Argon2 hashes): the staff code alone signs nobody in.
         Assert.NotNull((await setup.SignInAsync("clerk.north@corner.test", "Clerk-2026")).User);
+    }
+
+    [SkippableFact]
+    public async Task A_carried_over_user_signs_in_with_the_old_PIN_and_is_rehashed()
+    {
+        Skip.IfNot(source.Available, source.UnavailableReason);
+        var target = targets.Create();
+        AllChecksMatch(await RunAsync(target));
+        var setup = new SetupService(new DataContext(target));
+        async Task<(string? Code, string? Pin)> PinAsync(string userName)
+        {
+            await using var db = Open(target);
+            var user = await db.UserAccounts.SingleAsync(u => u.UserName == userName);
+            return (user.StaffCode, user.PinHash);
+        }
+        var retail25 = await PinAsync("clerk.north@corner.test");
+
         Assert.Null((await setup.SignInWithPinAsync("K01", "1234")).User);
+        Assert.Equal(retail25, await PinAsync("clerk.north@corner.test"));
+        var signedIn = await setup.SignInWithPinAsync("K01", "1357");
+        Assert.Equal("clerk.north@corner.test", signedIn.User?.UserName);
+        var upgraded = await PinAsync("clerk.north@corner.test");
+        Assert.Equal("K01", upgraded.Code);
+        Assert.StartsWith("pbkdf2$", upgraded.Pin, StringComparison.Ordinal);
+
+        // An approval by PIN proves it too (a cashier may not approve, but the PIN was right).
+        var (approver, _) = await setup.ApproveAsync("C01", "2468", pin: true, Permissions.PosVoidSale, "Void sale");
+        Assert.Null(approver);
+        Assert.StartsWith("pbkdf2$", (await PinAsync("cashier1@corner.test")).Pin, StringComparison.Ordinal);
+
+        // Another run keeps the PINs stored here, and they still sign in.
+        AllChecksMatch(await RunAsync(target));
+        Assert.Equal(upgraded, await PinAsync("clerk.north@corner.test"));
+        Assert.NotNull((await setup.SignInWithPinAsync("K01", "1357")).User);
+        Assert.NotNull((await setup.SignInWithPinAsync("C01", "2468")).User);
     }
 
     [SkippableFact]
