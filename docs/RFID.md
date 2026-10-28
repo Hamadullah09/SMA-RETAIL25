@@ -18,7 +18,8 @@ reader's four antenna ports are given to POS stations by an administrator.
  │ …            │                         └──────────────┬───────────────┘        └───────────────────┘
  └──────────────┘                                        │ reads readers, antennas, assignments
                                                          ▼
-                                                  SQL Server (RfidReaders, RfidAntennas, ItemTags)
+                              the store's database (--db, --connection, --localdb)
+                              or the SMA RETAIL server with a hub key (--server, --serverkey)
 ```
 
 * **One owner per reader.** A D2184 accepts one TCP client, so exactly one process talks to each reader: the RFID
@@ -70,19 +71,71 @@ sc create SmaRetailRfidHub binPath= "C:\SMA RETAIL\RfidHub\SmaRetail.RfidHub.exe
 sc start SmaRetailRfidHub
 ```
 
-Options: `--connection` (or `--localdb <name>` for development), `--hub <name>` (which readers this hub owns, default
-`main`), `--urls` (default `http://0.0.0.0:5280`), `--apikey <secret>` (stations must then send the same key, set in
-*Setup › This station › RFID hub key*). Allow TCP 5280 through the Windows firewall on the hub PC.
+Options: `--connection` (or `--db <SQLite file>`, or `--localdb <name>` for development), or `--server` with
+`--serverkey` (next section), `--hub <name>` (which readers this hub owns, default `main`), `--poll <seconds>` (how
+often the reader list is read again, default 60), `--urls` (default `http://0.0.0.0:5280`), `--apikey <secret>`
+(stations must then send the same key, set in *Setup › This station › RFID hub key*). Allow TCP 5280 through the
+Windows firewall on the hub PC.
+
+### A hub that reads its readers from the server
+
+A store whose tills have joined the SMA RETAIL server can run its hub on any PC of the store, with no copy of a till's
+database: the hub reads the store's readers and antennas from the server, as the tills set them up and sent them.
+
+1. On the server, an administrator makes a hub key for the store: `POST /api/stores/{id}/rfid-hubs` with
+   `{ "name": "Back office PC" }`. The answer holds the key (`rfh_…`, 47 characters). **It is shown this once**; the
+   server keeps only its SHA-256. Make one key per hub PC, so one can be revoked without the others.
+2. Next to `SmaRetail.RfidHub.exe` put an `appsettings.json` (readable only by administrators and the service account)
+   with the server and the key, which keeps the key off the service's command line:
+   ```json
+   { "server": "https://pos.example.com/", "serverkey": "rfh_…" }
+   ```
+   and install the service without a database option:
+   ```
+   sc create SmaRetailRfidHub binPath= "C:\SMA RETAIL\RfidHub\SmaRetail.RfidHub.exe" start= auto
+   ```
+   (`--server` and `--serverkey` on the command line work too; giving a database option as well is refused.)
+3. Stations use the hub as before (*Hub for all stations…*).
+
+What happens then:
+
+* The hub reads the list when it starts and again every `--poll` seconds (default 60), and applies changes the way it
+  always has: new and removed readers start and stop, changed assignments and thresholds apply without reconnecting.
+* A reader or antenna changed at a till reaches the server with the till's next sync. A till that uses a hub sends its
+  change at once when it is saved (waiting up to 15 seconds) and then asks the hub to reload, so *Send settings to
+  reader* sends what was just saved. That till records when the settings were sent, since a hub on the server has no
+  database to record it in.
+* The last list is kept in `%LOCALAPPDATA%\RetailPlus\RfidHub\readers.json` of the account the hub runs as
+  (`--savedlist <file>` to change it). A hub that starts while the server cannot be reached serves the readers of that
+  list and keeps asking; one that has never reached the server starts with no readers and tries every 10 seconds. A
+  running hub that cannot reach the server goes on with the readers it has and logs the problem.
+* `GET /health` on the hub says `source` (`server` or `database`), the store's name and whether a list was read.
+* The hub list (`GET /api/stores/{id}/rfid-hubs`) shows each key's first characters, who made it, and when and from
+  which address it last asked. `POST /api/rfid-hubs/{id}/revoke` stops a key at once: the hub's next request is
+  refused, it deletes its kept list, keeps the readers it has until it is restarted, and logs the refusal every poll.
+  Making and revoking keys are written to the store's audit log.
+
+**Why this way.** The smallest thing that gives a hub its readers is one read-only endpoint, `GET /api/rfid/readers`,
+and the question is how the hub proves which store it serves:
+
+| Option | Why not, or why |
+|---|---|
+| A copy of a till's database on the hub PC, synced | What the hub was meant to stop needing; a second copy of every sale and user on a PC that only needs the readers |
+| The station key of a till on that PC | The hub must run on any PC, also one without a till. The key is kept in the till user's `station.json`, encrypted with DPAPI for that Windows user, so a hub running as a service cannot read it. It would also let the hub send packages as that till, and retiring or re-joining the till would stop the hub |
+| **A hub key per store (chosen)** | Gives one thing only: that store's reader list. Made and revoked by an administrator of the store (`stores.manage`, the same as adding tills), one per hub PC. 256 random bits, so the server stores a plain SHA-256 and finds the key by an index; nothing on the server or in a backup gives a key away. Sent in the `X-RfidHub-Key` header, so use the server over HTTPS |
+
+The keys are in the server-only table `RfidHubLinks` (never synced, like `StationLinks`). The hub only reads; it never
+writes to the server, so a stolen hub PC can read reader addresses and settings until its key is revoked, nothing more.
 
 ### Hub endpoints
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health` | Up, number of readers, connected readers |
+| GET | `/health` | Up, where the readers come from (`source`, `store`, `loaded`), number of readers, connected readers |
 | GET | `/readers` | Live status of every reader (state, last error, tags read, active antennas, firmware) |
 | GET | `/stations/{n}/events` | Server-sent events: one JSON tag read per `data:` line, for station *n* (used by the app) |
 | GET (WebSocket) | `/stations/{n}/ws` | The same tag reads as WebSocket text messages, for browsers and other programs |
-| POST | `/reload` | Re-read readers and assignments from the database (also done every minute) |
+| POST | `/reload` | Re-read readers and assignments from the database or the server (also done every `--poll` seconds) |
 | GET | `/readers/{id}/info` | Read firmware, temperature, power, region, profile, DRM, detection, fast TID, GPIO |
 | POST | `/readers/{id}/apply` | Write the stored settings to the reader |
 | POST | `/readers/{id}/reset` | Restart the reader |
@@ -123,7 +176,8 @@ browser dashboard, another system).
 ## Capacity and scaling
 
 * The hub uses asynchronous sockets: 63 readers are 63 sockets and a handful of threads, not 63 threads. The test
-  suite runs 63 simulated readers × 4 antennas routed to 252 stations at once.
+  suite runs 63 simulated readers × 4 antennas routed to 252 stations at once: every station listens until it has
+  heard its tag (up to a minute on a busy machine), then a little longer, and must have heard only its own tag.
 * Each listener has a bounded queue (1,000 reads, oldest dropped), so a slow station never slows the readers.
 * An offline reader is retried with back-off (1 s doubling to 5 s) without affecting the others; its problem shows
   in *RFID readers*.

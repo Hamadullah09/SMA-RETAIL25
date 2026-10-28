@@ -146,6 +146,7 @@ public partial class RfidView : UserControl, IRefreshable
     {
         if (AppServices.Rfid is { } rfid)
         {
+            await AppServices.SendRfidChangesAsync();
             try { await rfid.ReloadAsync(); } catch (Exception ex) when (ex is RfidException or HttpRequestException) { Log.Write("RFID reload: " + ex.Message); }
         }
         await RefreshAsync();
@@ -203,8 +204,8 @@ public partial class RfidView : UserControl, IRefreshable
         await Ui.Try(async () =>
         {
             var problems = await rfid.ApplySettingsAsync(row.Id);
-            if (AppServices.Config.RfidMode == Settings.RfidMode.ThisComputer)
-                await AppServices.RfidData.MarkAppliedAsync(row.Id, (await rfid.GetStatusAsync()).FirstOrDefault(s => s.ReaderId == row.Id)?.Firmware);
+            // Recorded here: a hub that reads its readers from the server has no database to record it in.
+            await AppServices.RfidData.MarkAppliedAsync(row.Id, (await rfid.GetStatusAsync()).FirstOrDefault(s => s.ReaderId == row.Id)?.Firmware);
             if (problems.Count == 0) Ui.Info($"The settings were sent to {row.Name}.", "Reader updated");
             else Ui.Error($"{row.Name} did not take every setting:\n\n" + string.Join("\n", problems), "Some settings refused");
             await RefreshAsync();

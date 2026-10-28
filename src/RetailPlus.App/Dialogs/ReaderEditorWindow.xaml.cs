@@ -160,6 +160,7 @@ public partial class ReaderEditorWindow : Window
         HeaderText.Text = $"Reader {_reader.Name}";
         if (AppServices.Rfid is { } rfid)
         {
+            await AppServices.SendRfidChangesAsync();
             try { await rfid.ReloadAsync(); } catch (Exception ex) when (ex is RfidException or HttpRequestException) { Log.Write("RFID reload: " + ex.Message); }
         }
         return true;
@@ -182,8 +183,8 @@ public partial class ReaderEditorWindow : Window
         await Ui.Try(async () =>
         {
             var problems = await rfid.ApplySettingsAsync(_reader.Id);
-            if (AppServices.Config.RfidMode == Settings.RfidMode.ThisComputer)
-                await AppServices.RfidData.MarkAppliedAsync(_reader.Id, (await rfid.GetStatusAsync()).FirstOrDefault(s => s.ReaderId == _reader.Id)?.Firmware);
+            // Recorded here: a hub that reads its readers from the server has no database to record it in.
+            await AppServices.RfidData.MarkAppliedAsync(_reader.Id, (await rfid.GetStatusAsync()).FirstOrDefault(s => s.ReaderId == _reader.Id)?.Firmware);
             if (problems.Count > 0) Ui.Error("Saved, but the reader did not take every setting:\n\n" + string.Join("\n", problems));
             DialogResult = true;
         });

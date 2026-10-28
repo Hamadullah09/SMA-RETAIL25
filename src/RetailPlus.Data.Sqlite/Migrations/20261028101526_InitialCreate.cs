@@ -713,6 +713,34 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "RfidHubLinks",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 40, nullable: false, collation: "NOCASE"),
+                    KeyHash = table.Column<string>(type: "TEXT", unicode: false, maxLength: 64, nullable: false, collation: "NOCASE"),
+                    KeyHint = table.Column<string>(type: "TEXT", unicode: false, maxLength: 12, nullable: false, collation: "NOCASE"),
+                    CreatedBy = table.Column<string>(type: "TEXT", maxLength: 40, nullable: true, collation: "NOCASE"),
+                    LastSeenAtUtc = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    LastAddress = table.Column<string>(type: "TEXT", unicode: false, maxLength: 64, nullable: true, collation: "NOCASE"),
+                    RevokedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RfidHubLinks", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RfidHubLinks_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "RfidReaders",
                 columns: table => new
                 {
@@ -2753,6 +2781,22 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_RfidHubLinks_KeyHash",
+                table: "RfidHubLinks",
+                column: "KeyHash",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RfidHubLinks_StoreId",
+                table: "RfidHubLinks",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RfidHubLinks_UpdatedAtUtc",
+                table: "RfidHubLinks",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_RfidReaders_HubKey",
                 table: "RfidReaders",
                 column: "HubKey");
@@ -3342,6 +3386,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
             migrationBuilder.DropTable(
                 name: "RfidAntennas");
+
+            migrationBuilder.DropTable(
+                name: "RfidHubLinks");
 
             migrationBuilder.DropTable(
                 name: "Rmas");
