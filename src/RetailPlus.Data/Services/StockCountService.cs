@@ -29,14 +29,24 @@ public sealed record CountPosting(int ItemsChanged, decimal UnitsChanged, decima
 /// </summary>
 public sealed class StockCountService(DataContext data)
 {
-    public async Task<StockCount> StartAsync(Guid locationId, string? note, string? user)
+    /// <summary>
+    /// Starts a count of a location, or of one zone or bin of it (<paramref name="zone"/>, <paramref name="binCode"/>): such
+    /// a count sets to zero, when asked, only the items kept there.
+    /// </summary>
+    public async Task<StockCount> StartAsync(Guid locationId, string? note, string? user, string? zone = null, string? binCode = null)
     {
         await using var db = data.Create();
         if (!await db.Locations.AnyAsync(l => l.Id == locationId)) throw new BusinessRuleException("That location does not exist.");
+        zone = string.IsNullOrWhiteSpace(zone) ? null : zone.Trim();
+        binCode = string.IsNullOrWhiteSpace(binCode) ? null : binCode.Trim().ToUpperInvariant();
+        if (binCode is not null && !await db.Bins.AnyAsync(b => b.LocationId == locationId && b.Code == binCode))
+            throw new BusinessRuleException($"There is no bin {binCode} at this location.");
+        if (zone is not null && !await db.Bins.AnyAsync(b => b.LocationId == locationId && b.Zone == zone))
+            throw new BusinessRuleException($"No bin of this location is in zone {zone}.");
         var count = new StockCount
         {
             LocationId = locationId, Status = StockCountStatus.Open, StartedAt = DateTime.Now, StartedBy = user,
-            Note = string.IsNullOrWhiteSpace(note) ? null : Trim(note.Trim(), 200),
+            Note = string.IsNullOrWhiteSpace(note) ? null : Trim(note.Trim(), 200), Zone = zone, BinCode = binCode,
         };
         count.Number = await db.NextNumberAsync(RetailPlusDbContext.Sequences.StockCountNumbers);
         db.StockCounts.Add(count);
@@ -76,28 +86,39 @@ public sealed class StockCountService(DataContext data)
     /// Counts an item found by a scanned or typed code (stock code, barcode, matrix line code, supplier code):
     /// adds <paramref name="quantity"/> to what was counted so far, or with <paramref name="replace"/> sets it.
     /// </summary>
-    public async Task<StockCountLine> CountCodeAsync(Guid countId, string code, decimal quantity, bool replace = false)
+    public async Task<StockCountLine> CountCodeAsync(Guid countId, string code, decimal quantity, bool replace = false, Guid? batchId = null)
     {
         await using var db = data.Create();
         var count = await OpenCountAsync(db, countId);
         var (item, variant) = await FindAsync(db, count.LocationId, code)
                               ?? throw new BusinessRuleException($"No item has the code {code.Trim()}.");
-        var line = await CountAsync(db, count, item, variant, quantity, replace);
+        var line = await CountAsync(db, count, item, variant, quantity, replace, await BatchOfAsync(db, item, batchId));
         await db.SaveChangesAsync();
         return line;
     }
 
-    /// <summary>Counts an item (or one matrix line of it) picked from the inventory.</summary>
-    public async Task<StockCountLine> CountItemAsync(Guid countId, Guid itemId, Guid? variantId, decimal quantity, bool replace = false)
+    /// <summary>
+    /// Counts an item (or one matrix line of it) picked from the inventory; for an item kept in batches, one batch of it
+    /// when <paramref name="batchId"/> is given (otherwise the item as a whole).
+    /// </summary>
+    public async Task<StockCountLine> CountItemAsync(Guid countId, Guid itemId, Guid? variantId, decimal quantity, bool replace = false, Guid? batchId = null)
     {
         await using var db = data.Create();
         var count = await OpenCountAsync(db, countId);
         var item = await db.Items.AsNoTracking().SingleOrDefaultAsync(i => i.Id == itemId && i.LocationId == count.LocationId)
                    ?? throw new BusinessRuleException("That item is not in the location being counted.");
         var variant = variantId is Guid v ? await db.ItemVariants.AsNoTracking().SingleOrDefaultAsync(x => x.Id == v && x.ItemId == itemId) : null;
-        var line = await CountAsync(db, count, item, variant, quantity, replace);
+        var line = await CountAsync(db, count, item, variant, quantity, replace, await BatchOfAsync(db, item, batchId));
         await db.SaveChangesAsync();
         return line;
+    }
+
+    private static async Task<ItemBatch?> BatchOfAsync(RetailPlusDbContext db, Item item, Guid? batchId)
+    {
+        if (batchId is not Guid id) return null;
+        if (!item.TracksBatches) throw new BusinessRuleException($"{item.Plu} is not kept in batches.");
+        return await db.ItemBatches.AsNoTracking().SingleOrDefaultAsync(b => b.Id == id && b.ItemId == item.Id)
+               ?? throw new BusinessRuleException("That batch is not one of the item's.");
     }
 
     /// <summary>
@@ -214,10 +235,13 @@ public sealed class StockCountService(DataContext data)
         if (zeroUncounted)
         {
             var counted = lines.Select(l => l.ItemId).ToHashSet();
-            var others = await db.Items.AsNoTracking()
+            var bins = await BinsCountedAsync(db, count);
+            var stocked = db.Items.AsNoTracking()
                 .Where(i => i.LocationId == count.LocationId && !i.IsDeleted && i.OnHand != 0
-                            && (i.ItemType == ItemType.Standard || i.ItemType == ItemType.Matrix || i.ItemType == ItemType.Serialized || i.ItemType == ItemType.Kit))
-                .ToListAsync();
+                            && (i.ItemType == ItemType.Standard || i.ItemType == ItemType.Matrix || i.ItemType == ItemType.Serialized || i.ItemType == ItemType.Kit));
+            // A count of a zone or bin reaches only the items kept there.
+            if (bins is not null) stocked = stocked.Where(i => i.BinLocation != null && bins.Contains(i.BinLocation));
+            var others = await stocked.ToListAsync();
             foreach (var item in others.Where(i => !counted.Contains(i.Id)))
             {
                 var line = NewLine(count, item, null, now);
@@ -227,11 +251,31 @@ public sealed class StockCountService(DataContext data)
                 lines.Add(line);
                 zeroed++;
             }
+            // An item counted batch by batch: the batches not counted are set to zero too.
+            foreach (var itemId in lines.Where(l => l.BatchId != null && !l.NotCounted).Select(l => l.ItemId).Distinct().ToList())
+            {
+                var seen = lines.Where(l => l.ItemId == itemId && l.BatchId != null).Select(l => l.BatchId!.Value).ToHashSet();
+                var item = await db.Items.AsNoTracking().SingleAsync(i => i.Id == itemId);
+                foreach (var b in (await BatchService.StockOfAsync(db, itemId)).Where(b => b.OnHand != 0 && !seen.Contains(b.BatchId)))
+                {
+                    var line = NewLine(count, item, null, now);
+                    line.BatchId = b.BatchId;
+                    line.BatchNumber = b.BatchNumber;
+                    line.Description = Trim($"{item.Name} batch {b.BatchNumber}", 60)!;
+                    line.Expected = b.OnHand;
+                    line.NotCounted = true;
+                    Update(line);
+                    db.StockCountLines.Add(line);
+                    lines.Add(line);
+                    zeroed++;
+                }
+            }
         }
 
         int changed = 0;
         decimal units = 0;
         string reason = $"Stock count {count.Number}";
+        var batched = (await db.Items.AsNoTracking().Where(i => i.LocationId == count.LocationId && i.TracksBatches).Select(i => i.Id).ToListAsync()).ToHashSet();
         foreach (var line in lines.Where(l => l.Variance != 0))
         {
             decimal delta = line.Variance;
@@ -239,7 +283,19 @@ public sealed class StockCountService(DataContext data)
             if (line.VariantId is Guid variantId)
                 await db.ItemVariants.Where(v => v.Id == variantId).ExecuteUpdateAsync(s => s.SetProperty(v => v.OnHand, v => v.OnHand + delta).Touched());
             var onHand = await db.Items.Where(i => i.Id == line.ItemId).Select(i => i.OnHand).SingleAsync();
-            if (line.VariantId is null && line.NotCounted)
+            if (line.BatchId is not null || (batched.Contains(line.ItemId) && line.VariantId is null))
+            {
+                // Batches: a batch's line moves that batch; an item counted as a whole loses stock first expiry first
+                // (all of it when set to zero), and stock found goes into no batch.
+                var parts = line.BatchId is Guid batchId ? [new BatchTake(batchId, line.BatchNumber, -delta)]
+                    : delta < 0 ? await BatchService.TakeAsync(db, line.ItemId, -delta, null, forSale: false, DateOnly.FromDateTime(now))
+                    : [new BatchTake(null, null, -delta)];
+                decimal running = onHand - delta;
+                foreach (var part in parts)
+                    InventoryService.Record(db, line.ItemId, StockMovementKind.Count, -part.Quantity, running -= part.Quantity, now, count.Number, reason, Trim(user, 50), null,
+                        db.ActingUserId, line.UnitCost, part.BatchId);
+            }
+            else if (line.VariantId is null && line.NotCounted)
             {
                 // An item set to zero: its matrix lines go to zero with it, each with a movement of its own (and one for
                 // the rest of the item's change), so the lines' counts stay the sums of their movements too.
@@ -304,13 +360,29 @@ public sealed class StockCountService(DataContext data)
         return item is null ? null : (item, null);
     }
 
-    private static async Task<StockCountLine> CountAsync(RetailPlusDbContext db, StockCount count, Item item, ItemVariant? variant, decimal quantity, bool replace)
+    /// <summary>
+    /// Adds to (or replaces) what was counted of an item, a matrix line of it, or a batch of it. An item kept in batches is
+    /// counted either as a whole or batch by batch on one count, never both, so nothing is counted twice.
+    /// </summary>
+    private static async Task<StockCountLine> CountAsync(RetailPlusDbContext db, StockCount count, Item item, ItemVariant? variant, decimal quantity, bool replace,
+        ItemBatch? batch = null)
     {
         Guid? variantId = variant?.Id;
-        var line = db.StockCountLines.Local.FirstOrDefault(l => l.StockCountId == count.Id && l.ItemId == item.Id && l.VariantId == variantId)
-                   ?? await db.StockCountLines.FirstOrDefaultAsync(l => l.StockCountId == count.Id && l.ItemId == item.Id && l.VariantId == variantId);
+        Guid? batchId = batch?.Id;
+        var line = db.StockCountLines.Local.FirstOrDefault(l => l.StockCountId == count.Id && l.ItemId == item.Id && l.VariantId == variantId && l.BatchId == batchId)
+                   ?? await db.StockCountLines.FirstOrDefaultAsync(l => l.StockCountId == count.Id && l.ItemId == item.Id && l.VariantId == variantId && l.BatchId == batchId);
         if (line is null)
         {
+            if (item.TracksBatches)
+            {
+                var lines = db.StockCountLines.Where(l => l.StockCountId == count.Id && l.ItemId == item.Id);
+                bool other = db.StockCountLines.Local.Any(l => l.StockCountId == count.Id && l.ItemId == item.Id && (l.BatchId == null) != (batchId == null))
+                             || await (batchId is null ? lines.Where(l => l.BatchId != null) : lines.Where(l => l.BatchId == null)).AnyAsync();
+                if (other)
+                    throw new BusinessRuleException(batchId is null
+                        ? $"{item.Plu} is being counted batch by batch on this count; count it by batch."
+                        : $"{item.Plu} is being counted as a whole on this count; remove that line to count it by batch.");
+            }
             // The on-hand count now, when the item is first counted (see the class remarks).
             var fresh = await db.Items.AsNoTracking().Where(i => i.Id == item.Id).Select(i => new { i.OnHand, i.AverageCost, i.LastCost, i.Name }).SingleAsync();
             item.OnHand = fresh.OnHand;
@@ -319,6 +391,13 @@ public sealed class StockCountService(DataContext data)
             if (variant is not null)
                 variant.OnHand = await db.ItemVariants.AsNoTracking().Where(v => v.Id == variant.Id).Select(v => v.OnHand).SingleAsync();
             line = NewLine(count, item, variant, DateTime.Now);
+            if (batch is not null)
+            {
+                line.BatchId = batch.Id;
+                line.BatchNumber = batch.BatchNumber;
+                line.Expected = (await BatchService.StockOfAsync(db, item.Id)).Where(b => b.BatchId == batch.Id).Sum(b => b.OnHand);
+                line.Description = Trim($"{item.Name} batch {batch.BatchNumber}", 60)!;
+            }
             db.StockCountLines.Add(line);
         }
         line.Counted = replace ? quantity : line.Counted + quantity;
@@ -333,6 +412,15 @@ public sealed class StockCountService(DataContext data)
         Description = Trim(variant is null ? item.Name : $"{item.Name} {variant.Value1} {variant.Value2} {variant.Value3}".Trim(), 60)!,
         Expected = variant?.OnHand ?? item.OnHand, UnitCost = item.AverageCost > 0 ? item.AverageCost : item.LastCost, CountedAt = now,
     };
+
+    /// <summary>The codes of the bins a zone or bin count covers; null for a count of the whole location.</summary>
+    private static async Task<List<string>?> BinsCountedAsync(RetailPlusDbContext db, StockCount count)
+    {
+        if (count.BinCode is { } bin) return [bin];
+        if (count.Zone is { } zone)
+            return await db.Bins.AsNoTracking().Where(b => b.LocationId == count.LocationId && b.Zone == zone).Select(b => b.Code).ToListAsync();
+        return null;
+    }
 
     private static void Update(StockCountLine line)
     {

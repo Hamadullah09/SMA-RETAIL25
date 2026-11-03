@@ -30,6 +30,9 @@ public static class Permissions
     public const string InventoryPrices = "inventory.prices";
     public const string InventoryLabels = "inventory.labels";
     public const string PurchasingManage = "purchasing.manage";
+    public const string PurchasingApprove = "purchasing.approve";
+    public const string InventoryBatches = "inventory.batches";
+    public const string InventoryBins = "inventory.bins";
 
     public const string ClientsView = "clients.view";
     public const string ClientsEdit = "clients.edit";
@@ -86,6 +89,9 @@ public static class Permissions
         new(InventoryPrices, "Stock", "Change prices in bulk"),
         new(InventoryLabels, "Stock", "Print labels"),
         new(PurchasingManage, "Stock", "Purchase orders and receiving"),
+        new(PurchasingApprove, "Stock", "Approve requisitions and bills held by the three-way match; landed costs"),
+        new(InventoryBatches, "Stock", "Batches and expiry dates"),
+        new(InventoryBins, "Stock", "Bins, put-away and pick lists"),
 
         new(ClientsView, "Customers", "See clients"),
         new(ClientsEdit, "Customers", "Add and change clients"),
@@ -134,11 +140,13 @@ public static class Permissions
 
     private static readonly string[] TraineeKeys = [PosSell, InventoryView, ClientsView, TimeClockPunch];
     private static readonly string[] CashierKeys = [.. TraineeKeys, PosReturn, PosDrawer, ClientsEdit, GiftCardsIssue, SyncSend];
-    private static readonly string[] ClerkKeys = [.. CashierKeys, InventoryEdit, InventoryAdjust, InventoryCount, InventoryLabels, PurchasingManage, SuppliersEdit];
+    private static readonly string[] ClerkKeys = [.. CashierKeys, InventoryEdit, InventoryAdjust, InventoryCount, InventoryLabels, PurchasingManage, SuppliersEdit,
+        InventoryBatches];
     private static readonly string[] SupervisorKeys =
         [.. ClerkKeys, PosDiscount, PosVoidLine, PosVoidSale, PosNoSale, PosEndOfDay, PosApprove, InvoicesManage, RmaManage, InventoryTransfer, DashboardView, ReportsView, TimeClockEdit];
     private static readonly string[] ManagerKeys =
-        [.. SupervisorKeys, InventoryPrices, ReportsStaff, SetupStore, SetupStations, RfidManage, BackupManage, YearEndRun, AuditView, AccountingExport, FinanceView];
+        [.. SupervisorKeys, InventoryPrices, ReportsStaff, SetupStore, SetupStations, RfidManage, BackupManage, YearEndRun, AuditView, AccountingExport, FinanceView,
+            PurchasingApprove, InventoryBins];
     private static readonly string[] AccountantKeys =
         [WebSignIn, DashboardView, ReportsView, AuditView, AccountingExport, ClientsView, InventoryView, FinanceView, FinancePost, FinanceApprove, FinanceClose, FinanceSetup];
 

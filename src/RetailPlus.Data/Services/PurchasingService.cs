@@ -7,8 +7,14 @@ namespace RetailPlus.Data.Services;
 public sealed record PurchaseOrderRow(Guid Id, long Number, DateTime CreatedAt, PurchaseOrderStatus Status, OrderMethod Method, string? Description,
     int Lines, decimal TotalCost);
 
-/// <summary>What arrived for one purchase order line.</summary>
-public sealed record ReceivedLine(Guid LineId, decimal PiecesReceived, decimal CostEach);
+/// <summary>
+/// What arrived for one purchase order line. For an item kept in batches, <paramref name="Batches"/> says what arrived of
+/// each batch (adding up to the pieces received).
+/// </summary>
+public sealed record ReceivedLine(Guid LineId, decimal PiecesReceived, decimal CostEach, IReadOnlyList<ReceivedBatch>? Batches = null);
+
+/// <summary>An item to put on a new purchase order, in pieces.</summary>
+public sealed record OrderItem(Guid ItemId, decimal Pieces, decimal? CostEach = null);
 
 /// <summary>The Purchase Order window: generate, edit, post the order, post the shipment.</summary>
 public sealed class PurchasingService(DataContext data)
@@ -152,6 +158,8 @@ public sealed class PurchasingService(DataContext data)
             await db.Items.Where(i => i.Id == line.ItemId).ExecuteUpdateAsync(s => s
                 .SetProperty(i => i.OnOrder, i => i.OnOrder + pieces).SetProperty(i => i.LastOrderDate, today).Touched());
         }
+        // The price agreed, which the supplier's bill is matched against (receiving may value the goods otherwise).
+        foreach (var line in po.Lines) line.OrderedCost = line.CostEach;
         po.Status = PurchaseOrderStatus.Posted;
         po.PostedAt = DateTime.Now;
         await db.SaveChangesAsync();
@@ -160,7 +168,9 @@ public sealed class PurchasingService(DataContext data)
 
     /// <summary>
     /// Post Shipment: adds what arrived to On Hand, takes the ordered pieces off On Order, and updates last cost and
-    /// average cost (with the shipping cost spread over the pieces received, by value).
+    /// average cost (with the shipping cost spread over the pieces received, by value). An item kept in batches is
+    /// received per batch: each batch named on its line is found (or made, with its expiry date, or one worked out from the
+    /// item's shelf life) and gets a receipt movement of its own.
     /// </summary>
     public async Task PostShipmentAsync(Guid purchaseOrderId, IReadOnlyList<ReceivedLine> received, decimal shippingCost = 0)
     {
@@ -179,6 +189,7 @@ public sealed class PurchasingService(DataContext data)
             byLine.TryGetValue(line.Id, out var r);
             decimal pieces = r?.PiecesReceived ?? 0;
             decimal cost = r?.CostEach ?? line.CostEach;
+            if (line.OrderedCost == 0) line.OrderedCost = line.CostEach;
             line.QuantityReceived = pieces;
             line.CostEach = cost;
             if (line.ItemId is not Guid itemId) continue;
@@ -188,10 +199,30 @@ public sealed class PurchasingService(DataContext data)
             decimal share = totalValue == 0 ? 0 : shippingCost * (pieces * cost) / totalValue;
             item.AverageCost = Reordering.AverageCostAfterReceipt(item.OnHand, item.AverageCost, pieces, cost, share);
             item.LastCost = cost;
-            item.OnHand += pieces;
             item.LastReceivedDate = today;
             item.LastReceivedQuantity = pieces;
-            InventoryService.Record(db, itemId, StockMovementKind.Receipt, pieces, item.OnHand, document: po.Number, unitCost: cost);
+            if (item.TracksBatches && pieces > 0)
+            {
+                var batches = (r?.Batches ?? []).Where(b => b.Pieces != 0).ToList();
+                if (batches.Count == 0)
+                    throw new BusinessRuleException($"{item.Plu} {item.Name} is kept in batches: enter the batch number and expiry date of what arrived.");
+                if (batches.Sum(b => b.Pieces) != pieces)
+                    throw new BusinessRuleException($"The batches of {item.Plu} add up to {batches.Sum(b => b.Pieces):0.###}, not the {pieces:0.###} pieces received.");
+                decimal running = item.OnHand;
+                foreach (var b in batches)
+                {
+                    if (string.IsNullOrWhiteSpace(b.BatchNumber)) throw new BusinessRuleException($"{item.Plu}: enter the batch number.");
+                    var batch = await BatchService.FindOrMakeAsync(db, itemId, po.StoreId, b.BatchNumber, b.ExpiresOn ?? Fefo.SuggestedExpiry(item.ShelfLifeDays, b.MadeOn, today),
+                        b.MadeOn, line.SupplierId ?? po.SupplierId, po.Number, today);
+                    InventoryService.Record(db, itemId, StockMovementKind.Receipt, b.Pieces, running += b.Pieces, document: po.Number, unitCost: cost, batchId: batch.Id);
+                }
+                item.OnHand += pieces;
+            }
+            else
+            {
+                item.OnHand += pieces;
+                InventoryService.Record(db, itemId, StockMovementKind.Receipt, pieces, item.OnHand, document: po.Number, unitCost: cost);
+            }
             if (item.Price1 > 0) item.MarginPercent = Money.MarginPercent(item.Price1, item.AverageCost);
         }
         po.Status = PurchaseOrderStatus.Received;
@@ -201,6 +232,60 @@ public sealed class PurchasingService(DataContext data)
         await db.SaveChangesAsync();
         await tx.CommitAsync();
     }
+
+    /// <summary>
+    /// A draft order of the given items for one supplier (or none), as requisitions and reorder suggestions make them. The
+    /// pieces are rounded up to whole cases of the supplier's case quantity; the cost is the one given, else the item's.
+    /// Works at a till and on the server (numbered from the server's own range).
+    /// </summary>
+    public async Task<PurchaseOrder> CreateFromItemsAsync(Guid locationId, Guid? supplierId, string? description, IReadOnlyList<OrderItem> items,
+        DateOnly? expectedOn = null, OrderMethod method = OrderMethod.Blank)
+    {
+        if (items.Count == 0) throw new BusinessRuleException("There is nothing to order.");
+        await using var db = data.Create();
+        var location = await db.Locations.AsNoTracking().SingleOrDefaultAsync(l => l.Id == locationId) ?? throw new BusinessRuleException("That location does not exist.");
+        var supplier = supplierId is Guid sid ? await db.Suppliers.AsNoTracking().SingleOrDefaultAsync(s => s.Id == sid) : null;
+        var po = new PurchaseOrder
+        {
+            StoreId = location.StoreId, LocationId = locationId, CreatedAt = DateTime.Now, Status = PurchaseOrderStatus.Draft, Method = method,
+            Description = Cut(description ?? supplier?.Company, 100), SupplierId = supplier?.Id, ExpectedOn = expectedOn,
+            CreatedBy = data.CurrentUser?.UserName, CreatedById = data.CurrentUser?.UserId,
+        };
+        po.Number = await DocumentNumbers.NextAsync(data, db, RetailPlusDbContext.Sequences.PurchaseOrderNumbers);
+        var ids = items.Select(i => i.ItemId).Distinct().ToList();
+        var found = await db.Items.AsNoTracking().Include(i => i.Supplier).Include(i => i.Suppliers).Where(i => ids.Contains(i.Id) && i.LocationId == locationId).ToListAsync();
+        foreach (var wanted in items.Where(i => i.Pieces > 0))
+        {
+            var item = found.FirstOrDefault(i => i.Id == wanted.ItemId) ?? throw new BusinessRuleException("An item to order is not at this location.");
+            var line = LineFor(item, wanted.Pieces);
+            var theirs = item.Suppliers.Where(s => supplier is not null && s.SupplierId == supplier.Id).OrderBy(s => s.Rank).FirstOrDefault();
+            if (supplier is not null)
+            {
+                line.SupplierId = supplier.Id;
+                line.SupplierName = Cut(supplier.Company, 30);
+                if (theirs is not null)
+                {
+                    line.ReorderNumber = theirs.SupplierStockCode ?? line.ReorderNumber;
+                    if (theirs.CaseQuantity > 1 && item.PackQuantity <= 1)
+                    {
+                        line.CaseQuantity = theirs.CaseQuantity;
+                        line.OrderQuantity = Math.Ceiling(wanted.Pieces / theirs.CaseQuantity);
+                    }
+                    if (theirs.Cost > 0 && item.LastCost <= 0) line.CostEach = theirs.Cost;
+                }
+            }
+            if (wanted.CostEach is decimal cost && cost > 0) line.CostEach = cost;
+            // Never fewer pieces than asked for: requisitions and suggestions are rounded up to whole cases.
+            if (line.CaseQuantity > 1 && line.OrderQuantity * line.CaseQuantity < wanted.Pieces) line.OrderQuantity = Math.Ceiling(wanted.Pieces / line.CaseQuantity);
+            line.OrderCost = Money.Round(line.OrderQuantity * line.CaseQuantity * line.CostEach);
+            po.Lines.Add(line);
+        }
+        db.PurchaseOrders.Add(po);
+        await db.SaveChangesAsync();
+        return po;
+    }
+
+    private static string? Cut(string? text, int length) => text is null || text.Length <= length ? text : text[..length];
 
     /// <summary>Deletes an order; a posted (not received) order first takes its pieces back off On Order.</summary>
     public async Task DeleteAsync(Guid purchaseOrderId)

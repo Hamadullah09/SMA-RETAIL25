@@ -85,8 +85,12 @@ public sealed class TransferService(DataContext data)
             .Include(t => t.Lines.OrderBy(l => l.LineNumber)).SingleOrDefaultAsync(t => t.Id == id);
     }
 
-    /// <summary>Adds an item of the sending location by code, or more of it when it is on the transfer already.</summary>
-    public async Task<StockTransferLine> AddItemAsync(Guid transferId, string code, decimal quantity)
+    /// <summary>
+    /// Adds an item of the sending location by code, or more of it when it is on the transfer already. For an item kept in
+    /// batches, <paramref name="batchId"/> sends one batch; without it the batches that expire first are sent (worked out
+    /// when the transfer is shipped).
+    /// </summary>
+    public async Task<StockTransferLine> AddItemAsync(Guid transferId, string code, decimal quantity, Guid? batchId = null)
     {
         if (quantity <= 0) throw new BusinessRuleException("Enter a quantity above zero.");
         await using var db = data.Create();
@@ -94,7 +98,13 @@ public sealed class TransferService(DataContext data)
         var (item, _) = await new InventoryService(data).FindByCodeAsync(transfer.FromLocationId, code);
         if (item is null) throw new BusinessRuleException($"No item has the code {code.Trim()} at the sending location.");
         if (!SalesService.IsStocked(item.ItemType)) throw new BusinessRuleException($"{item.Name} has no stock count, so it cannot be transferred.");
-        var line = await db.StockTransferLines.FirstOrDefaultAsync(l => l.StockTransferId == transferId && l.SourceItemId == item.Id);
+        ItemBatch? batch = null;
+        if (batchId is Guid b)
+        {
+            if (!item.TracksBatches) throw new BusinessRuleException($"{item.Plu} is not kept in batches.");
+            batch = await db.ItemBatches.AsNoTracking().SingleOrDefaultAsync(x => x.Id == b && x.ItemId == item.Id) ?? throw new BusinessRuleException("That batch is not one of the item's.");
+        }
+        var line = await db.StockTransferLines.FirstOrDefaultAsync(l => l.StockTransferId == transferId && l.SourceItemId == item.Id && l.SourceBatchId == batchId);
         if (line is null)
         {
             int last = await db.StockTransferLines.Where(l => l.StockTransferId == transferId).Select(l => (int?)l.LineNumber).MaxAsync() ?? 0;
@@ -103,6 +113,7 @@ public sealed class TransferService(DataContext data)
                 StockTransferId = transferId, LineNumber = last + 1, SourceItemId = item.Id, Plu = item.Plu, Description = item.Name, Barcode = item.Barcode,
                 Size = item.Size, Department = item.Department?.Name, ItemType = item.ItemType, Taxable1 = item.Taxable1, Taxable2 = item.Taxable2,
                 UnitCost = item.AverageCost > 0 ? item.AverageCost : item.LastCost, Price = item.Price1,
+                SourceBatchId = batch?.Id, BatchNumber = batch?.BatchNumber, ExpiresOn = batch?.ExpiresOn, MadeOn = batch?.MadeOn,
             };
             db.StockTransferLines.Add(line);
         }
@@ -138,18 +149,47 @@ public sealed class TransferService(DataContext data)
         await using var db = data.Create();
         await using var tx = await db.Database.BeginTransactionAsync();
         var transfer = await DraftAsync(db, transferId);
-        var lines = await db.StockTransferLines.Where(l => l.StockTransferId == transferId && l.QuantityShipped > 0).ToListAsync();
+        var lines = await db.StockTransferLines.Where(l => l.StockTransferId == transferId && l.QuantityShipped > 0).OrderBy(l => l.LineNumber).ToListAsync();
         if (lines.Count == 0) throw new BusinessRuleException("Add the items to send first.");
         var now = DateTime.Now;
-        foreach (var line in lines)
+        int lastNumber = await db.StockTransferLines.Where(l => l.StockTransferId == transferId).MaxAsync(l => l.LineNumber);
+        var batched = (await db.Items.AsNoTracking().Where(i => i.LocationId == transfer.FromLocationId && i.TracksBatches).Select(i => i.Id).ToListAsync()).ToHashSet();
+        foreach (var line in lines.ToList())
         {
             decimal qty = line.QuantityShipped;
             if (await db.Items.Where(i => i.Id == line.SourceItemId && i.LocationId == transfer.FromLocationId)
                     .ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - qty).Touched()) == 0)
                 throw new BusinessRuleException($"{line.Plu} {line.Description} is no longer at the sending location.");
             var onHand = await db.Items.Where(i => i.Id == line.SourceItemId).Select(i => i.OnHand).SingleAsync();
+            var why = $"Transfer {transfer.Number} to {await LocationTextAsync(db, transfer.ToLocationId)}";
+            if (batched.Contains(line.SourceItemId) && line.SourceBatchId is null)
+            {
+                // The batches that expire first go; each batch becomes a line of its own, so the receiving store knows what came.
+                var takes = await BatchService.TakeAsync(db, line.SourceItemId, qty, null, forSale: false, DateOnly.FromDateTime(now));
+                decimal running = onHand + qty;
+                for (int t = 0; t < takes.Count; t++)
+                {
+                    var take = takes[t];
+                    var target = line;
+                    if (t > 0)
+                    {
+                        target = CopyLine(line, ++lastNumber);
+                        db.StockTransferLines.Add(target);
+                    }
+                    target.QuantityShipped = take.Quantity;
+                    if (take.BatchId is Guid id)
+                    {
+                        var batch = await db.ItemBatches.AsNoTracking().SingleAsync(b => b.Id == id);
+                        (target.SourceBatchId, target.BatchNumber, target.ExpiresOn, target.MadeOn) = (batch.Id, batch.BatchNumber, batch.ExpiresOn, batch.MadeOn);
+                    }
+                    var moved = InventoryService.Record(db, line.SourceItemId, StockMovementKind.TransferOut, -take.Quantity, running -= take.Quantity, now, transfer.Number,
+                        why, Trim(user, 50), userId: db.ActingUserId, unitCost: line.UnitCost, batchId: take.BatchId);
+                    moved.StoreId = transfer.StoreId;
+                }
+                continue;
+            }
             var movement = InventoryService.Record(db, line.SourceItemId, StockMovementKind.TransferOut, -qty, onHand, now, transfer.Number,
-                $"Transfer {transfer.Number} to {await LocationTextAsync(db, transfer.ToLocationId)}", Trim(user, 50), userId: db.ActingUserId, unitCost: line.UnitCost);
+                why, Trim(user, 50), userId: db.ActingUserId, unitCost: line.UnitCost, batchId: line.SourceBatchId);
             movement.StoreId = transfer.StoreId;
         }
         // Empty lines are not sent.
@@ -204,8 +244,15 @@ public sealed class TransferService(DataContext data)
                 item.OnHand += qty;
                 item.LastReceivedDate = DateOnly.FromDateTime(now);
                 item.LastReceivedQuantity = qty;
+                // A batch sent arrives as the same batch (number, expiry, made-on) of the receiving location's item.
+                Guid? batchId = null;
+                if (item.TracksBatches && !string.IsNullOrWhiteSpace(line.BatchNumber))
+                {
+                    var batch = await BatchService.FindOrMakeAsync(db, item.Id, destination.StoreId, line.BatchNumber, line.ExpiresOn, line.MadeOn, null, null, DateOnly.FromDateTime(now));
+                    batchId = batch.Id;
+                }
                 var movement = InventoryService.Record(db, item.Id, StockMovementKind.TransferIn, qty, item.OnHand, now, transfer.Number,
-                    $"Transfer {transfer.Number} from {from}", Trim(user, 50), userId: db.ActingUserId, unitCost: line.UnitCost);
+                    $"Transfer {transfer.Number} from {from}", Trim(user, 50), userId: db.ActingUserId, unitCost: line.UnitCost, batchId: batchId);
                 movement.StoreId = destination.StoreId;
             }
             line.QuantityReceived = qty;
@@ -283,6 +330,7 @@ public sealed class TransferService(DataContext data)
                 LocationId = locationId, Plu = line.Plu, Name = Trim(line.Description, 30)!, Barcode = line.Barcode, Size = line.Size, ItemType = line.ItemType,
                 Taxable1 = line.Taxable1, Taxable2 = line.Taxable2, LastCost = line.UnitCost, AverageCost = line.UnitCost, Price1 = line.Price,
                 DepartmentId = department, MarginPercent = line.Price > 0 ? Money.MarginPercent(line.Price, line.UnitCost) : 0,
+                TracksBatches = !string.IsNullOrWhiteSpace(line.BatchNumber),
             };
         }
         if (item.Barcode is not null)
@@ -294,4 +342,12 @@ public sealed class TransferService(DataContext data)
     }
 
     private static string? Trim(string? s, int max) => s is null || s.Length <= max ? s : s[..max];
+
+    /// <summary>A new line for another batch of the same item, numbered <paramref name="number"/>.</summary>
+    private static StockTransferLine CopyLine(StockTransferLine line, int number) => new()
+    {
+        StockTransferId = line.StockTransferId, LineNumber = number, SourceItemId = line.SourceItemId, Plu = line.Plu, Description = line.Description,
+        Barcode = line.Barcode, Size = line.Size, Department = line.Department, ItemType = line.ItemType, Taxable1 = line.Taxable1, Taxable2 = line.Taxable2,
+        UnitCost = line.UnitCost, Price = line.Price,
+    };
 }

@@ -12,7 +12,7 @@ using RetailPlus.Data;
 namespace RetailPlus.Data.SqlServer.Migrations
 {
     [DbContext(typeof(RetailPlusDbContext))]
-    [Migration("20261103183240_InitialCreate")]
+    [Migration("20261103191710_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -162,6 +162,204 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.HasIndex("UserId", "AtUtc");
 
                     b.ToTable("AuditEntries");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.BillMatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly>("BillDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("BillId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BillLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BillNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<decimal>("BilledCost")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CheckedAtUtc")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime?>("DecidedAtUtc")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("DecidedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("DecidedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DecisionNote")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("OrderedCost")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<string>("Plu")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("PurchaseOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PurchaseOrderLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("QuantityBilled")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<decimal>("QuantityMatched")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<decimal>("QuantityOrdered")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<decimal>("QuantityReceived")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<decimal>("ReceivedCost")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BillId");
+
+                    b.HasIndex("BillLineId")
+                        .IsUnique();
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("PurchaseOrderLineId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("StoreId", "Status");
+
+                    b.ToTable("BillMatches");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.Bin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Zone")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("LocationId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("Bins");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.Category", b =>
@@ -1800,6 +1998,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<DateOnly?>("SaleStart")
                         .HasColumnType("date");
 
+                    b.Property<int>("ShelfLifeDays")
+                        .HasColumnType("int");
+
                     b.Property<decimal>("ShipWeight")
                         .HasPrecision(12, 3)
                         .HasColumnType("decimal(12,3)");
@@ -1836,6 +2037,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<decimal>("ThcWeight")
                         .HasPrecision(12, 3)
                         .HasColumnType("decimal(12,3)");
+
+                    b.Property<bool>("TracksBatches")
+                        .HasColumnType("bit");
 
                     b.Property<decimal>("UnitsPerCase")
                         .HasPrecision(12, 3)
@@ -1895,6 +2099,75 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.HasIndex("LocationId", "SupplierId", "Plu");
 
                     b.ToTable("Items");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.ItemBatch", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BatchNumber")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateOnly?>("ExpiresOn")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("MadeOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long?>("PurchaseOrderNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateOnly?>("ReceivedOn")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("SupplierId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("ItemId", "BatchNumber")
+                        .IsUnique();
+
+                    b.HasIndex("StoreId", "ExpiresOn");
+
+                    b.ToTable("ItemBatches");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.ItemMatrixColumn", b =>
@@ -2116,6 +2389,13 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("LeadTimeDays")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("MinimumOrder")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
 
                     b.Property<int>("Rank")
                         .HasColumnType("int");
@@ -2514,6 +2794,261 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.ToTable("KitComponents");
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.LandedCostAllocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("LandedCostVoucherId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("OnHand")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<string>("Plu")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("PurchaseOrderLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<decimal>("Share")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<decimal>("ToCostOfGoods")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<decimal>("ToInventory")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<decimal>("Value")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<decimal>("Weight")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("LandedCostVoucherId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.ToTable("LandedCostAllocations");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.LandedCostCharge", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("LandedCostVoucherId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("LandedCostVoucherId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.ToTable("LandedCostCharges");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.LandedCostReceipt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid>("LandedCostVoucherId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PurchaseOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("PurchaseOrderId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("LandedCostVoucherId", "PurchaseOrderId")
+                        .IsUnique();
+
+                    b.ToTable("LandedCostReceipts");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.LandedCostVoucher", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Basis")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("JournalEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long>("Number")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("PostedAtUtc")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("PostedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("StoreId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("LandedCostVouchers");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.LedgerAccount", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2805,6 +3340,115 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.ToTable("NumberCounters");
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.PriceVariance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<decimal>("Difference")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("JournalEntryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("PostedAtUtc")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<Guid>("PurchaseOrderLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<decimal>("ToCostOfGoods")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<decimal>("ToInventory")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("PurchaseOrderLineId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.ToTable("PriceVariances");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.PurchaseApprovalLimit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<decimal>("MaxAmount")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("decimal(12,2)");
+
+                    b.Property<Guid>("RoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("RoleId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.ToTable("PurchaseApprovalLimits");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.PurchaseOrder", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2834,6 +3478,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<string>("Description")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateOnly?>("ExpectedOn")
+                        .HasColumnType("date");
 
                     b.Property<Guid>("LocationId")
                         .HasColumnType("uniqueidentifier");
@@ -2872,6 +3519,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<Guid>("StoreId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("SyncEditedAtUtc")
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
@@ -2894,6 +3544,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.HasIndex("StoreId", "Number")
                         .IsUnique();
+
+                    b.HasIndex("SupplierId", "ReceivedAt");
 
                     b.ToTable("PurchaseOrders");
                 });
@@ -2956,6 +3608,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(12, 3)
                         .HasColumnType("decimal(12,3)");
 
+                    b.Property<decimal>("OrderedCost")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
                     b.Property<string>("Plu")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -3008,6 +3664,189 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.HasIndex("PurchaseOrderId", "Plu");
 
                     b.ToTable("PurchaseOrderLines");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.PurchaseRequisition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime?>("DecidedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("DecidedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("DecidedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DecisionNote")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateOnly?>("NeededBy")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<long>("Number")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("OrderedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<string>("RequestedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("RequestedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("StationNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasPrecision(0)
+                        .HasColumnType("datetime2(0)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<Guid>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("StoreId", "Number")
+                        .IsUnique();
+
+                    b.HasIndex("StoreId", "Status");
+
+                    b.ToTable("PurchaseRequisitions");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.PurchaseRequisitionLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<decimal>("CostEach")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("LineNumber")
+                        .HasColumnType("int");
+
+                    b.Property<DateOnly?>("NeededBy")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Plu")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid?>("PurchaseOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PurchaseOrderLineId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("PurchaseRequisitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Quantity")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<Guid?>("SupplierId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SupplierName")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.HasIndex("PurchaseRequisitionId", "LineNumber")
+                        .IsUnique();
+
+                    b.ToTable("PurchaseRequisitionLines");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.RfidAntenna", b =>
@@ -4192,6 +5031,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("BinCode")
+                        .HasMaxLength(25)
+                        .HasColumnType("nvarchar(25)");
+
                     b.Property<DateTime?>("CancelledAt")
                         .HasPrecision(0)
                         .HasColumnType("datetime2(0)");
@@ -4257,6 +5100,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
+                    b.Property<string>("Zone")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ChangeNumber");
@@ -4277,6 +5124,13 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BatchNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<byte[]>("ChangeNumber")
                         .IsRequired()
@@ -4411,6 +5265,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(0)
                         .HasColumnType("datetime2(0)");
 
+                    b.Property<Guid?>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<byte[]>("ChangeNumber")
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
@@ -4473,6 +5330,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BatchId");
+
                     b.HasIndex("ChangeNumber");
 
                     b.HasIndex("StoreId");
@@ -4480,6 +5339,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.HasIndex("UpdatedAtUtc");
 
                     b.HasIndex("ItemId", "At");
+
+                    b.HasIndex("ItemId", "BatchId");
 
                     b.HasIndex("Kind", "At");
 
@@ -4597,6 +5458,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(14)");
 
+                    b.Property<string>("BatchNumber")
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<byte[]>("ChangeNumber")
                         .IsRequired()
                         .ValueGeneratedOnAddOrUpdate()
@@ -4621,6 +5486,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<Guid?>("DestinationItemId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateOnly?>("ExpiresOn")
+                        .HasColumnType("date");
+
                     b.Property<string>("ItemType")
                         .IsRequired()
                         .HasMaxLength(12)
@@ -4628,6 +5496,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
                     b.Property<int>("LineNumber")
                         .HasColumnType("int");
+
+                    b.Property<DateOnly?>("MadeOn")
+                        .HasColumnType("date");
 
                     b.Property<string>("Plu")
                         .IsRequired()
@@ -4649,6 +5520,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<string>("Size")
                         .HasMaxLength(6)
                         .HasColumnType("nvarchar(6)");
+
+                    b.Property<Guid?>("SourceBatchId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("SourceItemId")
                         .HasColumnType("uniqueidentifier");
@@ -5083,6 +5957,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<DateOnly?>("LastPurchase")
                         .HasColumnType("date");
 
+                    b.Property<int>("LeadTimeDays")
+                        .HasColumnType("int");
+
                     b.Property<string>("Notes")
                         .HasColumnType("nvarchar(max)");
 
@@ -5165,6 +6042,81 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.HasIndex("State", "City");
 
                     b.ToTable("Suppliers");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.SupplySettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("ApproverMustDiffer")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("BlockExpiredSales")
+                        .HasColumnType("bit");
+
+                    b.Property<byte[]>("ChangeNumber")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<int>("DefaultLeadTimeDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ExpiryWarningDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrderCoverDays")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("PriceToleranceAmount")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<decimal>("PriceTolerancePercent")
+                        .HasPrecision(7, 3)
+                        .HasColumnType("decimal(7,3)");
+
+                    b.Property<decimal>("QuantityTolerancePercent")
+                        .HasPrecision(7, 3)
+                        .HasColumnType("decimal(7,3)");
+
+                    b.Property<decimal>("QuantityToleranceUnits")
+                        .HasPrecision(12, 3)
+                        .HasColumnType("decimal(12,3)");
+
+                    b.Property<int>("SafetyStockDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SalesWindowDays")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("SyncEditedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasPrecision(3)
+                        .HasColumnType("datetime2(3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("StoreId")
+                        .IsUnique();
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.ToTable("SupplySettings");
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.SuspendedSale", b =>
@@ -5793,6 +6745,23 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.Bin", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Location");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.CommissionRule", b =>
                 {
                     b.HasOne("RetailPlus.Core.Model.Category", null)
@@ -5975,6 +6944,29 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Navigation("Supplier");
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.ItemBatch", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Supplier");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.ItemMatrixColumn", b =>
                 {
                     b.HasOne("RetailPlus.Core.Model.Item", null)
@@ -6089,6 +7081,33 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Navigation("ComponentItem");
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.LandedCostAllocation", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.LandedCostVoucher", null)
+                        .WithMany("Allocations")
+                        .HasForeignKey("LandedCostVoucherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.LandedCostCharge", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.LandedCostVoucher", null)
+                        .WithMany("Charges")
+                        .HasForeignKey("LandedCostVoucherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.LandedCostReceipt", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.LandedCostVoucher", null)
+                        .WithMany("Receipts")
+                        .HasForeignKey("LandedCostVoucherId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.LedgerAccount", b =>
                 {
                     b.HasOne("RetailPlus.Core.Model.LedgerAccount", "Parent")
@@ -6123,6 +7142,17 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.PurchaseApprovalLimit", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Role", "Role")
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Role");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.PurchaseOrder", b =>
                 {
                     b.HasOne("RetailPlus.Core.Model.Location", "Location")
@@ -6145,6 +7175,32 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.HasOne("RetailPlus.Core.Model.PurchaseOrder", null)
                         .WithMany("Lines")
                         .HasForeignKey("PurchaseOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.PurchaseRequisition", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Location", "Location")
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Location");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.PurchaseRequisitionLine", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.PurchaseRequisition", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("PurchaseRequisitionId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -6320,6 +7376,11 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             modelBuilder.Entity("RetailPlus.Core.Model.StockMovement", b =>
                 {
+                    b.HasOne("RetailPlus.Core.Model.ItemBatch", null)
+                        .WithMany()
+                        .HasForeignKey("BatchId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("RetailPlus.Core.Model.Item", null)
                         .WithMany()
                         .HasForeignKey("ItemId")
@@ -6392,6 +7453,15 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             modelBuilder.Entity("RetailPlus.Core.Model.StoreSettings", b =>
+                {
+                    b.HasOne("RetailPlus.Core.Model.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.SupplySettings", b =>
                 {
                     b.HasOne("RetailPlus.Core.Model.Store", null)
                         .WithMany()
@@ -6492,7 +7562,21 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Navigation("Lines");
                 });
 
+            modelBuilder.Entity("RetailPlus.Core.Model.LandedCostVoucher", b =>
+                {
+                    b.Navigation("Allocations");
+
+                    b.Navigation("Charges");
+
+                    b.Navigation("Receipts");
+                });
+
             modelBuilder.Entity("RetailPlus.Core.Model.PurchaseOrder", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("RetailPlus.Core.Model.PurchaseRequisition", b =>
                 {
                     b.Navigation("Lines");
                 });

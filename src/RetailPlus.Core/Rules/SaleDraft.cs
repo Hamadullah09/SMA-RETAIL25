@@ -35,6 +35,12 @@ public sealed class SaleDraftLine
     /// <summary>For a gift card item: the card issued or reloaded by this line, and the kind of a new card.</summary>
     public string? GiftCardNumber { get; set; }
     public GiftCardKind GiftCardKind { get; set; }
+    /// <summary>
+    /// The batch chosen by hand for an item that tracks batches; left empty, the sale takes the batch that expires first
+    /// (and a return goes back to no batch).
+    /// </summary>
+    public Guid? BatchId { get; set; }
+    public string? BatchNumber { get; set; }
 
     public decimal LineTotal => Money.Round(UnitPrice * Quantity - DiscountAmount);
 }

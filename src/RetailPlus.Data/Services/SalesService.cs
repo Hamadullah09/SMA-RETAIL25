@@ -121,7 +121,8 @@ public sealed class SalesService(DataContext data)
         db.Sales.Add(sale);
         await db.SaveChangesAsync();
 
-        await ApplyStockAndStatisticsAsync(db, sale, +1, now, sale.Staff, sale.StaffId, sale.StationNumber);
+        var chosenBatches = lines.Select((l, i) => (Number: i + 1, l.BatchId)).Where(x => x.BatchId is not null).ToDictionary(x => x.Number, x => x.BatchId!.Value);
+        await ApplyStockAndStatisticsAsync(db, sale, +1, now, sale.Staff, sale.StaffId, sale.StationNumber, chosenBatches);
         await UpdateTagsAsync(db, sale, +1);
         await ApplyGiftCardsAsync(db, settings, sale, lines, tenders);
 
@@ -192,14 +193,18 @@ public sealed class SalesService(DataContext data)
     /// <paramref name="user"/>, who sold or voided. The statistics go to the rows of <paramref name="station"/>, the
     /// station doing it, so tills never change each other's rows.
     /// </summary>
-    private static async Task ApplyStockAndStatisticsAsync(RetailPlusDbContext db, Sale sale, int sign, DateTime at, string? user, Guid? userId, int station)
+    private static async Task ApplyStockAndStatisticsAsync(RetailPlusDbContext db, Sale sale, int sign, DateTime at, string? user, Guid? userId, int station,
+        Dictionary<int, Guid>? chosenBatches = null)
     {
         int year = at.Year, month = at.Month, week = (at.DayOfYear - 1) / 7 + 1;
         var movedAt = sign > 0 ? at : DateTime.Now;
+        // A void puts back exactly the batches the sale took.
+        var sold = sign < 0 ? await SoldBatchesAsync(db, sale.InvoiceNumber) : null;
         foreach (var line in sale.Lines.Where(l => l.ItemId is not null && l.Kind is SaleLineKind.Sale or SaleLineKind.Return))
         {
             Guid itemId = line.ItemId!.Value;
-            var type = await db.Items.Where(i => i.Id == itemId).Select(i => i.ItemType).SingleAsync();
+            var info = await db.Items.Where(i => i.Id == itemId).Select(i => new { i.ItemType, i.TracksBatches }).SingleAsync();
+            var type = info.ItemType;
             bool moves = IsStocked(type) && (line.Kind == SaleLineKind.Sale || line.Restock);
             decimal qty = line.Quantity * sign;
             if (moves)
@@ -208,7 +213,8 @@ public sealed class SalesService(DataContext data)
                 await db.Items.Where(i => i.Id == itemId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - qty).Touched());
                 if (line.VariantId is Guid variantId)
                     await db.ItemVariants.Where(v => v.Id == variantId).ExecuteUpdateAsync(s => s.SetProperty(v => v.OnHand, v => v.OnHand - qty).Touched());
-                InventoryService.Record(db, itemId, kind, -qty, await OnHandAsync(db, itemId), movedAt, sale.InvoiceNumber, variantId: line.VariantId, user: user, userId: userId);
+                Guid? chosen = chosenBatches is not null && chosenBatches.TryGetValue(line.LineNumber, out var b) ? b : null;
+                await RecordMovementsAsync(db, itemId, info.TracksBatches, kind, -qty, movedAt, sale.InvoiceNumber, line.VariantId, null, user, userId, chosen, sold);
                 if (type == ItemType.Kit)
                 {
                     var components = await db.KitComponents.Where(k => k.KitItemId == itemId && k.ComponentItemId != null).ToListAsync();
@@ -217,8 +223,8 @@ public sealed class SalesService(DataContext data)
                         decimal cq = qty * c.Quantity;
                         var componentId = c.ComponentItemId!.Value;
                         await db.Items.Where(i => i.Id == componentId).ExecuteUpdateAsync(s => s.SetProperty(i => i.OnHand, i => i.OnHand - cq).Touched());
-                        InventoryService.Record(db, componentId, kind, -cq, await OnHandAsync(db, componentId), movedAt, sale.InvoiceNumber,
-                            reason: $"Kit {line.Plu}", user: user, userId: userId);
+                        bool batches = await db.Items.Where(i => i.Id == componentId).Select(i => i.TracksBatches).SingleAsync();
+                        await RecordMovementsAsync(db, componentId, batches, kind, -cq, movedAt, sale.InvoiceNumber, null, $"Kit {line.Plu}", user, userId, null, sold);
                     }
                 }
                 if (type == ItemType.Serialized && !string.IsNullOrWhiteSpace(line.SerialNumber))
@@ -239,6 +245,64 @@ public sealed class SalesService(DataContext data)
 
     private static Task<decimal> OnHandAsync(RetailPlusDbContext db, Guid itemId) =>
         db.Items.Where(i => i.Id == itemId).Select(i => i.OnHand).SingleAsync();
+
+    /// <summary>
+    /// The movements of one line's stock change (<paramref name="change"/>, after OnHand was changed). An item kept in
+    /// batches gets one movement per batch: goods sold leave from the batch chosen, else first expiry first (expired
+    /// batches are refused when the store says so); goods returned go into the batch chosen, else into no batch; a void
+    /// puts back what the sale took of each batch (<paramref name="sold"/>).
+    /// </summary>
+    private static async Task RecordMovementsAsync(RetailPlusDbContext db, Guid itemId, bool tracksBatches, StockMovementKind kind, decimal change, DateTime at,
+        long invoice, Guid? variantId, string? reason, string? user, Guid? userId, Guid? chosenBatch, Dictionary<Guid, List<BatchShare>>? sold)
+    {
+        decimal after = await OnHandAsync(db, itemId);
+        if (!tracksBatches || change == 0)
+        {
+            InventoryService.Record(db, itemId, kind, change, after, at, invoice, reason, user, variantId, userId);
+            return;
+        }
+        var parts = new List<(Guid? Batch, decimal Change)>();
+        if (sold is not null)
+        {
+            // Undo the sale's own movements of this item, batch by batch; whatever they do not explain moves no batch.
+            decimal left = change;
+            foreach (var share in sold.GetValueOrDefault(itemId) ?? [])
+            {
+                if (left == 0) break;
+                if (Math.Sign(share.Left) != -Math.Sign(left) || share.Left == 0) continue;
+                decimal part = Math.Sign(left) * Math.Min(Math.Abs(left), Math.Abs(share.Left));
+                parts.Add((share.BatchId, part));
+                share.Left += part;
+                left -= part;
+            }
+            if (left != 0) parts.Add((null, left));
+        }
+        else if (change < 0)
+        {
+            var takes = await BatchService.TakeAsync(db, itemId, -change, chosenBatch, forSale: kind == StockMovementKind.Sale, DateOnly.FromDateTime(DateTime.Today));
+            parts.AddRange(takes.Select(t => (t.BatchId, -t.Quantity)));
+        }
+        else parts.Add((chosenBatch, change));
+        decimal running = after - change;
+        foreach (var (batch, part) in parts)
+            InventoryService.Record(db, itemId, kind, part, running += part, at, invoice, reason, user, variantId, userId, batchId: batch);
+    }
+
+    /// <summary>What a sale moved of each batch (per item), to be put back by a void.</summary>
+    private static async Task<Dictionary<Guid, List<BatchShare>>> SoldBatchesAsync(RetailPlusDbContext db, long invoice)
+    {
+        var moves = await db.StockMovements.AsNoTracking()
+            .Where(m => m.DocumentNumber == invoice && m.BatchId != null && (m.Kind == StockMovementKind.Sale || m.Kind == StockMovementKind.Return))
+            .Select(m => new { m.ItemId, m.BatchId, m.Quantity }).ToListAsync();
+        return moves.GroupBy(m => m.ItemId).ToDictionary(g => g.Key, g => g.Select(m => new BatchShare(m.BatchId!.Value) { Left = m.Quantity }).ToList());
+    }
+
+    /// <summary>How much of a sale's movement of one batch is still to be put back.</summary>
+    private sealed class BatchShare(Guid batchId)
+    {
+        public Guid BatchId { get; } = batchId;
+        public decimal Left { get; set; }
+    }
 
     /// <summary>RFID tags of sold lines become Sold, of returned lines In stock; <paramref name="sign"/> -1 undoes a sale.</summary>
     private static async Task UpdateTagsAsync(RetailPlusDbContext db, Sale sale, int sign)

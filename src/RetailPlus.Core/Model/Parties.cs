@@ -92,4 +92,6 @@ public class Client : Party
 /// <summary>A supplier (one record of SUPPLIER.DBF).</summary>
 public class Supplier : Party
 {
+    /// <summary>Days from ordering to delivery, for items that do not have their own; 0 uses the store's default.</summary>
+    public int LeadTimeDays { get; set; }
 }

@@ -39,6 +39,10 @@ public class PurchaseOrder : Entity, IVersioned, IStationStamped
     public Guid? ReceivedById { get; set; }
     public Guid Version { get; set; }
     public List<PurchaseOrderLine> Lines { get; set; } = [];
+    /// <summary>The supplier, when the whole order goes to one (orders made from requisitions); lines name their own too.</summary>
+    public Guid? SupplierId { get; set; }
+    /// <summary>When the goods should arrive, for the supplier's on-time delivery; else the order date plus the lead time.</summary>
+    public DateOnly? ExpectedOn { get; set; }
 }
 
 /// <summary>One item on a purchase order (one record of a PO file).</summary>
@@ -70,4 +74,9 @@ public class PurchaseOrderLine : Entity, IFlaggable
     /// <summary>The supplier's stock code [REORDERNO].</summary>
     public string? ReorderNumber { get; set; }
     public bool IsFlagged { get; set; }
+    /// <summary>
+    /// The cost each agreed when the order was posted. Receiving may change <see cref="CostEach"/> to what the goods were
+    /// valued at; the three-way match compares the bill with this one.
+    /// </summary>
+    public decimal OrderedCost { get; set; }
 }

@@ -378,4 +378,6 @@ public class StockMovement : Entity, IStationStamped
     public string? Reason { get; set; }
     public string? User { get; set; }
     public Guid? UserId { get; set; }
+    /// <summary>The batch that moved, for items that track batches; a batch's stock is the sum of its movements.</summary>
+    public Guid? BatchId { get; set; }
 }

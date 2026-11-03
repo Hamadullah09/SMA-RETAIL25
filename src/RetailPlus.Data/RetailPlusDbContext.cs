@@ -23,7 +23,12 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
         public const string GiftCardNumbers = "GiftCardNumbers";
         /// <summary>General ledger entries (numbered on the server, from its own range).</summary>
         public const string JournalNumbers = "JournalNumbers";
-        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers, JournalNumbers];
+        /// <summary>Purchase requisitions (at the tills, and on the server from its own range).</summary>
+        public const string RequisitionNumbers = "RequisitionNumbers";
+        /// <summary>Landed cost vouchers (on the server, from its own range).</summary>
+        public const string LandedCostNumbers = "LandedCostNumbers";
+        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers, JournalNumbers,
+            RequisitionNumbers, LandedCostNumbers];
     }
 
     /// <summary>
@@ -105,6 +110,18 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
     public DbSet<FiscalYear> FiscalYears => Set<FiscalYear>();
     public DbSet<FiscalPeriod> FiscalPeriods => Set<FiscalPeriod>();
     public DbSet<LedgerSettings> LedgerSettings => Set<LedgerSettings>();
+    public DbSet<ItemBatch> ItemBatches => Set<ItemBatch>();
+    public DbSet<Bin> Bins => Set<Bin>();
+    public DbSet<PurchaseRequisition> PurchaseRequisitions => Set<PurchaseRequisition>();
+    public DbSet<PurchaseRequisitionLine> PurchaseRequisitionLines => Set<PurchaseRequisitionLine>();
+    public DbSet<PurchaseApprovalLimit> PurchaseApprovalLimits => Set<PurchaseApprovalLimit>();
+    public DbSet<SupplySettings> SupplySettings => Set<SupplySettings>();
+    public DbSet<BillMatch> BillMatches => Set<BillMatch>();
+    public DbSet<PriceVariance> PriceVariances => Set<PriceVariance>();
+    public DbSet<LandedCostVoucher> LandedCostVouchers => Set<LandedCostVoucher>();
+    public DbSet<LandedCostCharge> LandedCostCharges => Set<LandedCostCharge>();
+    public DbSet<LandedCostReceipt> LandedCostReceipts => Set<LandedCostReceipt>();
+    public DbSet<LandedCostAllocation> LandedCostAllocations => Set<LandedCostAllocation>();
 
     /// <summary>
     /// Set while rows from a sync package are saved: they keep their times, store, station and version exactly as they
