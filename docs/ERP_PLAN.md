@@ -140,7 +140,7 @@ Built before the phases so that they can all post to one ledger:
 
 | Area | What is there |
 |---|---|
-| Chart of accounts | `LedgerAccount`: code, name, type (asset, liability, equity, income, expense), header accounts, active, and a role (`LedgerRoles`) for the accounts the program posts to by itself. A standard chart of 48 accounts is seeded on the server's first start, and every store's daily-journal mapping (Setup › Accounting) gets the matching standard account where it had none |
+| Chart of accounts | `LedgerAccount`: code, name, type (asset, liability, equity, income, expense), header accounts, active, and a role (`LedgerRoles`) for the accounts the program posts to by itself. A standard chart of 47 accounts is seeded on the server's first start, and every store's daily-journal mapping (Setup › Accounting) gets the matching standard account where it had none |
 | Journal entries | `JournalEntry` and `JournalLine`: date, kind, source, store, memo, reference; lines per account and store, with an optional party (client, supplier, employee). Numbered on the server from its own range |
 | Posting | `LedgerService.PostAsync` checks that the entry balances, that every account exists, is posted to and is active, and that the date is in an open period. Posting the same source again replaces the entry while its period is open, and posts only the difference, dated in the first open period, once it is locked |
 | Hand entries | Drafts, approved and posted by a second person; reversal by a mirror entry |
