@@ -84,6 +84,8 @@ public sealed class Receipt
         var notes = new List<string>();
         if (store.BonusPointsEnabled && store.PrintPointsOnSlips && sale.PointsEarned > 0) notes.Add("Points earned: " + sale.PointsEarned.ToString("0.##", culture));
         if (!string.IsNullOrWhiteSpace(store.TaxRegistrationNumber)) notes.Add("Tax reg. " + store.TaxRegistrationNumber);
+        // The tax office's number (FBR's POS integration), once the server reported the sale: reprints show it.
+        if (!string.IsNullOrWhiteSpace(sale.FiscalInvoiceNumber)) notes.Add("Fiscal invoice " + sale.FiscalInvoiceNumber.Trim());
 
         var goods = sale.Lines.Where(l => l.Kind is SaleLineKind.Sale or SaleLineKind.Return).ToList();
         var footerLines = Lines(footer);

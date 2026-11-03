@@ -12,6 +12,31 @@ namespace RetailPlus.Data.Sqlite.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "BankStatementFormats",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    BankName = table.Column<string>(type: "TEXT", maxLength: 60, nullable: false, collation: "NOCASE"),
+                    HasHeader = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Delimiter = table.Column<string>(type: "TEXT", maxLength: 2, nullable: false, collation: "NOCASE"),
+                    DateColumn = table.Column<string>(type: "TEXT", maxLength: 60, nullable: false, collation: "NOCASE"),
+                    DateFormat = table.Column<string>(type: "TEXT", maxLength: 30, nullable: false, collation: "NOCASE"),
+                    DescriptionColumn = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
+                    ReferenceColumn = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
+                    AmountColumn = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
+                    DebitColumn = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
+                    CreditColumn = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
+                    BalanceColumn = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BankStatementFormats", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Categories",
                 columns: table => new
                 {
@@ -125,6 +150,49 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "FinanceAttachments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    OwnerKind = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
+                    OwnerId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    FileName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false, collation: "NOCASE"),
+                    ContentType = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false, collation: "NOCASE"),
+                    Size = table.Column<int>(type: "INTEGER", nullable: false),
+                    Data = table.Column<byte[]>(type: "BLOB", nullable: false),
+                    UploadedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FinanceAttachments", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "FinanceSettings",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    AutoPostOnSync = table.Column<bool>(type: "INTEGER", nullable: false),
+                    NightlyDays = table.Column<int>(type: "INTEGER", nullable: false),
+                    NightlyHour = table.Column<int>(type: "INTEGER", nullable: false),
+                    AttachmentMaxKilobytes = table.Column<int>(type: "INTEGER", nullable: false),
+                    SyncCursor = table.Column<long>(type: "INTEGER", nullable: false),
+                    LastNightlyRunOn = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                    FiscalCursor = table.Column<long>(type: "INTEGER", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FinanceSettings", x => x.Id);
+                    table.CheckConstraint("CK_FinanceSettings_Hour", "[NightlyHour] BETWEEN 0 AND 23");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "FiscalYears",
                 columns: table => new
                 {
@@ -192,6 +260,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
                     Role = table.Column<string>(type: "TEXT", maxLength: 40, nullable: true, collation: "NOCASE"),
                     Description = table.Column<string>(type: "TEXT", maxLength: 400, nullable: true, collation: "NOCASE"),
+                    CashFlow = table.Column<int>(type: "INTEGER", nullable: true),
                     SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
@@ -412,6 +481,25 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "TaxRuleSets",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Country = table.Column<string>(type: "TEXT", maxLength: 2, nullable: false, collation: "NOCASE"),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 60, nullable: false, collation: "NOCASE"),
+                    InputTaxClaimable = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Notes = table.Column<string>(type: "TEXT", maxLength: 1000, nullable: true, collation: "NOCASE"),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TaxRuleSets", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "TenderTypes",
                 columns: table => new
                 {
@@ -572,6 +660,81 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     table.PrimaryKey("PK_AuditEntries", x => x.Id);
                     table.ForeignKey(
                         name: "FK_AuditEntries_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BankAccounts",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 60, nullable: false, collation: "NOCASE"),
+                    Kind = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    BankName = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
+                    AccountNumber = table.Column<string>(type: "TEXT", maxLength: 40, nullable: true, collation: "NOCASE"),
+                    Iban = table.Column<string>(type: "TEXT", maxLength: 34, nullable: true, collation: "NOCASE"),
+                    Currency = table.Column<string>(type: "TEXT", maxLength: 3, nullable: false, collation: "NOCASE"),
+                    LedgerAccountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    OpeningBalance = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    OpeningDate = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Version = table.Column<Guid>(type: "TEXT", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BankAccounts", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BankAccounts_LedgerAccounts_LedgerAccountId",
+                        column: x => x.LedgerAccountId,
+                        principalTable: "LedgerAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BankAccounts_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BudgetLines",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    FiscalYearId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    AccountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Month = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    Amount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BudgetLines", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BudgetLines_FiscalYears_FiscalYearId",
+                        column: x => x.FiscalYearId,
+                        principalTable: "FiscalYears",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_BudgetLines_LedgerAccounts_AccountId",
+                        column: x => x.AccountId,
+                        principalTable: "LedgerAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BudgetLines_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -1161,6 +1324,233 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "SupplierFinances",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    SupplierId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    TaxNumber = table.Column<string>(type: "TEXT", maxLength: 20, nullable: true, collation: "NOCASE"),
+                    SalesTaxNumber = table.Column<string>(type: "TEXT", maxLength: 20, nullable: true, collation: "NOCASE"),
+                    IsFiler = table.Column<bool>(type: "INTEGER", nullable: false),
+                    WithholdingKind = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    WithholdingExempt = table.Column<bool>(type: "INTEGER", nullable: false),
+                    PaymentTermsDays = table.Column<int>(type: "INTEGER", nullable: false),
+                    DefaultAccountId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SupplierFinances", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SupplierFinances_LedgerAccounts_DefaultAccountId",
+                        column: x => x.DefaultAccountId,
+                        principalTable: "LedgerAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_SupplierFinances_Suppliers_SupplierId",
+                        column: x => x.SupplierId,
+                        principalTable: "Suppliers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SalesTaxRates",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    TaxRuleSetId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 40, nullable: false, collation: "NOCASE"),
+                    Rate = table.Column<decimal>(type: "TEXT", precision: 7, scale: 3, nullable: false),
+                    IsDefault = table.Column<bool>(type: "INTEGER", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SalesTaxRates", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SalesTaxRates_TaxRuleSets_TaxRuleSetId",
+                        column: x => x.TaxRuleSetId,
+                        principalTable: "TaxRuleSets",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WithholdingRules",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    TaxRuleSetId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Kind = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    Section = table.Column<string>(type: "TEXT", maxLength: 40, nullable: true, collation: "NOCASE"),
+                    FilerRate = table.Column<decimal>(type: "TEXT", precision: 7, scale: 3, nullable: false),
+                    NonFilerRate = table.Column<decimal>(type: "TEXT", precision: 7, scale: 3, nullable: false),
+                    Threshold = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WithholdingRules", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_WithholdingRules_TaxRuleSets_TaxRuleSetId",
+                        column: x => x.TaxRuleSetId,
+                        principalTable: "TaxRuleSets",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BankStatements",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    BankAccountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    FileName = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    FromDate = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    ToDate = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    ClosingBalance = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: true),
+                    LineCount = table.Column<int>(type: "INTEGER", nullable: false),
+                    ImportedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BankStatements", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BankStatements_BankAccounts_BankAccountId",
+                        column: x => x.BankAccountId,
+                        principalTable: "BankAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PaymentRuns",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Number = table.Column<long>(type: "INTEGER", nullable: false),
+                    Date = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    BankAccountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Total = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    Payments = table.Column<int>(type: "INTEGER", nullable: false),
+                    Notes = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    PaidBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    PaidAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PaymentRuns", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PaymentRuns_BankAccounts_BankAccountId",
+                        column: x => x.BankAccountId,
+                        principalTable: "BankAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RecurringExpenses",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Name = table.Column<string>(type: "TEXT", maxLength: 60, nullable: false, collation: "NOCASE"),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Payee = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false, collation: "NOCASE"),
+                    SupplierId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    AccountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Amount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    TaxAmount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    PaidBy = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    BankAccountId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Frequency = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    NextDate = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    EndDate = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                    PostAutomatically = table.Column<bool>(type: "INTEGER", nullable: false),
+                    IsActive = table.Column<bool>(type: "INTEGER", nullable: false),
+                    LastMadeOn = table.Column<DateOnly>(type: "TEXT", nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RecurringExpenses", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RecurringExpenses_BankAccounts_BankAccountId",
+                        column: x => x.BankAccountId,
+                        principalTable: "BankAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_RecurringExpenses_LedgerAccounts_AccountId",
+                        column: x => x.AccountId,
+                        principalTable: "LedgerAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_RecurringExpenses_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_RecurringExpenses_Suppliers_SupplierId",
+                        column: x => x.SupplierId,
+                        principalTable: "Suppliers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "StoreFinances",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    TaxRuleSetId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    DepositBankAccountId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_StoreFinances", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_StoreFinances_BankAccounts_DepositBankAccountId",
+                        column: x => x.DepositBankAccountId,
+                        principalTable: "BankAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_StoreFinances_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_StoreFinances_TaxRuleSets_TaxRuleSetId",
+                        column: x => x.TaxRuleSetId,
+                        principalTable: "TaxRuleSets",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "DrawerMovements",
                 columns: table => new
                 {
@@ -1312,6 +1702,89 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "BankDeposits",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Number = table.Column<long>(type: "INTEGER", nullable: false),
+                    Date = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    BankAccountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Amount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    DrawerSessionId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Reference = table.Column<string>(type: "TEXT", maxLength: 40, nullable: true, collation: "NOCASE"),
+                    JournalEntryId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    CreatedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BankDeposits", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BankDeposits_BankAccounts_BankAccountId",
+                        column: x => x.BankAccountId,
+                        principalTable: "BankAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BankDeposits_JournalEntries_JournalEntryId",
+                        column: x => x.JournalEntryId,
+                        principalTable: "JournalEntries",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BankDeposits_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BankTransfers",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Number = table.Column<long>(type: "INTEGER", nullable: false),
+                    Date = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    FromAccountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    ToAccountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Amount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    ToAmount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    Reference = table.Column<string>(type: "TEXT", maxLength: 40, nullable: true, collation: "NOCASE"),
+                    Memo = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    JournalEntryId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    CreatedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BankTransfers", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BankTransfers_BankAccounts_FromAccountId",
+                        column: x => x.FromAccountId,
+                        principalTable: "BankAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BankTransfers_BankAccounts_ToAccountId",
+                        column: x => x.ToAccountId,
+                        principalTable: "BankAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_BankTransfers_JournalEntries_JournalEntryId",
+                        column: x => x.JournalEntryId,
+                        principalTable: "JournalEntries",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "JournalLines",
                 columns: table => new
                 {
@@ -1348,6 +1821,68 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         name: "FK_JournalLines_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SupplierBills",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Number = table.Column<long>(type: "INTEGER", nullable: false),
+                    Kind = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    SupplierId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    BillDate = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    DueDate = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    SupplierReference = table.Column<string>(type: "TEXT", maxLength: 40, nullable: true, collation: "NOCASE"),
+                    Currency = table.Column<string>(type: "TEXT", maxLength: 3, nullable: false, collation: "NOCASE"),
+                    ExchangeRate = table.Column<decimal>(type: "TEXT", precision: 18, scale: 6, nullable: false),
+                    Notes = table.Column<string>(type: "TEXT", maxLength: 400, nullable: true, collation: "NOCASE"),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    Subtotal = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    TaxTotal = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    Total = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    Paid = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    OriginalBillId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    ExpenseId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    JournalEntryId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    CreatedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    PostedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    PostedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    VoidedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    VoidReason = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    Version = table.Column<Guid>(type: "TEXT", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SupplierBills", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SupplierBills_JournalEntries_JournalEntryId",
+                        column: x => x.JournalEntryId,
+                        principalTable: "JournalEntries",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SupplierBills_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SupplierBills_SupplierBills_OriginalBillId",
+                        column: x => x.OriginalBillId,
+                        principalTable: "SupplierBills",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SupplierBills_Suppliers_SupplierId",
+                        column: x => x.SupplierId,
+                        principalTable: "Suppliers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -1560,6 +2095,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     VoidedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
                     VoidedById = table.Column<Guid>(type: "TEXT", nullable: true),
                     IsFlagged = table.Column<bool>(type: "INTEGER", nullable: false),
+                    FiscalInvoiceNumber = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
                     SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
@@ -1800,6 +2336,180 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         name: "FK_TimeClockEntries_UserAccounts_UserId",
                         column: x => x.UserId,
                         principalTable: "UserAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SupplierPayments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Number = table.Column<long>(type: "INTEGER", nullable: false),
+                    SupplierId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Date = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    BankAccountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Currency = table.Column<string>(type: "TEXT", maxLength: 3, nullable: false, collation: "NOCASE"),
+                    ExchangeRate = table.Column<decimal>(type: "TEXT", precision: 18, scale: 6, nullable: false),
+                    Amount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    WithholdingAmount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    WithholdingKind = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    WithholdingRate = table.Column<decimal>(type: "TEXT", precision: 7, scale: 3, nullable: false),
+                    Reference = table.Column<string>(type: "TEXT", maxLength: 40, nullable: true, collation: "NOCASE"),
+                    Notes = table.Column<string>(type: "TEXT", maxLength: 400, nullable: true, collation: "NOCASE"),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    PaymentRunId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    JournalEntryId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    CreatedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    VoidedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SupplierPayments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SupplierPayments_BankAccounts_BankAccountId",
+                        column: x => x.BankAccountId,
+                        principalTable: "BankAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SupplierPayments_JournalEntries_JournalEntryId",
+                        column: x => x.JournalEntryId,
+                        principalTable: "JournalEntries",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SupplierPayments_PaymentRuns_PaymentRunId",
+                        column: x => x.PaymentRunId,
+                        principalTable: "PaymentRuns",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SupplierPayments_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SupplierPayments_Suppliers_SupplierId",
+                        column: x => x.SupplierId,
+                        principalTable: "Suppliers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BankStatementLines",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    BankStatementId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    BankAccountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    LineNumber = table.Column<int>(type: "INTEGER", nullable: false),
+                    Date = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    Reference = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
+                    Amount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    Balance = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: true),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    JournalLineId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    MatchedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    MatchedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BankStatementLines", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BankStatementLines_BankStatements_BankStatementId",
+                        column: x => x.BankStatementId,
+                        principalTable: "BankStatements",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_BankStatementLines_JournalLines_JournalLineId",
+                        column: x => x.JournalLineId,
+                        principalTable: "JournalLines",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Expenses",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Number = table.Column<long>(type: "INTEGER", nullable: false),
+                    Date = table.Column<DateOnly>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Payee = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false, collation: "NOCASE"),
+                    SupplierId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    AccountId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
+                    Amount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    TaxAmount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    PaidBy = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    BankAccountId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Reference = table.Column<string>(type: "TEXT", maxLength: 40, nullable: true, collation: "NOCASE"),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    SupplierBillId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    RecurringExpenseId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    JournalEntryId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    CreatedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    Version = table.Column<Guid>(type: "TEXT", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Expenses", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Expenses_BankAccounts_BankAccountId",
+                        column: x => x.BankAccountId,
+                        principalTable: "BankAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Expenses_JournalEntries_JournalEntryId",
+                        column: x => x.JournalEntryId,
+                        principalTable: "JournalEntries",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Expenses_LedgerAccounts_AccountId",
+                        column: x => x.AccountId,
+                        principalTable: "LedgerAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Expenses_RecurringExpenses_RecurringExpenseId",
+                        column: x => x.RecurringExpenseId,
+                        principalTable: "RecurringExpenses",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_Expenses_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Expenses_SupplierBills_SupplierBillId",
+                        column: x => x.SupplierBillId,
+                        principalTable: "SupplierBills",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Expenses_Suppliers_SupplierId",
+                        column: x => x.SupplierId,
+                        principalTable: "Suppliers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -2148,6 +2858,41 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "FiscalInvoices",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    SaleId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    InvoiceNumber = table.Column<long>(type: "INTEGER", nullable: false),
+                    Status = table.Column<string>(type: "TEXT", maxLength: 10, nullable: false),
+                    Attempts = table.Column<int>(type: "INTEGER", nullable: false),
+                    NextAttemptUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: true),
+                    LastError = table.Column<string>(type: "TEXT", maxLength: 400, nullable: true, collation: "NOCASE"),
+                    FiscalNumber = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
+                    SentAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FiscalInvoices", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_FiscalInvoices_Sales_SaleId",
+                        column: x => x.SaleId,
+                        principalTable: "Sales",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_FiscalInvoices_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "SaleLines",
                 columns: table => new
                 {
@@ -2318,6 +3063,90 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "SupplierPaymentAllocations",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    SupplierPaymentId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    SupplierBillId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Amount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SupplierPaymentAllocations", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SupplierPaymentAllocations_SupplierBills_SupplierBillId",
+                        column: x => x.SupplierBillId,
+                        principalTable: "SupplierBills",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SupplierPaymentAllocations_SupplierPayments_SupplierPaymentId",
+                        column: x => x.SupplierPaymentId,
+                        principalTable: "SupplierPayments",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SupplierBillLines",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    SupplierBillId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    LineNumber = table.Column<int>(type: "INTEGER", nullable: false),
+                    AccountId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    ItemId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false, collation: "NOCASE"),
+                    Quantity = table.Column<decimal>(type: "TEXT", precision: 12, scale: 3, nullable: false),
+                    UnitPrice = table.Column<decimal>(type: "TEXT", precision: 18, scale: 3, nullable: false),
+                    Amount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    TaxRate = table.Column<decimal>(type: "TEXT", precision: 7, scale: 3, nullable: false),
+                    TaxAmount = table.Column<decimal>(type: "TEXT", precision: 18, scale: 2, nullable: false),
+                    PurchaseOrderId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    PurchaseOrderLineId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SupplierBillLines", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SupplierBillLines_Items_ItemId",
+                        column: x => x.ItemId,
+                        principalTable: "Items",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_SupplierBillLines_LedgerAccounts_AccountId",
+                        column: x => x.AccountId,
+                        principalTable: "LedgerAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_SupplierBillLines_PurchaseOrderLines_PurchaseOrderLineId",
+                        column: x => x.PurchaseOrderLineId,
+                        principalTable: "PurchaseOrderLines",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_SupplierBillLines_PurchaseOrders_PurchaseOrderId",
+                        column: x => x.PurchaseOrderId,
+                        principalTable: "PurchaseOrders",
+                        principalColumn: "Id");
+                    table.ForeignKey(
+                        name: "FK_SupplierBillLines_SupplierBills_SupplierBillId",
+                        column: x => x.SupplierBillId,
+                        principalTable: "SupplierBills",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "SaleLineTags",
                 columns: table => new
                 {
@@ -2379,6 +3208,149 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "IX_AuditEntries_UserId_AtUtc",
                 table: "AuditEntries",
                 columns: new[] { "UserId", "AtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankAccounts_LedgerAccountId",
+                table: "BankAccounts",
+                column: "LedgerAccountId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankAccounts_Name",
+                table: "BankAccounts",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankAccounts_StoreId",
+                table: "BankAccounts",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankAccounts_UpdatedAtUtc",
+                table: "BankAccounts",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankDeposits_BankAccountId",
+                table: "BankDeposits",
+                column: "BankAccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankDeposits_DrawerSessionId",
+                table: "BankDeposits",
+                column: "DrawerSessionId",
+                unique: true,
+                filter: "[DrawerSessionId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankDeposits_JournalEntryId",
+                table: "BankDeposits",
+                column: "JournalEntryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankDeposits_Number",
+                table: "BankDeposits",
+                column: "Number");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankDeposits_StoreId",
+                table: "BankDeposits",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankDeposits_UpdatedAtUtc",
+                table: "BankDeposits",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankStatementFormats_BankName",
+                table: "BankStatementFormats",
+                column: "BankName",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankStatementFormats_UpdatedAtUtc",
+                table: "BankStatementFormats",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankStatementLines_BankAccountId_Status_Date",
+                table: "BankStatementLines",
+                columns: new[] { "BankAccountId", "Status", "Date" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankStatementLines_BankStatementId",
+                table: "BankStatementLines",
+                column: "BankStatementId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankStatementLines_JournalLineId",
+                table: "BankStatementLines",
+                column: "JournalLineId",
+                unique: true,
+                filter: "[JournalLineId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankStatementLines_UpdatedAtUtc",
+                table: "BankStatementLines",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankStatements_BankAccountId",
+                table: "BankStatements",
+                column: "BankAccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankStatements_UpdatedAtUtc",
+                table: "BankStatements",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankTransfers_FromAccountId",
+                table: "BankTransfers",
+                column: "FromAccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankTransfers_JournalEntryId",
+                table: "BankTransfers",
+                column: "JournalEntryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankTransfers_Number",
+                table: "BankTransfers",
+                column: "Number");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankTransfers_ToAccountId",
+                table: "BankTransfers",
+                column: "ToAccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BankTransfers_UpdatedAtUtc",
+                table: "BankTransfers",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BudgetLines_AccountId",
+                table: "BudgetLines",
+                column: "AccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BudgetLines_FiscalYearId_AccountId_StoreId_Month",
+                table: "BudgetLines",
+                columns: new[] { "FiscalYearId", "AccountId", "StoreId", "Month" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BudgetLines_StoreId",
+                table: "BudgetLines",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BudgetLines_UpdatedAtUtc",
+                table: "BudgetLines",
+                column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Categories_Name",
@@ -2578,6 +3550,51 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Expenses_AccountId",
+                table: "Expenses",
+                column: "AccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Expenses_BankAccountId",
+                table: "Expenses",
+                column: "BankAccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Expenses_JournalEntryId",
+                table: "Expenses",
+                column: "JournalEntryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Expenses_Number",
+                table: "Expenses",
+                column: "Number");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Expenses_RecurringExpenseId",
+                table: "Expenses",
+                column: "RecurringExpenseId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Expenses_StoreId_Date",
+                table: "Expenses",
+                columns: new[] { "StoreId", "Date" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Expenses_SupplierBillId",
+                table: "Expenses",
+                column: "SupplierBillId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Expenses_SupplierId",
+                table: "Expenses",
+                column: "SupplierId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Expenses_UpdatedAtUtc",
+                table: "Expenses",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_FastKeys_Panel_KeyNumber",
                 table: "FastKeys",
                 columns: new[] { "Panel", "KeyNumber" },
@@ -2586,6 +3603,42 @@ namespace RetailPlus.Data.Sqlite.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_FastKeys_UpdatedAtUtc",
                 table: "FastKeys",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FinanceAttachments_OwnerKind_OwnerId",
+                table: "FinanceAttachments",
+                columns: new[] { "OwnerKind", "OwnerId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FinanceAttachments_UpdatedAtUtc",
+                table: "FinanceAttachments",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FinanceSettings_UpdatedAtUtc",
+                table: "FinanceSettings",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FiscalInvoices_SaleId",
+                table: "FiscalInvoices",
+                column: "SaleId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FiscalInvoices_Status_NextAttemptUtc",
+                table: "FiscalInvoices",
+                columns: new[] { "Status", "NextAttemptUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FiscalInvoices_StoreId",
+                table: "FiscalInvoices",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FiscalInvoices_UpdatedAtUtc",
+                table: "FiscalInvoices",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -3015,6 +4068,21 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_PaymentRuns_BankAccountId",
+                table: "PaymentRuns",
+                column: "BankAccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PaymentRuns_Number",
+                table: "PaymentRuns",
+                column: "Number");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PaymentRuns_UpdatedAtUtc",
+                table: "PaymentRuns",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_PurchaseOrderLines_PurchaseOrderId_Plu",
                 table: "PurchaseOrderLines",
                 columns: new[] { "PurchaseOrderId", "Plu" });
@@ -3038,6 +4106,36 @@ namespace RetailPlus.Data.Sqlite.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_PurchaseOrders_UpdatedAtUtc",
                 table: "PurchaseOrders",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RecurringExpenses_AccountId",
+                table: "RecurringExpenses",
+                column: "AccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RecurringExpenses_BankAccountId",
+                table: "RecurringExpenses",
+                column: "BankAccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RecurringExpenses_IsActive_NextDate",
+                table: "RecurringExpenses",
+                columns: new[] { "IsActive", "NextDate" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RecurringExpenses_StoreId",
+                table: "RecurringExpenses",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RecurringExpenses_SupplierId",
+                table: "RecurringExpenses",
+                column: "SupplierId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RecurringExpenses_UpdatedAtUtc",
+                table: "RecurringExpenses",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -3203,6 +4301,16 @@ namespace RetailPlus.Data.Sqlite.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Sales_UpdatedAtUtc",
                 table: "Sales",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalesTaxRates_TaxRuleSetId",
+                table: "SalesTaxRates",
+                column: "TaxRuleSetId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalesTaxRates_UpdatedAtUtc",
+                table: "SalesTaxRates",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -3372,6 +4480,27 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_StoreFinances_DepositBankAccountId",
+                table: "StoreFinances",
+                column: "DepositBankAccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StoreFinances_StoreId",
+                table: "StoreFinances",
+                column: "StoreId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StoreFinances_TaxRuleSetId",
+                table: "StoreFinances",
+                column: "TaxRuleSetId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_StoreFinances_UpdatedAtUtc",
+                table: "StoreFinances",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StoreImages_StoreId_Kind",
                 table: "StoreImages",
                 columns: new[] { "StoreId", "Kind" },
@@ -3413,6 +4542,132 @@ namespace RetailPlus.Data.Sqlite.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_StoreSettings_UpdatedAtUtc",
                 table: "StoreSettings",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierBillLines_AccountId",
+                table: "SupplierBillLines",
+                column: "AccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierBillLines_ItemId",
+                table: "SupplierBillLines",
+                column: "ItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierBillLines_PurchaseOrderId",
+                table: "SupplierBillLines",
+                column: "PurchaseOrderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierBillLines_PurchaseOrderLineId",
+                table: "SupplierBillLines",
+                column: "PurchaseOrderLineId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierBillLines_SupplierBillId",
+                table: "SupplierBillLines",
+                column: "SupplierBillId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierBillLines_UpdatedAtUtc",
+                table: "SupplierBillLines",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierBills_JournalEntryId",
+                table: "SupplierBills",
+                column: "JournalEntryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierBills_Number",
+                table: "SupplierBills",
+                column: "Number");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierBills_OriginalBillId",
+                table: "SupplierBills",
+                column: "OriginalBillId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierBills_StoreId_DueDate",
+                table: "SupplierBills",
+                columns: new[] { "StoreId", "DueDate" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierBills_SupplierId_Status",
+                table: "SupplierBills",
+                columns: new[] { "SupplierId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierBills_UpdatedAtUtc",
+                table: "SupplierBills",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierFinances_DefaultAccountId",
+                table: "SupplierFinances",
+                column: "DefaultAccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierFinances_SupplierId",
+                table: "SupplierFinances",
+                column: "SupplierId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierFinances_UpdatedAtUtc",
+                table: "SupplierFinances",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierPaymentAllocations_SupplierBillId",
+                table: "SupplierPaymentAllocations",
+                column: "SupplierBillId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierPaymentAllocations_SupplierPaymentId",
+                table: "SupplierPaymentAllocations",
+                column: "SupplierPaymentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierPaymentAllocations_UpdatedAtUtc",
+                table: "SupplierPaymentAllocations",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierPayments_BankAccountId",
+                table: "SupplierPayments",
+                column: "BankAccountId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierPayments_JournalEntryId",
+                table: "SupplierPayments",
+                column: "JournalEntryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierPayments_Number",
+                table: "SupplierPayments",
+                column: "Number");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierPayments_PaymentRunId",
+                table: "SupplierPayments",
+                column: "PaymentRunId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierPayments_StoreId",
+                table: "SupplierPayments",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierPayments_SupplierId_Date",
+                table: "SupplierPayments",
+                columns: new[] { "SupplierId", "Date" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierPayments_UpdatedAtUtc",
+                table: "SupplierPayments",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -3516,6 +4771,17 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_TaxRuleSets_Name",
+                table: "TaxRuleSets",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TaxRuleSets_UpdatedAtUtc",
+                table: "TaxRuleSets",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_TenderTypes_Name",
                 table: "TenderTypes",
                 column: "Name",
@@ -3583,6 +4849,17 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 table: "UserAccounts",
                 column: "UserName",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WithholdingRules_TaxRuleSetId_Kind",
+                table: "WithholdingRules",
+                columns: new[] { "TaxRuleSetId", "Kind" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WithholdingRules_UpdatedAtUtc",
+                table: "WithholdingRules",
+                column: "UpdatedAtUtc");
         }
 
         /// <inheritdoc />
@@ -3593,6 +4870,21 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
             migrationBuilder.DropTable(
                 name: "AuditEntries");
+
+            migrationBuilder.DropTable(
+                name: "BankDeposits");
+
+            migrationBuilder.DropTable(
+                name: "BankStatementFormats");
+
+            migrationBuilder.DropTable(
+                name: "BankStatementLines");
+
+            migrationBuilder.DropTable(
+                name: "BankTransfers");
+
+            migrationBuilder.DropTable(
+                name: "BudgetLines");
 
             migrationBuilder.DropTable(
                 name: "CommissionRules");
@@ -3610,7 +4902,19 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "DrawerSessionTenders");
 
             migrationBuilder.DropTable(
+                name: "Expenses");
+
+            migrationBuilder.DropTable(
                 name: "FastKeys");
+
+            migrationBuilder.DropTable(
+                name: "FinanceAttachments");
+
+            migrationBuilder.DropTable(
+                name: "FinanceSettings");
+
+            migrationBuilder.DropTable(
+                name: "FiscalInvoices");
 
             migrationBuilder.DropTable(
                 name: "FiscalPeriods");
@@ -3652,9 +4956,6 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "ItemVariants");
 
             migrationBuilder.DropTable(
-                name: "JournalLines");
-
-            migrationBuilder.DropTable(
                 name: "KitComponents");
 
             migrationBuilder.DropTable(
@@ -3665,9 +4966,6 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
             migrationBuilder.DropTable(
                 name: "NumberCounters");
-
-            migrationBuilder.DropTable(
-                name: "PurchaseOrderLines");
 
             migrationBuilder.DropTable(
                 name: "RfidAntennas");
@@ -3686,6 +4984,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
             migrationBuilder.DropTable(
                 name: "SalePayments");
+
+            migrationBuilder.DropTable(
+                name: "SalesTaxRates");
 
             migrationBuilder.DropTable(
                 name: "StaffPeriods");
@@ -3709,6 +5010,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "StockTransferLines");
 
             migrationBuilder.DropTable(
+                name: "StoreFinances");
+
+            migrationBuilder.DropTable(
                 name: "StoreImages");
 
             migrationBuilder.DropTable(
@@ -3716,6 +5020,15 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
             migrationBuilder.DropTable(
                 name: "StoreSettings");
+
+            migrationBuilder.DropTable(
+                name: "SupplierBillLines");
+
+            migrationBuilder.DropTable(
+                name: "SupplierFinances");
+
+            migrationBuilder.DropTable(
+                name: "SupplierPaymentAllocations");
 
             migrationBuilder.DropTable(
                 name: "SuspendedSales");
@@ -3739,7 +5052,19 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "Tombstones");
 
             migrationBuilder.DropTable(
+                name: "WithholdingRules");
+
+            migrationBuilder.DropTable(
+                name: "BankStatements");
+
+            migrationBuilder.DropTable(
+                name: "JournalLines");
+
+            migrationBuilder.DropTable(
                 name: "DrawerSessions");
+
+            migrationBuilder.DropTable(
+                name: "RecurringExpenses");
 
             migrationBuilder.DropTable(
                 name: "FiscalYears");
@@ -3754,15 +5079,6 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "Invoices");
 
             migrationBuilder.DropTable(
-                name: "JournalEntries");
-
-            migrationBuilder.DropTable(
-                name: "LedgerAccounts");
-
-            migrationBuilder.DropTable(
-                name: "PurchaseOrders");
-
-            migrationBuilder.DropTable(
                 name: "RfidReaders");
 
             migrationBuilder.DropTable(
@@ -3775,13 +5091,25 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "StockCounts");
 
             migrationBuilder.DropTable(
-                name: "Items");
-
-            migrationBuilder.DropTable(
                 name: "StockTransfers");
 
             migrationBuilder.DropTable(
+                name: "Items");
+
+            migrationBuilder.DropTable(
+                name: "PurchaseOrderLines");
+
+            migrationBuilder.DropTable(
+                name: "SupplierBills");
+
+            migrationBuilder.DropTable(
+                name: "SupplierPayments");
+
+            migrationBuilder.DropTable(
                 name: "UserAccounts");
+
+            migrationBuilder.DropTable(
+                name: "TaxRuleSets");
 
             migrationBuilder.DropTable(
                 name: "Sales");
@@ -3791,6 +5119,15 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
             migrationBuilder.DropTable(
                 name: "Departments");
+
+            migrationBuilder.DropTable(
+                name: "PurchaseOrders");
+
+            migrationBuilder.DropTable(
+                name: "JournalEntries");
+
+            migrationBuilder.DropTable(
+                name: "PaymentRuns");
 
             migrationBuilder.DropTable(
                 name: "Suppliers");
@@ -3803,6 +5140,12 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
             migrationBuilder.DropTable(
                 name: "Locations");
+
+            migrationBuilder.DropTable(
+                name: "BankAccounts");
+
+            migrationBuilder.DropTable(
+                name: "LedgerAccounts");
 
             migrationBuilder.DropTable(
                 name: "Stores");

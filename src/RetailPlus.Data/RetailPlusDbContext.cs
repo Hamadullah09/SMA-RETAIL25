@@ -23,7 +23,18 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
         public const string GiftCardNumbers = "GiftCardNumbers";
         /// <summary>General ledger entries (numbered on the server, from its own range).</summary>
         public const string JournalNumbers = "JournalNumbers";
-        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers, JournalNumbers];
+        /// <summary>Supplier bills and debit notes (server).</summary>
+        public const string SupplierBillNumbers = "SupplierBillNumbers";
+        /// <summary>Supplier payments (server).</summary>
+        public const string SupplierPaymentNumbers = "SupplierPaymentNumbers";
+        /// <summary>Expenses (server).</summary>
+        public const string ExpenseNumbers = "ExpenseNumbers";
+        /// <summary>Bank transfers and deposits (server).</summary>
+        public const string BankNumbers = "BankNumbers";
+        /// <summary>Payment runs (server).</summary>
+        public const string PaymentRunNumbers = "PaymentRunNumbers";
+        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers, JournalNumbers,
+            SupplierBillNumbers, SupplierPaymentNumbers, ExpenseNumbers, BankNumbers, PaymentRunNumbers];
     }
 
     /// <summary>
@@ -105,6 +116,28 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
     public DbSet<FiscalYear> FiscalYears => Set<FiscalYear>();
     public DbSet<FiscalPeriod> FiscalPeriods => Set<FiscalPeriod>();
     public DbSet<LedgerSettings> LedgerSettings => Set<LedgerSettings>();
+    public DbSet<FinanceSettings> FinanceSettings => Set<FinanceSettings>();
+    public DbSet<TaxRuleSet> TaxRuleSets => Set<TaxRuleSet>();
+    public DbSet<SalesTaxRate> SalesTaxRates => Set<SalesTaxRate>();
+    public DbSet<WithholdingRule> WithholdingRules => Set<WithholdingRule>();
+    public DbSet<StoreFinance> StoreFinances => Set<StoreFinance>();
+    public DbSet<SupplierFinance> SupplierFinances => Set<SupplierFinance>();
+    public DbSet<SupplierBill> SupplierBills => Set<SupplierBill>();
+    public DbSet<SupplierBillLine> SupplierBillLines => Set<SupplierBillLine>();
+    public DbSet<SupplierPayment> SupplierPayments => Set<SupplierPayment>();
+    public DbSet<SupplierPaymentAllocation> SupplierPaymentAllocations => Set<SupplierPaymentAllocation>();
+    public DbSet<PaymentRun> PaymentRuns => Set<PaymentRun>();
+    public DbSet<Expense> Expenses => Set<Expense>();
+    public DbSet<RecurringExpense> RecurringExpenses => Set<RecurringExpense>();
+    public DbSet<FinanceAttachment> FinanceAttachments => Set<FinanceAttachment>();
+    public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
+    public DbSet<BankTransfer> BankTransfers => Set<BankTransfer>();
+    public DbSet<BankDeposit> BankDeposits => Set<BankDeposit>();
+    public DbSet<BankStatementFormat> BankStatementFormats => Set<BankStatementFormat>();
+    public DbSet<BankStatement> BankStatements => Set<BankStatement>();
+    public DbSet<BankStatementLine> BankStatementLines => Set<BankStatementLine>();
+    public DbSet<BudgetLine> BudgetLines => Set<BudgetLine>();
+    public DbSet<FiscalInvoice> FiscalInvoices => Set<FiscalInvoice>();
 
     /// <summary>
     /// Set while rows from a sync package are saved: they keep their times, store, station and version exactly as they

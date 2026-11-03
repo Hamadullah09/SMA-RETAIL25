@@ -65,6 +65,9 @@ public static class Permissions
     public const string FinanceApprove = "finance.approve";
     public const string FinanceClose = "finance.close";
     public const string FinanceSetup = "finance.setup";
+    public const string FinancePayables = "finance.payables";
+    public const string FinanceBank = "finance.bank";
+    public const string FinanceBudget = "finance.budget";
 
     public static IReadOnlyList<PermissionInfo> All { get; } =
     [
@@ -121,6 +124,9 @@ public static class Permissions
         new(FinanceApprove, "Finance", "Approve journal entries made by hand"),
         new(FinanceClose, "Finance", "Lock periods and close the financial year"),
         new(FinanceSetup, "Finance", "Chart of accounts, account mapping and ledger settings"),
+        new(FinancePayables, "Finance", "Supplier bills, debit notes and payments"),
+        new(FinanceBank, "Finance", "Bank and cash accounts, transfers, deposits and reconciliation"),
+        new(FinanceBudget, "Finance", "Budgets"),
     ];
 
     public static bool IsKnown(string key) => All.Any(p => p.Key == key);
@@ -140,7 +146,8 @@ public static class Permissions
     private static readonly string[] ManagerKeys =
         [.. SupervisorKeys, InventoryPrices, ReportsStaff, SetupStore, SetupStations, RfidManage, BackupManage, YearEndRun, AuditView, AccountingExport, FinanceView];
     private static readonly string[] AccountantKeys =
-        [WebSignIn, DashboardView, ReportsView, AuditView, AccountingExport, ClientsView, InventoryView, FinanceView, FinancePost, FinanceApprove, FinanceClose, FinanceSetup];
+        [WebSignIn, DashboardView, ReportsView, AuditView, AccountingExport, ClientsView, InventoryView, FinanceView, FinancePost, FinanceApprove, FinanceClose, FinanceSetup,
+            FinancePayables, FinanceBank, FinanceBudget, StoresAll];
 
     public const string TraineeRole = "Trainee";
     public const string CashierRole = "Cashier";
