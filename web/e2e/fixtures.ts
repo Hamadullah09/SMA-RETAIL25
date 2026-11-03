@@ -44,6 +44,24 @@ import type {
   UserInfo,
   UserRow,
 } from '../src/lib/types';
+import type {
+  ApprovalLimitRow,
+  BatchRow,
+  BinList,
+  BinRow,
+  ExpiryReport,
+  LandedCostDetail,
+  LandedCostRow,
+  MatchReportRow,
+  MatchRow,
+  PurchaseOrderDetail,
+  PurchaseOrderRow,
+  ReceiptChoice,
+  ReorderRow,
+  RequisitionDetail,
+  SupplierPerformance,
+  SupplySettings,
+} from '../src/lib/types';
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
 const today = (() => {
@@ -714,4 +732,216 @@ export const settings: StoreSettings = {
   currencySymbol: '$',
   receiptHeader: 'Thank you for shopping with us',
   receiptFooter: 'Returns within 30 days with this receipt',
+};
+
+// Supply chain (phase E2) -----------------------------------------------------------------------------------------
+
+/** The supply chain permissions, added at the end of the Stock group as Permissions.cs does; the administrators get them. */
+const supplyKeys: PermissionInfo[] = [
+  ['purchasing.approve', 'Stock', 'Approve requisitions and bills held by the three-way match; landed costs'],
+  ['inventory.batches', 'Stock', 'Batches and expiry dates'],
+  ['inventory.bins', 'Stock', 'Bins, put-away and pick lists'],
+].map(([key, group, description]) => ({ key, group, description }));
+permissions.splice(permissions.findIndex((p) => p.key === 'purchasing.manage') + 1, 0, ...supplyKeys);
+// The super administrator and their role share `everything`; the store administrator and the Administrator role have their own copies.
+for (const list of [everything, storeAdmin.permissions, roles.find((r) => r.id === 'r-6')!.permissions]) list.push(...supplyKeys.map((p) => p.key));
+
+/** A stock clerk on the web: purchase orders, requisitions, batches, bins; no approving, no setup. */
+export const buyer: UserInfo = {
+  id: 'u-7',
+  userName: 'esi',
+  fullName: 'Esi Amoah',
+  role: 'Stock clerk',
+  permissions: ['web.signin', 'inventory.view', 'inventory.edit', 'inventory.adjust', 'purchasing.manage', 'inventory.batches', 'reports.view'],
+  storeId: 's-main',
+  storeName: 'Downtown',
+  mustChangePassword: false,
+  canChangeShared: false,
+};
+
+export const purchaseOrders: PurchaseOrderRow[] = [
+  { id: 'po-3', number: 10000003, storeCode: 'MAIN', locationCode: 'POS', status: 'Posted', createdAt: at('09:00:00', daysBefore(4)), postedAt: at('09:30:00', daysBefore(4)), receivedAt: null, expectedOn: today, supplier: 'Cotton Co. Ltd', description: 'Requisition 10000002 · Cotton Co. Ltd', lines: 2, totalCost: 412.8 },
+  { id: 'po-2', number: 10000002, storeCode: 'MAIN', locationCode: 'POS', status: 'Draft', createdAt: at('11:00:00', daysBefore(1)), postedAt: null, receivedAt: null, expectedOn: null, supplier: 'Sole Brothers', description: 'Reorder suggestions', lines: 1, totalCost: 285 },
+  { id: 'po-1', number: 10000001, storeCode: 'MAIN', locationCode: 'POS', status: 'Received', createdAt: at('10:00:00', daysBefore(12)), postedAt: at('10:05:00', daysBefore(12)), receivedAt: at('15:20:00', daysBefore(5)), expectedOn: daysBefore(6), supplier: 'Cotton Co. Ltd', description: 'Weekly order', lines: 2, totalCost: 520 },
+];
+
+export function purchaseOrderDetail(id: string, status?: PurchaseOrderDetail['status']): PurchaseOrderDetail {
+  const row = purchaseOrders.find((p) => p.id === id) ?? purchaseOrders[0];
+  const received = (status ?? row.status) === 'Received';
+  return {
+    id: row.id,
+    version: 'v-1',
+    number: row.number,
+    storeId: 's-main',
+    storeCode: row.storeCode,
+    locationId: 'l-main-pos',
+    locationCode: row.locationCode,
+    status: status ?? row.status,
+    createdAt: row.createdAt,
+    postedAt: row.postedAt,
+    receivedAt: received ? row.receivedAt ?? at('16:00:00') : null,
+    expectedOn: row.expectedOn,
+    supplierId: 'sp-1',
+    supplier: row.supplier,
+    description: row.description,
+    createdBy: 'esi',
+    receivedBy: received ? 'esi' : null,
+    lines: [
+      { id: `${id}-l1`, itemId: 'i-1', plu: 'TS-100-M', description: 'Cotton T-shirt, medium', supplier: row.supplier, caseQuantity: 12, orderQuantity: 4, pieces: 48, costEach: 6.4, orderedCost: 6.4, orderCost: 307.2, quantityReceived: received ? 48 : 0, tracksBatches: false, shelfLifeDays: 0, bin: 'A-01', batches: [] },
+      { id: `${id}-l2`, itemId: 'i-8', plu: 'MK-500', description: 'Oat milk 1 L', supplier: row.supplier, caseQuantity: 1, orderQuantity: 24, pieces: 24, costEach: 4.4, orderedCost: 4.4, orderCost: 105.6, quantityReceived: received ? 24 : 0, tracksBatches: true, shelfLifeDays: 60, bin: 'C-02', batches: received ? [{ batchNumber: 'OAT-0912', pieces: 24, expiresOn: daysBefore(-55), madeOn: daysBefore(5) }] : [] },
+    ],
+    totalCost: row.totalCost,
+  };
+}
+
+export function putAwayList(id: string): BinList {
+  const po = purchaseOrderDetail(id, 'Received');
+  return {
+    title: `Put-away list: PO ${po.number}`,
+    rows: [
+      { zone: 'Aisle 1', bin: 'A-01', plu: 'TS-100-M', description: 'Cotton T-shirt, medium', quantity: 48, batchNumber: null, expiresOn: null, document: `PO ${po.number}`, onHand: 132 },
+      { zone: 'Cold room', bin: 'C-02', plu: 'MK-500', description: 'Oat milk 1 L', quantity: 24, batchNumber: 'OAT-0912', expiresOn: daysBefore(-55), document: `PO ${po.number}`, onHand: 30 },
+    ],
+  };
+}
+
+export function requisitionDetail(id: string, status: RequisitionDetail['status'] = 'Submitted'): RequisitionDetail {
+  const number = id === 'rq-1' ? 10000001 : 10000002;
+  return {
+    id,
+    version: `v-${status}`,
+    number,
+    storeId: 's-main',
+    storeCode: 'MAIN',
+    locationId: 'l-main-pos',
+    locationCode: 'POS',
+    status,
+    createdAt: at('08:40:00', daysBefore(1)),
+    requestedBy: 'esi',
+    neededBy: daysBefore(-7),
+    note: 'For the weekend',
+    submittedAt: status === 'Draft' ? null : at('08:45:00', daysBefore(1)),
+    decidedAt: status === 'Approved' || status === 'Rejected' || status === 'Ordered' ? at('09:10:00') : null,
+    decidedBy: status === 'Approved' || status === 'Rejected' || status === 'Ordered' ? 'sara' : null,
+    decisionNote: status === 'Rejected' ? 'Too many' : null,
+    orderedAt: status === 'Ordered' ? at('09:20:00') : null,
+    total: 461.6,
+    lines: [
+      { id: `${id}-1`, lineNumber: 1, itemId: 'i-1', plu: 'TS-100-M', description: 'Cotton T-shirt, medium', quantity: 48, costEach: 6.4, value: 307.2, neededBy: null, supplierId: 'sp-1', supplier: 'Cotton Co. Ltd', note: null, purchaseOrderId: status === 'Ordered' ? 'po-9' : null, purchaseOrderNumber: status === 'Ordered' ? 10000009 : null },
+      { id: `${id}-2`, lineNumber: 2, itemId: 'i-3', plu: 'SN-410', description: 'Canvas sneakers', quantity: 6, costEach: 25.733, value: 154.4, neededBy: null, supplierId: 'sp-2', supplier: 'Sole Brothers', note: null, purchaseOrderId: status === 'Ordered' ? 'po-10' : null, purchaseOrderNumber: status === 'Ordered' ? 10000010 : null },
+    ],
+  };
+}
+
+export const approvalLimits: ApprovalLimitRow[] = [
+  { roleId: 'r-5', role: 'Manager', mayApprove: true, maxAmount: 2500 },
+  { roleId: 'r-6', role: 'Administrator', mayApprove: true, maxAmount: null },
+  { roleId: 'r-7', role: 'Super administrator', mayApprove: true, maxAmount: null },
+  { roleId: 'r-2', role: 'Cashier', mayApprove: false, maxAmount: null },
+];
+
+function batchRow(id: string, plu: string, itemName: string, batchNumber: string, daysLeft: number | null, onHand: number, unitCost: number): BatchRow {
+  return {
+    id, version: 'v-1', itemId: plu === 'MK-500' ? 'i-8' : 'i-9', plu, itemName, storeCode: 'MAIN', locationCode: 'POS', batchNumber, expiresOn: daysLeft === null ? null : daysBefore(-daysLeft),
+    madeOn: null, supplier: 'Cotton Co. Ltd', receivedOn: daysBefore(20), purchaseOrderNumber: 10000001, onHand, unitCost, value: Math.round(onHand * unitCost * 100) / 100, daysLeft,
+    bin: 'C-02', note: null,
+  };
+}
+
+export const batchRows: BatchRow[] = [
+  batchRow('bt-1', 'MK-500', 'Oat milk 1 L', 'OAT-0811', -2, 4, 4.4),
+  batchRow('bt-2', 'MK-500', 'Oat milk 1 L', 'OAT-0901', 5, 12, 4.4),
+  batchRow('bt-3', 'MK-500', 'Oat milk 1 L', 'OAT-0912', 55, 24, 4.4),
+  batchRow('bt-4', 'YG-120', 'Greek yogurt', 'YG-77', 12, 9, 2.1),
+];
+
+export const expiringReport: ExpiryReport = { days: 30, rows: [batchRows[1], batchRows[3]], units: 21, value: 71.7 };
+export const expiredReport: ExpiryReport = { days: 0, rows: [batchRows[0]], units: 4, value: 17.6 };
+
+export const binRows: BinRow[] = [
+  { id: 'bn-1', version: 'v-1', locationId: 'l-main-pos', storeCode: 'MAIN', locationCode: 'POS', code: 'A-01', zone: 'Aisle 1', description: 'T-shirts', isActive: true, items: 12 },
+  { id: 'bn-2', version: 'v-1', locationId: 'l-main-pos', storeCode: 'MAIN', locationCode: 'POS', code: 'A-02', zone: 'Aisle 1', description: null, isActive: true, items: 0 },
+  { id: 'bn-3', version: 'v-1', locationId: 'l-main-pos', storeCode: 'MAIN', locationCode: 'POS', code: 'C-02', zone: 'Cold room', description: 'Dairy', isActive: true, items: 3 },
+];
+
+export const pickList: BinList = {
+  title: 'Pick list: customer orders',
+  rows: [
+    { zone: 'Aisle 1', bin: 'A-01', plu: 'TS-100-M', description: 'Cotton T-shirt, medium', quantity: 2, batchNumber: null, expiresOn: null, document: 'Order 10000041 Akua Owusu', onHand: 84 },
+    { zone: 'Cold room', bin: 'C-02', plu: 'MK-500', description: 'Oat milk 1 L', quantity: 3, batchNumber: 'OAT-0901', expiresOn: daysBefore(-5), document: 'Order 10000042 Daniel Kim', onHand: 40 },
+  ],
+};
+
+export const countSheet: BinList = {
+  title: 'Count sheet',
+  rows: [{ zone: 'Aisle 1', bin: 'A-01', plu: 'TS-100-M', description: 'Cotton T-shirt, medium', quantity: 0, batchNumber: null, expiresOn: null, document: null, onHand: 84 }],
+};
+
+export const matchRows: MatchRow[] = [
+  {
+    id: 'm-1', version: 'v-1', storeCode: 'MAIN', purchaseOrderId: 'po-1', purchaseOrderNumber: 10000001, purchaseOrderLineId: 'po-1-l1', billId: 'b-1', billLineId: 'bl-1',
+    billNumber: 'INV-5531', billDate: daysBefore(2), supplier: 'Cotton Co. Ltd', plu: 'TS-100-M', description: 'Cotton T-shirt, medium', quantityOrdered: 48, quantityReceived: 48,
+    quantityBilled: 48, quantityMatched: 48, orderedCost: 6.4, receivedCost: 6.4, billedCost: 7.1, priceDifference: 33.6, status: 'Held',
+    reason: 'Billed at 7.10 each for 6.40 ordered.', checkedAtUtc: minutesAgo(30), decidedAtUtc: null, decidedBy: null, decisionNote: null,
+  },
+  {
+    id: 'm-2', version: 'v-1', storeCode: 'MAIN', purchaseOrderId: 'po-1', purchaseOrderNumber: 10000001, purchaseOrderLineId: 'po-1-l2', billId: 'b-1', billLineId: 'bl-2',
+    billNumber: 'INV-5531', billDate: daysBefore(2), supplier: 'Cotton Co. Ltd', plu: 'MK-500', description: 'Oat milk 1 L', quantityOrdered: 24, quantityReceived: 24,
+    quantityBilled: 24, quantityMatched: 24, orderedCost: 4.4, receivedCost: 4.4, billedCost: 4.45, priceDifference: 1.2, status: 'Matched',
+    reason: null, checkedAtUtc: minutesAgo(30), decidedAtUtc: null, decidedBy: null, decisionNote: null,
+  },
+];
+
+export const receivedNotBilled: MatchReportRow[] = [
+  { purchaseOrderId: 'po-4', purchaseOrderNumber: 10000004, purchaseOrderLineId: 'po-4-l1', storeCode: 'MAIN', plu: 'SN-410', description: 'Canvas sneakers', supplier: 'Sole Brothers', ordered: 12, received: 12, billed: 0, difference: 12, costEach: 28.5, value: 342, receivedAt: at('12:00:00', daysBefore(3)) },
+];
+
+export const billedNotReceived: MatchReportRow[] = [
+  { purchaseOrderId: 'po-3', purchaseOrderNumber: 10000003, purchaseOrderLineId: 'po-3-l1', storeCode: 'MAIN', plu: 'TS-100-M', description: 'Cotton T-shirt, medium', supplier: 'Cotton Co. Ltd', ordered: 48, received: 0, billed: 48, difference: -48, costEach: 6.4, value: 307.2, receivedAt: null },
+];
+
+export const landedCostRows: LandedCostRow[] = [
+  { id: 'lc-2', number: 100000000002, storeCode: 'MAIN', date: today, status: 'Draft', basis: 'Value', reference: 'FR-881', total: 60, receipts: 1, note: null, postedAtUtc: null, postedBy: null },
+  { id: 'lc-1', number: 100000000001, storeCode: 'MAIN', date: daysBefore(9), status: 'Posted', basis: 'Weight', reference: 'CUS-17', total: 145.5, receipts: 2, note: 'Customs', postedAtUtc: minutesAgo(60 * 24 * 9), postedBy: 'sara' },
+];
+
+export const landedReceipts: ReceiptChoice[] = [
+  { purchaseOrderId: 'po-1', number: 10000001, storeCode: 'MAIN', locationCode: 'POS', receivedAt: at('15:20:00', daysBefore(5)), supplier: 'Cotton Co. Ltd', description: 'Weekly order', lines: 2, value: 412.8 },
+  { purchaseOrderId: 'po-4', number: 10000004, storeCode: 'MAIN', locationCode: 'POS', receivedAt: at('12:00:00', daysBefore(3)), supplier: 'Sole Brothers', description: null, lines: 1, value: 342 },
+];
+
+export function landedCostDetail(id: string, status?: LandedCostDetail['status']): LandedCostDetail {
+  const row = landedCostRows.find((v) => v.id === id) ?? landedCostRows[0];
+  const s = status ?? row.status;
+  return {
+    id: row.id, version: `v-${s}`, number: row.number, storeId: 's-main', storeCode: row.storeCode, date: row.date, status: s, basis: row.basis, reference: row.reference, note: row.note,
+    total: row.total,
+    charges: [{ kind: 'Freight', description: 'Truck from Mississauga', amount: row.total }],
+    receipts: [{ purchaseOrderId: 'po-1', number: 10000001, receivedAt: at('15:20:00', daysBefore(5)), supplier: 'Cotton Co. Ltd', value: 412.8 }],
+    allocations: [
+      { purchaseOrderLineId: 'po-1-l1', itemId: 'i-1', plu: 'TS-100-M', description: 'Cotton T-shirt, medium', quantity: 48, value: 307.2, weight: 9.6, share: 44.65, onHand: 40, toInventory: 37.21, toCostOfGoods: 7.44 },
+      { purchaseOrderLineId: 'po-1-l2', itemId: 'i-8', plu: 'MK-500', description: 'Oat milk 1 L', quantity: 24, value: 105.6, weight: 24, share: 15.35, onHand: 24, toInventory: 15.35, toCostOfGoods: 0 },
+    ],
+    createdBy: 'sara', postedAtUtc: s === 'Posted' ? row.postedAtUtc ?? minutesAgo(1) : null, postedBy: s === 'Posted' ? 'sara' : null,
+  };
+}
+
+export const reorderRows: ReorderRow[] = [
+  { itemId: 'i-1', plu: 'TS-100-M', name: 'Cotton T-shirt, medium', supplierId: 'sp-1', supplier: 'Cotton Co. Ltd', onHand: 10, onOrder: 0, customerOrdered: 0, unitsSold: 90, averageDailySales: 3, leadTimeDays: 3, reorderPoint: 0, reorderLevel: 15, targetStock: 24, caseQuantity: 12, minimumOrder: 0, suggestedPieces: 24, orderQuantity: 2, costEach: 6.4, value: 153.6 },
+  { itemId: 'i-3', plu: 'SN-410', name: 'Canvas sneakers', supplierId: 'sp-2', supplier: 'Sole Brothers', onHand: 1, onOrder: 0, customerOrdered: 0, unitsSold: 0, averageDailySales: 0, leadTimeDays: 7, reorderPoint: 3, reorderLevel: 3, targetStock: 8, caseQuantity: 1, minimumOrder: 0, suggestedPieces: 7, orderQuantity: 7, costEach: 28.5, value: 199.5 },
+  { itemId: 'i-5', plu: 'SK-001', name: 'Sport socks, 3 pack', supplierId: 'sp-1', supplier: 'Cotton Co. Ltd', onHand: 260, onOrder: 0, customerOrdered: 0, unitsSold: 30, averageDailySales: 1, leadTimeDays: 3, reorderPoint: 0, reorderLevel: 10, targetStock: 24, caseQuantity: 1, minimumOrder: 0, suggestedPieces: 0, orderQuantity: 0, costEach: 3.1, value: 0 },
+];
+
+export const supplierPerformance: SupplierPerformance = {
+  from: daysBefore(29),
+  to: today,
+  rows: [
+    { supplierId: 'sp-1', supplier: 'Cotton Co. Ltd', orders: 4, onTime: 3, onTimePercent: 75, orderedPieces: 200, receivedPieces: 196, fillRatePercent: 98, priceIncreases: 1, priceDecreases: 0, averagePriceChangePercent: 4.69, returns: 1, returnedPieces: 3, returnedValue: 19.2, averageLeadDays: 4.5, receivedValue: 1310.4 },
+    { supplierId: 'sp-2', supplier: 'Sole Brothers', orders: 2, onTime: 2, onTimePercent: 100, orderedPieces: 24, receivedPieces: 18, fillRatePercent: 75, priceIncreases: 0, priceDecreases: 1, averagePriceChangePercent: -2.5, returns: 0, returnedPieces: 0, returnedValue: 0, averageLeadDays: 6, receivedValue: 513 },
+  ],
+};
+
+export const supplySettings: SupplySettings = {
+  version: 'v-1', storeId: 's-main', blockExpiredSales: true, expiryWarningDays: 30, quantityTolerancePercent: 0, quantityToleranceUnits: 0, priceTolerancePercent: 2,
+  priceToleranceAmount: 0, salesWindowDays: 30, safetyStockDays: 7, orderCoverDays: 14, defaultLeadTimeDays: 7, approverMustDiffer: false,
 };

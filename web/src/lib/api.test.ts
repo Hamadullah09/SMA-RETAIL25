@@ -154,3 +154,32 @@ describe('query strings and sign-in links', () => {
     expect(safeNext(null)).toBeNull();
   });
 });
+
+describe('the supply chain calls', () => {
+  it('saves the supply settings of a store with storeId in the query and the CSRF header', async () => {
+    const { fetch, calls } = fakeFetch(200, { version: 'v-2' });
+    const settings = {
+      version: 'new', storeId: 's1', blockExpiredSales: true, expiryWarningDays: 30, quantityTolerancePercent: 0, quantityToleranceUnits: 0,
+      priceTolerancePercent: 2, priceToleranceAmount: 0, salesWindowDays: 30, safetyStockDays: 7, orderCoverDays: 14, defaultLeadTimeDays: 7, approverMustDiffer: false,
+    };
+    await createApi({ base: '', fetch }).saveSupplySettings('s1', settings);
+    expect(calls[0].url).toBe('/api/supply/settings?storeId=s1');
+    expect(calls[0].init.method).toBe('PUT');
+    expect(headersOf(calls[0])[CSRF_HEADER]).toBe(CSRF_VALUE);
+    expect(JSON.parse(String(calls[0].init.body)).priceTolerancePercent).toBe(2);
+  });
+
+  it('sends a step with the version it was read at, and receives with the batches', async () => {
+    const { fetch, calls } = fakeFetch(200, {});
+    const api = createApi({ base: '', fetch });
+    await api.approveRequisition('r 1', { version: 'v-3', note: 'Fine' });
+    expect(calls[0].url).toBe('/api/requisitions/r%201/approve');
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ version: 'v-3', note: 'Fine' });
+    await api.receivePurchaseOrder('po-1', { version: 'v-1', shippingCost: 0, lines: [{ lineId: 'l-1', pieces: 6, costEach: 2, batches: [{ batchNumber: 'L1', pieces: 6, expiresOn: '2026-12-01', madeOn: null }] }] });
+    expect(calls[1].url).toBe('/api/purchase-orders/po-1/receive');
+    expect(JSON.parse(String(calls[1].init.body)).lines[0].batches[0].batchNumber).toBe('L1');
+    await api.runMatch(null);
+    expect(calls[2].url).toBe('/api/matching/run');
+    expect(calls[2].init.method).toBe('POST');
+  });
+});

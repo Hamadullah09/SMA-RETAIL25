@@ -22,6 +22,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
+import { CalendarClock, ClipboardCheck, ClipboardList, Gauge, LayoutGrid, Repeat, Scale, Ship } from 'lucide-react';
 import type { IconName } from '@/lib/nav';
 
 /** The icon of each page and palette command, chosen to read like the desktop's glyphs. */
@@ -47,5 +48,13 @@ export const ICONS: Record<IconName, LucideIcon> = {
   upload: ArrowUpFromLine,
   signout: LogOut,
   report: FileText,
+  orders: ClipboardList,
+  requisitions: ClipboardCheck,
+  batches: CalendarClock,
+  bins: LayoutGrid,
+  matching: Scale,
+  landed: Ship,
+  reorder: Repeat,
+  performance: Gauge,
 };
 

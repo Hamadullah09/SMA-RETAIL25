@@ -61,3 +61,16 @@ test('a wide table scrolls inside its card', async ({ page }, info) => {
   const { scrollWidth, clientWidth } = await scroller.evaluate((el) => ({ scrollWidth: el.scrollWidth, clientWidth: el.clientWidth }));
   expect(scrollWidth).toBeGreaterThan(clientWidth);
 });
+
+// The supply chain pages (phase E2) fit too.
+for (const path of ['/purchase-orders/', '/requisitions/', '/batches/', '/bins/', '/matching/', '/landed-costs/', '/reorder/', '/supplier-performance/']) {
+  test(`no sideways scroll on ${path}`, async ({ page }) => {
+    await mockApi(page);
+    await page.goto(path);
+    await expect(page.locator('[data-shell="main"] h1').first()).toBeVisible();
+    await expect(page.locator('[data-shell="main"] .grid-card').first()).toBeVisible();
+    await page.waitForTimeout(300);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow, `the page is ${overflow}px wider than the screen`).toBeLessThanOrEqual(0);
+  });
+}

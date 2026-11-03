@@ -94,3 +94,7 @@ The first time, install the browser: `npx playwright install chromium`.
   still works where the browser lets it through).
 - At 1280 px and wider it looks like the desktop; from 768 px the navigation shows icons only; below that it is a
   drawer, and tables scroll inside their card.
+- The supply chain pages (Purchase orders, Requisitions, Batches and expiry, Bins, Matching, Landed costs, Reorder
+  suggestions, Supplier performance) sit under a *Supply chain* heading in the navigation and the Ctrl+K palette. Approving
+  (requisitions, held bill lines, landed cost vouchers) shows only to roles with `purchasing.approve`; receiving asks for
+  the batch number and expiry of items kept in batches and then shows the put-away list.

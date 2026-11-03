@@ -22,7 +22,15 @@ export const P = {
   storesAll: 'stores.all',
   audit: 'audit.view',
   syncSend: 'sync.send',
+  purchasingManage: 'purchasing.manage',
+  purchasingApprove: 'purchasing.approve',
+  inventoryBatches: 'inventory.batches',
+  inventoryBins: 'inventory.bins',
+  inventoryAdjust: 'inventory.adjust',
 } as const;
+
+/** The navigation group of the supply chain pages (phase E2). */
+export const SUPPLY_CHAIN = 'Supply chain';
 
 /** The icon of a page, by name; `components/shell/icons.tsx` maps the names to lucide icons. */
 export type IconName =
@@ -46,7 +54,15 @@ export type IconName =
   | 'new'
   | 'upload'
   | 'signout'
-  | 'report';
+  | 'report'
+  | 'orders'
+  | 'requisitions'
+  | 'batches'
+  | 'bins'
+  | 'matching'
+  | 'landed'
+  | 'reorder'
+  | 'performance';
 
 export interface PageDef {
   key: string;
@@ -63,6 +79,8 @@ export interface PageDef {
   shortcut?: string;
   /** More words the palette finds the page by. */
   keywords?: string;
+  /** The heading the page sits under in the navigation and the palette; none for the core pages. */
+  group?: string;
 }
 
 export const PAGES: readonly PageDef[] = [
@@ -86,7 +104,31 @@ export const PAGES: readonly PageDef[] = [
   { key: 'item', title: 'Item', path: '/items/edit/', icon: 'inventory', permission: P.inventoryEdit, nav: false, parent: 'items' },
   { key: 'report', title: 'Report', path: '/reports/view/', icon: 'reports', permission: P.reports, nav: false, parent: 'reports' },
   { key: 'account', title: 'Change password', path: '/account/', icon: 'account', permission: null, nav: false, keywords: 'account password' },
+  { key: 'purchase-orders', title: 'Purchase orders', path: '/purchase-orders/', icon: 'orders', permission: P.purchasingManage, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain po receive receiving shipment put-away' },
+  { key: 'requisitions', title: 'Requisitions', path: '/requisitions/', icon: 'requisitions', permission: P.purchasingManage, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain request approve approval limits' },
+  { key: 'batches', title: 'Batches and expiry', path: '/batches/', icon: 'batches', permission: P.inventoryBatches, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain lots expiring expired fefo' },
+  { key: 'bins', title: 'Bins', path: '/bins/', icon: 'bins', permission: P.inventoryBins, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain shelves warehouse pick list count sheet' },
+  { key: 'matching', title: 'Matching', path: '/matching/', icon: 'matching', permission: P.purchasingManage, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain three-way match bills held tolerance' },
+  { key: 'landed-costs', title: 'Landed costs', path: '/landed-costs/', icon: 'landed', permission: P.purchasingManage, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain freight duty insurance voucher' },
+  { key: 'reorder', title: 'Reorder suggestions', path: '/reorder/', icon: 'reorder', permission: P.purchasingManage, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain replenish lead time safety stock' },
+  { key: 'supplier-performance', title: 'Supplier performance', path: '/supplier-performance/', icon: 'performance', permission: P.reports, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain vendors on time fill rate returns lead time' },
 ];
+
+/** Pages split by their navigation group, in order: the core pages first (no heading), then each group as it first appears. */
+export function groupPages(pages: readonly PageDef[]): Array<{ group: string | null; pages: PageDef[] }> {
+  const groups: Array<{ group: string | null; pages: PageDef[] }> = [];
+  for (const page of pages) {
+    const name = page.group ?? null;
+    let entry = groups.find((g) => g.group === name);
+    if (!entry) {
+      entry = { group: name, pages: [] };
+      if (name === null) groups.unshift(entry);
+      else groups.push(entry);
+    }
+    entry.pages.push(page);
+  }
+  return groups;
+}
 
 /** Whether a user with these permissions may open the page. */
 export function canOpen(page: Pick<PageDef, 'permission'>, permissions: ReadonlySet<string> | readonly string[]): boolean {
@@ -145,6 +187,8 @@ export interface Command {
   shortcut?: string;
   permission: string | null;
   keywords?: string;
+  /** The page's navigation group, shown beside the command. */
+  group?: string;
 }
 
 /** Common actions, as the desktop's Ctrl+K list offers them. */
@@ -175,6 +219,7 @@ export function commandsFor(
     shortcut: page.shortcut,
     permission: page.permission,
     keywords: page.keywords,
+    group: page.group,
   }));
   const actions = ACTIONS.filter((a) => canOpen(a, permissions));
   const reportCommands: Command[] = canOpen({ permission: P.reports }, permissions)
