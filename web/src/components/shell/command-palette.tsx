@@ -102,7 +102,9 @@ function PaletteBody({ onClose }: { onClose(): void }) {
                   <Icon className="h-5 w-5 shrink-0 opacity-80" strokeWidth={1.8} aria-hidden="true" />
                   <span className="min-w-0 flex-1 truncate">{command.title}</span>
                   {command.shortcut && <span className={cx('text-note max-sm:hidden', i === index ? 'text-cream' : 'text-muted')}>{command.shortcut}</span>}
-                  <span className={cx('w-[60px] text-right text-note', i === index ? 'text-cream' : 'text-muted')}>{command.kind}</span>
+                  <span className={cx('min-w-[60px] text-right text-note', i === index ? 'text-cream' : 'text-muted')}>
+                    {command.group ? `${command.group} · ${command.kind}` : command.kind}
+                  </span>
                 </li>
               );
             })}

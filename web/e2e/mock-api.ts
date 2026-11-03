@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import type { Page, Request, Route } from '@playwright/test';
 import * as f from './fixtures';
 import type { ItemDetail, UserInfo } from '../src/lib/types';
+import { createHrMock } from './hr-mock';
 
 export interface SentRequest {
   method: string;
@@ -53,6 +54,7 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
   let hubs = f.rfidHubs.map((h) => ({ ...h }));
   const requests: SentRequest[] = [];
   const overrides = options.overrides ?? {};
+  const hrAnswer = createHrMock();
 
   function builtIn(r: SentRequest): Answer {
     const { method, path, query } = r;
@@ -71,6 +73,8 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
     }
     if (!user) return { status: 401, json: { error: 'Sign in again.' } };
     if (method !== 'GET' && r.headers['x-requested-with'] !== 'retailplus-web') return { status: 403, json: { error: 'Missing X-Requested-With.' } };
+    const hr = hrAnswer(r);
+    if (hr) return hr;
 
     switch (true) {
       case key === 'GET /api/auth/me':

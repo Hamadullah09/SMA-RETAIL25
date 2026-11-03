@@ -61,6 +61,7 @@ import type {
   UserRequest,
   UserRow,
 } from './types';
+import { hrEndpoints } from './hr-api';
 
 /** The header the server's CSRF guard asks for on requests that change data. */
 export const CSRF_HEADER = 'X-Requested-With';
@@ -418,6 +419,9 @@ export function createApi(options: ApiOptions = {}) {
       return upload<void>(`/stores/${id(storeId)}/images/${kind}`, form, onProgress, 'PUT');
     },
     deleteImage: (storeId: string, kind: ImageKind) => del(`/stores/${id(storeId)}/images/${kind}`),
+
+    // HR and payroll (hr-api.ts)
+    ...hrEndpoints({ get, post, put, del, blob, upload }),
   };
 }
 

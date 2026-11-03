@@ -32,11 +32,18 @@ export function NavList({
   }, [current]);
   return (
     <ul ref={list} className="flex flex-col gap-1.5">
-      {pages.map((page) => {
+      {pages.map((page, i) => {
         const Icon = ICONS[page.icon];
         const active = page.key === current;
+        // A group (HR) gets its name above its first page; with icons only, a line.
+        const heading = page.group && page.group !== pages[i - 1]?.group ? page.group : null;
         return (
           <li key={page.key}>
+            {heading && (
+              <p data-nav-group={heading} aria-hidden="true" className={cx('mb-1 mt-3 px-[18px] text-note font-semibold uppercase tracking-wide text-muted', collapsible && 'max-xl:mx-2 max-xl:mt-2 max-xl:border-t max-xl:border-line max-xl:px-0 max-xl:pt-2 max-xl:text-center')}>
+                <span className={cx(collapsible && 'max-xl:sr-only')}>{heading}</span>
+              </p>
+            )}
             <Link
               href={page.path}
               onClick={onNavigate}

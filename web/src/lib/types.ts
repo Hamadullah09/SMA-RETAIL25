@@ -731,3 +731,597 @@ export interface StoreSettings {
 }
 
 export type ImageKind = 'logo' | 'watermark';
+
+// HR and payroll (phase E3) ------------------------------------------------------------------------------------------
+
+export type Gender = 'Male' | 'Female' | 'Other';
+export type MaritalStatus = 'Unmarried' | 'Married' | 'Divorced' | 'Widowed';
+export type EmploymentType = 'Permanent' | 'Contract' | 'Probation' | 'DailyWage';
+export type SalaryPaymentMethod = 'Cash' | 'Bank';
+export type AttendanceStatus = 'Present' | 'Absent' | 'Leave' | 'Holiday' | 'Off' | 'Scheduled';
+export type HrApproval = 'Pending' | 'Approved' | 'Rejected';
+export type LeaveKind = 'Annual' | 'Casual' | 'Sick' | 'Maternity' | 'Paternity' | 'Unpaid' | 'Other';
+export type LeaveRequestStatus = 'Pending' | 'Approved' | 'Rejected' | 'Cancelled';
+export type SocialSecurityBasis = 'Wage' | 'MinimumWage';
+export type DailyRateBasis = 'CalendarDays' | 'ThirtyDays' | 'WorkingDays';
+export type LatenessRule = 'None' | 'DayPerLates' | 'PerMinute';
+export type SalaryComponentKind = 'Allowance' | 'Deduction';
+export type LoanKind = 'Loan' | 'Advance';
+export type LoanStatus = 'Active' | 'Settled' | 'Cancelled';
+export type PayrollRunKind = 'Monthly' | 'FinalSettlement';
+export type PayrollRunStatus = 'Draft' | 'Calculated' | 'Approved' | 'Posted' | 'Paid';
+export type PayslipLineKind = 'Earning' | 'Deduction' | 'EmployerContribution';
+
+/** An HR department or a designation (`/api/hr/departments`, `/api/hr/designations`). */
+export interface HrListItem {
+  id: string | null;
+  version: string | null;
+  name: string;
+  isActive: boolean;
+  employees?: number;
+}
+
+export interface EmployeeRow {
+  id: string;
+  code: string;
+  fullName: string;
+  designation: string | null;
+  department: string | null;
+  storeId: string | null;
+  storeCode: string | null;
+  employmentType: EmploymentType;
+  joiningDate: BusinessDate;
+  leavingDate: BusinessDate | null;
+  active: boolean;
+  phone: string | null;
+  userName: string | null;
+}
+
+export interface EmployeeDetail {
+  id: string | null;
+  version: string | null;
+  code: string | null;
+  fullName: string;
+  fatherOrHusbandName: string | null;
+  cnic: string | null;
+  dateOfBirth: BusinessDate | null;
+  gender: Gender | null;
+  maritalStatus: MaritalStatus | null;
+  address: string | null;
+  city: string | null;
+  phone: string | null;
+  email: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+  emergencyContactRelation: string | null;
+  joiningDate: BusinessDate;
+  confirmationDate: BusinessDate | null;
+  leavingDate: BusinessDate | null;
+  leavingReason: string | null;
+  employmentType: EmploymentType;
+  departmentId: string | null;
+  designationId: string | null;
+  storeId: string | null;
+  managerId: string | null;
+  userId: string | null;
+  shiftId: string | null;
+  tracksAttendance: boolean;
+  overtimeEligible: boolean;
+  eobiApplies: boolean;
+  socialSecurityApplies: boolean;
+  paymentMethod: SalaryPaymentMethod;
+  bankName: string | null;
+  iban: string | null;
+  ntn: string | null;
+  eobiNumber: string | null;
+  socialSecurityNumber: string | null;
+  priorTaxYear: number | null;
+  priorTaxableIncome: number;
+  priorTaxDeducted: number;
+  notes: string | null;
+  /** Read-only. */
+  managerName?: string | null;
+  userName?: string | null;
+  country?: string | null;
+}
+
+export interface EmployeeDocumentRow {
+  id: string;
+  employeeId: string;
+  title: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+  uploadedAtUtc: UtcDateTime;
+  uploadedBy: string | null;
+}
+
+export interface HrStoreCountry {
+  storeId: string;
+  code: string;
+  name: string;
+  country: string;
+  /** The store names its own country (else it follows the company's). */
+  own: boolean;
+}
+
+export interface HrSettingsInfo {
+  companyCountry: string;
+  countries: string[];
+  stores: HrStoreCountry[];
+}
+
+export interface TaxSlabInfo {
+  incomeFrom: number;
+  incomeTo: number | null;
+  fixedTax: number;
+  rate: number;
+}
+
+export interface AllowanceRuleInfo {
+  code: string;
+  name: string;
+  isTaxable: boolean;
+  exemptPercentOfBasic: number | null;
+  sortOrder: number;
+}
+
+export interface RuleSetInfo {
+  id: string | null;
+  version: string | null;
+  country: string;
+  name: string;
+  effectiveFrom: BusinessDate;
+  effectiveTo: BusinessDate | null;
+  taxYearStartMonth: number;
+  minimumWage: number;
+  eobiEmployerRate: number;
+  eobiEmployeeRate: number;
+  socialSecurityProvince: string | null;
+  socialSecurityRate: number;
+  socialSecurityWageCeiling: number;
+  socialSecurityBasis: SocialSecurityBasis;
+  workingDaysPerWeek: number;
+  hoursPerWeek: number;
+  overtimeMultiplier: number;
+  overtimeMinimumMinutes: number;
+  dailyRateBasis: DailyRateBasis;
+  latenessRule: LatenessRule;
+  latesPerDay: number;
+  deductAbsences: boolean;
+  surchargeThreshold: number;
+  surchargeRate: number;
+  gratuityEnabled: boolean;
+  gratuityDaysPerYear: number;
+  gratuityMinimumMonths: number;
+  gratuityPartYearMonths: number;
+  gratuityOnBasic: boolean;
+  cnicPattern: string | null;
+  cnicExample: string | null;
+  ibanPattern: string | null;
+  ibanExample: string | null;
+  notes: string | null;
+  taxSlabs: TaxSlabInfo[];
+  allowances: AllowanceRuleInfo[];
+}
+
+export interface LeaveTypeInfo {
+  id: string | null;
+  version: string | null;
+  country: string;
+  code: string;
+  name: string;
+  kind: LeaveKind;
+  daysPerYear: number;
+  isPaid: boolean;
+  accruesMonthly: boolean;
+  carryOverMaxDays: number;
+  encashable: boolean;
+  countsCalendarDays: boolean;
+  onlyFor: Gender | null;
+  minimumServiceMonths: number;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+export interface HolidayInfo {
+  id: string | null;
+  version: string | null;
+  country: string;
+  date: BusinessDate;
+  name: string;
+}
+
+export interface ShiftInfo {
+  id: string | null;
+  version: string | null;
+  name: string;
+  /** `HH:mm`. */
+  startTime: string;
+  endTime: string;
+  breakMinutes: number;
+  graceMinutes: number;
+  /** Day names, Monday first ("Monday", "Tuesday"…). */
+  days: string[];
+  storeId: string | null;
+  isActive: boolean;
+}
+
+export interface RosterChangeInfo {
+  id: string | null;
+  employeeId: string;
+  date: BusinessDate;
+  /** Null: a day off. */
+  shiftId: string | null;
+  note: string | null;
+}
+
+export interface RosterRowInfo {
+  employeeId: string;
+  code: string;
+  name: string;
+  storeId: string | null;
+  usualShiftId: string | null;
+  weekShiftId: string | null;
+  changes: RosterChangeInfo[];
+}
+
+export interface RosterInfo {
+  weekStart: BusinessDate;
+  days: BusinessDate[];
+  rows: RosterRowInfo[];
+}
+
+export interface RosterAssignment {
+  employeeId: string;
+  shiftId: string | null;
+}
+
+export interface RosterRequest {
+  weekStart: BusinessDate;
+  assignments: RosterAssignment[];
+}
+
+export interface AttendanceRow {
+  employeeId: string;
+  code: string;
+  name: string;
+  date: BusinessDate;
+  status: AttendanceStatus;
+  shift: string | null;
+  shiftStart: LocalDateTime | null;
+  shiftEnd: LocalDateTime | null;
+  firstIn: LocalDateTime | null;
+  lastOut: LocalDateTime | null;
+  workedMinutes: number;
+  lateMinutes: number;
+  earlyMinutes: number;
+  overtimeMinutes: number;
+  holiday: string | null;
+  leaveCode: string | null;
+  leaveDays: number;
+  corrected: boolean;
+}
+
+export interface AttendanceSheetRow {
+  employeeId: string;
+  code: string;
+  name: string;
+  /** One mark per day: P, L (late), E (left early), A, a leave code, H, O, · (still to come), empty when not employed. */
+  marks: string[];
+  present: number;
+  late: number;
+  leftEarly: number;
+  absent: number;
+  leave: number;
+  holidays: number;
+  off: number;
+  overtimeHours: number;
+}
+
+export interface AttendanceSheet {
+  /** `yyyy-MM`. */
+  month: string;
+  days: BusinessDate[];
+  rows: AttendanceSheetRow[];
+}
+
+export interface CorrectionRow {
+  id: string;
+  employeeId: string;
+  code: string;
+  name: string;
+  date: BusinessDate;
+  status: AttendanceStatus;
+  workedMinutes: number;
+  lateMinutes: number;
+  earlyMinutes: number;
+  overtimeMinutes: number;
+  reason: string;
+  approval: HrApproval;
+  requestedBy: string | null;
+  requestedAtUtc: UtcDateTime;
+  decidedBy: string | null;
+  decidedAtUtc: UtcDateTime | null;
+  decisionNote: string | null;
+}
+
+export interface CorrectionRequest {
+  employeeId: string;
+  date: BusinessDate;
+  status: AttendanceStatus;
+  workedMinutes: number;
+  lateMinutes: number;
+  earlyMinutes: number;
+  overtimeMinutes: number;
+  reason: string;
+}
+
+export interface DecisionRequest {
+  note?: string | null;
+}
+
+export interface LeaveRequestRow {
+  id: string;
+  employeeId: string;
+  code: string;
+  name: string;
+  leaveTypeId: string;
+  leaveType: string;
+  fromDate: BusinessDate;
+  toDate: BusinessDate;
+  firstDayHalf: boolean;
+  lastDayHalf: boolean;
+  days: number;
+  reason: string | null;
+  status: LeaveRequestStatus;
+  requestedBy: string | null;
+  requestedAtUtc: UtcDateTime;
+  decidedBy: string | null;
+  decidedAtUtc: UtcDateTime | null;
+  decisionNote: string | null;
+  /** The signed-in user may approve or reject it. */
+  mayDecide: boolean;
+}
+
+export interface LeaveRequestBody {
+  employeeId: string;
+  leaveTypeId: string;
+  fromDate: BusinessDate;
+  toDate: BusinessDate;
+  firstDayHalf: boolean;
+  lastDayHalf: boolean;
+  reason: string | null;
+}
+
+export interface LeaveBalanceRow {
+  employeeId: string;
+  code: string;
+  name: string;
+  leaveTypeId: string;
+  leaveCode: string;
+  leaveType: string;
+  paid: boolean;
+  /** False for leave without a limit (unpaid): `available` is null. */
+  limited: boolean;
+  entitled: number;
+  earned: number;
+  carriedIn: number;
+  adjusted: number;
+  taken: number;
+  pending: number;
+  available: number | null;
+}
+
+export interface LeaveAdjustmentBody {
+  employeeId: string;
+  leaveTypeId: string;
+  year: number;
+  days: number;
+  reason: string;
+}
+
+export interface SalaryComponentInfo {
+  kind: SalaryComponentKind;
+  code: string;
+  name: string;
+  amount: number;
+  accountCode: string | null;
+}
+
+export interface SalaryInfo {
+  id: string | null;
+  effectiveFrom: BusinessDate;
+  basic: number;
+  note: string | null;
+  changedBy: string | null;
+  components: SalaryComponentInfo[];
+  /** Read-only: basic and allowances, and the fixed deductions. */
+  gross?: number;
+  fixedDeductions?: number;
+}
+
+export interface LoanInstalmentInfo {
+  number: number;
+  /** The first day of the month it is due. */
+  month: BusinessDate;
+  amount: number;
+  recovered: number;
+}
+
+export interface LoanRow {
+  id: string;
+  number: number;
+  employeeId: string;
+  code: string;
+  name: string;
+  kind: LoanKind;
+  issuedOn: BusinessDate;
+  amount: number;
+  instalment: number;
+  firstMonth: BusinessDate;
+  status: LoanStatus;
+  recovered: number;
+  outstanding: number;
+  reason: string | null;
+  paidFromAccount: string | null;
+  instalments: LoanInstalmentInfo[];
+}
+
+export interface LoanBody {
+  employeeId: string;
+  kind: LoanKind;
+  issuedOn: BusinessDate;
+  amount: number;
+  instalment: number;
+  firstMonth: BusinessDate | null;
+  reason: string | null;
+  /** A role (Cash, Bank) or an account code. */
+  paidFrom: string | null;
+}
+
+export interface RunRow {
+  id: string;
+  version: string;
+  number: number;
+  kind: PayrollRunKind;
+  year: number;
+  month: number;
+  title: string;
+  periodStart: BusinessDate;
+  periodEnd: BusinessDate;
+  storeId: string | null;
+  storeCode: string | null;
+  employeeId: string | null;
+  employeeName: string | null;
+  status: PayrollRunStatus;
+  employees: number;
+  gross: number;
+  deductions: number;
+  net: number;
+  tax: number;
+  employerContributions: number;
+  notes: string | null;
+  warnings: string[];
+  createdBy: string | null;
+  calculatedBy: string | null;
+  calculatedAtUtc: UtcDateTime | null;
+  approvedBy: string | null;
+  approvedAtUtc: UtcDateTime | null;
+  postedBy: string | null;
+  postedAtUtc: UtcDateTime | null;
+  journalNumber: number | null;
+  paidOn: BusinessDate | null;
+  paidBy: string | null;
+  paymentJournalNumber: number | null;
+}
+
+export interface RunBody {
+  year: number;
+  month: number;
+  storeId: string | null;
+  notes: string | null;
+}
+
+export interface SettlementBody {
+  employeeId: string;
+  notes: string | null;
+}
+
+export interface PayBody {
+  version: string;
+  paidOn: BusinessDate | null;
+  bankAccount: string | null;
+  cashAccount: string | null;
+}
+
+export interface PayslipRow {
+  id: string;
+  employeeId: string;
+  code: string;
+  name: string;
+  designation: string | null;
+  department: string | null;
+  storeCode: string | null;
+  paymentMethod: SalaryPaymentMethod;
+  daysEmployed: number;
+  daysPresent: number;
+  paidLeaveDays: number;
+  unpaidLeaveDays: number;
+  absentDays: number;
+  lateDays: number;
+  overtimeHours: number;
+  basic: number;
+  allowances: number;
+  overtime: number;
+  commission: number;
+  otherEarnings: number;
+  gross: number;
+  attendance: number;
+  tax: number;
+  eobi: number;
+  loans: number;
+  otherDeductions: number;
+  deductions: number;
+  net: number;
+  employerContributions: number;
+}
+
+export interface RunDetail {
+  run: RunRow;
+  payslips: PayslipRow[];
+}
+
+export interface PayslipLineInfo {
+  kind: PayslipLineKind;
+  code: string;
+  name: string;
+  amount: number;
+  quantity: number | null;
+  rate: number | null;
+}
+
+export interface PayslipDetail {
+  row: PayslipRow;
+  runId: string;
+  runNumber: number;
+  runTitle: string;
+  runStatus: PayrollRunStatus;
+  periodStart: BusinessDate;
+  periodEnd: BusinessDate;
+  cnic: string | null;
+  bankName: string | null;
+  iban: string | null;
+  monthlyBasic: number;
+  taxable: number;
+  taxableBefore: number;
+  taxBefore: number;
+  projectedAnnualTaxable: number;
+  projectedAnnualTax: number;
+  companyName: string | null;
+  storeName: string | null;
+  lines: PayslipLineInfo[];
+}
+
+export interface CashSheetRow {
+  code: string;
+  name: string;
+  designation: string | null;
+  net: number;
+}
+
+export interface CashSheet {
+  run: RunRow;
+  rows: CashSheetRow[];
+  total: number;
+}
+
+/** A parameter an HR report asks for: `run`, `employee`, `taxYear`, `month` (yyyy-MM) or `dates` (from and to). */
+export type HrReportParameter = 'run' | 'employee' | 'taxYear' | 'month' | 'dates' | (string & {});
+
+export interface HrReportInfo {
+  key: string;
+  group: string;
+  title: string;
+  parameters: HrReportParameter[];
+}

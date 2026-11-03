@@ -94,3 +94,9 @@ The first time, install the browser: `npx playwright install chromium`.
   still works where the browser lets it through).
 - At 1280 px and wider it looks like the desktop; from 768 px the navigation shows icons only; below that it is a
   drawer, and tables scroll inside their card.
+- HR and payroll (`/hr/…`) sit in an "HR" group at the end of the navigation, with a small heading (a line when only
+  icons show), and Ctrl+K finds them by typing "hr". Their client is `src/lib/hr-api.ts`, spread into the one client.
+  Payroll opens with `payroll.run` or `payroll.approve` (`anyOf` on the page); run buttons follow the run's step and
+  the role (`runActions` in `src/lib/hr.ts`). The shared HR lists (departments, designations, leave types, holidays,
+  payroll rule sets) change only when `canChangeShared`. E2E answers for HR are in `e2e/hr-fixtures.ts` and
+  `e2e/hr-mock.ts`.
