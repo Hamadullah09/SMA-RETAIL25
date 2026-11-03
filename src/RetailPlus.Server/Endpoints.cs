@@ -48,6 +48,7 @@ public static partial class Endpoints
         MapStaff(app.MapGroup("/api").WithTags("Audit and staff"));
         MapSettings(app.MapGroup("/api").WithTags("Store settings"));
         MapRfid(app.MapGroup("/api").WithTags("RFID hubs"));
+        MapE4(app);
     }
 
     private static async Task<IResult> HealthAsync(DataContext data, CancellationToken cancellationToken)

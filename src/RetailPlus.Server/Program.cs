@@ -28,6 +28,8 @@ builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<StationKeys>();
 builder.Services.AddSingleton<ServerSync>();
 builder.Services.AddSingleton<ServerStartup>();
+// WhatsApp: Meta's Cloud API when switched on (WhatsApp:Enabled), else a stand-in that records; and the campaign sender.
+builder.Services.AddWhatsApp(configuration);
 // What one web request works on (its user, stores and services); see Api.cs.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped(provider => new ApiRequest(

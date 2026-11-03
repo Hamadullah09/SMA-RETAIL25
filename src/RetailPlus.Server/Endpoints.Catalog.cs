@@ -28,10 +28,11 @@ public sealed record NamedRow(Guid Id, string Name);
 public sealed record CategoryRow(Guid Id, string Name, Guid? DepartmentId);
 public sealed record NameRequest(string Name);
 
-public sealed record ClientListRow(Guid Id, string? Number, string Name, string? Company, string? Phone, string? Email, decimal Balance, decimal Points, bool IsDeleted);
+public sealed record ClientListRow(Guid Id, string? Number, string Name, string? Company, string? Phone, string? Email, decimal Balance, decimal Points, bool IsDeleted,
+    bool WhatsAppOptIn = false);
 public sealed record ClientDetail(Guid? Id, string? Version, string? Number, string? FirstName, string? LastName, string? Company, string? Address1, string? Address2,
     string? City, string? Province, string? PostalCode, string? Country, string? Phone, string? Phone2, string? Email, decimal CreditLimit, decimal Balance,
-    decimal Points, string? Notes);
+    decimal Points, string? Notes, string? WhatsAppNumber = null, bool? WhatsAppOptIn = null, DateTime? WhatsAppOptInAtUtc = null, DateOnly? Birthday = null);
 public sealed record SupplierListRow(Guid Id, string? Code, string? Company, string? Contact, string? Phone, string? Email, bool IsDeleted);
 public sealed record SupplierDetail(Guid? Id, string? Version, string? Code, string? Company, string? Contact, string? Address1, string? Address2, string? City,
     string? Province, string? PostalCode, string? Country, string? Phone, string? Fax, string? Email, string? Notes);
@@ -448,11 +449,13 @@ public static partial class Endpoints
                                          || (c.Number ?? "").StartsWith(t) || (c.AccountNumber ?? "").StartsWith(t) || (c.WorkPhone ?? "").Contains(t)
                                          || (c.HomePhone ?? "").Contains(t) || (c.Email ?? "").StartsWith(t));
         var rows = clients.OrderBy(c => c.LastName).ThenBy(c => c.FirstName).ThenBy(c => c.Company);
-        return Results.Ok(await api.PageAsync(rows, c => new ClientListRow(c.Id, c.Number, Name(c), c.Company, c.WorkPhone ?? c.HomePhone, c.Email, c.Balance, c.Points, c.IsDeleted)));
+        return Results.Ok(await api.PageAsync(rows, c => new ClientListRow(c.Id, c.Number, Name(c), c.Company, c.WorkPhone ?? c.HomePhone, c.Email, c.Balance, c.Points, c.IsDeleted,
+            c.WhatsAppOptIn)));
     }
 
     private static ClientDetail ToDetail(Client c) => new(c.Id, ApiRequest.Version(c.Version), c.Number, c.FirstName, c.LastName, c.Company, c.Address1, c.Address2,
-        c.City, c.State, c.Zip, c.Country, c.WorkPhone, c.HomePhone, c.Email, c.CreditLimit, c.Balance, c.Points, c.Notes);
+        c.City, c.State, c.Zip, c.Country, c.WorkPhone, c.HomePhone, c.Email, c.CreditLimit, c.Balance, c.Points, c.Notes, c.WhatsAppNumber, c.WhatsAppOptIn,
+        ApiRequest.Utc(c.WhatsAppOptInAt), c.Birthday);
 
     private static async Task<IResult> SaveClientAsync(Guid? id, ClientDetail body, ApiRequest api)
     {
@@ -470,6 +473,13 @@ public static partial class Endpoints
         client.Address1 = body.Address1; client.Address2 = body.Address2; client.City = body.City; client.State = body.Province; client.Zip = body.PostalCode;
         client.Country = body.Country; client.WorkPhone = body.Phone; client.HomePhone = body.Phone2; client.Email = body.Email;
         client.CreditLimit = body.CreditLimit; client.Notes = body.Notes;
+        // Phase E4: a body that carries the consent carries the WhatsApp number and birthday too; one without keeps them.
+        if (body.WhatsAppOptIn is { } optIn)
+        {
+            client.WhatsAppOptIn = optIn;
+            client.WhatsAppNumber = body.WhatsAppNumber;
+            client.Birthday = body.Birthday;
+        }
         var data = await api.ForChangeAsync();
         // A new client without a number gets one from the server's own range.
         if (string.IsNullOrWhiteSpace(client.Number) && data.Station is { } here)

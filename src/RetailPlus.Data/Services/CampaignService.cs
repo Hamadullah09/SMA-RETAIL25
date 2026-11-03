@@ -192,7 +192,9 @@ public sealed class CampaignService(DataContext data)
         if (c.StartedAtUtc is not { } started || recipients.Count == 0) return new CampaignResults(counts, recipients.Count, days, 0, 0, 0);
         var zoneId = await db.Stores.AsNoTracking().Where(s => s.Id == c.StoreId).Select(s => s.TimeZoneId).SingleOrDefaultAsync();
         var zone = zoneId is not null && TimeZoneInfo.TryFindSystemTimeZoneById(zoneId, out var z) ? z : TimeZoneInfo.Local;
+        // From the minute sending started (sale times are kept to the second).
         var from = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(started, DateTimeKind.Utc), zone);
+        from = new DateTime(from.Year, from.Month, from.Day, from.Hour, from.Minute, 0);
         var to = from.AddDays(days);
         var sales = new List<(Guid Client, decimal Total)>();
         foreach (var chunk in recipients.Chunk(1000))
@@ -219,7 +221,7 @@ public sealed class CampaignService(DataContext data)
             foreach (var due in await db.Campaigns.Where(c => c.Status == CampaignStatus.Scheduled && c.ScheduledAtUtc <= now).ToListAsync(cancellationToken))
             {
                 due.Status = CampaignStatus.Sending;
-                due.StartedAtUtc ??= now;
+                due.StartedAtUtc ??= DateTime.UtcNow;
             }
             await db.SaveChangesAsync(cancellationToken);
             var sending = db.Campaigns.Where(c => c.Status == CampaignStatus.Sending).Select(c => c.Id);

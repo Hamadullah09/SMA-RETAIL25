@@ -135,6 +135,8 @@ public sealed partial class PromotionService(DataContext data)
         List<Guid> stores = p.AllStores ? [] : [.. p.Stores.Select(s => s.StoreId).Distinct()];
         foreach (var gone in row.Stores.Where(s => !stores.Contains(s.StoreId)).ToList()) row.Stores.Remove(gone);
         foreach (var s in stores.Where(s => row.Stores.All(x => x.StoreId != s))) row.Stores.Add(new PromotionStore { StoreId = s });
+        // A change of targets or stores alone is a change of the promotion too: it gets a new version.
+        if (db.Entry(row).State == EntityState.Unchanged) db.Entry(row).Property(x => x.UpdatedAtUtc).IsModified = true;
         try
         {
             await db.SaveChangesAsync();

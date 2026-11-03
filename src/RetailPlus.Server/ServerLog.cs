@@ -27,4 +27,14 @@ internal static partial class ServerLog
     [LoggerMessage(8, LogLevel.Warning, "Nobody could manage every store, so {User} (Bootstrap:AdminUserName) was made super administrator.")]
     public static partial void AdministratorPromoted(ILogger logger, string user);
 
+    // Phase E4 (ids from 401).
+    [LoggerMessage(401, LogLevel.Information, "{Count} campaign messages sent ({Provider}).")]
+    public static partial void CampaignMessagesSent(ILogger logger, int count, string provider);
+
+    [LoggerMessage(402, LogLevel.Error, "Sending campaign messages failed; the next round tries again.")]
+    public static partial void CampaignSendFailed(ILogger logger, Exception exception);
+
+    [LoggerMessage(403, LogLevel.Warning, "A WhatsApp webhook notification was refused: {Reason}")]
+    public static partial void WebhookRefused(ILogger logger, string reason);
+
 }

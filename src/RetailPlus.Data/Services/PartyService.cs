@@ -82,7 +82,7 @@ public sealed class PartyService(DataContext data)
         await using var db = data.Create();
         var consent = client.Id == Guid.Empty ? null
             : await db.Clients.AsNoTracking().Where(c => c.Id == client.Id).Select(c => new { c.WhatsAppOptIn, c.WhatsAppOptInAt }).SingleOrDefaultAsync();
-        client.WhatsAppOptInAt = !client.WhatsAppOptIn ? null : consent is { WhatsAppOptIn: true } ? consent.WhatsAppOptInAt ?? DateTime.UtcNow : DateTime.UtcNow;
+        client.WhatsAppOptInAt = !client.WhatsAppOptIn ? null : consent is { WhatsAppOptIn: true } ? consent.WhatsAppOptInAt ?? SyncColumns.Now() : SyncColumns.Now();
         if (string.IsNullOrWhiteSpace(client.Number))
             client.Number = (await db.NextNumberAsync(RetailPlusDbContext.Sequences.CustomerNumbers)).ToString(System.Globalization.CultureInfo.InvariantCulture);
         if (await db.Clients.AnyAsync(c => c.Number == client.Number && c.Id != client.Id && !c.IsDeleted))
