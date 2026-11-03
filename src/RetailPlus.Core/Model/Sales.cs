@@ -349,6 +349,12 @@ public enum StockMovementKind
     CaseBreakOut,
     /// <summary>Cases broken into units: into the unit item.</summary>
     CaseBreakIn,
+    /// <summary>Material issued to a production order (negative), or returned from it (positive).</summary>
+    ProductionIssue,
+    /// <summary>A production order's output (and by-products) put into stock.</summary>
+    ProductionReceipt,
+    /// <summary>Material or output thrown away for a production order.</summary>
+    ProductionScrap,
 }
 
 /// <summary>
@@ -378,4 +384,6 @@ public class StockMovement : Entity, IStationStamped
     public string? Reason { get; set; }
     public string? User { get; set; }
     public Guid? UserId { get; set; }
+    /// <summary>The production order the movement was for (issues, receipts and scrap).</summary>
+    public Guid? ProductionOrderId { get; set; }
 }

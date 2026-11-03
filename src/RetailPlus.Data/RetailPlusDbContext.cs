@@ -23,7 +23,10 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
         public const string GiftCardNumbers = "GiftCardNumbers";
         /// <summary>General ledger entries (numbered on the server, from its own range).</summary>
         public const string JournalNumbers = "JournalNumbers";
-        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers, JournalNumbers];
+        /// <summary>Production orders.</summary>
+        public const string ProductionOrderNumbers = "ProductionOrderNumbers";
+        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers, JournalNumbers,
+            ProductionOrderNumbers];
     }
 
     /// <summary>
@@ -105,6 +108,22 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
     public DbSet<FiscalYear> FiscalYears => Set<FiscalYear>();
     public DbSet<FiscalPeriod> FiscalPeriods => Set<FiscalPeriod>();
     public DbSet<LedgerSettings> LedgerSettings => Set<LedgerSettings>();
+    public DbSet<WorkCentre> WorkCentres => Set<WorkCentre>();
+    public DbSet<BillOfMaterials> BillsOfMaterials => Set<BillOfMaterials>();
+    public DbSet<BomLine> BomLines => Set<BomLine>();
+    public DbSet<BomByProduct> BomByProducts => Set<BomByProduct>();
+    public DbSet<RoutingOperation> RoutingOperations => Set<RoutingOperation>();
+    public DbSet<ProductionOrder> ProductionOrders => Set<ProductionOrder>();
+    public DbSet<ProductionOrderLine> ProductionOrderLines => Set<ProductionOrderLine>();
+    public DbSet<ProductionOrderOperation> ProductionOrderOperations => Set<ProductionOrderOperation>();
+    public DbSet<ProductionReport> ProductionReports => Set<ProductionReport>();
+    public DbSet<MrpRun> MrpRuns => Set<MrpRun>();
+    public DbSet<MrpSuggestion> MrpSuggestions => Set<MrpSuggestion>();
+    public DbSet<SupplierLeadTime> SupplierLeadTimes => Set<SupplierLeadTime>();
+    public DbSet<QualityPlan> QualityPlans => Set<QualityPlan>();
+    public DbSet<QualityCheck> QualityChecks => Set<QualityCheck>();
+    public DbSet<QualityInspection> QualityInspections => Set<QualityInspection>();
+    public DbSet<QualityResult> QualityResults => Set<QualityResult>();
 
     /// <summary>
     /// Set while rows from a sync package are saved: they keep their times, store, station and version exactly as they

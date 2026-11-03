@@ -31,6 +31,13 @@ public static class AuditActions
     public const string JournalPosted = "Journal posted";
     public const string JournalReversed = "Journal reversed";
     public const string PeriodStatus = "Period status";
+    public const string ProductionRelease = "Production release";
+    public const string ProductionComplete = "Production complete";
+    public const string ProductionClose = "Production close";
+    public const string ProductionCancel = "Production cancel";
+    public const string PlanningRun = "Planning run";
+    public const string PlanningFirm = "Planning firmed";
+    public const string QualityInspection = "Quality inspection";
 }
 
 /// <summary>
@@ -66,6 +73,10 @@ public static class AuditedTables
         [typeof(StoreImage)] = Name<StoreImage>(i => i.Kind.ToString()),
         [typeof(LedgerAccount)] = Name<LedgerAccount>(a => $"{a.Code} {a.Name}"),
         [typeof(LedgerSettings)] = Name<LedgerSettings>(_ => "Ledger settings"),
+        [typeof(WorkCentre)] = Name<WorkCentre>(w => $"{w.Code} {w.Name}"),
+        [typeof(BillOfMaterials)] = Name<BillOfMaterials>(b => $"{b.ProductCode} version {b.Revision}"),
+        [typeof(QualityPlan)] = Name<QualityPlan>(p => $"{p.ProductCode} {p.Name}"),
+        [typeof(SupplierLeadTime)] = Name<SupplierLeadTime>(t => $"{t.Days} days"),
     };
 
     /// <summary>Properties never written to the log: kept by the program, or marks that are not changes of substance.</summary>

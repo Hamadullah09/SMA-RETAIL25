@@ -93,6 +93,16 @@ public sealed class SyncPolicy
         policy.Everywhere<GiftCard>(SyncFlow.Both);
         policy.Everywhere<GiftCardTransaction>(SyncFlow.Both);
         policy.Everywhere<LoyaltyTransaction>(SyncFlow.Both);
+        // Manufacturing (E5). Bills of materials (with their lines and by-products) are company-wide and made on the server:
+        // down to every till. Work centres are a store's, and a routing's operations follow their work centre's store: down
+        // to that store's tills. Production orders (with the lines and operations copied onto them at release) keep the
+        // default, both ways within their store, because the shop floor starts and finishes them; so do the floor's reports
+        // and the stock movements they write. Planning runs, suggestions, lead times and quality are ILocalOnly.
+        policy.Table<BillOfMaterials>(SyncFlow.Down);
+        policy.Table<BomLine>(SyncFlow.Down);
+        policy.Table<BomByProduct>(SyncFlow.Down);
+        policy.Table<WorkCentre>(SyncFlow.Down);
+        policy.Table<RoutingOperation>(SyncFlow.Down);
 
         // The same code made on two databases before they synchronised is one thing: the server's row stays, the other
         // is merged into it (rows pointing at it are moved over) and the merge is noted in the batch. Any other clash of
@@ -126,6 +136,7 @@ public sealed class SyncPolicy
         policy.MergeOn<GiftCard>(nameof(GiftCard.Number));
         policy.MergeOn<AccountMapping>(nameof(AccountMapping.StoreId), nameof(AccountMapping.Kind), nameof(AccountMapping.Key));
         policy.MergeOn<StoreImage>(nameof(StoreImage.StoreId), nameof(StoreImage.Kind));
+        policy.MergeOn<WorkCentre>(nameof(WorkCentre.StoreId), nameof(WorkCentre.Code));
         // One user name is one person, but only within a store: a name taken by another store's user refuses the package.
         policy.MergeOn<UserAccount>([nameof(UserAccount.UserName)],
             (_, existing, till) => till is null || ((UserAccount)existing).StoreId == till.StoreId);

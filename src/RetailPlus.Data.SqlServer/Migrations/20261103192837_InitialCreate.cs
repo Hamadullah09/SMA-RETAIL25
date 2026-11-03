@@ -12,6 +12,30 @@ namespace RetailPlus.Data.SqlServer.Migrations
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.CreateTable(
+                name: "BillsOfMaterials",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProductCode = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    ProductName = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    Revision = table.Column<int>(type: "int", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    EffectiveFrom = table.Column<DateOnly>(type: "date", nullable: true),
+                    EffectiveTo = table.Column<DateOnly>(type: "date", nullable: true),
+                    YieldQuantity = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    OverheadPercent = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
+                    Notes = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BillsOfMaterials", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Categories",
                 columns: table => new
                 {
@@ -253,6 +277,27 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "QualityPlans",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProductCode = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    ForProduction = table.Column<bool>(type: "bit", nullable: false),
+                    ForIncoming = table.Column<bool>(type: "bit", nullable: false),
+                    Notes = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_QualityPlans", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Roles",
                 columns: table => new
                 {
@@ -469,6 +514,62 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "BomByProducts",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    BillOfMaterialsId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LineNumber = table.Column<int>(type: "int", nullable: false),
+                    StockCode = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    Quantity = table.Column<decimal>(type: "decimal(14,4)", precision: 14, scale: 4, nullable: false),
+                    CostSharePercent = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BomByProducts", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BomByProducts_BillsOfMaterials_BillOfMaterialsId",
+                        column: x => x.BillOfMaterialsId,
+                        principalTable: "BillsOfMaterials",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "BomLines",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    BillOfMaterialsId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LineNumber = table.Column<int>(type: "int", nullable: false),
+                    ComponentCode = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    Quantity = table.Column<decimal>(type: "decimal(14,4)", precision: 14, scale: 4, nullable: false),
+                    ScrapPercent = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
+                    IssueMethod = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    OperationSequence = table.Column<int>(type: "int", nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_BomLines", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_BomLines_BillsOfMaterials_BillOfMaterialsId",
+                        column: x => x.BillOfMaterialsId,
+                        principalTable: "BillsOfMaterials",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "FiscalPeriods",
                 columns: table => new
                 {
@@ -515,6 +616,35 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         name: "FK_ImportSourceRows_ImportBatches_ImportBatchId",
                         column: x => x.ImportBatchId,
                         principalTable: "ImportBatches",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "QualityChecks",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    QualityPlanId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LineNumber = table.Column<int>(type: "int", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Minimum = table.Column<decimal>(type: "decimal(14,4)", precision: 14, scale: 4, nullable: true),
+                    Maximum = table.Column<decimal>(type: "decimal(14,4)", precision: 14, scale: 4, nullable: true),
+                    Unit = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: true),
+                    Required = table.Column<bool>(type: "bit", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_QualityChecks", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_QualityChecks_QualityPlans_QualityPlanId",
+                        column: x => x.QualityPlanId,
+                        principalTable: "QualityPlans",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -1199,6 +1329,29 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "SupplierLeadTimes",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SupplierId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Days = table.Column<int>(type: "int", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SupplierLeadTimes", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SupplierLeadTimes_Suppliers_SupplierId",
+                        column: x => x.SupplierId,
+                        principalTable: "Suppliers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "DrawerMovements",
                 columns: table => new
                 {
@@ -1529,6 +1682,118 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "MrpRuns",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LocationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    RunAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    RunBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    HorizonDays = table.Column<int>(type: "int", nullable: false),
+                    DefaultLeadDays = table.Column<int>(type: "int", nullable: false),
+                    Suggestions = table.Column<int>(type: "int", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MrpRuns", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_MrpRuns_Locations_LocationId",
+                        column: x => x.LocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_MrpRuns_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ProductionOrders",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StationNumber = table.Column<int>(type: "int", nullable: false),
+                    Number = table.Column<long>(type: "bigint", nullable: false),
+                    ProductCode = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    ProductName = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    BillOfMaterialsId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    BomRevision = table.Column<int>(type: "int", nullable: false),
+                    Quantity = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    MaterialLocationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    OutputLocationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    PlannedStart = table.Column<DateOnly>(type: "date", nullable: true),
+                    PlannedEnd = table.Column<DateOnly>(type: "date", nullable: true),
+                    Priority = table.Column<int>(type: "int", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    CustomerOrderId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Notes = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    StandardMaterialCost = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    StandardLabourCost = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    StandardMachineCost = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    StandardOverheadCost = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    OverheadPercent = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    CreatedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ReleasedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    ReleasedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    StartedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    CompletedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    CompletedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ClosedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    ClosedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    CancelledAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    CancelledBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProductionOrders", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProductionOrders_BillsOfMaterials_BillOfMaterialsId",
+                        column: x => x.BillOfMaterialsId,
+                        principalTable: "BillsOfMaterials",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_ProductionOrders_CustomerOrders_CustomerOrderId",
+                        column: x => x.CustomerOrderId,
+                        principalTable: "CustomerOrders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_ProductionOrders_Locations_MaterialLocationId",
+                        column: x => x.MaterialLocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ProductionOrders_Locations_OutputLocationId",
+                        column: x => x.OutputLocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_ProductionOrders_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "PurchaseOrders",
                 columns: table => new
                 {
@@ -1724,6 +1989,44 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     table.ForeignKey(
                         name: "FK_StockTransfers_Stores_ToStoreId",
                         column: x => x.ToStoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "WorkCentres",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LocationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    LabourCostPerHour = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    MachineCostPerHour = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    OverheadPerHour = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    CapacityHoursPerDay = table.Column<decimal>(type: "decimal(5,2)", precision: 5, scale: 2, nullable: false),
+                    DaysPerWeek = table.Column<int>(type: "int", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    Notes = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WorkCentres", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_WorkCentres_Locations_LocationId",
+                        column: x => x.LocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_WorkCentres_Stores_StoreId",
+                        column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -2140,7 +2443,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     StationNumber = table.Column<int>(type: "int", nullable: false),
                     ItemId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     VariantId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
-                    Kind = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
                     At = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
                     Quantity = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
                     OnHandAfter = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
@@ -2149,6 +2452,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     Reason = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     User = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
                     UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ProductionOrderId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
                     SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
@@ -2165,6 +2469,170 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_StockMovements_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "MrpSuggestions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    RunId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Kind = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    StockCode = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    LocationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Quantity = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    NeedBy = table.Column<DateOnly>(type: "date", nullable: false),
+                    StartBy = table.Column<DateOnly>(type: "date", nullable: false),
+                    LeadDays = table.Column<int>(type: "int", nullable: false),
+                    SupplierId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    SupplierName = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    BillOfMaterialsId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Level = table.Column<int>(type: "int", nullable: false),
+                    Reason = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    FirmedId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    FirmedDocument = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
+                    FirmedAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    FirmedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_MrpSuggestions", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_MrpSuggestions_Locations_LocationId",
+                        column: x => x.LocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_MrpSuggestions_MrpRuns_RunId",
+                        column: x => x.RunId,
+                        principalTable: "MrpRuns",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_MrpSuggestions_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ProductionOrderLines",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProductionOrderId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LineNumber = table.Column<int>(type: "int", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    StockCode = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    ItemId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    QuantityPerUnit = table.Column<decimal>(type: "decimal(14,6)", precision: 14, scale: 6, nullable: false),
+                    QuantityPlanned = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    ScrapPercent = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
+                    IssueMethod = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    OperationSequence = table.Column<int>(type: "int", nullable: true),
+                    CostSharePercent = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
+                    StandardUnitCost = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    QuantityReserved = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProductionOrderLines", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProductionOrderLines_ProductionOrders_ProductionOrderId",
+                        column: x => x.ProductionOrderId,
+                        principalTable: "ProductionOrders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ProductionOrderOperations",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ProductionOrderId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Sequence = table.Column<int>(type: "int", nullable: false),
+                    WorkCentreId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    WorkCentreName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    SetupMinutes = table.Column<decimal>(type: "decimal(10,2)", precision: 10, scale: 2, nullable: false),
+                    RunMinutesPerUnit = table.Column<decimal>(type: "decimal(12,4)", precision: 12, scale: 4, nullable: false),
+                    Instructions = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    LabourRate = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    MachineRate = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    OverheadRate = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    StartedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    FinishedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProductionOrderOperations", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProductionOrderOperations_ProductionOrders_ProductionOrderId",
+                        column: x => x.ProductionOrderId,
+                        principalTable: "ProductionOrders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "ProductionReports",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StationNumber = table.Column<int>(type: "int", nullable: false),
+                    ProductionOrderId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    OperationSequence = table.Column<int>(type: "int", nullable: false),
+                    At = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    Minutes = table.Column<decimal>(type: "decimal(10,2)", precision: 10, scale: 2, nullable: false),
+                    GoodQuantity = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    ScrapQuantity = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    UserName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    LabourCost = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: false),
+                    MachineCost = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: false),
+                    OverheadCost = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: false),
+                    Note = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ProductionReports", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_ProductionReports_ProductionOrders_ProductionOrderId",
+                        column: x => x.ProductionOrderId,
+                        principalTable: "ProductionOrders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_ProductionReports_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -2210,6 +2678,68 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         principalTable: "PurchaseOrders",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "QualityInspections",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    ProductionOrderId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    PurchaseOrderId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    DocumentNumber = table.Column<long>(type: "bigint", nullable: true),
+                    QualityPlanId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    StockCode = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    QuantityInspected = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    QuantityFailed = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    Disposition = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    HoldLocationId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Passed = table.Column<bool>(type: "bit", nullable: false),
+                    InspectedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    InspectedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    InspectedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Notes = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_QualityInspections", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_QualityInspections_Locations_HoldLocationId",
+                        column: x => x.HoldLocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_QualityInspections_ProductionOrders_ProductionOrderId",
+                        column: x => x.ProductionOrderId,
+                        principalTable: "ProductionOrders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_QualityInspections_PurchaseOrders_PurchaseOrderId",
+                        column: x => x.PurchaseOrderId,
+                        principalTable: "PurchaseOrders",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_QualityInspections_QualityPlans_QualityPlanId",
+                        column: x => x.QualityPlanId,
+                        principalTable: "QualityPlans",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                    table.ForeignKey(
+                        name: "FK_QualityInspections_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -2388,6 +2918,72 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "RoutingOperations",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    BillOfMaterialsId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Sequence = table.Column<int>(type: "int", nullable: false),
+                    WorkCentreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
+                    SetupMinutes = table.Column<decimal>(type: "decimal(10,2)", precision: 10, scale: 2, nullable: false),
+                    RunMinutesPerUnit = table.Column<decimal>(type: "decimal(12,4)", precision: 12, scale: 4, nullable: false),
+                    Instructions = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RoutingOperations", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RoutingOperations_BillsOfMaterials_BillOfMaterialsId",
+                        column: x => x.BillOfMaterialsId,
+                        principalTable: "BillsOfMaterials",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_RoutingOperations_WorkCentres_WorkCentreId",
+                        column: x => x.WorkCentreId,
+                        principalTable: "WorkCentres",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "QualityResults",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    QualityInspectionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LineNumber = table.Column<int>(type: "int", nullable: false),
+                    CheckName = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Minimum = table.Column<decimal>(type: "decimal(14,4)", precision: 14, scale: 4, nullable: true),
+                    Maximum = table.Column<decimal>(type: "decimal(14,4)", precision: 14, scale: 4, nullable: true),
+                    Required = table.Column<bool>(type: "bit", nullable: false),
+                    PassFail = table.Column<bool>(type: "bit", nullable: true),
+                    NumberValue = table.Column<decimal>(type: "decimal(14,4)", precision: 14, scale: 4, nullable: true),
+                    TextValue = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Passed = table.Column<bool>(type: "bit", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_QualityResults", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_QualityResults_QualityInspections_QualityInspectionId",
+                        column: x => x.QualityInspectionId,
+                        principalTable: "QualityInspections",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "SaleLineTags",
                 columns: table => new
                 {
@@ -2460,6 +3056,57 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "IX_AuditEntries_UserId_AtUtc",
                 table: "AuditEntries",
                 columns: new[] { "UserId", "AtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BillsOfMaterials_ChangeNumber",
+                table: "BillsOfMaterials",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BillsOfMaterials_ProductCode_Revision",
+                table: "BillsOfMaterials",
+                columns: new[] { "ProductCode", "Revision" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BillsOfMaterials_UpdatedAtUtc",
+                table: "BillsOfMaterials",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BomByProducts_BillOfMaterialsId_LineNumber",
+                table: "BomByProducts",
+                columns: new[] { "BillOfMaterialsId", "LineNumber" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BomByProducts_ChangeNumber",
+                table: "BomByProducts",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BomByProducts_UpdatedAtUtc",
+                table: "BomByProducts",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BomLines_BillOfMaterialsId_LineNumber",
+                table: "BomLines",
+                columns: new[] { "BillOfMaterialsId", "LineNumber" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BomLines_ChangeNumber",
+                table: "BomLines",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BomLines_ComponentCode",
+                table: "BomLines",
+                column: "ComponentCode");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_BomLines_UpdatedAtUtc",
+                table: "BomLines",
+                column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Categories_ChangeNumber",
@@ -3250,6 +3897,51 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_MrpRuns_ChangeNumber",
+                table: "MrpRuns",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MrpRuns_LocationId",
+                table: "MrpRuns",
+                column: "LocationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MrpRuns_StoreId_RunAtUtc",
+                table: "MrpRuns",
+                columns: new[] { "StoreId", "RunAtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MrpRuns_UpdatedAtUtc",
+                table: "MrpRuns",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MrpSuggestions_ChangeNumber",
+                table: "MrpSuggestions",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MrpSuggestions_LocationId",
+                table: "MrpSuggestions",
+                column: "LocationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MrpSuggestions_RunId",
+                table: "MrpSuggestions",
+                column: "RunId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MrpSuggestions_StoreId_Status",
+                table: "MrpSuggestions",
+                columns: new[] { "StoreId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_MrpSuggestions_UpdatedAtUtc",
+                table: "MrpSuggestions",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_NumberCounters_ChangeNumber",
                 table: "NumberCounters",
                 column: "ChangeNumber");
@@ -3263,6 +3955,117 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_NumberCounters_UpdatedAtUtc",
                 table: "NumberCounters",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrderLines_ChangeNumber",
+                table: "ProductionOrderLines",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrderLines_ItemId",
+                table: "ProductionOrderLines",
+                column: "ItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrderLines_ProductionOrderId_LineNumber",
+                table: "ProductionOrderLines",
+                columns: new[] { "ProductionOrderId", "LineNumber" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrderLines_UpdatedAtUtc",
+                table: "ProductionOrderLines",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrderOperations_ChangeNumber",
+                table: "ProductionOrderOperations",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrderOperations_ProductionOrderId_Sequence",
+                table: "ProductionOrderOperations",
+                columns: new[] { "ProductionOrderId", "Sequence" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrderOperations_UpdatedAtUtc",
+                table: "ProductionOrderOperations",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrderOperations_WorkCentreId",
+                table: "ProductionOrderOperations",
+                column: "WorkCentreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrders_BillOfMaterialsId",
+                table: "ProductionOrders",
+                column: "BillOfMaterialsId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrders_ChangeNumber",
+                table: "ProductionOrders",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrders_CustomerOrderId",
+                table: "ProductionOrders",
+                column: "CustomerOrderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrders_MaterialLocationId",
+                table: "ProductionOrders",
+                column: "MaterialLocationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrders_OutputLocationId",
+                table: "ProductionOrders",
+                column: "OutputLocationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrders_ProductCode",
+                table: "ProductionOrders",
+                column: "ProductCode");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrders_StationNumber_Number",
+                table: "ProductionOrders",
+                columns: new[] { "StationNumber", "Number" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrders_StoreId_Status",
+                table: "ProductionOrders",
+                columns: new[] { "StoreId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionOrders_UpdatedAtUtc",
+                table: "ProductionOrders",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionReports_At",
+                table: "ProductionReports",
+                column: "At");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionReports_ChangeNumber",
+                table: "ProductionReports",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionReports_ProductionOrderId_OperationSequence",
+                table: "ProductionReports",
+                columns: new[] { "ProductionOrderId", "OperationSequence" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionReports_StoreId",
+                table: "ProductionReports",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ProductionReports_UpdatedAtUtc",
+                table: "ProductionReports",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -3299,6 +4102,87 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_PurchaseOrders_UpdatedAtUtc",
                 table: "PurchaseOrders",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityChecks_ChangeNumber",
+                table: "QualityChecks",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityChecks_QualityPlanId_LineNumber",
+                table: "QualityChecks",
+                columns: new[] { "QualityPlanId", "LineNumber" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityChecks_UpdatedAtUtc",
+                table: "QualityChecks",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityInspections_ChangeNumber",
+                table: "QualityInspections",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityInspections_HoldLocationId",
+                table: "QualityInspections",
+                column: "HoldLocationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityInspections_ProductionOrderId",
+                table: "QualityInspections",
+                column: "ProductionOrderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityInspections_PurchaseOrderId",
+                table: "QualityInspections",
+                column: "PurchaseOrderId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityInspections_QualityPlanId",
+                table: "QualityInspections",
+                column: "QualityPlanId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityInspections_StoreId_InspectedAt",
+                table: "QualityInspections",
+                columns: new[] { "StoreId", "InspectedAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityInspections_UpdatedAtUtc",
+                table: "QualityInspections",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityPlans_ChangeNumber",
+                table: "QualityPlans",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityPlans_ProductCode",
+                table: "QualityPlans",
+                column: "ProductCode",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityPlans_UpdatedAtUtc",
+                table: "QualityPlans",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityResults_ChangeNumber",
+                table: "QualityResults",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityResults_QualityInspectionId",
+                table: "QualityResults",
+                column: "QualityInspectionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_QualityResults_UpdatedAtUtc",
+                table: "QualityResults",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -3410,6 +4294,27 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "IX_Roles_UpdatedAtUtc",
                 table: "Roles",
                 column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RoutingOperations_BillOfMaterialsId_Sequence",
+                table: "RoutingOperations",
+                columns: new[] { "BillOfMaterialsId", "Sequence" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RoutingOperations_ChangeNumber",
+                table: "RoutingOperations",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RoutingOperations_UpdatedAtUtc",
+                table: "RoutingOperations",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RoutingOperations_WorkCentreId",
+                table: "RoutingOperations",
+                column: "WorkCentreId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_SaleLines_ChangeNumber",
@@ -3672,6 +4577,11 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 columns: new[] { "Kind", "At" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_StockMovements_ProductionOrderId",
+                table: "StockMovements",
+                column: "ProductionOrderId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_StockMovements_StoreId",
                 table: "StockMovements",
                 column: "StoreId");
@@ -3794,6 +4704,22 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_StoreSettings_UpdatedAtUtc",
                 table: "StoreSettings",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierLeadTimes_ChangeNumber",
+                table: "SupplierLeadTimes",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierLeadTimes_SupplierId",
+                table: "SupplierLeadTimes",
+                column: "SupplierId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SupplierLeadTimes_UpdatedAtUtc",
+                table: "SupplierLeadTimes",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -4009,6 +4935,27 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 table: "UserAccounts",
                 column: "UserName",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkCentres_ChangeNumber",
+                table: "WorkCentres",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkCentres_LocationId",
+                table: "WorkCentres",
+                column: "LocationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkCentres_StoreId_Code",
+                table: "WorkCentres",
+                columns: new[] { "StoreId", "Code" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WorkCentres_UpdatedAtUtc",
+                table: "WorkCentres",
+                column: "UpdatedAtUtc");
         }
 
         /// <inheritdoc />
@@ -4021,10 +4968,13 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "AuditEntries");
 
             migrationBuilder.DropTable(
-                name: "CommissionRules");
+                name: "BomByProducts");
 
             migrationBuilder.DropTable(
-                name: "CustomerOrders");
+                name: "BomLines");
+
+            migrationBuilder.DropTable(
+                name: "CommissionRules");
 
             migrationBuilder.DropTable(
                 name: "DocumentTexts");
@@ -4090,10 +5040,28 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "LoyaltyTransactions");
 
             migrationBuilder.DropTable(
+                name: "MrpSuggestions");
+
+            migrationBuilder.DropTable(
                 name: "NumberCounters");
 
             migrationBuilder.DropTable(
+                name: "ProductionOrderLines");
+
+            migrationBuilder.DropTable(
+                name: "ProductionOrderOperations");
+
+            migrationBuilder.DropTable(
+                name: "ProductionReports");
+
+            migrationBuilder.DropTable(
                 name: "PurchaseOrderLines");
+
+            migrationBuilder.DropTable(
+                name: "QualityChecks");
+
+            migrationBuilder.DropTable(
+                name: "QualityResults");
 
             migrationBuilder.DropTable(
                 name: "RfidAntennas");
@@ -4106,6 +5074,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "RoleGrants");
+
+            migrationBuilder.DropTable(
+                name: "RoutingOperations");
 
             migrationBuilder.DropTable(
                 name: "SaleLineTags");
@@ -4142,6 +5113,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "StoreSettings");
+
+            migrationBuilder.DropTable(
+                name: "SupplierLeadTimes");
 
             migrationBuilder.DropTable(
                 name: "SuspendedSales");
@@ -4186,10 +5160,16 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "LedgerAccounts");
 
             migrationBuilder.DropTable(
-                name: "PurchaseOrders");
+                name: "MrpRuns");
+
+            migrationBuilder.DropTable(
+                name: "QualityInspections");
 
             migrationBuilder.DropTable(
                 name: "RfidReaders");
+
+            migrationBuilder.DropTable(
+                name: "WorkCentres");
 
             migrationBuilder.DropTable(
                 name: "SaleLines");
@@ -4210,6 +5190,15 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "UserAccounts");
 
             migrationBuilder.DropTable(
+                name: "ProductionOrders");
+
+            migrationBuilder.DropTable(
+                name: "PurchaseOrders");
+
+            migrationBuilder.DropTable(
+                name: "QualityPlans");
+
+            migrationBuilder.DropTable(
                 name: "Sales");
 
             migrationBuilder.DropTable(
@@ -4223,6 +5212,12 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "Roles");
+
+            migrationBuilder.DropTable(
+                name: "BillsOfMaterials");
+
+            migrationBuilder.DropTable(
+                name: "CustomerOrders");
 
             migrationBuilder.DropTable(
                 name: "Clients");

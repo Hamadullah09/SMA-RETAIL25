@@ -207,7 +207,7 @@ internal sealed class StockMovementConfiguration : IEntityTypeConfiguration<Stoc
 {
     public void Configure(EntityTypeBuilder<StockMovement> e)
     {
-        e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(12);
+        e.Property(x => x.Kind).HasConversion<string>().HasMaxLength(20);
         e.Property(x => x.Quantity).Quantity();
         e.Property(x => x.OnHandAfter).Quantity();
         e.Property(x => x.UnitCost).UnitCost();
