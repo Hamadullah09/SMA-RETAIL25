@@ -152,11 +152,32 @@ public sealed class ServerSync(DataContext data, StationKeys keys, ServerFolders
             }
             if (result.Status == SyncBatchStatus.Failed)
                 ServerLog.PackageRefused(log, manifest.BatchId, link.StationNumber, result.Error);
+            // The shop floor's issues, reports and receipts arrive this way, and tills never post to the ledger: the store's
+            // open production orders are posted again (an order whose figures did not change posts nothing).
+            if (result.Status == SyncBatchStatus.Applied && result.Changed > 0) await PostProductionAsync(link.StoreId, cancellationToken);
             return new UploadResponse(result.Status.ToString(), result.BatchId, result.Inserted, result.Updated, result.Deleted, result.Notes, result.Error);
         }
         finally
         {
             gate.Release();
+        }
+    }
+
+    /// <summary>Posts the costs of a store's open production orders, when it has any (see <see cref="ProductionCostingService"/>).</summary>
+    private async Task PostProductionAsync(Guid store, CancellationToken cancellationToken)
+    {
+        await using (var db = data.Create())
+            if (!await db.ProductionOrders.AnyAsync(o => o.StoreId == store && o.Status != ProductionOrderStatus.Planned && o.Status != ProductionOrderStatus.Cancelled
+                                                         && o.Status != ProductionOrderStatus.Closed, cancellationToken))
+                return;
+        try
+        {
+            var (_, problems) = await new ProductionCostingService(data.For(new StationIdentity(store, 0), null)).PostOpenAsync(store, cancellationToken: cancellationToken);
+            foreach (var problem in problems) ProductionLog.NotPosted(log, store, problem);
+        }
+        catch (BusinessRuleException ex)
+        {
+            ProductionLog.NotPosted(log, store, ex.Message);
         }
     }
 
