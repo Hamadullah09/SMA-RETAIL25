@@ -133,6 +133,15 @@ public static class SmokeCheck
             failures.Add("Sync: " + ex);
         }
 
+        try
+        {
+            failures.AddRange(await ProductionCheckAsync(main));
+        }
+        catch (Exception ex)
+        {
+            failures.Add("Production: " + ex);
+        }
+
         foreach (var f in failures) Log.Write("FAIL " + f);
         Log.Write(failures.Count == 0 ? "Smoke check passed" : $"Smoke check failed ({failures.Count})");
         return failures.Count == 0 ? 0 : 5;
@@ -666,6 +675,60 @@ public static class SmokeCheck
             AppServices.Config.RfidMode = mode;
             await AppServices.StartRfidAsync();
         }
+        return failures;
+    }
+
+    /// <summary>
+    /// The shop floor: an order for a product made of one material is released, then worked on the Production screen with
+    /// its own code (start the step, scan the material by its barcode, report the work, finish the order), and the stock,
+    /// the cost of the output and its label come out right.
+    /// </summary>
+    private static async Task<List<string>> ProductionCheckAsync(MainWindow main)
+    {
+        var failures = new List<string>();
+        string stamp = DateTime.Now.ToString("HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
+        var here = AppServices.Session.LocationId;
+        var material = await AppServices.Inventory.SaveAsync(new Item
+        {
+            LocationId = here, Plu = "SMK-M" + stamp, Name = "Smoke material", LastCost = 1.5m, AverageCost = 1.5m, OnHand = 100,
+        }, "SMOKE", null, null);
+        await AppServices.Inventory.AssignInStoreBarcodesAsync([material.Id]);
+        var barcode = (await AppServices.Inventory.GetAsync(material.Id))!.Barcode!;
+        var product = await AppServices.Inventory.SaveAsync(new Item { LocationId = here, Plu = "SMK-P" + stamp, Name = "Smoke product", Price1 = 9m }, "SMOKE", null, null);
+        var manufacturing = new Data.Services.ManufacturingService(AppServices.Data);
+        var bench = await manufacturing.SaveWorkCentreAsync(new WorkCentre
+        {
+            LocationId = here, Code = "SMK" + stamp[^5..], Name = "Smoke bench", LabourCostPerHour = 12m, CapacityHoursPerDay = 8, DaysPerWeek = 5,
+        });
+        await manufacturing.SaveAsync(new BillOfMaterials
+        {
+            ProductCode = product.Plu, Lines = [new BomLine { ComponentCode = material.Plu, Quantity = 2, OperationSequence = 10 }],
+            Operations = [new RoutingOperation { Sequence = 10, WorkCentreId = bench.Id, Name = "Assemble", RunMinutesPerUnit = 5, Instructions = "Fit and check." }],
+        });
+        var production = new Data.Services.ProductionService(AppServices.Data);
+        var order = await production.CreateAsync(new Data.Services.NewProductionOrder(product.Plu, 2, here, here));
+        await production.ReleaseAsync(order.Id);
+
+        main.Navigate("production");
+        await MainWindow.Settle();
+        var view = main.GetView<ProductionView>() ?? throw new InvalidOperationException("the Production screen did not open");
+        await view.SelectAsync(order.Id);
+        if (view.CurrentOrder?.Id != order.Id) failures.Add("the released order is not on the Production screen");
+        await view.StartAsync(10);
+        await view.IssueAsync("0" + barcode, 4);
+        await view.ReportAsync(10, 10, 2, 0);
+        await view.ReceiveAsync(2, complete: true);
+        var done = await production.ProgressAsync(order.Id);
+        decimal materialLeft = (await AppServices.Inventory.GetAsync(material.Id))!.OnHand;
+        var made = (await AppServices.Inventory.GetAsync(product.Id))!;
+        if (done?.Order.Status != ProductionOrderStatus.Completed) failures.Add($"the order is {done?.Order.Status}, expected Completed");
+        if (materialLeft != 96) failures.Add($"material on hand {materialLeft} after issuing 4 of 100");
+        // 4 x 1.50 of material and 10 minutes at 12.00 an hour: 8.00 for 2, 4.00 each.
+        if (made.OnHand != 2 || made.AverageCost != 4m) failures.Add($"output on hand {made.OnHand} at {made.AverageCost}, expected 2 at 4.00");
+        var labels = Dialogs.LabelSheet.Pages([(made.Name, made.Plu, made.Barcode ?? Upc.InStore(1002), made.Price1)], Dialogs.LabelLayout.OneLabel,
+            new Dialogs.LabelOptions(true, true, "Rs", "SMOKE"), cutLines: false);
+        if (labels.Count != 1) failures.Add($"the output's label made {labels.Count} page(s)");
+        Log.Write($"Production order {order.Number}: material scanned by {barcode}, {made.OnHand:0.###} made at {made.AverageCost:0.00}, label ok");
         return failures;
     }
 }

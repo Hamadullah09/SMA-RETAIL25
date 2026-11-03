@@ -378,6 +378,33 @@ public static class HelpTopics
             new("Left to Windows",
                 Paragraphs: ["F1, F2 and F3 are left to Windows on purpose."]),
         ], "keyboard keys shortcuts hotkeys"),
+
+        new("production", "Production on the shop floor", "Working on the production orders released to this location.", "production",
+        [
+            new("An order",
+                Steps:
+                [
+                    "Open Production (Ctrl+Shift+F): the orders released for this location are on the left, the most urgent first.",
+                    "Choose an order; its operations and materials show on the right, with the instructions of the operation chosen.",
+                    "Start operation when the work begins, and Finish operation when it is done.",
+                    "Report work… records the minutes worked and the good and scrapped quantity, under your name.",
+                ]),
+            new("Materials",
+                Steps:
+                [
+                    "Scan a material's barcode (or type its stock code), type the quantity and press Enter: it is issued to the order.",
+                    "A negative quantity gives material back. Issue the list issues what is still due of every material issued by hand.",
+                    "Scrap material… throws away material spoiled on the floor; it still counts as the order's cost.",
+                ]),
+            new("Output",
+                Steps:
+                [
+                    "Receive output… puts what was made into stock, and offers to print its labels.",
+                    "Finish order… receives the last of the output: the materials taken by themselves (backflushed) are issued then, and by-products are received.",
+                ]),
+            new("Without a connection",
+                Paragraphs: ["Everything works without the server; the work goes up with the next send, and the office closes the order and posts its cost."]),
+        ], "production manufacturing factory floor bill of materials order operation issue backflush output scrap label"),
     ];
 
     /// <summary>

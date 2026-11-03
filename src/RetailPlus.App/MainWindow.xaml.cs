@@ -58,6 +58,7 @@ public partial class MainWindow : Window
         new("audit", "Audit log", "\uE81C", Permissions.AuditView, () => new AuditView(), "Ctrl+Shift+A"),
         new("setup", "Setup", "", [Permissions.SetupStore, Permissions.SetupUsers, Permissions.SetupStations], () => new SetupView(), "Ctrl+Shift+S"),
         new("help", "Help", "\uE897", [], () => new HelpView(), "Ctrl+Shift+H"),
+        new("production", "Production", "\uE90F", [Permissions.ProductionFloor, Permissions.ProductionView], () => new ProductionView(), "Ctrl+Shift+F"),
     ];
 
     private readonly DispatcherTimer _clock = new() { Interval = TimeSpan.FromSeconds(15) };
