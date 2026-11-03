@@ -28,6 +28,19 @@ builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<StationKeys>();
 builder.Services.AddSingleton<ServerSync>();
 builder.Services.AddSingleton<ServerStartup>();
+// Finance (phase E1): the jobs that post business days, recurring expenses and the FBR queue. FBR is off unless configured
+// (Fbr:Enabled, PosId, Token, Url); Fbr:UseFake records what would be sent and sends nothing.
+builder.Services.Configure<FinanceOptions>(configuration.GetSection("Finance"));
+builder.Services.Configure<FbrOptions>(configuration.GetSection("Fbr"));
+builder.Services.AddHttpClient(nameof(FbrInvoiceSender));
+builder.Services.AddSingleton<IFiscalInvoiceSender>(provider =>
+{
+    var fbr = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<FbrOptions>>().Value;
+    return fbr.UseFake ? new FakeFiscalInvoiceSender { Enabled = fbr.Enabled, Stores = fbr.Stores }
+        : new FbrInvoiceSender(provider.GetRequiredService<IHttpClientFactory>(), provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<FbrOptions>>());
+});
+builder.Services.AddSingleton<FinanceJobs>();
+builder.Services.AddHostedService(provider => provider.GetRequiredService<FinanceJobs>());
 // What one web request works on (its user, stores and services); see Api.cs.
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped(provider => new ApiRequest(

@@ -9,7 +9,8 @@ public sealed record AutoPostResult(int Entries, IReadOnlyList<string> Problems)
 /// <summary>
 /// Posts the stores' business days to the ledger by itself: the days a package from a store's tills touched, as soon as
 /// it is applied, and every night the last days of every store again (late packages). "Post days" on the web runs the
-/// same. One run at a time on a server, so two never post the same day at once.
+/// same. One run at a time on a server, so two never post the same day at once. Each run first gives stores and tenders
+/// added since the server started the standard accounts of the daily journal's mapping (<see cref="LedgerService.SeedAsync"/>).
 /// </summary>
 public sealed class LedgerAutomation(DataContext data)
 {
@@ -23,6 +24,8 @@ public sealed class LedgerAutomation(DataContext data)
         await Gate.WaitAsync(cancellationToken);
         try
         {
+            // A store or tender added since the server started gets the standard accounts of its daily-journal mapping first.
+            await new LedgerService(data).SeedAsync(cancellationToken);
             var problems = new List<string>();
             int entries = 0;
             List<Guid> stores = store is Guid one ? [one] : await StoresAsync(cancellationToken);
