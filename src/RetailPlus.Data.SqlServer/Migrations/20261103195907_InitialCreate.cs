@@ -48,6 +48,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     RecurringMaxBillings = table.Column<int>(type: "int", nullable: false),
                     RecurringTimesBilled = table.Column<int>(type: "int", nullable: false),
                     RecurringActive = table.Column<bool>(type: "bit", nullable: false),
+                    WhatsAppNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    WhatsAppOptIn = table.Column<bool>(type: "bit", nullable: false),
+                    WhatsAppOptInAt = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: true),
                     ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
                     SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
@@ -180,6 +183,63 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_NumberCounters", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "OpportunityStages",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: false),
+                    SortOrder = table.Column<int>(type: "int", nullable: false),
+                    Probability = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
+                    Outcome = table.Column<string>(type: "nvarchar(8)", maxLength: 8, nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_OpportunityStages", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Promotions",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    Kind = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    StartsOn = table.Column<DateOnly>(type: "date", nullable: true),
+                    EndsOn = table.Column<DateOnly>(type: "date", nullable: true),
+                    Days = table.Column<int>(type: "int", nullable: false),
+                    StartTime = table.Column<TimeOnly>(type: "time", nullable: true),
+                    EndTime = table.Column<TimeOnly>(type: "time", nullable: true),
+                    Priority = table.Column<int>(type: "int", nullable: false),
+                    Combinable = table.Column<bool>(type: "bit", nullable: false),
+                    AllStores = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    Scope = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    Percent = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    BuyQuantity = table.Column<int>(type: "int", nullable: false),
+                    GetQuantity = table.Column<int>(type: "int", nullable: false),
+                    GetPercent = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
+                    BundlePrice = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    SpendThreshold = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    CouponCode = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
+                    CouponMaxUses = table.Column<int>(type: "int", nullable: false),
+                    Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Promotions", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -399,6 +459,27 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "WhatsAppTemplates",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(512)", maxLength: 512, nullable: false),
+                    Language = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Category = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    Body = table.Column<string>(type: "nvarchar(1024)", maxLength: 1024, nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
+                    Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WhatsAppTemplates", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ImportSourceRows",
                 columns: table => new
                 {
@@ -418,6 +499,45 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         name: "FK_ImportSourceRows_ImportBatches_ImportBatchId",
                         column: x => x.ImportBatchId,
                         principalTable: "ImportBatches",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PromotionTargets",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    PromotionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Role = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    DepartmentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    CategoryId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Plu = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    Quantity = table.Column<decimal>(type: "decimal(12,3)", precision: 12, scale: 3, nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PromotionTargets", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PromotionTargets_Categories_CategoryId",
+                        column: x => x.CategoryId,
+                        principalTable: "Categories",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_PromotionTargets_Departments_DepartmentId",
+                        column: x => x.DepartmentId,
+                        principalTable: "Departments",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_PromotionTargets_Promotions_PromotionId",
+                        column: x => x.PromotionId,
+                        principalTable: "Promotions",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -504,6 +624,35 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "CouponUses",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StationNumber = table.Column<int>(type: "int", nullable: false),
+                    PromotionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: false),
+                    SaleId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    InvoiceNumber = table.Column<long>(type: "bigint", nullable: false),
+                    ClientId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    UsedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CouponUses", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_CouponUses_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "CustomerOrders",
                 columns: table => new
                 {
@@ -538,6 +687,34 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     table.PrimaryKey("PK_CustomerOrders", x => x.Id);
                     table.ForeignKey(
                         name: "FK_CustomerOrders_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "CustomerSegments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    RulesJson = table.Column<string>(type: "nvarchar(4000)", maxLength: 4000, nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    LastCount = table.Column<int>(type: "int", nullable: false),
+                    LastEvaluatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: true),
+                    Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CustomerSegments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_CustomerSegments_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -676,6 +853,46 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Leads",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
+                    Company = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: true),
+                    Phone = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
+                    WhatsAppNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    Email = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Source = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
+                    OwnerId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Notes = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    Status = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    ConvertedClientId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ConvertedAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Leads", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Leads_Clients_ConvertedClientId",
+                        column: x => x.ConvertedClientId,
+                        principalTable: "Clients",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Leads_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Locations",
                 columns: table => new
                 {
@@ -730,6 +947,35 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_LoyaltyTransactions_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PromotionStores",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    PromotionId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PromotionStores", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PromotionStores_Promotions_PromotionId",
+                        column: x => x.PromotionId,
+                        principalTable: "Promotions",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_PromotionStores_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -860,6 +1106,33 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     table.PrimaryKey("PK_Rmas", x => x.Id);
                     table.ForeignKey(
                         name: "FK_Rmas_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SalesTargets",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Year = table.Column<int>(type: "int", nullable: false),
+                    Month = table.Column<int>(type: "int", nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SalesTargets", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SalesTargets_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -1066,6 +1339,50 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Campaigns",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
+                    SegmentId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TemplateId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    ScheduledAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: true),
+                    StartedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: true),
+                    FinishedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: true),
+                    CreatedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    CreatedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Campaigns", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Campaigns_CustomerSegments_SegmentId",
+                        column: x => x.SegmentId,
+                        principalTable: "CustomerSegments",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Campaigns_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Campaigns_WhatsAppTemplates_TemplateId",
+                        column: x => x.TemplateId,
+                        principalTable: "WhatsAppTemplates",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "DrawerMovements",
                 columns: table => new
                 {
@@ -1215,6 +1532,58 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_InvoicePayments_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Opportunities",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
+                    ClientId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    LeadId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    StageId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ExpectedValue = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    Probability = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
+                    ExpectedCloseOn = table.Column<DateOnly>(type: "date", nullable: true),
+                    OwnerId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    LostReason = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    ClosedOn = table.Column<DateOnly>(type: "date", nullable: true),
+                    Notes = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Opportunities", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Opportunities_Clients_ClientId",
+                        column: x => x.ClientId,
+                        principalTable: "Clients",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Opportunities_Leads_LeadId",
+                        column: x => x.LeadId,
+                        principalTable: "Leads",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Opportunities_OpportunityStages_StageId",
+                        column: x => x.StageId,
+                        principalTable: "OpportunityStages",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Opportunities_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -1684,6 +2053,111 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "WhatsAppMessages",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    CampaignId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ClientId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TemplateId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ToNumber = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    ParametersJson = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
+                    Body = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Error = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    ProviderMessageId = table.Column<string>(type: "nvarchar(128)", maxLength: 128, nullable: true),
+                    SentAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: true),
+                    DeliveredAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: true),
+                    ReadAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: true),
+                    FailedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: true),
+                    SentBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_WhatsAppMessages", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_WhatsAppMessages_Campaigns_CampaignId",
+                        column: x => x.CampaignId,
+                        principalTable: "Campaigns",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_WhatsAppMessages_Clients_ClientId",
+                        column: x => x.ClientId,
+                        principalTable: "Clients",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_WhatsAppMessages_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_WhatsAppMessages_WhatsAppTemplates_TemplateId",
+                        column: x => x.TemplateId,
+                        principalTable: "WhatsAppTemplates",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "CrmActivities",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Subject = table.Column<string>(type: "nvarchar(120)", maxLength: 120, nullable: false),
+                    Notes = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    ClientId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    LeadId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    OpportunityId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    DueAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    IsDone = table.Column<bool>(type: "bit", nullable: false),
+                    DoneAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: true),
+                    OwnerId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_CrmActivities", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_CrmActivities_Clients_ClientId",
+                        column: x => x.ClientId,
+                        principalTable: "Clients",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_CrmActivities_Leads_LeadId",
+                        column: x => x.LeadId,
+                        principalTable: "Leads",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_CrmActivities_Opportunities_OpportunityId",
+                        column: x => x.OpportunityId,
+                        principalTable: "Opportunities",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_CrmActivities_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "CommissionRules",
                 columns: table => new
                 {
@@ -2064,6 +2538,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     Commission = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     Restock = table.Column<bool>(type: "bit", nullable: false),
                     GiftCardNumber = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
+                    PromotionId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    PromotionName = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    PromotionDiscount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
                     ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
                     SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
@@ -2287,6 +2764,36 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 columns: new[] { "UserId", "AtUtc" });
 
             migrationBuilder.CreateIndex(
+                name: "IX_Campaigns_ChangeNumber",
+                table: "Campaigns",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Campaigns_SegmentId",
+                table: "Campaigns",
+                column: "SegmentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Campaigns_Status_ScheduledAtUtc",
+                table: "Campaigns",
+                columns: new[] { "Status", "ScheduledAtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Campaigns_StoreId",
+                table: "Campaigns",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Campaigns_TemplateId",
+                table: "Campaigns",
+                column: "TemplateId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Campaigns_UpdatedAtUtc",
+                table: "Campaigns",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Categories_ChangeNumber",
                 table: "Categories",
                 column: "ChangeNumber");
@@ -2398,6 +2905,66 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UserId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_CouponUses_ChangeNumber",
+                table: "CouponUses",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CouponUses_PromotionId",
+                table: "CouponUses",
+                column: "PromotionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CouponUses_SaleId",
+                table: "CouponUses",
+                column: "SaleId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CouponUses_StoreId",
+                table: "CouponUses",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CouponUses_UpdatedAtUtc",
+                table: "CouponUses",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CrmActivities_ChangeNumber",
+                table: "CrmActivities",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CrmActivities_ClientId",
+                table: "CrmActivities",
+                column: "ClientId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CrmActivities_LeadId",
+                table: "CrmActivities",
+                column: "LeadId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CrmActivities_OpportunityId",
+                table: "CrmActivities",
+                column: "OpportunityId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CrmActivities_OwnerId_IsDone_DueAt",
+                table: "CrmActivities",
+                columns: new[] { "OwnerId", "IsDone", "DueAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CrmActivities_StoreId_DueAt",
+                table: "CrmActivities",
+                columns: new[] { "StoreId", "DueAt" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CrmActivities_UpdatedAtUtc",
+                table: "CrmActivities",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_CustomerOrders_ChangeNumber",
                 table: "CustomerOrders",
                 column: "ChangeNumber");
@@ -2425,6 +2992,26 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_CustomerOrders_UpdatedAtUtc",
                 table: "CustomerOrders",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CustomerSegments_ChangeNumber",
+                table: "CustomerSegments",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CustomerSegments_Name",
+                table: "CustomerSegments",
+                column: "Name");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CustomerSegments_StoreId",
+                table: "CustomerSegments",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_CustomerSegments_UpdatedAtUtc",
+                table: "CustomerSegments",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -2897,6 +3484,31 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Leads_ChangeNumber",
+                table: "Leads",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Leads_ConvertedClientId",
+                table: "Leads",
+                column: "ConvertedClientId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Leads_OwnerId",
+                table: "Leads",
+                column: "OwnerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Leads_StoreId_Status",
+                table: "Leads",
+                columns: new[] { "StoreId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Leads_UpdatedAtUtc",
+                table: "Leads",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Locations_ChangeNumber",
                 table: "Locations",
                 column: "ChangeNumber");
@@ -2951,6 +3563,123 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_NumberCounters_UpdatedAtUtc",
                 table: "NumberCounters",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Opportunities_ChangeNumber",
+                table: "Opportunities",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Opportunities_ClientId",
+                table: "Opportunities",
+                column: "ClientId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Opportunities_ClosedOn",
+                table: "Opportunities",
+                column: "ClosedOn");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Opportunities_LeadId",
+                table: "Opportunities",
+                column: "LeadId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Opportunities_OwnerId",
+                table: "Opportunities",
+                column: "OwnerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Opportunities_StageId",
+                table: "Opportunities",
+                column: "StageId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Opportunities_StoreId_StageId",
+                table: "Opportunities",
+                columns: new[] { "StoreId", "StageId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Opportunities_UpdatedAtUtc",
+                table: "Opportunities",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OpportunityStages_ChangeNumber",
+                table: "OpportunityStages",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OpportunityStages_Name",
+                table: "OpportunityStages",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_OpportunityStages_UpdatedAtUtc",
+                table: "OpportunityStages",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Promotions_ChangeNumber",
+                table: "Promotions",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Promotions_CouponCode",
+                table: "Promotions",
+                column: "CouponCode");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Promotions_UpdatedAtUtc",
+                table: "Promotions",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PromotionStores_ChangeNumber",
+                table: "PromotionStores",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PromotionStores_PromotionId_StoreId",
+                table: "PromotionStores",
+                columns: new[] { "PromotionId", "StoreId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PromotionStores_StoreId",
+                table: "PromotionStores",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PromotionStores_UpdatedAtUtc",
+                table: "PromotionStores",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PromotionTargets_CategoryId",
+                table: "PromotionTargets",
+                column: "CategoryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PromotionTargets_ChangeNumber",
+                table: "PromotionTargets",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PromotionTargets_DepartmentId",
+                table: "PromotionTargets",
+                column: "DepartmentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PromotionTargets_PromotionId",
+                table: "PromotionTargets",
+                column: "PromotionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PromotionTargets_UpdatedAtUtc",
+                table: "PromotionTargets",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -3115,6 +3844,11 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "Plu");
 
             migrationBuilder.CreateIndex(
+                name: "IX_SaleLines_PromotionId",
+                table: "SaleLines",
+                column: "PromotionId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_SaleLines_SaleId",
                 table: "SaleLines",
                 column: "SaleId");
@@ -3202,6 +3936,21 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Sales_UpdatedAtUtc",
                 table: "Sales",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalesTargets_ChangeNumber",
+                table: "SalesTargets",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalesTargets_StoreId_Year_Month_UserId",
+                table: "SalesTargets",
+                columns: new[] { "StoreId", "Year", "Month", "UserId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalesTargets_UpdatedAtUtc",
+                table: "SalesTargets",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -3697,6 +4446,57 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 table: "UserAccounts",
                 column: "UserName",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WhatsAppMessages_CampaignId_Status",
+                table: "WhatsAppMessages",
+                columns: new[] { "CampaignId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WhatsAppMessages_ChangeNumber",
+                table: "WhatsAppMessages",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WhatsAppMessages_ClientId_CreatedAtUtc",
+                table: "WhatsAppMessages",
+                columns: new[] { "ClientId", "CreatedAtUtc" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WhatsAppMessages_ProviderMessageId",
+                table: "WhatsAppMessages",
+                column: "ProviderMessageId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WhatsAppMessages_StoreId",
+                table: "WhatsAppMessages",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WhatsAppMessages_TemplateId",
+                table: "WhatsAppMessages",
+                column: "TemplateId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WhatsAppMessages_UpdatedAtUtc",
+                table: "WhatsAppMessages",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WhatsAppTemplates_ChangeNumber",
+                table: "WhatsAppTemplates",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WhatsAppTemplates_Name_Language",
+                table: "WhatsAppTemplates",
+                columns: new[] { "Name", "Language" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_WhatsAppTemplates_UpdatedAtUtc",
+                table: "WhatsAppTemplates",
+                column: "UpdatedAtUtc");
         }
 
         /// <inheritdoc />
@@ -3710,6 +4510,12 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "CommissionRules");
+
+            migrationBuilder.DropTable(
+                name: "CouponUses");
+
+            migrationBuilder.DropTable(
+                name: "CrmActivities");
 
             migrationBuilder.DropTable(
                 name: "CustomerOrders");
@@ -3772,6 +4578,12 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "NumberCounters");
 
             migrationBuilder.DropTable(
+                name: "PromotionStores");
+
+            migrationBuilder.DropTable(
+                name: "PromotionTargets");
+
+            migrationBuilder.DropTable(
                 name: "PurchaseOrderLines");
 
             migrationBuilder.DropTable(
@@ -3791,6 +4603,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "SalePayments");
+
+            migrationBuilder.DropTable(
+                name: "SalesTargets");
 
             migrationBuilder.DropTable(
                 name: "StaffPeriods");
@@ -3844,6 +4659,12 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "Tombstones");
 
             migrationBuilder.DropTable(
+                name: "WhatsAppMessages");
+
+            migrationBuilder.DropTable(
+                name: "Opportunities");
+
+            migrationBuilder.DropTable(
                 name: "DrawerSessions");
 
             migrationBuilder.DropTable(
@@ -3854,6 +4675,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "Invoices");
+
+            migrationBuilder.DropTable(
+                name: "Promotions");
 
             migrationBuilder.DropTable(
                 name: "PurchaseOrders");
@@ -3880,6 +4704,15 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "UserAccounts");
 
             migrationBuilder.DropTable(
+                name: "Campaigns");
+
+            migrationBuilder.DropTable(
+                name: "Leads");
+
+            migrationBuilder.DropTable(
+                name: "OpportunityStages");
+
+            migrationBuilder.DropTable(
                 name: "Sales");
 
             migrationBuilder.DropTable(
@@ -3893,6 +4726,12 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "Roles");
+
+            migrationBuilder.DropTable(
+                name: "CustomerSegments");
+
+            migrationBuilder.DropTable(
+                name: "WhatsAppTemplates");
 
             migrationBuilder.DropTable(
                 name: "Clients");

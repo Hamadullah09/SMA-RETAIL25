@@ -97,6 +97,20 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
     public DbSet<SyncState> SyncStates => Set<SyncState>();
     public DbSet<StationLink> StationLinks => Set<StationLink>();
     public DbSet<RfidHubLink> RfidHubLinks => Set<RfidHubLink>();
+    // Phase E4: CRM, marketing, promotions and targets.
+    public DbSet<Lead> Leads => Set<Lead>();
+    public DbSet<OpportunityStage> OpportunityStages => Set<OpportunityStage>();
+    public DbSet<Opportunity> Opportunities => Set<Opportunity>();
+    public DbSet<CrmActivity> CrmActivities => Set<CrmActivity>();
+    public DbSet<SalesTarget> SalesTargets => Set<SalesTarget>();
+    public DbSet<CustomerSegment> CustomerSegments => Set<CustomerSegment>();
+    public DbSet<WhatsAppTemplate> WhatsAppTemplates => Set<WhatsAppTemplate>();
+    public DbSet<Campaign> Campaigns => Set<Campaign>();
+    public DbSet<WhatsAppMessage> WhatsAppMessages => Set<WhatsAppMessage>();
+    public DbSet<Promotion> Promotions => Set<Promotion>();
+    public DbSet<PromotionTarget> PromotionTargets => Set<PromotionTarget>();
+    public DbSet<PromotionStore> PromotionStores => Set<PromotionStore>();
+    public DbSet<CouponUse> CouponUses => Set<CouponUse>();
 
     /// <summary>
     /// Set while rows from a sync package are saved: they keep their times, store, station and version exactly as they

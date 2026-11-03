@@ -60,6 +60,12 @@ public static class Permissions
     public const string StoresManage = "stores.manage";
     public const string StoresAll = "stores.all";
 
+    public const string CrmView = "crm.view";
+    public const string CrmEdit = "crm.edit";
+    public const string MarketingCampaigns = "marketing.campaigns";
+    public const string MarketingPromotions = "marketing.promotions";
+    public const string SalesTargets = "sales.targets";
+
     public static IReadOnlyList<PermissionInfo> All { get; } =
     [
         new(PosSell, "Sales", "Ring up sales"),
@@ -109,6 +115,12 @@ public static class Permissions
         new(WebSignIn, "Web", "Sign in to the web back office"),
         new(StoresManage, "Web", "Add stores and tills"),
         new(StoresAll, "Web", "See and manage every store (super admin)"),
+
+        new(CrmView, "CRM and marketing", "See leads, the pipeline and activities"),
+        new(CrmEdit, "CRM and marketing", "Add and change leads, opportunities and activities; send a WhatsApp message"),
+        new(MarketingCampaigns, "CRM and marketing", "Customer segments, WhatsApp templates and campaigns"),
+        new(MarketingPromotions, "CRM and marketing", "Promotions and coupons at the till"),
+        new(SalesTargets, "CRM and marketing", "Sales targets per store and salesperson"),
     ];
 
     public static bool IsKnown(string key) => All.Any(p => p.Key == key);
@@ -124,9 +136,9 @@ public static class Permissions
     private static readonly string[] CashierKeys = [.. TraineeKeys, PosReturn, PosDrawer, ClientsEdit, GiftCardsIssue, SyncSend];
     private static readonly string[] ClerkKeys = [.. CashierKeys, InventoryEdit, InventoryAdjust, InventoryCount, InventoryLabels, PurchasingManage, SuppliersEdit];
     private static readonly string[] SupervisorKeys =
-        [.. ClerkKeys, PosDiscount, PosVoidLine, PosVoidSale, PosNoSale, PosEndOfDay, PosApprove, InvoicesManage, RmaManage, InventoryTransfer, DashboardView, ReportsView, TimeClockEdit];
+        [.. ClerkKeys, PosDiscount, PosVoidLine, PosVoidSale, PosNoSale, PosEndOfDay, PosApprove, InvoicesManage, RmaManage, InventoryTransfer, DashboardView, ReportsView, TimeClockEdit, CrmView];
     private static readonly string[] ManagerKeys =
-        [.. SupervisorKeys, InventoryPrices, ReportsStaff, SetupStore, SetupStations, RfidManage, BackupManage, YearEndRun, AuditView, AccountingExport];
+        [.. SupervisorKeys, InventoryPrices, ReportsStaff, SetupStore, SetupStations, RfidManage, BackupManage, YearEndRun, AuditView, AccountingExport, CrmEdit, MarketingCampaigns, MarketingPromotions, SalesTargets];
 
     public const string TraineeRole = "Trainee";
     public const string CashierRole = "Cashier";
@@ -135,6 +147,11 @@ public static class Permissions
     public const string ManagerRole = "Manager";
     public const string AdministratorRole = "Administrator";
     public const string SuperAdministratorRole = "Super administrator";
+    public const string MarketingRole = "Marketing";
+
+    /// <summary>Marketing works on the web: leads and the pipeline, segments, WhatsApp campaigns and promotions.</summary>
+    private static readonly string[] MarketingKeys =
+        [WebSignIn, DashboardView, ReportsView, ClientsView, ClientsEdit, CrmView, CrmEdit, MarketingCampaigns, MarketingPromotions];
 
     /// <summary>
     /// The roles of a new database. Cashiers, supervisors and managers work at the tills; administrators look after one
@@ -149,6 +166,7 @@ public static class Permissions
         new(ManagerRole, 3, "Runs the store: prices, staff, setup, backups", ManagerKeys),
         new(AdministratorRole, 4, "Everything for one store, at the tills and on the web", [.. All.Select(p => p.Key).Where(k => k != StoresAll)]),
         new(SuperAdministratorRole, 4, "Everything, for every store", [.. All.Select(p => p.Key)]),
+        new(MarketingRole, 3, "Leads, the pipeline, segments, WhatsApp campaigns and promotions, on the web", MarketingKeys),
     ];
 
     /// <summary>The default role for a Retail Plus access level (users brought in by the importer).</summary>

@@ -75,7 +75,14 @@ public sealed class PartyService(DataContext data)
     public async Task<Client> SaveClientAsync(Client client)
     {
         Validate(client);
+        // WhatsApp: the number in international form, consent only with a number, and when consent was given.
+        client.WhatsAppNumber = CrmService.Number(client.WhatsAppNumber);
+        if (client.WhatsAppOptIn && client.WhatsAppNumber is null)
+            throw new BusinessRuleException("Enter the WhatsApp number the client agreed to receive messages on.");
         await using var db = data.Create();
+        var consent = client.Id == Guid.Empty ? null
+            : await db.Clients.AsNoTracking().Where(c => c.Id == client.Id).Select(c => new { c.WhatsAppOptIn, c.WhatsAppOptInAt }).SingleOrDefaultAsync();
+        client.WhatsAppOptInAt = !client.WhatsAppOptIn ? null : consent is { WhatsAppOptIn: true } ? consent.WhatsAppOptInAt ?? DateTime.UtcNow : DateTime.UtcNow;
         if (string.IsNullOrWhiteSpace(client.Number))
             client.Number = (await db.NextNumberAsync(RetailPlusDbContext.Sequences.CustomerNumbers)).ToString(System.Globalization.CultureInfo.InvariantCulture);
         if (await db.Clients.AnyAsync(c => c.Number == client.Number && c.Id != client.Id && !c.IsDeleted))

@@ -44,8 +44,10 @@ public class MappingTests
         Assert.All(granted, key => Assert.True(Permissions.IsKnown(key), key));
         Assert.All(PermissionMap.Keys.Values.SelectMany(k => k), key => Assert.True(Permissions.IsKnown(key), key));
         // Every key of Retail25 together grants everything here but the cross-store keys, gift cards (sold under pos.sell
-        // in Retail25, where the standard roles keep it) and pos.approve (added to custom roles as a whole).
-        Assert.Equal(Permissions.All.Select(p => p.Key).Except([Permissions.StoresManage, Permissions.StoresAll, Permissions.GiftCardsIssue, Permissions.PosApprove]).Order(), granted.Order());
+        // in Retail25, where the standard roles keep it) and pos.approve (added to custom roles as a whole). Retail25 had no
+        // CRM or marketing, so their keys (phase E4) come from the standard roles only.
+        var crm = Permissions.All.Where(p => p.Group == "CRM and marketing").Select(p => p.Key);
+        Assert.Equal(Permissions.All.Select(p => p.Key).Except([Permissions.StoresManage, Permissions.StoresAll, Permissions.GiftCardsIssue, Permissions.PosApprove]).Except(crm).Order(), granted.Order());
     }
 
     [Fact]
