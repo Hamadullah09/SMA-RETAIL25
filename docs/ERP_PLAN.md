@@ -102,7 +102,22 @@ Every phase follows the rules phases 1 to 6 kept:
 - web pages in the desktop design, and desktop screens only where shop-floor staff need them;
 - tests on SQLite and SQL Server, web tests, and the smoke check.
 
-## 5. Decisions needed
+## 5. Decisions
+
+Taken 2026-11-03:
+
+1. **Option A**: every module is built into SMA RETAIL's own model.
+2. **Accounting: both.** The books are kept in this system (E1), and the export to an accountant's program stays and
+   gains Tally and QuickBooks formats.
+3. **Country rules: Pakistan first, changeable.** Taxes, payroll deductions and statutory contributions are data (rule
+   sets per country, Pakistan seeded), not code, so another country is a new rule set. FBR POS integration is optional.
+4. **Manufacturing: any kind.** Assembly and process work, made to order and to stock; bills of materials with yields,
+   scrap and by-products.
+5. **Marketing channel: WhatsApp** (the WhatsApp Business Cloud API), behind a provider interface so others can be added.
+6. **All five phases now**, with the general ledger built first so the other phases can post to it.
+
+The questions as they were put:
+
 
 1. **Option A, B or C** of section 2. *Recommended: A.*
 2. **Accounting:**
@@ -118,3 +133,20 @@ Every phase follows the rules phases 1 to 6 kept:
    message.
 6. **Order:** E1 to E5 as in section 4, or does one area matter more now? For example, manufacturing may be needed
    first.
+
+## 6. The general ledger foundation (2026-11-03)
+
+Built before the phases so that they can all post to one ledger:
+
+| Area | What is there |
+|---|---|
+| Chart of accounts | `LedgerAccount`: code, name, type (asset, liability, equity, income, expense), header accounts, active, and a role (`LedgerRoles`) for the accounts the program posts to by itself. A standard chart of 48 accounts is seeded on the server's first start, and every store's daily-journal mapping (Setup › Accounting) gets the matching standard account where it had none |
+| Journal entries | `JournalEntry` and `JournalLine`: date, kind, source, store, memo, reference; lines per account and store, with an optional party (client, supplier, employee). Numbered on the server from its own range |
+| Posting | `LedgerService.PostAsync` checks that the entry balances, that every account exists, is posted to and is active, and that the date is in an open period. Posting the same source again replaces the entry while its period is open, and posts only the difference, dated in the first open period, once it is locked |
+| Hand entries | Drafts, approved and posted by a second person; reversal by a mirror entry |
+| Years and periods | Financial years (Pakistan: July to June, a setting) made with twelve monthly periods when first needed; periods locked and opened again |
+| Reading | Balances per account (opening, debits, credits, closing) per store or company; an account's ledger with its running balance |
+| Daily posting | `PostDailyAsync` turns each store's business day of the daily journal (sales, payments on account, stock movements, gift cards) into one entry per store and day; amounts whose account is missing go to Suspense |
+| Permissions | `finance.view`, `finance.post`, `finance.approve`, `finance.close`, `finance.setup`, and a standard Accountant role |
+
+The ledger tables live on the server only and are never synced to the tills.

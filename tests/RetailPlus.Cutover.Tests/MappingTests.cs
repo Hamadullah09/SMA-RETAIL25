@@ -6,6 +6,19 @@ namespace RetailPlus.Cutover.Tests;
 public class MappingTests
 {
     /// <summary>Retail25's 62 permission keys (its permissions table, as its seed writes it).</summary>
+    /// <summary>The permission keys of the retail system when the cutover was written (before the ERP modules).</summary>
+    private static readonly string[] RetailKeys =
+    [
+        Permissions.PosSell, Permissions.PosDiscount, Permissions.PosReturn, Permissions.PosVoidLine, Permissions.PosVoidSale, Permissions.PosNoSale,
+        Permissions.PosDrawer, Permissions.PosEndOfDay, Permissions.PosApprove, Permissions.InventoryView, Permissions.InventoryEdit,
+        Permissions.InventoryAdjust, Permissions.InventoryCount, Permissions.InventoryTransfer, Permissions.InventoryPrices, Permissions.InventoryLabels,
+        Permissions.PurchasingManage, Permissions.ClientsView, Permissions.ClientsEdit, Permissions.SuppliersEdit, Permissions.InvoicesManage,
+        Permissions.RmaManage, Permissions.GiftCardsIssue, Permissions.TimeClockPunch, Permissions.TimeClockEdit, Permissions.DashboardView,
+        Permissions.ReportsView, Permissions.ReportsStaff, Permissions.SetupStore, Permissions.SetupUsers, Permissions.SetupStations,
+        Permissions.RfidManage, Permissions.BackupManage, Permissions.ImportRun, Permissions.YearEndRun, Permissions.AuditView,
+        Permissions.AccountingExport, Permissions.SyncSend, Permissions.WebSignIn, Permissions.StoresManage, Permissions.StoresAll,
+    ];
+
     private static readonly string[] Retail25Keys =
     [
         "drawer.close", "drawer.open_float", "drawer.pay_in", "drawer.pay_out", "drawer.pop", "drawer.read",
@@ -43,9 +56,10 @@ public class MappingTests
         Assert.Empty(unknown);
         Assert.All(granted, key => Assert.True(Permissions.IsKnown(key), key));
         Assert.All(PermissionMap.Keys.Values.SelectMany(k => k), key => Assert.True(Permissions.IsKnown(key), key));
-        // Every key of Retail25 together grants everything here but the cross-store keys, gift cards (sold under pos.sell
-        // in Retail25, where the standard roles keep it) and pos.approve (added to custom roles as a whole).
-        Assert.Equal(Permissions.All.Select(p => p.Key).Except([Permissions.StoresManage, Permissions.StoresAll, Permissions.GiftCardsIssue, Permissions.PosApprove]).Order(), granted.Order());
+        // Every key of Retail25 together grants every key the retail system had at the cutover but the cross-store keys,
+        // gift cards (sold under pos.sell in Retail25, where the standard roles keep it) and pos.approve (added to custom
+        // roles as a whole). The ERP modules' keys came later and have no Retail25 equivalent.
+        Assert.Equal(RetailKeys.Except([Permissions.StoresManage, Permissions.StoresAll, Permissions.GiftCardsIssue, Permissions.PosApprove]).Order(), granted.Order());
     }
 
     [Fact]

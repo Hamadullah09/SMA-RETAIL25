@@ -133,7 +133,7 @@ public abstract class CutoverTests(Retail25SourceFixture source, CutoverTargets 
         Assert.Equal(Permissions.ClerkRole, users["clerk.north@corner.test"].Role!.Name);
         Assert.Equal(Permissions.AdministratorRole, users["admin@sma.rma.com"].Role!.Name);
         Assert.False(users["former@corner.test"].IsActive);
-        Assert.Equal(7, await db.Roles.CountAsync(r => r.IsSystem));
+        Assert.Equal(Permissions.DefaultRoles.Count, await db.Roles.CountAsync(r => r.IsSystem));
 
         // Sales: the reversal and the practice sale stay behind; the void is on the sale itself.
         Assert.Equal(10, await db.Sales.CountAsync());

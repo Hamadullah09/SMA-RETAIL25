@@ -21,7 +21,9 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
         public const string TransferNumbers = "TransferNumbers";
         /// <summary>For gift certificates printed by the store, which have no number of their own.</summary>
         public const string GiftCardNumbers = "GiftCardNumbers";
-        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers];
+        /// <summary>General ledger entries (numbered on the server, from its own range).</summary>
+        public const string JournalNumbers = "JournalNumbers";
+        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers, JournalNumbers];
     }
 
     /// <summary>
@@ -97,6 +99,12 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
     public DbSet<SyncState> SyncStates => Set<SyncState>();
     public DbSet<StationLink> StationLinks => Set<StationLink>();
     public DbSet<RfidHubLink> RfidHubLinks => Set<RfidHubLink>();
+    public DbSet<LedgerAccount> LedgerAccounts => Set<LedgerAccount>();
+    public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
+    public DbSet<JournalLine> JournalLines => Set<JournalLine>();
+    public DbSet<FiscalYear> FiscalYears => Set<FiscalYear>();
+    public DbSet<FiscalPeriod> FiscalPeriods => Set<FiscalPeriod>();
+    public DbSet<LedgerSettings> LedgerSettings => Set<LedgerSettings>();
 
     /// <summary>
     /// Set while rows from a sync package are saved: they keep their times, store, station and version exactly as they

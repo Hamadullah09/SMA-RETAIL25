@@ -60,6 +60,12 @@ public static class Permissions
     public const string StoresManage = "stores.manage";
     public const string StoresAll = "stores.all";
 
+    public const string FinanceView = "finance.view";
+    public const string FinancePost = "finance.post";
+    public const string FinanceApprove = "finance.approve";
+    public const string FinanceClose = "finance.close";
+    public const string FinanceSetup = "finance.setup";
+
     public static IReadOnlyList<PermissionInfo> All { get; } =
     [
         new(PosSell, "Sales", "Ring up sales"),
@@ -109,6 +115,12 @@ public static class Permissions
         new(WebSignIn, "Web", "Sign in to the web back office"),
         new(StoresManage, "Web", "Add stores and tills"),
         new(StoresAll, "Web", "See and manage every store (super admin)"),
+
+        new(FinanceView, "Finance", "See the ledger, statements and balances"),
+        new(FinancePost, "Finance", "Enter journal entries, bills, expenses and payments"),
+        new(FinanceApprove, "Finance", "Approve journal entries made by hand"),
+        new(FinanceClose, "Finance", "Lock periods and close the financial year"),
+        new(FinanceSetup, "Finance", "Chart of accounts, account mapping and ledger settings"),
     ];
 
     public static bool IsKnown(string key) => All.Any(p => p.Key == key);
@@ -126,7 +138,9 @@ public static class Permissions
     private static readonly string[] SupervisorKeys =
         [.. ClerkKeys, PosDiscount, PosVoidLine, PosVoidSale, PosNoSale, PosEndOfDay, PosApprove, InvoicesManage, RmaManage, InventoryTransfer, DashboardView, ReportsView, TimeClockEdit];
     private static readonly string[] ManagerKeys =
-        [.. SupervisorKeys, InventoryPrices, ReportsStaff, SetupStore, SetupStations, RfidManage, BackupManage, YearEndRun, AuditView, AccountingExport];
+        [.. SupervisorKeys, InventoryPrices, ReportsStaff, SetupStore, SetupStations, RfidManage, BackupManage, YearEndRun, AuditView, AccountingExport, FinanceView];
+    private static readonly string[] AccountantKeys =
+        [WebSignIn, DashboardView, ReportsView, AuditView, AccountingExport, ClientsView, InventoryView, FinanceView, FinancePost, FinanceApprove, FinanceClose, FinanceSetup];
 
     public const string TraineeRole = "Trainee";
     public const string CashierRole = "Cashier";
@@ -135,6 +149,7 @@ public static class Permissions
     public const string ManagerRole = "Manager";
     public const string AdministratorRole = "Administrator";
     public const string SuperAdministratorRole = "Super administrator";
+    public const string AccountantRole = "Accountant";
 
     /// <summary>
     /// The roles of a new database. Cashiers, supervisors and managers work at the tills; administrators look after one
@@ -149,6 +164,7 @@ public static class Permissions
         new(ManagerRole, 3, "Runs the store: prices, staff, setup, backups", ManagerKeys),
         new(AdministratorRole, 4, "Everything for one store, at the tills and on the web", [.. All.Select(p => p.Key).Where(k => k != StoresAll)]),
         new(SuperAdministratorRole, 4, "Everything, for every store", [.. All.Select(p => p.Key)]),
+        new(AccountantRole, 3, "Keeps the books on the web: ledger, payables, bank, statements", AccountantKeys),
     ];
 
     /// <summary>The default role for a Retail Plus access level (users brought in by the importer).</summary>

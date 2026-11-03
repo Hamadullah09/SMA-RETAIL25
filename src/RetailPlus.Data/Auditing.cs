@@ -28,6 +28,9 @@ public static class AuditActions
     public const string TimeClock = "Time clock";
     public const string TimeClockEdit = "Time clock edit";
     public const string GiftCardAdjust = "Gift card adjust";
+    public const string JournalPosted = "Journal posted";
+    public const string JournalReversed = "Journal reversed";
+    public const string PeriodStatus = "Period status";
 }
 
 /// <summary>
@@ -61,6 +64,8 @@ public static class AuditedTables
         [typeof(GiftCard)] = Name<GiftCard>(c => c.Number),
         [typeof(AccountMapping)] = Name<AccountMapping>(m => $"{m.Kind} {m.Key}"),
         [typeof(StoreImage)] = Name<StoreImage>(i => i.Kind.ToString()),
+        [typeof(LedgerAccount)] = Name<LedgerAccount>(a => $"{a.Code} {a.Name}"),
+        [typeof(LedgerSettings)] = Name<LedgerSettings>(_ => "Ledger settings"),
     };
 
     /// <summary>Properties never written to the log: kept by the program, or marks that are not changes of substance.</summary>
