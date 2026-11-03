@@ -23,7 +23,12 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
         public const string GiftCardNumbers = "GiftCardNumbers";
         /// <summary>General ledger entries (numbered on the server, from its own range).</summary>
         public const string JournalNumbers = "JournalNumbers";
-        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers, JournalNumbers];
+        /// <summary>Payroll runs (numbered on the server, from its own range).</summary>
+        public const string PayrollRunNumbers = "PayrollRunNumbers";
+        /// <summary>Loans and advances to employees (numbered on the server).</summary>
+        public const string LoanNumbers = "LoanNumbers";
+        public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers, JournalNumbers,
+            PayrollRunNumbers, LoanNumbers];
     }
 
     /// <summary>
@@ -105,6 +110,28 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
     public DbSet<FiscalYear> FiscalYears => Set<FiscalYear>();
     public DbSet<FiscalPeriod> FiscalPeriods => Set<FiscalPeriod>();
     public DbSet<LedgerSettings> LedgerSettings => Set<LedgerSettings>();
+    public DbSet<PayrollRuleSet> PayrollRuleSets => Set<PayrollRuleSet>();
+    public DbSet<PayrollTaxSlab> PayrollTaxSlabs => Set<PayrollTaxSlab>();
+    public DbSet<PayrollAllowanceRule> PayrollAllowanceRules => Set<PayrollAllowanceRule>();
+    public DbSet<LeaveType> LeaveTypes => Set<LeaveType>();
+    public DbSet<Holiday> Holidays => Set<Holiday>();
+    public DbSet<HrDepartment> HrDepartments => Set<HrDepartment>();
+    public DbSet<Designation> Designations => Set<Designation>();
+    public DbSet<Employee> Employees => Set<Employee>();
+    public DbSet<EmployeeDocument> EmployeeDocuments => Set<EmployeeDocument>();
+    public DbSet<Shift> Shifts => Set<Shift>();
+    public DbSet<RosterWeek> RosterWeeks => Set<RosterWeek>();
+    public DbSet<RosterDay> RosterDays => Set<RosterDay>();
+    public DbSet<AttendanceCorrection> AttendanceCorrections => Set<AttendanceCorrection>();
+    public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+    public DbSet<LeaveAdjustment> LeaveAdjustments => Set<LeaveAdjustment>();
+    public DbSet<SalaryStructure> SalaryStructures => Set<SalaryStructure>();
+    public DbSet<SalaryComponent> SalaryComponents => Set<SalaryComponent>();
+    public DbSet<EmployeeLoan> EmployeeLoans => Set<EmployeeLoan>();
+    public DbSet<LoanInstalment> LoanInstalments => Set<LoanInstalment>();
+    public DbSet<PayrollRun> PayrollRuns => Set<PayrollRun>();
+    public DbSet<Payslip> Payslips => Set<Payslip>();
+    public DbSet<PayslipLine> PayslipLines => Set<PayslipLine>();
 
     /// <summary>
     /// Set while rows from a sync package are saved: they keep their times, store, station and version exactly as they
