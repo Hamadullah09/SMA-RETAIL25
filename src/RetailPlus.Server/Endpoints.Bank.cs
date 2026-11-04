@@ -206,7 +206,8 @@ public static partial class Endpoints
         var format = new BankStatementFormat
         {
             BankName = Field("bankName") ?? bank.BankName ?? bank.Name, HasHeader = !string.Equals(Field("hasHeader"), "false", StringComparison.OrdinalIgnoreCase),
-            Delimiter = Field("delimiter") ?? ",", DateColumn = Field("dateColumn") ?? "", DateFormat = Field("dateFormat") ?? "yyyy-MM-dd",
+            // A tab is a delimiter, though it is white space.
+            Delimiter = form.TryGetValue("delimiter", out var delimiter) && delimiter.ToString().Length > 0 ? delimiter.ToString() : ",", DateColumn = Field("dateColumn") ?? "", DateFormat = Field("dateFormat") ?? "yyyy-MM-dd",
             DescriptionColumn = Field("descriptionColumn"), ReferenceColumn = Field("referenceColumn"), AmountColumn = Field("amountColumn"), DebitColumn = Field("debitColumn"),
             CreditColumn = Field("creditColumn"), BalanceColumn = Field("balanceColumn"),
         };

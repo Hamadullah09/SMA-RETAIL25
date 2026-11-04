@@ -1474,3 +1474,6 @@ export interface FiscalQueue {
   enabled: boolean;
   rows: FiscalRow[];
 }
+
+/** The accountant's programs the ledger is exported for: Tally (XML), QuickBooks Desktop (IIF), QuickBooks Online (CSV), or plain CSV. */
+export type LedgerExportFormat = 'tally' | 'iif' | 'qbo' | 'csv';

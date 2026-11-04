@@ -146,7 +146,8 @@ function PaymentRun({ preselected, onClose }: { preselected: string[]; onClose()
     );
     return { supplier: g[0].supplier, store: g[0].storeCode, quote, ...result };
   });
-  const total = roundMoney(preview.reduce((sum, p) => sum + p.settled, 0));
+  // What leaves the account: the bills less debit notes, less the tax kept back.
+  const total = roundMoney(preview.reduce((sum, p) => sum + p.paid, 0));
 
   const pay = useMutation({
     mutationFn: () =>

@@ -10,10 +10,14 @@ import type {
   BudgetAmount,
   ExpenseStatus,
   FinanceAccount,
+  FinanceComparison,
+  FinanceReportInfo,
   FiscalInvoiceStatus,
   FiscalStatus,
   JournalKind,
   JournalStatus,
+  LedgerExportFormat,
+  ReportCell,
   StatementLineStatus,
 } from './types';
 
@@ -283,4 +287,124 @@ export function fileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 102.4) / 10} KB`;
   return `${Math.round(bytes / (1024 * 102.4)) / 10} MB`;
+}
+
+// Statements -------------------------------------------------------------------------------------------------------
+
+/** How a statement's row is shown: a group heading, a total, or a plain line. */
+export type StatementRowKind = 'heading' | 'total' | 'plain';
+
+const TOTAL_LINES = /^(Total |Net |Cash and bank at |Input tax to claim$|Tax to pay$|Tax to carry forward$|Sales from the daily journal$|Closing balance$)/;
+
+/**
+ * Whether a row of a finance statement is a heading (a header account with no amount: profit and loss, balance sheet),
+ * a total (totals, net profit, net cash, the tax due, a ledger's closing balance) or a plain line, from the report's key
+ * and the row the server sent.
+ */
+export function statementRow(key: string, row: readonly ReportCell[]): StatementRowKind {
+  const text = (i: number) => (typeof row[i] === 'string' ? (row[i] as string) : '');
+  switch (key) {
+    case 'profit-and-loss':
+    case 'balance-sheet':
+      if (row[2] === null || row[2] === undefined) return 'heading';
+      return text(0) === '' && TOTAL_LINES.test(text(1)) ? 'total' : 'plain';
+    case 'cash-flow':
+      return TOTAL_LINES.test(text(2)) ? 'total' : 'plain';
+    case 'sales-tax':
+      return TOTAL_LINES.test(text(1)) ? 'total' : 'plain';
+    case 'general-ledger':
+    case 'account-ledger': {
+      const memo = text(3);
+      return memo === 'Opening balance' ? 'heading' : memo === 'Closing balance' ? 'total' : 'plain';
+    }
+    default:
+      return 'plain';
+  }
+}
+
+/** What a finance report asks for besides the store: the days or one day, a comparison, an account. */
+export function reportInputs(info: Pick<FinanceReportInfo, 'key' | 'usesComparison' | 'usesAccount' | 'asOfDate'>): {
+  oneDay: boolean;
+  comparisons: FinanceComparison[];
+  account: 'none' | 'optional' | 'required';
+} {
+  return {
+    // Ageing is as of one day; the balance sheet keeps its period, whose start is the "previous period" it is compared with.
+    oneDay: info.asOfDate && !info.usesComparison,
+    comparisons: info.usesComparison ? ['none', 'previousPeriod', 'previousYear', ...(info.key === 'profit-and-loss' ? (['budget'] as const) : [])] : [],
+    account: !info.usesAccount ? 'none' : info.key === 'account-ledger' ? 'required' : 'optional',
+  };
+}
+
+const COMPARISON_LABELS: Record<FinanceComparison, string> = {
+  none: 'Nothing',
+  previousPeriod: 'The days just before',
+  previousYear: 'The same days last year',
+  budget: 'The budget',
+};
+
+export function comparisonLabel(compare: FinanceComparison): string {
+  return COMPARISON_LABELS[compare];
+}
+
+/** The file name of a ledger export, as the server names it. */
+export function exportName(format: LedgerExportFormat, from: string, to: string): string {
+  const ext = format === 'tally' ? 'xml' : format === 'iif' ? 'iif' : 'csv';
+  return `ledger-${format === 'qbo' ? 'quickbooks-online-' : ''}${from.replaceAll('-', '')}-${to.replaceAll('-', '')}.${ext}`;
+}
+
+// Budgets ----------------------------------------------------------------------------------------------------------
+
+/** The key of a budget cell. */
+export function cellKey(accountId: string, month: string): string {
+  return `${accountId}|${month}`;
+}
+
+/**
+ * The amounts to send for a budget: every cell that differs from what was loaded (a cleared cell is sent as zero, which
+ * removes it). Cells are typed as people read them (income positive); the ledger keeps income as a credit, so income
+ * accounts' amounts go negative.
+ */
+export function budgetChanges(
+  loaded: readonly BudgetAmount[],
+  cells: ReadonlyMap<string, string>,
+  creditAccounts: ReadonlySet<string>,
+  parse: (text: string) => number | null,
+): { amounts: BudgetAmount[]; bad: string[] } {
+  const before = new Map(loaded.map((a) => [cellKey(a.accountId, a.month), a.amount]));
+  const amounts: BudgetAmount[] = [];
+  const bad: string[] = [];
+  for (const [key, text] of cells) {
+    const [accountId, month] = key.split('|');
+    const value = text.trim() === '' ? 0 : parse(text);
+    if (value === null) {
+      bad.push(key);
+      continue;
+    }
+    const amount = roundMoney(creditAccounts.has(accountId) ? -value : value);
+    if (amount !== roundMoney(before.get(key) ?? 0)) amounts.push({ accountId, month, amount });
+  }
+  return { amounts, bad };
+}
+
+// Bank reconciliation ----------------------------------------------------------------------------------------------
+
+/**
+ * Ledger lines that may be a statement line's match: not yet matched, the same amount, nearest date first (within
+ * `days`, default 10).
+ */
+export function matchCandidates<T extends { amount: number; date: string; matched: boolean }>(line: { amount: number; date: string }, ledger: readonly T[], days = 10): T[] {
+  const day = (d: string) => Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10))) / 86_400_000;
+  const target = day(line.date);
+  return ledger
+    .filter((l) => !l.matched && roundMoney(l.amount) === roundMoney(line.amount) && Math.abs(day(l.date) - target) <= days)
+    .sort((a, b) => Math.abs(day(a.date) - target) - Math.abs(day(b.date) - target));
+}
+
+// Years ------------------------------------------------------------------------------------------------------------
+
+/** What can be done to a period: lock an open one, open a locked one; nothing in a closed year. */
+export function periodAction(period: { status: FiscalStatus }, year: { status: FiscalStatus }): 'lock' | 'unlock' | null {
+  if (year.status === 'Closed' || period.status === 'Closed') return null;
+  return period.status === 'Open' ? 'lock' : 'unlock';
 }

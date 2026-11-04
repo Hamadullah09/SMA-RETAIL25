@@ -3,22 +3,31 @@ import {
   accountTree,
   billLine,
   billTotals,
+  budgetChanges,
   budgetGrid,
+  cellKey,
+  comparisonLabel,
   dueDate,
+  exportName,
   fileSize,
   headerChoices,
   journalTotals,
   kindLabel,
   label,
+  matchCandidates,
   monthLabel,
   naturalBalance,
+  periodAction,
   postingAccounts,
+  reportInputs,
   roundMoney,
   spread,
+  statementRow,
   statusTone,
   suspenseReason,
   withholdingFor,
 } from './finance';
+import { parseNumber } from './forms';
 import type { FinanceAccount } from './types';
 
 const account = (id: string, code: string, parentId: string | null, isPosting = true, balance = 0, type: FinanceAccount['type'] = 'Expense'): FinanceAccount => ({
@@ -159,5 +168,105 @@ describe('wording', () => {
     expect(suspenseReason('Takings Visa (no account UNMAPPED)')).toEqual({ what: 'Takings Visa', code: null });
     expect(suspenseReason('Sales FOOD (no account 4015 Food sales)')).toEqual({ what: 'Sales FOOD', code: '4015' });
     expect(suspenseReason('Something else')).toEqual({ what: 'Something else', code: null });
+  });
+});
+
+describe('statements', () => {
+  it('marks the headings and totals of the profit and loss and the balance sheet', () => {
+    expect(statementRow('profit-and-loss', ['4000', 'Sales', null])).toBe('heading');
+    expect(statementRow('profit-and-loss', ['4010', '  Sales of goods', 2500])).toBe('plain');
+    expect(statementRow('profit-and-loss', ['', 'Total income', 2500])).toBe('total');
+    expect(statementRow('profit-and-loss', ['', 'Net loss', -10, 5, -15])).toBe('total');
+    expect(statementRow('balance-sheet', ['', 'Total liabilities and equity', 9000])).toBe('total');
+    // A line without a code that is not a total stays plain.
+    expect(statementRow('balance-sheet', ['', 'Profit not yet closed', 1800])).toBe('plain');
+  });
+
+  it('marks the cash flow’s nets, the tax due, and a ledger’s opening and closing', () => {
+    expect(statementRow('cash-flow', ['Operating', null, 'Net cash from operating activities', 10])).toBe('total');
+    expect(statementRow('cash-flow', ['Cash', null, 'Cash and bank at the end', 10])).toBe('total');
+    expect(statementRow('cash-flow', ['Operating', '1200', 'More stock', -10])).toBe('plain');
+    expect(statementRow('sales-tax', ['Net', 'Tax to pay', null, 50])).toBe('total');
+    expect(statementRow('account-ledger', [null, null, null, 'Opening balance', null, null, null, 0])).toBe('heading');
+    expect(statementRow('general-ledger', [null, null, '6100 Rent', 'Closing balance', null, 1, 0, 1])).toBe('total');
+    expect(statementRow('trial-balance', ['1010', 'Cash', 'Asset', 0, 1, 0, 1, 0])).toBe('plain');
+  });
+
+  it('asks each report for what it needs', () => {
+    const base = { usesComparison: false, usesAccount: false, asOfDate: false };
+    expect(reportInputs({ ...base, key: 'trial-balance' })).toEqual({ oneDay: false, comparisons: [], account: 'none' });
+    expect(reportInputs({ ...base, key: 'profit-and-loss', usesComparison: true }).comparisons).toEqual(['none', 'previousPeriod', 'previousYear', 'budget']);
+    // The balance sheet keeps its days: their start is the "previous period" it is compared with.
+    expect(reportInputs({ ...base, key: 'balance-sheet', usesComparison: true, asOfDate: true })).toEqual({
+      oneDay: false,
+      comparisons: ['none', 'previousPeriod', 'previousYear'],
+      account: 'none',
+    });
+    expect(reportInputs({ ...base, key: 'payables-ageing', asOfDate: true }).oneDay).toBe(true);
+    expect(reportInputs({ ...base, key: 'account-ledger', usesAccount: true }).account).toBe('required');
+    expect(reportInputs({ ...base, key: 'general-ledger', usesAccount: true }).account).toBe('optional');
+    expect(comparisonLabel('previousYear')).toBe('The same days last year');
+  });
+
+  it('names the export files as the server does', () => {
+    expect(exportName('tally', '2026-07-01', '2026-07-31')).toBe('ledger-20260701-20260731.xml');
+    expect(exportName('iif', '2026-07-01', '2026-07-31')).toBe('ledger-20260701-20260731.iif');
+    expect(exportName('qbo', '2026-07-01', '2026-07-31')).toBe('ledger-quickbooks-online-20260701-20260731.csv');
+    expect(exportName('csv', '2026-07-01', '2026-07-31')).toBe('ledger-20260701-20260731.csv');
+  });
+});
+
+describe('budget changes', () => {
+  const loaded = [
+    { accountId: 'sales', month: '2026-07-01', amount: -5000 },
+    { accountId: 'rent', month: '2026-07-01', amount: 700 },
+  ];
+  const credit = new Set(['sales']);
+
+  it('sends only what changed, income as a credit, and a cleared box as zero', () => {
+    const cells = new Map([
+      [cellKey('sales', '2026-07-01'), '5000'],
+      [cellKey('sales', '2026-08-01'), '5500'],
+      [cellKey('rent', '2026-07-01'), ''],
+      [cellKey('rent', '2026-08-01'), '700,50'],
+    ]);
+    expect(budgetChanges(loaded, cells, credit, parseNumber)).toEqual({
+      amounts: [
+        { accountId: 'sales', month: '2026-08-01', amount: -5500 },
+        { accountId: 'rent', month: '2026-07-01', amount: 0 },
+        { accountId: 'rent', month: '2026-08-01', amount: 700.5 },
+      ],
+      bad: [],
+    });
+  });
+
+  it('holds back boxes that are not numbers', () => {
+    const cells = new Map([[cellKey('rent', '2026-09-01'), '7OO']]);
+    expect(budgetChanges(loaded, cells, credit, parseNumber)).toEqual({ amounts: [], bad: [cellKey('rent', '2026-09-01')] });
+  });
+});
+
+describe('reconciliation', () => {
+  const ledger = [
+    { id: 'a', amount: -500, date: '2026-07-10', matched: false },
+    { id: 'b', amount: -500, date: '2026-07-03', matched: false },
+    { id: 'c', amount: -500, date: '2026-07-05', matched: true },
+    { id: 'd', amount: -500, date: '2026-06-01', matched: false },
+    { id: 'e', amount: 500, date: '2026-07-05', matched: false },
+  ];
+
+  it('offers unmatched lines of the same amount near the day, nearest first', () => {
+    expect(matchCandidates({ amount: -500, date: '2026-07-04' }, ledger).map((l) => l.id)).toEqual(['b', 'a']);
+    expect(matchCandidates({ amount: -500, date: '2026-07-04' }, ledger, 2).map((l) => l.id)).toEqual(['b']);
+    expect(matchCandidates({ amount: -499.99, date: '2026-07-04' }, ledger)).toEqual([]);
+  });
+});
+
+describe('years', () => {
+  it('locks open months, opens locked ones, and leaves a closed year alone', () => {
+    expect(periodAction({ status: 'Open' }, { status: 'Open' })).toBe('lock');
+    expect(periodAction({ status: 'Locked' }, { status: 'Open' })).toBe('unlock');
+    expect(periodAction({ status: 'Closed' }, { status: 'Closed' })).toBeNull();
+    expect(periodAction({ status: 'Open' }, { status: 'Closed' })).toBeNull();
   });
 });
