@@ -12,11 +12,22 @@ public sealed record ExportEntry(long Number, DateOnly Date, JournalKind Kind, s
 
 /// <summary>
 /// The posted ledger in an accountant's program's format, for a date range and a store (or the company): Tally's XML
-/// vouchers (one Journal voucher per entry) and QuickBooks' IIF (one general journal transaction per entry, with the
-/// account list first). The daily journal's CSV export (<see cref="AccountingService"/>) stays as it was.
+/// vouchers (one Journal voucher per entry), QuickBooks Desktop's IIF (one general journal transaction per entry, with the
+/// account list first) and QuickBooks Online's journal import CSV. The daily journal's CSV export
+/// (<see cref="AccountingService"/>) stays as it was.
 /// </summary>
 public sealed class LedgerExportService(DataContext data)
 {
+    /// <summary>
+    /// The ledger account a store's export sets the other stores' part of an entry against, so each voucher still balances
+    /// (an entry made by hand can share one cost between stores). The accountant's program needs a ledger of this name.
+    /// </summary>
+    public const string BetweenStoresCode = "STORES", BetweenStoresName = "Between stores";
+
+    /// <summary>
+    /// The posted entries of the days, oldest first. For one store: the entries with lines of that store, each with only
+    /// those lines, and, where they do not balance on their own, one line on <see cref="BetweenStoresName"/> for the rest.
+    /// </summary>
     public async Task<List<ExportEntry>> EntriesAsync(DateOnly from, DateOnly to, Guid? store = null)
     {
         await using var db = data.Create();
@@ -24,10 +35,18 @@ public sealed class LedgerExportService(DataContext data)
         if (store is Guid s) q = q.Where(e => e.StoreId == s || e.Lines.Any(l => l.StoreId == s));
         var entries = await q.Include(e => e.Lines).ThenInclude(l => l.Account).AsSplitQuery().OrderBy(e => e.Date).ThenBy(e => e.Number).ToListAsync();
         var codes = await db.Stores.AsNoTracking().ToDictionaryAsync(x => x.Id, x => x.Code);
-        return entries.Select(e => new ExportEntry(e.Number, e.Date, e.Kind, e.Memo, e.Reference, e.StoreId is Guid id ? codes.GetValueOrDefault(id) : null,
-                e.Lines.Where(l => store is null || l.StoreId == store).OrderBy(l => l.LineNumber)
-                    .Select(l => (l.Account!.Code, l.Account.Name, l.Account.Type, l.Debit, l.Credit, l.Memo)).ToList()))
-            .Where(e => e.Lines.Count > 0).ToList();
+        var list = new List<ExportEntry>();
+        foreach (var e in entries)
+        {
+            var lines = e.Lines.Where(l => store is null || l.StoreId == store).OrderBy(l => l.LineNumber)
+                .Select(l => (l.Account!.Code, l.Account.Name, l.Account.Type, l.Debit, l.Credit, l.Memo)).ToList();
+            if (lines.Count == 0) continue;
+            decimal rest = lines.Sum(l => l.Debit - l.Credit);
+            if (rest != 0)
+                lines.Add((BetweenStoresCode, BetweenStoresName, AccountType.Asset, rest < 0 ? -rest : 0, rest > 0 ? rest : 0, "The other stores' part"));
+            list.Add(new ExportEntry(e.Number, e.Date, e.Kind, e.Memo, e.Reference, e.StoreId is Guid id ? codes.GetValueOrDefault(id) : null, lines));
+        }
+        return list;
     }
 
     /// <summary>
@@ -113,6 +132,27 @@ public sealed class LedgerExportService(DataContext data)
         }
         return sb.ToString();
     }
+
+    /// <summary>
+    /// QuickBooks Online's journal entry import (Settings › Import data › Journal entries): one row per line with Journal
+    /// No, Journal Date (dd/MM/yyyy: choose that date format in the import), Account (the account's name, as in QuickBooks'
+    /// chart), Debits, Credits, Description, and Location (the store's code, for companies that track locations). Written
+    /// to Intuit's published layout; check it with a test import before the first real one.
+    /// </summary>
+    public static string ToQuickBooksOnlineCsv(IEnumerable<ExportEntry> entries)
+    {
+        var sb = new StringBuilder("Journal No,Journal Date,Account,Debits,Credits,Description,Location\r\n");
+        foreach (var e in entries)
+            foreach (var l in e.Lines)
+                sb.Append(e.Number.ToString(CultureInfo.InvariantCulture)).Append(',').Append(e.Date.ToString("dd/MM/yyyy", CultureInfo.InvariantCulture)).Append(',')
+                  .Append(Csv(l.Name)).Append(',')
+                  .Append(l.Debit == 0 ? "" : l.Debit.ToString("0.00", CultureInfo.InvariantCulture)).Append(',')
+                  .Append(l.Credit == 0 ? "" : l.Credit.ToString("0.00", CultureInfo.InvariantCulture)).Append(',')
+                  .Append(Csv(l.Memo ?? e.Memo)).Append(',').Append(Csv(e.StoreCode)).Append("\r\n");
+        return sb.ToString();
+    }
+
+    private static string Csv(string? s) => s is null ? "" : s.IndexOfAny([',', '"', '\n', '\r']) >= 0 ? "\"" + s.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"" : s;
 
     /// <summary>The posted entries as CSV: Date, Number, Kind, Store, Account, Account name, Debit, Credit, Memo, Reference.</summary>
     public static string ToCsv(IEnumerable<ExportEntry> entries)

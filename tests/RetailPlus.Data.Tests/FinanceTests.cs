@@ -566,6 +566,40 @@ public abstract class FinanceTests(DatabaseFixture db)
     }
 
     [SkippableFact]
+    public async Task A_stores_export_balances_an_entry_shared_with_another_store_and_quickbooks_online_gets_its_csv()
+    {
+        await SeedAsync();
+        var other = Guid.NewGuid();
+        await using (var ctx = db.CreateContext())
+        {
+            ctx.Stores.Add(new Store { Id = other, Code = "X" + Guid.NewGuid().ToString("N")[..5].ToUpperInvariant(), Name = "Export store" });
+            await ctx.SaveChangesAsync();
+        }
+        var day = new DateOnly(2053, 5, 14);
+        // One rent bill shared by two stores: 600 here, 400 there, paid from this store's cash.
+        await new LedgerService(Data).PostAsync(new JournalDraft(day, JournalKind.Manual, "Shared rent, March",
+            [JournalDraftLine.Code("6100", 600, 0, Store), JournalDraftLine.Code("6100", 400, 0, other), JournalDraftLine.Role(LedgerRoles.Cash, 0, 1_000, Store)]));
+
+        var mine = Assert.Single(await new LedgerExportService(Data).EntriesAsync(day, day, Store));
+        Assert.Equal(mine.Lines.Sum(l => l.Debit), mine.Lines.Sum(l => l.Credit));
+        var between = Assert.Single(mine.Lines, l => l.Code == LedgerExportService.BetweenStoresCode);
+        Assert.Equal(400m, between.Debit);
+        var theirs = Assert.Single(await new LedgerExportService(Data).EntriesAsync(day, day, other));
+        Assert.Equal(400m, Assert.Single(theirs.Lines, l => l.Code == LedgerExportService.BetweenStoresCode).Credit);
+        var company = Assert.Single(await new LedgerExportService(Data).EntriesAsync(day, day));
+        Assert.DoesNotContain(company.Lines, l => l.Code == LedgerExportService.BetweenStoresCode);
+        Assert.Equal(3, company.Lines.Count);
+
+        var xml = XDocument.Parse(LedgerExportService.ToTallyXml([mine], "SMA"));
+        Assert.Equal(0m, xml.Descendants("AMOUNT").Sum(a => decimal.Parse(a.Value, System.Globalization.CultureInfo.InvariantCulture)));
+        var qbo = LedgerExportService.ToQuickBooksOnlineCsv([company]).Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal("Journal No,Journal Date,Account,Debits,Credits,Description,Location", qbo[0]);
+        Assert.Equal(4, qbo.Length);
+        Assert.All(qbo.Skip(1), row => Assert.Contains(",14/05/2053,", row, StringComparison.Ordinal));
+        Assert.Contains(qbo, row => row.Contains(",1000.00,", StringComparison.Ordinal));
+    }
+
+    [SkippableFact]
     public async Task The_sales_tax_return_sets_input_tax_on_bills_and_expenses_against_output_tax()
     {
         await SeedAsync();

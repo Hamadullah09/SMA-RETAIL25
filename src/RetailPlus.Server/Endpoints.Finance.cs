@@ -609,10 +609,13 @@ public static partial class Endpoints
                 return Results.File(Encoding.UTF8.GetBytes(LedgerExportService.ToTallyXml(entries, company)), "application/xml", name + ".xml");
             case "iif":
                 return Results.File(Encoding.UTF8.GetBytes(LedgerExportService.ToIif(entries)), "text/plain; charset=utf-8", name + ".iif");
+            case "qbo":
+                return Results.File(Encoding.UTF8.GetBytes(LedgerExportService.ToQuickBooksOnlineCsv(entries)), "text/csv; charset=utf-8",
+                    $"ledger-quickbooks-online-{from:yyyyMMdd}-{to:yyyyMMdd}.csv");
             case "csv":
                 return Results.File(Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(LedgerExportService.ToCsv(entries))).ToArray(), "text/csv; charset=utf-8", name + ".csv");
             default:
-                throw ApiException.Bad("format is tally, iif or csv.");
+                throw ApiException.Bad("format is tally, iif, qbo or csv.");
         }
     }
 
