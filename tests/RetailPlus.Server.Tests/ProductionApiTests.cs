@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using RetailPlus.Core.Model;
 using RetailPlus.Core.Rules;
@@ -20,6 +22,8 @@ namespace RetailPlus.Server.Tests;
 public sealed class ProductionApiTests(SyncWorld world) : IClassFixture<SyncWorld>
 {
     private static readonly string[] PostedSteps = ["conversion", "issue", "receipt"];
+    private static readonly string[] PageFields = ["items", "page", "pageSize", "total"];
+    private static readonly string[] ReportInfoFields = ["group", "key", "title", "usesDates"];
 
     private void Require() => Skip.IfNot(world.Available, world.UnavailableReason);
 
@@ -268,5 +272,172 @@ public sealed class ProductionApiTests(SyncWorld world) : IClassFixture<SyncWorl
         Assert.Equal(HttpStatusCode.Forbidden, await StatusAsync((await world.AdminOfAsync(storeA.Id)).DeleteAsync($"/api/boms/{copy.Id}")));
         Assert.Equal(HttpStatusCode.NoContent, await StatusAsync(super.DeleteAsync($"/api/boms/{copy.Id}")));
         Assert.Empty(await GetAsync<List<CustomerOrderPick>>(adminA, "/api/production/customer-orders"));
+    }
+
+    // The web app's contract ----------------------------------------------------------------------------------------------
+
+    /// <summary>The interfaces of the web app's manufacturing types (web/src/lib/production-types.ts) and their fields; null without the web folder.</summary>
+    private static Dictionary<string, HashSet<string>>? WebTypes()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        static string FileIn(DirectoryInfo d) => Path.Combine(d.FullName, "web", "src", "lib", "production-types.ts");
+        while (dir is not null && !File.Exists(FileIn(dir))) dir = dir.Parent;
+        if (dir is null) return null;
+        var types = new Dictionary<string, HashSet<string>>();
+        HashSet<string>? current = null;
+        foreach (var line in File.ReadLines(FileIn(dir)))
+        {
+            if (Regex.Match(line, @"^export interface (\w+) \{$") is { Success: true } start) types[start.Groups[1].Value] = current = [];
+            else if (line == "}") current = null;
+            else if (current is not null && Regex.Match(line, @"^  (\w+)\??:") is { Success: true } field) current.Add(field.Groups[1].Value);
+        }
+        return types;
+    }
+
+    /// <summary>An answer's object has exactly the fields of the web app's type: nothing the web does not know, nothing it reads left out.</summary>
+    private static void Shape(Dictionary<string, HashSet<string>> types, string type, JsonElement element, string where)
+    {
+        Assert.Equal(JsonValueKind.Object, element.ValueKind);
+        var keys = element.EnumerateObject().Select(p => p.Name).ToHashSet(StringComparer.Ordinal);
+        var expected = types[type];
+        Assert.True(keys.SetEquals(expected),
+            $"{where} is not a {type}: the web does not know [{string.Join(", ", keys.Except(expected))}], the server leaves out [{string.Join(", ", expected.Except(keys))}].");
+    }
+
+    /// <summary>Every element of an array (at least one) has the shape of the web app's type.</summary>
+    private static void Each(Dictionary<string, HashSet<string>> types, string type, JsonElement array, string where)
+    {
+        Assert.Equal(JsonValueKind.Array, array.ValueKind);
+        Assert.True(array.GetArrayLength() > 0, $"{where} is empty, so its shape is not checked.");
+        foreach (var element in array.EnumerateArray()) Shape(types, type, element, where);
+    }
+
+    private static async Task<JsonElement> JsonAsync(HttpClient client, string url, HttpMethod? method = null, object? body = null)
+    {
+        using var request = new HttpRequestMessage(method ?? HttpMethod.Get, url);
+        if (body is not null) request.Content = JsonContent.Create(body, options: SyncWorld.Json);
+        using var response = await client.SendAsync(request);
+        var text = await response.Content.ReadAsStringAsync();
+        Assert.True(response.IsSuccessStatusCode, $"{(int)response.StatusCode} {url}: {text}");
+        return JsonDocument.Parse(text).RootElement.Clone();
+    }
+
+    [SkippableFact]
+    public async Task Every_manufacturing_answer_has_the_shape_of_the_web_apps_types()
+    {
+        Require();
+        var types = WebTypes();
+        Skip.If(types is null, "The web app's sources are not next to the tests.");
+        var store = await world.AddStoreAsync();
+        var pos = await PosOfAsync(store.Id);
+        var onServer = world.ServerData.For(new StationIdentity(store.Id, ProductionService.ServerStation), null);
+        string partCode = Unique("PT"), kitCode = Unique("KT"), crumbCode = Unique("CR");
+        var supplier = await new PartyService(world.ServerData).SaveSupplierAsync(new Supplier { Company = Unique("Shapes ") });
+        var inventory = new InventoryService(onServer);
+        await inventory.SaveAsync(new Item { LocationId = pos, Plu = partCode, Name = "Part", AverageCost = 1m, LastCost = 1m, OnHand = 3, SupplierId = supplier.Id }, null, null, null);
+        await inventory.SaveAsync(new Item { LocationId = pos, Plu = kitCode, Name = "Kit", Price1 = 5m, ReorderPoint = 5, ReorderQuantity = 10 }, null, null, null);
+        await inventory.SaveAsync(new Item { LocationId = pos, Plu = crumbCode, Name = "Offcuts" }, null, null, null);
+        await using (var db = world.ServerData.Create())
+        {
+            db.CustomerOrders.Add(new CustomerOrder { StoreId = store.Id, LocationId = pos, Plu = kitCode, Description = "Kit", Quantity = 1, Name = "Client" });
+            await db.SaveChangesAsync();
+        }
+        using var super = await world.SuperAsync();
+        using var admin = await world.AdminOfAsync(store.Id);
+        var q = $"storeId={store.Id}";
+
+        // Work centres, bills and routings, compared and costed.
+        var centre = await JsonAsync(admin, "/api/work-centres", HttpMethod.Post, new WorkCentreRequest(null, pos, Unique("BN"), "Bench", 20, 5, 2, 8, 5, true, null));
+        Shape(types!, "WorkCentre", centre, "POST /api/work-centres");
+        Each(types!, "WorkCentre", await JsonAsync(admin, $"/api/work-centres?{q}"), "GET /api/work-centres");
+        var centreId = centre.GetProperty("id").GetGuid();
+        var bom = await JsonAsync(super, "/api/boms", HttpMethod.Post, new BomDetail(null, null, kitCode, null, 0, true, null, null, 1, 5, null,
+            [new BomLineInfo(partCode, null, 2, 10, IssueMethod.Manual, 10)], [new BomByProductInfo(crumbCode, null, 0.5m, 5)],
+            [new RoutingOperationInfo(10, centreId, null, "Pack", 5, 30, "Pack it")]));
+        Shape(types!, "BomDetail", bom, "POST /api/boms");
+        var bomId = bom.GetProperty("id").GetGuid();
+        Each(types!, "BomLine", bom.GetProperty("lines"), "BomDetail.lines");
+        Each(types!, "BomByProduct", bom.GetProperty("byProducts"), "BomDetail.byProducts");
+        Each(types!, "RoutingOperation", bom.GetProperty("operations"), "BomDetail.operations");
+        var copy = await JsonAsync(super, $"/api/boms/{bomId}/copy", HttpMethod.Post, new CopyBomRequest(null));
+        var copyId = copy.GetProperty("id").GetGuid();
+        Shape(types!, "BomDetail", await JsonAsync(super, $"/api/boms/{copyId}/routing", HttpMethod.Put,
+            new RoutingRequest(copy.GetProperty("version").GetString(), [new RoutingOperationInfo(10, centreId, null, "Pack", 10, 25, null)])), "PUT /api/boms/{id}/routing");
+        Each(types!, "BomListRow", await JsonAsync(admin, $"/api/boms?search={kitCode}"), "GET /api/boms");
+        Shape(types!, "BomDetail", await JsonAsync(admin, $"/api/boms/{bomId}"), "GET /api/boms/{id}");
+        Each(types!, "BomDifference", await JsonAsync(admin, $"/api/boms/compare?from={bomId}&to={copyId}"), "GET /api/boms/compare");
+        Each(types!, "ExplodedLine", await JsonAsync(admin, $"/api/boms/{bomId}/explode?locationId={pos}"), "GET /api/boms/{id}/explode");
+        var cost = await JsonAsync(admin, $"/api/boms/{bomId}/cost?locationId={pos}&quantity=10");
+        Shape(types!, "CostRollUp", cost, "GET /api/boms/{id}/cost");
+        Each(types!, "CostLine", cost.GetProperty("lines"), "CostRollUp.lines");
+        Each(types!, "CostOperation", cost.GetProperty("operations"), "CostRollUp.operations");
+
+        // Planning: the kit is below its reorder point; the part to buy is firmed into a purchase order, received and inspected.
+        var plan = await JsonAsync(super, "/api/quality/plans", HttpMethod.Post, new QualityPlanInfo(null, null, kitCode, "Kit checks", true, true, true, null,
+            [new QualityCheckInfo(1, "Weight", QualityCheckKind.Number, 90, 110, "g", true), new QualityCheckInfo(2, "Complete", QualityCheckKind.PassFail, null, null, null, true)]));
+        Shape(types!, "QualityPlan", plan, "POST /api/quality/plans");
+        Each(types!, "QualityCheck", plan.GetProperty("checks"), "QualityPlan.checks");
+        Assert.Equal(HttpStatusCode.NoContent, await StatusAsync(super.PutAsJsonAsync($"/api/mrp/lead-times/{supplier.Id}", new LeadTimeRequest(4))));
+        var run = await JsonAsync(admin, "/api/mrp/run", HttpMethod.Post, new MrpRunRequest(store.Id, pos, 30, 7));
+        Shape(types!, "MrpView", run, "POST /api/mrp/run");
+        Shape(types!, "MrpRunInfo", run.GetProperty("run"), "MrpView.run");
+        Each(types!, "Suggestion", run.GetProperty("suggestions"), "MrpView.suggestions");
+        var suggestions = await JsonAsync(admin, $"/api/mrp/suggestions?{q}");
+        Shape(types!, "MrpView", suggestions, "GET /api/mrp/suggestions");
+        var buy = suggestions.GetProperty("suggestions").EnumerateArray().First(s => s.GetProperty("stockCode").GetString() == partCode).GetProperty("id").GetGuid();
+        Shape(types!, "FirmResult", await JsonAsync(admin, "/api/mrp/firm", HttpMethod.Post, new FirmRequest([buy], null)), "POST /api/mrp/firm");
+        Each(types!, "LeadTime", await JsonAsync(admin, "/api/mrp/lead-times"), "GET /api/mrp/lead-times");
+        Each(types!, "CustomerOrderPick", await JsonAsync(admin, $"/api/production/customer-orders?{q}"), "GET /api/production/customer-orders");
+        var purchasing = new PurchasingService(onServer);
+        var po = (await purchasing.ListAsync(pos)).First();
+        await purchasing.PostShipmentAsync(po.Id, [new ReceivedLine((await purchasing.GetAsync(po.Id))!.Lines.Single().Id, 20, 1m)]);
+        var receipts = await JsonAsync(admin, $"/api/quality/receipts?{q}");
+        Each(types!, "ReceivedOrder", receipts, "GET /api/quality/receipts");
+        Each(types!, "ReceivedLine", receipts[0].GetProperty("lines"), "ReceivedOrder.lines");
+
+        // An order planned, released, worked, received, inspected and posted.
+        var order = await JsonAsync(admin, "/api/production-orders", HttpMethod.Post, new ProductionOrderRequest(null, kitCode, 4, pos, pos, null, null, null, 3, null, "Shapes"));
+        var orderId = order.GetProperty("id").GetGuid();
+        Shape(types!, "ProductionOrderDetail", order, "POST /api/production-orders");
+        var released = await JsonAsync(admin, $"/api/production-orders/{orderId}/release", HttpMethod.Post, new { });
+        Shape(types!, "ReleaseResponse", released, "POST /api/production-orders/{id}/release");
+        Assert.Equal(JsonValueKind.Array, released.GetProperty("shortages").ValueKind);
+        await JsonAsync(admin, $"/api/production-orders/{orderId}/issue", HttpMethod.Post, new IssueRequest(partCode, 9, null));
+        await JsonAsync(admin, $"/api/production-orders/{orderId}/report", HttpMethod.Post, new OperationReportRequest(10, 125, 4, 0, null));
+        await JsonAsync(admin, $"/api/production-orders/{orderId}/receive", HttpMethod.Post, new ReceiveRequest(4, true, null));
+        var inspection = await JsonAsync(admin, $"/api/production-orders/{orderId}/inspect", HttpMethod.Post,
+            new OutputInspectionRequest(4, 1, InspectionDisposition.Scrap, null, [new CheckAnswer(1, Number: 100), new CheckAnswer(2, PassFail: true)], null));
+        Shape(types!, "Inspection", inspection, "POST /api/production-orders/{id}/inspect");
+        Each(types!, "QualityResult", inspection.GetProperty("results"), "Inspection.results");
+        Each(types!, "Inspection", await JsonAsync(admin, $"/api/production-orders/{orderId}/inspections"), "GET /api/production-orders/{id}/inspections");
+        Each(types!, "Inspection", await JsonAsync(admin, $"/api/quality/inspections?{q}"), "GET /api/quality/inspections");
+        Each(types!, "QualityPlan", await JsonAsync(admin, "/api/quality/plans"), "GET /api/quality/plans");
+        var detail = await JsonAsync(admin, $"/api/production-orders/{orderId}/close", HttpMethod.Post, new { });
+        Shape(types!, "ProductionOrderDetail", detail, "POST /api/production-orders/{id}/close");
+        Each(types!, "LineProgress", detail.GetProperty("lines"), "ProductionOrderDetail.lines");
+        Each(types!, "ProductionOperation", detail.GetProperty("operations"), "ProductionOrderDetail.operations");
+        Each(types!, "ProductionMovement", detail.GetProperty("movements"), "ProductionOrderDetail.movements");
+        Each(types!, "ProductionReport", detail.GetProperty("reports"), "ProductionOrderDetail.reports");
+        Shape(types!, "OrderCosts", detail.GetProperty("costs"), "ProductionOrderDetail.costs");
+        Shape(types!, "OrderVariances", detail.GetProperty("variances"), "ProductionOrderDetail.variances");
+        Each(types!, "MaterialUsage", detail.GetProperty("variances").GetProperty("materials"), "OrderVariances.materials");
+        Each(types!, "ProductionPosting", detail.GetProperty("postings"), "ProductionOrderDetail.postings");
+        Assert.Equal("Closed", detail.GetProperty("status").GetString());
+        Assert.Contains(detail.GetProperty("movements").EnumerateArray(), m => m.GetProperty("kind").GetString() == "ProductionScrap");
+
+        // Lists, the board, capacity, posting and the reports.
+        var page = await JsonAsync(admin, $"/api/production-orders?{q}&status=Closed");
+        Assert.Equal(PageFields, page.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal).ToArray());
+        Each(types!, "ProductionOrderRow", page.GetProperty("items"), "GET /api/production-orders");
+        var board = await JsonAsync(admin, $"/api/production-orders/board?{q}");
+        Each(types!, "ProductionBoardColumn", board, "GET /api/production-orders/board");
+        Each(types!, "ProductionOrderRow", board.EnumerateArray().Single(c => c.GetProperty("status").GetString() == "Closed").GetProperty("orders"), "ProductionBoardColumn.orders");
+        Each(types!, "CapacityRow", await JsonAsync(admin, $"/api/capacity?{q}&weeks=2"), "GET /api/capacity");
+        Shape(types!, "PostCostsResponse", await JsonAsync(admin, $"/api/production/post-costs?{q}", HttpMethod.Post, new { }), "POST /api/production/post-costs");
+        foreach (var report in (await JsonAsync(admin, "/api/production/reports")).EnumerateArray())
+        {
+            Assert.Equal(ReportInfoFields, report.EnumerateObject().Select(p => p.Name).Order(StringComparer.Ordinal).ToArray());
+            Shape(types!, "ProductionReportResult", await JsonAsync(admin, $"/api/production/reports/{report.GetProperty("key").GetString()}?{q}"), "GET /api/production/reports/{key}");
+        }
     }
 }
