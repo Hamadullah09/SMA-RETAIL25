@@ -452,8 +452,9 @@ for one store may be changed by that store's users; one for every store or sever
     agreed and have a WhatsApp number, false those who did not.
 - `SegmentRow`: `{ "id", "version", "name", "description", "rules", "summary", "storeId", "lastCount",
   "lastEvaluatedAtUtc" }`. `summary` is the rules in words.
-- `GET /api/segments`, `GET /api/segments/{id}`; `POST` (201), `PUT /{id}`, `DELETE /{id}` (400 while a campaign uses
-  it). Body `{ "name", "description"?, "rules", "version" (PUT) }`.
+- `GET /api/segments` (no `storeId`: the company's and the user's store's, or every one for a user of every store),
+  `GET /api/segments/{id}`; `POST` (201), `PUT /{id}`, `DELETE /{id}` (400 while a campaign uses it). Body `{ "name",
+  "description"?, "rules", "version" (PUT) }`.
 - `POST /api/segments/preview` takes `{ "rules" }`; `POST /api/segments/{id}/evaluate` re-evaluates a saved segment
   and keeps its count. Both → `{ "count", "evaluatedAtUtc", "members": SegmentMember[] }` with the first 200 members
   (biggest spenders first): `{ "clientId", "number", "name", "phone", "email", "whatsAppNumber", "whatsAppOptIn",
@@ -464,8 +465,8 @@ for one store may be changed by that store's users; one for every store or sever
 - `GET /api/whatsapp/status` (`web.signin`) → `{ "enabled", "provider", "phoneNumberIdHint", "webhookReady",
   "messagesPerMinute" }`. `provider` is `meta` (the Meta Cloud API, `WhatsApp:Enabled`) or `recording` (nothing leaves
   the server; messages are recorded as sent).
-- Templates: `GET /api/whatsapp/templates` → `[{ "id", "version", "name", "language", "category", "body",
-  "isActive", "placeholders" }]`; `POST` (201), `PUT /{id}`, `DELETE /{id}` (400 while a message uses it). Body
+- Templates: `GET /api/whatsapp/templates` (also with `crm.edit`, for single messages) → `[{ "id", "version", "name",
+  "language", "category", "body", "isActive", "placeholders" }]`; `POST` (201), `PUT /{id}`, `DELETE /{id}` (400 while a message uses it). Body
   `{ "name", "language", "category", "body", "isActive", "version" (PUT) }`. `name` is the template's name at WhatsApp
   (lower-case letters, digits and `_`), `language` its code (`en`, `en_US`, `ur`), `category` `Marketing` or `Utility`.
   The body's placeholders become the template's parameters in order: `{FirstName}`, `{LastName}`, `{Name}`, `{Points}`,
@@ -480,7 +481,8 @@ for one store may be changed by that store's users; one for every store or sever
 - `POST /api/campaigns/{id}/schedule` takes `{ "sendAtUtc"?, "version" }` (null: now). The recipients are worked out
   there and then: the segment's members who agreed to WhatsApp messages and have a number, one message each, queued.
   400 when there is nobody. The server's sender sends them from `sendAtUtc` on, at most `WhatsApp:MessagesPerMinute`.
-- `POST /api/campaigns/{id}/cancel` takes `{ "version" }`; queued messages are never sent.
+- `POST /api/campaigns/{id}/cancel` takes `{ "version" }` (a draft, a scheduled or a sending campaign); queued messages
+  are never sent. A cancelled campaign may be deleted only while all its messages are still queued.
 - `GET /api/campaigns/{id}/messages?status` (*paged*) → `WhatsAppMessageRow { "id", "campaignId", "clientId",
   "clientName", "toNumber", "template", "body", "status", "error", "sentAtUtc", "deliveredAtUtc", "readAtUtc",
   "createdAtUtc" }`. `status` is `Queued`, `Sent`, `Delivered`, `Read`, `Failed` (WhatsApp could not deliver it) or
@@ -489,16 +491,18 @@ for one store may be changed by that store's users; one for every store or sever
   recipients' completed sales from the campaign's start to `days` days after (1–90).
 - Single messages: `POST /api/clients/{id}/whatsapp` (`crm.edit`) takes `{ "templateId", "storeId"? }` and sends at
   once → `WhatsAppMessageRow` (400 without consent or number). `GET /api/clients/{id}/whatsapp` (`crm.view`) lists the
-  client's messages, newest first.
+  client's messages, newest first: at most 200, of the user's store unless they see every store.
 - Webhook (no sign-in): `GET /api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=…&hub.challenge=…` answers the
   challenge when the token is `WhatsApp:VerifyToken`, else 403. `POST /api/whatsapp/webhook` takes Meta's status
   notifications; `X-Hub-Signature-256` must be `sha256=` and the HMAC-SHA256 of the body with `WhatsApp:AppSecret`
   (403 otherwise). Statuses only move forward (sent, delivered, read); `failed` keeps the error. → 200.
 
 ### Clients (additions)
-`ClientDetail` gains `whatsAppNumber`, `whatsAppOptIn`, `whatsAppOptInAtUtc` (read-only: when consent was given) and
-`birthday` (`yyyy-MM-dd`). Leaving them out of a PUT keeps them. Consent can be given only with a number; taking it
-away clears the time. `ClientListRow` gains `whatsAppOptIn`.
+`ClientDetail` gains `whatsAppNumber`, `whatsAppOptIn`, `whatsAppOptInAtUtc` (read-only: when consent was given),
+`birthday` (`yyyy-MM-dd`) and `whatsAppAskedAtUtc` (read-only: when the client last answered, yes or no; the till asks a
+client who never answered). A PUT without `whatsAppOptIn` keeps the number, the consent and the birthday; with it, all
+three are taken from the body. Consent can be given only with a number; taking it away clears the time. Giving or
+taking back consent counts as an answer. `ClientListRow` gains `whatsAppOptIn`.
 
 ### Promotions — `marketing.promotions`
 - `PromotionTarget`: `{ "departmentId"?, "categoryId"?, "plu"?, "quantity", "name" }` (one of the three; `name` is
@@ -508,8 +512,8 @@ away clears the time. `ClientListRow` gains `whatsAppOptIn`.
   `AmountOff`, `BuyXGetY`, `BundlePrice` or `SpendOver`; `live` is true when it is on and today is within its dates.
 - `PromotionDetail` adds `{ "description", "days", "startTime", "endTime", "scope", "targets", "percent", "amount",
   "buyQuantity", "getQuantity", "getPercent", "rewardTargets", "bundlePrice", "bundleParts", "spendThreshold" }`.
-  - `days`: the days of the week it runs (0 Sunday … 6 Saturday; empty every day), `startTime`/`endTime` `HH:mm` (a
-    happy hour; an end before the start runs past midnight).
+  - `days`: the days of the week it runs (0 Sunday … 6 Saturday, in that order; empty every day), `startTime`/`endTime`
+    `HH:mm` (a happy hour, both or neither; an end before the start runs past midnight). `priority` is a whole number.
   - `scope` (`AllItems`, `Departments`, `Categories`, `Items`) and `targets`: what it applies to (what must be bought
     for `BuyXGetY`; what is counted for `SpendOver`).
   - `PercentOff`: `percent` off each line; `AmountOff`: `amount` off each unit; `BuyXGetY`: buy `buyQuantity`, get
@@ -520,7 +524,7 @@ away clears the time. `ClientListRow` gains `whatsAppOptIn`.
   - `combinable` false: used alone on a sale. The till picks the best price for the customer among the promotions
     used alone and all the combinable ones together; `priority` (higher first) breaks ties. A line takes one
     promotion; lines with a price or discount changed by hand take none.
-- `GET /api/promotions?search&active` → `PromotionRow[]`; `GET /api/promotions/{id}` → `PromotionDetail`; `POST` (201),
+- `GET /api/promotions?search&active` → `PromotionRow[]` (the company's list: no `storeId`); `GET /api/promotions/{id}` → `PromotionDetail`; `POST` (201),
   `PUT /{id}`, `DELETE /{id}` (400 once it was used: switch it off instead). Body: `PromotionDetail` without the
   read-only fields.
 - `GET /api/promotions/report?storeId&from&to` → `[{ "promotionId", "name", "kind", "sales", "units", "netSales",
