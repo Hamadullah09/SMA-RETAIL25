@@ -7,10 +7,10 @@ using RetailPlus.Core.Rules;
 namespace RetailPlus.Data.Services;
 
 /// <summary>One line of the journal for the accounting program: one account's debit or credit on one business day.</summary>
-public sealed record JournalLine(DateOnly Date, string Journal, string Store, string Account, string? AccountName, decimal Debit, decimal Credit, string Memo);
+public sealed record JournalExportLine(DateOnly Date, string Journal, string Store, string Account, string? AccountName, decimal Debit, decimal Credit, string Memo);
 
 /// <summary>An exported journal: its lines (one journal per business day per store) and the amounts no account was set for.</summary>
-public sealed record JournalExport(IReadOnlyList<JournalLine> Lines, IReadOnlyList<string> Unmapped)
+public sealed record JournalExport(IReadOnlyList<JournalExportLine> Lines, IReadOnlyList<string> Unmapped)
 {
     /// <summary>Total debits and credits of each journal; they are equal for every journal.</summary>
     public IReadOnlyList<(string Journal, decimal Debit, decimal Credit)> Totals =>
@@ -304,7 +304,7 @@ public sealed class AccountingService(DataContext data)
                 .Select(a =>
                 {
                     var code = stores.GetValueOrDefault(a.Key.Store, "STORE");
-                    return new JournalLine(a.Key.Day, $"{code}-{a.Key.Day:yyyyMMdd}", code, a.Key.Account, _names.GetValueOrDefault((a.Key.Store, a.Key.Account)),
+                    return new JournalExportLine(a.Key.Day, $"{code}-{a.Key.Day:yyyyMMdd}", code, a.Key.Account, _names.GetValueOrDefault((a.Key.Store, a.Key.Account)),
                         a.Value > 0 ? a.Value : 0, a.Value < 0 ? -a.Value : 0, a.Key.Memo);
                 })
                 .OrderBy(l => l.Date).ThenBy(l => l.Store, StringComparer.Ordinal).ThenBy(l => l.Debit == 0).ThenBy(l => l.Account, StringComparer.Ordinal)

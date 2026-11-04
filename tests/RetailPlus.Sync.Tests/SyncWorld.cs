@@ -42,15 +42,25 @@ public sealed class SyncWorld : IAsyncLifetime
     public async Task InitializeAsync()
     {
         Directory.CreateDirectory(Folder);
-        try
+        // LocalDB can be slow to answer while every test project starts its databases at once, so try a few times.
+        for (int attempt = 1; ; attempt++)
         {
-            await using (var probe = new SqlConnection(new SqlConnectionStringBuilder(ConnectionString) { InitialCatalog = "master", ConnectTimeout = 15 }.ConnectionString))
+            try
+            {
+                await using var probe = new SqlConnection(new SqlConnectionStringBuilder(ConnectionString) { InitialCatalog = "master", ConnectTimeout = 30 }.ConnectionString);
                 await probe.OpenAsync();
-        }
-        catch (SqlException ex)
-        {
-            UnavailableReason = "No SQL Server for the sync tests: " + ex.Message;
-            return;
+                break;
+            }
+            catch (SqlException ex) when (attempt < 3)
+            {
+                _ = ex;
+                await Task.Delay(TimeSpan.FromSeconds(2 * attempt));
+            }
+            catch (SqlException ex)
+            {
+                UnavailableReason = "No SQL Server for the sync tests: " + ex.Message;
+                return;
+            }
         }
         Server = new Factory(ConnectionString, Path.Combine(Folder, "server"));
         _ = Server.Server;   // starts it: migrations, roles, the super administrator

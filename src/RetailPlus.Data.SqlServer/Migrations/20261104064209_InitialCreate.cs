@@ -132,6 +132,27 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "FiscalYears",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    StartDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    EndDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    ClosedAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    ClosedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FiscalYears", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "FxRates",
                 columns: table => new
                 {
@@ -165,6 +186,55 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ImportBatches", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "LedgerAccounts",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Type = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    ParentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    IsPosting = table.Column<bool>(type: "bit", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    Role = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
+                    Description = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_LedgerAccounts", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_LedgerAccounts_LedgerAccounts_ParentId",
+                        column: x => x.ParentId,
+                        principalTable: "LedgerAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "LedgerSettings",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    BaseCurrency = table.Column<string>(type: "nvarchar(3)", maxLength: 3, nullable: false),
+                    FiscalYearStartMonth = table.Column<int>(type: "int", nullable: false),
+                    Country = table.Column<string>(type: "nvarchar(2)", maxLength: 2, nullable: false),
+                    ManualEntriesNeedApproval = table.Column<bool>(type: "bit", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_LedgerSettings", x => x.Id);
+                    table.CheckConstraint("CK_LedgerSettings_Month", "[FiscalYearStartMonth] BETWEEN 1 AND 12");
                 });
 
             migrationBuilder.CreateTable(
@@ -477,6 +547,33 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_WhatsAppTemplates", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "FiscalPeriods",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    FiscalYearId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Number = table.Column<int>(type: "int", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    StartDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    EndDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_FiscalPeriods", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_FiscalPeriods_FiscalYears_FiscalYearId",
+                        column: x => x.FiscalYearId,
+                        principalTable: "FiscalYears",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -846,6 +943,42 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         principalColumn: "Id");
                     table.ForeignKey(
                         name: "FK_Invoices_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "JournalEntries",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Number = table.Column<long>(type: "bigint", nullable: false),
+                    Date = table.Column<DateOnly>(type: "date", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Source = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Memo = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Reference = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
+                    CreatedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    CreatedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    PostedAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    PostedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    PostedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ReversalOfId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ReversedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_JournalEntries", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_JournalEntries_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -1532,6 +1665,48 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_InvoicePayments_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "JournalLines",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    JournalEntryId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LineNumber = table.Column<int>(type: "int", nullable: false),
+                    AccountId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Debit = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    Credit = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    Memo = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    PartyKind = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: true),
+                    PartyId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_JournalLines", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_JournalLines_JournalEntries_JournalEntryId",
+                        column: x => x.JournalEntryId,
+                        principalTable: "JournalEntries",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_JournalLines_LedgerAccounts_AccountId",
+                        column: x => x.AccountId,
+                        principalTable: "LedgerAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_JournalLines_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -3132,6 +3307,43 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_FiscalPeriods_ChangeNumber",
+                table: "FiscalPeriods",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FiscalPeriods_FiscalYearId_Number",
+                table: "FiscalPeriods",
+                columns: new[] { "FiscalYearId", "Number" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FiscalPeriods_StartDate",
+                table: "FiscalPeriods",
+                column: "StartDate");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FiscalPeriods_UpdatedAtUtc",
+                table: "FiscalPeriods",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FiscalYears_ChangeNumber",
+                table: "FiscalYears",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FiscalYears_StartDate",
+                table: "FiscalYears",
+                column: "StartDate",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_FiscalYears_UpdatedAtUtc",
+                table: "FiscalYears",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_FxRates_ChangeNumber",
                 table: "FxRates",
                 column: "ChangeNumber");
@@ -3463,6 +3675,68 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_JournalEntries_ChangeNumber",
+                table: "JournalEntries",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JournalEntries_Date_Status",
+                table: "JournalEntries",
+                columns: new[] { "Date", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JournalEntries_Number",
+                table: "JournalEntries",
+                column: "Number");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JournalEntries_Source",
+                table: "JournalEntries",
+                column: "Source",
+                unique: true,
+                filter: "[Source] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JournalEntries_StoreId",
+                table: "JournalEntries",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JournalEntries_UpdatedAtUtc",
+                table: "JournalEntries",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JournalLines_AccountId_StoreId",
+                table: "JournalLines",
+                columns: new[] { "AccountId", "StoreId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JournalLines_ChangeNumber",
+                table: "JournalLines",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JournalLines_JournalEntryId",
+                table: "JournalLines",
+                column: "JournalEntryId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JournalLines_PartyKind_PartyId",
+                table: "JournalLines",
+                columns: new[] { "PartyKind", "PartyId" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JournalLines_StoreId",
+                table: "JournalLines",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_JournalLines_UpdatedAtUtc",
+                table: "JournalLines",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_KitComponents_ChangeNumber",
                 table: "KitComponents",
                 column: "ChangeNumber");
@@ -3506,6 +3780,44 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_Leads_UpdatedAtUtc",
                 table: "Leads",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LedgerAccounts_ChangeNumber",
+                table: "LedgerAccounts",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LedgerAccounts_Code",
+                table: "LedgerAccounts",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LedgerAccounts_ParentId",
+                table: "LedgerAccounts",
+                column: "ParentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LedgerAccounts_Role",
+                table: "LedgerAccounts",
+                column: "Role",
+                unique: true,
+                filter: "[Role] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LedgerAccounts_UpdatedAtUtc",
+                table: "LedgerAccounts",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LedgerSettings_ChangeNumber",
+                table: "LedgerSettings",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LedgerSettings_UpdatedAtUtc",
+                table: "LedgerSettings",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -4533,6 +4845,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "FastKeys");
 
             migrationBuilder.DropTable(
+                name: "FiscalPeriods");
+
+            migrationBuilder.DropTable(
                 name: "FxRates");
 
             migrationBuilder.DropTable(
@@ -4569,7 +4884,13 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "ItemVariants");
 
             migrationBuilder.DropTable(
+                name: "JournalLines");
+
+            migrationBuilder.DropTable(
                 name: "KitComponents");
+
+            migrationBuilder.DropTable(
+                name: "LedgerSettings");
 
             migrationBuilder.DropTable(
                 name: "LoyaltyTransactions");
@@ -4668,6 +4989,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "DrawerSessions");
 
             migrationBuilder.DropTable(
+                name: "FiscalYears");
+
+            migrationBuilder.DropTable(
                 name: "GiftCards");
 
             migrationBuilder.DropTable(
@@ -4675,6 +4999,12 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "Invoices");
+
+            migrationBuilder.DropTable(
+                name: "JournalEntries");
+
+            migrationBuilder.DropTable(
+                name: "LedgerAccounts");
 
             migrationBuilder.DropTable(
                 name: "Promotions");

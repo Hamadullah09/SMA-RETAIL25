@@ -36,6 +36,9 @@ public static class AuditActions
     public const string CampaignSent = "Campaign sent";
     public const string WhatsAppMessage = "WhatsApp message";
     public const string WhatsAppConsent = "WhatsApp consent";
+    public const string JournalPosted = "Journal posted";
+    public const string JournalReversed = "Journal reversed";
+    public const string PeriodStatus = "Period status";
 }
 
 /// <summary>
@@ -79,6 +82,8 @@ public static class AuditedTables
         [typeof(Promotion)] = Name<Promotion>(p => p.Name),
         [typeof(PromotionTarget)] = Name<PromotionTarget>(t => t.Plu ?? t.Role.ToString()),
         [typeof(PromotionStore)] = Name<PromotionStore>(_ => "Store"),
+        [typeof(LedgerAccount)] = Name<LedgerAccount>(a => $"{a.Code} {a.Name}"),
+        [typeof(LedgerSettings)] = Name<LedgerSettings>(_ => "Ledger settings"),
     };
 
     /// <summary>Properties never written to the log: kept by the program, or marks that are not changes of substance.</summary>

@@ -65,6 +65,11 @@ public static class Permissions
     public const string MarketingCampaigns = "marketing.campaigns";
     public const string MarketingPromotions = "marketing.promotions";
     public const string SalesTargets = "sales.targets";
+    public const string FinanceView = "finance.view";
+    public const string FinancePost = "finance.post";
+    public const string FinanceApprove = "finance.approve";
+    public const string FinanceClose = "finance.close";
+    public const string FinanceSetup = "finance.setup";
 
     public static IReadOnlyList<PermissionInfo> All { get; } =
     [
@@ -121,6 +126,11 @@ public static class Permissions
         new(MarketingCampaigns, "CRM and marketing", "Customer segments, WhatsApp templates and campaigns"),
         new(MarketingPromotions, "CRM and marketing", "Promotions and coupons at the till"),
         new(SalesTargets, "CRM and marketing", "Sales targets per store and salesperson"),
+        new(FinanceView, "Finance", "See the ledger, statements and balances"),
+        new(FinancePost, "Finance", "Enter journal entries, bills, expenses and payments"),
+        new(FinanceApprove, "Finance", "Approve journal entries made by hand"),
+        new(FinanceClose, "Finance", "Lock periods and close the financial year"),
+        new(FinanceSetup, "Finance", "Chart of accounts, account mapping and ledger settings"),
     ];
 
     public static bool IsKnown(string key) => All.Any(p => p.Key == key);
@@ -138,7 +148,10 @@ public static class Permissions
     private static readonly string[] SupervisorKeys =
         [.. ClerkKeys, PosDiscount, PosVoidLine, PosVoidSale, PosNoSale, PosEndOfDay, PosApprove, InvoicesManage, RmaManage, InventoryTransfer, DashboardView, ReportsView, TimeClockEdit, CrmView];
     private static readonly string[] ManagerKeys =
-        [.. SupervisorKeys, InventoryPrices, ReportsStaff, SetupStore, SetupStations, RfidManage, BackupManage, YearEndRun, AuditView, AccountingExport, CrmEdit, MarketingCampaigns, MarketingPromotions, SalesTargets];
+        [.. SupervisorKeys, InventoryPrices, ReportsStaff, SetupStore, SetupStations, RfidManage, BackupManage, YearEndRun, AuditView, AccountingExport, FinanceView,
+            CrmEdit, MarketingCampaigns, MarketingPromotions, SalesTargets];
+    private static readonly string[] AccountantKeys =
+        [WebSignIn, DashboardView, ReportsView, AuditView, AccountingExport, ClientsView, InventoryView, FinanceView, FinancePost, FinanceApprove, FinanceClose, FinanceSetup];
 
     public const string TraineeRole = "Trainee";
     public const string CashierRole = "Cashier";
@@ -152,6 +165,8 @@ public static class Permissions
     /// <summary>Marketing works on the web: leads and the pipeline, segments, WhatsApp campaigns and promotions.</summary>
     private static readonly string[] MarketingKeys =
         [WebSignIn, DashboardView, ReportsView, ClientsView, ClientsEdit, CrmView, CrmEdit, MarketingCampaigns, MarketingPromotions];
+
+    public const string AccountantRole = "Accountant";
 
     /// <summary>
     /// The roles of a new database. Cashiers, supervisors and managers work at the tills; administrators look after one
@@ -167,6 +182,7 @@ public static class Permissions
         new(AdministratorRole, 4, "Everything for one store, at the tills and on the web", [.. All.Select(p => p.Key).Where(k => k != StoresAll)]),
         new(SuperAdministratorRole, 4, "Everything, for every store", [.. All.Select(p => p.Key)]),
         new(MarketingRole, 3, "Leads, the pipeline, segments, WhatsApp campaigns and promotions, on the web", MarketingKeys),
+        new(AccountantRole, 3, "Keeps the books on the web: ledger, payables, bank, statements", AccountantKeys),
     ];
 
     /// <summary>The default role for a Retail Plus access level (users brought in by the importer).</summary>
