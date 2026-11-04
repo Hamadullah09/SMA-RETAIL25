@@ -20,6 +20,12 @@ import {
   Timer,
   UserCog,
   Users,
+  Handshake,
+  ListChecks,
+  Filter,
+  MessageCircle,
+  BadgePercent,
+  Target,
   type LucideIcon,
 } from 'lucide-react';
 import type { IconName } from '@/lib/nav';
@@ -47,5 +53,11 @@ export const ICONS: Record<IconName, LucideIcon> = {
   upload: ArrowUpFromLine,
   signout: LogOut,
   report: FileText,
+  crm: Handshake,
+  tasks: ListChecks,
+  segments: Filter,
+  campaigns: MessageCircle,
+  promotions: BadgePercent,
+  targets: Target,
 };
 

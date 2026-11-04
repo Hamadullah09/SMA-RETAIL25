@@ -4,17 +4,19 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { Save } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+import { ClientWhatsApp } from '@/components/client-whatsapp';
 import { ConflictDialog, MasterToolbar, useDeleteUndelete } from '@/components/masters';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
-import { Field, Input, TextArea } from '@/components/ui/field';
-import { PageHeader, Pager } from '@/components/ui/page';
+import { Checkbox, Field, Input, TextArea } from '@/components/ui/field';
+import { Chip, PageHeader, Pager } from '@/components/ui/page';
 import { EmptyState, ErrorState, FormError, Skeleton } from '@/components/ui/states';
 import { DataTable } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import { api, ApiError } from '@/lib/api';
+import { checkWhatsApp, normalizeWhatsApp } from '@/lib/crm';
 import { cx } from '@/lib/cx';
-import { formatCount, formatMoney } from '@/lib/format';
+import { formatCount, formatMoney, formatUtc } from '@/lib/format';
 import { checkEmail, checkNumber, numberText, parseNumber, textOrNull, type Errors } from '@/lib/forms';
 import { useDebounced } from '@/lib/hooks';
 import { P } from '@/lib/nav';
@@ -100,6 +102,7 @@ function Clients() {
           { key: 'email', header: 'E-mail', cell: (c) => c.email ?? '', hideBelow: 'xl' },
           { key: 'bal', header: 'Balance', numeric: true, cell: (c) => <span className={cx(c.balance > 0 && 'font-semibold')}>{formatMoney(c.balance, symbol)}</span> },
           { key: 'pts', header: 'Points', numeric: true, cell: (c) => formatCount(c.points), hideBelow: 'md' },
+          { key: 'wa', header: 'WhatsApp', cell: (c) => (c.whatsAppOptIn ? <Chip tone="ok">Agreed</Chip> : ''), hideBelow: 'xl' },
         ]}
         footer={query.data && <Pager page={page} pageSize={PAGE_SIZE} total={query.data.total} onPage={setPage} noun="clients" />}
       />
@@ -128,6 +131,8 @@ interface Form {
   email: string;
   creditLimit: string;
   notes: string;
+  whatsAppNumber: string;
+  birthday: string;
 }
 type Key = keyof Form;
 
@@ -147,6 +152,8 @@ function toForm(c: ClientDetail | null): Form {
     email: c?.email ?? '',
     creditLimit: numberText(c?.creditLimit ?? 0),
     notes: c?.notes ?? '',
+    whatsAppNumber: c?.whatsAppNumber ?? '',
+    birthday: c?.birthday ?? '',
   };
 }
 
@@ -159,10 +166,12 @@ function ClientDialog({ id, readOnly, onClose }: { id: string | null; readOnly: 
   const [loadedFrom, setLoadedFrom] = useState<string | null>(null);
   const [errors, setErrors] = useState<Errors<Key>>({});
   const [conflict, setConflict] = useState(false);
+  const [optIn, setOptIn] = useState(false);
 
   useEffect(() => {
     if (detail.data && detail.data.version !== loadedFrom) {
       setForm(toForm(detail.data));
+      setOptIn(detail.data.whatsAppOptIn ?? false);
       setLoadedFrom(detail.data.version);
     }
   }, [detail.data, loadedFrom]);
@@ -179,6 +188,8 @@ function ClientDialog({ id, readOnly, onClose }: { id: string | null; readOnly: 
 
   function set(key: Key, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
+    // Consent goes with the number.
+    if (key === 'whatsAppNumber' && !value.trim()) setOptIn(false);
     if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
   }
 
@@ -188,6 +199,7 @@ function ClientDialog({ id, readOnly, onClose }: { id: string | null; readOnly: 
     if (!form.firstName.trim() && !form.lastName.trim() && !form.company.trim()) found.lastName = 'Type a name or a company.';
     found.email = checkEmail(form.email);
     found.creditLimit = checkNumber(form.creditLimit, { label: 'The credit limit' });
+    found.whatsAppNumber = checkWhatsApp(form.whatsAppNumber) ?? (optIn && !form.whatsAppNumber.trim() ? 'Consent needs the WhatsApp number.' : undefined);
     for (const k of Object.keys(found) as Key[]) if (!found[k]) delete found[k];
     setErrors(found);
     if (Object.keys(found).length) return;
@@ -211,6 +223,9 @@ function ClientDialog({ id, readOnly, onClose }: { id: string | null; readOnly: 
       balance: detail.data?.balance ?? 0,
       points: detail.data?.points ?? 0,
       notes: textOrNull(form.notes),
+      whatsAppNumber: normalizeWhatsApp(form.whatsAppNumber),
+      whatsAppOptIn: optIn && !!form.whatsAppNumber.trim(),
+      birthday: textOrNull(form.birthday),
     });
   }
 
@@ -289,9 +304,25 @@ function ClientDialog({ id, readOnly, onClose }: { id: string | null; readOnly: 
             <Field label="Notes" htmlFor="client-notes">
               <TextArea id="client-notes" value={form.notes} readOnly={readOnly} onChange={(e) => set('notes', e.target.value)} />
             </Field>
+            {box('birthday', 'Birthday', { type: 'date', className: 'max-w-[200px]' })}
+            {box('whatsAppNumber', 'WhatsApp', { type: 'tel', inputMode: 'tel' })}
+            <Field label="" htmlFor="client-optin">
+              <Checkbox
+                label="Agrees to WhatsApp messages"
+                checked={optIn}
+                disabled={readOnly || !form.whatsAppNumber.trim()}
+                onChange={setOptIn}
+                hint={
+                  detail.data?.whatsAppOptIn && detail.data.whatsAppOptInAtUtc
+                    ? `Agreed ${formatUtc(detail.data.whatsAppOptInAtUtc)}.`
+                    : 'Ask first. Messages go only to clients who agreed.'
+                }
+              />
+            </Field>
           </div>
         </div>
       )}
+      {id && detail.data && <ClientWhatsApp client={detail.data} />}
       <FormError error={save.error && !(save.error instanceof ApiError && save.error.isConflict) ? save.error : null} />
       <ConflictDialog
         open={conflict}

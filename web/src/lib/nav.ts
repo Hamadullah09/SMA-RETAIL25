@@ -22,6 +22,11 @@ export const P = {
   storesAll: 'stores.all',
   audit: 'audit.view',
   syncSend: 'sync.send',
+  crmView: 'crm.view',
+  crmEdit: 'crm.edit',
+  campaigns: 'marketing.campaigns',
+  promotions: 'marketing.promotions',
+  targets: 'sales.targets',
 } as const;
 
 /** The icon of a page, by name; `components/shell/icons.tsx` maps the names to lucide icons. */
@@ -46,7 +51,13 @@ export type IconName =
   | 'new'
   | 'upload'
   | 'signout'
-  | 'report';
+  | 'report'
+  | 'crm'
+  | 'tasks'
+  | 'segments'
+  | 'campaigns'
+  | 'promotions'
+  | 'targets';
 
 export interface PageDef {
   key: string;
@@ -86,6 +97,13 @@ export const PAGES: readonly PageDef[] = [
   { key: 'item', title: 'Item', path: '/items/edit/', icon: 'inventory', permission: P.inventoryEdit, nav: false, parent: 'items' },
   { key: 'report', title: 'Report', path: '/reports/view/', icon: 'reports', permission: P.reports, nav: false, parent: 'reports' },
   { key: 'account', title: 'Change password', path: '/account/', icon: 'account', permission: null, nav: false, keywords: 'account password' },
+  { key: 'crm', title: 'CRM', path: '/crm/', icon: 'crm', permission: P.crmView, nav: true, keywords: 'leads opportunities pipeline activities won lost deals' },
+  { key: 'tasks', title: 'My tasks', path: '/tasks/', icon: 'tasks', permission: P.crmView, nav: true, keywords: 'activities to do follow up calls overdue' },
+  { key: 'segments', title: 'Segments', path: '/segments/', icon: 'segments', permission: P.campaigns, nav: true, keywords: 'customer groups lapsed big spenders birthdays' },
+  { key: 'campaigns', title: 'Campaigns', path: '/campaigns/', icon: 'campaigns', permission: P.campaigns, nav: true, keywords: 'whatsapp messages templates marketing' },
+  { key: 'promotions', title: 'Promotions', path: '/promotions/', icon: 'promotions', permission: P.promotions, nav: true, keywords: 'discounts coupons happy hour buy get bundle' },
+  { key: 'targets', title: 'Targets', path: '/targets/', icon: 'targets', permission: P.targets, nav: true, keywords: 'sales targets goals month salesperson' },
+  { key: 'campaign', title: 'Campaign', path: '/campaigns/view/', icon: 'campaigns', permission: P.campaigns, nav: false, parent: 'campaigns' },
 ];
 
 /** Whether a user with these permissions may open the page. */
@@ -159,6 +177,13 @@ export const ACTIONS: readonly Command[] = [
   { id: 'add-store', title: 'Add store', kind: 'Action', icon: 'new', path: '/stores/?new=1', permission: P.storesManage, keywords: 'new branch' },
   { id: 'password', title: 'Change password', kind: 'Action', icon: 'account', path: '/account/', permission: null, keywords: 'account' },
   { id: 'sign-out', title: 'Sign out', kind: 'Action', icon: 'signout', action: 'sign-out', permission: null, keywords: 'log out switch user' },
+  { id: 'new-lead', title: 'New lead', kind: 'Action', icon: 'new', path: '/crm/?tab=leads&new=1', permission: P.crmEdit, keywords: 'add prospect crm' },
+  { id: 'new-opportunity', title: 'New opportunity', kind: 'Action', icon: 'new', path: '/crm/?tab=pipeline&new=1', permission: P.crmEdit, keywords: 'add deal pipeline crm' },
+  { id: 'new-activity', title: 'New activity', kind: 'Action', icon: 'new', path: '/crm/?tab=activities&new=1', permission: P.crmEdit, keywords: 'add task call visit meeting note' },
+  { id: 'new-segment', title: 'New segment', kind: 'Action', icon: 'new', path: '/segments/?new=1', permission: P.campaigns, keywords: 'add customer group' },
+  { id: 'new-campaign', title: 'New campaign', kind: 'Action', icon: 'new', path: '/campaigns/?new=1', permission: P.campaigns, keywords: 'add whatsapp message' },
+  { id: 'new-promotion', title: 'New promotion', kind: 'Action', icon: 'new', path: '/promotions/?new=1', permission: P.promotions, keywords: 'add discount coupon' },
+  { id: 'new-target', title: 'New target', kind: 'Action', icon: 'new', path: '/targets/?new=1', permission: P.targets, keywords: 'add sales goal' },
 ];
 
 /** Everything the palette may offer this user: the pages, the actions and the reports of the catalog. */

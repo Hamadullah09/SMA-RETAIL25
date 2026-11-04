@@ -51,6 +51,8 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
   let user: UserInfo | null = options.user === undefined ? f.superAdmin : options.user;
   // RFID hub keys change as the test adds and revokes them.
   let hubs = f.rfidHubs.map((h) => ({ ...h }));
+  // E4: opportunities move between stages as the test drags them.
+  const e4Opportunities = f.opportunities.map((o) => ({ ...o }));
   const requests: SentRequest[] = [];
   const overrides = options.overrides ?? {};
 
@@ -189,6 +191,118 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
         return { json: f.commission };
       case key === 'GET /api/commission-rules':
         return { json: f.commissionRules };
+
+      // Phase E4 ------------------------------------------------------------------------------------------------------
+      case key === 'GET /api/crm/stages':
+        return { json: f.stagesE4 };
+      case key === 'PUT /api/crm/stages':
+        return { json: (r.body as Array<{ id?: string | null; name: string; probability: number; outcome: string }>).map((s, i) => ({ ...s, id: s.id ?? `st-x${i}`, sortOrder: i + 1 })) };
+      case key === 'GET /api/opportunities/board': {
+        const owner = query.get('ownerId');
+        return { json: f.boardOf(e4Opportunities.filter((o) => !owner || o.ownerId === owner)) };
+      }
+      case key === 'GET /api/opportunities/report':
+        return { json: f.wonLost };
+      case key === 'GET /api/opportunities':
+        return { json: paged(search(e4Opportunities, query, (o) => `${o.title} ${o.clientName ?? ''} ${o.leadName ?? ''}`), query) };
+      case /^POST \/api\/opportunities\/[^/]+\/move$/.test(key): {
+        const card = e4Opportunities.find((o) => o.id === id);
+        const body = r.body as { stageId: string; lostReason?: string | null };
+        const stage = f.stagesE4.find((s) => s.id === body.stageId);
+        if (!card || !stage) return { status: 404, json: { error: 'That opportunity was not found.' } };
+        if (stage.outcome === 'Lost' && !body.lostReason) return { status: 400, json: { error: 'Say why it was lost.' } };
+        Object.assign(card, {
+          stageId: stage.id, stage: stage.name, outcome: stage.outcome, probability: stage.probability, weightedValue: (card.expectedValue * stage.probability) / 100,
+          lostReason: stage.outcome === 'Lost' ? body.lostReason : null, version: 'v-2',
+        });
+        return { json: card };
+      }
+      case /^GET \/api\/opportunities\/[^/]+$/.test(key):
+        return { json: e4Opportunities.find((o) => o.id === id) ?? e4Opportunities[0] };
+      case key === 'GET /api/leads': {
+        const status = query.get('status');
+        return { json: paged(search(f.leads.filter((l) => !status || l.status === status), query, (l) => `${l.name} ${l.company ?? ''} ${l.phone ?? ''}`), query) };
+      }
+      case /^POST \/api\/leads\/[^/]+\/convert$/.test(key): {
+        const lead = f.leads.find((l) => l.id === id) ?? f.leads[0];
+        const clientId = (r.body as { clientId?: string | null })?.clientId ?? 'cl-new';
+        return { json: { lead: { ...lead, status: 'Converted', clientId, clientName: lead.name, version: 'v-2' }, clientId, clientNumber: 10000005 } };
+      }
+      case /^GET \/api\/leads\/[^/]+$/.test(key):
+        return { json: f.leads.find((l) => l.id === id) ?? f.leads[0] };
+      case key === 'GET /api/activities/mine':
+        return { json: f.myTasksFor(user.id, query.get('due') === 'today') };
+      case key === 'GET /api/activities': {
+        const done = query.get('done');
+        return { json: paged(f.activities.filter((a) => done === null || String(a.isDone) === done), query) };
+      }
+      case /^POST \/api\/activities\/[^/]+\/done$/.test(key): {
+        const a = f.activities.find((x) => x.id === id) ?? f.activities[0];
+        const done = (r.body as { done: boolean }).done;
+        return { json: { ...a, isDone: done, due: done ? 'done' : a.due, version: 'v-2' } };
+      }
+      case key === 'GET /api/segments':
+        return { json: f.segmentsE4 };
+      case key === 'POST /api/segments/preview':
+        return { json: f.segmentResult };
+      case /^POST \/api\/segments\/[^/]+\/evaluate$/.test(key):
+        return { json: f.segmentResult };
+      case /^GET \/api\/segments\/[^/]+\/csv$/.test(key):
+        return { body: '﻿Number,Name,WhatsApp\n10000002,Daniel Kim,+14165550199\n', contentType: 'text/csv' };
+      case /^GET \/api\/segments\/[^/]+$/.test(key):
+        return { json: f.segmentsE4.find((s) => s.id === id) ?? f.segmentsE4[0] };
+      case key === 'GET /api/whatsapp/status':
+        return { json: f.whatsAppStatus };
+      case key === 'GET /api/whatsapp/templates':
+        return { json: f.templates };
+      case key === 'GET /api/campaigns': {
+        const status = query.get('status');
+        return { json: paged(f.campaigns.filter((c) => !status || c.status === status), query) };
+      }
+      case /^GET \/api\/campaigns\/[^/]+\/messages$/.test(key): {
+        const status = query.get('status');
+        return { json: paged(f.campaignMessages.filter((m) => m.campaignId === id && (!status || m.status === status)), query) };
+      }
+      case /^GET \/api\/campaigns\/[^/]+\/results$/.test(key):
+        return { json: { ...f.campaignResults, days: Number(query.get('days') ?? 7) } };
+      case /^POST \/api\/campaigns\/[^/]+\/schedule$/.test(key): {
+        const c = f.campaigns.find((x) => x.id === id) ?? f.campaigns[1];
+        const sendAt = (r.body as { sendAtUtc: string | null }).sendAtUtc;
+        return { json: { ...c, status: 'Scheduled', recipients: 2, counts: { ...c.counts, queued: 2 }, scheduledAtUtc: sendAt ?? new Date().toISOString(), version: 'v-2' } };
+      }
+      case /^POST \/api\/campaigns\/[^/]+\/cancel$/.test(key): {
+        const c = f.campaigns.find((x) => x.id === id) ?? f.campaigns[2];
+        return { json: { ...c, status: 'Cancelled', version: 'v-2' } };
+      }
+      case /^GET \/api\/campaigns\/[^/]+$/.test(key):
+        return f.campaigns.some((c) => c.id === id) ? { json: f.campaigns.find((c) => c.id === id) } : { status: 404, json: { error: 'That campaign was not found.' } };
+      case /^GET \/api\/clients\/[^/]+\/whatsapp$/.test(key):
+        return { json: f.clientMessages };
+      case /^POST \/api\/clients\/[^/]+\/whatsapp$/.test(key): {
+        const template = f.templates.find((t) => t.id === (r.body as { templateId: string }).templateId) ?? f.templates[0];
+        return {
+          json: { ...f.clientMessages[0], id: 'm-new', campaignId: null, template: template.name, status: 'Sent', sentAtUtc: new Date().toISOString(), deliveredAtUtc: null, readAtUtc: null },
+        };
+      }
+      case key === 'GET /api/promotions': {
+        const active = query.get('active') === 'true';
+        return { json: search(f.promotions.filter((p) => !active || p.isActive), query, (p) => `${p.name} ${p.couponCode ?? ''}`).map(f.promotionRow) };
+      }
+      case key === 'GET /api/promotions/report':
+        return { json: f.promotionReport };
+      case /^GET \/api\/promotions\/[^/]+$/.test(key):
+        return { json: f.promotions.find((p) => p.id === id) ?? f.promotions[0] };
+      case key === 'POST /api/promotions' || /^PUT \/api\/promotions\/[^/]+$/.test(key): {
+        const body = r.body as { name: string; id?: string | null };
+        return { status: method === 'POST' ? 201 : 200, json: { ...body, id: body.id ?? 'p-new', version: 'v-2', couponUses: 0, summary: body.name, live: true } };
+      }
+      case key === 'GET /api/targets': {
+        const year = Number(query.get('year')), month = Number(query.get('month'));
+        return { json: f.targetsE4.filter((t) => t.year === year && t.month === month && (!query.get('storeId') || t.storeId === query.get('storeId'))) };
+      }
+      case key === 'GET /api/targets/progress':
+        return { json: f.targetProgress };
+
       case method === 'DELETE':
         return { status: 204 };
       case method === 'POST' || method === 'PUT':
