@@ -32,11 +32,18 @@ export function NavList({
   }, [current]);
   return (
     <ul ref={list} className="flex flex-col gap-1.5">
-      {pages.map((page) => {
+      {pages.map((page, index) => {
         const Icon = ICONS[page.icon];
         const active = page.key === current;
+        // A group's heading before its first page (a line only, where the panel shows icons).
+        const heading = page.group && page.group !== pages[index - 1]?.group ? page.group : null;
         return (
           <li key={page.key}>
+            {heading && (
+              <p className={cx('mb-1 mt-3 border-t border-line px-[18px] pt-3 text-note font-semibold uppercase tracking-wide text-muted', collapsible && 'max-xl:sr-only')}>
+                {heading}
+              </p>
+            )}
             <Link
               href={page.path}
               onClick={onNavigate}

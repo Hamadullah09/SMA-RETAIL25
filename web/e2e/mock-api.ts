@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page, Request, Route } from '@playwright/test';
 import * as f from './fixtures';
+import { productionAnswer } from './production-mock';
 import type { ItemDetail, UserInfo } from '../src/lib/types';
 
 export interface SentRequest {
@@ -71,6 +72,8 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
     }
     if (!user) return { status: 401, json: { error: 'Sign in again.' } };
     if (method !== 'GET' && r.headers['x-requested-with'] !== 'retailplus-web') return { status: 403, json: { error: 'Missing X-Requested-With.' } };
+    const production = productionAnswer(r);
+    if (production) return production;
 
     switch (true) {
       case key === 'GET /api/auth/me':

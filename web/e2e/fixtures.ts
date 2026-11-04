@@ -44,6 +44,7 @@ import type {
   UserInfo,
   UserRow,
 } from '../src/lib/types';
+import { productionPermissions } from './production-fixtures';
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
 const today = (() => {
@@ -101,6 +102,7 @@ export const permissions: PermissionInfo[] = [
   ['web.signin', 'Web', 'Sign in to the web back office'],
   ['stores.manage', 'Web', 'Add stores and tills'],
   ['stores.all', 'Web', 'See and manage every store (super admin)'],
+  ...productionPermissions,
 ].map(([key, group, description]) => ({ key, group, description }));
 
 const everything = permissions.map((p) => p.key);

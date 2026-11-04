@@ -20,6 +20,13 @@ import {
   Timer,
   UserCog,
   Users,
+  CalendarClock,
+  ClipboardCheck,
+  Factory,
+  Gauge,
+  ListTree,
+  Route,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react';
 import type { IconName } from '@/lib/nav';
@@ -47,5 +54,12 @@ export const ICONS: Record<IconName, LucideIcon> = {
   upload: ArrowUpFromLine,
   signout: LogOut,
   report: FileText,
+  bom: ListTree,
+  workcentre: Factory,
+  routing: Route,
+  production: Wrench,
+  planning: CalendarClock,
+  capacity: Gauge,
+  quality: ClipboardCheck,
 };
 
