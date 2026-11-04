@@ -94,8 +94,9 @@ public class HrRulesTests
     [Fact]
     public void Lateness_and_leaving_early_count_beyond_the_grace_minutes()
     {
+        // 9:05 to 17:00 less the hour's break is 415 minutes worked; five minutes late is within the grace.
         var onTime = Day(9, 5, 17, 0);
-        Assert.Equal((420, 0, 0, 0), (onTime.WorkedMinutes, onTime.LateMinutes, onTime.EarlyMinutes, onTime.OvertimeMinutes));
+        Assert.Equal((415, 0, 0, 0), (onTime.WorkedMinutes, onTime.LateMinutes, onTime.EarlyMinutes, onTime.OvertimeMinutes));
         var late = Day(9, 25, 16, 30);
         Assert.Equal((25, 30), (late.LateMinutes, late.EarlyMinutes));
         Assert.Equal(Monday.ToDateTime(new TimeOnly(9, 25)), late.FirstIn);
