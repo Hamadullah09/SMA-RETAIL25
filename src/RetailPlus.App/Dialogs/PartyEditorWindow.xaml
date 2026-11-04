@@ -49,6 +49,12 @@
                         <DockPanel><TextBlock Text="Type" Style="{StaticResource L}" /><TextBox Text="{Binding Type}" MaxLength="15" /></DockPanel>
                         <DockPanel><TextBlock Text="Last mailed" Style="{StaticResource L}" /><DatePicker SelectedDate="{Binding LastMailed, Converter={StaticResource DateOnly}}" /></DockPanel>
                         <DockPanel x:Name="BirthdayRow"><TextBlock Text="Birthday" Style="{StaticResource L}" /><DatePicker SelectedDate="{Binding Birthday, Converter={StaticResource DateOnly}}" /></DockPanel>
+                        <!-- WhatsApp (phase E4): messages go only to a client who agreed, on this number. -->
+                        <StackPanel x:Name="WhatsAppRows">
+                            <DockPanel><TextBlock Text="WhatsApp number" Style="{StaticResource L}" /><TextBox Text="{Binding WhatsAppNumber}" MaxLength="20" ToolTip="With + and the country code, like +923001234567" /></DockPanel>
+                            <DockPanel><TextBlock Text="WhatsApp offers" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding WhatsAppOptIn}" Content="Agrees to receive them" /></DockPanel>
+                            <TextBlock x:Name="WhatsAppNote" Margin="170,0,0,7" Foreground="{StaticResource Muted}" TextWrapping="Wrap" />
+                        </StackPanel>
                         <DockPanel><TextBlock Text="Flagged" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding IsFlagged}" /></DockPanel>
                     </StackPanel>
                 </Grid>

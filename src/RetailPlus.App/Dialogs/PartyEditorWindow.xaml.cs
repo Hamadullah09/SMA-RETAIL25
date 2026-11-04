@@ -25,8 +25,10 @@ public partial class PartyEditorWindow : Window
             HistoryTab.Visibility = Visibility.Collapsed;
             PointsTab.Visibility = Visibility.Collapsed;
             BirthdayRow.Visibility = Visibility.Collapsed;
+            WhatsAppRows.Visibility = Visibility.Collapsed;
             NumberLabel.Text = "Supplier number";
         }
+        if (party is Client c) WhatsAppNote.Text = WhatsAppAnswer(c);
         PriceLevelBox.ItemsSource = new[] { 0, 1, 2, 3, 4 };
         UnitBox.ItemsSource = new[] { "Days", "Weeks", "Months" };
         Exempt1Label.Text = AppServices.Settings.Tax1Name ?? "Tax 1";
@@ -38,6 +40,15 @@ public partial class PartyEditorWindow : Window
                 await LoadPointsAsync();
             });
         else PointsTab.Visibility = Visibility.Collapsed;
+    }
+
+    /// <summary>The client's answer about WhatsApp messages, with its date.</summary>
+    private static string WhatsAppAnswer(Client c)
+    {
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        if (c.WhatsAppOptIn && c.WhatsAppOptInAt is { } at) return "Agreed on " + DateTime.SpecifyKind(at, DateTimeKind.Utc).ToLocalTime().ToString("d", culture) + ".";
+        if (c.WhatsAppAskedAt is { } asked) return "Said no on " + DateTime.SpecifyKind(asked, DateTimeKind.Utc).ToLocalTime().ToString("d", culture) + ". Nothing is sent to them.";
+        return "Not asked yet: the till asks at their next sale.";
     }
 
     /// <summary>Opens the window on the Points tab.</summary>

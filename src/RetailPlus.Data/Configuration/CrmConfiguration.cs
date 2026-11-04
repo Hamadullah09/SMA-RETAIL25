@@ -202,6 +202,7 @@ internal sealed class ClientWhatsAppConfiguration : IEntityTypeConfiguration<Cli
     {
         e.Property(x => x.WhatsAppNumber).HasMaxLength(20);
         e.Property(x => x.WhatsAppOptInAt).HasPrecision(3);
+        e.Property(x => x.WhatsAppAskedAt).HasPrecision(3);
     }
 }
 

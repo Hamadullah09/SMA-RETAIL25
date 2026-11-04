@@ -94,6 +94,11 @@ public class Client : Party
     public bool WhatsAppOptIn { get; set; }
     /// <summary>When the client agreed (UTC); cleared when the consent is taken back.</summary>
     public DateTime? WhatsAppOptInAt { get; set; }
+    /// <summary>
+    /// When the client last answered whether they agree to WhatsApp messages (UTC), yes or no: at the till, or when their
+    /// consent was changed. The till asks a client who never answered.
+    /// </summary>
+    public DateTime? WhatsAppAskedAt { get; set; }
 }
 
 /// <summary>A supplier (one record of SUPPLIER.DBF).</summary>
