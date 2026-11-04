@@ -366,3 +366,141 @@ then travel like the tills' own: down to that store's tills.
   and the folders above it; when there is none, only the API is served). `/x/` serves `x/index.html` and `/x` serves
   `x.html`; any other path outside `/api` gets the export's `404.html` with status 404. Files under `/_next/static/` are
   cached for a year (`immutable`), pages are `no-cache`. Nothing under `/api` is ever served from the files.
+
+## Supply chain (phase E2)
+
+Added with the supply chain ([ERP_E2_SUPPLY.md](ERP_E2_SUPPLY.md)); the server code is `Endpoints.Supply.cs` and the web
+types are in `web/src/lib/types.ts`. The usual rules hold: lists take `storeId` (403 for a store the user cannot see),
+a record of another store is 404, changes send the `version` they read (409 when it changed), and they are written as the
+web user at station 0 of the record's store. Where an endpoint needs a location and none is given (`locationId` in the
+query or the body), it takes the first location of `storeId`, else of the user's store, else of the only store.
+
+### Batches and expiry — `inventory.batches`
+- `GET /api/batches?storeId&locationId&search&inStock` (*paged*, by stock code, then first expiry first). `inStock`
+  defaults to true. Each row is a `BatchRow`: `{ "id", "version", "itemId", "plu", "itemName", "storeCode",
+  "locationCode", "batchNumber", "expiresOn", "madeOn", "supplier", "receivedOn", "purchaseOrderNumber", "onHand",
+  "unitCost", "value", "daysLeft", "bin", "note" }`. `onHand` is the sum of the batch's stock movements; `daysLeft` is
+  negative once it has expired.
+- `GET /api/batches/expiring?storeId&days` and `GET /api/batches/expired?storeId` return
+  `{ "days", "rows": [BatchRow], "units", "value" }`: batches with stock that expire from today to `days` ahead (default:
+  the store's `expiryWarningDays`, 30 across several stores), soonest first; or that have expired, oldest first
+  (`days` 0).
+- `GET /api/items/{id}/batches` returns `[BatchRow]` of one item, in the order they leave (first expiry first).
+- `POST /api/batches` takes `{ itemId, batchNumber, expiresOn, madeOn, supplierId, note }` (201, the `BatchRow`).
+  `PUT /api/batches/{id}` takes the same with `version` (the item stays; a batch with movements keeps its number). 400
+  for an item not kept in batches or a number the item already has.
+- `POST /api/batches/{id}/adjust` takes `{ quantity, setTo, reason }`: adds `quantity`, or with `setTo` makes the batch
+  hold it, as an adjustment movement of the batch. It also needs `inventory.adjust`. Returns the `BatchRow`.
+
+### Bins and their lists — `inventory.bins`
+- `GET /api/bins?storeId&locationId` returns `[{ "id", "version", "locationId", "storeCode", "locationCode", "code",
+  "zone", "description", "isActive", "items" }]`; `items` counts the items whose default bin it is.
+- `POST /api/bins` takes `{ locationId, code, zone, description, isActive }` (201; codes are kept in capitals and are
+  unique per location). `PUT /api/bins/{id}` takes the same with `version`; a new code moves its items with it.
+  `DELETE /api/bins/{id}` is 204, or 400 while items are kept in it.
+- `POST /api/bins/assign` takes `{ itemIds: [...], binCode }` (items of one store; `binCode` null takes them out of
+  their bin) and returns `{ "changed" }`.
+- `GET /api/bins/count-sheet?locationId&zone&bin`, `GET /api/bins/pick-orders?locationId`, `GET /api/transfers/{id}/pick`
+  and `GET /api/purchase-orders/{id}/put-away` (that one with `purchasing.manage`) return
+  `{ "title", "rows": [{ "zone", "bin", "plu", "description", "quantity", "batchNumber", "expiresOn", "document",
+  "onHand" }] }`, sorted by zone and bin, items without a bin last. Pick lists name the batch to take (first expiry
+  first); the put-away list names the batches that arrived.
+
+### Purchase orders — `purchasing.manage`
+- `GET /api/purchase-orders?storeId&status&search` (*paged*, newest first). `status` is `Draft`, `Posted` or `Received`;
+  `search` finds the order number, its description or a supplier. Each row: `{ "id", "number", "storeCode",
+  "locationCode", "status", "createdAt", "postedAt", "receivedAt", "expectedOn", "supplier", "description", "lines",
+  "totalCost" }`.
+- `GET /api/purchase-orders/{id}`: the row's fields with `version`, `storeId`, `locationId`, `supplierId`, `createdBy`,
+  `receivedBy` and `lines: [{ "id", "itemId", "plu", "description", "supplier", "caseQuantity", "orderQuantity",
+  "pieces", "costEach", "orderedCost", "orderCost", "quantityReceived", "tracksBatches", "shelfLifeDays", "bin",
+  "batches": [{ "batchNumber", "pieces", "expiresOn", "madeOn" }] }]`. `orderedCost` is the cost agreed when the order
+  was posted, which the three-way match compares the bill with.
+- `POST /api/purchase-orders/{id}/post` takes `{ version }`: the pieces go on order. Returns the order.
+- `POST /api/purchase-orders/{id}/receive` takes `{ version, shippingCost, lines: [{ lineId, pieces, costEach, batches }] }`
+  and returns the order, received. A line of an item kept in batches needs `batches` (`[{ batchNumber, pieces,
+  expiresOn, madeOn }]`) adding up to its pieces (400 otherwise); a batch without `expiresOn` gets one from the item's
+  shelf life. Stock, last cost and average cost change as at the till.
+
+### Requisitions — `purchasing.manage`; approving and rejecting need `purchasing.approve`
+- `GET /api/requisitions?storeId&locationId&status` (*paged*, newest first). `status` is `Draft`, `Submitted`,
+  `Approved`, `Rejected` or `Ordered`. Each row: `{ "id", "number", "storeCode", "locationCode", "status", "createdAt",
+  "requestedBy", "neededBy", "lines", "total", "decidedBy", "decidedAt", "note" }`.
+- `GET /api/requisitions/{id}`: `{ "id", "version", "number", "storeId", "storeCode", "locationId", "locationCode",
+  "status", "createdAt", "requestedBy", "neededBy", "note", "submittedAt", "decidedAt", "decidedBy", "decisionNote",
+  "orderedAt", "total", "lines": [{ "id", "lineNumber", "itemId", "plu", "description", "quantity", "costEach", "value",
+  "neededBy", "supplierId", "supplier", "note", "purchaseOrderId", "purchaseOrderNumber" }] }`. `total` is at the
+  expected costs (the item's last cost unless given), which the approver's limit is checked against.
+- `POST /api/requisitions?storeId` takes `{ locationId, neededBy, note, lines: [{ itemId, plu, quantity, neededBy,
+  supplierId, costEach, note }] }` (201, the detail). A line names its item by `itemId` or by `plu` at the location; the
+  supplier is the one given, else the item's.
+- `PUT /api/requisitions/{id}` takes the same with `version`; the lines replace the old ones. Only a draft or a rejected
+  requisition changes (a rejected one becomes a draft again). `DELETE` deletes a draft or rejected one.
+- `POST /api/requisitions/{id}/submit`, `/approve` and `/reject` take `{ version, note }` and return the detail. A
+  rejection needs a `note` (why). Approving is refused (400) above the role's limit, or by the person who asked when the
+  store's `approverMustDiffer` is set.
+- `POST /api/requisitions/{id}/order` takes `{ version }`: the approved lines become draft purchase orders, one per
+  supplier. Returns `{ "orders": [{ "id", "number", "supplier" }] }`.
+- `GET /api/supply/approval-limits` (`purchasing.approve`) returns `[{ "roleId", "role", "mayApprove", "maxAmount" }]`;
+  `maxAmount` null is no limit. `PUT /api/supply/approval-limits/{roleId}` (`setup.users`) takes `{ maxAmount }` and
+  returns the list. Limits hold for every store, so they follow the company-wide rule.
+
+### Three-way match — `purchasing.manage`; deciding needs `purchasing.approve`
+- `GET /api/matching?storeId&status&purchaseOrderId` (*paged*, held lines first, then newest bill). `status` is
+  `Matched`, `Held`, `Accepted` or `Rejected`. Each row: `{ "id", "version", "storeCode", "purchaseOrderId",
+  "purchaseOrderNumber", "purchaseOrderLineId", "billId", "billLineId", "billNumber", "billDate", "supplier", "plu",
+  "description", "quantityOrdered", "quantityReceived", "quantityBilled", "quantityMatched", "orderedCost",
+  "receivedCost", "billedCost", "priceDifference", "status", "reason", "checkedAtUtc", "decidedAtUtc", "decidedBy",
+  "decisionNote" }`. `priceDifference` is `quantityMatched × (billedCost − receivedCost)`.
+- `POST /api/matching/run?storeId` checks again every order of the store (or of the stores the user sees) that a supplier
+  bill names, and returns `{ "lines", "matched", "held", "posted" }`.
+- `POST /api/matching/{id}/accept` and `/reject` take `{ version, note }` (a rejection needs the `note`) and return the
+  row. Only a held line is decided. Accepting posts its price difference.
+- `GET /api/matching/received-not-billed?storeId` and `GET /api/matching/billed-not-received?storeId` return
+  `[{ "purchaseOrderId", "purchaseOrderNumber", "purchaseOrderLineId", "storeCode", "plu", "description", "supplier",
+  "ordered", "received", "billed", "difference", "costEach", "value", "receivedAt" }]`.
+- The bills come from the payables module through `IBillLineSource` (see ERP_E2_SUPPLY.md, *The seam to E1*). The store's
+  tolerances are `quantityTolerancePercent`, `quantityToleranceUnits`, `priceTolerancePercent` and
+  `priceToleranceAmount` of the supply settings: a difference passes when it is within the larger of the two.
+
+### Landed costs — `purchasing.manage` to read, `purchasing.approve` to make, change, post and delete
+- `GET /api/landed-costs?storeId&status` (*paged*, newest first). `status` is `Draft` or `Posted`. Each row: `{ "id",
+  "number", "storeCode", "date", "status", "basis", "reference", "total", "receipts", "note", "postedAtUtc",
+  "postedBy" }`. `basis` is `Value`, `Quantity` or `Weight`.
+- `GET /api/landed-costs/receipts?storeId` returns the received orders a voucher can be spread over: `[{
+  "purchaseOrderId", "number", "storeCode", "locationCode", "receivedAt", "supplier", "description", "lines",
+  "value" }]`.
+- `GET /api/landed-costs/{id}` returns `{ "id", "version", "number", "storeId", "storeCode", "date", "status", "basis",
+  "reference", "note", "total", "charges": [{ "kind", "description", "amount" }], "receipts": [{ "purchaseOrderId",
+  "number", "receivedAt", "supplier", "value" }], "allocations": [{ "purchaseOrderLineId", "itemId", "plu",
+  "description", "quantity", "value", "weight", "share", "onHand", "toInventory", "toCostOfGoods" }], "createdBy",
+  "postedAtUtc", "postedBy" }`. `kind` is `Freight`, `Duty`, `Insurance` or `Other`. A draft's `allocations` are empty;
+  `GET /api/landed-costs/{id}/preview` works them out as posting would.
+- `POST /api/landed-costs` takes `{ storeId, date, basis, reference, note, charges, purchaseOrderIds }` (201, the detail
+  with the preview). `PUT /api/landed-costs/{id}` takes the same with `version`, for a draft.
+- `POST /api/landed-costs/{id}/post` takes `{ version }` and returns the posted voucher: the share of the pieces still
+  on hand raises the items' average cost, the rest goes to cost of goods, in one ledger entry. `DELETE` deletes a draft
+  (400 once posted).
+
+### Reorder suggestions — `purchasing.manage`
+- `GET /api/reorder?storeId&locationId&supplierId&all` returns `{ "locationId", "rows": [{ "itemId", "plu", "name",
+  "supplierId", "supplier", "onHand", "onOrder", "customerOrdered", "unitsSold", "averageDailySales", "leadTimeDays",
+  "reorderPoint", "reorderLevel", "targetStock", "caseQuantity", "minimumOrder", "suggestedPieces", "orderQuantity",
+  "costEach", "value" }] }`: the items that need ordering now (every item with `all=true`), by supplier and stock code.
+- `POST /api/reorder/orders?storeId` takes `{ locationId, lines: [{ itemId, pieces, supplierId }] }` and returns
+  `{ "orders": [{ "id", "number", "supplier" }] }`: draft purchase orders, one per supplier, in whole cases.
+- `POST /api/reorder/requisition?storeId` takes `{ locationId, lines, submit, neededBy }` and returns the requisition
+  (201), sent for approval when `submit` is true.
+
+### Supplier performance — `reports.view`
+`GET /api/supplier-performance?storeId&from&to` (default: the last 90 days) returns `{ "from", "to", "rows": [{
+"supplierId", "supplier", "orders", "onTime", "onTimePercent", "orderedPieces", "receivedPieces", "fillRatePercent",
+"priceIncreases", "priceDecreases", "averagePriceChangePercent", "returns", "returnedPieces", "returnedValue",
+"averageLeadDays", "receivedValue" }] }`. Percentages are null where there is nothing to work them out from.
+
+### Supply chain settings — `purchasing.manage` to read, `setup.store` to change
+`GET /api/supply/settings?storeId` returns `{ "version", "storeId", "blockExpiredSales", "expiryWarningDays",
+"quantityTolerancePercent", "quantityToleranceUnits", "priceTolerancePercent", "priceToleranceAmount",
+"salesWindowDays", "safetyStockDays", "orderCoverDays", "defaultLeadTimeDays", "approverMustDiffer" }` (`version` is
+`new` while the store has none saved; the defaults then apply). `PUT /api/supply/settings?storeId` saves it. A store the
+user cannot see is 404. The settings go down to the store's tills, whose POS reads `blockExpiredSales`.
