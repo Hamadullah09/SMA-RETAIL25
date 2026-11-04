@@ -130,6 +130,23 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Designations",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Designations", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "FastKeys",
                 columns: table => new
                 {
@@ -238,6 +255,41 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Holidays",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Country = table.Column<string>(type: "nvarchar(2)", maxLength: 2, nullable: false),
+                    Date = table.Column<DateOnly>(type: "date", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Holidays", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "HrDepartments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_HrDepartments", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ImportBatches",
                 columns: table => new
                 {
@@ -254,6 +306,35 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_ImportBatches", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "LeaveTypes",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Country = table.Column<string>(type: "nvarchar(2)", maxLength: 2, nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    DaysPerYear = table.Column<decimal>(type: "decimal(7,2)", precision: 7, scale: 2, nullable: false),
+                    IsPaid = table.Column<bool>(type: "bit", nullable: false),
+                    AccruesMonthly = table.Column<bool>(type: "bit", nullable: false),
+                    CarryOverMaxDays = table.Column<decimal>(type: "decimal(7,2)", precision: 7, scale: 2, nullable: false),
+                    Encashable = table.Column<bool>(type: "bit", nullable: false),
+                    CountsCalendarDays = table.Column<bool>(type: "bit", nullable: false),
+                    OnlyFor = table.Column<string>(type: "nvarchar(8)", maxLength: 8, nullable: true),
+                    MinimumServiceMonths = table.Column<int>(type: "int", nullable: false),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    SortOrder = table.Column<int>(type: "int", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_LeaveTypes", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -322,6 +403,54 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_NumberCounters", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PayrollRuleSets",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Country = table.Column<string>(type: "nvarchar(2)", maxLength: 2, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
+                    EffectiveFrom = table.Column<DateOnly>(type: "date", nullable: false),
+                    EffectiveTo = table.Column<DateOnly>(type: "date", nullable: true),
+                    TaxYearStartMonth = table.Column<int>(type: "int", nullable: false),
+                    MinimumWage = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    EobiEmployerRate = table.Column<decimal>(type: "decimal(9,4)", precision: 9, scale: 4, nullable: false),
+                    EobiEmployeeRate = table.Column<decimal>(type: "decimal(9,4)", precision: 9, scale: 4, nullable: false),
+                    SocialSecurityProvince = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    SocialSecurityRate = table.Column<decimal>(type: "decimal(9,4)", precision: 9, scale: 4, nullable: false),
+                    SocialSecurityWageCeiling = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    SocialSecurityBasis = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    WorkingDaysPerWeek = table.Column<int>(type: "int", nullable: false),
+                    HoursPerWeek = table.Column<decimal>(type: "decimal(7,2)", precision: 7, scale: 2, nullable: false),
+                    OvertimeMultiplier = table.Column<decimal>(type: "decimal(7,3)", precision: 7, scale: 3, nullable: false),
+                    OvertimeMinimumMinutes = table.Column<int>(type: "int", nullable: false),
+                    DailyRateBasis = table.Column<string>(type: "nvarchar(14)", maxLength: 14, nullable: false),
+                    LatenessRule = table.Column<string>(type: "nvarchar(12)", maxLength: 12, nullable: false),
+                    LatesPerDay = table.Column<int>(type: "int", nullable: false),
+                    DeductAbsences = table.Column<bool>(type: "bit", nullable: false),
+                    SurchargeThreshold = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: false),
+                    SurchargeRate = table.Column<decimal>(type: "decimal(9,4)", precision: 9, scale: 4, nullable: false),
+                    GratuityEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    GratuityDaysPerYear = table.Column<decimal>(type: "decimal(7,2)", precision: 7, scale: 2, nullable: false),
+                    GratuityMinimumMonths = table.Column<int>(type: "int", nullable: false),
+                    GratuityPartYearMonths = table.Column<int>(type: "int", nullable: false),
+                    GratuityOnBasic = table.Column<bool>(type: "bit", nullable: false),
+                    CnicPattern = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    CnicExample = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
+                    IbanPattern = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    IbanExample = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
+                    Notes = table.Column<string>(type: "nvarchar(2000)", maxLength: 2000, nullable: true),
+                    Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PayrollRuleSets", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -607,6 +736,59 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         name: "FK_ImportSourceRows_ImportBatches_ImportBatchId",
                         column: x => x.ImportBatchId,
                         principalTable: "ImportBatches",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PayrollAllowanceRules",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    RuleSetId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    IsTaxable = table.Column<bool>(type: "bit", nullable: false),
+                    ExemptPercentOfBasic = table.Column<decimal>(type: "decimal(9,4)", precision: 9, scale: 4, nullable: true),
+                    SortOrder = table.Column<int>(type: "int", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PayrollAllowanceRules", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PayrollAllowanceRules_PayrollRuleSets_RuleSetId",
+                        column: x => x.RuleSetId,
+                        principalTable: "PayrollRuleSets",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PayrollTaxSlabs",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    RuleSetId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    IncomeFrom = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: false),
+                    IncomeTo = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: true),
+                    FixedTax = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: false),
+                    Rate = table.Column<decimal>(type: "decimal(9,4)", precision: 9, scale: 4, nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PayrollTaxSlabs", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PayrollTaxSlabs_PayrollRuleSets_RuleSetId",
+                        column: x => x.RuleSetId,
+                        principalTable: "PayrollRuleSets",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -1162,6 +1344,35 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     table.PrimaryKey("PK_Rmas", x => x.Id);
                     table.ForeignKey(
                         name: "FK_Rmas_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Shifts",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    StartTime = table.Column<TimeOnly>(type: "time", nullable: false),
+                    EndTime = table.Column<TimeOnly>(type: "time", nullable: false),
+                    BreakMinutes = table.Column<int>(type: "int", nullable: false),
+                    GraceMinutes = table.Column<int>(type: "int", nullable: false),
+                    Days = table.Column<int>(type: "int", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    IsActive = table.Column<bool>(type: "bit", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Shifts", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Shifts_Stores_StoreId",
                         column: x => x.StoreId,
                         principalTable: "Stores",
                         principalColumn: "Id",
@@ -2374,6 +2585,97 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Employees",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    FullName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    FatherOrHusbandName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Cnic = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
+                    DateOfBirth = table.Column<DateOnly>(type: "date", nullable: true),
+                    Gender = table.Column<string>(type: "nvarchar(8)", maxLength: 8, nullable: true),
+                    MaritalStatus = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: true),
+                    Address = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    City = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    Phone = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
+                    Email = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    EmergencyContactName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    EmergencyContactPhone = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
+                    EmergencyContactRelation = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
+                    JoiningDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    ConfirmationDate = table.Column<DateOnly>(type: "date", nullable: true),
+                    LeavingDate = table.Column<DateOnly>(type: "date", nullable: true),
+                    LeavingReason = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    EmploymentType = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    HrDepartmentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    DesignationId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ManagerId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    UserAccountId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ShiftId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    TracksAttendance = table.Column<bool>(type: "bit", nullable: false),
+                    OvertimeEligible = table.Column<bool>(type: "bit", nullable: false),
+                    EobiApplies = table.Column<bool>(type: "bit", nullable: false),
+                    SocialSecurityApplies = table.Column<bool>(type: "bit", nullable: false),
+                    PaymentMethod = table.Column<string>(type: "nvarchar(6)", maxLength: 6, nullable: false),
+                    BankName = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    Iban = table.Column<string>(type: "nvarchar(34)", maxLength: 34, nullable: true),
+                    Ntn = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    EobiNumber = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
+                    SocialSecurityNumber = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
+                    PriorTaxYear = table.Column<int>(type: "int", nullable: true),
+                    PriorTaxableIncome = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: false),
+                    PriorTaxDeducted = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: false),
+                    Notes = table.Column<string>(type: "nvarchar(1000)", maxLength: 1000, nullable: true),
+                    Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Employees", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Employees_Designations_DesignationId",
+                        column: x => x.DesignationId,
+                        principalTable: "Designations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Employees_Employees_ManagerId",
+                        column: x => x.ManagerId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Employees_HrDepartments_HrDepartmentId",
+                        column: x => x.HrDepartmentId,
+                        principalTable: "HrDepartments",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Employees_Shifts_ShiftId",
+                        column: x => x.ShiftId,
+                        principalTable: "Shifts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Employees_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Employees_UserAccounts_UserAccountId",
+                        column: x => x.UserAccountId,
+                        principalTable: "UserAccounts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.SetNull);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "TimeClockEntries",
                 columns: table => new
                 {
@@ -3153,6 +3455,322 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "AttendanceCorrections",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EmployeeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Date = table.Column<DateOnly>(type: "date", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    WorkedMinutes = table.Column<int>(type: "int", nullable: false),
+                    LateMinutes = table.Column<int>(type: "int", nullable: false),
+                    EarlyMinutes = table.Column<int>(type: "int", nullable: false),
+                    OvertimeMinutes = table.Column<int>(type: "int", nullable: false),
+                    Reason = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    Approval = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    RequestedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    RequestedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    DecidedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    DecidedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    DecidedAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    DecisionNote = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AttendanceCorrections", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_AttendanceCorrections_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "EmployeeDocuments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EmployeeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Title = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    FileName = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    ContentType = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Size = table.Column<long>(type: "bigint", nullable: false),
+                    Data = table.Column<byte[]>(type: "varbinary(max)", nullable: false),
+                    UploadedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EmployeeDocuments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_EmployeeDocuments_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "EmployeeLoans",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Number = table.Column<long>(type: "bigint", nullable: false),
+                    EmployeeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(8)", maxLength: 8, nullable: false),
+                    IssuedOn = table.Column<DateOnly>(type: "date", nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    Instalment = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    FirstMonth = table.Column<DateOnly>(type: "date", nullable: false),
+                    Status = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Reason = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    PaidFromAccount = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    JournalEntryId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    CreatedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_EmployeeLoans", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_EmployeeLoans_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "LeaveAdjustments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EmployeeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LeaveTypeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Year = table.Column<int>(type: "int", nullable: false),
+                    Days = table.Column<decimal>(type: "decimal(7,2)", precision: 7, scale: 2, nullable: false),
+                    Reason = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
+                    MadeBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_LeaveAdjustments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_LeaveAdjustments_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_LeaveAdjustments_LeaveTypes_LeaveTypeId",
+                        column: x => x.LeaveTypeId,
+                        principalTable: "LeaveTypes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "LeaveRequests",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EmployeeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LeaveTypeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    FromDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    ToDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    FirstDayHalf = table.Column<bool>(type: "bit", nullable: false),
+                    LastDayHalf = table.Column<bool>(type: "bit", nullable: false),
+                    Days = table.Column<decimal>(type: "decimal(7,2)", precision: 7, scale: 2, nullable: false),
+                    Reason = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    Status = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    RequestedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    RequestedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    DecidedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    DecidedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    DecidedAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    DecisionNote = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_LeaveRequests", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_LeaveRequests_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_LeaveRequests_LeaveTypes_LeaveTypeId",
+                        column: x => x.LeaveTypeId,
+                        principalTable: "LeaveTypes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PayrollRuns",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Number = table.Column<long>(type: "bigint", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    Year = table.Column<int>(type: "int", nullable: false),
+                    Month = table.Column<int>(type: "int", nullable: false),
+                    PeriodStart = table.Column<DateOnly>(type: "date", nullable: false),
+                    PeriodEnd = table.Column<DateOnly>(type: "date", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    EmployeeId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Status = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Notes = table.Column<string>(type: "nvarchar(400)", maxLength: 400, nullable: true),
+                    Warnings = table.Column<string>(type: "nvarchar(4000)", maxLength: 4000, nullable: true),
+                    Employees = table.Column<int>(type: "int", nullable: false),
+                    Gross = table.Column<decimal>(type: "decimal(16,2)", precision: 16, scale: 2, nullable: false),
+                    Deductions = table.Column<decimal>(type: "decimal(16,2)", precision: 16, scale: 2, nullable: false),
+                    Net = table.Column<decimal>(type: "decimal(16,2)", precision: 16, scale: 2, nullable: false),
+                    Tax = table.Column<decimal>(type: "decimal(16,2)", precision: 16, scale: 2, nullable: false),
+                    EmployerContributions = table.Column<decimal>(type: "decimal(16,2)", precision: 16, scale: 2, nullable: false),
+                    CreatedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    CalculatedAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    CalculatedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ApprovedAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    ApprovedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    PostedAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    PostedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    JournalEntryId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    PaidOn = table.Column<DateOnly>(type: "date", nullable: true),
+                    PaidAtUtc = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    PaidBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    PaymentEntryId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Version = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PayrollRuns", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PayrollRuns_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_PayrollRuns_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RosterDays",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EmployeeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Date = table.Column<DateOnly>(type: "date", nullable: false),
+                    ShiftId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Note = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RosterDays", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RosterDays_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_RosterDays_Shifts_ShiftId",
+                        column: x => x.ShiftId,
+                        principalTable: "Shifts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RosterWeeks",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EmployeeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    WeekStart = table.Column<DateOnly>(type: "date", nullable: false),
+                    ShiftId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RosterWeeks", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_RosterWeeks_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_RosterWeeks_Shifts_ShiftId",
+                        column: x => x.ShiftId,
+                        principalTable: "Shifts",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SalaryStructures",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EmployeeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EffectiveFrom = table.Column<DateOnly>(type: "date", nullable: false),
+                    Basic = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    Note = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
+                    ChangedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SalaryStructures", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SalaryStructures_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "SupplierPaymentAllocations",
                 columns: table => new
                 {
@@ -3261,6 +3879,151 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.CreateTable(
+                name: "LoanInstalments",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LoanId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Number = table.Column<int>(type: "int", nullable: false),
+                    Month = table.Column<DateOnly>(type: "date", nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    Recovered = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    PayrollRunId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_LoanInstalments", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_LoanInstalments_EmployeeLoans_LoanId",
+                        column: x => x.LoanId,
+                        principalTable: "EmployeeLoans",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Payslips",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    PayrollRunId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EmployeeId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    EmployeeCode = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    EmployeeName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Designation = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    Department = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Cnic = table.Column<string>(type: "nvarchar(30)", maxLength: 30, nullable: true),
+                    PaymentMethod = table.Column<string>(type: "nvarchar(6)", maxLength: 6, nullable: false),
+                    BankName = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
+                    Iban = table.Column<string>(type: "nvarchar(34)", maxLength: 34, nullable: true),
+                    DaysInPeriod = table.Column<int>(type: "int", nullable: false),
+                    DaysEmployed = table.Column<int>(type: "int", nullable: false),
+                    DaysPresent = table.Column<decimal>(type: "decimal(7,2)", precision: 7, scale: 2, nullable: false),
+                    PaidLeaveDays = table.Column<decimal>(type: "decimal(7,2)", precision: 7, scale: 2, nullable: false),
+                    UnpaidLeaveDays = table.Column<decimal>(type: "decimal(7,2)", precision: 7, scale: 2, nullable: false),
+                    AbsentDays = table.Column<int>(type: "int", nullable: false),
+                    LateDays = table.Column<int>(type: "int", nullable: false),
+                    LateMinutes = table.Column<int>(type: "int", nullable: false),
+                    OvertimeHours = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: false),
+                    Basic = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    Gross = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    Deductions = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    Net = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    Taxable = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    Tax = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    EmployerContributions = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    TaxableBefore = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: false),
+                    TaxBefore = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: false),
+                    ProjectedAnnualTaxable = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: false),
+                    ProjectedAnnualTax = table.Column<decimal>(type: "decimal(14,2)", precision: 14, scale: 2, nullable: false),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Payslips", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Payslips_Employees_EmployeeId",
+                        column: x => x.EmployeeId,
+                        principalTable: "Employees",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_Payslips_PayrollRuns_PayrollRunId",
+                        column: x => x.PayrollRunId,
+                        principalTable: "PayrollRuns",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "SalaryComponents",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    SalaryStructureId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LineNumber = table.Column<int>(type: "int", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(10)", maxLength: 10, nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    AccountCode = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_SalaryComponents", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SalaryComponents_SalaryStructures_SalaryStructureId",
+                        column: x => x.SalaryStructureId,
+                        principalTable: "SalaryStructures",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PayslipLines",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    PayslipId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LineNumber = table.Column<int>(type: "int", nullable: false),
+                    Kind = table.Column<string>(type: "nvarchar(22)", maxLength: 22, nullable: false),
+                    Code = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(80)", maxLength: 80, nullable: false),
+                    Amount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    Quantity = table.Column<decimal>(type: "decimal(9,2)", precision: 9, scale: 2, nullable: true),
+                    Rate = table.Column<decimal>(type: "decimal(12,4)", precision: 12, scale: 4, nullable: true),
+                    TaxableAmount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    LoanInstalmentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    AccountCode = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PayslipLines", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PayslipLines_Payslips_PayslipId",
+                        column: x => x.PayslipId,
+                        principalTable: "Payslips",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
             migrationBuilder.CreateIndex(
                 name: "IX_AccountMappings_ChangeNumber",
                 table: "AccountMappings",
@@ -3275,6 +4038,21 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_AccountMappings_UpdatedAtUtc",
                 table: "AccountMappings",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AttendanceCorrections_ChangeNumber",
+                table: "AttendanceCorrections",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AttendanceCorrections_EmployeeId_Date",
+                table: "AttendanceCorrections",
+                columns: new[] { "EmployeeId", "Date" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AttendanceCorrections_UpdatedAtUtc",
+                table: "AttendanceCorrections",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -3649,6 +4427,22 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Designations_ChangeNumber",
+                table: "Designations",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Designations_Name",
+                table: "Designations",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Designations_UpdatedAtUtc",
+                table: "Designations",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_DocumentTexts_ChangeNumber",
                 table: "DocumentTexts",
                 column: "ChangeNumber");
@@ -3732,6 +4526,94 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "IX_DrawerSessionTenders_UpdatedAtUtc",
                 table: "DrawerSessionTenders",
                 column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EmployeeDocuments_ChangeNumber",
+                table: "EmployeeDocuments",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EmployeeDocuments_EmployeeId",
+                table: "EmployeeDocuments",
+                column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EmployeeDocuments_UpdatedAtUtc",
+                table: "EmployeeDocuments",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EmployeeLoans_ChangeNumber",
+                table: "EmployeeLoans",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EmployeeLoans_EmployeeId_Status",
+                table: "EmployeeLoans",
+                columns: new[] { "EmployeeId", "Status" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EmployeeLoans_Number",
+                table: "EmployeeLoans",
+                column: "Number");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_EmployeeLoans_UpdatedAtUtc",
+                table: "EmployeeLoans",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_ChangeNumber",
+                table: "Employees",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_Code",
+                table: "Employees",
+                column: "Code",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_DesignationId",
+                table: "Employees",
+                column: "DesignationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_FullName",
+                table: "Employees",
+                column: "FullName");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_HrDepartmentId",
+                table: "Employees",
+                column: "HrDepartmentId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_ManagerId",
+                table: "Employees",
+                column: "ManagerId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_ShiftId",
+                table: "Employees",
+                column: "ShiftId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_StoreId",
+                table: "Employees",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_UpdatedAtUtc",
+                table: "Employees",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Employees_UserAccountId",
+                table: "Employees",
+                column: "UserAccountId",
+                unique: true,
+                filter: "[UserAccountId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Expenses_AccountId",
@@ -3952,6 +4834,38 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_GiftCardTransactions_UpdatedAtUtc",
                 table: "GiftCardTransactions",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Holidays_ChangeNumber",
+                table: "Holidays",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Holidays_Country_Date",
+                table: "Holidays",
+                columns: new[] { "Country", "Date" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Holidays_UpdatedAtUtc",
+                table: "Holidays",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HrDepartments_ChangeNumber",
+                table: "HrDepartments",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HrDepartments_Name",
+                table: "HrDepartments",
+                column: "Name",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_HrDepartments_UpdatedAtUtc",
+                table: "HrDepartments",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -4302,6 +5216,67 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_LeaveAdjustments_ChangeNumber",
+                table: "LeaveAdjustments",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LeaveAdjustments_EmployeeId_Year",
+                table: "LeaveAdjustments",
+                columns: new[] { "EmployeeId", "Year" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LeaveAdjustments_LeaveTypeId",
+                table: "LeaveAdjustments",
+                column: "LeaveTypeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LeaveAdjustments_UpdatedAtUtc",
+                table: "LeaveAdjustments",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LeaveRequests_ChangeNumber",
+                table: "LeaveRequests",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LeaveRequests_EmployeeId_FromDate",
+                table: "LeaveRequests",
+                columns: new[] { "EmployeeId", "FromDate" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LeaveRequests_LeaveTypeId",
+                table: "LeaveRequests",
+                column: "LeaveTypeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LeaveRequests_Status_FromDate",
+                table: "LeaveRequests",
+                columns: new[] { "Status", "FromDate" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LeaveRequests_UpdatedAtUtc",
+                table: "LeaveRequests",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LeaveTypes_ChangeNumber",
+                table: "LeaveTypes",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LeaveTypes_Country_Code",
+                table: "LeaveTypes",
+                columns: new[] { "Country", "Code" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LeaveTypes_UpdatedAtUtc",
+                table: "LeaveTypes",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_LedgerAccounts_ChangeNumber",
                 table: "LedgerAccounts",
                 column: "ChangeNumber");
@@ -4337,6 +5312,27 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_LedgerSettings_UpdatedAtUtc",
                 table: "LedgerSettings",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LoanInstalments_ChangeNumber",
+                table: "LoanInstalments",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LoanInstalments_LoanId_Number",
+                table: "LoanInstalments",
+                columns: new[] { "LoanId", "Number" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LoanInstalments_Month",
+                table: "LoanInstalments",
+                column: "Month");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_LoanInstalments_UpdatedAtUtc",
+                table: "LoanInstalments",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -4414,6 +5410,120 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_PaymentRuns_UpdatedAtUtc",
                 table: "PaymentRuns",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollAllowanceRules_ChangeNumber",
+                table: "PayrollAllowanceRules",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollAllowanceRules_RuleSetId_Code",
+                table: "PayrollAllowanceRules",
+                columns: new[] { "RuleSetId", "Code" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollAllowanceRules_UpdatedAtUtc",
+                table: "PayrollAllowanceRules",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollRuleSets_ChangeNumber",
+                table: "PayrollRuleSets",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollRuleSets_Country_EffectiveFrom",
+                table: "PayrollRuleSets",
+                columns: new[] { "Country", "EffectiveFrom" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollRuleSets_UpdatedAtUtc",
+                table: "PayrollRuleSets",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollRuns_ChangeNumber",
+                table: "PayrollRuns",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollRuns_EmployeeId",
+                table: "PayrollRuns",
+                column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollRuns_Number",
+                table: "PayrollRuns",
+                column: "Number");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollRuns_StoreId",
+                table: "PayrollRuns",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollRuns_UpdatedAtUtc",
+                table: "PayrollRuns",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollRuns_Year_Month",
+                table: "PayrollRuns",
+                columns: new[] { "Year", "Month" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollTaxSlabs_ChangeNumber",
+                table: "PayrollTaxSlabs",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollTaxSlabs_RuleSetId_IncomeFrom",
+                table: "PayrollTaxSlabs",
+                columns: new[] { "RuleSetId", "IncomeFrom" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayrollTaxSlabs_UpdatedAtUtc",
+                table: "PayrollTaxSlabs",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayslipLines_ChangeNumber",
+                table: "PayslipLines",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayslipLines_PayslipId",
+                table: "PayslipLines",
+                column: "PayslipId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PayslipLines_UpdatedAtUtc",
+                table: "PayslipLines",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payslips_ChangeNumber",
+                table: "Payslips",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payslips_EmployeeId",
+                table: "Payslips",
+                column: "EmployeeId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payslips_PayrollRunId_EmployeeId",
+                table: "Payslips",
+                columns: new[] { "PayrollRunId", "EmployeeId" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Payslips_UpdatedAtUtc",
+                table: "Payslips",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -4598,6 +5708,79 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_RosterDays_ChangeNumber",
+                table: "RosterDays",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RosterDays_EmployeeId_Date",
+                table: "RosterDays",
+                columns: new[] { "EmployeeId", "Date" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RosterDays_ShiftId",
+                table: "RosterDays",
+                column: "ShiftId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RosterDays_UpdatedAtUtc",
+                table: "RosterDays",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RosterWeeks_ChangeNumber",
+                table: "RosterWeeks",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RosterWeeks_EmployeeId_WeekStart",
+                table: "RosterWeeks",
+                columns: new[] { "EmployeeId", "WeekStart" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RosterWeeks_ShiftId",
+                table: "RosterWeeks",
+                column: "ShiftId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_RosterWeeks_UpdatedAtUtc",
+                table: "RosterWeeks",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalaryComponents_ChangeNumber",
+                table: "SalaryComponents",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalaryComponents_SalaryStructureId",
+                table: "SalaryComponents",
+                column: "SalaryStructureId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalaryComponents_UpdatedAtUtc",
+                table: "SalaryComponents",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalaryStructures_ChangeNumber",
+                table: "SalaryStructures",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalaryStructures_EmployeeId_EffectiveFrom",
+                table: "SalaryStructures",
+                columns: new[] { "EmployeeId", "EffectiveFrom" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SalaryStructures_UpdatedAtUtc",
+                table: "SalaryStructures",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_SaleLines_ChangeNumber",
                 table: "SaleLines",
                 column: "ChangeNumber");
@@ -4715,6 +5898,21 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_SalesTaxRates_UpdatedAtUtc",
                 table: "SalesTaxRates",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Shifts_ChangeNumber",
+                table: "Shifts",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Shifts_StoreId",
+                table: "Shifts",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Shifts_UpdatedAtUtc",
+                table: "Shifts",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -5428,6 +6626,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "AccountMappings");
 
             migrationBuilder.DropTable(
+                name: "AttendanceCorrections");
+
+            migrationBuilder.DropTable(
                 name: "AuditEntries");
 
             migrationBuilder.DropTable(
@@ -5461,6 +6662,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "DrawerSessionTenders");
 
             migrationBuilder.DropTable(
+                name: "EmployeeDocuments");
+
+            migrationBuilder.DropTable(
                 name: "Expenses");
 
             migrationBuilder.DropTable(
@@ -5483,6 +6687,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "GiftCardTransactions");
+
+            migrationBuilder.DropTable(
+                name: "Holidays");
 
             migrationBuilder.DropTable(
                 name: "ImportSourceRows");
@@ -5518,13 +6725,31 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "KitComponents");
 
             migrationBuilder.DropTable(
+                name: "LeaveAdjustments");
+
+            migrationBuilder.DropTable(
+                name: "LeaveRequests");
+
+            migrationBuilder.DropTable(
                 name: "LedgerSettings");
+
+            migrationBuilder.DropTable(
+                name: "LoanInstalments");
 
             migrationBuilder.DropTable(
                 name: "LoyaltyTransactions");
 
             migrationBuilder.DropTable(
                 name: "NumberCounters");
+
+            migrationBuilder.DropTable(
+                name: "PayrollAllowanceRules");
+
+            migrationBuilder.DropTable(
+                name: "PayrollTaxSlabs");
+
+            migrationBuilder.DropTable(
+                name: "PayslipLines");
 
             migrationBuilder.DropTable(
                 name: "RfidAntennas");
@@ -5537,6 +6762,15 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "RoleGrants");
+
+            migrationBuilder.DropTable(
+                name: "RosterDays");
+
+            migrationBuilder.DropTable(
+                name: "RosterWeeks");
+
+            migrationBuilder.DropTable(
+                name: "SalaryComponents");
 
             migrationBuilder.DropTable(
                 name: "SaleLineTags");
@@ -5638,7 +6872,22 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "Invoices");
 
             migrationBuilder.DropTable(
+                name: "LeaveTypes");
+
+            migrationBuilder.DropTable(
+                name: "EmployeeLoans");
+
+            migrationBuilder.DropTable(
+                name: "PayrollRuleSets");
+
+            migrationBuilder.DropTable(
+                name: "Payslips");
+
+            migrationBuilder.DropTable(
                 name: "RfidReaders");
+
+            migrationBuilder.DropTable(
+                name: "SalaryStructures");
 
             migrationBuilder.DropTable(
                 name: "SaleLines");
@@ -5665,10 +6914,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "SupplierPayments");
 
             migrationBuilder.DropTable(
-                name: "UserAccounts");
+                name: "TaxRuleSets");
 
             migrationBuilder.DropTable(
-                name: "TaxRuleSets");
+                name: "PayrollRuns");
 
             migrationBuilder.DropTable(
                 name: "Sales");
@@ -5692,7 +6941,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "Suppliers");
 
             migrationBuilder.DropTable(
-                name: "Roles");
+                name: "Employees");
 
             migrationBuilder.DropTable(
                 name: "Clients");
@@ -5704,7 +6953,22 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "BankAccounts");
 
             migrationBuilder.DropTable(
+                name: "Designations");
+
+            migrationBuilder.DropTable(
+                name: "HrDepartments");
+
+            migrationBuilder.DropTable(
+                name: "Shifts");
+
+            migrationBuilder.DropTable(
+                name: "UserAccounts");
+
+            migrationBuilder.DropTable(
                 name: "LedgerAccounts");
+
+            migrationBuilder.DropTable(
+                name: "Roles");
 
             migrationBuilder.DropTable(
                 name: "Stores");

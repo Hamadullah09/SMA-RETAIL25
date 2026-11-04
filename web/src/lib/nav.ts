@@ -31,6 +31,12 @@ export const P = {
   financePayables: 'finance.payables',
   financeBank: 'finance.bank',
   financeBudget: 'finance.budget',
+  hrView: 'hr.view',
+  hrEdit: 'hr.edit',
+  hrAttendance: 'hr.attendance',
+  hrLeave: 'hr.leave',
+  payrollRun: 'payroll.run',
+  payrollApprove: 'payroll.approve',
 } as const;
 
 /** The icon of a page, by name; `components/shell/icons.tsx` maps the names to lucide icons. */
@@ -66,7 +72,14 @@ export type IconName =
   | 'budgets'
   | 'years'
   | 'suspense'
-  | 'statements';
+  | 'statements'
+  | 'employees'
+  | 'attendance'
+  | 'shifts'
+  | 'leave'
+  | 'payroll'
+  | 'hrreports'
+  | 'hrsetup';
 
 export interface PageDef {
   key: string;
@@ -83,8 +96,10 @@ export interface PageDef {
   shortcut?: string;
   /** More words the palette finds the page by. */
   keywords?: string;
-  /** The heading the navigation shows the page under (Finance); none for the first pages. */
+  /** The group the page is listed under in the navigation and the palette (Finance, HR); none for the first pages. */
   group?: string;
+  /** Opens with any one of these permissions instead of `permission` alone. */
+  anyOf?: readonly string[];
 }
 
 export const PAGES: readonly PageDef[] = [
@@ -125,12 +140,24 @@ export const PAGES: readonly PageDef[] = [
   { key: 'finance-bill', title: 'Bill', path: '/finance/bills/edit/', icon: 'bills', permission: P.financeView, nav: false, parent: 'finance-bills' },
   { key: 'finance-reconcile', title: 'Reconcile', path: '/finance/bank/reconcile/', icon: 'bank', permission: P.financeView, nav: false, parent: 'finance-bank' },
   { key: 'finance-report', title: 'Statement', path: '/finance/reports/view/', icon: 'statements', permission: P.financeView, nav: false, parent: 'finance-reports' },
+  // HR and payroll (phase E3).
+  { key: 'hr-employees', title: 'Employees', path: '/hr/employees/', icon: 'employees', permission: P.hrView, nav: true, group: 'HR', keywords: 'hr people staff cnic records' },
+  { key: 'hr-attendance', title: 'Attendance', path: '/hr/attendance/', icon: 'attendance', permission: P.hrView, nav: true, group: 'HR', keywords: 'hr late absent present overtime sheet corrections' },
+  { key: 'hr-shifts', title: 'Shifts and rosters', path: '/hr/shifts/', icon: 'shifts', permission: P.hrView, nav: true, group: 'HR', keywords: 'hr roster week schedule' },
+  { key: 'hr-leave', title: 'Leave', path: '/hr/leave/', icon: 'leave', permission: P.hrView, nav: true, group: 'HR', keywords: 'hr holiday vacation requests balances approvals' },
+  { key: 'hr-payroll', title: 'Payroll', path: '/hr/payroll/', icon: 'payroll', permission: P.payrollRun, anyOf: [P.payrollRun, P.payrollApprove], nav: true, group: 'HR', keywords: 'hr salary salaries payslips loans advances settlement' },
+  { key: 'hr-reports', title: 'HR reports', path: '/hr/reports/', icon: 'hrreports', permission: P.hrView, nav: true, group: 'HR', keywords: 'hr salary sheet tax certificate eobi social security headcount turnover overtime' },
+  { key: 'hr-settings', title: 'HR settings', path: '/hr/settings/', icon: 'hrsetup', permission: P.hrView, nav: true, group: 'HR', keywords: 'hr departments designations leave types holidays payroll rules tax slabs country' },
+  { key: 'hr-employee', title: 'Employee', path: '/hr/employees/edit/', icon: 'employees', permission: P.hrView, nav: false, parent: 'hr-employees', group: 'HR' },
+  { key: 'hr-run', title: 'Payroll run', path: '/hr/payroll/run/', icon: 'payroll', permission: P.payrollRun, anyOf: [P.payrollRun, P.payrollApprove], nav: false, parent: 'hr-payroll', group: 'HR' },
+  { key: 'hr-payslip', title: 'Payslip', path: '/hr/payroll/payslip/', icon: 'payroll', permission: P.payrollRun, anyOf: [P.payrollRun, P.payrollApprove], nav: false, parent: 'hr-payroll', group: 'HR' },
 ];
 
-/** Whether a user with these permissions may open the page. */
-export function canOpen(page: Pick<PageDef, 'permission'>, permissions: ReadonlySet<string> | readonly string[]): boolean {
+/** Whether a user with these permissions may open the page (any one of `anyOf` will do when it has some). */
+export function canOpen(page: Pick<PageDef, 'permission' | 'anyOf'>, permissions: ReadonlySet<string> | readonly string[]): boolean {
   const has = (key: string) => (Array.isArray(permissions) ? permissions.includes(key) : (permissions as ReadonlySet<string>).has(key));
   if (!has(P.webSignIn)) return false;
+  if (page.anyOf && page.anyOf.length > 0) return page.anyOf.some(has);
   return page.permission === null || has(page.permission);
 }
 
@@ -183,7 +210,10 @@ export interface Command {
   action?: 'sign-out';
   shortcut?: string;
   permission: string | null;
+  anyOf?: readonly string[];
   keywords?: string;
+  /** The group it belongs to (`HR`), shown next to its kind. */
+  group?: string;
 }
 
 /** Common actions, as the desktop's Ctrl+K list offers them. */
@@ -204,6 +234,9 @@ export const ACTIONS: readonly Command[] = [
   { id: 'new-journal', title: 'New journal entry', kind: 'Action', icon: 'new', path: '/finance/journals/edit/', permission: P.financePost, keywords: 'manual entry' },
   { id: 'post-days', title: 'Post days to the ledger', kind: 'Action', icon: 'suspense', path: '/finance/suspense/?post=1', permission: P.financePost, keywords: 'daily journal' },
   { id: 'bank-transfer', title: 'Transfer between accounts', kind: 'Action', icon: 'bank', path: '/finance/bank/?transfer=1', permission: P.financeBank, keywords: 'bank cash' },
+  { id: 'new-employee', title: 'New employee', kind: 'Action', icon: 'new', path: '/hr/employees/edit/', permission: P.hrEdit, group: 'HR', keywords: 'hr add staff person' },
+  { id: 'new-leave', title: 'New leave request', kind: 'Action', icon: 'new', path: '/hr/leave/?new=1', permission: P.hrView, group: 'HR', keywords: 'hr holiday vacation' },
+  { id: 'new-run', title: 'New payroll run', kind: 'Action', icon: 'new', path: '/hr/payroll/?new=1', permission: P.payrollRun, group: 'HR', keywords: 'hr salary month' },
 ];
 
 /** Everything the palette may offer this user: the pages, the actions and the reports of the catalog. */
@@ -219,7 +252,9 @@ export function commandsFor(
     path: page.path,
     shortcut: page.shortcut,
     permission: page.permission,
+    anyOf: page.anyOf,
     keywords: page.keywords,
+    group: page.group,
   }));
   const actions = ACTIONS.filter((a) => canOpen(a, permissions));
   const reportCommands: Command[] = canOpen({ permission: P.reports }, permissions)
@@ -247,7 +282,7 @@ export function searchCommands(commands: readonly Command[], text: string): Comm
   commands.forEach((command, index) => {
     const title = command.title.toLowerCase();
     const plainTitle = title.replace(/^go to /, '');
-    const haystack = `${title} ${command.keywords ?? ''} ${command.kind}`.toLowerCase();
+    const haystack = `${title} ${command.keywords ?? ''} ${command.kind} ${command.group ?? ''}`.toLowerCase();
     if (!words.every((w) => haystack.includes(w))) return;
     const phrase = words.join(' ');
     const score = plainTitle.startsWith(phrase) ? 0 : title.includes(phrase) ? 1 : 2;

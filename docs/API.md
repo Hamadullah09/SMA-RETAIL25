@@ -434,3 +434,129 @@ The web pages, each opened with `finance.view` (their buttons show for the permi
 `/finance/bills/edit/?id=`, `/finance/payments/`, `/finance/expenses/`, `/finance/bank/` and
 `/finance/bank/reconcile/?id=`, `/finance/reports/` and `/finance/reports/view/?key=`, `/finance/budgets/`,
 `/finance/years/`, `/finance/suspense/` and `/finance/settings/`.
+## HR and payroll (phase E3)
+
+Employees, shifts and attendance, leave, and payroll, all kept on the server ([ERP_E3_HR.md](ERP_E3_HR.md)). The
+conventions above hold: `storeId` limits a list to one store, a change sends back the `version` it read (409 when it is
+old), refused business rules are 400 with `{ "error" }`. Employees belong to their store; one of head office (no
+store), a run of the whole company and the shared HR lists (departments, designations, rule sets, leave types,
+holidays, and shifts for every store) follow the rule for company-wide records: `canChangeShared`. An employee, run,
+payslip or loan of a store the user cannot see is 404.
+
+### HR lists and settings: `hr.view` to read, `hr.edit` to change
+
+- `GET /api/hr/departments`, `GET /api/hr/designations` → `[{ "id", "version", "name", "isActive", "employees" }]`;
+  `POST`, `PUT /{id}`, `DELETE /{id}` (refused while employees are in it).
+- `GET /api/hr/settings` → `{ "companyCountry", "countries", "stores": [{ "storeId", "code", "name", "country", "own" }] }`;
+  `PUT /api/hr/stores/{id}/country` `{ "country" }` (two letters; null goes back to the company's).
+- `GET /api/hr/rule-sets?country`, `GET /api/hr/rule-sets/{id}` → `RuleSetInfo`: the country, name, `effectiveFrom`,
+  `effectiveTo`, `taxYearStartMonth`, `minimumWage`, EOBI and social security rates, ceiling and basis (`Wage`,
+  `MinimumWage`), the working week, overtime, `dailyRateBasis` (`CalendarDays`, `ThirtyDays`, `WorkingDays`),
+  `latenessRule` (`None`, `DayPerLates`, `PerMinute`), surcharge, gratuity, CNIC and IBAN patterns with examples,
+  `notes`, `taxSlabs` `[{ "incomeFrom", "incomeTo", "fixedTax", "rate" }]` and `allowances`
+  `[{ "code", "name", "isTaxable", "exemptPercentOfBasic", "sortOrder" }]`. `POST`, `PUT /{id}` (slabs and allowances
+  are replaced as sent), `DELETE /{id}` (refused when an approved run falls in its period). The rule set used for a
+  month is the latest of the country that has started by the month's last day and has not ended.
+- `GET /api/hr/leave-types?country` → `[{ "id", "version", "country", "code", "name", "kind", "daysPerYear", "isPaid",
+  "accruesMonthly", "carryOverMaxDays", "encashable", "countsCalendarDays", "onlyFor", "minimumServiceMonths",
+  "isActive", "sortOrder" }]`; `POST`, `PUT /{id}`, `DELETE /{id}` (refused once used).
+- `GET /api/hr/holidays?country&year` → `[{ "id", "version", "country", "date", "name" }]`; `POST`, `PUT /{id}`,
+  `DELETE /{id}`.
+
+### Employees: `hr.view` to read, `hr.edit` to change
+
+- `GET /api/hr/employees?search&departmentId&designationId&status&storeId&page&pageSize` → a page of
+  `{ "id", "code", "fullName", "designation", "department", "storeId", "storeCode", "employmentType", "joiningDate",
+  "leavingDate", "active", "phone", "userName" }`. `status`: `active` (default), `left` or `all`. `search` looks in
+  the code, name, CNIC and phone.
+- `GET /api/hr/employees/next-code` (`hr.edit`) → `{ "code" }` (E0001, E0002…).
+- `GET /api/hr/employees/{id}` → `EmployeeDetail`: every field of the record, the manager's and user's names, and the
+  `country` whose rules apply. `POST /api/hr/employees` (201) and `PUT /api/hr/employees/{id}` take the same shape; the
+  CNIC and IBAN must match the country's rule set (and the IBAN its check digits), a salary paid by bank needs the IBAN,
+  a user is linked to one employee, and nobody reports to themselves. `DELETE` is refused for someone who was paid or
+  has loans: give a leaving date instead.
+- `GET /api/hr/employees/{id}/documents` → `[{ "id", "employeeId", "title", "fileName", "contentType", "size",
+  "uploadedAtUtc", "uploadedBy" }]`; `POST` the same address as a form with `file` and `title` (at most 10 MB);
+  `GET /api/hr/documents/{id}` gives the file; `DELETE /api/hr/documents/{id}`.
+
+### Shifts, roster and attendance: `hr.view` to read
+
+- `GET /api/hr/shifts?storeId` → `[{ "id", "version", "name", "startTime", "endTime", "breakMinutes", "graceMinutes",
+  "days", "storeId", "isActive" }]` (`HH:mm`; `days` are `Monday` … `Sunday`; an end before the start is the next day).
+  `POST`, `PUT /{id}`, `DELETE /{id}` with `hr.edit`.
+- `GET /api/hr/roster?week&storeId` → `{ "weekStart", "days", "rows": [{ "employeeId", "code", "name", "storeId",
+  "usualShiftId", "weekShiftId", "changes" }] }`. With `hr.attendance`: `PUT /api/hr/roster`
+  `{ "weekStart", "assignments": [{ "employeeId", "shiftId" }] }` (no shift: back to the usual one),
+  `POST /api/hr/roster/changes` `{ "employeeId", "date", "shiftId", "note" }` (no shift: a day off),
+  `DELETE /api/hr/roster/changes/{id}`.
+- `GET /api/hr/attendance?from&to&storeId&employeeId` (at most 93 days) → `[{ "employeeId", "code", "name", "date",
+  "status", "shift", "shiftStart", "shiftEnd", "firstIn", "lastOut", "workedMinutes", "lateMinutes", "earlyMinutes",
+  "overtimeMinutes", "holiday", "leaveCode", "leaveDays", "corrected" }]`. `status`: `Present`, `Absent`, `Leave`,
+  `Holiday`, `Off`, `Scheduled` (still to come). Worked out from the time clock when asked.
+- `GET /api/hr/attendance/sheet?month=yyyy-MM&storeId` → `{ "month", "days", "rows": [{ …, "marks", "present", "late",
+  "leftEarly", "absent", "leave", "holidays", "off", "overtimeHours" }] }`.
+- `GET /api/hr/attendance/corrections?status&from&to&storeId`; with `hr.attendance`: `POST` `{ "employeeId", "date",
+  "status", "workedMinutes", "lateMinutes", "earlyMinutes", "overtimeMinutes", "reason" }` (201),
+  `POST /{id}/approve` and `/{id}/reject` `{ "note" }`, by someone other than who asked.
+
+### Leave: `hr.view`
+
+- `GET /api/hr/leave-requests?status&employeeId&from&to&storeId&page&pageSize` → a page of `{ "id", "employeeId",
+  "code", "name", "leaveTypeId", "leaveType", "fromDate", "toDate", "firstDayHalf", "lastDayHalf", "days", "reason",
+  "status", "requestedBy", "requestedAtUtc", "decidedBy", "decidedAtUtc", "decisionNote", "mayDecide" }`.
+- `POST /api/hr/leave-requests` `{ "employeeId", "leaveTypeId", "fromDate", "toDate", "firstDayHalf", "lastDayHalf",
+  "reason" }` (201): refused when it overlaps other leave, does not fit the employee (gender, service) or takes more
+  than is available.
+- `POST /api/hr/leave-requests/{id}/approve`, `/reject`, `/cancel` `{ "note" }`: the employee's manager or `hr.leave`,
+  never the employee; the one who asked may cancel.
+- `GET /api/hr/leave-balances?year&employeeId&storeId` → `[{ "employeeId", "code", "name", "leaveTypeId", "leaveCode",
+  "leaveType", "paid", "limited", "entitled", "earned", "carriedIn", "adjusted", "taken", "pending", "available" }]`.
+- `POST /api/hr/leave-adjustments` (`hr.leave`) `{ "employeeId", "leaveTypeId", "year", "days", "reason" }`.
+
+### Payroll: read with `payroll.run` or `payroll.approve`
+
+Salaries, loans, runs, payslips and the payroll reports are 403 for anyone else, whatever else their role has.
+
+- `GET /api/hr/employees/{id}/salary` → `[{ "id", "effectiveFrom", "basic", "note", "changedBy", "components":
+  [{ "kind", "code", "name", "amount", "accountCode" }], "gross", "fixedDeductions" }]`, the latest first;
+  `POST` (`payroll.run`, 201) records a salary from a date (the same date replaces it; refused inside an approved
+  month); `DELETE /api/hr/salary/{id}`. `kind` is `Allowance` or `Deduction`; `accountCode` is the ledger account a
+  deduction is owed to.
+- `GET /api/payroll/loans?employeeId&status&storeId`, `GET /api/payroll/loans/{id}` → `{ "id", "number",
+  "employeeId", "code", "name", "kind", "issuedOn", "amount", "instalment", "firstMonth", "status", "recovered",
+  "outstanding", "reason", "paidFromAccount", "instalments" }`. `POST /api/payroll/loans` (`payroll.run`)
+  `{ "employeeId", "kind", "issuedOn", "amount", "instalment", "firstMonth", "reason", "paidFrom" }` posts the payment
+  to the ledger (`paidFrom`: `Cash`, `Bank` or an account code); `POST /{id}/cancel` `{ "reason" }` before anything was
+  taken back.
+- `GET /api/payroll/runs?year&storeId` → `RunRow[]`: `id`, `version`, `number`, `kind` (`Monthly`, `FinalSettlement`),
+  `year`, `month`, `title`, the period, store, employee, `status` (`Draft`, `Calculated`, `Approved`, `Posted`,
+  `Paid`), `employees`, `gross`, `deductions`, `net`, `tax`, `employerContributions`, `notes`, `warnings`, who did each
+  step and when, `journalNumber`, `paidOn`, `paymentJournalNumber`.
+- `POST /api/payroll/runs` (`payroll.run`) `{ "year", "month", "storeId", "notes" }` (201; no `storeId` is the whole
+  company, for those who see every store; one run per month and store). `POST /api/payroll/settlements`
+  `{ "employeeId", "notes" }` starts a leaver's final settlement. `DELETE /api/payroll/runs/{id}` while draft or
+  calculated.
+- Steps, each `{ "version" }` → the run: `POST /api/payroll/runs/{id}/calculate` and `/post` (`payroll.run`),
+  `/approve` and `/reopen` (`payroll.approve`), `/pay` (`payroll.run`) `{ "version", "paidOn", "bankAccount",
+  "cashAccount" }` (default today and the Bank and Cash accounts). Calculating notes on the run the employees left out
+  (no salary, or no rule set for the month).
+- `GET /api/payroll/runs/{id}` → `{ "run", "payslips" }`, each payslip with the days, earnings by kind, deductions by
+  kind, net and the employer's part. `GET /api/payroll/payslips/{id}` → the payslip with its lines and the tax
+  projection (`taxableBefore`, `taxBefore`, `projectedAnnualTaxable`, `projectedAnnualTax`).
+- `GET /api/payroll/runs/{id}/bank-transfers` → CSV (code, employee, CNIC, bank, IBAN, amount, reference);
+  `GET /api/payroll/runs/{id}/cash-sheet` → `{ "run", "rows": [{ "code", "name", "designation", "net" }], "total" }`.
+
+### HR reports: `hr.view`
+
+- `GET /api/hr/reports` → `[{ "key", "group", "title", "parameters" }]`; the payroll ones only for payroll's users.
+- `GET /api/hr/reports/{key}` → the report table as for `/api/reports`; `/csv` gives it as a file. Keys and parameters:
+  `salary-sheet` (`runId`), `tax-certificate` (`employeeId`, `taxYear`: the calendar year it starts in),
+  `eobi` and `social-security` (`month=yyyy-MM`), `attendance` (`month`), `leave`, `overtime` and `headcount`
+  (`from`, `to`); all but the first two take `storeId`.
+
+### Also changed
+
+- `GET /api/staff` is allowed with `hr.view` or `hr.edit` too, for the user picker on the employee page.
+- New permission keys `hr.view`, `hr.edit`, `hr.attendance`, `hr.leave`, `payroll.run` and `payroll.approve`, and the
+  standard role HR officer.
+- Nothing of HR or payroll goes to the tills, nor do the audit lines about it or about ledger entries.

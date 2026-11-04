@@ -93,6 +93,11 @@ public sealed class SyncPolicy
         policy.Everywhere<GiftCard>(SyncFlow.Both);
         policy.Everywhere<GiftCardTransaction>(SyncFlow.Both);
         policy.Everywhere<LoyaltyTransaction>(SyncFlow.Both);
+        // HR and payroll tables stay on the server (ILocalOnly); so do the audit lines about them, which would otherwise go
+        // down to the tills of the store they were written for. So do the lines about ledger entries, which also stay on the
+        // server and in which payroll names employees with their pay and loans. A till's own audit lines go up as before.
+        List<string> hr = [.. HrTables.Names, nameof(JournalEntry)];
+        policy.Table<AuditEntry>(SyncFlow.Both, till => a => a.StoreId == till.StoreId && (a.EntityName == null || !hr.Contains(a.EntityName)));
 
         // The same code made on two databases before they synchronised is one thing: the server's row stays, the other
         // is merged into it (rows pointing at it are moved over) and the merge is noted in the batch. Any other clash of

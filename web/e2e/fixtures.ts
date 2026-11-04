@@ -101,6 +101,12 @@ export const permissions: PermissionInfo[] = [
   ['web.signin', 'Web', 'Sign in to the web back office'],
   ['stores.manage', 'Web', 'Add stores and tills'],
   ['stores.all', 'Web', 'See and manage every store (super admin)'],
+  ['hr.view', 'HR', 'See employees, shifts, attendance and leave'],
+  ['hr.edit', 'HR', 'Add and change employees, HR lists, shifts, leave types, holidays and payroll rules'],
+  ['hr.attendance', 'HR', 'Rosters, and attendance corrections and their approval'],
+  ['hr.leave', 'HR', 'Approve leave and adjust leave balances'],
+  ['payroll.run', 'HR', 'Salaries, loans, payroll runs, posting and paying them'],
+  ['payroll.approve', 'HR', 'Approve payroll runs'],
 ].map(([key, group, description]) => ({ key, group, description }));
 
 const everything = permissions.map((p) => p.key);
@@ -715,3 +721,7 @@ export const settings: StoreSettings = {
   receiptHeader: 'Thank you for shopping with us',
   receiptFooter: 'Returns within 30 days with this receipt',
 };
+
+// HR and payroll (phase E3) ---------------------------------------------------------------------------------------
+
+export * from './hr-fixtures';

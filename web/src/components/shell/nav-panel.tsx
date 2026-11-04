@@ -35,12 +35,12 @@ export function NavList({
       {pages.map((page, i) => {
         const Icon = ICONS[page.icon];
         const active = page.key === current;
-        // A group's heading (Finance) above its first page; a line between the groups where only icons show.
+        // A group (Finance, HR) gets its name above its first page; with icons only, a line.
         const heading = page.group && page.group !== pages[i - 1]?.group ? page.group : null;
         return (
           <li key={page.key}>
             {heading && (
-              <p className={cx('mt-3 border-t border-line px-[18px] pb-1 pt-3 text-note font-semibold uppercase tracking-wide text-muted', collapsible && 'max-xl:px-0 max-xl:text-center')}>
+              <p data-nav-group={heading} aria-hidden="true" className={cx('mb-1 mt-3 px-[18px] text-note font-semibold uppercase tracking-wide text-muted', collapsible && 'max-xl:mx-2 max-xl:mt-2 max-xl:border-t max-xl:border-line max-xl:px-0 max-xl:pt-2 max-xl:text-center')}>
                 <span className={cx(collapsible && 'max-xl:sr-only')}>{heading}</span>
               </p>
             )}

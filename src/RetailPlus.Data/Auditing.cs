@@ -44,6 +44,12 @@ public static class AuditActions
     public const string YearReopened = "Year reopened";
     public const string DaysPosted = "Days posted";
     public const string FiscalSent = "Fiscal invoice sent";
+    public const string LeaveDecision = "Leave decision";
+    public const string AttendanceCorrection = "Attendance correction";
+    public const string SalaryChange = "Salary change";
+    public const string LoanIssued = "Loan issued";
+    public const string PayrollRun = "Payroll run";
+    public const string HrDocument = "HR document";
 }
 
 /// <summary>
@@ -88,6 +94,15 @@ public static class AuditedTables
         [typeof(BankAccount)] = Name<BankAccount>(b => b.Name),
         [typeof(BankStatementFormat)] = Name<BankStatementFormat>(f => f.BankName),
         [typeof(RecurringExpense)] = Name<RecurringExpense>(r => r.Name),
+        [typeof(Employee)] = Name<Employee>(x => $"{x.Code} {x.FullName}"),
+        [typeof(HrDepartment)] = Name<HrDepartment>(x => x.Name),
+        [typeof(Designation)] = Name<Designation>(x => x.Name),
+        [typeof(Shift)] = Name<Shift>(x => x.Name),
+        [typeof(LeaveType)] = Name<LeaveType>(x => $"{x.Country} {x.Name}"),
+        [typeof(Holiday)] = Name<Holiday>(x => $"{x.Country} {x.Date:yyyy-MM-dd} {x.Name}"),
+        [typeof(PayrollRuleSet)] = Name<PayrollRuleSet>(x => $"{x.Country} {x.Name}"),
+        [typeof(PayrollTaxSlab)] = Name<PayrollTaxSlab>(x => $"Tax slab from {x.IncomeFrom:N0}"),
+        [typeof(PayrollAllowanceRule)] = Name<PayrollAllowanceRule>(x => x.Code),
     };
 
     /// <summary>Properties never written to the log: kept by the program, or marks that are not changes of substance.</summary>
@@ -98,7 +113,10 @@ public static class AuditedTables
     ];
 
     /// <summary>Properties whose values are never written, only that they changed.</summary>
-    internal static readonly HashSet<string> Secret = [nameof(UserAccount.PasswordHash), nameof(UserAccount.PinHash)];
+    internal static readonly HashSet<string> Secret = [nameof(UserAccount.PasswordHash), nameof(UserAccount.PinHash),
+        // Employees' identity and bank numbers: the log shows that they changed, not what they are.
+        nameof(Employee.Cnic), nameof(Employee.Iban), nameof(Employee.Ntn), nameof(Employee.EobiNumber), nameof(Employee.SocialSecurityNumber),
+        nameof(Employee.PriorTaxableIncome), nameof(Employee.PriorTaxDeducted)];
 
     public static IReadOnlyCollection<Type> All => Tables.Keys;
 

@@ -49,6 +49,7 @@ public static partial class Endpoints
         MapSettings(app.MapGroup("/api").WithTags("Store settings"));
         MapRfid(app.MapGroup("/api").WithTags("RFID hubs"));
         MapFinance(app.MapGroup("/api/finance").WithTags("Finance"));
+        MapHr(app.MapGroup("/api").WithTags("HR and payroll"));
     }
 
     private static async Task<IResult> HealthAsync(DataContext data, CancellationToken cancellationToken)
@@ -156,7 +157,7 @@ public static partial class Endpoints
         // The people a list can be filtered by: the store's users and those who work at every store.
         api.MapGet("/staff", async (ApiRequest api) =>
         {
-            if (!new[] { Permissions.ReportsView, Permissions.ReportsStaff, Permissions.AuditView, Permissions.SetupUsers }.Any(api.User.Can))
+            if (!new[] { Permissions.ReportsView, Permissions.ReportsStaff, Permissions.AuditView, Permissions.SetupUsers, Permissions.HrView, Permissions.HrEdit }.Any(api.User.Can))
                 throw ApiException.Forbidden("Your role cannot see the staff list.");
             var store = api.ListStore();
             await using var db = api.Root.Create();

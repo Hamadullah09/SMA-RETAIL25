@@ -106,6 +106,7 @@ import type {
   WithholdingInfo,
   YearInfo,
 } from './types';
+import { hrEndpoints } from './hr-api';
 
 /** The header the server's CSRF guard asks for on requests that change data. */
 export const CSRF_HEADER = 'X-Requested-With';
@@ -569,6 +570,9 @@ export function createApi(options: ApiOptions = {}) {
     ignoreLine: (lineId: string) => post<void>(`/finance/statement-lines/${id(lineId)}/ignore`),
     lineEntry: (lineId: string, accountId: string | null, memo: string | null) =>
       post<JournalDetail>(`/finance/statement-lines/${id(lineId)}/entry`, { accountId, memo }),
+
+    // HR and payroll (hr-api.ts)
+    ...hrEndpoints({ get, post, put, del, blob, upload }),
   };
 }
 

@@ -23,6 +23,7 @@ public sealed class ServerStartup(DataContext data, IOptions<BootstrapOptions> b
         await SetupService.SeedRolesAsync(db, cancellationToken);
         await new LedgerService(data).SeedAsync(cancellationToken);
         await new FinanceSetupService(data).SeedAsync(cancellationToken);
+        await new HrService(data).SeedAsync(cancellationToken);
         if (!await db.TenderTypes.AnyAsync(cancellationToken))
         {
             int order = 0;

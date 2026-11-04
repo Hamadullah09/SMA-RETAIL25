@@ -33,6 +33,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
+import { BadgeCheck, CalendarClock, ClipboardList, IdCard, Plane, Settings2 } from 'lucide-react';
 import type { IconName } from '@/lib/nav';
 
 /** The icon of each page and palette command, chosen to read like the desktop's glyphs. */
@@ -69,5 +70,12 @@ export const ICONS: Record<IconName, LucideIcon> = {
   years: CalendarRange,
   suspense: TriangleAlert,
   statements: ScrollText,
+  employees: IdCard,
+  attendance: BadgeCheck,
+  shifts: CalendarClock,
+  leave: Plane,
+  payroll: Wallet,
+  hrreports: ClipboardList,
+  hrsetup: Settings2,
 };
 
