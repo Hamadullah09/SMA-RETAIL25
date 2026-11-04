@@ -171,7 +171,10 @@ public static class SmokeCheck
         await MainWindow.Settle();
         var view = main.GetView<PurchaseOrdersView>() ?? throw new InvalidOperationException("Purchase Orders did not open");
 
-        // The requisition, from draft to ordered.
+        // The requisition, from draft to ordered; Ctrl+K finds the tab.
+        var palette = new Dialogs.CommandPalette(main);
+        if (!palette.Matches("requisition").Any(c => c.Title == "Purchase requisitions")) failures.Add("Ctrl+K \"requisition\" did not find the requisitions");
+        palette.Close();
         view.ShowRequisitions();
         await MainWindow.Settle();
         var panel = view.Requisitions;
