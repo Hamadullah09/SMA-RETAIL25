@@ -28,7 +28,7 @@ test('someone who may only look at the books gets no buttons that change them', 
   await expect(page.getByTestId('tile-Receivables')).toHaveText('$3,200.00');
   await expect(page.getByRole('link', { name: /New bill/ })).toHaveCount(0);
   await page.goto('/finance/years/');
-  await expect(page.getByRole('table', { name: 'Months of FY 2026-27' })).toBeVisible();
+  await expect(page.getByRole('table', { name: 'Months of 2026-27' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Lock|Close the year/ })).toHaveCount(0);
   await page.goto('/finance/reports/');
   await expect(page.getByRole('link', { name: /Profit and loss/ })).toBeVisible();
@@ -138,15 +138,15 @@ test('a budget is typed or spread over the year and only what changed is saved',
 test('months are locked and opened, and a year is closed after a warning', async ({ page }) => {
   const api = await mockApi(page, { user: accountant });
   await page.goto('/finance/years/');
-  const months = page.getByRole('table', { name: 'Months of FY 2026-27' });
-  await months.getByRole('button', { name: 'Open July 2026' }).click();
+  const months = page.getByRole('table', { name: 'Months of 2026-27' });
+  await months.getByRole('button', { name: 'Open Jul 2026' }).click();
   await expect.poll(() => api.last('POST', '/api/finance/periods/p-1/unlock')?.headers['x-requested-with']).toBe('retailplus-web');
-  await expect(months.getByRole('button', { name: 'Lock July 2026' })).toBeVisible();
-  await months.getByRole('button', { name: 'Lock August 2026' }).click();
+  await expect(months.getByRole('button', { name: 'Lock Jul 2026' })).toBeVisible();
+  await months.getByRole('button', { name: 'Lock Aug 2026' }).click();
   await expect.poll(() => api.last('POST', '/api/finance/periods/p-2/lock')).toBeTruthy();
 
   await page.getByRole('button', { name: /Close the year/ }).click();
-  const confirm = page.getByRole('dialog', { name: 'Close FY 2026-27?' });
+  const confirm = page.getByRole('dialog', { name: 'Close 2026-27?' });
   await expect(confirm).toContainText('retained earnings');
   await confirm.getByRole('button', { name: /Close the year/ }).click();
   await expect.poll(() => api.last('POST', '/api/finance/years/y-2627/close')).toBeTruthy();

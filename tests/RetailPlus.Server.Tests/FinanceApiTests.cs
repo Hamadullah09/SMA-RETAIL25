@@ -204,6 +204,9 @@ public sealed class FinanceApiTests(BackOffice office) : IClassFixture<BackOffic
         // A payment run, and a supplier's tax details (shared by the stores).
         var run = await SendAsync<PaymentRunResult>(Post(adminA, "/api/finance/payment-runs", new PaymentRequest(bank.Id, office.Today, [new BillToPayRequest(bill.Id, 50_000m)], 0m)));
         Assert.Equal((1, 50_000m), (run.Run.Payments, run.Run.Total));
+        Assert.Contains(await GetAsync<List<PaymentRunInfo>>(adminA, "/api/finance/payment-runs"), r => r.Id == run.Run.Id);
+        Assert.Equal(bill.Id, Assert.Single((await GetAsync<PaymentDetail>(adminA, $"/api/finance/payments/{payment.Id}")).Allocations).BillId);
+        await ExpectAsync(HttpStatusCode.NotFound, adminB.GetAsync($"/api/finance/payments/{payment.Id}"));
         await ExpectAsync(HttpStatusCode.Forbidden, Put(adminA, $"/api/finance/suppliers/{supplier}", new SupplierFinanceInfo(supplier, "1234567-8", null, false, WithholdingKind.Services, false, 15, null)));
         using var super = await office.SignInAsync();
         var profile = await SendAsync<SupplierFinanceInfo>(Put(super, $"/api/finance/suppliers/{supplier}", new SupplierFinanceInfo(supplier, "1234567-8", null, false, WithholdingKind.Services, false, 15, null)));
@@ -298,6 +301,104 @@ public sealed class FinanceApiTests(BackOffice office) : IClassFixture<BackOffic
         await SendAsync<DepositRow>(Post(adminA, "/api/finance/deposits", new DepositRequest(office.StoreA.Id, bank.Id, office.Today, 500m, null, "DEP-1")));
         await ExpectAsync(HttpStatusCode.Forbidden, Post(adminB, "/api/finance/deposits", new DepositRequest(office.StoreA.Id, bank.Id, office.Today, 500m, null, null)));
         Assert.Single(await GetAsync<List<DepositRow>>(adminA, $"/api/finance/deposits?from={Day(0)}&to={Day(0)}"), d => d.BankAccountId == bank.Id);
+    }
+
+    [SkippableFact]
+    public async Task Statement_lines_are_matched_by_hand_or_left_out_and_a_tab_separated_file_is_read()
+    {
+        Require();
+        using var super = await office.SignInAsync();
+        using var adminA = await office.SignInAsync(office.AdminA);
+        var opening = office.Today.AddDays(-3);
+        var bank = await SendAsync<BankAccountRow>(Post(super, "/api/finance/bank-accounts", new BankAccountRequest("Tab bank " + Guid.NewGuid().ToString("N")[..5],
+            BankAccountKind.Bank, "Tab bank " + Guid.NewGuid().ToString("N")[..5], "7", null, null, null, null, 1_000m, opening, true)));
+
+        var tsv = $"Date\tDescription\tAmount\tBalance\n{opening:yyyy-MM-dd}\tOpening\t1000.00\t1000.00\n{office.Today:yyyy-MM-dd}\tFee\t-10.00\t990.00\n";
+        using (var form = new MultipartFormDataContent())
+        {
+            form.Add(new ByteArrayContent(Encoding.UTF8.GetBytes(tsv)), "file", "statement.txt");
+            foreach (var (name, value) in new[] { ("delimiter", "\t"), ("dateColumn", "Date"), ("descriptionColumn", "Description"), ("amountColumn", "Amount"), ("balanceColumn", "Balance") })
+                form.Add(new StringContent(value), name);
+            var imported = await SendAsync<StatementImportResult>(super.PostAsync($"/api/finance/bank-accounts/{bank.Id}/statements", form));
+            Assert.Equal((2, (decimal?)990m), (imported.Lines, imported.ClosingBalance));
+        }
+        Assert.Equal("\t", (await GetAsync<StatementFormatInfo>(super, $"/api/finance/bank-accounts/{bank.Id}/statement-format")).Delimiter);
+
+        var rec = await GetAsync<ReconciliationInfo>(super, $"/api/finance/bank-accounts/{bank.Id}/reconciliation");
+        var first = rec.StatementLines.Single(l => l.Amount == 1_000m);
+        var fee = rec.StatementLines.Single(l => l.Amount == -10m);
+        var ledger = rec.LedgerLines.Single(l => l.Amount == 1_000m);
+        // A company account's statement is matched by those who change what the company shares.
+        await ExpectAsync(HttpStatusCode.Forbidden, Post(adminA, $"/api/finance/statement-lines/{first.Id}/match", new MatchRequest(ledger.JournalLineId)));
+        await ExpectAsync(HttpStatusCode.NoContent, Post(super, $"/api/finance/statement-lines/{first.Id}/match", new MatchRequest(ledger.JournalLineId)));
+        rec = await GetAsync<ReconciliationInfo>(super, $"/api/finance/bank-accounts/{bank.Id}/reconciliation");
+        Assert.Equal(StatementLineStatus.Matched, rec.StatementLines.Single(l => l.Id == first.Id).Status);
+        Assert.True(rec.LedgerLines.Single(l => l.JournalLineId == ledger.JournalLineId).Matched);
+        await ExpectAsync(HttpStatusCode.NoContent, super.PostAsync($"/api/finance/statement-lines/{first.Id}/unmatch", null));
+        await ExpectAsync(HttpStatusCode.NoContent, super.PostAsync($"/api/finance/statement-lines/{fee.Id}/ignore", null));
+        rec = await GetAsync<ReconciliationInfo>(super, $"/api/finance/bank-accounts/{bank.Id}/reconciliation");
+        Assert.Equal((StatementLineStatus.Unmatched, StatementLineStatus.Ignored, 1),
+            (rec.StatementLines.Single(l => l.Id == first.Id).Status, rec.StatementLines.Single(l => l.Id == fee.Id).Status, rec.UnmatchedLines));
+        await ExpectAsync(HttpStatusCode.NotFound, Post(super, $"/api/finance/statement-lines/{Guid.NewGuid()}/match", new MatchRequest(ledger.JournalLineId)));
+    }
+
+    [SkippableFact]
+    public async Task Bills_and_expenses_are_voided_drafts_deleted_recurring_ones_made_and_budgets_copied()
+    {
+        Require();
+        using var super = await office.SignInAsync();
+        using var adminA = await office.SignInAsync(office.AdminA);
+        using var adminB = await office.SignInAsync(office.AdminB);
+        var rent = await AccountAsync(adminA, "6100");
+        var supplier = await SupplierAsync("Void bills");
+
+        var bill = await SendAsync<BillDetail>(Post(adminA, "/api/finance/bills", new BillRequest(SupplierBillKind.Bill, supplier, office.StoreA.Id, office.Today, null, null, null, 1,
+            null, null, [new BillLineRequest(rent, null, "Rent", 1, 800m, 0)])));
+        bill = await SendAsync<BillDetail>(adminA.PostAsync($"/api/finance/bills/{bill.Id}/post", null));
+        await ExpectAsync(HttpStatusCode.NotFound, Post(adminB, $"/api/finance/bills/{bill.Id}/void", new VoidRequest(office.Today, "Not ours")));
+        await ExpectAsync(HttpStatusCode.BadRequest, Post(adminA, $"/api/finance/bills/{bill.Id}/void", new VoidRequest(office.Today, " ")));
+        var voidBill = await SendAsync<BillDetail>(Post(adminA, $"/api/finance/bills/{bill.Id}/void", new VoidRequest(office.Today, "Entered twice")));
+        Assert.Equal((SupplierBillStatus.Void, "Entered twice"), (voidBill.Status, voidBill.VoidReason));
+        Assert.Equal(JournalStatus.Reversed, (await GetAsync<JournalDetail>(adminA, $"/api/finance/journals/{bill.JournalEntryId}")).Status);
+
+        var expense = await SendAsync<ExpenseDetail>(Post(adminA, "/api/finance/expenses", new ExpenseRequest(office.Today, office.StoreA.Id, "Cleaner", null, rent, null, 150m, 0m,
+            ExpensePaidBy.Cash, null, null, Post: true)));
+        Assert.Equal(ExpenseStatus.Posted, expense.Expense.Status);
+        var voidExpense = await SendAsync<ExpenseDetail>(Post(adminA, $"/api/finance/expenses/{expense.Expense.Id}/void", new VoidRequest(office.Today, "Paid by the landlord")));
+        Assert.Equal(ExpenseStatus.Void, voidExpense.Expense.Status);
+
+        var cash = await AccountAsync(super, "1010");
+        var draft = await SendAsync<JournalDetail>(Post(super, "/api/finance/journals", new JournalRequest(office.Today, office.StoreA.Id, "To delete", null,
+            [new JournalLineRequest(rent, 10m, 0), new JournalLineRequest(cash, 0, 10m)])));
+        await ExpectAsync(HttpStatusCode.NotFound, adminB.DeleteAsync($"/api/finance/journals/{draft.Id}"));
+        await ExpectAsync(HttpStatusCode.NoContent, super.DeleteAsync($"/api/finance/journals/{draft.Id}"));
+        await ExpectAsync(HttpStatusCode.NotFound, super.GetAsync($"/api/finance/journals/{draft.Id}"));
+
+        // A recurring expense due today is made when asked, by its own store only.
+        var water = await SendAsync<RecurringExpenseRow>(Post(adminA, "/api/finance/recurring-expenses", new RecurringExpenseRow(null, null, "Water " + Guid.NewGuid().ToString("N")[..4],
+            office.StoreA.Id, "Water board", null, rent, 90m, 0m, ExpensePaidBy.Cash, null, RecurrenceFrequency.Monthly, office.Today, null, false, true, null)));
+        var gas = await SendAsync<RecurringExpenseRow>(Post(adminB, "/api/finance/recurring-expenses", new RecurringExpenseRow(null, null, "Gas " + Guid.NewGuid().ToString("N")[..4],
+            office.StoreB.Id, "Gas company", null, rent, 60m, 0m, ExpensePaidBy.Cash, null, RecurrenceFrequency.Monthly, office.Today, null, false, true, null)));
+        var made = await SendAsync<Dictionary<string, int>>(adminA.PostAsync("/api/finance/recurring-expenses/run", null));
+        Assert.True(made["made"] >= 1);
+        var after = (await GetAsync<List<RecurringExpenseRow>>(adminA, "/api/finance/recurring-expenses")).Single(r => r.Id == water.Id);
+        Assert.Equal(office.Today, after.LastMadeOn!.Value);
+        Assert.True(after.NextDate > office.Today);
+        Assert.Equal(office.Today, (await GetAsync<List<RecurringExpenseRow>>(adminB, "/api/finance/recurring-expenses")).Single(r => r.Id == gas.Id).NextDate);
+        await ExpectAsync(HttpStatusCode.NoContent, adminB.DeleteAsync($"/api/finance/recurring-expenses/{gas.Id}"));
+
+        // A budget copied into the next year, raised by a tenth.
+        await SendAsync<List<YearInfo>>(Post(super, "/api/finance/years", new NewYearRequest(new DateOnly(2064, 9, 1))));
+        var years = await SendAsync<List<YearInfo>>(Post(super, "/api/finance/years", new NewYearRequest(new DateOnly(2065, 9, 1))));
+        var first = years.Single(y => y.StartDate == new DateOnly(2064, 7, 1));
+        var next = years.Single(y => y.StartDate == new DateOnly(2065, 7, 1));
+        await SendAsync<BudgetInfo>(Put(super, $"/api/finance/budgets?yearId={first.Id}&storeId={office.StoreA.Id}",
+            new BudgetSaveRequest([new BudgetAmountInfo(rent, new DateOnly(2064, 8, 1), 1_000m)])));
+        await ExpectAsync(HttpStatusCode.Forbidden, Post(adminA, "/api/finance/budgets/copy", new BudgetCopyRequest(next.Id, office.StoreB.Id, true, 10m)));
+        var copied = await SendAsync<Dictionary<string, int>>(Post(adminA, "/api/finance/budgets/copy", new BudgetCopyRequest(next.Id, office.StoreA.Id, true, 10m)));
+        Assert.Equal(1, copied["copied"]);
+        var budget = await GetAsync<BudgetInfo>(adminA, $"/api/finance/budgets?yearId={next.Id}&storeId={office.StoreA.Id}");
+        Assert.Equal((new DateOnly(2065, 8, 1), 1_100m), (Assert.Single(budget.Amounts).Month, budget.Amounts[0].Amount));
     }
 
     // Journals, years, budgets ----------------------------------------------------------------------------------------
@@ -399,6 +500,7 @@ public sealed class FinanceApiTests(BackOffice office) : IClassFixture<BackOffic
         Assert.Contains("<VOUCHER", await adminA.GetStringAsync($"/api/finance/export?format=tally&from={Day(5)}&to={Day(0)}"), StringComparison.Ordinal);
         Assert.StartsWith("!ACCNT", await adminA.GetStringAsync($"/api/finance/export?format=iif&from={Day(5)}&to={Day(0)}"), StringComparison.Ordinal);
         Assert.Contains("Date,Number,Kind", await adminA.GetStringAsync($"/api/finance/export?format=csv&from={Day(5)}&to={Day(0)}"), StringComparison.Ordinal);
+        Assert.StartsWith("Journal No,Journal Date,Account,Debits,Credits", await adminA.GetStringAsync($"/api/finance/export?format=qbo&from={Day(5)}&to={Day(0)}"), StringComparison.Ordinal);
         await ExpectAsync(HttpStatusCode.BadRequest, adminA.GetAsync("/api/finance/export?format=pdf"));
         await ExpectAsync(HttpStatusCode.Forbidden, viewer.GetAsync("/api/finance/export?format=csv"));
     }

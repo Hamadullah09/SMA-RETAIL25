@@ -202,13 +202,14 @@ public sealed class ExpenseService(DataContext data)
 
     /// <summary>
     /// Makes every recurring expense that is due on or before <paramref name="today"/> (several when it was missed for a
-    /// while), posted or left as drafts as each one says, and moves its next date on. Returns the expenses made.
+    /// while), posted or left as drafts as each one says, and moves its next date on; of one store, or (null) every store.
+    /// Returns the expenses made.
     /// </summary>
-    public async Task<List<Expense>> RunDueAsync(DateOnly today)
+    public async Task<List<Expense>> RunDueAsync(DateOnly today, Guid? store = null)
     {
         List<RecurringExpense> due;
         await using (var db = data.Create())
-            due = await db.RecurringExpenses.AsNoTracking().Where(r => r.IsActive && r.NextDate <= today).ToListAsync();
+            due = await db.RecurringExpenses.AsNoTracking().Where(r => r.IsActive && r.NextDate <= today && (store == null || r.StoreId == store)).ToListAsync();
         var made = new List<Expense>();
         foreach (var r in due)
         {

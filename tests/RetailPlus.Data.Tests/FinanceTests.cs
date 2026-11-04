@@ -234,6 +234,17 @@ public abstract class FinanceTests(DatabaseFixture db)
         Assert.Equal((2, 2, 3000m), (payments.Count, run.Payments, payments.Sum(p => p.Amount + p.WithholdingAmount)));
         Assert.All(payments, p => Assert.Equal(run.Id, p.PaymentRunId));
         Assert.DoesNotContain(await payables.AgeingAsync(date.AddDays(1), Store), r => r.PartyId == a.Id || r.PartyId == b.Id);
+
+        // A run with one bill that cannot be paid pays none of them.
+        var good = await payables.PostBillAsync((await payables.SaveBillAsync(new SupplierBill
+        {
+            SupplierId = a.Id, StoreId = Store, BillDate = date, Lines = [Line(account, 400m)],
+        })).Id);
+        var draftOnly = await payables.SaveBillAsync(new SupplierBill { SupplierId = b.Id, StoreId = Store, BillDate = date, Lines = [Line(account, 300m)] });
+        await Assert.ThrowsAsync<BusinessRuleException>(() => payables.PayRunAsync(bank.Id, date, [new BillToPay(good.Id, 400m), new BillToPay(draftOnly.Id, 300m)], "RUN-2"));
+        Assert.Equal(0m, (await payables.GetBillAsync(good.Id))!.Paid);
+        await using (var ctx = db.CreateContext())
+            Assert.False(await ctx.PaymentRuns.AnyAsync(r => r.Date == date && r.Total == 0));
     }
 
     [SkippableFact]

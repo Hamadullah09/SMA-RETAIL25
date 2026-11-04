@@ -259,12 +259,13 @@ export const profitAndLoss: ReportTable = {
 
 // Years and budgets ------------------------------------------------------------------------------------------------
 
-const MONTHS = ['July', 'August', 'September', 'October', 'November', 'December', 'January', 'February', 'March', 'April', 'May', 'June'];
+/** As the server names periods ("MMM yyyy"). */
+const MONTHS = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
 
 /** The year July 2026 to June 2027, its first month locked. */
 export const years: YearInfo[] = [
   {
-    id: 'y-2627', name: 'FY 2026-27', startDate: '2026-07-01', endDate: '2027-06-30', status: 'Open', closedAtUtc: null, closedBy: null,
+    id: 'y-2627', name: '2026-27', startDate: '2026-07-01', endDate: '2027-06-30', status: 'Open', closedAtUtc: null, closedBy: null,
     periods: MONTHS.map((m, i) => {
       const year = i < 6 ? 2026 : 2027;
       const month = ((6 + i) % 12) + 1;
@@ -276,7 +277,7 @@ export const years: YearInfo[] = [
 
 export const budget: BudgetInfo = {
   yearId: 'y-2627',
-  yearName: 'FY 2026-27',
+  yearName: '2026-27',
   storeId: null,
   months: years[0].periods.map((p) => p.startDate),
   amounts: [

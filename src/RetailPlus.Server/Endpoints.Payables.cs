@@ -136,7 +136,7 @@ public static partial class Endpoints
         api.MapPost("/recurring-expenses/run", async (ApiRequest a) =>
         {
             var store = a.ListStore();
-            var made = await new ExpenseService(await a.ForChangeAsync(store)).RunDueAsync(await a.TodayAsync(store));
+            var made = await new ExpenseService(await a.ForChangeAsync(store)).RunDueAsync(await a.TodayAsync(store), store);
             return Results.Ok(new { made = made.Count });
         }).RequireAuthorization(Need(Permissions.FinancePost));
     }

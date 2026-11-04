@@ -243,44 +243,10 @@ public sealed class PayablesService(DataContext data)
     /// </summary>
     public async Task<SupplierPayment> PayAsync(PaymentDraft draft, Guid? paymentRunId = null)
     {
-        if (draft.Bills.Count == 0) throw new BusinessRuleException("Choose the bills to pay.");
-        if (draft.Bills.Any(b => b.Amount <= 0)) throw new BusinessRuleException("Each bill is paid a positive amount.");
-        if (draft.Bills.Select(b => b.BillId).Distinct().Count() != draft.Bills.Count) throw new BusinessRuleException("A bill is chosen twice.");
-        List<SupplierBill> bills;
-        BankAccount bank;
-        string supplierName;
-        WithholdingQuote quote;
-        string baseCurrency;
-        await using (var db = data.Create())
-        {
-            bank = await db.BankAccounts.AsNoTracking().SingleOrDefaultAsync(b => b.Id == draft.BankAccountId) ?? throw new BusinessRuleException("Choose the bank or cash account it is paid from.");
-            if (!bank.IsActive) throw new BusinessRuleException($"{bank.Name} is inactive.");
-            var ids = draft.Bills.Select(b => b.BillId).ToList();
-            bills = await db.SupplierBills.AsNoTracking().Where(b => ids.Contains(b.Id)).ToListAsync();
-            if (bills.Count != ids.Count) throw new BusinessRuleException("A bill chosen no longer exists.");
-            if (bills.Select(b => b.SupplierId).Distinct().Count() > 1) throw new BusinessRuleException("A payment is for one supplier; use a payment run for several.");
-            if (bills.Select(b => b.StoreId).Distinct().Count() > 1) throw new BusinessRuleException("A payment covers the bills of one store.");
-            if (bills.FirstOrDefault(b => b.Status is not (SupplierBillStatus.Posted or SupplierBillStatus.PartPaid)) is { } closed)
-                throw new BusinessRuleException($"{Describe(closed)} is {closed.Status.ToString().ToLowerInvariant()}; only posted bills are paid.");
-            baseCurrency = await FinanceNumbers.BaseCurrencyAsync(db);
-            var currency = await FinanceNumbers.CurrencyAsync(db, bank.Currency);
-            if (bills.FirstOrDefault(b => b.Currency != currency) is { } other)
-                throw new BusinessRuleException($"{Describe(other)} is in {other.Currency}; pay it from an account in {other.Currency}.");
-            foreach (var b in draft.Bills)
-            {
-                var bill = bills.Single(x => x.Id == b.BillId);
-                if (b.Amount > bill.Open) throw new BusinessRuleException($"{Describe(bill)} has {bill.Open:N2} open; it cannot be paid {b.Amount:N2}.");
-            }
-            supplierName = await db.Suppliers.AsNoTracking().Where(s => s.Id == bills[0].SupplierId).Select(s => s.Company ?? s.LastName ?? "").FirstAsync();
-            quote = await FinanceSetupService.WithholdingForAsync(db, bills[0].SupplierId, bills[0].StoreId);
-        }
+        var (bills, bank, supplierName, quote, rate) = await PlanAsync(draft);
         string payCurrency = bills[0].Currency;
-        decimal rate = payCurrency == baseCurrency ? 1 : draft.ExchangeRate;
-        if (rate <= 0) throw new BusinessRuleException($"Give the exchange rate of {payCurrency}.");
-
         decimal Sign(SupplierBill b) => b.Kind == SupplierBillKind.Bill ? 1 : -1;
         decimal settled = draft.Bills.Sum(b => Sign(bills.Single(x => x.Id == b.BillId)) * b.Amount);
-        if (settled < 0) throw new BusinessRuleException("The debit notes chosen are more than the bills; choose less of them.");
         // Withholding is on the goods or services, not on the sales tax of the bills.
         decimal taxable = Money.Round(draft.Bills.Sum(b =>
         {
@@ -344,6 +310,54 @@ public sealed class PayablesService(DataContext data)
         return payment;
     }
 
+    /// <summary>What a payment is made of, once its bills, account and amounts are checked.</summary>
+    private sealed record PaymentPlan(List<SupplierBill> Bills, BankAccount Bank, string SupplierName, WithholdingQuote Quote, decimal Rate);
+
+    /// <summary>
+    /// Checks a payment before anything is posted: its bills exist, are posted and of one supplier and store, in the
+    /// account's currency, each paid at most what is open, the debit notes not more than the bills.
+    /// </summary>
+    private async Task<PaymentPlan> PlanAsync(PaymentDraft draft)
+    {
+        if (draft.Bills.Count == 0) throw new BusinessRuleException("Choose the bills to pay.");
+        if (draft.Bills.Any(b => b.Amount <= 0)) throw new BusinessRuleException("Each bill is paid a positive amount.");
+        if (draft.Bills.Select(b => b.BillId).Distinct().Count() != draft.Bills.Count) throw new BusinessRuleException("A bill is chosen twice.");
+        List<SupplierBill> bills;
+        BankAccount bank;
+        string supplierName;
+        WithholdingQuote quote;
+        string baseCurrency;
+        await using (var db = data.Create())
+        {
+            bank = await db.BankAccounts.AsNoTracking().SingleOrDefaultAsync(b => b.Id == draft.BankAccountId) ?? throw new BusinessRuleException("Choose the bank or cash account it is paid from.");
+            if (!bank.IsActive) throw new BusinessRuleException($"{bank.Name} is inactive.");
+            var ids = draft.Bills.Select(b => b.BillId).ToList();
+            bills = await db.SupplierBills.AsNoTracking().Where(b => ids.Contains(b.Id)).ToListAsync();
+            if (bills.Count != ids.Count) throw new BusinessRuleException("A bill chosen no longer exists.");
+            if (bills.Select(b => b.SupplierId).Distinct().Count() > 1) throw new BusinessRuleException("A payment is for one supplier; use a payment run for several.");
+            if (bills.Select(b => b.StoreId).Distinct().Count() > 1) throw new BusinessRuleException("A payment covers the bills of one store.");
+            if (bills.FirstOrDefault(b => b.Status is not (SupplierBillStatus.Posted or SupplierBillStatus.PartPaid)) is { } closed)
+                throw new BusinessRuleException($"{Describe(closed)} is {closed.Status.ToString().ToLowerInvariant()}; only posted bills are paid.");
+            baseCurrency = await FinanceNumbers.BaseCurrencyAsync(db);
+            var currency = await FinanceNumbers.CurrencyAsync(db, bank.Currency);
+            if (bills.FirstOrDefault(b => b.Currency != currency) is { } other)
+                throw new BusinessRuleException($"{Describe(other)} is in {other.Currency}; pay it from an account in {other.Currency}.");
+            foreach (var b in draft.Bills)
+            {
+                var bill = bills.Single(x => x.Id == b.BillId);
+                if (b.Amount > bill.Open) throw new BusinessRuleException($"{Describe(bill)} has {bill.Open:N2} open; it cannot be paid {b.Amount:N2}.");
+            }
+            supplierName = await db.Suppliers.AsNoTracking().Where(s => s.Id == bills[0].SupplierId).Select(s => s.Company ?? s.LastName ?? "").FirstAsync();
+            quote = await FinanceSetupService.WithholdingForAsync(db, bills[0].SupplierId, bills[0].StoreId);
+        }
+        string payCurrency = bills[0].Currency;
+        decimal rate = payCurrency == baseCurrency ? 1 : draft.ExchangeRate;
+        if (rate <= 0) throw new BusinessRuleException($"Give the exchange rate of {payCurrency}.");
+        decimal settled = draft.Bills.Sum(b => (bills.Single(x => x.Id == b.BillId).Kind == SupplierBillKind.Bill ? 1 : -1) * b.Amount);
+        if (settled < 0) throw new BusinessRuleException("The debit notes chosen are more than the bills; choose less of them.");
+        return new PaymentPlan(bills, bank, supplierName, quote, rate);
+    }
+
     /// <summary>Cancels a payment: its entry is reversed on <paramref name="date"/> and its bills are open again.</summary>
     public async Task<SupplierPayment> VoidPaymentAsync(Guid id, DateOnly date, string reason)
     {
@@ -380,6 +394,7 @@ public sealed class PayablesService(DataContext data)
         decimal exchangeRate = 1, string? notes = null)
     {
         if (bills.Count == 0) throw new BusinessRuleException("Choose the bills to pay.");
+        if (bills.Select(b => b.BillId).Distinct().Count() != bills.Count) throw new BusinessRuleException("A bill is chosen twice.");
         List<(Guid Id, Guid Supplier, Guid Store)> owners;
         await using (var db = data.Create())
         {
@@ -388,6 +403,17 @@ public sealed class PayablesService(DataContext data)
                 .Select(b => (b.Id, b.SupplierId, b.StoreId)).ToList();
             if (owners.Count != ids.Count) throw new BusinessRuleException("A bill chosen no longer exists.");
         }
+        var drafts = bills.GroupBy(b =>
+            {
+                var owner = owners.Single(o => o.Id == b.BillId);
+                return (owner.Supplier, owner.Store);
+            })
+            .Select(g => new PaymentDraft(bankAccountId, date, [.. g]) { Reference = reference, ExchangeRate = exchangeRate, Notes = notes })
+            .ToList();
+        // Every payment is checked before the first is posted, so a run is paid whole or not at all.
+        foreach (var draft in drafts) await PlanAsync(draft);
+        if (!await Ledger.IsOpenAsync(date)) throw new BusinessRuleException($"{date:d} is in a locked or closed period; pay on a later date or open the period.");
+
         var run = new PaymentRun
         {
             Date = date, BankAccountId = bankAccountId, Notes = FinanceNumbers.Cut(notes?.Trim(), 200), PaidBy = FinanceNumbers.Cut(data.CurrentUser?.UserName, 50),
@@ -401,20 +427,21 @@ public sealed class PayablesService(DataContext data)
             await db.SaveChangesAsync();
         }
         var payments = new List<SupplierPayment>();
-        foreach (var group in bills.GroupBy(b =>
-                 {
-                     var owner = owners.Single(o => o.Id == b.BillId);
-                     return (owner.Supplier, owner.Store);
-                 }))
-            payments.Add(await PayAsync(new PaymentDraft(bankAccountId, date, [.. group]) { Reference = reference, ExchangeRate = exchangeRate, Notes = notes }, run.Id));
-        await using (var db = data.Create())
+        try
         {
+            foreach (var draft in drafts) payments.Add(await PayAsync(draft, run.Id));
+        }
+        finally
+        {
+            // The run counts the payments made, even when one still failed part way.
+            await using var db = data.Create();
             var row = await db.PaymentRuns.SingleAsync(r => r.Id == run.Id);
             row.Payments = payments.Count;
             row.Total = payments.Sum(p => p.Amount);
             await db.SaveChangesAsync();
-            return (row, payments);
+            run = row;
         }
+        return (run, payments);
     }
 
     // Reading ---------------------------------------------------------------------------------------------------------
