@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import type { Page, Request, Route } from '@playwright/test';
 import * as f from './fixtures';
 import { financeAnswer } from './mock-finance';
+import { productionAnswer } from './production-mock';
 import type { ItemDetail, UserInfo } from '../src/lib/types';
 import { createHrMock } from './hr-mock';
 
@@ -80,6 +81,8 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
     if (path.startsWith('/api/finance/')) return financeAnswer(r);
     const hr = hrAnswer(r);
     if (hr) return hr;
+    const production = productionAnswer(r);
+    if (production) return production;
 
     switch (true) {
       case key === 'GET /api/auth/me':

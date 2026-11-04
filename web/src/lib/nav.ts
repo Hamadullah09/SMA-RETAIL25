@@ -42,6 +42,10 @@ export const P = {
   campaigns: 'marketing.campaigns',
   promotions: 'marketing.promotions',
   targets: 'sales.targets',
+  productionView: 'production.view',
+  productionPlan: 'production.plan',
+  productionFloor: 'production.floor',
+  productionCosting: 'production.costing',
 } as const;
 
 /** The icon of a page, by name; `components/shell/icons.tsx` maps the names to lucide icons. */
@@ -90,7 +94,14 @@ export type IconName =
   | 'segments'
   | 'campaigns'
   | 'promotions'
-  | 'targets';
+  | 'targets'
+  | 'bom'
+  | 'workcentre'
+  | 'routing'
+  | 'production'
+  | 'planning'
+  | 'capacity'
+  | 'quality';
 
 export interface PageDef {
   key: string;
@@ -107,7 +118,8 @@ export interface PageDef {
   shortcut?: string;
   /** More words the palette finds the page by. */
   keywords?: string;
-  /** The group the page is listed under in the navigation and the palette (Finance, HR); none for the first pages. */
+  /** The group the page is listed under in the navigation and the palette (Finance, HR, Manufacturing); pages of one
+   * group follow each other; none for the first pages. */
   group?: string;
   /** Opens with any one of these permissions instead of `permission` alone. */
   anyOf?: readonly string[];
@@ -169,6 +181,17 @@ export const PAGES: readonly PageDef[] = [
   { key: 'promotions', title: 'Promotions', path: '/promotions/', icon: 'promotions', permission: P.promotions, nav: true, keywords: 'discounts coupons happy hour buy get bundle' },
   { key: 'targets', title: 'Targets', path: '/targets/', icon: 'targets', permission: P.targets, nav: true, keywords: 'sales targets goals month salesperson' },
   { key: 'campaign', title: 'Campaign', path: '/campaigns/view/', icon: 'campaigns', permission: P.campaigns, nav: false, parent: 'campaigns' },
+  // Manufacturing (phase E5).
+  { key: 'production', title: 'Production orders', path: '/production/', icon: 'production', permission: P.productionView, nav: true, group: 'Manufacturing', keywords: 'manufacturing orders board release issue output make' },
+  { key: 'production-order', title: 'Production order', path: '/production/view/', icon: 'production', permission: P.productionView, nav: false, parent: 'production' },
+  { key: 'boms', title: 'Bills of materials', path: '/boms/', icon: 'bom', permission: P.productionView, nav: true, group: 'Manufacturing', keywords: 'bom recipe components yield by-products tree cost roll-up' },
+  { key: 'bom', title: 'Bill of materials', path: '/boms/edit/', icon: 'bom', permission: P.productionView, nav: false, parent: 'boms' },
+  { key: 'routings', title: 'Routings', path: '/routings/', icon: 'routing', permission: P.productionView, nav: true, group: 'Manufacturing', keywords: 'operations steps setup run minutes' },
+  { key: 'work-centres', title: 'Work centres', path: '/work-centres/', icon: 'workcentre', permission: P.productionView, nav: true, group: 'Manufacturing', keywords: 'machines lines labour rate capacity' },
+  { key: 'planning', title: 'Planning', path: '/planning/', icon: 'planning', permission: P.productionView, nav: true, group: 'Manufacturing', keywords: 'mrp suggestions make buy lead times' },
+  { key: 'capacity', title: 'Capacity', path: '/capacity/', icon: 'capacity', permission: P.productionView, nav: true, group: 'Manufacturing', keywords: 'load work centre week hours' },
+  { key: 'quality', title: 'Quality', path: '/quality/', icon: 'quality', permission: P.productionView, nav: true, group: 'Manufacturing', keywords: 'qc inspection checks incoming hold scrap' },
+  { key: 'production-reports', title: 'Production reports', path: '/production-reports/', icon: 'reports', permission: P.productionView, nav: true, group: 'Manufacturing', keywords: 'variances wip work in progress scrap output material usage' },
 ];
 
 /** Whether a user with these permissions may open the page (any one of `anyOf` will do when it has some). */
@@ -262,6 +285,9 @@ export const ACTIONS: readonly Command[] = [
   { id: 'new-campaign', title: 'New campaign', kind: 'Action', icon: 'new', path: '/campaigns/?new=1', permission: P.campaigns, keywords: 'add whatsapp message' },
   { id: 'new-promotion', title: 'New promotion', kind: 'Action', icon: 'new', path: '/promotions/?new=1', permission: P.promotions, keywords: 'add discount coupon' },
   { id: 'new-target', title: 'New target', kind: 'Action', icon: 'new', path: '/targets/?new=1', permission: P.targets, keywords: 'add sales goal' },
+  { id: 'new-production-order', title: 'New production order', kind: 'Action', icon: 'new', path: '/production/?new=1', permission: P.productionPlan, keywords: 'make manufacture' },
+  { id: 'new-bom', title: 'New bill of materials', kind: 'Action', icon: 'new', path: '/boms/edit/', permission: P.productionPlan, keywords: 'bom recipe' },
+  { id: 'run-planning', title: 'Run planning', kind: 'Action', icon: 'planning', path: '/planning/?run=1', permission: P.productionPlan, keywords: 'mrp suggestions' },
 ];
 
 /** Everything the palette may offer this user: the pages, the actions and the reports of the catalog. */
@@ -278,7 +304,7 @@ export function commandsFor(
     shortcut: page.shortcut,
     permission: page.permission,
     anyOf: page.anyOf,
-    keywords: page.keywords,
+    keywords: page.group ? `${page.keywords ?? ''} ${page.group}`.trim() : page.keywords,
     group: page.group,
   }));
   const actions = ACTIONS.filter((a) => canOpen(a, permissions));

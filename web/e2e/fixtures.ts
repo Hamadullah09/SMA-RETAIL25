@@ -63,6 +63,7 @@ import type {
   WhatsAppTemplate,
   WonLostReport,
 } from '../src/lib/types';
+import { productionPermissions } from './production-fixtures';
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
 const today = (() => {
@@ -131,6 +132,7 @@ export const permissions: PermissionInfo[] = [
   ['marketing.campaigns', 'CRM and marketing', 'Segments, WhatsApp templates and campaigns'],
   ['marketing.promotions', 'CRM and marketing', 'Promotions and coupons'],
   ['sales.targets', 'CRM and marketing', 'Sales targets'],
+  ...productionPermissions,
 ].map(([key, group, description]) => ({ key, group, description }));
 
 const everything = permissions.map((p) => p.key);

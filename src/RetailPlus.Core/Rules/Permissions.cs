@@ -81,6 +81,11 @@ public static class Permissions
     public const string PayrollRun = "payroll.run";
     public const string PayrollApprove = "payroll.approve";
 
+    public const string ProductionView = "production.view";
+    public const string ProductionPlan = "production.plan";
+    public const string ProductionFloor = "production.floor";
+    public const string ProductionCosting = "production.costing";
+
     public static IReadOnlyList<PermissionInfo> All { get; } =
     [
         new(PosSell, "Sales", "Ring up sales"),
@@ -151,6 +156,11 @@ public static class Permissions
         new(HrLeave, "HR", "Approve leave and adjust leave balances"),
         new(PayrollRun, "HR", "Salaries, loans, payroll runs, posting and paying them"),
         new(PayrollApprove, "HR", "Approve payroll runs"),
+
+        new(ProductionView, "Production", "See bills of materials, production orders and planning"),
+        new(ProductionPlan, "Production", "Bills of materials, work centres, production orders, planning and quality"),
+        new(ProductionFloor, "Production", "Work on production orders at the shop floor: operations, materials, output"),
+        new(ProductionCosting, "Production", "Production costs and variances, and posting them to the ledger"),
     ];
 
     public static bool IsKnown(string key) => All.Any(p => p.Key == key);
@@ -169,11 +179,13 @@ public static class Permissions
         [.. ClerkKeys, PosDiscount, PosVoidLine, PosVoidSale, PosNoSale, PosEndOfDay, PosApprove, InvoicesManage, RmaManage, InventoryTransfer, DashboardView, ReportsView, TimeClockEdit, CrmView];
     private static readonly string[] ManagerKeys =
         [.. SupervisorKeys, InventoryPrices, ReportsStaff, SetupStore, SetupStations, RfidManage, BackupManage, YearEndRun, AuditView, AccountingExport, FinanceView, HrView, HrLeave,
-            CrmEdit, MarketingCampaigns, MarketingPromotions, SalesTargets];
+            CrmEdit, MarketingCampaigns, MarketingPromotions, SalesTargets, ProductionView];
     private static readonly string[] AccountantKeys =
         [WebSignIn, DashboardView, ReportsView, AuditView, AccountingExport, ClientsView, InventoryView, FinanceView, FinancePost, FinanceApprove, FinanceClose, FinanceSetup,
             FinancePayables, FinanceBank, FinanceBudget, StoresAll];
     private static readonly string[] HrOfficerKeys = [WebSignIn, ReportsStaff, HrView, HrEdit, HrAttendance, HrLeave, PayrollRun];
+    private static readonly string[] ProductionPlannerKeys = [WebSignIn, InventoryView, ProductionView, ProductionPlan, ProductionCosting];
+    private static readonly string[] ProductionOperatorKeys = [TimeClockPunch, ProductionView, ProductionFloor];
 
     public const string TraineeRole = "Trainee";
     public const string CashierRole = "Cashier";
@@ -190,6 +202,8 @@ public static class Permissions
 
     public const string AccountantRole = "Accountant";
     public const string HrOfficerRole = "HR officer";
+    public const string ProductionPlannerRole = "Production planner";
+    public const string ProductionOperatorRole = "Production operator";
 
     /// <summary>
     /// The roles of a new database. Cashiers, supervisors and managers work at the tills; administrators look after one
@@ -207,6 +221,8 @@ public static class Permissions
         new(MarketingRole, 3, "Leads, the pipeline, segments, WhatsApp campaigns and promotions, on the web", MarketingKeys),
         new(AccountantRole, 3, "Keeps the books on the web: ledger, payables, bank, statements", AccountantKeys),
         new(HrOfficerRole, 3, "Employees, attendance, leave and payroll on the web; someone else approves payroll", HrOfficerKeys),
+        new(ProductionPlannerRole, 3, "Bills of materials, production orders, planning, quality and production costs, on the web", ProductionPlannerKeys),
+        new(ProductionOperatorRole, 1, "Works production orders on the shop floor screen at a till", ProductionOperatorKeys),
     ];
 
     /// <summary>The default role for a Retail Plus access level (users brought in by the importer).</summary>

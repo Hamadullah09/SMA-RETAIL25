@@ -37,9 +37,12 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
         public const string PayrollRunNumbers = "PayrollRunNumbers";
         /// <summary>Loans and advances to employees (numbered on the server).</summary>
         public const string LoanNumbers = "LoanNumbers";
+        /// <summary>Production orders.</summary>
+        public const string ProductionOrderNumbers = "ProductionOrderNumbers";
         public static readonly string[] All = [InvoiceNumbers, CustomerNumbers, PurchaseOrderNumbers, RmaNumbers, StockCountNumbers, TransferNumbers, GiftCardNumbers, JournalNumbers,
             SupplierBillNumbers, SupplierPaymentNumbers, ExpenseNumbers, BankNumbers, PaymentRunNumbers,
-            PayrollRunNumbers, LoanNumbers];
+            PayrollRunNumbers, LoanNumbers,
+            ProductionOrderNumbers];
     }
 
     /// <summary>
@@ -179,6 +182,22 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
     public DbSet<PayrollRun> PayrollRuns => Set<PayrollRun>();
     public DbSet<Payslip> Payslips => Set<Payslip>();
     public DbSet<PayslipLine> PayslipLines => Set<PayslipLine>();
+    public DbSet<WorkCentre> WorkCentres => Set<WorkCentre>();
+    public DbSet<BillOfMaterials> BillsOfMaterials => Set<BillOfMaterials>();
+    public DbSet<BomLine> BomLines => Set<BomLine>();
+    public DbSet<BomByProduct> BomByProducts => Set<BomByProduct>();
+    public DbSet<RoutingOperation> RoutingOperations => Set<RoutingOperation>();
+    public DbSet<ProductionOrder> ProductionOrders => Set<ProductionOrder>();
+    public DbSet<ProductionOrderLine> ProductionOrderLines => Set<ProductionOrderLine>();
+    public DbSet<ProductionOrderOperation> ProductionOrderOperations => Set<ProductionOrderOperation>();
+    public DbSet<ProductionReport> ProductionReports => Set<ProductionReport>();
+    public DbSet<MrpRun> MrpRuns => Set<MrpRun>();
+    public DbSet<MrpSuggestion> MrpSuggestions => Set<MrpSuggestion>();
+    public DbSet<SupplierLeadTime> SupplierLeadTimes => Set<SupplierLeadTime>();
+    public DbSet<QualityPlan> QualityPlans => Set<QualityPlan>();
+    public DbSet<QualityCheck> QualityChecks => Set<QualityCheck>();
+    public DbSet<QualityInspection> QualityInspections => Set<QualityInspection>();
+    public DbSet<QualityResult> QualityResults => Set<QualityResult>();
 
     /// <summary>
     /// Set while rows from a sync package are saved: they keep their times, store, station and version exactly as they

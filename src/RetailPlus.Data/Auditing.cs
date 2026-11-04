@@ -58,6 +58,13 @@ public static class AuditActions
     public const string LoanIssued = "Loan issued";
     public const string PayrollRun = "Payroll run";
     public const string HrDocument = "HR document";
+    public const string ProductionRelease = "Production release";
+    public const string ProductionComplete = "Production complete";
+    public const string ProductionClose = "Production close";
+    public const string ProductionCancel = "Production cancel";
+    public const string PlanningRun = "Planning run";
+    public const string PlanningFirm = "Planning firmed";
+    public const string QualityInspection = "Quality inspection";
 }
 
 /// <summary>
@@ -121,6 +128,10 @@ public static class AuditedTables
         [typeof(PayrollRuleSet)] = Name<PayrollRuleSet>(x => $"{x.Country} {x.Name}"),
         [typeof(PayrollTaxSlab)] = Name<PayrollTaxSlab>(x => $"Tax slab from {x.IncomeFrom:N0}"),
         [typeof(PayrollAllowanceRule)] = Name<PayrollAllowanceRule>(x => x.Code),
+        [typeof(WorkCentre)] = Name<WorkCentre>(w => $"{w.Code} {w.Name}"),
+        [typeof(BillOfMaterials)] = Name<BillOfMaterials>(b => $"{b.ProductCode} version {b.Revision}"),
+        [typeof(QualityPlan)] = Name<QualityPlan>(p => $"{p.ProductCode} {p.Name}"),
+        [typeof(SupplierLeadTime)] = Name<SupplierLeadTime>(t => $"{t.Days} days"),
     };
 
     /// <summary>Properties never written to the log: kept by the program, or marks that are not changes of substance.</summary>

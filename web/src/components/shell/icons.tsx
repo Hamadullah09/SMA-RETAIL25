@@ -36,9 +36,15 @@ import {
   Filter,
   MessageCircle,
   BadgePercent,
+  CalendarClock,
+  ClipboardCheck,
+  Factory,
+  Gauge,
+  Route,
+  Wrench,
   type LucideIcon,
 } from 'lucide-react';
-import { BadgeCheck, CalendarClock, ClipboardList, IdCard, Plane, Settings2 } from 'lucide-react';
+import { BadgeCheck, ClipboardList, IdCard, Plane, Settings2 } from 'lucide-react';
 import type { IconName } from '@/lib/nav';
 
 /** The icon of each page and palette command, chosen to read like the desktop's glyphs. */
@@ -88,5 +94,12 @@ export const ICONS: Record<IconName, LucideIcon> = {
   campaigns: MessageCircle,
   promotions: BadgePercent,
   targets: Target,
+  bom: ListTree,
+  workcentre: Factory,
+  routing: Route,
+  production: Wrench,
+  planning: CalendarClock,
+  capacity: Gauge,
+  quality: ClipboardCheck,
 };
 
