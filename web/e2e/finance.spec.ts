@@ -13,7 +13,8 @@ test('an accountant finds the books under Finance; a supervisor does not', async
 
   const nav = page.getByRole('navigation', { name: 'Pages' });
   for (const name of ['Chart of accounts', 'Journals', 'Bills', 'Supplier payments', 'Expenses', 'Bank and cash', 'Statements', 'Budgets', 'Years and periods', 'Suspense', 'Finance setup']) {
-    await expect(nav.getByRole('link', { name: new RegExp(`^${name}`) })).toBeVisible();
+    // The exact title: "Bills" is not "Bills of materials" (manufacturing), which this user also sees.
+    await expect(nav.getByRole('link', { name, exact: true })).toBeVisible();
   }
 
   await mockApi(page, { user: supervisor });
