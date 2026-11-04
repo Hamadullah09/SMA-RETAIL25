@@ -399,4 +399,6 @@ public class StockMovement : Entity, IStationStamped
     public Guid? UserId { get; set; }
     /// <summary>The production order the movement was for (issues, receipts and scrap).</summary>
     public Guid? ProductionOrderId { get; set; }
+    /// <summary>The batch that moved, for items that track batches; a batch's stock is the sum of its movements.</summary>
+    public Guid? BatchId { get; set; }
 }

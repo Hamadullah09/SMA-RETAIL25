@@ -161,6 +161,19 @@ public sealed class SyncPolicy
         policy.Derive(() => new PointsFromLoyalty());
         // Two tills offline can each punch the same user in; when the entries meet, the earlier shift is closed.
         policy.Derive(() => new OpenShiftsClosed());
+
+        // Supply chain (phase E2). Batches and bins belong to their store and are made where goods are received, a till or
+        // the web, so they travel both ways by the default rule; the same batch number of an item, or bin code of a
+        // location, made on two databases is one batch or bin. Requisitions (and their lines) belong to their store and
+        // travel both ways too. Approval limits are set for every store on the server, like roles; each store's settings
+        // come down to its tills (the POS reads whether expired stock may be sold). Match results, price variances and
+        // landed cost vouchers are server-only tables (ILocalOnly) and never travel.
+        policy.MergeOn<ItemBatch>(nameof(ItemBatch.ItemId), nameof(ItemBatch.BatchNumber));
+        policy.MergeOn<Bin>(nameof(Bin.LocationId), nameof(Bin.Code));
+        policy.Table<PurchaseApprovalLimit>(SyncFlow.Down);
+        policy.MergeOn<PurchaseApprovalLimit>(nameof(PurchaseApprovalLimit.RoleId));
+        policy.Table<SupplySettings>(SyncFlow.Down);
+        policy.MergeOn<SupplySettings>(nameof(SupplySettings.StoreId));
         return policy;
     }
 

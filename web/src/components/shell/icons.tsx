@@ -42,9 +42,17 @@ import {
   Gauge,
   Route,
   Wrench,
+  BadgeCheck,
+  ClipboardList,
+  IdCard,
+  Plane,
+  Settings2,
+  LayoutGrid,
+  Repeat,
+  Scale,
+  Ship,
   type LucideIcon,
 } from 'lucide-react';
-import { BadgeCheck, ClipboardList, IdCard, Plane, Settings2 } from 'lucide-react';
 import type { IconName } from '@/lib/nav';
 
 /** The icon of each page and palette command, chosen to read like the desktop's glyphs. */
@@ -101,5 +109,13 @@ export const ICONS: Record<IconName, LucideIcon> = {
   planning: CalendarClock,
   capacity: Gauge,
   quality: ClipboardCheck,
+  orders: ClipboardList,
+  requisitions: ClipboardCheck,
+  batches: CalendarClock,
+  bins: LayoutGrid,
+  matching: Scale,
+  landed: Ship,
+  reorder: Repeat,
+  performance: Gauge,
 };
 

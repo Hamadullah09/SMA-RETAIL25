@@ -34,6 +34,12 @@ public class StockCount : Entity, IStationStamped
     public bool UncountedSetToZero { get; set; }
     public string? Note { get; set; }
     public List<StockCountLine> Lines { get; set; } = [];
+    /// <summary>
+    /// A count of one zone, or of one bin (zone and bin code), instead of the whole location: the count sheet lists the
+    /// items kept there, and "set the items not counted to zero" reaches only them.
+    /// </summary>
+    public string? Zone { get; set; }
+    public string? BinCode { get; set; }
 }
 
 /// <summary>
@@ -61,6 +67,9 @@ public class StockCountLine : Entity
     public DateTime CountedAt { get; set; }
     /// <summary>Added by posting with "set the items not counted to zero".</summary>
     public bool NotCounted { get; set; }
+    /// <summary>The batch counted, for an item that tracks batches (each batch is a line of its own).</summary>
+    public Guid? BatchId { get; set; }
+    public string? BatchNumber { get; set; }
 }
 
 /// <summary>An RFID tag read during a stock count, so the same piece is never counted twice.</summary>
@@ -148,4 +157,12 @@ public class StockTransferLine : Entity
     public Guid? DestinationItemId { get; set; }
     /// <summary>The receiving location did not have the item, so receiving created it from the line.</summary>
     public bool CreatedAtDestination { get; set; }
+    /// <summary>
+    /// For an item that tracks batches, the batch sent (each batch is a line of its own): its id at the sending location,
+    /// and what the receiving location makes its own batch from (the same number, expiry and made-on date).
+    /// </summary>
+    public Guid? SourceBatchId { get; set; }
+    public string? BatchNumber { get; set; }
+    public DateOnly? ExpiresOn { get; set; }
+    public DateOnly? MadeOn { get; set; }
 }

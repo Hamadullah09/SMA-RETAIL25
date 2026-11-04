@@ -44,6 +44,9 @@ public sealed class PayablesService(DataContext data)
 {
     private LedgerService Ledger => new(data);
 
+    /// <summary>The three-way match (phase E2) over these bills: a bill's order lines are checked when it is posted or voided.</summary>
+    private PurchaseMatchService Matching => new(data, new SupplierBillLineSource(data));
+
     // Bills -----------------------------------------------------------------------------------------------------------
 
     public async Task<SupplierBill?> GetBillAsync(Guid id)
@@ -197,8 +200,12 @@ public sealed class PayablesService(DataContext data)
             row.PostedBy = FinanceNumbers.Cut(data.CurrentUser?.UserName, 50);
             db.Audit(AuditActions.BillPosted, $"{kindName} {row.Number} from {supplierName}: {row.Total:N2} {row.Currency}", nameof(SupplierBill), row.Id);
             await db.SaveChangesAsync();
-            return row;
         }
+        // Lines for a purchase order are compared with what was ordered and received; one outside the tolerances holds
+        // the bill until someone who may approve purchases accepts it.
+        await Matching.MatchBillAsync(id);
+        await using (var db = data.Create())
+            return await db.SupplierBills.AsNoTracking().Include(b => b.Lines).SingleAsync(b => b.Id == id);
     }
 
     /// <summary>Cancels a posted bill nothing was paid on: its entry is reversed on <paramref name="date"/>.</summary>
@@ -223,8 +230,11 @@ public sealed class PayablesService(DataContext data)
             row.VoidReason = FinanceNumbers.Cut(reason.Trim(), 200);
             db.Audit(AuditActions.BillVoided, $"{Describe(row)}: {reason.Trim()}", nameof(SupplierBill), row.Id);
             await db.SaveChangesAsync();
-            return row;
         }
+        // A void bill leaves the three-way match, and any price difference it made is taken back.
+        await Matching.MatchBillAsync(id);
+        await using (var db = data.Create())
+            return await db.SupplierBills.AsNoTracking().SingleAsync(b => b.Id == id);
     }
 
     // Payments --------------------------------------------------------------------------------------------------------
@@ -349,6 +359,14 @@ public sealed class PayablesService(DataContext data)
             }
             supplierName = await db.Suppliers.AsNoTracking().Where(s => s.Id == bills[0].SupplierId).Select(s => s.Company ?? s.LastName ?? "").FirstAsync();
             quote = await FinanceSetupService.WithholdingForAsync(db, bills[0].SupplierId, bills[0].StoreId);
+        }
+        // A bill the three-way match holds (or refused) is not paid until someone who may approve purchases accepts it.
+        foreach (var bill in bills.Where(b => b.Kind == SupplierBillKind.Bill))
+        {
+            var blocked = await Matching.BlockedLinesAsync(bill.Id);
+            if (blocked.Count > 0)
+                throw new BusinessRuleException($"{Describe(bill)} is held by the three-way match: {blocked.Count} line{(blocked.Count == 1 ? "" : "s")} " +
+                                                "differ from the purchase order or what was received. Accept or reject it under Matching first.");
         }
         string payCurrency = bills[0].Currency;
         decimal rate = payCurrency == baseCurrency ? 1 : draft.ExchangeRate;

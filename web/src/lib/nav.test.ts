@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canOpen, commandsFor, homeFor, navFor, navKeyForPath, pageForPath, pageForShortcut, PAGES, searchCommands } from './nav';
+import { canOpen, commandsFor, groupPages, homeFor, navFor, navKeyForPath, P, pageForPath, pageForShortcut, PAGES, searchCommands, SUPPLY_CHAIN } from './nav';
 
 const supervisor = ['web.signin', 'dashboard.view', 'reports.view', 'inventory.view', 'clients.view', 'giftcards.issue', 'timeclock.edit'];
 const administrator = [
@@ -22,7 +22,8 @@ const administrator = [
 
 describe('the permission-to-navigation filter', () => {
   it('shows an administrator every page', () => {
-    expect(navFor(administrator).map((p) => p.title)).toEqual([
+    // The core pages; the grouped ones (Supply chain…) follow them, see "navigation groups" below.
+    expect(navFor(administrator).filter((p) => !p.group).map((p) => p.title)).toEqual([
       'Dashboard',
       'Tills',
       'Sales Journal',
@@ -157,5 +158,45 @@ describe('the E4 pages', () => {
     expect(viewer).not.toContain('New lead');
     expect(searchCommands(commandsFor(marketing), 'whatsapp')[0].title).toBe('Go to Campaigns');
     expect(searchCommands(commandsFor(marketing), 'coupon').map((c) => c.title)).toEqual(expect.arrayContaining(['Go to Promotions', 'New promotion']));
+  });
+});
+describe('navigation groups (supply chain)', () => {
+  const buyer = ['web.signin', 'inventory.view', P.purchasingManage, P.inventoryBatches];
+
+  it('puts the supply chain pages under their heading after the core pages', () => {
+    const everyKey = [...new Set(PAGES.map((p) => p.permission).filter((k): k is string => !!k)), 'web.signin'];
+    const groups = groupPages(navFor(everyKey));
+    // The core pages first (no heading), then each group in the order the list names them.
+    expect(groups.map((g) => g.group)).toEqual([null, 'Finance', 'HR', 'Manufacturing', SUPPLY_CHAIN]);
+    const supply = groups.find((g) => g.group === SUPPLY_CHAIN)!;
+    expect(supply.pages.map((p) => p.title)).toEqual([
+      'Purchase orders',
+      'Requisitions',
+      'Batches and expiry',
+      'Bins',
+      'Matching',
+      'Landed costs',
+      'Reorder suggestions',
+      'Supplier performance',
+    ]);
+    expect(supply.pages.every((p) => !p.shortcut)).toBe(true);
+  });
+
+  it('shows each supply chain page only with its permission', () => {
+    const titles = navFor(buyer).map((p) => p.title);
+    expect(titles).toEqual(expect.arrayContaining(['Purchase orders', 'Requisitions', 'Matching', 'Landed costs', 'Reorder suggestions', 'Batches and expiry']));
+    expect(titles).not.toContain('Bins');
+    expect(titles).not.toContain('Supplier performance');
+    expect(navFor([...buyer, P.inventoryBins, P.reports]).map((p) => p.title)).toEqual(expect.arrayContaining(['Bins', 'Supplier performance']));
+  });
+
+  it('finds the pages in the palette by what they hold, with their group', () => {
+    const commands = commandsFor([...buyer, P.reports, P.inventoryBins]);
+    const fefo = searchCommands(commands, 'expired');
+    expect(fefo[0].title).toBe('Go to Batches and expiry');
+    expect(fefo[0].group).toBe(SUPPLY_CHAIN);
+    expect(searchCommands(commands, 'freight')[0].title).toBe('Go to Landed costs');
+    expect(searchCommands(commands, 'supply chain').length).toBe(8);
+    expect(commandsFor(buyer).find((c) => c.title === 'Go to Dashboard')).toBeUndefined();
   });
 });

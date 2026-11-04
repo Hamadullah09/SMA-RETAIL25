@@ -10,6 +10,7 @@ import { financeAnswer } from './mock-finance';
 import { productionAnswer } from './production-mock';
 import type { ItemDetail, UserInfo } from '../src/lib/types';
 import { createHrMock } from './hr-mock';
+import type { PurchaseOrderStatus } from '../src/lib/types';
 
 export interface SentRequest {
   method: string;
@@ -56,6 +57,8 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
   let hubs = f.rfidHubs.map((h) => ({ ...h }));
   // E4: opportunities move between stages as the test drags them.
   const e4Opportunities = f.opportunities.map((o) => ({ ...o }));
+  // Purchase orders, requisitions, match lines and vouchers change as the supply chain tests work on them.
+  const supply = supplyMock();
   const requests: SentRequest[] = [];
   const overrides = options.overrides ?? {};
   const hrAnswer = createHrMock();
@@ -83,6 +86,8 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
     if (hr) return hr;
     const production = productionAnswer(r);
     if (production) return production;
+    const supplyAnswer = supply(r);
+    if (supplyAnswer) return supplyAnswer;
 
     switch (true) {
       case key === 'GET /api/auth/me':
@@ -355,5 +360,210 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
     last(method, path) {
       return [...requests].reverse().find((r) => r.method === method && r.path === path);
     },
+  };
+}
+
+// Supply chain (phase E2) -----------------------------------------------------------------------------------------
+
+/**
+ * The supply chain endpoints (src/RetailPlus.Server/Endpoints.Supply.cs): purchase orders and receiving, requisitions and
+ * their approval, batches, bins and their lists, the three-way match, landed costs, reorder suggestions, supplier
+ * performance and the stores' settings. Undefined for any other request.
+ */
+function supplyMock(): (r: SentRequest) => Answer {
+  const orderStatus = new Map<string, PurchaseOrderStatus>();
+  const requisitions = new Map<string, ReturnType<typeof f.requisitionDetail>>([
+    ['rq-2', f.requisitionDetail('rq-2', 'Submitted')],
+    ['rq-1', f.requisitionDetail('rq-1', 'Draft')],
+  ]);
+  const matches = f.matchRows.map((m) => ({ ...m }));
+  const vouchers = new Map<string, ReturnType<typeof f.landedCostDetail>>(f.landedCostRows.map((v) => [v.id, f.landedCostDetail(v.id)]));
+  let settings = { ...f.supplySettings };
+
+  const order = (id: string) => f.purchaseOrderDetail(id, orderStatus.get(id));
+  const requisitionRow = (d: ReturnType<typeof f.requisitionDetail>) => ({
+    id: d.id, number: d.number, storeCode: d.storeCode, locationCode: d.locationCode, status: d.status, createdAt: d.createdAt, requestedBy: d.requestedBy, neededBy: d.neededBy,
+    lines: d.lines.length, total: d.total, decidedBy: d.decidedBy, decidedAt: d.decidedAt, note: d.note,
+  });
+  const step = (id: string, status: ReturnType<typeof f.requisitionDetail>['status'], body: { version?: string }): Answer => {
+    const current = requisitions.get(id);
+    if (!current) return { status: 404, json: { error: 'That requisition was not found.' } };
+    if (body?.version !== current.version) return { status: 409, json: { error: 'Someone else changed this record. Load it again and make your changes again.' } };
+    const next = { ...f.requisitionDetail(id, status), number: current.number, note: current.note };
+    requisitions.set(id, next);
+    return { json: next };
+  };
+  const paged = <T,>(items: T[], query: URLSearchParams) => {
+    const page = Number(query.get('page') ?? 1);
+    const pageSize = Number(query.get('pageSize') ?? 50);
+    return { items: items.slice((page - 1) * pageSize, page * pageSize), total: items.length, page, pageSize };
+  };
+
+  return (r) => {
+    const { method, path, query } = r;
+    const key = `${method} ${path}`;
+    const parts = path.split('/');
+    const id = parts[3];
+    const body = (r.body ?? {}) as Record<string, unknown>;
+    switch (true) {
+      // Purchase orders
+      case key === 'GET /api/purchase-orders':
+        return { json: paged(f.purchaseOrders.map((p) => ({ ...p, status: orderStatus.get(p.id) ?? p.status })), query) };
+      case /^GET \/api\/purchase-orders\/[^/]+$/.test(key):
+        return { json: order(id) };
+      case /^POST \/api\/purchase-orders\/[^/]+\/post$/.test(key):
+        orderStatus.set(id, 'Posted');
+        return { json: order(id) };
+      case /^POST \/api\/purchase-orders\/[^/]+\/receive$/.test(key):
+        orderStatus.set(id, 'Received');
+        return { json: order(id) };
+      case /^GET \/api\/purchase-orders\/[^/]+\/put-away$/.test(key):
+        return { json: f.putAwayList(id) };
+
+      // Requisitions
+      case key === 'GET /api/requisitions': {
+        const status = query.get('status');
+        return { json: paged([...requisitions.values()].filter((d) => !status || d.status === status).map(requisitionRow), query) };
+      }
+      case key === 'POST /api/requisitions': {
+        const made = { ...f.requisitionDetail('rq-new', 'Draft'), id: 'rq-new', number: 10000003, note: (body.note as string) ?? null, version: 'v-new' };
+        requisitions.set('rq-new', made);
+        return { status: 201, json: made };
+      }
+      case /^GET \/api\/requisitions\/[^/]+$/.test(key):
+        return requisitions.has(id) ? { json: requisitions.get(id) } : { status: 404, json: { error: 'That requisition was not found.' } };
+      case /^PUT \/api\/requisitions\/[^/]+$/.test(key): {
+        const current = requisitions.get(id)!;
+        const saved = { ...current, note: (body.note as string) ?? null, version: current.version + '+' };
+        requisitions.set(id, saved);
+        return { json: saved };
+      }
+      case /^POST \/api\/requisitions\/[^/]+\/submit$/.test(key):
+        return step(id, 'Submitted', body);
+      case /^POST \/api\/requisitions\/[^/]+\/approve$/.test(key):
+        return step(id, 'Approved', body);
+      case /^POST \/api\/requisitions\/[^/]+\/reject$/.test(key):
+        return step(id, 'Rejected', body);
+      case /^POST \/api\/requisitions\/[^/]+\/order$/.test(key): {
+        const answer = step(id, 'Ordered', body);
+        if (answer?.status) return answer;
+        return { json: { orders: [{ id: 'po-9', number: 10000009, supplier: 'Cotton Co. Ltd' }, { id: 'po-10', number: 10000010, supplier: 'Sole Brothers' }] } };
+      }
+      case /^DELETE \/api\/requisitions\/[^/]+$/.test(key):
+        requisitions.delete(id);
+        return { status: 204 };
+      case key === 'GET /api/supply/approval-limits':
+        return { json: f.approvalLimits };
+      case /^PUT \/api\/supply\/approval-limits\/[^/]+$/.test(key):
+        return { json: f.approvalLimits.map((l) => (l.roleId === parts[4] ? { ...l, maxAmount: body.maxAmount as number | null } : l)) };
+
+      // Batches
+      case key === 'GET /api/batches': {
+        const q = (query.get('search') ?? '').toLowerCase();
+        const rows = f.batchRows.filter((b) => (query.get('inStock') === 'false' || b.onHand !== 0) && (!q || `${b.plu} ${b.itemName} ${b.batchNumber}`.toLowerCase().includes(q)));
+        return { json: paged(rows, query) };
+      }
+      case key === 'GET /api/batches/expiring':
+        return { json: { ...f.expiringReport, days: Number(query.get('days') ?? settings.expiryWarningDays) } };
+      case key === 'GET /api/batches/expired':
+        return { json: f.expiredReport };
+      case key === 'POST /api/batches':
+        return { status: 201, json: { ...f.batchRows[2], id: 'bt-new', batchNumber: String(body.batchNumber ?? '').toUpperCase(), expiresOn: body.expiresOn ?? null } };
+      case /^PUT \/api\/batches\/[^/]+$/.test(key):
+        return { json: { ...(f.batchRows.find((b) => b.id === id) ?? f.batchRows[0]), expiresOn: body.expiresOn ?? null, note: body.note ?? null, version: 'v-2' } };
+      case /^POST \/api\/batches\/[^/]+\/adjust$/.test(key): {
+        const b = f.batchRows.find((x) => x.id === id) ?? f.batchRows[0];
+        const quantity = Number(body.quantity ?? 0);
+        return { json: { ...b, onHand: body.setTo ? quantity : b.onHand + quantity } };
+      }
+
+      // Bins and their lists
+      case key === 'GET /api/bins':
+        return { json: f.binRows };
+      case key === 'POST /api/bins':
+        return { status: 201, json: { ...f.binRows[1], id: 'bn-new', code: String(body.code ?? '').toUpperCase(), zone: body.zone ?? null, items: 0 } };
+      case /^PUT \/api\/bins\/[^/]+$/.test(key):
+        return { json: { ...(f.binRows.find((b) => b.id === id) ?? f.binRows[0]), ...body, version: 'v-2' } };
+      case /^DELETE \/api\/bins\/[^/]+$/.test(key):
+        return (f.binRows.find((b) => b.id === id)?.items ?? 0) > 0
+          ? { status: 400, json: { error: `${f.binRows.find((b) => b.id === id)!.items} items are kept in bin ${f.binRows.find((b) => b.id === id)!.code}; move them first, or make the bin inactive.` } }
+          : { status: 204 };
+      case key === 'POST /api/bins/assign':
+        return { json: { changed: (body.itemIds as string[] | undefined)?.length ?? 0 } };
+      case key === 'GET /api/bins/count-sheet':
+        return { json: f.countSheet };
+      case key === 'GET /api/bins/pick-orders':
+        return { json: f.pickList };
+      case /^GET \/api\/transfers\/[^/]+\/pick$/.test(key):
+        return { json: { ...f.pickList, title: 'Pick list: transfer' } };
+
+      // Three-way match
+      case key === 'GET /api/matching': {
+        const status = query.get('status');
+        return { json: paged(matches.filter((m) => !status || m.status === status), query) };
+      }
+      case key === 'POST /api/matching/run':
+        return { json: { lines: 2, matched: 1, held: 1, posted: 1 } };
+      case /^POST \/api\/matching\/[^/]+\/(accept|reject)$/.test(key): {
+        const m = matches.find((x) => x.id === id);
+        if (!m) return { status: 404, json: { error: 'That bill line was not found.' } };
+        if (body.version !== m.version) return { status: 409, json: { error: 'Someone else changed this record.' } };
+        Object.assign(m, { status: parts[4] === 'accept' ? 'Accepted' : 'Rejected', decidedBy: 'sara', decidedAtUtc: new Date().toISOString(), decisionNote: body.note ?? null, version: 'v-2' });
+        return { json: m };
+      }
+      case key === 'GET /api/matching/received-not-billed':
+        return { json: f.receivedNotBilled };
+      case key === 'GET /api/matching/billed-not-received':
+        return { json: f.billedNotReceived };
+
+      // Landed costs
+      case key === 'GET /api/landed-costs':
+        return { json: paged(f.landedCostRows.map((v) => ({ ...v, status: vouchers.get(v.id)?.status ?? v.status })), query) };
+      case key === 'GET /api/landed-costs/receipts':
+        return { json: f.landedReceipts };
+      case /^GET \/api\/landed-costs\/[^/]+(\/preview)?$/.test(key):
+        return vouchers.has(id) ? { json: vouchers.get(id) } : { status: 404, json: { error: 'That voucher was not found.' } };
+      case key === 'POST /api/landed-costs': {
+        const charges = (body.charges as Array<{ amount: number }>) ?? [];
+        const made = { ...f.landedCostDetail('lc-2'), id: 'lc-new', number: 100000000003, version: 'v-new', reference: (body.reference as string) ?? null, total: charges.reduce((s, c) => s + c.amount, 0) };
+        vouchers.set('lc-new', made);
+        return { status: 201, json: made };
+      }
+      case /^PUT \/api\/landed-costs\/[^/]+$/.test(key):
+        return { json: vouchers.get(id) };
+      case /^POST \/api\/landed-costs\/[^/]+\/post$/.test(key): {
+        const v = vouchers.get(id)!;
+        if (body.version !== v.version) return { status: 409, json: { error: 'Someone else changed this record.' } };
+        const posted = { ...v, status: 'Posted' as const, version: 'v-posted', postedAtUtc: new Date().toISOString(), postedBy: 'sara' };
+        vouchers.set(id, posted);
+        return { json: posted };
+      }
+      case /^DELETE \/api\/landed-costs\/[^/]+$/.test(key):
+        vouchers.delete(id);
+        return { status: 204 };
+
+      // Reorder suggestions, supplier performance, settings
+      case key === 'GET /api/reorder': {
+        const supplier = query.get('supplierId');
+        const all = query.get('all') === 'true';
+        return { json: { locationId: query.get('locationId') ?? 'l-main-pos', rows: f.reorderRows.filter((x) => (all || x.suggestedPieces > 0) && (!supplier || x.supplierId === supplier)) } };
+      }
+      case key === 'POST /api/reorder/orders':
+        return { json: { orders: [{ id: 'po-11', number: 10000011, supplier: 'Cotton Co. Ltd' }, { id: 'po-12', number: 10000012, supplier: 'Sole Brothers' }] } };
+      case key === 'POST /api/reorder/requisition': {
+        const made = { ...f.requisitionDetail('rq-reorder', body.submit ? 'Submitted' : 'Draft'), number: 10000004 };
+        requisitions.set('rq-reorder', made);
+        return { status: 201, json: made };
+      }
+      case key === 'GET /api/supplier-performance':
+        return { json: { ...f.supplierPerformance, from: query.get('from') ?? f.supplierPerformance.from, to: query.get('to') ?? f.supplierPerformance.to } };
+      case key === 'GET /api/supply/settings':
+        return { json: { ...settings, storeId: query.get('storeId') ?? settings.storeId } };
+      case key === 'PUT /api/supply/settings':
+        settings = { ...(body as typeof settings), version: 'v-2' };
+        return { json: settings };
+      default:
+        return undefined;
+    }
   };
 }

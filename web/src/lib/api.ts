@@ -138,6 +138,35 @@ import type {
   WonLostReport,
 } from './types';
 import { hrEndpoints } from './hr-api';
+import type {
+  ApprovalLimitRow,
+  BatchAdjustRequest,
+  BatchRequest,
+  BatchRow,
+  BinList,
+  BinRequest,
+  BinRow,
+  ExpiryReport,
+  LandedCostDetail,
+  LandedCostRequest,
+  LandedCostRow,
+  MatchReportRow,
+  MatchRow,
+  MatchRun,
+  OrdersMade,
+  PurchaseOrderDetail,
+  PurchaseOrderRow,
+  ReceiptChoice,
+  ReceiveRequest,
+  ReorderRequest,
+  ReorderSuggestions,
+  RequisitionDetail,
+  RequisitionRequest,
+  RequisitionRow,
+  SupplierPerformance,
+  SupplySettings,
+  VersionRequest,
+} from './types';
 
 /** The header the server's CSRF guard asks for on requests that change data. */
 export const CSRF_HEADER = 'X-Requested-With';
@@ -674,6 +703,76 @@ export function createApi(options: ApiOptions = {}) {
     saveTarget: (targetId: string, body: { amount: number; version: string }) => put<SalesTargetRow>(`/targets/${id(targetId)}`, body),
     deleteTarget: (targetId: string) => del(`/targets/${id(targetId)}`),
     targetProgress: (query: Query = {}) => get<TargetProgress>('/targets/progress', query),
+
+    // Supply chain: batches and expiry
+    stockBatches: (query: Query, signal?: AbortSignal) => get<Paged<BatchRow>>('/batches', query, signal),
+    expiringBatches: (query: Query) => get<ExpiryReport>('/batches/expiring', query),
+    expiredBatches: (query: Query) => get<ExpiryReport>('/batches/expired', query),
+    itemBatches: (itemId: string) => get<BatchRow[]>(`/items/${id(itemId)}/batches`),
+    addBatch: (batch: BatchRequest) => post<BatchRow>('/batches', batch),
+    saveBatch: (batchId: string, batch: BatchRequest) => put<BatchRow>(`/batches/${id(batchId)}`, batch),
+    adjustBatch: (batchId: string, request: BatchAdjustRequest) => post<BatchRow>(`/batches/${id(batchId)}/adjust`, request),
+
+    // Supply chain: bins and their lists
+    bins: (query: Query) => get<BinRow[]>('/bins', query),
+    addBin: (bin: BinRequest) => post<BinRow>('/bins', bin),
+    saveBin: (binId: string, bin: BinRequest) => put<BinRow>(`/bins/${id(binId)}`, bin),
+    deleteBin: (binId: string) => del(`/bins/${id(binId)}`),
+    assignBin: (itemIds: string[], binCode: string | null) => post<{ changed: number }>('/bins/assign', { itemIds, binCode }),
+    countSheet: (query: Query) => get<BinList>('/bins/count-sheet', query),
+    pickOrders: (query: Query) => get<BinList>('/bins/pick-orders', query),
+    pickTransfer: (transferId: string) => get<BinList>(`/transfers/${id(transferId)}/pick`),
+    putAway: (orderId: string) => get<BinList>(`/purchase-orders/${id(orderId)}/put-away`),
+
+    // Supply chain: purchase orders and receiving
+    purchaseOrders: (query: Query, signal?: AbortSignal) => get<Paged<PurchaseOrderRow>>('/purchase-orders', query, signal),
+    purchaseOrder: (orderId: string) => get<PurchaseOrderDetail>(`/purchase-orders/${id(orderId)}`),
+    postPurchaseOrder: (orderId: string, request: VersionRequest) => post<PurchaseOrderDetail>(`/purchase-orders/${id(orderId)}/post`, request),
+    receivePurchaseOrder: (orderId: string, request: ReceiveRequest) => post<PurchaseOrderDetail>(`/purchase-orders/${id(orderId)}/receive`, request),
+
+    // Supply chain: requisitions
+    requisitions: (query: Query, signal?: AbortSignal) => get<Paged<RequisitionRow>>('/requisitions', query, signal),
+    requisition: (requisitionId: string) => get<RequisitionDetail>(`/requisitions/${id(requisitionId)}`),
+    /** Without `locationId`, it is for the first location of `storeId` (or the user's store). */
+    addRequisition: (request: RequisitionRequest, storeId?: string | null) =>
+      json<RequisitionDetail>('/requisitions', { method: 'POST', body: request, query: { storeId } }),
+    saveRequisition: (requisitionId: string, request: RequisitionRequest) => put<RequisitionDetail>(`/requisitions/${id(requisitionId)}`, request),
+    deleteRequisition: (requisitionId: string) => del(`/requisitions/${id(requisitionId)}`),
+    submitRequisition: (requisitionId: string, request: VersionRequest) => post<RequisitionDetail>(`/requisitions/${id(requisitionId)}/submit`, request),
+    approveRequisition: (requisitionId: string, request: VersionRequest) => post<RequisitionDetail>(`/requisitions/${id(requisitionId)}/approve`, request),
+    rejectRequisition: (requisitionId: string, request: VersionRequest) => post<RequisitionDetail>(`/requisitions/${id(requisitionId)}/reject`, request),
+    orderRequisition: (requisitionId: string, request: VersionRequest) => post<OrdersMade>(`/requisitions/${id(requisitionId)}/order`, request),
+    approvalLimits: () => get<ApprovalLimitRow[]>('/supply/approval-limits'),
+    setApprovalLimit: (roleId: string, maxAmount: number | null) => put<ApprovalLimitRow[]>(`/supply/approval-limits/${id(roleId)}`, { maxAmount }),
+
+    // Supply chain: three-way match
+    matches: (query: Query, signal?: AbortSignal) => get<Paged<MatchRow>>('/matching', query, signal),
+    runMatch: (storeId?: string | null) => json<MatchRun>('/matching/run', { method: 'POST', body: {}, query: { storeId } }),
+    acceptMatch: (matchId: string, request: VersionRequest) => post<MatchRow>(`/matching/${id(matchId)}/accept`, request),
+    rejectMatch: (matchId: string, request: VersionRequest) => post<MatchRow>(`/matching/${id(matchId)}/reject`, request),
+    receivedNotBilled: (query: Query) => get<MatchReportRow[]>('/matching/received-not-billed', query),
+    billedNotReceived: (query: Query) => get<MatchReportRow[]>('/matching/billed-not-received', query),
+
+    // Supply chain: landed costs
+    landedCosts: (query: Query, signal?: AbortSignal) => get<Paged<LandedCostRow>>('/landed-costs', query, signal),
+    landedReceipts: (query: Query) => get<ReceiptChoice[]>('/landed-costs/receipts', query),
+    landedCost: (voucherId: string) => get<LandedCostDetail>(`/landed-costs/${id(voucherId)}`),
+    landedPreview: (voucherId: string) => get<LandedCostDetail>(`/landed-costs/${id(voucherId)}/preview`),
+    addLandedCost: (request: LandedCostRequest) => post<LandedCostDetail>('/landed-costs', request),
+    saveLandedCost: (voucherId: string, request: LandedCostRequest) => put<LandedCostDetail>(`/landed-costs/${id(voucherId)}`, request),
+    postLandedCost: (voucherId: string, request: VersionRequest) => post<LandedCostDetail>(`/landed-costs/${id(voucherId)}/post`, request),
+    deleteLandedCost: (voucherId: string) => del(`/landed-costs/${id(voucherId)}`),
+
+    // Supply chain: reorder suggestions, supplier performance, settings
+    reorder: (query: Query) => get<ReorderSuggestions>('/reorder', query),
+    reorderToOrders: (request: ReorderRequest, storeId?: string | null) =>
+      json<OrdersMade>('/reorder/orders', { method: 'POST', body: request, query: { storeId } }),
+    reorderToRequisition: (request: ReorderRequest, storeId?: string | null) =>
+      json<RequisitionDetail>('/reorder/requisition', { method: 'POST', body: request, query: { storeId } }),
+    supplierPerformance: (query: Query) => get<SupplierPerformance>('/supplier-performance', query),
+    supplySettings: (storeId: string) => get<SupplySettings>('/supply/settings', { storeId }),
+    saveSupplySettings: (storeId: string, settings: SupplySettings) =>
+      json<SupplySettings>('/supply/settings', { method: 'PUT', body: settings, query: { storeId } }),
   };
 }
 

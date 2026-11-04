@@ -46,6 +46,12 @@ public sealed class SaleDraftLine
     public Guid? PromotionId { get; set; }
     public string? PromotionName { get; set; }
     public decimal PromotionDiscount { get; set; }
+    /// <summary>
+    /// The batch chosen by hand for an item that tracks batches; left empty, the sale takes the batch that expires first
+    /// (and a return goes back to no batch).
+    /// </summary>
+    public Guid? BatchId { get; set; }
+    public string? BatchNumber { get; set; }
 
     /// <summary>Every discount on the line: pricing, the cashier's and the promotion's.</summary>
     public decimal TotalDiscount => DiscountAmount + PromotionDiscount;

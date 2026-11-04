@@ -15,9 +15,25 @@ using RetailPlus.Reports;
 
 namespace RetailPlus.App.Views;
 
-/// <summary>Purchase orders: generate, edit quantities and costs, post the order, receive the shipment.</summary>
+/// <summary>
+/// Purchase orders: generate, edit quantities and costs, post the order, receive the shipment (with the batch number and
+/// expiry of items kept in batches). The Requisitions tab holds requests to buy, their approval and the orders they become.
+/// </summary>
 public sealed class PurchaseOrdersView : UserControl, IRefreshable
 {
+    private readonly TabControl _tabs = new();
+    private readonly TabItem _ordersTab = new() { Header = "Orders" };
+    private readonly TabItem _requisitionsTab = new() { Header = "Requisitions" };
+
+    /// <summary>The Requisitions tab.</summary>
+    public RequisitionsPanel Requisitions { get; } = new();
+
+    /// <summary>
+    /// Asks for the batches of what arrived, for items kept in batches; true to post the receipt. The automated check sets
+    /// its own; otherwise the batches window asks.
+    /// </summary>
+    public Func<long, IReadOnlyList<PurchaseOrderLine>, List<BatchEntry>, bool>? BatchPrompt { get; set; }
+
     private readonly DataGrid _list = Layout.Grid(
         Layout.Col("PO", nameof(PurchaseOrderRow.Number), 70),
         Layout.Col("Created", nameof(PurchaseOrderRow.CreatedAt), 100, "d"),
@@ -59,26 +75,75 @@ public sealed class PurchaseOrdersView : UserControl, IRefreshable
         DockPanel.SetDock(_list, Dock.Left);
         body.Children.Add(_list);
         body.Children.Add(right);
-        Content = Layout.Page("Purchase Orders", out var bar, body);
+        var orders = new DockPanel();
+        var bar = new WrapPanel { Style = Layout.S("Toolbar") };
+        DockPanel.SetDock(bar, Dock.Top);
+        orders.Children.Add(bar);
+        orders.Children.Add(body);
         bar.Children.Add(Layout.Button("New order…", New_Click, true));
-        bar.Children.Add(Layout.Button("Add item", AddItem_Click));
-        bar.Children.Add(Layout.Button("Remove line", RemoveLine_Click));
+        bar.Children.Add(Keyed(Layout.Button("Add item", AddItem_Click), "Ins"));
+        bar.Children.Add(Keyed(Layout.Button("Remove line", RemoveLine_Click), "Ctrl+Del"));
         bar.Children.Add(Layout.Button("Save changes", Save_Click));
-        bar.Children.Add(Layout.Button("Post order", Post_Click));
-        bar.Children.Add(Layout.Button("Receive all", ReceiveAll_Click));
-        bar.Children.Add(Layout.Button("Post shipment", Receive_Click));
+        bar.Children.Add(Keyed(Layout.Button("Post order", Post_Click), "F6"));
+        bar.Children.Add(Keyed(Layout.Button("Receive all", ReceiveAll_Click), "F7"));
+        bar.Children.Add(Keyed(Layout.Button("Post shipment", Receive_Click), "F8"));
         bar.Children.Add(Layout.Button("Print", Print_Click));
         bar.Children.Add(Layout.Button("Delete order", Delete_Click));
         _list.SelectionChanged += async (_, _) => await Ui.Try(LoadCurrentAsync);
+
+        // Orders and requisitions are tabs of the one screen; Ctrl+Tab goes from one to the other.
+        _ordersTab.Content = orders;
+        _requisitionsTab.Content = Requisitions;
+        _tabs.Items.Add(_ordersTab);
+        _tabs.Items.Add(_requisitionsTab);
+        _tabs.SelectionChanged += async (_, e) =>
+        {
+            if (!ReferenceEquals(e.OriginalSource, _tabs)) return;
+            await Ui.Try(RefreshAsync);
+        };
+        Requisitions.OrdersMade += async id => { ShowOrders(); await Ui.Try(() => OpenAsync(id)); };
+        var root = new DockPanel();
+        var title = new TextBlock { Text = "Purchase Orders", Style = Layout.S("PageTitle") };
+        DockPanel.SetDock(title, Dock.Top);
+        root.Children.Add(title);
+        root.Children.Add(_tabs);
+        Content = root;
     }
+
+    private static Button Keyed(Button button, string key)
+    {
+        Look.SetShortcut(button, key);
+        return button;
+    }
+
+    public void ShowOrders() => _tabs.SelectedItem = _ordersTab;
+
+    public void ShowRequisitions() => _tabs.SelectedItem = _requisitionsTab;
 
     public async Task RefreshAsync()
     {
+        if (ReferenceEquals(_tabs.SelectedItem, _requisitionsTab))
+        {
+            await Requisitions.RefreshAsync();
+            return;
+        }
         var selected = (_list.SelectedItem as PurchaseOrderRow)?.Id;
         var rows = await AppServices.Purchasing.ListAsync(AppServices.Session.LocationId);
         _list.ItemsSource = rows;
         _list.SelectedItem = rows.FirstOrDefault(r => r.Id == selected) ?? rows.FirstOrDefault();
     }
+
+    /// <summary>Shows one order on the Orders tab.</summary>
+    public async Task OpenAsync(Guid purchaseOrderId)
+    {
+        var rows = await AppServices.Purchasing.ListAsync(AppServices.Session.LocationId);
+        _list.ItemsSource = rows;
+        _list.SelectedItem = rows.FirstOrDefault(r => r.Id == purchaseOrderId);
+        await LoadCurrentAsync();
+    }
+
+    /// <summary>The order shown, as last read (with the pieces received typed in).</summary>
+    public PurchaseOrder? Current => _current;
 
     private async Task LoadCurrentAsync()
     {
@@ -161,7 +226,10 @@ public sealed class PurchaseOrdersView : UserControl, IRefreshable
         await Ui.Try(async () => { await SaveEditsAsync(); await AppServices.Purchasing.PostOrderAsync(_current.Id); await RefreshAsync(); });
     }
 
-    private void ReceiveAll_Click(object sender, RoutedEventArgs e)
+    private void ReceiveAll_Click(object sender, RoutedEventArgs e) => ReceiveAll();
+
+    /// <summary>Fills in every line as received in full (the Received column can still be changed).</summary>
+    public void ReceiveAll()
     {
         if (_current is null) return;
         foreach (var l in _current.Lines) l.QuantityReceived = l.OrderQuantity * l.CaseQuantity;
@@ -173,14 +241,44 @@ public sealed class PurchaseOrdersView : UserControl, IRefreshable
         if (_current is null) return;
         _lines.CommitEdit(DataGridEditingUnit.Row, true);
         if (_current.Lines.All(l => l.QuantityReceived == 0)) { Ui.Info("Enter the pieces received in the Received column (or click Receive all)."); return; }
-        var shipping = Ui.PromptDecimal("Shipping / freight cost to spread over the items (0 for none):", "Post shipment", 0);
-        if (shipping is null) return;
-        await Ui.Try(async () =>
+        await Ui.Try(async () => await ReceiveAsync(null));
+    }
+
+    /// <summary>
+    /// Posts the shipment of the order shown: asks for the batches of items kept in batches, then the shipping cost
+    /// (unless given), and receives it. False when the person cancelled.
+    /// </summary>
+    public async Task<bool> ReceiveAsync(decimal? shippingCost)
+    {
+        if (_current is null) return false;
+        var order = _current;
+        var received = order.Lines.Where(l => l.QuantityReceived > 0).ToList();
+        var kept = await AppServices.Batches.KeptInBatchesAsync(received.Where(l => l.ItemId != null).Select(l => l.ItemId!.Value));
+        var batches = BatchEntry.Start(received, kept, DateOnly.FromDateTime(DateTime.Today));
+        if (batches.Count > 0)
         {
-            await AppServices.Purchasing.PostShipmentAsync(_current.Id, _current.Lines.Select(l => new ReceivedLine(l.Id, l.QuantityReceived, l.CostEach)).ToList(), shipping.Value);
-            Ui.Info("Shipment posted: stock and costs are updated.");
-            await RefreshAsync();
-        });
+            var ask = BatchPrompt ?? AskBatches;
+            if (!ask(order.Number, received, batches)) return false;
+            if (BatchEntry.Check(batches, received) is { } problem) throw new BusinessRuleException(problem);
+        }
+        var shipping = shippingCost ?? Ui.PromptDecimal("Shipping / freight cost to spread over the items (0 for none):", "Post shipment", 0);
+        if (shipping is null) return false;
+        await AppServices.Purchasing.PostShipmentAsync(order.Id,
+            [.. order.Lines.Select(l => new ReceivedLine(l.Id, l.QuantityReceived, l.CostEach, BatchEntry.For(l.Id, batches)))], shipping.Value);
+        Ui.Info(batches.Count > 0
+            ? $"Shipment posted: stock and costs are updated, {batches.Count} batch{(batches.Count == 1 ? "" : "es")} with their expiry dates."
+            : "Shipment posted: stock and costs are updated.");
+        await RefreshAsync();
+        return true;
+    }
+
+    private static bool AskBatches(long number, IReadOnlyList<PurchaseOrderLine> lines, List<BatchEntry> entries)
+    {
+        var window = new BatchesWindow(number, lines, entries);
+        if (window.ShowDialog() != true) return false;
+        entries.Clear();
+        entries.AddRange(window.Entries);
+        return true;
     }
 
     private async void Print_Click(object sender, RoutedEventArgs e)

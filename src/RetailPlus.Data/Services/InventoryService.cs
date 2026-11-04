@@ -342,12 +342,14 @@ public sealed class InventoryService(DataContext data)
     /// change of OnHand goes with one, so stock can be added up from the movements.
     /// </summary>
     public static StockMovement Record(RetailPlusDbContext db, Guid itemId, StockMovementKind kind, decimal quantity, decimal onHandAfter,
-        DateTime? at = null, long? document = null, string? reason = null, string? user = null, Guid? variantId = null, Guid? userId = null, decimal unitCost = 0)
+        DateTime? at = null, long? document = null, string? reason = null, string? user = null, Guid? variantId = null, Guid? userId = null, decimal unitCost = 0,
+        Guid? batchId = null)
     {
         var movement = new StockMovement
         {
             ItemId = itemId, VariantId = variantId, Kind = kind, At = at ?? DateTime.Now, Quantity = quantity, OnHandAfter = onHandAfter,
             DocumentNumber = document, Reason = reason, User = user ?? db.ActingUserName, UserId = user is null ? db.ActingUserId : userId, UnitCost = unitCost,
+            BatchId = batchId,
         };
         db.StockMovements.Add(movement);
         return movement;
@@ -406,15 +408,28 @@ public sealed class InventoryService(DataContext data)
     /// Adjust Stock: adds (or with <paramref name="setTo"/> replaces) the on-hand count and logs the change as a stock
     /// movement, which names the user (the movement is the record, so the item change is not audited as well).
     /// </summary>
-    public async Task<decimal> AdjustStockAsync(Guid itemId, decimal quantity, string? reason, string? user, bool setTo = false, Guid? userId = null)
+    public async Task<decimal> AdjustStockAsync(Guid itemId, decimal quantity, string? reason, string? user, bool setTo = false, Guid? userId = null, Guid? batchId = null)
     {
         await using var db = data.Create();
         db.SuppressAudit = true;
         await using var tx = await db.Database.BeginTransactionAsync();
         var item = await db.Items.SingleAsync(i => i.Id == itemId);
         decimal delta = setTo ? quantity - item.OnHand : quantity;
-        item.OnHand += delta;
-        Record(db, itemId, StockMovementKind.Adjustment, delta, item.OnHand, reason: reason, user: user, userId: userId, unitCost: item.AverageCost > 0 ? item.AverageCost : item.LastCost);
+        decimal cost = item.AverageCost > 0 ? item.AverageCost : item.LastCost;
+        if (item.TracksBatches && batchId is null && delta < 0)
+        {
+            // Stock taken out of an item kept in batches leaves first expiry first, like a sale.
+            decimal running = item.OnHand;
+            foreach (var take in await BatchService.TakeAsync(db, itemId, -delta, null, forSale: false, DateOnly.FromDateTime(DateTime.Today)))
+                Record(db, itemId, StockMovementKind.Adjustment, -take.Quantity, running -= take.Quantity, reason: reason, user: user, userId: userId, unitCost: cost,
+                    batchId: take.BatchId);
+            item.OnHand += delta;
+        }
+        else
+        {
+            item.OnHand += delta;
+            Record(db, itemId, StockMovementKind.Adjustment, delta, item.OnHand, reason: reason, user: user, userId: userId, unitCost: cost, batchId: batchId);
+        }
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         return item.OnHand;

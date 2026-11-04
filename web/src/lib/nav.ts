@@ -46,7 +46,15 @@ export const P = {
   productionPlan: 'production.plan',
   productionFloor: 'production.floor',
   productionCosting: 'production.costing',
+  purchasingManage: 'purchasing.manage',
+  purchasingApprove: 'purchasing.approve',
+  inventoryBatches: 'inventory.batches',
+  inventoryBins: 'inventory.bins',
+  inventoryAdjust: 'inventory.adjust',
 } as const;
+
+/** The navigation group of the supply chain pages (phase E2). */
+export const SUPPLY_CHAIN = 'Supply chain';
 
 /** The icon of a page, by name; `components/shell/icons.tsx` maps the names to lucide icons. */
 export type IconName =
@@ -101,7 +109,15 @@ export type IconName =
   | 'production'
   | 'planning'
   | 'capacity'
-  | 'quality';
+  | 'quality'
+  | 'orders'
+  | 'requisitions'
+  | 'batches'
+  | 'bins'
+  | 'matching'
+  | 'landed'
+  | 'reorder'
+  | 'performance';
 
 export interface PageDef {
   key: string;
@@ -192,7 +208,31 @@ export const PAGES: readonly PageDef[] = [
   { key: 'capacity', title: 'Capacity', path: '/capacity/', icon: 'capacity', permission: P.productionView, nav: true, group: 'Manufacturing', keywords: 'load work centre week hours' },
   { key: 'quality', title: 'Quality', path: '/quality/', icon: 'quality', permission: P.productionView, nav: true, group: 'Manufacturing', keywords: 'qc inspection checks incoming hold scrap' },
   { key: 'production-reports', title: 'Production reports', path: '/production-reports/', icon: 'reports', permission: P.productionView, nav: true, group: 'Manufacturing', keywords: 'variances wip work in progress scrap output material usage' },
+  { key: 'purchase-orders', title: 'Purchase orders', path: '/purchase-orders/', icon: 'orders', permission: P.purchasingManage, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain po receive receiving shipment put-away' },
+  { key: 'requisitions', title: 'Requisitions', path: '/requisitions/', icon: 'requisitions', permission: P.purchasingManage, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain request approve approval limits' },
+  { key: 'batches', title: 'Batches and expiry', path: '/batches/', icon: 'batches', permission: P.inventoryBatches, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain lots expiring expired fefo' },
+  { key: 'bins', title: 'Bins', path: '/bins/', icon: 'bins', permission: P.inventoryBins, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain shelves warehouse pick list count sheet' },
+  { key: 'matching', title: 'Matching', path: '/matching/', icon: 'matching', permission: P.purchasingManage, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain three-way match bills held tolerance' },
+  { key: 'landed-costs', title: 'Landed costs', path: '/landed-costs/', icon: 'landed', permission: P.purchasingManage, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain freight duty insurance voucher' },
+  { key: 'reorder', title: 'Reorder suggestions', path: '/reorder/', icon: 'reorder', permission: P.purchasingManage, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain replenish lead time safety stock' },
+  { key: 'supplier-performance', title: 'Supplier performance', path: '/supplier-performance/', icon: 'performance', permission: P.reports, nav: true, group: SUPPLY_CHAIN, keywords: 'supply chain vendors on time fill rate returns lead time' },
 ];
+
+/** Pages split by their navigation group, in order: the core pages first (no heading), then each group as it first appears. */
+export function groupPages(pages: readonly PageDef[]): Array<{ group: string | null; pages: PageDef[] }> {
+  const groups: Array<{ group: string | null; pages: PageDef[] }> = [];
+  for (const page of pages) {
+    const name = page.group ?? null;
+    let entry = groups.find((g) => g.group === name);
+    if (!entry) {
+      entry = { group: name, pages: [] };
+      if (name === null) groups.unshift(entry);
+      else groups.push(entry);
+    }
+    entry.pages.push(page);
+  }
+  return groups;
+}
 
 /** Whether a user with these permissions may open the page (any one of `anyOf` will do when it has some). */
 export function canOpen(page: Pick<PageDef, 'permission' | 'anyOf'>, permissions: ReadonlySet<string> | readonly string[]): boolean {
@@ -253,7 +293,7 @@ export interface Command {
   permission: string | null;
   anyOf?: readonly string[];
   keywords?: string;
-  /** The group it belongs to (`HR`), shown next to its kind. */
+  /** The page's navigation group (HR, Supply chain…), shown beside the command. */
   group?: string;
 }
 

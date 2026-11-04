@@ -52,6 +52,7 @@ public static partial class Endpoints
         MapHr(app.MapGroup("/api").WithTags("HR and payroll"));
         MapE4(app);
         MapProduction(app.MapGroup("/api").WithTags("Manufacturing"));
+        MapSupply(app.MapGroup("/api").WithTags("Supply chain"));
     }
 
     private static async Task<IResult> HealthAsync(DataContext data, CancellationToken cancellationToken)

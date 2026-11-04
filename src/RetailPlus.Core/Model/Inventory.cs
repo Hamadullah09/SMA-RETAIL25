@@ -180,6 +180,15 @@ public class Item : Entity, ISoftDeletable, IFlaggable, IVersioned
     public List<KitComponent> KitComponents { get; set; } = [];
     public List<ItemSerial> Serials { get; set; } = [];
     public List<ItemPeriodSales> PeriodSales { get; set; } = [];
+
+    // Batches and expiry (supply chain)
+    /// <summary>
+    /// The item is received in batches (<see cref="ItemBatch"/>) with a batch number and an expiry date: receiving asks for
+    /// them, the POS sells the batch that expires first, and counts, transfers and adjustments work per batch.
+    /// </summary>
+    public bool TracksBatches { get; set; }
+    /// <summary>How many days the goods keep once made; receiving offers the expiry date from it. 0 when not known.</summary>
+    public int ShelfLifeDays { get; set; }
 }
 
 /// <summary>One entry of the item's supplier list, in order of preference [SUPLIST memo].</summary>
@@ -196,6 +205,10 @@ public class ItemSupplier : Entity
     public decimal Cost { get; set; }
     /// <summary>Fourth value of a SUPLIST entry; believed to be the case quantity.</summary>
     public decimal CaseQuantity { get; set; }
+    /// <summary>Days from ordering to delivery from this supplier for this item; 0 uses the supplier's own lead time.</summary>
+    public int LeadTimeDays { get; set; }
+    /// <summary>The fewest pieces this supplier takes an order for; 0 for no minimum.</summary>
+    public decimal MinimumOrder { get; set; }
 }
 
 /// <summary>A matrix column heading, 1 to 3 per item [first segment of the MATRIX memo].</summary>

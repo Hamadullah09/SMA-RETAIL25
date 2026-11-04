@@ -260,7 +260,22 @@ public static class HelpTopics
                     "Type the pieces received in the Received column, or press Receive all.",
                     "Press Post shipment and give any freight cost. Stock and costs are updated, and the order shows who received it.",
                 ]),
-        ], "supplier purchase order po receive shipment reorder"),
+            new("Batches and expiry dates",
+                Paragraphs:
+                [
+                    "Items marked Kept in batches (item › Stock tab) ask for their batches when you press Post shipment (F8): the batch number printed on the goods, the pieces of each batch and the date it expires. The expiry date is filled in from the item's shelf life; change it to the date on the pack.",
+                    "When a line came in two batches, press Another batch (Ins) and split the pieces. The batches must add up to the pieces received.",
+                    "The till sells the batch that expires first. It warns when a batch has expired, and does not sell expired goods unless the store allows it.",
+                ]),
+            new("Requisitions",
+                Steps:
+                [
+                    "Open the Requisitions tab (Ctrl+Tab). Press New requisition (Ctrl+N), say what it is for, and add the items needed with Add item (Ins).",
+                    "Press Send for approval (F6).",
+                    "Someone who may approve purchases presses Approve (F7) or Reject (F8). At the till, a manager can sign in for it.",
+                    "Press Make purchase orders (F9): one order for each supplier, as drafts on the Orders tab. Check them and press Post order (F6).",
+                ]),
+        ], "supplier purchase order po receive shipment reorder requisition approve batch expiry"),
 
         new("orders", "Customer orders and RMAs", "Things promised to customers, and returns to suppliers.", "orders",
         [

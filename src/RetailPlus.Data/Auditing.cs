@@ -65,6 +65,14 @@ public static class AuditActions
     public const string PlanningRun = "Planning run";
     public const string PlanningFirm = "Planning firmed";
     public const string QualityInspection = "Quality inspection";
+    public const string RequisitionSubmitted = "Requisition submitted";
+    public const string RequisitionApproved = "Requisition approved";
+    public const string RequisitionRejected = "Requisition rejected";
+    public const string RequisitionOrdered = "Requisition ordered";
+    public const string MatchAccepted = "Bill line accepted";
+    public const string MatchRejected = "Bill line rejected";
+    public const string LandedCostPosted = "Landed cost posted";
+    public const string BatchAdjusted = "Batch adjusted";
 }
 
 /// <summary>
@@ -132,6 +140,10 @@ public static class AuditedTables
         [typeof(BillOfMaterials)] = Name<BillOfMaterials>(b => $"{b.ProductCode} version {b.Revision}"),
         [typeof(QualityPlan)] = Name<QualityPlan>(p => $"{p.ProductCode} {p.Name}"),
         [typeof(SupplierLeadTime)] = Name<SupplierLeadTime>(t => $"{t.Days} days"),
+        [typeof(ItemBatch)] = Name<ItemBatch>(b => b.BatchNumber),
+        [typeof(Bin)] = Name<Bin>(b => b.Code),
+        [typeof(SupplySettings)] = Name<SupplySettings>(_ => "Supply chain settings"),
+        [typeof(PurchaseApprovalLimit)] = Name<PurchaseApprovalLimit>(l => $"Approval limit {l.MaxAmount:N2}"),
     };
 
     /// <summary>Properties never written to the log: kept by the program, or marks that are not changes of substance.</summary>

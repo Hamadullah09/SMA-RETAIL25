@@ -100,3 +100,7 @@ The first time, install the browser: `npx playwright install chromium`.
   the role (`runActions` in `src/lib/hr.ts`). The shared HR lists (departments, designations, leave types, holidays,
   payroll rule sets) change only when `canChangeShared`. E2E answers for HR are in `e2e/hr-fixtures.ts` and
   `e2e/hr-mock.ts`.
+- The supply chain pages (Purchase orders, Requisitions, Batches and expiry, Bins, Matching, Landed costs, Reorder
+  suggestions, Supplier performance) sit under a *Supply chain* heading in the navigation and the Ctrl+K palette. Approving
+  (requisitions, held bill lines, landed cost vouchers) shows only to roles with `purchasing.approve`; receiving asks for
+  the batch number and expiry of items kept in batches and then shows the put-away list.

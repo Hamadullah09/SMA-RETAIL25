@@ -186,6 +186,11 @@ public sealed class CommandPalette : Window
 
         foreach (var topic in HelpTopics.All)
             list.Add(new PaletteCommand("Help: " + topic.Title, "Help", topic.Keywords + " how", () => Open<HelpView>("help")?.ShowTopic(topic.Key)));
+
+        // Supply chain (phase E2)
+        if (Has("po"))
+            list.Add(new PaletteCommand("Purchase requisitions", "Action", "requisition request ask approve buy order",
+                () => Open<PurchaseOrdersView>("po")?.ShowRequisitions()));
         return list;
     }
 }

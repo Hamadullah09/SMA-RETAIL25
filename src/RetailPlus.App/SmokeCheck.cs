@@ -135,6 +135,15 @@ public static class SmokeCheck
 
         try
         {
+            failures.AddRange(await SupplyCheckAsync(main));
+        }
+        catch (Exception ex)
+        {
+            failures.Add("Supply chain: " + ex);
+        }
+
+        try
+        {
             failures.AddRange(await SyncCheckAsync(main));
         }
         catch (Exception ex)
@@ -154,6 +163,113 @@ public static class SmokeCheck
         foreach (var f in failures) Log.Write("FAIL " + f);
         Log.Write(failures.Count == 0 ? "Smoke check passed" : $"Smoke check failed ({failures.Count})");
         return failures.Count == 0 ? 0 : 5;
+    }
+
+    /// <summary>
+    /// Supply chain at the till: on the Purchase Orders screen's Requisitions tab a requisition for an item kept in batches is
+    /// made, sent, approved and turned into a purchase order; the order is received on the Orders tab in two batches, one
+    /// already expired; the POS then warns about the expired batch, sells from the good one (first expiry first, expired
+    /// stock stopped by the store's default setting) and the expired batch keeps its stock.
+    /// </summary>
+    private static async Task<List<string>> SupplyCheckAsync(MainWindow main)
+    {
+        var failures = new List<string>();
+        const string code = "SMOKE-BATCH";
+        var (item, _) = await AppServices.Inventory.FindByCodeAsync(AppServices.Session.LocationId, code);
+        item ??= await AppServices.Inventory.SaveAsync(new Item
+        {
+            LocationId = AppServices.Session.LocationId, Plu = code, Name = "Smoke test milk", Price1 = 3m, LastCost = 2m, AverageCost = 2m, TracksBatches = true,
+            ShelfLifeDays = 10,
+        }, "SMOKE", null, null);
+        if (!main.Navigate("po"))
+        {
+            Log.Write("Supply chain check skipped: this user may not open Purchase Orders");
+            return failures;
+        }
+        await MainWindow.Settle();
+        var view = main.GetView<PurchaseOrdersView>() ?? throw new InvalidOperationException("Purchase Orders did not open");
+
+        // The requisition, from draft to ordered; Ctrl+K finds the tab.
+        var palette = new Dialogs.CommandPalette(main);
+        if (!palette.Matches("requisition").Any(c => c.Title == "Purchase requisitions")) failures.Add("Ctrl+K \"requisition\" did not find the requisitions");
+        palette.Close();
+        view.ShowRequisitions();
+        await MainWindow.Settle();
+        var panel = view.Requisitions;
+        await panel.NewAsync("Smoke check");
+        await panel.AddLineAsync(item.Id, 6);
+        await panel.SubmitAsync();
+        if (panel.Current?.Status != RequisitionStatus.Submitted) failures.Add($"the requisition was not sent for approval ({panel.Current?.Status})");
+        await panel.ApproveAsync();
+        var made = await panel.OrderAsync();
+        if (panel.Current?.Status != RequisitionStatus.Ordered || made is not { Orders.Count: 1 })
+        {
+            failures.Add($"the requisition did not become one purchase order ({panel.Current?.Status}, {made?.Orders.Count ?? 0} orders)");
+            return failures;
+        }
+        Log.Write($"Requisition {panel.Current.Number} approved and ordered as PO {made.Orders[0].Number}");
+        await MainWindow.Settle();
+
+        // The order, received in two batches.
+        var orderId = made.Orders[0].Id;
+        await AppServices.Purchasing.PostOrderAsync(orderId);
+        view.ShowOrders();
+        await MainWindow.Settle();
+        await view.OpenAsync(orderId);
+        view.ReceiveAll();
+        var stamp = DateTime.Now.ToString("HHmmss", System.Globalization.CultureInfo.InvariantCulture);
+        string expired = "OLD-" + stamp, good = "NEW-" + stamp;
+        int asked = 0;
+        view.BatchPrompt = (_, _, entries) =>
+        {
+            asked = entries.Count;
+            var first = entries[0];
+            first.BatchNumber = expired;
+            first.Pieces = 2;
+            first.ExpiresOn = DateTime.Today.AddDays(-1);
+            entries.Add(new Dialogs.BatchEntry { LineId = first.LineId, Plu = first.Plu, Description = first.Description, BatchNumber = good, Pieces = 4, ExpiresOn = DateTime.Today.AddDays(20) });
+            return true;
+        };
+        try
+        {
+            if (!await view.ReceiveAsync(0)) failures.Add("receiving the order in batches did not post");
+        }
+        finally
+        {
+            view.BatchPrompt = null;
+        }
+        if (asked != 1) failures.Add($"receiving asked for the batches of {asked} lines, expected 1");
+        var batches = await AppServices.Batches.OfItemAsync(item.Id);
+        decimal Held(string number) => batches.Where(b => b.BatchNumber == number).Sum(b => b.OnHand);
+        if (Held(expired) != 2 || Held(good) != 4) failures.Add($"the batches received hold {Held(expired)} and {Held(good)}, expected 2 and 4");
+        Log.Write($"PO {made.Orders[0].Number} received in batches {expired} (expired) and {good}");
+
+        // The POS: a warning about the expired batch, and the sale takes the good one.
+        main.Navigate("pos");
+        await MainWindow.Settle();
+        var pos = main.GetView<PosView>() ?? throw new InvalidOperationException("POS screen did not open");
+        pos.Vm.StopRfid();
+        await pos.Vm.ClearSaleAsync(ask: false);
+        await pos.Vm.AddCodeAsync(code);
+        if (pos.Vm.Lines.Count != 1) failures.Add($"the batch item rang up as {pos.Vm.Lines.Count} lines");
+        if (!pos.Vm.MessageIsAlert || !pos.Vm.Message.Contains(expired, StringComparison.Ordinal))
+            failures.Add($"the POS did not warn about expired batch {expired}: \"{pos.Vm.Message}\"");
+        Log.Write("POS on the batch item: " + pos.Vm.Message);
+        var cash = Money.RoundToMinimumTender(pos.Vm.Total, AppServices.Settings.MinimumTender);
+        if (!await pos.Vm.PostAsync([new TenderEntry("Cash", TenderKind.Cash, cash, cash)])) failures.Add("the sale of the batch item was not saved");
+        if (!AppServices.Session.IsTrainee)
+        {
+            batches = await AppServices.Batches.OfItemAsync(item.Id);
+            if (Held(expired) != 2) failures.Add($"the sale took expired batch {expired} ({Held(expired)} left of 2)");
+            // On a database of its own (as the check is meant to run) the good batch is the only one that is not expired.
+            if (Held(good) != 3 && batches.Count(b => b.BatchNumber.StartsWith("NEW-", StringComparison.Ordinal)) == 1)
+                failures.Add($"the sale did not take batch {good} first ({Held(good)} left of 4)");
+            // The expired goods go out of stock, as staff would throw them away.
+            var old = batches.Single(b => b.BatchNumber == expired);
+            await AppServices.Batches.AdjustAsync(old.Id, 0, "Smoke check: expired", setTo: true);
+        }
+        Log.Write("Supply chain check done");
+        return failures;
     }
 
     /// <summary>

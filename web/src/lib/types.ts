@@ -2537,3 +2537,504 @@ export interface TargetProgress extends TargetProgressRow {
   stores: ({ storeId: string; storeCode: string } & TargetProgressRow)[];
   people: ({ userId: string; userName: string; storeCode: string } & TargetProgressRow)[];
 }
+
+// Supply chain (phase E2) --------------------------------------------------------------------------------------------
+
+/** A batch (lot) of an item kept in batches, with its stock; `daysLeft` is negative once it has expired. */
+export interface BatchRow {
+  id: string;
+  version: string;
+  itemId: string;
+  plu: string;
+  itemName: string;
+  storeCode: string;
+  locationCode: string;
+  batchNumber: string;
+  expiresOn: BusinessDate | null;
+  madeOn: BusinessDate | null;
+  supplier: string | null;
+  receivedOn: BusinessDate | null;
+  purchaseOrderNumber: number | null;
+  onHand: number;
+  unitCost: number;
+  value: number;
+  daysLeft: number | null;
+  bin: string | null;
+  note: string | null;
+}
+
+export interface BatchRequest {
+  version?: string | null;
+  itemId?: string | null;
+  batchNumber: string;
+  expiresOn: BusinessDate | null;
+  madeOn: BusinessDate | null;
+  supplierId?: string | null;
+  note?: string | null;
+}
+
+export interface BatchAdjustRequest {
+  quantity: number;
+  setTo: boolean;
+  reason: string | null;
+}
+
+/** `GET /api/batches/expiring` and `/expired`: the batches with stock, their units and value. */
+export interface ExpiryReport {
+  days: number;
+  rows: BatchRow[];
+  units: number;
+  value: number;
+}
+
+export interface BinRow {
+  id: string;
+  version: string;
+  locationId: string;
+  storeCode: string;
+  locationCode: string;
+  code: string;
+  zone: string | null;
+  description: string | null;
+  isActive: boolean;
+  /** Items kept in the bin (it is their default bin). */
+  items: number;
+}
+
+export interface BinRequest {
+  version?: string | null;
+  locationId?: string | null;
+  code: string;
+  zone: string | null;
+  description: string | null;
+  isActive: boolean;
+}
+
+/** A line of a put-away, pick or count list, sorted by zone and bin. */
+export interface BinListRow {
+  zone: string | null;
+  bin: string | null;
+  plu: string;
+  description: string;
+  quantity: number;
+  batchNumber: string | null;
+  expiresOn: BusinessDate | null;
+  document: string | null;
+  onHand: number;
+}
+
+export interface BinList {
+  title: string;
+  rows: BinListRow[];
+}
+
+export type PurchaseOrderStatus = 'Draft' | 'Posted' | 'Received';
+
+export interface PurchaseOrderRow {
+  id: string;
+  number: number;
+  storeCode: string;
+  locationCode: string;
+  status: PurchaseOrderStatus;
+  createdAt: LocalDateTime;
+  postedAt: LocalDateTime | null;
+  receivedAt: LocalDateTime | null;
+  expectedOn: BusinessDate | null;
+  supplier: string | null;
+  description: string | null;
+  lines: number;
+  totalCost: number;
+}
+
+export interface ReceivedBatch {
+  batchNumber: string;
+  pieces: number;
+  expiresOn: BusinessDate | null;
+  madeOn: BusinessDate | null;
+}
+
+export interface PurchaseOrderLine {
+  id: string;
+  itemId: string | null;
+  plu: string;
+  description: string;
+  supplier: string | null;
+  caseQuantity: number;
+  orderQuantity: number;
+  /** Order quantity times case quantity. */
+  pieces: number;
+  costEach: number;
+  orderedCost: number;
+  orderCost: number;
+  quantityReceived: number;
+  tracksBatches: boolean;
+  shelfLifeDays: number;
+  bin: string | null;
+  batches: ReceivedBatch[];
+}
+
+export interface PurchaseOrderDetail {
+  id: string;
+  version: string;
+  number: number;
+  storeId: string;
+  storeCode: string;
+  locationId: string;
+  locationCode: string;
+  status: PurchaseOrderStatus;
+  createdAt: LocalDateTime;
+  postedAt: LocalDateTime | null;
+  receivedAt: LocalDateTime | null;
+  expectedOn: BusinessDate | null;
+  supplierId: string | null;
+  supplier: string | null;
+  description: string | null;
+  createdBy: string | null;
+  receivedBy: string | null;
+  lines: PurchaseOrderLine[];
+  totalCost: number;
+}
+
+export interface ReceiveLineRequest {
+  lineId: string;
+  pieces: number;
+  costEach: number | null;
+  batches: ReceivedBatch[] | null;
+}
+
+export interface ReceiveRequest {
+  version: string;
+  shippingCost: number;
+  lines: ReceiveLineRequest[];
+}
+
+/** The version a step sends back (post, submit, approve…), and the note some steps take. */
+export interface VersionRequest {
+  version: string;
+  note?: string | null;
+}
+
+export type RequisitionStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected' | 'Ordered';
+
+export interface RequisitionRow {
+  id: string;
+  number: number;
+  storeCode: string;
+  locationCode: string;
+  status: RequisitionStatus;
+  createdAt: LocalDateTime;
+  requestedBy: string | null;
+  neededBy: BusinessDate | null;
+  lines: number;
+  total: number;
+  decidedBy: string | null;
+  decidedAt: LocalDateTime | null;
+  note: string | null;
+}
+
+export interface RequisitionLine {
+  id: string;
+  lineNumber: number;
+  itemId: string | null;
+  plu: string;
+  description: string;
+  quantity: number;
+  costEach: number;
+  value: number;
+  neededBy: BusinessDate | null;
+  supplierId: string | null;
+  supplier: string | null;
+  note: string | null;
+  purchaseOrderId: string | null;
+  purchaseOrderNumber: number | null;
+}
+
+export interface RequisitionDetail {
+  id: string;
+  version: string;
+  number: number;
+  storeId: string;
+  storeCode: string;
+  locationId: string;
+  locationCode: string;
+  status: RequisitionStatus;
+  createdAt: LocalDateTime;
+  requestedBy: string | null;
+  neededBy: BusinessDate | null;
+  note: string | null;
+  submittedAt: LocalDateTime | null;
+  decidedAt: LocalDateTime | null;
+  decidedBy: string | null;
+  decisionNote: string | null;
+  orderedAt: LocalDateTime | null;
+  total: number;
+  lines: RequisitionLine[];
+}
+
+export interface RequisitionLineRequest {
+  itemId: string | null;
+  plu: string | null;
+  quantity: number;
+  neededBy: BusinessDate | null;
+  supplierId: string | null;
+  costEach: number | null;
+  note: string | null;
+}
+
+export interface RequisitionRequest {
+  version?: string | null;
+  locationId?: string | null;
+  neededBy: BusinessDate | null;
+  note: string | null;
+  lines: RequisitionLineRequest[];
+}
+
+export interface OrderMade {
+  id: string;
+  number: number;
+  supplier: string | null;
+}
+
+export interface OrdersMade {
+  orders: OrderMade[];
+}
+
+/** A role's limit for approving requisitions (`maxAmount` null: no limit). */
+export interface ApprovalLimitRow {
+  roleId: string;
+  role: string;
+  mayApprove: boolean;
+  maxAmount: number | null;
+}
+
+export type BillMatchStatus = 'Matched' | 'Held' | 'Accepted' | 'Rejected';
+
+/** A supplier bill line checked against its order line and receipt (three-way match). */
+export interface MatchRow {
+  id: string;
+  version: string;
+  storeCode: string;
+  purchaseOrderId: string;
+  purchaseOrderNumber: number;
+  purchaseOrderLineId: string;
+  billId: string;
+  billLineId: string;
+  billNumber: string | null;
+  billDate: BusinessDate;
+  supplier: string | null;
+  plu: string;
+  description: string;
+  quantityOrdered: number;
+  quantityReceived: number;
+  quantityBilled: number;
+  quantityMatched: number;
+  orderedCost: number;
+  receivedCost: number;
+  billedCost: number;
+  priceDifference: number;
+  status: BillMatchStatus;
+  reason: string | null;
+  checkedAtUtc: UtcDateTime;
+  decidedAtUtc: UtcDateTime | null;
+  decidedBy: string | null;
+  decisionNote: string | null;
+}
+
+export interface MatchRun {
+  lines: number;
+  matched: number;
+  held: number;
+  posted: number;
+}
+
+/** A line of "received but not billed" or "billed but not received". */
+export interface MatchReportRow {
+  purchaseOrderId: string;
+  purchaseOrderNumber: number;
+  purchaseOrderLineId: string;
+  storeCode: string;
+  plu: string;
+  description: string;
+  supplier: string | null;
+  ordered: number;
+  received: number;
+  billed: number;
+  difference: number;
+  costEach: number;
+  value: number;
+  receivedAt: LocalDateTime | null;
+}
+
+export type LandedCostStatus = 'Draft' | 'Posted';
+export type LandedCostBasis = 'Value' | 'Quantity' | 'Weight';
+export type LandedCostChargeKind = 'Freight' | 'Duty' | 'Insurance' | 'Other';
+
+export interface LandedCostRow {
+  id: string;
+  number: number;
+  storeCode: string;
+  date: BusinessDate;
+  status: LandedCostStatus;
+  basis: LandedCostBasis;
+  reference: string | null;
+  total: number;
+  receipts: number;
+  note: string | null;
+  postedAtUtc: UtcDateTime | null;
+  postedBy: string | null;
+}
+
+export interface LandedCharge {
+  kind: LandedCostChargeKind;
+  description: string | null;
+  amount: number;
+}
+
+export interface LandedAllocation {
+  purchaseOrderLineId: string;
+  itemId: string | null;
+  plu: string;
+  description: string;
+  quantity: number;
+  value: number;
+  weight: number;
+  share: number;
+  onHand: number;
+  toInventory: number;
+  toCostOfGoods: number;
+}
+
+export interface LandedReceipt {
+  purchaseOrderId: string;
+  number: number;
+  receivedAt: LocalDateTime | null;
+  supplier: string | null;
+  value: number;
+}
+
+export interface LandedCostDetail {
+  id: string;
+  version: string;
+  number: number;
+  storeId: string;
+  storeCode: string;
+  date: BusinessDate;
+  status: LandedCostStatus;
+  basis: LandedCostBasis;
+  reference: string | null;
+  note: string | null;
+  total: number;
+  charges: LandedCharge[];
+  receipts: LandedReceipt[];
+  allocations: LandedAllocation[];
+  createdBy: string | null;
+  postedAtUtc: UtcDateTime | null;
+  postedBy: string | null;
+}
+
+export interface LandedCostRequest {
+  version?: string | null;
+  storeId?: string | null;
+  date: BusinessDate | null;
+  basis: LandedCostBasis;
+  reference: string | null;
+  note: string | null;
+  charges: LandedCharge[];
+  purchaseOrderIds: string[];
+}
+
+/** A received order a landed cost voucher can be spread over. */
+export interface ReceiptChoice {
+  purchaseOrderId: string;
+  number: number;
+  storeCode: string;
+  locationCode: string;
+  receivedAt: LocalDateTime | null;
+  supplier: string | null;
+  description: string | null;
+  lines: number;
+  value: number;
+}
+
+export interface ReorderRow {
+  itemId: string;
+  plu: string;
+  name: string;
+  supplierId: string | null;
+  supplier: string | null;
+  onHand: number;
+  onOrder: number;
+  customerOrdered: number;
+  unitsSold: number;
+  averageDailySales: number;
+  leadTimeDays: number;
+  reorderPoint: number;
+  reorderLevel: number;
+  targetStock: number;
+  caseQuantity: number;
+  minimumOrder: number;
+  suggestedPieces: number;
+  orderQuantity: number;
+  costEach: number;
+  value: number;
+}
+
+export interface ReorderSuggestions {
+  locationId: string;
+  rows: ReorderRow[];
+}
+
+export interface ReorderLineRequest {
+  itemId: string;
+  pieces: number;
+  supplierId: string | null;
+}
+
+export interface ReorderRequest {
+  locationId?: string | null;
+  lines: ReorderLineRequest[];
+  submit?: boolean;
+  neededBy?: BusinessDate | null;
+}
+
+export interface SupplierPerformanceRow {
+  supplierId: string | null;
+  supplier: string;
+  orders: number;
+  onTime: number;
+  onTimePercent: number | null;
+  orderedPieces: number;
+  receivedPieces: number;
+  fillRatePercent: number | null;
+  priceIncreases: number;
+  priceDecreases: number;
+  averagePriceChangePercent: number | null;
+  returns: number;
+  returnedPieces: number;
+  returnedValue: number;
+  averageLeadDays: number | null;
+  receivedValue: number;
+}
+
+export interface SupplierPerformance {
+  from: BusinessDate;
+  to: BusinessDate;
+  rows: SupplierPerformanceRow[];
+}
+
+/** A store's supply chain settings; `version` is `new` while the store has none saved. */
+export interface SupplySettings {
+  version: string;
+  storeId: string;
+  blockExpiredSales: boolean;
+  expiryWarningDays: number;
+  quantityTolerancePercent: number;
+  quantityToleranceUnits: number;
+  priceTolerancePercent: number;
+  priceToleranceAmount: number;
+  salesWindowDays: number;
+  safetyStockDays: number;
+  orderCoverDays: number;
+  defaultLeadTimeDays: number;
+  approverMustDiffer: boolean;
+}
