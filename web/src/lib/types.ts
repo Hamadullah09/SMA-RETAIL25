@@ -288,6 +288,8 @@ export interface SaleDetail extends SaleRow {
   payments: SalePayment[];
   voidedBy: string | null;
   voidedAt: LocalDateTime | null;
+  /** The tax office's number (FBR's POS integration), once the server reported the sale. */
+  fiscalInvoiceNumber?: string | null;
 }
 
 // Items --------------------------------------------------------------------------------------------------------------
@@ -731,3 +733,744 @@ export interface StoreSettings {
 }
 
 export type ImageKind = 'logo' | 'watermark';
+
+// Finance (phase E1, /api/finance) -----------------------------------------------------------------------------------
+
+export type AccountType = 'Asset' | 'Liability' | 'Equity' | 'Income' | 'Expense';
+export type CashFlowSection = 'Operating' | 'Investing' | 'Financing';
+export type JournalKind =
+  | 'Manual'
+  | 'Daily'
+  | 'SupplierBill'
+  | 'SupplierPayment'
+  | 'Expense'
+  | 'Bank'
+  | 'Payroll'
+  | 'Production'
+  | 'Inventory'
+  | 'Opening'
+  | 'Closing'
+  | 'Adjustment'
+  | 'Reversal'
+  | (string & {});
+export type JournalStatus = 'Draft' | 'Posted' | 'Reversed';
+export type FiscalStatus = 'Open' | 'Locked' | 'Closed';
+export type PartyKind = 'Client' | 'Supplier' | 'Employee';
+export type WithholdingKind = 'Goods' | 'Services' | 'Rent' | 'Other';
+export type BillKind = 'Bill' | 'DebitNote';
+export type BillStatus = 'Draft' | 'Posted' | 'PartPaid' | 'Paid' | 'Void';
+export type PaymentStatus = 'Posted' | 'Void';
+export type ExpensePaidBy = 'Cash' | 'Bank' | 'OnAccount';
+export type ExpenseStatus = 'Draft' | 'Posted' | 'Void';
+export type RecurrenceFrequency = 'Weekly' | 'Monthly' | 'Quarterly' | 'Yearly';
+export type BankAccountKind = 'Bank' | 'Cash' | 'Wallet';
+export type StatementLineStatus = 'Unmatched' | 'Matched' | 'Entered' | 'Ignored';
+export type FiscalInvoiceStatus = 'Pending' | 'Sent' | 'Failed' | 'Skipped';
+export type FinanceComparison = 'none' | 'previousPeriod' | 'previousYear' | 'budget';
+
+export interface FinanceHome {
+  today: BusinessDate;
+  accounts: BankAccountRow[];
+  cashInHand: number;
+  payablesOpen: number;
+  payablesDue: number;
+  billsDue: number;
+  payablesOverdue: number;
+  receivables: number;
+  monthFrom: BusinessDate;
+  monthIncome: number;
+  monthExpenses: number;
+  monthProfit: number;
+  suspense: number;
+  draftJournals: number;
+  fiscalEnabled: boolean;
+  fiscalPending: number;
+  fiscalFailed: number;
+}
+
+export interface FinanceAccount {
+  id: string;
+  version: string;
+  code: string;
+  name: string;
+  type: AccountType;
+  parentId: string | null;
+  isPosting: boolean;
+  isActive: boolean;
+  role: string | null;
+  description: string | null;
+  cashFlow: CashFlowSection | null;
+  /** What the account holds today (debit positive), for the store chosen or the company. */
+  balance: number;
+}
+
+export interface FinanceAccountRequest {
+  code: string;
+  name: string;
+  type: AccountType;
+  parentId: string | null;
+  isPosting: boolean;
+  isActive: boolean;
+  role: string | null;
+  description: string | null;
+  cashFlow: CashFlowSection | null;
+  version: string | null;
+}
+
+export interface FinanceSettings {
+  version: string;
+  baseCurrency: string;
+  fiscalYearStartMonth: number;
+  country: string;
+  manualEntriesNeedApproval: boolean;
+  autoPostOnSync: boolean;
+  nightlyDays: number;
+  nightlyHour: number;
+  attachmentMaxKilobytes: number;
+  /** Read-only: the FBR integration is switched on in the server's settings. */
+  fiscalEnabled: boolean;
+}
+
+export interface SalesTaxRateInfo {
+  name: string;
+  rate: number;
+  isDefault: boolean;
+}
+
+export interface WithholdingRuleInfo {
+  kind: WithholdingKind;
+  section: string | null;
+  filerRate: number;
+  nonFilerRate: number;
+  threshold: number;
+}
+
+export interface TaxRuleSet {
+  id: string | null;
+  version: string | null;
+  country: string;
+  name: string;
+  inputTaxClaimable: boolean;
+  notes: string | null;
+  isActive: boolean;
+  salesTaxRates: SalesTaxRateInfo[];
+  withholdingRules: WithholdingRuleInfo[];
+}
+
+export interface StoreFinance {
+  storeId: string;
+  taxRuleSetId: string | null;
+  /** The rule set in use (the store's own, else the ledger country's). */
+  ruleSet: string | null;
+  depositBankAccountId: string | null;
+}
+
+export interface MappingRow {
+  kind: string;
+  key: string;
+  accountCode: string | null;
+  accountName: string | null;
+}
+
+export interface PostDaysResult {
+  entries: number;
+  problems: string[];
+}
+
+export interface SuspenseRow {
+  entryId: string;
+  number: number;
+  date: BusinessDate;
+  storeId: string | null;
+  storeCode: string;
+  memo: string;
+  debit: number;
+  credit: number;
+}
+
+export interface JournalRow {
+  id: string;
+  number: number;
+  date: BusinessDate;
+  kind: JournalKind;
+  status: JournalStatus;
+  storeCode: string | null;
+  memo: string;
+  reference: string | null;
+  total: number;
+  createdBy: string | null;
+  postedBy: string | null;
+  postedAtUtc: UtcDateTime | null;
+}
+
+export interface JournalLineInfo {
+  lineNumber: number;
+  accountId: string;
+  code: string;
+  name: string;
+  storeId: string | null;
+  debit: number;
+  credit: number;
+  memo: string | null;
+  partyKind: PartyKind | null;
+  partyId: string | null;
+}
+
+export interface AttachmentInfo {
+  id: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+  uploadedBy: string | null;
+  createdAtUtc: UtcDateTime;
+}
+
+export interface JournalDetail {
+  id: string;
+  version: string;
+  number: number;
+  date: BusinessDate;
+  kind: JournalKind;
+  status: JournalStatus;
+  storeId: string | null;
+  storeCode: string | null;
+  memo: string;
+  reference: string | null;
+  source: string | null;
+  createdBy: string | null;
+  postedBy: string | null;
+  postedAtUtc: UtcDateTime | null;
+  reversalOfId: string | null;
+  reversedById: string | null;
+  lines: JournalLineInfo[];
+  attachments: AttachmentInfo[];
+  /** A draft another person must approve. */
+  needsApproval: boolean;
+}
+
+export interface JournalLineRequest {
+  accountId: string;
+  debit: number;
+  credit: number;
+  storeId?: string | null;
+  memo?: string | null;
+  partyKind?: PartyKind | null;
+  partyId?: string | null;
+}
+
+export interface JournalRequest {
+  date: BusinessDate;
+  storeId: string | null;
+  memo: string;
+  reference: string | null;
+  lines: JournalLineRequest[];
+  /** Post at once when the settings let entries go without approval. */
+  post?: boolean;
+  version?: string | null;
+}
+
+export interface PeriodInfo {
+  id: string;
+  number: number;
+  name: string;
+  startDate: BusinessDate;
+  endDate: BusinessDate;
+  status: FiscalStatus;
+}
+
+export interface YearInfo {
+  id: string;
+  name: string;
+  startDate: BusinessDate;
+  endDate: BusinessDate;
+  status: FiscalStatus;
+  closedAtUtc: UtcDateTime | null;
+  closedBy: string | null;
+  periods: PeriodInfo[];
+}
+
+export interface OpeningRequest {
+  date: BusinessDate;
+  storeId: string | null;
+  balanceToRetainedEarnings: boolean;
+  lines: JournalLineRequest[];
+}
+
+export interface BudgetAmount {
+  accountId: string;
+  /** The first day of the month. */
+  month: BusinessDate;
+  amount: number;
+}
+
+export interface BudgetInfo {
+  yearId: string;
+  yearName: string;
+  storeId: string | null;
+  months: BusinessDate[];
+  amounts: BudgetAmount[];
+}
+
+export interface FinanceReportInfo {
+  key: string;
+  title: string;
+  usesDates: boolean;
+  usesComparison: boolean;
+  usesAccount: boolean;
+  /** Run as of the last day (balance sheet, ageing). */
+  asOfDate: boolean;
+}
+
+export interface BillRow {
+  id: string;
+  number: number;
+  kind: BillKind;
+  status: BillStatus;
+  supplierId: string;
+  supplier: string;
+  storeId: string;
+  storeCode: string;
+  billDate: BusinessDate;
+  dueDate: BusinessDate;
+  supplierReference: string | null;
+  currency: string;
+  total: number;
+  paid: number;
+  open: number;
+  daysOverdue: number;
+  /** Before sales tax: withholding is worked out on it. */
+  subtotal: number;
+}
+
+export interface BillLineInfo {
+  lineNumber: number;
+  accountId: string | null;
+  accountCode: string | null;
+  itemId: string | null;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+  taxRate: number;
+  taxAmount: number;
+  purchaseOrderId: string | null;
+  purchaseOrderLineId: string | null;
+}
+
+export interface BillPaymentInfo {
+  paymentId: string;
+  number: number;
+  date: BusinessDate;
+  amount: number;
+  status: PaymentStatus;
+}
+
+export interface BillDetail {
+  id: string;
+  version: string;
+  number: number;
+  kind: BillKind;
+  status: BillStatus;
+  supplierId: string;
+  supplier: string;
+  storeId: string;
+  storeCode: string;
+  billDate: BusinessDate;
+  dueDate: BusinessDate;
+  supplierReference: string | null;
+  currency: string;
+  exchangeRate: number;
+  notes: string | null;
+  subtotal: number;
+  taxTotal: number;
+  total: number;
+  paid: number;
+  open: number;
+  originalBillId: string | null;
+  expenseId: string | null;
+  journalEntryId: string | null;
+  createdBy: string | null;
+  postedBy: string | null;
+  postedAtUtc: UtcDateTime | null;
+  voidReason: string | null;
+  lines: BillLineInfo[];
+  payments: BillPaymentInfo[];
+  attachments: AttachmentInfo[];
+}
+
+export interface BillLineRequest {
+  accountId: string | null;
+  itemId: string | null;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+  taxAmount?: number;
+  purchaseOrderId?: string | null;
+  purchaseOrderLineId?: string | null;
+}
+
+export interface BillRequest {
+  kind: BillKind;
+  supplierId: string;
+  storeId: string;
+  billDate: BusinessDate;
+  dueDate: BusinessDate | null;
+  supplierReference: string | null;
+  currency: string | null;
+  exchangeRate: number;
+  notes: string | null;
+  originalBillId: string | null;
+  lines: BillLineRequest[];
+  version?: string | null;
+}
+
+export interface PaymentRow {
+  id: string;
+  number: number;
+  date: BusinessDate;
+  supplierId: string;
+  supplier: string;
+  storeCode: string;
+  bankAccountId: string;
+  bankAccount: string;
+  currency: string;
+  amount: number;
+  withholdingAmount: number;
+  reference: string | null;
+  status: PaymentStatus;
+  paymentRunId: string | null;
+}
+
+export interface PaymentAllocationInfo {
+  billId: string;
+  billNumber: number;
+  kind: BillKind;
+  amount: number;
+}
+
+export interface PaymentDetail extends Omit<PaymentRow, 'storeCode'> {
+  storeId: string;
+  storeCode: string;
+  exchangeRate: number;
+  withholdingKind: WithholdingKind;
+  withholdingRate: number;
+  notes: string | null;
+  journalEntryId: string | null;
+  allocations: PaymentAllocationInfo[];
+}
+
+export interface BillToPay {
+  billId: string;
+  amount: number;
+}
+
+export interface PaymentRequest {
+  bankAccountId: string;
+  date: BusinessDate;
+  bills: BillToPay[];
+  /** Left out: worked out from the store's rule set and the supplier's details. */
+  withholdingAmount: number | null;
+  exchangeRate: number;
+  reference: string | null;
+  notes: string | null;
+}
+
+export interface PaymentRunInfo {
+  id: string;
+  number: number;
+  date: BusinessDate;
+  bankAccountId: string;
+  total: number;
+  payments: number;
+  notes: string | null;
+  paidBy: string | null;
+  paidAtUtc: UtcDateTime;
+}
+
+export interface PaymentRunResult {
+  run: PaymentRunInfo;
+  payments: PaymentRow[];
+}
+
+export interface WithholdingInfo {
+  kind: WithholdingKind;
+  rate: number;
+  threshold: number;
+  section: string | null;
+  ruleSet: string | null;
+}
+
+export interface SupplierFinance {
+  supplierId: string;
+  taxNumber: string | null;
+  salesTaxNumber: string | null;
+  isFiler: boolean;
+  withholdingKind: WithholdingKind;
+  withholdingExempt: boolean;
+  paymentTermsDays: number;
+  defaultAccountId: string | null;
+}
+
+export interface SupplierStatementLine {
+  date: BusinessDate;
+  entryNumber: number;
+  kind: JournalKind;
+  memo: string;
+  reference: string | null;
+  billed: number;
+  paid: number;
+  balance: number;
+}
+
+export interface SupplierStatement {
+  supplierId: string;
+  supplier: string;
+  from: BusinessDate;
+  to: BusinessDate;
+  opening: number;
+  closing: number;
+  lines: SupplierStatementLine[];
+}
+
+export interface ExpenseRow {
+  id: string;
+  version: string;
+  number: number;
+  date: BusinessDate;
+  storeId: string;
+  storeCode: string;
+  payee: string;
+  supplierId: string | null;
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  description: string | null;
+  amount: number;
+  taxAmount: number;
+  total: number;
+  paidBy: ExpensePaidBy;
+  bankAccountId: string | null;
+  reference: string | null;
+  status: ExpenseStatus;
+  supplierBillId: string | null;
+  recurringExpenseId: string | null;
+  journalEntryId: string | null;
+  attachments: number;
+}
+
+export interface ExpenseDetail {
+  expense: ExpenseRow;
+  attachments: AttachmentInfo[];
+}
+
+export interface ExpenseRequest {
+  date: BusinessDate;
+  storeId: string;
+  payee: string;
+  supplierId: string | null;
+  accountId: string;
+  description: string | null;
+  amount: number;
+  taxAmount: number;
+  paidBy: ExpensePaidBy;
+  bankAccountId: string | null;
+  reference: string | null;
+  post?: boolean;
+  version?: string | null;
+}
+
+export interface RecurringExpense {
+  id: string | null;
+  version: string | null;
+  name: string;
+  storeId: string;
+  payee: string;
+  supplierId: string | null;
+  accountId: string;
+  amount: number;
+  taxAmount: number;
+  paidBy: ExpensePaidBy;
+  bankAccountId: string | null;
+  frequency: RecurrenceFrequency;
+  nextDate: BusinessDate;
+  endDate: BusinessDate | null;
+  postAutomatically: boolean;
+  isActive: boolean;
+  lastMadeOn: BusinessDate | null;
+}
+
+export interface BankAccountRow {
+  id: string;
+  version: string;
+  name: string;
+  kind: BankAccountKind;
+  bankName: string | null;
+  accountNumber: string | null;
+  iban: string | null;
+  currency: string;
+  ledgerAccountId: string;
+  ledgerCode: string;
+  storeId: string | null;
+  storeCode: string | null;
+  openingBalance: number;
+  openingDate: BusinessDate | null;
+  isActive: boolean;
+  balance: number;
+}
+
+export interface BankAccountRequest {
+  name: string;
+  kind: BankAccountKind;
+  bankName: string | null;
+  accountNumber: string | null;
+  iban: string | null;
+  currency: string | null;
+  /** Left out: a ledger account is made for it. */
+  ledgerAccountId: string | null;
+  storeId: string | null;
+  openingBalance: number;
+  openingDate: BusinessDate | null;
+  isActive: boolean;
+  version?: string | null;
+}
+
+export interface BankTransferRequest {
+  fromAccountId: string;
+  toAccountId: string;
+  date: BusinessDate;
+  amount: number;
+  toAmount: number | null;
+  rate?: number;
+  toRate?: number;
+  reference: string | null;
+  memo: string | null;
+}
+
+export interface BankTransferRow {
+  id: string;
+  number: number;
+  date: BusinessDate;
+  fromAccountId: string;
+  fromAccount: string;
+  toAccountId: string;
+  toAccount: string;
+  amount: number;
+  toAmount: number;
+  reference: string | null;
+  memo: string | null;
+  createdBy: string | null;
+}
+
+export interface DepositCandidate {
+  drawerSessionId: string;
+  storeId: string;
+  storeCode: string;
+  stationNumber: number;
+  closedAt: LocalDateTime;
+  cash: number;
+  depositId: string | null;
+}
+
+export interface DepositRequest {
+  storeId: string;
+  bankAccountId: string;
+  date: BusinessDate;
+  amount: number;
+  drawerSessionId: string | null;
+  reference: string | null;
+}
+
+export interface DepositRow {
+  id: string;
+  number: number;
+  date: BusinessDate;
+  storeId: string;
+  storeCode: string;
+  bankAccountId: string;
+  bankAccount: string;
+  amount: number;
+  drawerSessionId: string | null;
+  reference: string | null;
+  createdBy: string | null;
+}
+
+export interface StatementFormat {
+  bankName: string;
+  hasHeader: boolean;
+  delimiter: string;
+  dateColumn: string;
+  dateFormat: string;
+  descriptionColumn: string | null;
+  referenceColumn: string | null;
+  amountColumn: string | null;
+  debitColumn: string | null;
+  creditColumn: string | null;
+  balanceColumn: string | null;
+}
+
+export interface StatementImportResult {
+  statementId: string;
+  lines: number;
+  fromDate: BusinessDate;
+  toDate: BusinessDate;
+  closingBalance: number | null;
+}
+
+export interface StatementLineRow {
+  id: string;
+  date: BusinessDate;
+  description: string | null;
+  reference: string | null;
+  /** Money in positive, money out negative. */
+  amount: number;
+  balance: number | null;
+  status: StatementLineStatus;
+  journalLineId: string | null;
+  matchedBy: string | null;
+}
+
+export interface LedgerLineRow {
+  journalLineId: string;
+  entryId: string;
+  number: number;
+  date: BusinessDate;
+  memo: string;
+  reference: string | null;
+  amount: number;
+  matched: boolean;
+}
+
+export interface Reconciliation {
+  bankAccountId: string;
+  asOf: BusinessDate;
+  statementBalance: number | null;
+  ledgerBalance: number;
+  uncleared: number;
+  unmatchedStatement: number;
+  unmatchedLines: number;
+  reconciledBalance: number;
+  difference: number | null;
+  statementLines: StatementLineRow[];
+  ledgerLines: LedgerLineRow[];
+}
+
+export interface FiscalRow {
+  id: string;
+  saleId: string;
+  storeCode: string;
+  stationNumber: number;
+  invoiceNumber: number;
+  soldAt: LocalDateTime;
+  total: number;
+  status: FiscalInvoiceStatus;
+  attempts: number;
+  lastError: string | null;
+  fiscalNumber: string | null;
+  sentAtUtc: UtcDateTime | null;
+}
+
+export interface FiscalQueue {
+  enabled: boolean;
+  rows: FiscalRow[];
+}

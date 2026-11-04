@@ -7,7 +7,7 @@ using RetailPlus.Data.Services;
 namespace RetailPlus.Server;
 
 public sealed record BillListRow(Guid Id, long Number, SupplierBillKind Kind, SupplierBillStatus Status, Guid SupplierId, string Supplier, Guid StoreId, string StoreCode,
-    DateOnly BillDate, DateOnly DueDate, string? SupplierReference, string Currency, decimal Total, decimal Paid, decimal Open, int DaysOverdue);
+    DateOnly BillDate, DateOnly DueDate, string? SupplierReference, string Currency, decimal Total, decimal Paid, decimal Open, int DaysOverdue, decimal Subtotal = 0);
 public sealed record BillLineInfo(int LineNumber, Guid? AccountId, string? AccountCode, Guid? ItemId, string Description, decimal Quantity, decimal UnitPrice, decimal Amount,
     decimal TaxRate, decimal TaxAmount, Guid? PurchaseOrderId, Guid? PurchaseOrderLineId);
 public sealed record BillPaymentInfo(Guid PaymentId, long Number, DateOnly Date, decimal Amount, SupplierPaymentStatus Status);
@@ -180,7 +180,7 @@ public static partial class Endpoints
     private static BillListRow ToRow(SupplierBill b, string supplier, Dictionary<Guid, string> codes, DateOnly today) =>
         new(b.Id, b.Number, b.Kind, b.Status, b.SupplierId, supplier, b.StoreId, codes.GetValueOrDefault(b.StoreId) ?? "", b.BillDate, b.DueDate, b.SupplierReference, b.Currency,
             b.Total, b.Paid, b.Total - b.Paid,
-            b.Kind == SupplierBillKind.Bill && b.Status is SupplierBillStatus.Posted or SupplierBillStatus.PartPaid && today > b.DueDate ? today.DayNumber - b.DueDate.DayNumber : 0);
+            b.Kind == SupplierBillKind.Bill && b.Status is SupplierBillStatus.Posted or SupplierBillStatus.PartPaid && today > b.DueDate ? today.DayNumber - b.DueDate.DayNumber : 0, b.Subtotal);
 
     private static async Task<IResult> BillsDueAsync(ApiRequest api)
     {
