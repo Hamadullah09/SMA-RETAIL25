@@ -33,6 +33,10 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped(provider => new ApiRequest(
     provider.GetRequiredService<IHttpContextAccessor>().HttpContext ?? throw new InvalidOperationException("An API request needs an HTTP request."),
     provider.GetRequiredService<DataContext>()));
+// The supplier bills the three-way match reads (Endpoints.Supply.cs). Until the payables module registers its own
+// IBillLineSource, an empty in-memory one stands in (the tests add bills to it).
+builder.Services.AddSingleton<InMemoryBillLineSource>();
+builder.Services.AddSingleton<IBillLineSource>(provider => provider.GetRequiredService<InMemoryBillLineSource>());
 
 // Station keys are encrypted with data-protection keys kept in the data folder (encrypted with DPAPI on Windows).
 builder.Services.AddDataProtection().SetApplicationName("SMA RETAIL Server");
