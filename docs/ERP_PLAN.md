@@ -150,3 +150,30 @@ Built before the phases so that they can all post to one ledger:
 | Permissions | `finance.view`, `finance.post`, `finance.approve`, `finance.close`, `finance.setup`, and a standard Accountant role |
 
 The ledger tables live on the server only and are never synced to the tills.
+
+## 7. Where the work stopped (2026-11-04)
+
+The five phases were being built in parallel, each on its own branch from `integration-all-phases` (which has the
+ledger foundation of section 6). The session paused before any phase was finished. Each branch was saved as it stood,
+with a last commit marked **WIP**. None of the ERP branches is merged into `integration-all-phases` yet.
+
+| Phase | Branch | Done (commits) | Still to do |
+|---|---|---|---|
+| E1 Finance | `erp-e1-finance` | Payables, expenses, bank accounts, financial years and budgets in the data layer; the finance API on the server, background jobs that post the tills' business days, FBR behind a switch (off). WIP: first web pages (finance home, chart of accounts, bank, bills, journals) | The rest of the web pages (payments, expenses, reconciliation, statements, budgets, years, settings), the Tally and QuickBooks exports if not done, web and server tests for what is new, docs |
+| E2 Supply chain | `erp-e2-supply` | Batches and expiry, bins, requisitions, three-way match and landed costs in the model; the supply chain web pages. WIP: the server API and its tests | Finish the API and its tests; desktop parts (batch and expiry at receiving, FEFO at the till, requisitions on the Purchase Orders screen); web tests; docs |
+| E3 HR and payroll | `erp-e3-hr` | Employees, attendance, leave and payroll on the server; the HR and payroll API; the HR web pages. WIP: tests of the HR rules | The rest of the tests (data on both engines, server, web), payroll rule set checks, docs |
+| E4 CRM and marketing | `erp-e4-crm` | Promotions, leads, campaigns and targets in the model; the server API for CRM, WhatsApp campaigns (fake sender), promotions and targets. WIP: the web pages and their e2e tests, promotions in the Pay window | Finish the web pages and the till's promotions and coupons, the client's WhatsApp consent at the till, tests, docs |
+| E5 Manufacturing | `erp-e5-manufacturing` | BOMs, production orders, planning and quality in the model; manufacturing on the server (orders, MRP, quality, reports); the Production screen at the till. WIP: the web pages and their e2e tests | Finish the web pages and tests, the costing postings check, docs |
+
+To carry on:
+1. Finish each phase on its own branch. Each phase's brief and the shared rules are what it was built from; they are
+   summarised in sections 4 to 6.
+2. Merge the branches into `integration-all-phases` one at a time (E1 first, because E2 plugs its three-way match into
+   E1's supplier bills). For each one:
+   - regenerate both InitialCreate migrations;
+   - run `dotnet build RetailPlus.sln` (no warnings), `dotnet test RetailPlus.sln`, the web checks (`npm run typecheck`,
+     `lint`, `build`, `test`, `e2e` in `web/`) and the desktop smoke check (`RetailPlus.exe --smoke --db <new file>`).
+3. Local demo databases made with an older model must be made again after the merge, because the migrations are
+   regenerated:
+   - the server's LocalDB `RetailPlus_E2E`: drop it and run the cutover from `Retail25_E2E` again;
+   - the till's `%LOCALAPPDATA%\RetailPlus\smaretail.db`: move it aside and let the app make a new one.
