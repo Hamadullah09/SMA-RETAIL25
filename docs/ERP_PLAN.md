@@ -151,29 +151,56 @@ Built before the phases so that they can all post to one ledger:
 
 The ledger tables live on the server only and are never synced to the tills.
 
-## 7. Where the work stopped (2026-11-04)
+## 7. Status (2026-11-04): the five phases are merged
 
-The five phases were being built in parallel, each on its own branch from `integration-all-phases` (which has the
-ledger foundation of section 6). The session paused before any phase was finished. Each branch was saved as it stood,
-with a last commit marked **WIP**. None of the ERP branches is merged into `integration-all-phases` yet.
+Each phase was finished on its own branch and merged into `integration-all-phases` one at a time, in this order: E1,
+E3, E4, E5, E2. E2 came last because its three-way match reads E1's supplier bills; that link was made in the E2 merge.
+Both `InitialCreate` migrations were made again after each merge, and the checks below were run after each one.
 
-| Phase | Branch | Done (commits) | Still to do |
-|---|---|---|---|
-| E1 Finance | `erp-e1-finance` | Payables, expenses, bank accounts, financial years and budgets in the data layer; the finance API on the server, background jobs that post the tills' business days, FBR behind a switch (off). WIP: first web pages (finance home, chart of accounts, bank, bills, journals) | The rest of the web pages (payments, expenses, reconciliation, statements, budgets, years, settings), the Tally and QuickBooks exports if not done, web and server tests for what is new, docs |
-| E2 Supply chain | `erp-e2-supply` | Batches and expiry, bins, requisitions, three-way match and landed costs in the model; the supply chain web pages. WIP: the server API and its tests | Finish the API and its tests; desktop parts (batch and expiry at receiving, FEFO at the till, requisitions on the Purchase Orders screen); web tests; docs |
-| E3 HR and payroll | `erp-e3-hr` | Employees, attendance, leave and payroll on the server; the HR and payroll API; the HR web pages. WIP: tests of the HR rules | The rest of the tests (data on both engines, server, web), payroll rule set checks, docs |
-| E4 CRM and marketing | `erp-e4-crm` | Promotions, leads, campaigns and targets in the model; the server API for CRM, WhatsApp campaigns (fake sender), promotions and targets. WIP: the web pages and their e2e tests, promotions in the Pay window | Finish the web pages and the till's promotions and coupons, the client's WhatsApp consent at the till, tests, docs |
-| E5 Manufacturing | `erp-e5-manufacturing` | BOMs, production orders, planning and quality in the model; manufacturing on the server (orders, MRP, quality, reports); the Production screen at the till. WIP: the web pages and their e2e tests | Finish the web pages and tests, the costing postings check, docs |
+| Phase | Branch (last commit) | Merge | What it brings | Described in |
+|---|---|---|---|---|
+| E1 Finance | `erp-e1-finance` (288479b) | e928534 | Payables (supplier bills, debit notes, payments and payment runs), expenses, bank accounts and reconciliation, statements, budgets, financial years, the Tally and QuickBooks exports, FBR behind a switch (off) | `ERP_E1_FINANCE.md` |
+| E3 HR and payroll | `erp-e3-hr` (0afc04e) | eb9065c | Employees, attendance, leave, and payroll with Pakistan's rules, posted to the ledger | `ERP_E3_HR.md` |
+| E4 CRM and marketing | `erp-e4-crm` (f28153b) | e865c13 | Leads and the pipeline, segments, WhatsApp campaigns, promotions and coupons at the till, sales targets | `ERP_E4_CRM.md` |
+| E5 Manufacturing | `erp-e5-manufacturing` (2e34ddc) | a5de594 | Bills of materials, production orders, planning, quality, costing posted to the ledger, the Production screen at the till | `ERP_E5_MANUFACTURING.md` |
+| E2 Supply chain | `erp-e2-supply` (a74ae02) | ded0afc | Batches and expiry (first expiry first out at the till), bins, requisitions, the three-way match, landed costs | `ERP_E2_SUPPLY.md` |
 
-To carry on:
-1. Finish each phase on its own branch. Each phase's brief and the shared rules are what it was built from; they are
-   summarised in sections 4 to 6.
-2. Merge the branches into `integration-all-phases` one at a time (E1 first, because E2 plugs its three-way match into
-   E1's supplier bills). For each one:
-   - regenerate both InitialCreate migrations;
-   - run `dotnet build RetailPlus.sln` (no warnings), `dotnet test RetailPlus.sln`, the web checks (`npm run typecheck`,
-     `lint`, `build`, `test`, `e2e` in `web/`) and the desktop smoke check (`RetailPlus.exe --smoke --db <new file>`).
-3. Local demo databases made with an older model must be made again after the merge, because the migrations are
-   regenerated:
-   - the server's LocalDB `RetailPlus_E2E`: drop it and run the cutover from `Retail25_E2E` again;
-   - the till's `%LOCALAPPDATA%\RetailPlus\smaretail.db`: move it aside and let the app make a new one.
+What the E2 merge joined up with E1:
+- The three-way match reads the lines of posted supplier bills and debit notes that name a purchase order line
+  (`SupplierBillLineSource`). The server uses it in place of the stand-in it had while E1 was apart.
+- Posting or voiding a supplier bill runs the match for that bill.
+- A bill the match holds cannot be paid, on its own or in a payment run, until it is accepted or rejected under Matching.
+
+Checks on the merged branch (f89b880):
+
+| Check | Result |
+|---|---|
+| `dotnet build RetailPlus.sln` | Succeeded from scratch (`--no-incremental`): 0 warnings, 0 errors |
+| `dotnet test RetailPlus.sln` | All pass: Core 112, Rfid 48, Migration 42 (3 skipped), Cutover 3 (14 skipped: they need Retail Plus files), Data 320 (1 skipped), Sync 20, Server 121 |
+| `web/`: typecheck, lint, unit tests | Pass; 249 unit tests |
+| `web/`: build | Pass; 75 pages |
+| `web/`: e2e | 241 passed, 3 skipped |
+| Desktop `--smoke` on a new database | Passed |
+
+When the whole solution's tests run in parallel on a busy machine, a few tests that depend on timing (sync, the RFID
+driver, PIN hashing) failed now and then on the earlier merges. They passed each time when run again on their own.
+
+What is not done yet (each phase's document says more):
+- **E1:** FBR and QuickBooks Online have not been tried against the real services. Pakistan's tax rates must be checked
+  each budget year. Payments in a currency other than the bank account's are refused. A document and its ledger entry
+  are saved one after the other, not in one database transaction.
+- **E2:** bins, batch lists and the put-away, pick and count lists are on the web only. The POS has no key to choose a
+  batch by hand (it always sells first expiry first).
+- **E3:** there is no rule set for tax year 2027 (from 1 July 2026), so payroll for July 2026 onwards pays nobody until
+  HR enters it. The PESSI limit, leave entitlements and holidays need checking by a tax adviser. The gratuity exemption
+  and the provinces' own rules are not modelled. Anyone with `hr.view` sees an employee's CNIC and IBAN.
+- **E4:** promotions are set up on the web only. WhatsApp is the only channel, and the real sender has not been tried
+  against Meta's API. **A returned item is refunded at the price the cashier rings up, not the promotion price it was
+  sold at.** This should be fixed before promotions are used in a shop.
+- **E5:** production does not choose or record batches yet. Labour is absorbed at the work centres' rates and the
+  difference from payroll stays in Manufacturing overhead. Scrapping a backflushed component lowers what is taken at
+  the end. The order screens and the ledger round to the cent at different steps, so they can differ by a cent.
+
+Local databases made before the merges must be made again, because the migrations were regenerated:
+- the server's LocalDB `RetailPlus_E2E`: drop it and run the cutover from `Retail25_E2E` again;
+- the till's `%LOCALAPPDATA%\RetailPlus\smaretail.db`: move it aside and let the app make a new one.

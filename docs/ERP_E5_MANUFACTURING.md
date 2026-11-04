@@ -177,7 +177,7 @@ reads that file and checks every answer against it, field by field, so the serve
 - **Quality on the till.** Inspections are made on the web; the floor cannot record one at the till.
 - **Several output locations per order**, and serial numbers on made items, are not supported.
 
-## 9. Merging after E1 to E4
+## 9. Merging after E1 to E4 (done on 2026-11-04; kept as a record)
 
 - **Migrations:** regenerate both `InitialCreate` migrations after the merge, as for every phase.
 - **Shared lists E5 added to** (at the end, or in a block of their own): `Permissions.cs` (four keys, two roles, and
