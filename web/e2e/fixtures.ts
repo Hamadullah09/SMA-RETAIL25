@@ -861,7 +861,7 @@ export const segmentsE4: SegmentRow[] = [
   },
   {
     id: 'seg-2', version: 'v-1', name: 'Lapsed Downtown', description: null, rules: { noPurchaseForDays: 60, storeId: 's-main', whatsAppConsent: true },
-    summary: 'At Downtown · No purchase for 60 days · Agreed to WhatsApp', storeId: 's-main', lastCount: null, lastEvaluatedAtUtc: null,
+    summary: 'At Downtown · No purchase for 60 days · Agreed to WhatsApp', storeId: 's-main', lastCount: 0, lastEvaluatedAtUtc: null,
   },
 ];
 

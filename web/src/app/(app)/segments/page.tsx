@@ -148,7 +148,7 @@ function Segments() {
         columns={[
           { key: 'name', header: 'Name', cell: (s) => <span className="font-semibold">{s.name}</span> },
           { key: 'rules', header: 'Who is in it', cell: (s) => s.summary, className: 'wrap', hideBelow: 'md' },
-          { key: 'count', header: 'Clients', numeric: true, cell: (s) => (s.lastCount === null ? '—' : formatCount(s.lastCount)) },
+          { key: 'count', header: 'Clients', numeric: true, cell: (s) => (s.lastEvaluatedAtUtc === null ? '—' : formatCount(s.lastCount)) },
           { key: 'when', header: 'Evaluated', cell: (s) => (s.lastEvaluatedAtUtc ? formatShortUtc(s.lastEvaluatedAtUtc) : 'Not yet'), hideBelow: 'lg' },
           { key: 'scope', header: 'For', cell: (s) => (s.storeId ? <Chip>One store</Chip> : <Chip tone="dark">Every store</Chip>), hideBelow: 'xl' },
         ]}

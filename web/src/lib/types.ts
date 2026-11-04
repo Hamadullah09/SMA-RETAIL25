@@ -962,7 +962,8 @@ export interface SegmentRow {
   /** The rules in words. */
   summary: string;
   storeId: string | null;
-  lastCount: number | null;
+  /** The members when last evaluated; 0 before (see `lastEvaluatedAtUtc`). */
+  lastCount: number;
   lastEvaluatedAtUtc: UtcDateTime | null;
 }
 

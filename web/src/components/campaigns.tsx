@@ -139,7 +139,7 @@ export function CampaignDialog({ campaign, onClose }: { campaign: CampaignRow | 
           <Field label="Name" htmlFor="campaign-name">
             <Input id="campaign-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
           </Field>
-          <Field label="Segment" htmlFor="campaign-segment" hint={segment ? `${segment.summary}${segment.lastCount !== null ? ` · ${formatCount(segment.lastCount)} clients when last evaluated` : ''}` : undefined}>
+          <Field label="Segment" htmlFor="campaign-segment" hint={segment ? `${segment.summary}${segment.lastEvaluatedAtUtc !== null ? ` · ${formatCount(segment.lastCount)} clients when last evaluated` : ''}` : undefined}>
             <Select id="campaign-segment" value={segmentId} onChange={(e) => setSegmentId(e.target.value)}>
               <option value="">Choose…</option>
               {segments.data.map((s) => (

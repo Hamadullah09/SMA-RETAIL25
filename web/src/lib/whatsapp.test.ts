@@ -37,6 +37,8 @@ describe('campaign figures', () => {
     expect(campaignActions('Scheduled', { ...none, queued: 3 })).toEqual({ edit: false, schedule: false, cancel: true, remove: false });
     expect(campaignActions('Cancelled', { ...none, queued: 3 }).remove).toBe(true);
     expect(campaignActions('Cancelled', { ...none, sent: 1 }).remove).toBe(false);
+    // A message refused before it went (no consent any more) keeps the campaign too, as on the server.
+    expect(campaignActions('Cancelled', { ...none, queued: 2, error: 1 }).remove).toBe(false);
     expect(campaignActions('Sent', { ...none, read: 5 })).toEqual({ edit: false, schedule: false, cancel: false, remove: false });
   });
 });

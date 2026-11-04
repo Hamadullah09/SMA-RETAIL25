@@ -98,9 +98,12 @@ export function deliveredPercent(counts: MessageCounts): number {
   return out === 0 ? 0 : Math.round(((counts.delivered + counts.read) / out) * 1000) / 10;
 }
 
-/** A draft can be changed and scheduled; a cancelled one that sent nothing, or a draft, can be deleted. */
+/**
+ * A draft can be changed and scheduled; a draft, or a cancelled one whose messages all stayed queued, can be deleted (the
+ * server keeps a campaign once any message went out or was refused).
+ */
 export function campaignActions(status: CampaignStatus, counts: MessageCounts) {
-  const sentSome = counts.sent + counts.delivered + counts.read + counts.failed > 0;
+  const sentSome = counts.sent + counts.delivered + counts.read + counts.failed + counts.error > 0;
   return {
     edit: status === 'Draft',
     schedule: status === 'Draft',

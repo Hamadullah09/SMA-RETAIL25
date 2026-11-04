@@ -27,7 +27,17 @@ describe('promotion checks', () => {
       'Type how much the customer must spend.',
       'Type the percent or the amount off.',
     ]);
-    expect(checkPromotion(make({ couponCode: 'a b' }))).toContain('A coupon code has 3 to 30 letters, digits or dashes.');
+    const coupon = 'A coupon code has 3 to 30 letters, digits, - or _, starting with a letter or digit.';
+    expect(checkPromotion(make({ couponCode: 'a b' }))).toContain(coupon);
+    expect(checkPromotion(make({ couponCode: '_ab' }))).toContain(coupon);
+    expect(checkPromotion(make({ couponCode: 'eid_2026' }))).toEqual([]);
+  });
+
+  it('asks for what the server asks for: both happy hour times, a whole priority', () => {
+    expect(checkPromotion(make({ startTime: '17:00', endTime: null }))).toContain('A happy hour has a start time and an end time.');
+    expect(checkPromotion(make({ startTime: null, endTime: '19:00' }))).toContain('A happy hour has a start time and an end time.');
+    expect(checkPromotion(make({ startTime: '17:00', endTime: '19:00' }))).toEqual([]);
+    expect(checkPromotion(make({ priority: 2.5 }))).toContain('The priority is a whole number.');
   });
 });
 

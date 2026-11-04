@@ -226,7 +226,7 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
       case /^POST \/api\/leads\/[^/]+\/convert$/.test(key): {
         const lead = f.leads.find((l) => l.id === id) ?? f.leads[0];
         const clientId = (r.body as { clientId?: string | null })?.clientId ?? 'cl-new';
-        return { json: { lead: { ...lead, status: 'Converted', clientId, clientName: lead.name, version: 'v-2' }, clientId, clientNumber: 10000005 } };
+        return { json: { lead: { ...lead, status: 'Converted', clientId, clientName: lead.name, version: 'v-2' }, clientId, clientNumber: '10000005' } };
       }
       case /^GET \/api\/leads\/[^/]+$/.test(key):
         return { json: f.leads.find((l) => l.id === id) ?? f.leads[0] };

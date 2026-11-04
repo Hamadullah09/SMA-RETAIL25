@@ -94,6 +94,8 @@ export function checkPromotion(p: PromotionRequest): string[] {
   if (p.startsOn && p.endsOn && p.startsOn > p.endsOn) problems.push('The last day is before the first day.');
   if (!p.allStores && p.storeIds.length === 0) problems.push('Choose the stores, or every store.');
   if ((p.startTime && !/^\d{2}:\d{2}$/.test(p.startTime)) || (p.endTime && !/^\d{2}:\d{2}$/.test(p.endTime))) problems.push('Times are like 17:30.');
+  if (!p.startTime !== !p.endTime) problems.push('A happy hour has a start time and an end time.');
+  if (!Number.isInteger(p.priority)) problems.push('The priority is a whole number.');
   if (p.kind !== 'BundlePrice' && p.scope !== 'AllItems' && p.targets.length === 0) problems.push('Choose what it applies to.');
   if ([...p.targets, ...p.rewardTargets, ...p.bundleParts].some((t) => !oneTarget(t))) problems.push('Each line names one department, category or stock code.');
   switch (p.kind) {
@@ -119,7 +121,7 @@ export function checkPromotion(p: PromotionRequest): string[] {
       if (p.percent > 100) problems.push('The percent is at most 100.');
       break;
   }
-  if (p.couponCode && !/^[A-Za-z0-9-]{3,30}$/.test(p.couponCode.trim())) problems.push('A coupon code has 3 to 30 letters, digits or dashes.');
+  if (p.couponCode && !/^[A-Za-z0-9][A-Za-z0-9_-]{2,29}$/.test(p.couponCode.trim())) problems.push('A coupon code has 3 to 30 letters, digits, - or _, starting with a letter or digit.');
   if (p.couponMaxUses < 0 || !Number.isInteger(p.couponMaxUses)) problems.push('The coupon limit is a whole number (0 is no limit).');
   return problems;
 }

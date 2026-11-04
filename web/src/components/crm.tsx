@@ -422,16 +422,16 @@ export function OpportunityDialog({
   const stages = useStages();
   const edit = can(P.crmEdit);
   const [title, setTitle] = useState(opportunity?.title ?? '');
-  const [kind, setKind] = useState<'client' | 'lead'>(opportunity?.leadId && !opportunity.clientId ? 'lead' : about?.kind ?? 'client');
-  const [picked, setPicked] = useState<Picked | null>(
-    opportunity
-      ? opportunity.clientId
-        ? { id: opportunity.clientId, name: opportunity.clientName ?? 'The client' }
-        : opportunity.leadId
-          ? { id: opportunity.leadId, name: opportunity.leadName ?? 'The lead' }
-          : null
-      : about?.picked ?? null,
-  );
+  const initialKind: 'client' | 'lead' = opportunity?.leadId && !opportunity.clientId ? 'lead' : about?.kind ?? 'client';
+  const initialPick: Picked | null = opportunity
+    ? opportunity.clientId
+      ? { id: opportunity.clientId, name: opportunity.clientName ?? 'The client' }
+      : opportunity.leadId
+        ? { id: opportunity.leadId, name: opportunity.leadName ?? 'The lead' }
+        : null
+    : about?.picked ?? null;
+  const [kind, setKind] = useState<'client' | 'lead'>(initialKind);
+  const [picked, setPicked] = useState<Picked | null>(initialPick);
   const [stage, setStage] = useState(opportunity?.stageId ?? stageId ?? '');
   const [value, setValue] = useState(numberText(opportunity?.expectedValue ?? 0));
   const [probability, setProbability] = useState(opportunity ? numberText(opportunity.probability) : '');
@@ -452,10 +452,12 @@ export function OpportunityDialog({
 
   const save = useMutation({
     mutationFn: () => {
+      // Unchanged, it keeps both links: a converted lead's opportunity has its client and its lead.
+      const same = !!opportunity && kind === initialKind && picked?.id === initialPick?.id;
       const body = {
         title: title.trim(),
-        clientId: kind === 'client' ? picked?.id ?? null : null,
-        leadId: kind === 'lead' ? picked?.id ?? null : null,
+        clientId: same ? opportunity.clientId : kind === 'client' ? picked?.id ?? null : null,
+        leadId: same ? opportunity.leadId : kind === 'lead' ? picked?.id ?? null : null,
         stageId: stage || null,
         expectedValue: parseNumber(value) ?? 0,
         probability: probability.trim() ? parseNumber(probability) : null,
@@ -704,13 +706,15 @@ export function ActivityDialog({
 
   const save = useMutation({
     mutationFn: () => {
+      // Unchanged, it keeps every link it had (a converted lead's activity has its client and its lead).
+      const same = !!activity && aboutKind === initialKind && picked?.id === initialPick?.id;
       const body = {
         kind,
         subject: subject.trim(),
         notes: textOrNull(notes),
-        clientId: aboutKind === 'client' ? picked?.id ?? null : null,
-        leadId: aboutKind === 'lead' ? picked?.id ?? null : null,
-        opportunityId: aboutKind === 'opportunity' ? picked?.id ?? null : null,
+        clientId: same ? activity.clientId : aboutKind === 'client' ? picked?.id ?? null : null,
+        leadId: same ? activity.leadId : aboutKind === 'lead' ? picked?.id ?? null : null,
+        opportunityId: same ? activity.opportunityId : aboutKind === 'opportunity' ? picked?.id ?? null : null,
         dueAt: joinLocal(date, time),
         ownerId: ownerId || null,
         storeId: storeId || null,
