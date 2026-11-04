@@ -16,6 +16,23 @@ public sealed record ReceivedBatch(string BatchNumber, decimal Pieces, DateOnly?
 public sealed record SellableStock(decimal OnHand, decimal Sellable, decimal Expired, bool ExpiredBlocked);
 
 /// <summary>
+/// What a sale of an item kept in batches would take, worked out before it is paid so that the POS can say which batch
+/// goes and warn about expired goods: the batches in the order they leave (first expiry first), the expired batches that
+/// still hold stock, whether the store stops them from being sold, and how much may be sold.
+/// </summary>
+public sealed record SalePick(IReadOnlyList<BatchTake> Takes, IReadOnlyList<BatchStock> Batches, IReadOnlyList<BatchStock> ExpiredBatches, bool ExpiredBlocked,
+    decimal Sellable)
+{
+    public decimal Expired => ExpiredBatches.Sum(b => b.OnHand);
+
+    /// <summary>The expiry date of one of the item's batches (none for stock in no batch).</summary>
+    public DateOnly? ExpiryOf(Guid? batchId) => Batches.FirstOrDefault(b => b.BatchId == batchId)?.ExpiresOn;
+}
+
+/// <summary>An item kept in batches on a purchase order, with the shelf life that offers the expiry date at receiving.</summary>
+public sealed record BatchItem(Guid ItemId, int ShelfLifeDays);
+
+/// <summary>
 /// Batches and expiry: an item that tracks batches (<see cref="Item.TracksBatches"/>) is received in batches, each with a
 /// number and an expiry date; its stock per batch is the sum of the stock movements that name the batch. The POS sells the
 /// batch that expires first (<see cref="Fefo"/>), and a store can stop expired stock from being sold
@@ -127,6 +144,32 @@ public sealed class BatchService(DataContext data)
         bool block = (await SupplySettingsService.ForStoreAsync(db, item.StoreId)).BlockExpiredSales;
         decimal expired = (await StockOfAsync(db, itemId)).Where(b => Fefo.IsExpired(b.ExpiresOn, day) && b.OnHand > 0).Sum(b => b.OnHand);
         return new SellableStock(item.OnHand, block ? item.OnHand - expired : item.OnHand, expired, block && expired > 0);
+    }
+
+    /// <summary>
+    /// The batches a sale of <paramref name="quantity"/> would take (as <see cref="TakeAsync"/> takes them when the sale is
+    /// saved), and the item's expired stock. Null for an item that is not kept in batches.
+    /// </summary>
+    public async Task<SalePick?> PickForSaleAsync(Guid itemId, decimal quantity, DateOnly? today = null)
+    {
+        var day = today ?? DateOnly.FromDateTime(DateTime.Today);
+        await using var db = data.Create();
+        var item = await db.Items.AsNoTracking().Where(i => i.Id == itemId).Select(i => new { i.OnHand, i.TracksBatches, i.Location!.StoreId }).SingleOrDefaultAsync();
+        if (item is null || !item.TracksBatches) return null;
+        bool block = (await SupplySettingsService.ForStoreAsync(db, item.StoreId)).BlockExpiredSales;
+        var stock = await StockOfAsync(db, itemId);
+        var expired = Fefo.Order(stock.Where(b => Fefo.IsExpired(b.ExpiresOn, day) && b.OnHand > 0)).ToList();
+        decimal sellable = block ? item.OnHand - expired.Sum(b => b.OnHand) : item.OnHand;
+        return new SalePick(Fefo.Pick(stock, quantity, day, skipExpired: block), stock, expired, block, sellable);
+    }
+
+    /// <summary>Which of these items are kept in batches, with their shelf life: receiving asks for their batches.</summary>
+    public async Task<List<BatchItem>> KeptInBatchesAsync(IEnumerable<Guid> itemIds)
+    {
+        var ids = itemIds.Distinct().ToList();
+        if (ids.Count == 0) return [];
+        await using var db = data.Create();
+        return await db.Items.AsNoTracking().Where(i => ids.Contains(i.Id) && i.TracksBatches).Select(i => new BatchItem(i.Id, i.ShelfLifeDays)).ToListAsync();
     }
 
     /// <summary>

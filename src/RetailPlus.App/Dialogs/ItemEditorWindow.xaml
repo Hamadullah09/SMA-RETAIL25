@@ -132,6 +132,8 @@
                         <DockPanel><TextBlock Text="Base stock" Style="{StaticResource L}" /><TextBox Text="{Binding BaseStock}" /></DockPanel>
                         <DockPanel><TextBlock Text="Reorder point" Style="{StaticResource L}" /><TextBox Text="{Binding ReorderPoint}" /></DockPanel>
                         <DockPanel><TextBlock Text="Reorder quantity" Style="{StaticResource L}" /><TextBox Text="{Binding ReorderQuantity}" /></DockPanel>
+                        <DockPanel><TextBlock Text="Batches" Style="{StaticResource L}" /><CheckBox IsChecked="{Binding TracksBatches}" Content="Kept in batches, with expiry dates" ToolTip="Receiving asks for the batch number and expiry date; the till sells the batch that expires first" /></DockPanel>
+                        <DockPanel><TextBlock Text="Shelf life (days)" Style="{StaticResource L}" /><TextBox Text="{Binding ShelfLifeDays}" ToolTip="How many days the goods keep once made; receiving offers the expiry date from it. 0 when not known" /></DockPanel>
                     </StackPanel>
                     <StackPanel Grid.Column="2">
                         <DockPanel><TextBlock Text="On order" Style="{StaticResource L}" /><TextBlock Text="{Binding OnOrder, StringFormat=0.###}" VerticalAlignment="Center" /></DockPanel>

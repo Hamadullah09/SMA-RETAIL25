@@ -125,6 +125,20 @@ public sealed partial class PosViewModel : ObservableObject
             System.Media.SystemSounds.Beep.Play();
             return;
         }
+        // An item kept in batches leaves from the batch that expires first. Expired goods are refused when the store says
+        // so (supply chain settings on the web), and the cashier is warned about them either way.
+        SalePick? batchPick = null;
+        if (!ReturnMode && item.TracksBatches && SalesService.IsStocked(item.ItemType))
+        {
+            decimal onSale = Lines.Where(l => l.ItemId == item.Id && l.Kind == SaleLineKind.Sale).Sum(l => l.Quantity);
+            batchPick = await AppServices.Batches.PickForSaleAsync(item.Id, onSale + qty);
+            if (batchPick is { ExpiredBlocked: true, Expired: > 0 } && onSale + qty > batchPick.Sellable)
+            {
+                Alert(ExpiredRefused(item, batchPick, onSale) + " The scan was not added.");
+                System.Media.SystemSounds.Beep.Play();
+                return;
+            }
+        }
         string? serial = null;
         if (item.ItemType == ItemType.Serialized && epc is not null)
         {
@@ -175,6 +189,7 @@ public sealed partial class PosViewModel : ObservableObject
             SelectedLine = same;
             Message = $"{item.Name} x {Math.Abs(same.Quantity).ToString("0.###", C)} — {same.LineTotal.ToString("N2", C)}"
                 + (epc is null && same.Epcs.Count > 0 ? "   (if this piece was already read by RFID, lower the quantity with F5)" : "");
+            ShowBatch(item, batchPick);
             RefreshLines();
             if (!string.IsNullOrWhiteSpace(item.TagAlongCode) && kind == SaleLineKind.Sale)
                 await AddCodeAsync(item.TagAlongCode!, qty);
@@ -213,6 +228,7 @@ public sealed partial class PosViewModel : ObservableObject
         SelectedLine = line;
         Message = !string.IsNullOrWhiteSpace(item.PosMessage) ? item.PosMessage! : $"{item.Name} — {line.LineTotal.ToString("N2", C)}" + (line.PriceExplanation is { } why && why != "regular price" ? $" ({why})" : "")
             + (item.OnHand - qty < 0 && SalesService.IsStocked(item.ItemType) ? "   ⚠ stock goes below zero" : "");
+        ShowBatch(item, batchPick);
         Recalculate();
         if (!string.IsNullOrWhiteSpace(item.TagAlongCode) && line.Kind == SaleLineKind.Sale)
             await AddCodeAsync(item.TagAlongCode!, qty);
@@ -340,6 +356,33 @@ public sealed partial class PosViewModel : ObservableObject
         decimal inStock = Math.Max(tagged, item.OnHand);
         decimal onSale = Lines.Where(l => l.ItemId == item.Id && l.Kind == SaleLineKind.Sale).Sum(l => l.Quantity);
         return (inStock, inStock - onSale);
+    }
+
+    /// <summary>
+    /// After an item kept in batches was rung up: the message names the batch its pieces leave from (first expiry first),
+    /// and expired stock of the item shows as a warning: the sale takes it (when the store lets expired goods be sold), or
+    /// it is still on the shelf.
+    /// </summary>
+    private void ShowBatch(Item item, SalePick? pick)
+    {
+        if (pick is null || pick.Takes.Count == 0) return;
+        var last = pick.Takes[^1];
+        Message += last.BatchId is null ? "   · no batch" : $"   · batch {last.BatchNumber}" + (pick.ExpiryOf(last.BatchId) is DateOnly d ? $", expires {d.ToString("d", C)}" : "");
+        if (pick.Expired <= 0) return;
+        var taken = pick.Takes.Select(t => pick.ExpiredBatches.FirstOrDefault(b => b.BatchId == t.BatchId)).FirstOrDefault(b => b is not null);
+        var first = pick.ExpiredBatches[0];
+        Alert(taken is not null
+            ? $"⚠ {item.Name}: this sale takes batch {taken.BatchNumber}, which expired on {taken.ExpiresOn!.Value.ToString("d", C)}. Check the date on the pack."
+            : $"⚠ {item.Name}: {pick.Expired.ToString("0.###", C)} on the shelf have expired (batch {first.BatchNumber}, {first.ExpiresOn!.Value.ToString("d", C)}). "
+              + "Take them off the shelf.");
+    }
+
+    private static string ExpiredRefused(Item item, SalePick pick, decimal onSale)
+    {
+        decimal more = Math.Max(0, pick.Sellable - onSale);
+        var first = pick.ExpiredBatches[0];
+        return $"{item.Name}: {pick.Expired.ToString("0.###", C)} have expired (batch {first.BatchNumber}, {first.ExpiresOn!.Value.ToString("d", C)}) and may not be sold; "
+               + (more > 0 ? $"only {more.ToString("0.###", C)} more can be." : "none is left to sell.");
     }
 
     private static string NoMorePieces(Item item, (decimal InStock, decimal Left) pieces) => pieces.Left <= 0
