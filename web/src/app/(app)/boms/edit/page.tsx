@@ -131,12 +131,12 @@ function Editor({ initial }: { initial: BomDetail }) {
           </Button>
         )}
         {editable && bom.id && (
-          <Button icon={Copy} onClick={() => copy.mutate()} busy={copy.isPending}>
+          <Button icon={Copy} shortcut="F7" onClick={() => copy.mutate()} busy={copy.isPending}>
             Copy as a new version
           </Button>
         )}
         {editable && bom.id && (
-          <Button icon={Trash2} onClick={() => setDeleting(true)}>
+          <Button icon={Trash2} shortcut="Del" onClick={() => setDeleting(true)}>
             Delete
           </Button>
         )}
@@ -289,7 +289,7 @@ function RowsCard({ children, onAdd, addLabel, error }: { children: ReactNode; o
       <div className="grid-scroll">{children}</div>
       <div className="flex flex-wrap items-center gap-3 border-t border-line px-4 py-3">
         {onAdd && (
-          <Button icon={Plus} onClick={onAdd}>
+          <Button icon={Plus} shortcut="Insert" onClick={onAdd}>
             {addLabel}
           </Button>
         )}
@@ -485,7 +485,9 @@ function Versions({ bom }: { bom: BomDetail }) {
           </Select>
         </label>
         {other && (
-          <Button onClick={() => router.push(`/boms/edit/?id=${other}`)}>Open that version</Button>
+          <Button shortcut="Ctrl+O" onClick={() => router.push(`/boms/edit/?id=${other}`)}>
+            Open that version
+          </Button>
         )}
       </Toolbar>
       <DataTable<BomDifference>

@@ -124,7 +124,7 @@ function CentreDialog({ centre, onClose }: { centre: WorkCentre | null; onClose(
       footer={
         <>
           {centre && (
-            <Button icon={Trash2} onClick={() => setDeleting(true)} className="mr-auto">
+            <Button icon={Trash2} shortcut="Del" onClick={() => setDeleting(true)} className="mr-auto">
               Delete
             </Button>
           )}

@@ -94,7 +94,7 @@ function ReportView({ reportKey, usesDates }: { reportKey: string; usesDates: bo
         <Button icon={Printer} shortcut="Ctrl+P" disabled={!table} onClick={() => window.print()}>
           Print
         </Button>
-        <Button icon={Download} disabled={!table} onClick={() => void csv()}>
+        <Button icon={Download} shortcut="Ctrl+E" disabled={!table} onClick={() => void csv()}>
           CSV
         </Button>
       </Toolbar>

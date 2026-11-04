@@ -136,7 +136,7 @@ function PlanDialog({ plan, onClose }: { plan: QualityPlan | null; onClose(): vo
       footer={
         <>
           {plan && (
-            <Button icon={Trash2} className="mr-auto" onClick={() => setDeleting(true)}>
+            <Button icon={Trash2} shortcut="Del" className="mr-auto" onClick={() => setDeleting(true)}>
               Delete
             </Button>
           )}
@@ -201,7 +201,7 @@ function PlanDialog({ plan, onClose }: { plan: QualityPlan | null; onClose(): vo
             </tbody>
           </table>
         </div>
-        <Button icon={Plus} onClick={() => setChecks([...checks, { lineNumber: checks.length + 1, name: '', kind: 'PassFail', minimum: '', maximum: '', unit: null, required: true }])}>
+        <Button icon={Plus} shortcut="Insert" onClick={() => setChecks([...checks, { lineNumber: checks.length + 1, name: '', kind: 'PassFail', minimum: '', maximum: '', unit: null, required: true }])}>
           Add check
         </Button>
         <Field label="Notes" htmlFor="plan-notes">

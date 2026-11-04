@@ -235,3 +235,30 @@ test('the production reports list and run', async ({ page }) => {
   await expect(table.getByRole('row', { name: /in progress/ })).toBeVisible();
   await expect(table).toContainText('Total');
 });
+
+test('the keys on the buttons work: F9 releases, Insert adds a line, Del dismisses and deletes', async ({ page }) => {
+  const api = await mockApi(page);
+  await page.goto('/production/view/?id=o-2');
+  await expect(page.getByRole('heading', { name: 'Order 100000002' })).toBeVisible();
+  await page.keyboard.press('F9');
+  await expect(page.getByRole('dialog', { name: 'Released, with material short' })).toBeVisible();
+  expect(api.last('POST', '/api/production-orders/o-2/release')).toBeTruthy();
+  await page.keyboard.press('Enter');
+
+  await page.goto('/boms/edit/?id=b-1');
+  await expect(page.getByLabel('Component 3 stock code')).toHaveValue('BOX');
+  await page.keyboard.press('Insert');
+  await expect(page.getByLabel('Component 4 stock code')).toBeVisible();
+
+  await page.goto('/planning/');
+  await page.getByLabel('Choose BOX').check();
+  await page.keyboard.press('Delete');
+  await expect.poll(() => api.last('POST', '/api/mrp/dismiss')?.body).toEqual({ ids: ['sg-3'] });
+
+  await page.goto('/work-centres/');
+  await page.getByRole('row', { name: /PACK.*Packing bench/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Change PACK' });
+  await dialog.getByRole('button', { name: /^Delete/ }).click();
+  await page.getByRole('dialog', { name: 'Delete PACK?' }).getByRole('button', { name: /^Yes/ }).click();
+  await expect.poll(() => api.last('DELETE', '/api/work-centres/w-2')).toBeTruthy();
+});

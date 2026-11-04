@@ -5,7 +5,9 @@
 import { expect, test } from '@playwright/test';
 import { mockApi } from './mock-api';
 
-const PAGES = ['/', '/tills/', '/sales/', '/sales/view/?id=sale-1', '/items/', '/items/edit/?id=i-1', '/clients/', '/suppliers/', '/stock/', '/gift-cards/', '/reports/', '/reports/view/?key=daily', '/staff/', '/users/', '/roles/', '/stores/', '/settings/', '/audit/', '/packages/', '/account/'];
+const PAGES = ['/', '/tills/', '/sales/', '/sales/view/?id=sale-1', '/items/', '/items/edit/?id=i-1', '/clients/', '/suppliers/', '/stock/', '/gift-cards/', '/reports/', '/reports/view/?key=daily', '/staff/', '/users/', '/roles/', '/stores/', '/settings/', '/audit/', '/packages/', '/account/',
+  // Manufacturing (phase E5).
+  '/production/', '/production/view/?id=o-1', '/boms/', '/boms/edit/?id=b-1', '/routings/', '/work-centres/', '/planning/', '/capacity/', '/quality/', '/production-reports/'];
 
 for (const path of PAGES) {
   test(`no sideways scroll on ${path}`, async ({ page }) => {

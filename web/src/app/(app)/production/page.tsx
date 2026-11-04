@@ -65,7 +65,7 @@ function Board() {
           </Button>
         )}
         {can(P.productionCosting) && (
-          <Button icon={Calculator} onClick={() => post.mutate()} busy={post.isPending}>
+          <Button icon={Calculator} shortcut="F8" onClick={() => post.mutate()} busy={post.isPending}>
             Post costs to the ledger
           </Button>
         )}

@@ -140,10 +140,10 @@ function Suggestions() {
         <Tabs label="Kind" value={kind} onChange={setKind} tabs={[{ key: 'all', label: 'All' }, { key: 'Make', label: 'To make' }, { key: 'Buy', label: 'To buy' }]} />
         {plan && (
           <>
-            <Button variant="sun" icon={CheckCheck} disabled={chosen.size === 0} busy={firm.isPending} onClick={() => firm.mutate()}>
+            <Button variant="sun" icon={CheckCheck} shortcut="F9" disabled={chosen.size === 0} busy={firm.isPending} onClick={() => firm.mutate()}>
               Firm {chosen.size > 0 ? formatCount(chosen.size) : ''}
             </Button>
-            <Button icon={X} disabled={chosen.size === 0} busy={dismiss.isPending} onClick={() => dismiss.mutate()}>
+            <Button icon={X} shortcut="Del" disabled={chosen.size === 0} busy={dismiss.isPending} onClick={() => dismiss.mutate()}>
               Dismiss
             </Button>
           </>

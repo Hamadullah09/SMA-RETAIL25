@@ -133,22 +133,22 @@ function Actions({ order }: { order: ProductionOrderDetail }) {
         </Button>
       )}
       {plan && (order.status === 'Planned' || order.status === 'Released') && (
-        <Button icon={Pencil} onClick={() => setEditing(true)}>
+        <Button icon={Pencil} shortcut="Ctrl+O" onClick={() => setEditing(true)}>
           Change
         </Button>
       )}
       {plan && open && (
-        <Button icon={Ban} onClick={() => setCancelling(true)}>
+        <Button icon={Ban} shortcut="Del" onClick={() => setCancelling(true)}>
           Cancel order
         </Button>
       )}
       {can(P.productionCosting) && order.status === 'Completed' && (
-        <Button variant="sun" icon={CheckCheck} onClick={() => setClosing(true)}>
+        <Button variant="sun" icon={CheckCheck} shortcut="F7" onClick={() => setClosing(true)}>
           Close order
         </Button>
       )}
       {can(P.productionCosting) && order.status !== 'Planned' && order.status !== 'Cancelled' && (
-        <Button icon={Calculator} onClick={() => post.mutate()} busy={post.isPending}>
+        <Button icon={Calculator} shortcut="F8" onClick={() => post.mutate()} busy={post.isPending}>
           Post costs
         </Button>
       )}
@@ -225,13 +225,13 @@ function Materials({ order }: { order: ProductionOrderDetail }) {
             <span className="text-muted">Quantity</span>
             <Input value={quantity} inputMode="decimal" onChange={(e) => setQuantity(e.target.value)} className="w-[120px] text-right" aria-label="Quantity" />
           </label>
-          <Button type="submit" variant="sun" icon={ScanLine} busy={act.isPending}>
+          <Button type="submit" variant="sun" icon={ScanLine} shortcut="Enter" busy={act.isPending}>
             Issue
           </Button>
-          <Button icon={PackageCheck} onClick={() => act.mutate(() => productionApi.issueRemaining(order.id))} disabled={!workable(order)}>
+          <Button icon={PackageCheck} shortcut="Ctrl+I" onClick={() => act.mutate(() => productionApi.issueRemaining(order.id))} disabled={!workable(order)}>
             Issue the list
           </Button>
-          <Button icon={Trash2} onClick={() => setScrapping(true)}>
+          <Button icon={Trash2} shortcut="F4" onClick={() => setScrapping(true)}>
             Scrap material
           </Button>
           <p className="w-full text-note text-muted">A negative quantity gives material back to stock.</p>
@@ -436,7 +436,7 @@ function Output({ order }: { order: ProductionOrderDetail }) {
                   onChange={(e) => setByQuantities({ ...byQuantities, [l.stockCode]: e.target.value })} />
               </Field>
             ))}
-          <Button type="submit" variant="sun" icon={PackageCheck} busy={act.isPending}>
+          <Button type="submit" variant="sun" icon={PackageCheck} shortcut="Enter" busy={act.isPending}>
             {complete ? 'Receive and complete' : 'Receive'}
           </Button>
         </form>
@@ -456,7 +456,7 @@ function Output({ order }: { order: ProductionOrderDetail }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="font-heading text-section">Inspections</h2>
         {can(P.productionPlan) && order.received > 0 && order.status !== 'Closed' && (
-          <Button icon={ClipboardCheck} onClick={() => setInspecting(true)}>
+          <Button icon={ClipboardCheck} shortcut="Ctrl+Q" onClick={() => setInspecting(true)}>
             Inspect output
           </Button>
         )}

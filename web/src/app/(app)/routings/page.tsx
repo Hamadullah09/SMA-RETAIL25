@@ -92,6 +92,7 @@ function RoutingEditor({ bom }: { bom: BomDetail }) {
           <div className="flex gap-2">
             <Button
               icon={Plus}
+              shortcut="Insert"
               onClick={() => setOps([...ops, { sequence: String(nextSequence(numbers())), workCentreId: centres.data?.[0]?.id ?? '', workCentreCode: null, name: '', setupMinutes: '0', runMinutesPerUnit: '0', instructions: null }])}
             >
               Add operation

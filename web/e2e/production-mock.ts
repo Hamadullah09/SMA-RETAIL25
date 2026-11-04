@@ -29,6 +29,8 @@ export function productionAnswer(r: Request): Answer {
       return { status: 201, json: { ...f.workCentres[0], ...body, id: 'w-new', version: 'v-1', storeCode: 'MAIN', locationCode: 'POS' } };
     case /^PUT \/api\/work-centres\/[^/]+$/.test(key):
       return { json: { ...f.workCentres[0], ...body, id, version: 'v-2', storeCode: 'MAIN', locationCode: 'POS' } };
+    case /^DELETE \/api\/(work-centres|boms|quality\/plans)\/[^/]+$/.test(key):
+      return { status: 204 };
 
     case key === 'GET /api/boms': {
       const search = (r.query.get('search') ?? '').toLowerCase();
