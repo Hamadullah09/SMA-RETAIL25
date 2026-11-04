@@ -711,6 +711,8 @@ public sealed class SetupService(DataContext data)
         if (dept is null) return;
         if (await db.CommissionRules.Where(r => r.DepartmentId == dept.Id).Select(r => r.Name).FirstOrDefaultAsync() is { } rule)
             throw new BusinessRuleException($"The commission rule \"{rule}\" is for department {name}. Change or delete the rule first.");
+        if (await PromotionNamingAsync(db, t => t.DepartmentId == dept.Id) is { } promotion)
+            throw new BusinessRuleException($"The promotion \"{promotion}\" is for department {name}. Change or delete the promotion first.");
         await db.Items.Where(i => i.DepartmentId == dept.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.DepartmentId, (Guid?)null).Edited());
         db.Departments.Remove(dept);
         await db.SaveChangesAsync();
@@ -723,10 +725,16 @@ public sealed class SetupService(DataContext data)
         if (cat is null) return;
         if (await db.CommissionRules.Where(r => r.CategoryId == cat.Id).Select(r => r.Name).FirstOrDefaultAsync() is { } rule)
             throw new BusinessRuleException($"The commission rule \"{rule}\" is for category {name}. Change or delete the rule first.");
+        if (await PromotionNamingAsync(db, t => t.CategoryId == cat.Id) is { } promotion)
+            throw new BusinessRuleException($"The promotion \"{promotion}\" is for category {name}. Change or delete the promotion first.");
         await db.Items.Where(i => i.CategoryId == cat.Id).ExecuteUpdateAsync(s => s.SetProperty(i => i.CategoryId, (Guid?)null).Edited());
         db.Categories.Remove(cat);
         await db.SaveChangesAsync();
     }
+
+    /// <summary>The name of a promotion with a target like this, if any.</summary>
+    private static Task<string?> PromotionNamingAsync(RetailPlusDbContext db, System.Linq.Expressions.Expression<Func<PromotionTarget, bool>> target) =>
+        db.PromotionTargets.Where(target).Join(db.Promotions, t => t.PromotionId, p => p.Id, (t, p) => p.Name).FirstOrDefaultAsync();
 
     public async Task<List<TaxConfiguration>> GetTaxConfigurationsAsync()
     {

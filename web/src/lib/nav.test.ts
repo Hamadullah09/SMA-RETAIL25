@@ -124,3 +124,38 @@ describe('the Ctrl+K palette', () => {
     expect(searchCommands(commands, '  ').length).toBe(commands.length);
   });
 });
+
+describe('the E4 pages', () => {
+  const marketing = ['web.signin', 'dashboard.view', 'reports.view', 'clients.view', 'clients.edit', 'crm.view', 'crm.edit', 'marketing.campaigns', 'marketing.promotions'];
+  const supervisorWithCrm = [...supervisor, 'crm.view'];
+
+  it('shows CRM, my tasks, segments, campaigns, promotions and targets to the roles that have them', () => {
+    const titles = navFor(marketing).map((p) => p.title);
+    expect(titles).toEqual(expect.arrayContaining(['CRM', 'My tasks', 'Segments', 'Campaigns', 'Promotions']));
+    expect(titles).not.toContain('Targets');
+    expect(navFor([...marketing, 'sales.targets']).map((p) => p.title)).toContain('Targets');
+    const supervisorTitles = navFor(supervisorWithCrm).map((p) => p.title);
+    expect(supervisorTitles).toEqual(expect.arrayContaining(['CRM', 'My tasks']));
+    expect(supervisorTitles).not.toContain('Campaigns');
+    expect(supervisorTitles).not.toContain('Promotions');
+    expect(navFor(administrator).map((p) => p.title)).not.toContain('CRM');
+  });
+
+  it('keeps the campaign page under Campaigns and out of the panel', () => {
+    expect(pageForPath('/campaigns/view/')?.key).toBe('campaign');
+    expect(navKeyForPath('/campaigns/view/')).toBe('campaigns');
+    expect(navFor(marketing).map((p) => p.key)).not.toContain('campaign');
+    expect(PAGES.filter((p) => ['crm', 'tasks', 'segments', 'campaigns', 'promotions', 'targets'].includes(p.key)).every((p) => !p.shortcut)).toBe(true);
+  });
+
+  it('offers the new things in Ctrl+K only with the right to make them', () => {
+    const titles = commandsFor(marketing).map((c) => c.title);
+    expect(titles).toEqual(expect.arrayContaining(['New lead', 'New opportunity', 'New activity', 'New segment', 'New campaign', 'New promotion']));
+    expect(titles).not.toContain('New target');
+    const viewer = commandsFor(supervisorWithCrm).map((c) => c.title);
+    expect(viewer).toContain('Go to CRM');
+    expect(viewer).not.toContain('New lead');
+    expect(searchCommands(commandsFor(marketing), 'whatsapp')[0].title).toBe('Go to Campaigns');
+    expect(searchCommands(commandsFor(marketing), 'coupon').map((c) => c.title)).toEqual(expect.arrayContaining(['Go to Promotions', 'New promotion']));
+  });
+});

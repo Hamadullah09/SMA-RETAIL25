@@ -282,8 +282,17 @@ public sealed class AccountingService(DataContext data)
 
             foreach (var line in sale.Lines.Where(l => l.Kind != SaleLineKind.Text))
             {
+                decimal net = line.LineTotal - (sale.TaxInclusive ? line.Tax1 + line.Tax2 : 0);
                 if (line.GiftCardNumber is not null) Cr(Account(st, AccountMappingKind.GiftCardLiability), line.LineTotal, "Gift cards sold");
-                else Cr(SalesAccount(st, line.Department), line.LineTotal - (sale.TaxInclusive ? line.Tax1 + line.Tax2 : 0), "Sales " + (line.Department ?? "(no department)"));
+                // Promotions (phase E4) are discounts: a department's sales are counted before them, and what they took
+                // off goes to the discounts account, the line of a sale-wide one (spend over an amount) included.
+                else if (line.Kind == SaleLineKind.Coupon && line.PromotionId is not null) Dr(Account(st, AccountMappingKind.Discounts), -net, "Promotions");
+                else if (line.PromotionDiscount != 0)
+                {
+                    Cr(SalesAccount(st, line.Department), net + line.PromotionDiscount, "Sales " + (line.Department ?? "(no department)"));
+                    Dr(Account(st, AccountMappingKind.Discounts), line.PromotionDiscount, "Promotions");
+                }
+                else Cr(SalesAccount(st, line.Department), net, "Sales " + (line.Department ?? "(no department)"));
             }
             if (sale.Tax1 != 0) Cr(Account(st, AccountMappingKind.Tax1), sale.Tax1, sale.Tax1Name ?? "Tax 1");
             if (sale.Tax2 != 0) Cr(Account(st, AccountMappingKind.Tax2), sale.Tax2, sale.Tax2Name ?? "Tax 2");

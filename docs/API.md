@@ -560,3 +560,193 @@ Salaries, loans, runs, payslips and the payroll reports are 403 for anyone else,
 - New permission keys `hr.view`, `hr.edit`, `hr.attendance`, `hr.leave`, `payroll.run` and `payroll.approve`, and the
   standard role HR officer.
 - Nothing of HR or payroll goes to the tills, nor do the audit lines about it or about ledger entries.
+## New in phase E4: sales, CRM and marketing
+
+Permissions: `crm.view` (read leads, opportunities and activities; mark one's own activities done), `crm.edit` (change
+them, convert leads, send a single WhatsApp message), `marketing.campaigns` (segments, WhatsApp templates and
+campaigns), `marketing.promotions` (promotions), `sales.targets` (targets). Supervisors and above have `crm.view`;
+Managers, Administrators and the new **Marketing** role have the others (Marketing has no `sales.targets`).
+
+**Store scope.** Leads, opportunities, activities, campaigns, WhatsApp messages and targets belong to one store and
+follow the store rules of phase 3 (lists cover the stores the user sees; another store's record is 404). Without a
+`storeId` in the body a new record goes to the store asked for, else the user's store, else the first store. Stages and
+WhatsApp templates are company-wide (changed under the company rule: `stores.all`, or a single store). A segment belongs
+to the store its rules name (`rules.storeId`) or, without one, to the company (company rule for changes). A promotion
+for one store may be changed by that store's users; one for every store or several stores follows the company rule.
+
+### Pipeline stages — `crm.view` / `crm.edit`
+- `GET /api/crm/stages` → `[{ "id", "name", "sortOrder", "probability", "outcome" }]`, in board order. `outcome` is
+  `Open`, `Won` or `Lost`. A new database has New (10), Qualified (30), Proposal (60), Won (100) and Lost (0).
+- `PUT /api/crm/stages` takes the whole list `[{ "id"?, "name", "probability", "outcome" }]` in board order and returns
+  it saved. It needs an Open, a Won and a Lost stage; a stage left out that still holds opportunities is 400.
+
+### Leads — `crm.view` / `crm.edit`
+- `GET /api/leads?storeId&ownerId&status&search&from&to` (*paged*, newest first). `status` is `Open`, `Converted` or
+  `Dropped`; `search` matches name, company, phone, WhatsApp number or e-mail; `from`/`to` (only when given) the day it
+  was added. Row `LeadRow`: `{ "id", "version", "name", "company", "phone", "whatsAppNumber", "email", "source",
+  "ownerId", "ownerName", "storeId", "storeCode", "status", "clientId", "clientName", "notes", "createdAtUtc",
+  "convertedAtUtc" }`.
+- `GET /api/leads/{id}` → `LeadRow`. `POST /api/leads` → 201 `LeadRow`; `PUT /api/leads/{id}` → `LeadRow`. Body
+  `{ "name", "company"?, "phone"?, "whatsAppNumber"?, "email"?, "source"?, "ownerId"?, "storeId"?, "notes"?, "status"?,
+  "version" (PUT) }`. The owner defaults to the signed-in user. A WhatsApp number is kept in international form
+  (`+923001234567`; spaces and dashes are dropped, `00` becomes `+`); a number without a country code is 400.
+- `DELETE /api/leads/{id}` → 204, with its activities; 400 while opportunities point at it.
+- `POST /api/leads/{id}/convert` (`crm.edit` and `clients.edit`) takes `{ "clientId"?, "version" }`: the lead becomes
+  that client, or a new client made from the lead (numbered from the server's range). Its opportunities and activities
+  move to the client. → `{ "lead": LeadRow, "clientId", "clientNumber" }`. A converted lead is 400.
+
+### Opportunities — `crm.view` / `crm.edit`
+- `OpportunityRow`: `{ "id", "version", "title", "clientId", "clientName", "leadId", "leadName", "stageId", "stage",
+  "outcome", "expectedValue", "probability", "weightedValue", "expectedCloseOn", "ownerId", "ownerName", "storeId",
+  "storeCode", "lostReason", "closedOn", "notes", "createdAtUtc" }`. `weightedValue` = value × probability / 100.
+- `GET /api/opportunities?storeId&ownerId&stageId&outcome&search&from&to` (*paged*). `from`/`to` (only when given)
+  filter the expected close date of open opportunities and the close date of won and lost ones.
+- `GET /api/opportunities/board?storeId&ownerId&from&to` → `{ "stages": [{ "id", "name", "outcome", "probability",
+  "count", "value", "weighted", "opportunities": OpportunityRow[] }] }`, every stage in board order. Without dates it
+  holds every open opportunity and those won or lost in the last 30 days.
+- `GET /api/opportunities/{id}`; `POST` (201), `PUT /{id}`, `DELETE /{id}` (204, with its activities). Body `{ "title",
+  "clientId"?, "leadId"?, "stageId"?, "expectedValue", "probability"?, "expectedCloseOn"?, "ownerId"?, "storeId"?,
+  "lostReason"?, "notes"?, "version" (PUT) }`: one of `clientId` and `leadId`. The stage defaults to the first open
+  stage, the probability to the stage's.
+- `POST /api/opportunities/{id}/move` takes `{ "stageId", "version", "lostReason"? }` (the board's drag) and returns the
+  row. A Lost stage needs a reason. Won and Lost set `closedOn` to today; moving back to an open stage clears it. The
+  probability becomes the stage's.
+- `GET /api/opportunities/report?storeId&ownerId&from&to` (closed in the period, default today) → `{ "from", "to",
+  "won": { "count", "value" }, "lost": { "count", "value" }, "winRate", "byOwner": [{ "ownerId", "ownerName", "won",
+  "wonValue", "lost", "lostValue" }], "lostReasons": [{ "reason", "count", "value" }], "closed": OpportunityRow[] }`.
+  `winRate` is won ÷ (won + lost) × 100, 0 when nothing closed.
+
+### Activities and my tasks — `crm.view` / `crm.edit`
+- `ActivityRow`: `{ "id", "version", "kind", "subject", "notes", "clientId", "clientName", "leadId", "leadName",
+  "opportunityId", "opportunityTitle", "dueAt", "isDone", "doneAtUtc", "ownerId", "ownerName", "storeId", "storeCode",
+  "due", "createdAtUtc" }`. `kind` is `Call`, `Visit`, `Meeting`, `Note` or `Task`; `dueAt` is the store's local time
+  (`yyyy-MM-ddTHH:mm:ss`) or null; `due` is `overdue`, `today`, `later`, `none` (no due date) or `done`.
+- `GET /api/activities?storeId&ownerId&clientId&leadId&opportunityId&kind&done&from&to` (*paged*: open ones first, by
+  due time; `from`/`to` on the due day, only when given).
+- `POST /api/activities` (201), `PUT /api/activities/{id}`, `DELETE /api/activities/{id}`. Body `{ "kind", "subject",
+  "notes"?, "clientId"?, "leadId"?, "opportunityId"?, "dueAt"?, "ownerId"?, "storeId"?, "isDone"?, "version" (PUT) }`:
+  at least one of client, lead and opportunity. The owner defaults to the signed-in user.
+- `POST /api/activities/{id}/done` takes `{ "done", "version" }` → `ActivityRow`. `crm.view` is enough for one's own
+  activities; others' need `crm.edit`.
+- `GET /api/activities/mine?due=` → `{ "overdue", "dueToday", "items": ActivityRow[] }`: the signed-in user's open
+  activities, overdue first (oldest first), then today's, later ones, and those without a date. `due=today` keeps only
+  overdue and today's (the dashboard's section). "Today" is the day of the user's store.
+
+### Customer segments — `marketing.campaigns`
+- `SegmentRules` (every field optional; a segment matches the clients that meet all that are set): `{ "periodDays",
+  "from", "to", "minSpend", "maxSpend", "minVisits", "maxVisits", "lastPurchaseBefore", "lastPurchaseAfter",
+  "noPurchaseForDays", "storeId", "departmentId", "birthdayMonth", "minPoints", "maxPoints", "minBalance",
+  "whatsAppConsent" }`.
+  - Spend (the totals the client paid, returns taken off) and visits (completed sales) count the last `periodDays`
+    days, else `from`–`to`, else all time; with `storeId`, that store's sales only, and the last purchase there.
+  - `lastPurchaseBefore` / `noPurchaseForDays` find lapsed clients (a client who never bought counts as lapsed);
+    `lastPurchaseAfter` recent ones. `departmentId`: bought something of that department in the period.
+  - `birthdayMonth` 1–12; points and balance owing are the client's now; `whatsAppConsent` true keeps the clients who
+    agreed and have a WhatsApp number, false those who did not.
+- `SegmentRow`: `{ "id", "version", "name", "description", "rules", "summary", "storeId", "lastCount",
+  "lastEvaluatedAtUtc" }`. `summary` is the rules in words.
+- `GET /api/segments` (no `storeId`: the company's and the user's store's, or every one for a user of every store),
+  `GET /api/segments/{id}`; `POST` (201), `PUT /{id}`, `DELETE /{id}` (400 while a campaign uses it). Body `{ "name",
+  "description"?, "rules", "version" (PUT) }`.
+- `POST /api/segments/preview` takes `{ "rules" }`; `POST /api/segments/{id}/evaluate` re-evaluates a saved segment
+  and keeps its count. Both → `{ "count", "evaluatedAtUtc", "members": SegmentMember[] }` with the first 200 members
+  (biggest spenders first): `{ "clientId", "number", "name", "phone", "email", "whatsAppNumber", "whatsAppOptIn",
+  "spend", "visits", "lastPurchase", "points", "balance", "birthday" }`.
+- `GET /api/segments/{id}/csv` → every member as `text/csv` (UTF-8 with a byte order mark), `segment-{name}.csv`.
+
+### WhatsApp templates, campaigns and messages — `marketing.campaigns`
+- `GET /api/whatsapp/status` (`web.signin`) → `{ "enabled", "provider", "phoneNumberIdHint", "webhookReady",
+  "messagesPerMinute" }`. `provider` is `meta` (the Meta Cloud API, `WhatsApp:Enabled`) or `recording` (nothing leaves
+  the server; messages are recorded as sent).
+- Templates: `GET /api/whatsapp/templates` (also with `crm.edit`, for single messages) → `[{ "id", "version", "name",
+  "language", "category", "body", "isActive", "placeholders" }]`; `POST` (201), `PUT /{id}`, `DELETE /{id}` (400 while a message uses it). Body
+  `{ "name", "language", "category", "body", "isActive", "version" (PUT) }`. `name` is the template's name at WhatsApp
+  (lower-case letters, digits and `_`), `language` its code (`en`, `en_US`, `ur`), `category` `Marketing` or `Utility`.
+  The body's placeholders become the template's parameters in order: `{FirstName}`, `{LastName}`, `{Name}`, `{Points}`,
+  `{Balance}`, `{Store}`, `{ClientNumber}`; any other is 400.
+- `CampaignRow`: `{ "id", "version", "name", "segmentId", "segment", "templateId", "template", "status", "storeId",
+  "storeCode", "scheduledAtUtc", "startedAtUtc", "finishedAtUtc", "recipients", "counts": { "queued", "sent",
+  "delivered", "read", "failed", "error" }, "createdBy", "createdAtUtc" }`. `status` is `Draft`, `Scheduled`, `Sending`,
+  `Sent` or `Cancelled`.
+- `GET /api/campaigns?storeId&status` (*paged*, newest first); `GET /api/campaigns/{id}`; `POST` (201, a draft),
+  `PUT /{id}` (drafts only), `DELETE /{id}` (drafts, and cancelled campaigns that sent nothing). Body `{ "name",
+  "segmentId", "templateId", "storeId"?, "version" (PUT) }`.
+- `POST /api/campaigns/{id}/schedule` takes `{ "sendAtUtc"?, "version" }` (null: now). The recipients are worked out
+  there and then: the segment's members who agreed to WhatsApp messages and have a number, one message each, queued.
+  400 when there is nobody. The server's sender sends them from `sendAtUtc` on, at most `WhatsApp:MessagesPerMinute`.
+- `POST /api/campaigns/{id}/cancel` takes `{ "version" }` (a draft, a scheduled or a sending campaign); queued messages
+  are never sent. A cancelled campaign may be deleted only while all its messages are still queued.
+- `GET /api/campaigns/{id}/messages?status` (*paged*) → `WhatsAppMessageRow { "id", "campaignId", "clientId",
+  "clientName", "toNumber", "template", "body", "status", "error", "sentAtUtc", "deliveredAtUtc", "readAtUtc",
+  "createdAtUtc" }`. `status` is `Queued`, `Sent`, `Delivered`, `Read`, `Failed` (WhatsApp could not deliver it) or
+  `Error` (it was not sent: refused, no consent any more, or the API failed).
+- `GET /api/campaigns/{id}/results?days=7` → `{ "counts", "recipients", "days", "buyers", "sales", "salesTotal" }`: the
+  recipients' completed sales from the campaign's start to `days` days after (1–90).
+- Single messages: `POST /api/clients/{id}/whatsapp` (`crm.edit`) takes `{ "templateId", "storeId"? }` and sends at
+  once → `WhatsAppMessageRow` (400 without consent or number). `GET /api/clients/{id}/whatsapp` (`crm.view`) lists the
+  client's messages, newest first: at most 200, of the user's store unless they see every store.
+- Webhook (no sign-in): `GET /api/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=…&hub.challenge=…` answers the
+  challenge when the token is `WhatsApp:VerifyToken`, else 403. `POST /api/whatsapp/webhook` takes Meta's status
+  notifications; `X-Hub-Signature-256` must be `sha256=` and the HMAC-SHA256 of the body with `WhatsApp:AppSecret`
+  (403 otherwise). Statuses only move forward (sent, delivered, read); `failed` keeps the error. → 200.
+
+### Clients (additions)
+`ClientDetail` gains `whatsAppNumber`, `whatsAppOptIn`, `whatsAppOptInAtUtc` (read-only: when consent was given),
+`birthday` (`yyyy-MM-dd`) and `whatsAppAskedAtUtc` (read-only: when the client last answered, yes or no; the till asks a
+client who never answered). A PUT without `whatsAppOptIn` keeps the number, the consent and the birthday; with it, all
+three are taken from the body. Consent can be given only with a number; taking it away clears the time. Giving or
+taking back consent counts as an answer. `ClientListRow` gains `whatsAppOptIn`.
+
+### Promotions — `marketing.promotions`
+- `PromotionTarget`: `{ "departmentId"?, "categoryId"?, "plu"?, "quantity", "name" }` (one of the three; `name` is
+  display text the server fills in).
+- `PromotionRow`: `{ "id", "version", "name", "kind", "isActive", "startsOn", "endsOn", "priority", "combinable",
+  "allStores", "storeIds", "couponCode", "couponMaxUses", "couponUses", "summary", "live" }`. `kind` is `PercentOff`,
+  `AmountOff`, `BuyXGetY`, `BundlePrice` or `SpendOver`; `live` is true when it is on and today is within its dates.
+- `PromotionDetail` adds `{ "description", "days", "startTime", "endTime", "scope", "targets", "percent", "amount",
+  "buyQuantity", "getQuantity", "getPercent", "rewardTargets", "bundlePrice", "bundleParts", "spendThreshold" }`.
+  - `days`: the days of the week it runs (0 Sunday … 6 Saturday, in that order; empty every day), `startTime`/`endTime`
+    `HH:mm` (a happy hour, both or neither; an end before the start runs past midnight). `priority` is a whole number.
+  - `scope` (`AllItems`, `Departments`, `Categories`, `Items`) and `targets`: what it applies to (what must be bought
+    for `BuyXGetY`; what is counted for `SpendOver`).
+  - `PercentOff`: `percent` off each line; `AmountOff`: `amount` off each unit; `BuyXGetY`: buy `buyQuantity`, get
+    `getQuantity` at `getPercent` off (100 = free) of `rewardTargets` (empty: the same items, the cheapest free);
+    `BundlePrice`: `bundleParts` (with quantities) together for `bundlePrice`; `SpendOver`: when the counted lines reach
+    `spendThreshold`, `percent` (or else `amount`) off, as a line of its own.
+  - `couponCode`: applies only when the code is entered at the till; `couponMaxUses` 0 means no limit, 1 one use.
+  - `combinable` false: used alone on a sale. The till picks the best price for the customer among the promotions
+    used alone and all the combinable ones together; `priority` (higher first) breaks ties. A line takes one
+    promotion; lines with a price or discount changed by hand take none.
+- `GET /api/promotions?search&active` → `PromotionRow[]` (the company's list: no `storeId`); `GET /api/promotions/{id}` → `PromotionDetail`; `POST` (201),
+  `PUT /{id}`, `DELETE /{id}` (400 once it was used: switch it off instead). Body: `PromotionDetail` without the
+  read-only fields.
+- `GET /api/promotions/report?storeId&from&to` → `[{ "promotionId", "name", "kind", "sales", "units", "netSales",
+  "discount", "couponUses" }]`: what each promotion cost (`discount`) and earned (`netSales` of its lines, or of the
+  sales it applied to for `SpendOver`) on completed sales.
+
+### Sales targets — `sales.targets`
+- `SalesTargetRow`: `{ "id", "version", "storeId", "storeCode", "userId", "userName", "year", "month", "amount",
+  "actual", "percent" }`. `userId` null is the store's target; `actual` is net sales (as the dashboard counts them) of
+  that store, or of that salesperson at that store, in the month.
+- `GET /api/targets?storeId&year&month` (default this month) → `SalesTargetRow[]`, store targets first.
+- `POST /api/targets` takes `{ "storeId", "userId"?, "year", "month", "amount" }` → 201 (400 when that target exists);
+  `PUT /api/targets/{id}` takes `{ "amount", "version" }`; `DELETE /api/targets/{id}`.
+- `GET /api/targets/progress?storeId` (`sales.targets` or `dashboard.view`) → `{ "year", "month", "day",
+  "daysInMonth", "target", "actual", "percent", "stores": [{ "storeId", "storeCode", "target", "actual", "percent" }],
+  "people": [{ "userId", "userName", "storeCode", "target", "actual", "percent" }] }` for this month: the dashboard tile.
+
+### Web pages (E4)
+
+| Page | Path | Permission |
+|---|---|---|
+| CRM | `/crm/` | `crm.view`; tabs Pipeline (board), Leads, Activities, Won and lost |
+| My tasks | `/tasks/` | `crm.view` |
+| Segments | `/segments/` | `marketing.campaigns` |
+| Campaigns | `/campaigns/` | `marketing.campaigns`; tabs Campaigns and Templates |
+| Campaign | `/campaigns/view/?id=` | `marketing.campaigns`; recipients and results |
+| Promotions | `/promotions/` | `marketing.promotions`; list, editor, report |
+| Targets | `/targets/` | `sales.targets` |
+
+The Dashboard adds two sections: the signed-in user's overdue and today's activities (with `crm.view`) and this month's
+targets against sales (with `sales.targets`). The client editor gains the WhatsApp number, consent and *Send on
+WhatsApp*.

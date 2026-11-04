@@ -43,6 +43,25 @@ import type {
   TransferRow,
   UserInfo,
   UserRow,
+  ActivityRow,
+  CampaignResults,
+  CampaignRow,
+  LeadRow,
+  MyTasks,
+  OpportunityBoard,
+  OpportunityRow,
+  OpportunityStage,
+  PromotionDetail,
+  PromotionReportRow,
+  PromotionRow,
+  SalesTargetRow,
+  SegmentResult,
+  SegmentRow,
+  TargetProgress,
+  WhatsAppMessageRow,
+  WhatsAppStatus,
+  WhatsAppTemplate,
+  WonLostReport,
 } from '../src/lib/types';
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -107,6 +126,11 @@ export const permissions: PermissionInfo[] = [
   ['hr.leave', 'HR', 'Approve leave and adjust leave balances'],
   ['payroll.run', 'HR', 'Salaries, loans, payroll runs, posting and paying them'],
   ['payroll.approve', 'HR', 'Approve payroll runs'],
+  ['crm.view', 'CRM and marketing', 'See leads, opportunities and activities'],
+  ['crm.edit', 'CRM and marketing', 'Change leads, opportunities and activities'],
+  ['marketing.campaigns', 'CRM and marketing', 'Segments, WhatsApp templates and campaigns'],
+  ['marketing.promotions', 'CRM and marketing', 'Promotions and coupons'],
+  ['sales.targets', 'CRM and marketing', 'Sales targets'],
 ].map(([key, group, description]) => ({ key, group, description }));
 
 const everything = permissions.map((p) => p.key);
@@ -725,3 +749,235 @@ export const settings: StoreSettings = {
 // HR and payroll (phase E3) ---------------------------------------------------------------------------------------
 
 export * from './hr-fixtures';
+// Phase E4: CRM -----------------------------------------------------------------------------------------------------
+
+/** A marketing user of Downtown: CRM, segments, campaigns and promotions, but not targets nor the shared lists. */
+export const marketer: UserInfo = {
+  id: 'u-7',
+  userName: 'nana',
+  fullName: 'Nana Yeboah',
+  role: 'Marketing',
+  permissions: ['web.signin', 'dashboard.view', 'reports.view', 'clients.view', 'clients.edit', 'crm.view', 'crm.edit', 'marketing.campaigns', 'marketing.promotions'],
+  storeId: 's-main',
+  storeName: 'Downtown',
+  mustChangePassword: false,
+  canChangeShared: false,
+};
+
+/** A supervisor who may read the CRM and tick their own tasks, nothing more of E4. */
+export const crmViewer: UserInfo = { ...supervisor, id: 'u-2', permissions: [...supervisor.permissions, 'crm.view'] };
+
+export const stagesE4: OpportunityStage[] = [
+  { id: 'st-new', name: 'New', sortOrder: 1, probability: 10, outcome: 'Open' },
+  { id: 'st-qualified', name: 'Qualified', sortOrder: 2, probability: 30, outcome: 'Open' },
+  { id: 'st-proposal', name: 'Proposal', sortOrder: 3, probability: 60, outcome: 'Open' },
+  { id: 'st-won', name: 'Won', sortOrder: 4, probability: 100, outcome: 'Won' },
+  { id: 'st-lost', name: 'Lost', sortOrder: 5, probability: 0, outcome: 'Lost' },
+];
+
+function opportunity(id: string, title: string, stageId: string, value: number, extra: Partial<OpportunityRow> = {}): OpportunityRow {
+  const stage = stagesE4.find((s) => s.id === stageId)!;
+  return {
+    id, version: 'v-1', title, clientId: null, clientName: null, leadId: null, leadName: null, stageId, stage: stage.name, outcome: stage.outcome,
+    expectedValue: value, probability: stage.probability, weightedValue: Math.round(value * stage.probability) / 100, expectedCloseOn: null, ownerId: 'u-1', ownerName: 'Sara Mensah',
+    storeId: 's-main', storeCode: 'MAIN', lostReason: null, closedOn: null, notes: null, createdAtUtc: minutesAgo(60 * 24 * 10), ...extra,
+  };
+}
+
+export const opportunities: OpportunityRow[] = [
+  // o-1 came from lead l-3, made a client: the server keeps both links.
+  opportunity('o-1', 'Uniforms for Kim Design', 'st-new', 1200, { clientId: 'cl-2', clientName: 'Daniel Kim', leadId: 'l-3', leadName: 'Daniel Kim', expectedCloseOn: daysBefore(-20), ownerId: 'u-3', ownerName: 'Ama Darko' }),
+  opportunity('o-2', 'Wedding party suits', 'st-qualified', 3500, { leadId: 'l-1', leadName: 'Kwame Asante', expectedCloseOn: daysBefore(-40) }),
+  opportunity('o-3', 'Office party gifts', 'st-proposal', 900, { clientId: 'cl-4', clientName: 'Marc Dubois', expectedCloseOn: daysBefore(-5) }),
+  opportunity('o-4', 'School shoes', 'st-won', 640, { clientId: 'cl-1', clientName: 'Akua Owusu', closedOn: daysBefore(2) }),
+  opportunity('o-5', 'Hotel staff wear', 'st-lost', 5000, { leadId: 'l-2', leadName: 'Esi Mensah', closedOn: daysBefore(4), lostReason: 'Price' }),
+];
+
+/** The board of a list of opportunities, every stage in order with its totals. */
+export function boardOf(list: OpportunityRow[]): OpportunityBoard {
+  return {
+    stages: stagesE4.map((s) => {
+      const items = list.filter((o) => o.stageId === s.id);
+      return {
+        id: s.id, name: s.name, outcome: s.outcome, probability: s.probability, opportunities: items, count: items.length,
+        value: items.reduce((t, o) => t + o.expectedValue, 0), weighted: Math.round(items.reduce((t, o) => t + o.weightedValue, 0) * 100) / 100,
+      };
+    }),
+  };
+}
+
+export const leads: LeadRow[] = [
+  {
+    id: 'l-1', version: 'v-1', name: 'Kwame Asante', company: null, phone: '416-555-0170', whatsAppNumber: '+14165550170', email: 'kwame@example.com', source: 'Walk-in',
+    ownerId: 'u-1', ownerName: 'Sara Mensah', storeId: 's-main', storeCode: 'MAIN', status: 'Open', clientId: null, clientName: null, notes: 'Wedding in June',
+    createdAtUtc: minutesAgo(60 * 24 * 3), convertedAtUtc: null,
+  },
+  {
+    id: 'l-2', version: 'v-1', name: 'Esi Mensah', company: 'Mensah Catering', phone: null, whatsAppNumber: null, email: 'esi@mensah.example', source: 'Referral',
+    ownerId: 'u-3', ownerName: 'Ama Darko', storeId: 's-main', storeCode: 'MAIN', status: 'Open', clientId: null, clientName: null, notes: null,
+    createdAtUtc: minutesAgo(60 * 24 * 8), convertedAtUtc: null,
+  },
+  {
+    id: 'l-3', version: 'v-1', name: 'Daniel Kim', company: 'Kim Design', phone: '416-555-0199', whatsAppNumber: null, email: 'daniel@example.com', source: 'Website',
+    ownerId: 'u-1', ownerName: 'Sara Mensah', storeId: 's-main', storeCode: 'MAIN', status: 'Converted', clientId: 'cl-2', clientName: 'Daniel Kim', notes: null,
+    createdAtUtc: minutesAgo(60 * 24 * 30), convertedAtUtc: minutesAgo(60 * 24 * 20),
+  },
+];
+
+function activity(id: string, kind: ActivityRow['kind'], subject: string, due: ActivityRow['due'], dueAt: string | null, extra: Partial<ActivityRow> = {}): ActivityRow {
+  return {
+    id, version: 'v-1', kind, subject, notes: null, clientId: null, clientName: null, leadId: null, leadName: null, opportunityId: null, opportunityTitle: null, dueAt,
+    isDone: due === 'done', doneAtUtc: due === 'done' ? minutesAgo(90) : null, ownerId: 'u-1', ownerName: 'Sara Mensah', storeId: 's-main', storeCode: 'MAIN', due,
+    createdAtUtc: minutesAgo(60 * 24 * 5), ...extra,
+  };
+}
+
+export const activities: ActivityRow[] = [
+  activity('a-1', 'Call', 'Call Daniel about the uniforms', 'overdue', at('11:00:00', daysBefore(1)), { clientId: 'cl-2', clientName: 'Daniel Kim', opportunityId: 'o-1', opportunityTitle: 'Uniforms for Kim Design' }),
+  activity('a-2', 'Visit', 'Measure the wedding party', 'today', at('15:00:00'), { leadId: 'l-1', leadName: 'Kwame Asante' }),
+  activity('a-3', 'Task', 'Send the gift proposal', 'later', at('10:00:00', daysBefore(-3)), { clientId: 'cl-4', clientName: 'Marc Dubois', opportunityId: 'o-3', opportunityTitle: 'Office party gifts' }),
+  activity('a-4', 'Note', 'Ask about a loyalty card', 'none', null, { clientId: 'cl-1', clientName: 'Akua Owusu' }),
+  activity('a-5', 'Meeting', 'Catering menu tasting', 'today', at('12:30:00'), { leadId: 'l-2', leadName: 'Esi Mensah', ownerId: 'u-3', ownerName: 'Ama Darko' }),
+  activity('a-6', 'Task', 'Thank Akua for the order', 'done', at('09:00:00', daysBefore(2)), { clientId: 'cl-1', clientName: 'Akua Owusu' }),
+];
+
+/** `GET /api/activities/mine` for the signed-in user. */
+export function myTasksFor(userId: string, todayOnly: boolean): MyTasks {
+  const mine = activities.filter((a) => a.ownerId === userId && !a.isDone);
+  return {
+    overdue: mine.filter((a) => a.due === 'overdue').length,
+    dueToday: mine.filter((a) => a.due === 'today').length,
+    items: todayOnly ? mine.filter((a) => a.due === 'overdue' || a.due === 'today') : mine,
+  };
+}
+
+export const wonLost: WonLostReport = {
+  from: daysBefore(29),
+  to: today,
+  won: { count: 1, value: 640 },
+  lost: { count: 1, value: 5000 },
+  winRate: 50,
+  byOwner: [{ ownerId: 'u-1', ownerName: 'Sara Mensah', won: 1, wonValue: 640, lost: 1, lostValue: 5000 }],
+  lostReasons: [{ reason: 'Price', count: 1, value: 5000 }],
+  closed: opportunities.filter((o) => o.outcome !== 'Open'),
+};
+
+// Phase E4: segments and WhatsApp ----------------------------------------------------------------------------------
+
+export const segmentsE4: SegmentRow[] = [
+  {
+    id: 'seg-1', version: 'v-1', name: 'Big spenders', description: 'Spent the most lately', rules: { periodDays: 90, minSpend: 500 },
+    summary: 'Spent at least $500.00 in the last 90 days', storeId: null, lastCount: 42, lastEvaluatedAtUtc: minutesAgo(60 * 5),
+  },
+  {
+    id: 'seg-2', version: 'v-1', name: 'Lapsed Downtown', description: null, rules: { noPurchaseForDays: 60, storeId: 's-main', whatsAppConsent: true },
+    summary: 'At Downtown · No purchase for 60 days · Agreed to WhatsApp', storeId: 's-main', lastCount: 0, lastEvaluatedAtUtc: null,
+  },
+];
+
+export const segmentResult: SegmentResult = {
+  count: 3,
+  evaluatedAtUtc: minutesAgo(0),
+  members: [
+    { clientId: 'cl-2', number: 10000002, name: 'Daniel Kim', phone: '416-555-0199', email: 'daniel@example.com', whatsAppNumber: '+14165550199', whatsAppOptIn: true, spend: 1840.5, visits: 9, lastPurchase: daysBefore(3), points: 80, balance: 145.2, birthday: null },
+    { clientId: 'cl-1', number: 10000001, name: 'Akua Owusu', phone: '416-555-0142', email: 'akua@example.com', whatsAppNumber: '+14165550142', whatsAppOptIn: true, spend: 960, visits: 6, lastPurchase: daysBefore(2), points: 320, balance: 0, birthday: '1990-03-14' },
+    { clientId: 'cl-4', number: 10000004, name: 'Marc Dubois', phone: '514-555-0110', email: 'marc@example.com', whatsAppNumber: null, whatsAppOptIn: false, spend: 612.25, visits: 3, lastPurchase: daysBefore(40), points: 0, balance: -20, birthday: null },
+  ],
+};
+
+export const whatsAppStatus: WhatsAppStatus = { enabled: false, provider: 'recording', phoneNumberIdHint: null, webhookReady: false, messagesPerMinute: 60 };
+
+export const templates: WhatsAppTemplate[] = [
+  { id: 't-1', version: 'v-1', name: 'spring_sale', language: 'en', category: 'Marketing', body: 'Hi {FirstName}, our spring sale at {Store} starts Saturday: 20% off.', isActive: true, placeholders: ['FirstName', 'Store'] },
+  { id: 't-2', version: 'v-1', name: 'points_reminder', language: 'en', category: 'Marketing', body: 'Hi {FirstName}, you have {Points} points to spend.', isActive: true, placeholders: ['FirstName', 'Points'] },
+  { id: 't-3', version: 'v-1', name: 'old_offer', language: 'ur', category: 'Utility', body: 'Old offer', isActive: false, placeholders: [] },
+];
+
+const noMessages = { queued: 0, sent: 0, delivered: 0, read: 0, failed: 0, error: 0 };
+
+export const campaigns: CampaignRow[] = [
+  {
+    id: 'cm-1', version: 'v-1', name: 'Spring sale', segmentId: 'seg-1', segment: 'Big spenders', templateId: 't-1', template: 'spring_sale', status: 'Sent', storeId: 's-main',
+    storeCode: 'MAIN', scheduledAtUtc: minutesAgo(60 * 48), startedAtUtc: minutesAgo(60 * 48), finishedAtUtc: minutesAgo(60 * 47), recipients: 40,
+    counts: { queued: 0, sent: 4, delivered: 18, read: 15, failed: 2, error: 1 }, createdBy: 'sara', createdAtUtc: minutesAgo(60 * 50),
+  },
+  {
+    id: 'cm-2', version: 'v-1', name: 'Points reminder', segmentId: 'seg-2', segment: 'Lapsed Downtown', templateId: 't-2', template: 'points_reminder', status: 'Draft',
+    storeId: 's-main', storeCode: 'MAIN', scheduledAtUtc: null, startedAtUtc: null, finishedAtUtc: null, recipients: 0, counts: noMessages, createdBy: 'sara', createdAtUtc: minutesAgo(30),
+  },
+  {
+    id: 'cm-3', version: 'v-1', name: 'Weekend launch', segmentId: 'seg-1', segment: 'Big spenders', templateId: 't-1', template: 'spring_sale', status: 'Scheduled',
+    storeId: 's-main', storeCode: 'MAIN', scheduledAtUtc: minutesAgo(-60 * 20), startedAtUtc: null, finishedAtUtc: null, recipients: 40, counts: { ...noMessages, queued: 40 },
+    createdBy: 'sara', createdAtUtc: minutesAgo(90),
+  },
+];
+
+export const campaignMessages: WhatsAppMessageRow[] = [
+  { id: 'm-1', campaignId: 'cm-1', clientId: 'cl-1', clientName: 'Akua Owusu', toNumber: '+14165550142', template: 'spring_sale', body: 'Hi Akua, our spring sale at Downtown starts Saturday: 20% off.', status: 'Read', error: null, sentAtUtc: minutesAgo(60 * 48), deliveredAtUtc: minutesAgo(60 * 48 - 1), readAtUtc: minutesAgo(60 * 40), createdAtUtc: minutesAgo(60 * 48) },
+  { id: 'm-2', campaignId: 'cm-1', clientId: 'cl-2', clientName: 'Daniel Kim', toNumber: '+14165550199', template: 'spring_sale', body: 'Hi Daniel, our spring sale at Downtown starts Saturday: 20% off.', status: 'Delivered', error: null, sentAtUtc: minutesAgo(60 * 48), deliveredAtUtc: minutesAgo(60 * 47), readAtUtc: null, createdAtUtc: minutesAgo(60 * 48) },
+  { id: 'm-3', campaignId: 'cm-1', clientId: 'cl-3', clientName: 'Grace Adjei', toNumber: '+14165550111', template: 'spring_sale', body: 'Hi Grace, our spring sale at Downtown starts Saturday: 20% off.', status: 'Failed', error: 'The number is not on WhatsApp.', sentAtUtc: minutesAgo(60 * 48), deliveredAtUtc: null, readAtUtc: null, createdAtUtc: minutesAgo(60 * 48) },
+];
+
+export const campaignResults: CampaignResults = { counts: campaigns[0].counts, recipients: 40, days: 7, buyers: 9, sales: 12, salesTotal: 1432.75 };
+
+// Phase E4: promotions and targets ---------------------------------------------------------------------------------
+
+function promotion(id: string, name: string, extra: Partial<PromotionDetail>): PromotionDetail {
+  return {
+    id, version: 'v-1', name, kind: 'PercentOff', isActive: true, startsOn: null, endsOn: null, priority: 0, combinable: true, allStores: true, storeIds: [], couponCode: null,
+    couponMaxUses: 0, couponUses: 0, summary: name, live: true, description: null, days: [], startTime: null, endTime: null, scope: 'AllItems', targets: [], percent: 0, amount: 0,
+    buyQuantity: 0, getQuantity: 0, getPercent: 100, rewardTargets: [], bundlePrice: 0, bundleParts: [], spendThreshold: 0, ...extra,
+  };
+}
+
+export const promotions: PromotionDetail[] = [
+  promotion('p-1', 'Weekend footwear', { percent: 10, scope: 'Departments', targets: [{ departmentId: 'd-2', quantity: 1, name: 'Footwear' }], days: [6, 0], summary: '10% off Footwear · Weekends', live: false }),
+  promotion('p-2', 'Socks 3 for 2', { kind: 'BuyXGetY', scope: 'Items', targets: [{ plu: 'SK-001', quantity: 1, name: 'SK-001 Sport socks, 3 pack' }], buyQuantity: 2, getQuantity: 1, summary: 'Buy 2 of SK-001, get 1 more free' }),
+  promotion('p-3', 'Happy hour', { percent: 15, startTime: '17:00', endTime: '19:00', combinable: false, priority: 5, summary: '15% off everything · 17:00–19:00 · alone' }),
+  promotion('p-4', 'Spend 100 save 10', { kind: 'SpendOver', spendThreshold: 100, amount: 10, couponCode: 'SAVE10', couponMaxUses: 100, couponUses: 12, summary: 'Spend $100.00, get $10.00 off · coupon SAVE10' }),
+  promotion('p-5', 'Tee and cap', {
+    kind: 'BundlePrice', bundlePrice: 25, allStores: false, storeIds: ['s-main'], isActive: false, live: false,
+    bundleParts: [{ plu: 'TS-100-M', quantity: 1, name: 'TS-100-M Cotton T-shirt, medium' }, { plu: 'CP-012', quantity: 1, name: 'CP-012 Baseball cap' }], summary: 'TS-100-M + CP-012 for $25.00',
+  }),
+];
+
+export function promotionRow(p: PromotionDetail): PromotionRow {
+  const { id, version, name, kind, isActive, startsOn, endsOn, priority, combinable, allStores, storeIds, couponCode, couponMaxUses, couponUses, summary, live } = p;
+  return { id, version, name, kind, isActive, startsOn, endsOn, priority, combinable, allStores, storeIds, couponCode, couponMaxUses, couponUses, summary, live };
+}
+
+export const promotionReport: PromotionReportRow[] = [
+  { promotionId: 'p-2', name: 'Socks 3 for 2', kind: 'BuyXGetY', sales: 14, units: 42, netSales: 369.63, discount: 131.6, couponUses: 0 },
+  { promotionId: 'p-4', name: 'Spend 100 save 10', kind: 'SpendOver', sales: 12, units: 0, netSales: 1630.2, discount: 120, couponUses: 12 },
+];
+
+const thisYear = new Date().getFullYear();
+const thisMonth = new Date().getMonth() + 1;
+
+export const targetsE4: SalesTargetRow[] = [
+  { id: 'tg-1', version: 'v-1', storeId: 's-main', storeCode: 'MAIN', userId: null, userName: null, year: thisYear, month: thisMonth, amount: 60000, actual: 41250, percent: 68.8 },
+  { id: 'tg-2', version: 'v-1', storeId: 's-main', storeCode: 'MAIN', userId: 'u-3', userName: 'ama', year: thisYear, month: thisMonth, amount: 15000, actual: 12100, percent: 80.7 },
+  { id: 'tg-3', version: 'v-1', storeId: 's-west', storeCode: 'WEST', userId: null, userName: null, year: thisYear, month: thisMonth, amount: 40000, actual: 9000, percent: 22.5 },
+];
+
+export const targetProgress: TargetProgress = {
+  year: thisYear,
+  month: thisMonth,
+  day: new Date().getDate(),
+  daysInMonth: new Date(thisYear, thisMonth, 0).getDate(),
+  target: 100000,
+  actual: 50250,
+  percent: 50.3,
+  stores: [
+    { storeId: 's-main', storeCode: 'MAIN', target: 60000, actual: 41250, percent: 68.8 },
+    { storeId: 's-west', storeCode: 'WEST', target: 40000, actual: 9000, percent: 22.5 },
+  ],
+  people: [{ userId: 'u-3', userName: 'ama', storeCode: 'MAIN', target: 15000, actual: 12100, percent: 80.7 }],
+};
+
+/** Akua, who agreed to WhatsApp messages, as the client editor gets her. */
+export function clientWithWhatsApp(): ClientDetail {
+  return { ...clientDetail('cl-1'), whatsAppNumber: '+14165550142', whatsAppOptIn: true, whatsAppOptInAtUtc: minutesAgo(60 * 24 * 40), birthday: '1990-03-14', whatsAppAskedAtUtc: minutesAgo(60 * 24 * 40) };
+}
+
+export const clientMessages: WhatsAppMessageRow[] = [campaignMessages[0]];

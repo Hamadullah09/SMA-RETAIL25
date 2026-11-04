@@ -98,6 +98,14 @@ public sealed class SyncPolicy
         // server and in which payroll names employees with their pay and loans. A till's own audit lines go up as before.
         List<string> hr = [.. HrTables.Names, nameof(JournalEntry)];
         policy.Table<AuditEntry>(SyncFlow.Both, till => a => a.StoreId == till.StoreId && (a.EntityName == null || !hr.Contains(a.EntityName)));
+        // Promotions are set on the server and every till receives them (each till keeps those of its store); a coupon's
+        // uses go up with their sales and to every till, so each one knows how often a coupon was used. Leads,
+        // opportunities, activities, segments, WhatsApp templates, campaigns, messages and targets stay on the server
+        // (ILocalOnly).
+        policy.Table<Promotion>(SyncFlow.Down);
+        policy.Table<PromotionTarget>(SyncFlow.Down);
+        policy.Table<PromotionStore>(SyncFlow.Down);
+        policy.Everywhere<CouponUse>(SyncFlow.Both);
 
         // The same code made on two databases before they synchronised is one thing: the server's row stays, the other
         // is merged into it (rows pointing at it are moved over) and the merge is noted in the batch. Any other clash of

@@ -5,6 +5,7 @@ import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis, type TooltipProps } from 'recharts';
+import { DashboardExtras } from '@/components/dashboard-extras';
 import { Card } from '@/components/ui/card';
 import { DateRangeBar, useDateRange } from '@/components/ui/date-range';
 import { Chip } from '@/components/ui/page';
@@ -67,6 +68,8 @@ export default function DashboardPage() {
           </p>
         </div>
       </header>
+
+      <DashboardExtras />
 
       <div className="no-print">
         <DateRangeBar state={dates} />

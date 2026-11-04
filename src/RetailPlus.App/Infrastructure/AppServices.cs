@@ -37,6 +37,8 @@ public static class AppServices
     public static LoyaltyService Loyalty { get; private set; } = null!;
     public static AccountingService Accounting { get; private set; } = null!;
     public static BrandingService Branding { get; private set; } = null!;
+    /// <summary>Promotions and coupons (phase E4), worked out at the POS.</summary>
+    public static PromotionService Promotions { get; private set; } = null!;
 
     /// <summary>The store's logo (Setup › Branding), or null to use the SMA mark.</summary>
     public static System.Windows.Media.ImageSource? Logo { get; private set; }
@@ -79,6 +81,7 @@ public static class AppServices
         Loyalty = new LoyaltyService(Data);
         Accounting = new AccountingService(Data);
         Branding = new BrandingService(Data);
+        Promotions = new PromotionService(Data);
         Session.StationNumber = config.StationNumber;
         Sync = CreateSync();
     }

@@ -103,6 +103,7 @@ public partial class PosView : UserControl, IRefreshable
     }
 
     private void ClearClient_Click(object sender, RoutedEventArgs e) { Vm.ClearClient(); CodeBox.Focus(); }
+    private async void Coupon_Click(object sender, RoutedEventArgs e) { await Ui.Try(Vm.CouponAsync); CodeBox.Focus(); }
     private void Rfid_Click(object sender, RoutedEventArgs e) { Vm.ToggleRfid(); CodeBox.Focus(); }
     private void Reward_Click(object sender, RoutedEventArgs e) { Vm.TakeReward(); CodeBox.Focus(); }
 

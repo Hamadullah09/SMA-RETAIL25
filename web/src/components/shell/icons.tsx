@@ -31,6 +31,11 @@ import {
   Timer,
   UserCog,
   Users,
+  Handshake,
+  ListChecks,
+  Filter,
+  MessageCircle,
+  BadgePercent,
   type LucideIcon,
 } from 'lucide-react';
 import { BadgeCheck, CalendarClock, ClipboardList, IdCard, Plane, Settings2 } from 'lucide-react';
@@ -77,5 +82,11 @@ export const ICONS: Record<IconName, LucideIcon> = {
   payroll: Wallet,
   hrreports: ClipboardList,
   hrsetup: Settings2,
+  crm: Handshake,
+  tasks: ListChecks,
+  segments: Filter,
+  campaigns: MessageCircle,
+  promotions: BadgePercent,
+  targets: Target,
 };
 

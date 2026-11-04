@@ -3,11 +3,18 @@ using RetailPlus.Core.Model;
 
 namespace RetailPlus.Reports;
 
-/// <summary>A line of a receipt: an item with its code, quantity and price, or a line of text.</summary>
-public sealed record ReceiptItem(string Name, string? Code, decimal Quantity, decimal UnitPrice, decimal Discount, decimal Total, string? Note, bool IsText = false)
+/// <summary>
+/// A line of a receipt: an item with its code, quantity and price, or a line of text. <paramref name="Discount"/> is every
+/// discount on the line; the part a promotion gave is <paramref name="PromotionDiscount"/>, shown under the promotion's name.
+/// </summary>
+public sealed record ReceiptItem(string Name, string? Code, decimal Quantity, decimal UnitPrice, decimal Discount, decimal Total, string? Note, bool IsText = false,
+    string? Promotion = null, decimal PromotionDiscount = 0)
 {
     /// <summary>Quantity times price, before the line discount.</summary>
     public decimal Gross => Total + Discount;
+
+    /// <summary>The discount that is not the promotion's (pricing rules, the cashier's).</summary>
+    public decimal OtherDiscount => Discount - PromotionDiscount;
 }
 
 /// <summary>A labelled amount: subtotal, a tax, a payment.</summary>
@@ -72,7 +79,8 @@ public sealed class Receipt
         var items = sale.Lines.OrderBy(l => l.LineNumber).Select(l => l.Kind == SaleLineKind.Text
             ? new ReceiptItem(l.Description, null, 0, 0, 0, 0, null, IsText: true)
             : new ReceiptItem(l.Description, l.Plu, l.Quantity, l.UnitPrice, l.DiscountAmount, l.LineTotal,
-                string.IsNullOrWhiteSpace(l.SerialNumber) ? null : "S/N " + l.SerialNumber)).ToList();
+                string.IsNullOrWhiteSpace(l.SerialNumber) ? null : "S/N " + l.SerialNumber,
+                Promotion: l.Kind == SaleLineKind.Coupon ? null : l.PromotionName, PromotionDiscount: l.Kind == SaleLineKind.Coupon ? 0 : l.PromotionDiscount)).ToList();
 
         string Rate(decimal rate) => rate.ToString("0.###", culture) + "%" + (sale.TaxInclusive ? " incl." : "");
         var totals = new List<ReceiptAmount> { new("Subtotal", sale.Subtotal) };
@@ -82,6 +90,9 @@ public sealed class Receipt
         if (sale.Rounding != 0) totals.Add(new("Rounding", sale.Rounding));
 
         var notes = new List<string>();
+        // What the promotions took off: their share of the item lines, and the lines of sale-wide ones (spend over an amount).
+        decimal saved = sale.Lines.Where(l => l.PromotionId is not null).Sum(l => l.Kind == SaleLineKind.Coupon ? -l.LineTotal : l.PromotionDiscount);
+        if (saved > 0) notes.Add("You saved " + saved.ToString("N2", culture) + " with promotions");
         if (store.BonusPointsEnabled && store.PrintPointsOnSlips && sale.PointsEarned > 0) notes.Add("Points earned: " + sale.PointsEarned.ToString("0.##", culture));
         if (!string.IsNullOrWhiteSpace(store.TaxRegistrationNumber)) notes.Add("Tax reg. " + store.TaxRegistrationNumber);
         // The tax office's number (FBR's POS integration), once the server reported the sale: reprints show it.

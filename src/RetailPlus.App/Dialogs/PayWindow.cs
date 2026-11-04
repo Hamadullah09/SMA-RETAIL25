@@ -39,6 +39,12 @@ public sealed class PayWindow : Window
 
     public IReadOnlyList<TenderEntry> Tenders => _tenders;
 
+    /// <summary>
+    /// A coupon code entered with the Coupon button: the window closes without a sale, the POS works the promotions out
+    /// again with the coupon and opens the Pay window anew with the new total.
+    /// </summary>
+    public string? CouponCode { get; private set; }
+
     public PayWindow(decimal total, IReadOnlyList<TenderType> tenderTypes, decimal minimumTender, bool hasClient, bool layaway, IReadOnlyList<FxRate>? rates = null)
     {
         foreach (var r in rates ?? []) _rates[r.Currency] = r.Rate;
@@ -101,6 +107,19 @@ public sealed class PayWindow : Window
         list.ItemTemplate = new DataTemplate { VisualTree = TenderTemplate() };
         root.Children.Add(list);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) };
+        // The same key as the Coupon button of the Point of Sale screen.
+        var coupon = new Button { Content = "Coupon", MinHeight = 60, Margin = new Thickness(0, 0, 10, 0) };
+        Infrastructure.Look.SetShortcut(coupon, "Ctrl+J");
+        Infrastructure.Look.SetIcon(coupon, "");
+        coupon.Click += (_, _) =>
+        {
+            if (_tenders.Count > 0) { Status("Enter the coupon before the first payment (Undo last payment first).", StatusKind.Error); return; }
+            var code = Infrastructure.Ui.Prompt("Scan or type the coupon code:", "Coupon");
+            if (string.IsNullOrWhiteSpace(code)) return;
+            CouponCode = code.Trim();
+            DialogResult = false;
+        };
+        buttons.Children.Add(coupon);
         var clear = new Button { Content = "Undo last payment", MinHeight = 60, Margin = new Thickness(0, 0, 10, 0) };
         Infrastructure.Look.SetShortcut(clear, "Ctrl+U");
         Infrastructure.Look.SetIcon(clear, "");

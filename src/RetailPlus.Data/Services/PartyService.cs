@@ -75,7 +75,16 @@ public sealed class PartyService(DataContext data)
     public async Task<Client> SaveClientAsync(Client client)
     {
         Validate(client);
+        // WhatsApp: the number in international form, consent only with a number, and when consent was given.
+        client.WhatsAppNumber = CrmService.Number(client.WhatsAppNumber);
+        if (client.WhatsAppOptIn && client.WhatsAppNumber is null)
+            throw new BusinessRuleException("Enter the WhatsApp number the client agreed to receive messages on.");
         await using var db = data.Create();
+        var consent = client.Id == Guid.Empty ? null
+            : await db.Clients.AsNoTracking().Where(c => c.Id == client.Id).Select(c => new { c.WhatsAppOptIn, c.WhatsAppOptInAt }).SingleOrDefaultAsync();
+        client.WhatsAppOptInAt = !client.WhatsAppOptIn ? null : consent is { WhatsAppOptIn: true } ? consent.WhatsAppOptInAt ?? SyncColumns.Now() : SyncColumns.Now();
+        // Giving or taking back the consent is the client's answer, so the till does not ask again.
+        if (client.WhatsAppOptIn != (consent?.WhatsAppOptIn ?? false)) client.WhatsAppAskedAt = SyncColumns.Now();
         if (string.IsNullOrWhiteSpace(client.Number))
             client.Number = (await db.NextNumberAsync(RetailPlusDbContext.Sequences.CustomerNumbers)).ToString(System.Globalization.CultureInfo.InvariantCulture);
         if (await db.Clients.AnyAsync(c => c.Number == client.Number && c.Id != client.Id && !c.IsDeleted))
@@ -98,6 +107,30 @@ public sealed class PartyService(DataContext data)
             var entry = db.Entry(client);
             foreach (var name in KeptByTheSystem) entry.Property(name).IsModified = false;
         }
+        await SaveAsync(db, "client");
+        return client;
+    }
+
+    /// <summary>
+    /// The client's answer at the till to "may we send you offers on WhatsApp?": whether they agree, and the number they
+    /// gave (null keeps the one on file). Only the WhatsApp columns change, so a cashier may record it without the right
+    /// to change clients; the audit log keeps the change, and campaigns go only to clients who agreed.
+    /// </summary>
+    public async Task<Client> RecordWhatsAppAnswerAsync(Guid clientId, bool agrees, string? number = null)
+    {
+        var normalized = CrmService.Number(number);
+        await using var db = data.Create();
+        var client = await db.Clients.SingleOrDefaultAsync(c => c.Id == clientId && !c.IsDeleted)
+                     ?? throw new BusinessRuleException("That client no longer exists.");
+        if (normalized is not null) client.WhatsAppNumber = normalized;
+        if (agrees && client.WhatsAppNumber is null)
+            throw new BusinessRuleException("Enter the WhatsApp number the client agreed to receive messages on.");
+        var now = SyncColumns.Now();
+        if (agrees && !client.WhatsAppOptIn) client.WhatsAppOptInAt = now;
+        if (!agrees) client.WhatsAppOptInAt = null;
+        client.WhatsAppOptIn = agrees;
+        client.WhatsAppAskedAt = now;
+        db.Audit(AuditActions.WhatsAppConsent, agrees ? "Agreed at the till, " + client.WhatsAppNumber : "Said no at the till", nameof(Client), client.Id);
         await SaveAsync(db, "client");
         return client;
     }

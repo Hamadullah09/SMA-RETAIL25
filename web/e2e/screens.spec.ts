@@ -30,6 +30,13 @@ const PAGES: Array<[name: string, path: string, ready: string]> = [
   ['17-packages', '/packages/', 'Sent before'],
   ['18-stores', '/stores/', 'Waiting to join'],
   ['19-suppliers', '/suppliers/', 'Cotton Co. Ltd'],
+  ['20-crm', '/crm/', 'Uniforms for Kim Design'],
+  ['21-tasks', '/tasks/', 'Call Daniel about the uniforms'],
+  ['22-segments', '/segments/', 'Big spenders'],
+  ['23-campaigns', '/campaigns/', 'Spring sale'],
+  ['24-campaign', '/campaigns/view/?id=cm-1', 'Grace Adjei'],
+  ['25-promotions', '/promotions/', 'Socks 3 for 2'],
+  ['26-targets', '/targets/', 'The whole store'],
 ];
 
 const SIZES = [

@@ -35,8 +35,25 @@ public sealed class SaleDraftLine
     /// <summary>For a gift card item: the card issued or reloaded by this line, and the kind of a new card.</summary>
     public string? GiftCardNumber { get; set; }
     public GiftCardKind GiftCardKind { get; set; }
+    /// <summary>The item's department and category, which promotions are set for.</summary>
+    public Guid? DepartmentId { get; set; }
+    public Guid? CategoryId { get; set; }
+    /// <summary>
+    /// The promotion applied to the line by <see cref="PromotionEngine"/> and its discount, kept apart from
+    /// <see cref="DiscountAmount"/> (the pricing rules' and the cashier's) so the engine can work it out again after every
+    /// change. On a coupon line it is the sale-wide promotion the line stands for.
+    /// </summary>
+    public Guid? PromotionId { get; set; }
+    public string? PromotionName { get; set; }
+    public decimal PromotionDiscount { get; set; }
 
-    public decimal LineTotal => Money.Round(UnitPrice * Quantity - DiscountAmount);
+    /// <summary>Every discount on the line: pricing, the cashier's and the promotion's.</summary>
+    public decimal TotalDiscount => DiscountAmount + PromotionDiscount;
+
+    /// <summary>A line the engine added for a sale-wide promotion (spend over an amount).</summary>
+    public bool IsPromotionLine => Kind == SaleLineKind.Coupon && PromotionId is not null;
+
+    public decimal LineTotal => Money.Round(UnitPrice * Quantity - DiscountAmount - PromotionDiscount);
 }
 
 /// <summary>A sale being rung up: lines, client, discounts and the tax setup in use.</summary>
@@ -61,6 +78,8 @@ public sealed class SaleDraft
     public decimal PointsRedeemed { get; set; }
     /// <summary>Save as a layaway: the payments are a deposit and the rest stays owing.</summary>
     public bool IsLayaway { get; set; }
+    /// <summary>Coupon codes entered at the till (scanned, typed in the code box or at the Pay window), upper case.</summary>
+    public List<string> CouponCodes { get; set; } = [];
 
     public TaxSetup EffectiveTax(StoreSettings settings) => TaxOverride ?? new TaxSetup(settings.Tax1Name, settings.Tax1Rate,
         settings.Tax2Name, settings.Tax2Rate, settings.Tax2Compound, settings.TaxInclusive);

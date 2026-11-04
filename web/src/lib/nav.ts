@@ -37,6 +37,11 @@ export const P = {
   hrLeave: 'hr.leave',
   payrollRun: 'payroll.run',
   payrollApprove: 'payroll.approve',
+  crmView: 'crm.view',
+  crmEdit: 'crm.edit',
+  campaigns: 'marketing.campaigns',
+  promotions: 'marketing.promotions',
+  targets: 'sales.targets',
 } as const;
 
 /** The icon of a page, by name; `components/shell/icons.tsx` maps the names to lucide icons. */
@@ -79,7 +84,13 @@ export type IconName =
   | 'leave'
   | 'payroll'
   | 'hrreports'
-  | 'hrsetup';
+  | 'hrsetup'
+  | 'crm'
+  | 'tasks'
+  | 'segments'
+  | 'campaigns'
+  | 'promotions'
+  | 'targets';
 
 export interface PageDef {
   key: string;
@@ -151,6 +162,13 @@ export const PAGES: readonly PageDef[] = [
   { key: 'hr-employee', title: 'Employee', path: '/hr/employees/edit/', icon: 'employees', permission: P.hrView, nav: false, parent: 'hr-employees', group: 'HR' },
   { key: 'hr-run', title: 'Payroll run', path: '/hr/payroll/run/', icon: 'payroll', permission: P.payrollRun, anyOf: [P.payrollRun, P.payrollApprove], nav: false, parent: 'hr-payroll', group: 'HR' },
   { key: 'hr-payslip', title: 'Payslip', path: '/hr/payroll/payslip/', icon: 'payroll', permission: P.payrollRun, anyOf: [P.payrollRun, P.payrollApprove], nav: false, parent: 'hr-payroll', group: 'HR' },
+  { key: 'crm', title: 'CRM', path: '/crm/', icon: 'crm', permission: P.crmView, nav: true, keywords: 'leads opportunities pipeline activities won lost deals' },
+  { key: 'tasks', title: 'My tasks', path: '/tasks/', icon: 'tasks', permission: P.crmView, nav: true, keywords: 'activities to do follow up calls overdue' },
+  { key: 'segments', title: 'Segments', path: '/segments/', icon: 'segments', permission: P.campaigns, nav: true, keywords: 'customer groups lapsed big spenders birthdays' },
+  { key: 'campaigns', title: 'Campaigns', path: '/campaigns/', icon: 'campaigns', permission: P.campaigns, nav: true, keywords: 'whatsapp messages templates marketing' },
+  { key: 'promotions', title: 'Promotions', path: '/promotions/', icon: 'promotions', permission: P.promotions, nav: true, keywords: 'discounts coupons happy hour buy get bundle' },
+  { key: 'targets', title: 'Targets', path: '/targets/', icon: 'targets', permission: P.targets, nav: true, keywords: 'sales targets goals month salesperson' },
+  { key: 'campaign', title: 'Campaign', path: '/campaigns/view/', icon: 'campaigns', permission: P.campaigns, nav: false, parent: 'campaigns' },
 ];
 
 /** Whether a user with these permissions may open the page (any one of `anyOf` will do when it has some). */
@@ -237,6 +255,13 @@ export const ACTIONS: readonly Command[] = [
   { id: 'new-employee', title: 'New employee', kind: 'Action', icon: 'new', path: '/hr/employees/edit/', permission: P.hrEdit, group: 'HR', keywords: 'hr add staff person' },
   { id: 'new-leave', title: 'New leave request', kind: 'Action', icon: 'new', path: '/hr/leave/?new=1', permission: P.hrView, group: 'HR', keywords: 'hr holiday vacation' },
   { id: 'new-run', title: 'New payroll run', kind: 'Action', icon: 'new', path: '/hr/payroll/?new=1', permission: P.payrollRun, group: 'HR', keywords: 'hr salary month' },
+  { id: 'new-lead', title: 'New lead', kind: 'Action', icon: 'new', path: '/crm/?tab=leads&new=1', permission: P.crmEdit, keywords: 'add prospect crm' },
+  { id: 'new-opportunity', title: 'New opportunity', kind: 'Action', icon: 'new', path: '/crm/?tab=pipeline&new=1', permission: P.crmEdit, keywords: 'add deal pipeline crm' },
+  { id: 'new-activity', title: 'New activity', kind: 'Action', icon: 'new', path: '/crm/?tab=activities&new=1', permission: P.crmEdit, keywords: 'add task call visit meeting note' },
+  { id: 'new-segment', title: 'New segment', kind: 'Action', icon: 'new', path: '/segments/?new=1', permission: P.campaigns, keywords: 'add customer group' },
+  { id: 'new-campaign', title: 'New campaign', kind: 'Action', icon: 'new', path: '/campaigns/?new=1', permission: P.campaigns, keywords: 'add whatsapp message' },
+  { id: 'new-promotion', title: 'New promotion', kind: 'Action', icon: 'new', path: '/promotions/?new=1', permission: P.promotions, keywords: 'add discount coupon' },
+  { id: 'new-target', title: 'New target', kind: 'Action', icon: 'new', path: '/targets/?new=1', permission: P.targets, keywords: 'add sales goal' },
 ];
 
 /** Everything the palette may offer this user: the pages, the actions and the reports of the catalog. */

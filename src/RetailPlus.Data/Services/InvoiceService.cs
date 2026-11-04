@@ -91,7 +91,7 @@ public sealed class InvoiceService(DataContext data)
         quote.Notes = draft.Notes;
         int n = 0;
         foreach (var l in draft.Lines.Where(l => l.Kind != SaleLineKind.Text))
-            quote.Lines.Add(new InvoiceLine { LineNumber = ++n, Plu = l.Plu, Description = l.Description, Quantity = l.Quantity, UnitPrice = l.UnitPrice, DiscountAmount = l.DiscountAmount, LineTotal = l.LineTotal });
+            quote.Lines.Add(new InvoiceLine { LineNumber = ++n, Plu = l.Plu, Description = l.Description, Quantity = l.Quantity, UnitPrice = l.UnitPrice, DiscountAmount = l.TotalDiscount, LineTotal = l.LineTotal });
         db.Invoices.Add(quote);
         await db.SaveChangesAsync();
         return quote;

@@ -181,7 +181,8 @@ public static class ReceiptPaper
             item.Children.Add(Row(i.Name, M(i.Gross), 13, ink, ink, FontWeights.SemiBold, FontWeights.SemiBold));
             var detail = (string.IsNullOrWhiteSpace(i.Code) ? "" : i.Code + "  ·  ") + $"{i.Quantity.ToString("0.###", c)} × {M(i.UnitPrice)}";
             item.Children.Add(Text(detail, 11, FontWeights.Normal, muted));
-            if (i.Discount != 0) item.Children.Add(Row("Discount", M(-i.Discount), 11.5, Look.Brush("Danger"), Look.Brush("Danger")));
+            if (i.OtherDiscount != 0) item.Children.Add(Row("Discount", M(-i.OtherDiscount), 11.5, Look.Brush("Danger"), Look.Brush("Danger")));
+            if (i.PromotionDiscount != 0) item.Children.Add(Row(i.Promotion ?? "Promotion", M(-i.PromotionDiscount), 11.5, Look.Brush("Danger"), Look.Brush("Danger")));
             if (i.Note is not null) item.Children.Add(Text(i.Note, 11, FontWeights.Normal, muted));
             body.Children.Add(item);
         }

@@ -85,12 +85,13 @@ public sealed class SalesService(DataContext data)
             sale.Lines.Add(new SaleLine
             {
                 LineNumber = i + 1, Kind = l.Kind, ItemId = l.ItemId, Plu = l.Plu, Description = Trim(l.Description + (l.VariantText is null ? "" : " " + l.VariantText), 60),
-                Quantity = l.Quantity, UnitPrice = l.UnitPrice, DiscountAmount = l.DiscountAmount, LineTotal = l.Kind == SaleLineKind.Text ? 0 : l.LineTotal,
+                Quantity = l.Quantity, UnitPrice = l.UnitPrice, DiscountAmount = l.TotalDiscount, LineTotal = l.Kind == SaleLineKind.Text ? 0 : l.LineTotal,
                 Cogs = Money.Round(l.UnitCost * l.Quantity), Department = l.Department, Taxable1 = l.Taxable1, Taxable2 = l.Taxable2,
                 Tax1 = lineTax.Item1, Tax2 = lineTax.Item2, SerialNumber = l.SerialNumber, VariantId = l.VariantId, SupplierName = l.SupplierName,
                 Commission = Money.Round(l.LineTotal * l.CommissionPercent / 100m), Restock = l.Restock,
                 GiftCardNumber = string.IsNullOrWhiteSpace(l.GiftCardNumber) ? null : GiftCardService.Normalize(l.GiftCardNumber),
                 Tags = l.Epcs.Distinct().Select(e => new SaleLineTag { Epc = e }).ToList(),
+                PromotionId = l.PromotionId, PromotionName = l.PromotionName is null ? null : Trim(l.PromotionName, 60), PromotionDiscount = l.PromotionDiscount,
             });
         }
         sale.Cogs = sale.Lines.Sum(l => l.Cogs);
@@ -124,6 +125,7 @@ public sealed class SalesService(DataContext data)
         await ApplyStockAndStatisticsAsync(db, sale, +1, now, sale.Staff, sale.StaffId, sale.StationNumber);
         await UpdateTagsAsync(db, sale, +1);
         await ApplyGiftCardsAsync(db, settings, sale, lines, tenders);
+        await PromotionService.RecordCouponsAsync(db, sale, draft);
 
         if (client is not null)
         {
@@ -318,6 +320,8 @@ public sealed class SalesService(DataContext data)
         await ApplyStockAndStatisticsAsync(db, sale, -1, sale.SoldAt, session.UserName, session.UserId, session.StationNumber);
         await UpdateTagsAsync(db, sale, -1);
         await GiftCardService.ReverseSaleAsync(db, sale, session.UserName);
+        // A voided sale gives its coupons back.
+        db.CouponUses.RemoveRange(await db.CouponUses.Where(u => u.SaleId == sale.Id).ToListAsync());
 
         var kinds = await db.TenderTypes.AsNoTracking().ToDictionaryAsync(t => t.Name, t => t.Kind);
         var tenders = sale.Payments.Select(p => new TenderEntry(p.TenderType, kinds.GetValueOrDefault(p.TenderType, TenderKind.Other), p.Amount, p.Tendered,

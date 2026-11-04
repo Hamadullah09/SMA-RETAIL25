@@ -98,6 +98,14 @@ public class SaleLine : Entity
     public string? GiftCardNumber { get; set; }
     /// <summary>The RFID tags rung up on this line, one per piece.</summary>
     public List<SaleLineTag> Tags { get; set; } = [];
+    /// <summary>
+    /// The promotion that applied to the line (its discount is in <see cref="PromotionDiscount"/>, and also in
+    /// <see cref="DiscountAmount"/>), or, on a coupon line, the sale-wide promotion the line is. No foreign key: the name
+    /// stays with the line whatever becomes of the promotion.
+    /// </summary>
+    public Guid? PromotionId { get; set; }
+    public string? PromotionName { get; set; }
+    public decimal PromotionDiscount { get; set; }
 }
 
 /// <summary>An RFID tag sold (or returned) on a sale line; a line of three tagged pieces has three.</summary>

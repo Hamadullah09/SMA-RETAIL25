@@ -2070,3 +2070,470 @@ export interface HrReportInfo {
   title: string;
   parameters: HrReportParameter[];
 }
+
+// Phase E4: sales, CRM and marketing (docs/API.md, "New in phase E4") ------------------------------------------------
+
+/** E4 additions to the client editor; a PUT that leaves them out keeps them. */
+export interface ClientDetail {
+  /** International form, `+923001234567`. */
+  whatsAppNumber?: string | null;
+  /** The client agreed to WhatsApp messages; given only with a number. */
+  whatsAppOptIn?: boolean;
+  /** Read-only: when consent was given. */
+  whatsAppOptInAtUtc?: UtcDateTime | null;
+  birthday?: BusinessDate | null;
+  /** Read-only: when the client last answered about WhatsApp, yes or no (the till asks once). */
+  whatsAppAskedAtUtc?: UtcDateTime | null;
+}
+
+/** E4 addition to the client list. */
+export interface ClientRow {
+  whatsAppOptIn?: boolean;
+}
+
+export type StageOutcome = 'Open' | 'Won' | 'Lost';
+
+/** A column of the pipeline board (`GET /api/crm/stages`). */
+export interface OpportunityStage {
+  id: string;
+  name: string;
+  sortOrder: number;
+  probability: number;
+  outcome: StageOutcome;
+}
+
+/** What `PUT /api/crm/stages` takes, in board order. */
+export interface StageRequest {
+  id?: string | null;
+  name: string;
+  probability: number;
+  outcome: StageOutcome;
+}
+
+export type LeadStatus = 'Open' | 'Converted' | 'Dropped';
+
+export interface LeadRow {
+  id: string;
+  version: string;
+  name: string;
+  company: string | null;
+  phone: string | null;
+  whatsAppNumber: string | null;
+  email: string | null;
+  source: string | null;
+  ownerId: string | null;
+  ownerName: string | null;
+  storeId: string;
+  storeCode: string;
+  status: LeadStatus;
+  clientId: string | null;
+  clientName: string | null;
+  notes: string | null;
+  createdAtUtc: UtcDateTime;
+  convertedAtUtc: UtcDateTime | null;
+}
+
+export interface LeadRequest {
+  name: string;
+  company?: string | null;
+  phone?: string | null;
+  whatsAppNumber?: string | null;
+  email?: string | null;
+  source?: string | null;
+  ownerId?: string | null;
+  storeId?: string | null;
+  notes?: string | null;
+  status?: LeadStatus;
+  version?: string | null;
+}
+
+export interface LeadConvertResult {
+  lead: LeadRow;
+  clientId: string;
+  clientNumber: string | number | null;
+}
+
+export interface OpportunityRow {
+  id: string;
+  version: string;
+  title: string;
+  clientId: string | null;
+  clientName: string | null;
+  leadId: string | null;
+  leadName: string | null;
+  stageId: string;
+  stage: string;
+  outcome: StageOutcome;
+  expectedValue: number;
+  probability: number;
+  weightedValue: number;
+  expectedCloseOn: BusinessDate | null;
+  ownerId: string | null;
+  ownerName: string | null;
+  storeId: string;
+  storeCode: string;
+  lostReason: string | null;
+  closedOn: BusinessDate | null;
+  notes: string | null;
+  createdAtUtc: UtcDateTime;
+}
+
+export interface OpportunityRequest {
+  title: string;
+  clientId?: string | null;
+  leadId?: string | null;
+  stageId?: string | null;
+  expectedValue: number;
+  probability?: number | null;
+  expectedCloseOn?: BusinessDate | null;
+  ownerId?: string | null;
+  storeId?: string | null;
+  lostReason?: string | null;
+  notes?: string | null;
+  version?: string | null;
+}
+
+export interface BoardStage {
+  id: string;
+  name: string;
+  outcome: StageOutcome;
+  probability: number;
+  count: number;
+  value: number;
+  weighted: number;
+  opportunities: OpportunityRow[];
+}
+
+export interface OpportunityBoard {
+  stages: BoardStage[];
+}
+
+export interface MoveRequest {
+  stageId: string;
+  version: string;
+  lostReason?: string | null;
+}
+
+export interface WonLostReport {
+  from: BusinessDate;
+  to: BusinessDate;
+  won: { count: number; value: number };
+  lost: { count: number; value: number };
+  winRate: number;
+  byOwner: { ownerId: string | null; ownerName: string | null; won: number; wonValue: number; lost: number; lostValue: number }[];
+  lostReasons: { reason: string; count: number; value: number }[];
+  closed: OpportunityRow[];
+}
+
+export type ActivityKind = 'Call' | 'Visit' | 'Meeting' | 'Note' | 'Task';
+export type ActivityDue = 'overdue' | 'today' | 'later' | 'none' | 'done';
+
+export interface ActivityRow {
+  id: string;
+  version: string;
+  kind: ActivityKind;
+  subject: string;
+  notes: string | null;
+  clientId: string | null;
+  clientName: string | null;
+  leadId: string | null;
+  leadName: string | null;
+  opportunityId: string | null;
+  opportunityTitle: string | null;
+  /** The store's local time, or null. */
+  dueAt: LocalDateTime | null;
+  isDone: boolean;
+  doneAtUtc: UtcDateTime | null;
+  ownerId: string | null;
+  ownerName: string | null;
+  storeId: string;
+  storeCode: string;
+  due: ActivityDue;
+  createdAtUtc: UtcDateTime;
+}
+
+export interface ActivityRequest {
+  kind: ActivityKind;
+  subject: string;
+  notes?: string | null;
+  clientId?: string | null;
+  leadId?: string | null;
+  opportunityId?: string | null;
+  dueAt?: LocalDateTime | null;
+  ownerId?: string | null;
+  storeId?: string | null;
+  isDone?: boolean;
+  version?: string | null;
+}
+
+/** `GET /api/activities/mine`. */
+export interface MyTasks {
+  overdue: number;
+  dueToday: number;
+  items: ActivityRow[];
+}
+
+/** Every rule is optional; a segment matches the clients that meet all that are set. */
+export interface SegmentRules {
+  periodDays?: number | null;
+  from?: BusinessDate | null;
+  to?: BusinessDate | null;
+  minSpend?: number | null;
+  maxSpend?: number | null;
+  minVisits?: number | null;
+  maxVisits?: number | null;
+  lastPurchaseBefore?: BusinessDate | null;
+  lastPurchaseAfter?: BusinessDate | null;
+  noPurchaseForDays?: number | null;
+  storeId?: string | null;
+  departmentId?: string | null;
+  birthdayMonth?: number | null;
+  minPoints?: number | null;
+  maxPoints?: number | null;
+  minBalance?: number | null;
+  whatsAppConsent?: boolean | null;
+}
+
+export interface SegmentRow {
+  id: string;
+  version: string;
+  name: string;
+  description: string | null;
+  rules: SegmentRules;
+  /** The rules in words. */
+  summary: string;
+  storeId: string | null;
+  /** The members when last evaluated; 0 before (see `lastEvaluatedAtUtc`). */
+  lastCount: number;
+  lastEvaluatedAtUtc: UtcDateTime | null;
+}
+
+export interface SegmentRequest {
+  name: string;
+  description?: string | null;
+  rules: SegmentRules;
+  version?: string | null;
+}
+
+export interface SegmentMember {
+  clientId: string;
+  number: string | number | null;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  whatsAppNumber: string | null;
+  whatsAppOptIn: boolean;
+  spend: number;
+  visits: number;
+  lastPurchase: BusinessDate | null;
+  points: number;
+  balance: number;
+  birthday: BusinessDate | null;
+}
+
+export interface SegmentResult {
+  count: number;
+  evaluatedAtUtc: UtcDateTime;
+  /** The first 200, biggest spenders first. */
+  members: SegmentMember[];
+}
+
+export interface WhatsAppStatus {
+  enabled: boolean;
+  /** `meta` sends through the Meta Cloud API; `recording` keeps the messages on the server only. */
+  provider: 'meta' | 'recording' | (string & {});
+  phoneNumberIdHint: string | null;
+  webhookReady: boolean;
+  messagesPerMinute: number;
+}
+
+export type TemplateCategory = 'Marketing' | 'Utility';
+
+export interface WhatsAppTemplate {
+  id: string;
+  version: string;
+  name: string;
+  language: string;
+  category: TemplateCategory;
+  body: string;
+  isActive: boolean;
+  placeholders: string[];
+}
+
+export interface TemplateRequest {
+  name: string;
+  language: string;
+  category: TemplateCategory;
+  body: string;
+  isActive: boolean;
+  version?: string | null;
+}
+
+export type CampaignStatus = 'Draft' | 'Scheduled' | 'Sending' | 'Sent' | 'Cancelled';
+export type MessageStatus = 'Queued' | 'Sent' | 'Delivered' | 'Read' | 'Failed' | 'Error';
+
+export interface MessageCounts {
+  queued: number;
+  sent: number;
+  delivered: number;
+  read: number;
+  failed: number;
+  error: number;
+}
+
+export interface CampaignRow {
+  id: string;
+  version: string;
+  name: string;
+  segmentId: string;
+  segment: string;
+  templateId: string;
+  template: string;
+  status: CampaignStatus;
+  storeId: string;
+  storeCode: string;
+  scheduledAtUtc: UtcDateTime | null;
+  startedAtUtc: UtcDateTime | null;
+  finishedAtUtc: UtcDateTime | null;
+  recipients: number;
+  counts: MessageCounts;
+  createdBy: string | null;
+  createdAtUtc: UtcDateTime;
+}
+
+export interface CampaignRequest {
+  name: string;
+  segmentId: string;
+  templateId: string;
+  storeId?: string | null;
+  version?: string | null;
+}
+
+export interface WhatsAppMessageRow {
+  id: string;
+  campaignId: string | null;
+  clientId: string;
+  clientName: string;
+  toNumber: string;
+  template: string;
+  body: string;
+  status: MessageStatus;
+  error: string | null;
+  sentAtUtc: UtcDateTime | null;
+  deliveredAtUtc: UtcDateTime | null;
+  readAtUtc: UtcDateTime | null;
+  createdAtUtc: UtcDateTime;
+}
+
+export interface CampaignResults {
+  counts: MessageCounts;
+  recipients: number;
+  days: number;
+  buyers: number;
+  sales: number;
+  salesTotal: number;
+}
+
+export type PromotionKind = 'PercentOff' | 'AmountOff' | 'BuyXGetY' | 'BundlePrice' | 'SpendOver';
+export type PromotionScope = 'AllItems' | 'Departments' | 'Categories' | 'Items';
+
+/** What a promotion applies to: one of a department, a category or a stock code. */
+export interface PromotionTarget {
+  departmentId?: string | null;
+  categoryId?: string | null;
+  plu?: string | null;
+  quantity: number;
+  /** Display text the server fills in. */
+  name?: string | null;
+}
+
+export interface PromotionRow {
+  id: string;
+  version: string;
+  name: string;
+  kind: PromotionKind;
+  isActive: boolean;
+  startsOn: BusinessDate | null;
+  endsOn: BusinessDate | null;
+  priority: number;
+  combinable: boolean;
+  allStores: boolean;
+  storeIds: string[];
+  couponCode: string | null;
+  couponMaxUses: number;
+  couponUses: number;
+  summary: string;
+  live: boolean;
+}
+
+export interface PromotionDetail extends PromotionRow {
+  description: string | null;
+  /** 0 Sunday … 6 Saturday; empty every day. */
+  days: number[];
+  /** `HH:mm`. */
+  startTime: string | null;
+  endTime: string | null;
+  scope: PromotionScope;
+  targets: PromotionTarget[];
+  percent: number;
+  amount: number;
+  buyQuantity: number;
+  getQuantity: number;
+  getPercent: number;
+  rewardTargets: PromotionTarget[];
+  bundlePrice: number;
+  bundleParts: PromotionTarget[];
+  spendThreshold: number;
+}
+
+/** `PromotionDetail` without the read-only fields, as POST and PUT take it. */
+export type PromotionRequest = Omit<PromotionDetail, 'id' | 'version' | 'couponUses' | 'summary' | 'live'> & { id?: string | null; version?: string | null };
+
+export interface PromotionReportRow {
+  promotionId: string;
+  name: string;
+  kind: PromotionKind;
+  sales: number;
+  units: number;
+  netSales: number;
+  discount: number;
+  couponUses: number;
+}
+
+export interface SalesTargetRow {
+  id: string;
+  version: string;
+  storeId: string;
+  storeCode: string;
+  /** Null: the store's own target. */
+  userId: string | null;
+  userName: string | null;
+  year: number;
+  month: number;
+  amount: number;
+  actual: number;
+  percent: number;
+}
+
+export interface SalesTargetRequest {
+  storeId: string;
+  userId?: string | null;
+  year: number;
+  month: number;
+  amount: number;
+}
+
+export interface TargetProgressRow {
+  target: number;
+  actual: number;
+  percent: number;
+}
+
+export interface TargetProgress extends TargetProgressRow {
+  year: number;
+  month: number;
+  day: number;
+  daysInMonth: number;
+  stores: ({ storeId: string; storeCode: string } & TargetProgressRow)[];
+  people: ({ userId: string; userName: string; storeCode: string } & TargetProgressRow)[];
+}

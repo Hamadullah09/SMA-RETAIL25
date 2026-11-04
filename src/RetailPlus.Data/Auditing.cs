@@ -28,6 +28,14 @@ public static class AuditActions
     public const string TimeClock = "Time clock";
     public const string TimeClockEdit = "Time clock edit";
     public const string GiftCardAdjust = "Gift card adjust";
+    public const string LeadConverted = "Lead converted";
+    public const string OpportunityWon = "Opportunity won";
+    public const string OpportunityLost = "Opportunity lost";
+    public const string CampaignScheduled = "Campaign scheduled";
+    public const string CampaignCancelled = "Campaign cancelled";
+    public const string CampaignSent = "Campaign sent";
+    public const string WhatsAppMessage = "WhatsApp message";
+    public const string WhatsAppConsent = "WhatsApp consent";
     public const string JournalPosted = "Journal posted";
     public const string JournalReversed = "Journal reversed";
     public const string PeriodStatus = "Period status";
@@ -83,6 +91,16 @@ public static class AuditedTables
         [typeof(GiftCard)] = Name<GiftCard>(c => c.Number),
         [typeof(AccountMapping)] = Name<AccountMapping>(m => $"{m.Kind} {m.Key}"),
         [typeof(StoreImage)] = Name<StoreImage>(i => i.Kind.ToString()),
+        [typeof(Lead)] = Name<Lead>(l => l.Name),
+        [typeof(OpportunityStage)] = Name<OpportunityStage>(s => s.Name),
+        [typeof(Opportunity)] = Name<Opportunity>(o => o.Title),
+        [typeof(SalesTarget)] = Name<SalesTarget>(t => $"{t.Year}-{t.Month:00}"),
+        [typeof(CustomerSegment)] = Name<CustomerSegment>(s => s.Name),
+        [typeof(WhatsAppTemplate)] = Name<WhatsAppTemplate>(t => $"{t.Name} ({t.Language})"),
+        [typeof(Campaign)] = Name<Campaign>(c => c.Name),
+        [typeof(Promotion)] = Name<Promotion>(p => p.Name),
+        [typeof(PromotionTarget)] = Name<PromotionTarget>(t => t.Plu ?? t.Role.ToString()),
+        [typeof(PromotionStore)] = Name<PromotionStore>(_ => "Store"),
         [typeof(LedgerAccount)] = Name<LedgerAccount>(a => $"{a.Code} {a.Name}"),
         [typeof(LedgerSettings)] = Name<LedgerSettings>(_ => "Ledger settings"),
         [typeof(FinanceSettings)] = Name<FinanceSettings>(_ => "Finance settings"),
