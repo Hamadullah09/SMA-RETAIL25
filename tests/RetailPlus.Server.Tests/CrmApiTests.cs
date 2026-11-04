@@ -310,6 +310,7 @@ public sealed class CrmApiTests(BackOffice office) : IClassFixture<BackOffice>
         var detail = await GetAsync<ClientDetail>(super, $"/api/clients/{client.Id}");
         Assert.False(detail.WhatsAppOptIn);
         Assert.Null(detail.WhatsAppOptInAtUtc);
+        Assert.Null(detail.WhatsAppAskedAtUtc);
         var template = await PostAsync<TemplateRow>(super, "/api/whatsapp/templates",
             new { name = "order_ready_" + Guid.NewGuid().ToString("N")[..6], language = "en", category = "Utility", body = "Hello {Name}, your order is ready.", isActive = true });
         Assert.Equal(HttpStatusCode.BadRequest, await Post(adminA, $"/api/clients/{client.Id}/whatsapp", new { templateId = template.Id }));
@@ -318,6 +319,8 @@ public sealed class CrmApiTests(BackOffice office) : IClassFixture<BackOffice>
         var withConsent = await PutAsync<ClientDetail>(super, $"/api/clients/{client.Id}", detail with { WhatsAppOptIn = true, WhatsAppNumber = "0092 300 8880001", Birthday = new DateOnly(1991, 3, 4) });
         Assert.Equal((true, "+923008880001", new DateOnly(1991, 3, 4)), (withConsent.WhatsAppOptIn!.Value, withConsent.WhatsAppNumber, withConsent.Birthday!.Value));
         Assert.NotNull(withConsent.WhatsAppOptInAtUtc);
+        // Giving consent is the client's answer, so the till does not ask them again.
+        Assert.NotNull(withConsent.WhatsAppAskedAtUtc);
         var kept = await PutAsync<ClientDetail>(super, $"/api/clients/{client.Id}", withConsent with { City = "Lahore", WhatsAppOptIn = null, WhatsAppNumber = null, Birthday = null });
         Assert.True(kept.WhatsAppOptIn);
         Assert.Equal(new DateOnly(1991, 3, 4), kept.Birthday);

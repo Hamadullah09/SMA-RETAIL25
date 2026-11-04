@@ -776,7 +776,8 @@ function opportunity(id: string, title: string, stageId: string, value: number, 
 }
 
 export const opportunities: OpportunityRow[] = [
-  opportunity('o-1', 'Uniforms for Kim Design', 'st-new', 1200, { clientId: 'cl-2', clientName: 'Daniel Kim', expectedCloseOn: daysBefore(-20), ownerId: 'u-3', ownerName: 'Ama Darko' }),
+  // o-1 came from lead l-3, made a client: the server keeps both links.
+  opportunity('o-1', 'Uniforms for Kim Design', 'st-new', 1200, { clientId: 'cl-2', clientName: 'Daniel Kim', leadId: 'l-3', leadName: 'Daniel Kim', expectedCloseOn: daysBefore(-20), ownerId: 'u-3', ownerName: 'Ama Darko' }),
   opportunity('o-2', 'Wedding party suits', 'st-qualified', 3500, { leadId: 'l-1', leadName: 'Kwame Asante', expectedCloseOn: daysBefore(-40) }),
   opportunity('o-3', 'Office party gifts', 'st-proposal', 900, { clientId: 'cl-4', clientName: 'Marc Dubois', expectedCloseOn: daysBefore(-5) }),
   opportunity('o-4', 'School shoes', 'st-won', 640, { clientId: 'cl-1', clientName: 'Akua Owusu', closedOn: daysBefore(2) }),
@@ -967,7 +968,7 @@ export const targetProgress: TargetProgress = {
 
 /** Akua, who agreed to WhatsApp messages, as the client editor gets her. */
 export function clientWithWhatsApp(): ClientDetail {
-  return { ...clientDetail('cl-1'), whatsAppNumber: '+14165550142', whatsAppOptIn: true, whatsAppOptInAtUtc: minutesAgo(60 * 24 * 40), birthday: '1990-03-14' };
+  return { ...clientDetail('cl-1'), whatsAppNumber: '+14165550142', whatsAppOptIn: true, whatsAppOptInAtUtc: minutesAgo(60 * 24 * 40), birthday: '1990-03-14', whatsAppAskedAtUtc: minutesAgo(60 * 24 * 40) };
 }
 
 export const clientMessages: WhatsAppMessageRow[] = [campaignMessages[0]];

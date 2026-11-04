@@ -130,6 +130,7 @@ public sealed class PartyService(DataContext data)
         if (!agrees) client.WhatsAppOptInAt = null;
         client.WhatsAppOptIn = agrees;
         client.WhatsAppAskedAt = now;
+        db.Audit(AuditActions.WhatsAppConsent, agrees ? "Agreed at the till, " + client.WhatsAppNumber : "Said no at the till", nameof(Client), client.Id);
         await SaveAsync(db, "client");
         return client;
     }

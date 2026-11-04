@@ -743,6 +743,8 @@ export interface ClientDetail {
   /** Read-only: when consent was given. */
   whatsAppOptInAtUtc?: UtcDateTime | null;
   birthday?: BusinessDate | null;
+  /** Read-only: when the client last answered about WhatsApp, yes or no (the till asks once). */
+  whatsAppAskedAtUtc?: UtcDateTime | null;
 }
 
 /** E4 addition to the client list. */

@@ -830,7 +830,7 @@ public sealed partial class PosViewModel : ObservableObject
         await LoadPromotionsAsync();
         _draft.CouponCodes.Add(code);
         Recalculate();
-        var refused = _lastOutcome.Notes.FirstOrDefault(n => n.Contains(code, StringComparison.Ordinal) && !n.EndsWith("does not apply to this sale.", StringComparison.Ordinal));
+        var refused = _lastOutcome.Notes.FirstOrDefault(n => n.StartsWith($"Coupon {code} ", StringComparison.Ordinal) && !n.EndsWith("does not apply to this sale.", StringComparison.Ordinal));
         if (refused is not null)
         {
             _draft.CouponCodes.Remove(code);

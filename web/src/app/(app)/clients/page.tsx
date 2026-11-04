@@ -315,7 +315,9 @@ function ClientDialog({ id, readOnly, onClose }: { id: string | null; readOnly: 
                 hint={
                   detail.data?.whatsAppOptIn && detail.data.whatsAppOptInAtUtc
                     ? `Agreed ${formatUtc(detail.data.whatsAppOptInAtUtc)}.`
-                    : 'Ask first. Messages go only to clients who agreed.'
+                    : detail.data?.whatsAppAskedAtUtc
+                      ? `Said no ${formatUtc(detail.data.whatsAppAskedAtUtc)}. Nothing is sent to them.`
+                      : 'Ask first. Messages go only to clients who agreed.'
                 }
               />
             </Field>

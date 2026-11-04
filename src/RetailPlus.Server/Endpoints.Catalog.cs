@@ -32,7 +32,8 @@ public sealed record ClientListRow(Guid Id, string? Number, string Name, string?
     bool WhatsAppOptIn = false);
 public sealed record ClientDetail(Guid? Id, string? Version, string? Number, string? FirstName, string? LastName, string? Company, string? Address1, string? Address2,
     string? City, string? Province, string? PostalCode, string? Country, string? Phone, string? Phone2, string? Email, decimal CreditLimit, decimal Balance,
-    decimal Points, string? Notes, string? WhatsAppNumber = null, bool? WhatsAppOptIn = null, DateTime? WhatsAppOptInAtUtc = null, DateOnly? Birthday = null);
+    decimal Points, string? Notes, string? WhatsAppNumber = null, bool? WhatsAppOptIn = null, DateTime? WhatsAppOptInAtUtc = null, DateOnly? Birthday = null,
+    DateTime? WhatsAppAskedAtUtc = null);
 public sealed record SupplierListRow(Guid Id, string? Code, string? Company, string? Contact, string? Phone, string? Email, bool IsDeleted);
 public sealed record SupplierDetail(Guid? Id, string? Version, string? Code, string? Company, string? Contact, string? Address1, string? Address2, string? City,
     string? Province, string? PostalCode, string? Country, string? Phone, string? Fax, string? Email, string? Notes);
@@ -455,7 +456,7 @@ public static partial class Endpoints
 
     private static ClientDetail ToDetail(Client c) => new(c.Id, ApiRequest.Version(c.Version), c.Number, c.FirstName, c.LastName, c.Company, c.Address1, c.Address2,
         c.City, c.State, c.Zip, c.Country, c.WorkPhone, c.HomePhone, c.Email, c.CreditLimit, c.Balance, c.Points, c.Notes, c.WhatsAppNumber, c.WhatsAppOptIn,
-        ApiRequest.Utc(c.WhatsAppOptInAt), c.Birthday);
+        ApiRequest.Utc(c.WhatsAppOptInAt), c.Birthday, ApiRequest.Utc(c.WhatsAppAskedAt));
 
     private static async Task<IResult> SaveClientAsync(Guid? id, ClientDetail body, ApiRequest api)
     {

@@ -491,6 +491,89 @@ public abstract class CrmAndMarketingTests(DatabaseFixture db)
         client.WhatsAppOptIn = false;
         client = await parties.SaveClientAsync(client);
         Assert.Null((await parties.GetClientAsync(client.Id))!.WhatsAppOptInAt);
+        // Taking consent back is the client's answer: the till does not ask them again.
+        Assert.NotNull(client.WhatsAppAskedAt);
+    }
+
+    [SkippableFact]
+    public async Task The_tills_answer_about_WhatsApp_is_kept_audited_and_followed_by_campaigns()
+    {
+        var (data, session, storeId) = await StoreAsync();
+        var parties = new PartyService(data);
+        var yes = await ClientAsync(data, "Till yes");
+        var no = await ClientAsync(data, "Till no", "+1 555 555 0102");
+        Assert.Null(yes.WhatsAppAskedAt);
+        // Yes needs a number in international form.
+        await Assert.ThrowsAsync<BusinessRuleException>(() => parties.RecordWhatsAppAnswerAsync(yes.Id, true));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => parties.RecordWhatsAppAnswerAsync(yes.Id, true, "0300 1234567"));
+        Assert.Null((await parties.GetClientAsync(yes.Id))!.WhatsAppAskedAt);
+
+        var agreed = await parties.RecordWhatsAppAnswerAsync(yes.Id, true, "+1 (555) 555-0101");
+        Assert.Equal(("+15555550101", true), (agreed.WhatsAppNumber, agreed.WhatsAppOptIn));
+        Assert.NotNull(agreed.WhatsAppOptInAt);
+        Assert.NotNull(agreed.WhatsAppAskedAt);
+        var declined = await parties.RecordWhatsAppAnswerAsync(no.Id, false);
+        Assert.Equal(("+15555550102", false), (declined.WhatsAppNumber, declined.WhatsAppOptIn));
+        Assert.Null(declined.WhatsAppOptInAt);
+        Assert.NotNull(declined.WhatsAppAskedAt);
+        await using (var ctx = db.CreateContext())
+        {
+            Assert.True(await ctx.AuditEntries.AnyAsync(a => a.EntityId == yes.Id && a.Action == AuditActions.WhatsAppConsent));
+            Assert.True(await ctx.AuditEntries.AnyAsync(a => a.EntityId == no.Id && a.Action == AuditActions.WhatsAppConsent));
+        }
+
+        // A campaign to everyone who bought here goes to the client who said yes only.
+        var item = await ItemAsync(data, session, "WAT-" + session.StationNumber, 10m);
+        await SellAsync(data, session, yes, item, 1);
+        await SellAsync(data, session, no, item, 1);
+        var segment = await new SegmentService(data).SaveAsync(new CustomerSegment { Name = "Till answers" }, new SegmentRules { StoreId = storeId, MinVisits = 1 });
+        var campaigns = new CampaignService(data);
+        var campaign = await campaigns.SaveCampaignAsync(new Campaign { Name = "Till answers", SegmentId = segment.Id, TemplateId = (await TemplateAsync(data)).Id });
+        Assert.Equal(1, await campaigns.ScheduleAsync(campaign.Id, campaign.Version, null, Today));
+        var sender = new RecordingWhatsAppSender();
+        await campaigns.SendDueAsync(sender, 10, DateTime.UtcNow.AddMinutes(1));
+        Assert.Equal(["+15555550101"], sender.Sent.Select(s => s.Message.To));
+    }
+
+    [SkippableFact]
+    public async Task Promotions_reach_the_books_as_discounts_with_the_daily_posting()
+    {
+        var (data, session, storeId) = await StoreAsync();
+        var item = await ItemAsync(data, session, "BKS-" + session.StationNumber, 50m, "E4BOOKS");
+        var promotions = new PromotionService(data);
+        List<PromotionStore> Here() => [new PromotionStore { StoreId = storeId }];
+        await promotions.SaveAsync(new Promotion
+        {
+            Name = "Books 20% " + session.StationNumber, Kind = PromotionKind.PercentOff, Percent = 20, Scope = PromotionScope.Items, Combinable = true,
+            AllStores = false, Stores = Here(), Targets = [new PromotionTarget { Plu = item.Plu }],
+        });
+        await promotions.SaveAsync(new Promotion
+        {
+            Name = "Books spend " + session.StationNumber, Kind = PromotionKind.SpendOver, SpendThreshold = 50, Amount = 5, Combinable = true,
+            AllStores = false, Stores = Here(),
+        });
+        var draft = new SaleDraft { Lines = [Line(item, 2)] };
+        Assert.Equal(25m, (await promotions.ApplyAsync(draft)).Total);
+        var sale = await SellAsync(data, session, draft);
+        Assert.Equal(75m, sale.Total);
+
+        // The department's sales are counted before the promotions, and what they took off is a discount.
+        var export = await new AccountingService(data).ExportAsync(Today, Today);
+        var day = export.Lines.Where(l => l.Store == "E" + session.StationNumber).ToList();
+        Assert.Equal(day.Sum(l => l.Debit), day.Sum(l => l.Credit));
+        Assert.Equal(25m, day.Where(l => l.Memo == "Promotions").Sum(l => l.Debit - l.Credit));
+        Assert.Equal(100m, day.Where(l => l.Memo == "Sales E4BOOKS").Sum(l => l.Credit - l.Debit));
+
+        // The ledger's daily posting takes it from there: one balanced entry with the discount on the discounts account.
+        var ledger = new LedgerService(data);
+        await ledger.SeedAsync();
+        Assert.True(await ledger.PostDailyAsync(Today, Today, storeId) >= 1);
+        await using var ctx = db.CreateContext();
+        var entry = await ctx.JournalEntries.AsNoTracking().Include(e => e.Lines).ThenInclude(l => l.Account)
+            .SingleAsync(e => e.Source == $"daily:{storeId:N}:{Today:yyyy-MM-dd}");
+        Assert.Equal(entry.Lines.Sum(l => l.Debit), entry.Lines.Sum(l => l.Credit));
+        var discounts = await ctx.AccountMappings.AsNoTracking().SingleAsync(m => m.StoreId == storeId && m.Kind == AccountMappingKind.Discounts);
+        Assert.Equal(25m, entry.Lines.Where(l => l.Account!.Code == discounts.AccountCode).Sum(l => l.Debit - l.Credit));
     }
 }
 

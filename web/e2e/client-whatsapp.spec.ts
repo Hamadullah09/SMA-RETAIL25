@@ -49,6 +49,16 @@ test('consent needs a number, and a client without it cannot be sent a message',
   await expect.poll(() => api.last('PUT', '/api/clients/cl-2')?.body).toMatchObject({ whatsAppNumber: '+14165550199', whatsAppOptIn: true });
 });
 
+test('a client who said no at the till is shown as such', async ({ page }) => {
+  const saidNo = { ...clientWithWhatsApp(), whatsAppOptIn: false, whatsAppOptInAtUtc: null };
+  await mockApi(page, { overrides: { 'GET /api/clients/cl-1': () => ({ json: saidNo }) } });
+  await page.goto('/clients/');
+  await page.getByRole('row', { name: /Akua Owusu/ }).dblclick();
+  const dialog = page.getByRole('dialog', { name: /Client 10000001/ });
+  await expect(dialog.getByLabel('Agrees to WhatsApp messages')).not.toBeChecked();
+  await expect(dialog.getByText(/^Said no .* Nothing is sent to them\.$/)).toBeVisible();
+});
+
 test('without the CRM a client has no WhatsApp section', async ({ page }) => {
   await mockApi(page, { user: supervisor });
   await page.goto('/clients/');

@@ -60,4 +60,33 @@ public class ReceiptTests
         Assert.Contains(lines, l => l.TrimStart().StartsWith("Discount", StringComparison.Ordinal) && l.EndsWith("-40.00", StringComparison.Ordinal));
         Assert.Contains("Items 2", text, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void Promotions_are_named_under_their_lines_and_what_they_saved_is_noted()
+    {
+        var sale = Sale();
+        // 3 for the price of 2 on the first line; a cashier's 40 off and a 10% promotion on the third; spend over 1,500.
+        var lines = sale.Lines.OrderBy(l => l.LineNumber).ToList();
+        (lines[0].PromotionId, lines[0].PromotionName, lines[0].PromotionDiscount, lines[0].DiscountAmount, lines[0].LineTotal) =
+            (Guid.NewGuid(), "Chocolate 3 for 2", 450m, 450m, 900m);
+        (lines[2].PromotionId, lines[2].PromotionName, lines[2].PromotionDiscount, lines[2].DiscountAmount, lines[2].LineTotal) =
+            (Guid.NewGuid(), "Drinks 10% off", 52m, 92m, 428m);
+        sale.Lines.Add(new SaleLine
+        {
+            LineNumber = 4, Kind = SaleLineKind.Coupon, Description = "Spend 1,500 get 100 off", Quantity = 1, UnitPrice = -100m, LineTotal = -100m,
+            PromotionId = Guid.NewGuid(), PromotionName = "Spend 1,500 get 100 off",
+        });
+
+        var r = Receipt.FromSale(sale, new StoreSettings(), null, null, culture: C);
+        Assert.Equal(("Chocolate 3 for 2", 450m, 0m), (r.Items[0].Promotion, r.Items[0].PromotionDiscount, r.Items[0].OtherDiscount));
+        Assert.Equal(("Drinks 10% off", 52m, 40m), (r.Items[2].Promotion, r.Items[2].PromotionDiscount, r.Items[2].OtherDiscount));
+        Assert.Null(r.Items[3].Promotion);
+        Assert.Contains("You saved 602.00 with promotions", r.Notes);
+
+        var text = ReceiptFormatter.Text(r, 40, C).Split(Environment.NewLine);
+        Assert.Contains(text, l => l.TrimStart().StartsWith("Chocolate 3 for 2", StringComparison.Ordinal) && l.EndsWith("-450.00", StringComparison.Ordinal));
+        Assert.Contains(text, l => l.TrimStart().StartsWith("Drinks 10% off", StringComparison.Ordinal) && l.EndsWith("-52.00", StringComparison.Ordinal));
+        Assert.Contains(text, l => l.TrimStart().StartsWith("Discount", StringComparison.Ordinal) && l.EndsWith("-40.00", StringComparison.Ordinal));
+        Assert.All(text, l => Assert.True(l.Length <= 40, l));
+    }
 }

@@ -58,6 +58,16 @@ test('a new opportunity is for a client or lead, found by typing', async ({ page
   await expect.poll(() => api.last('POST', '/api/opportunities')?.body).toMatchObject({ title: 'Team jerseys', clientId: 'cl-1', leadId: null, stageId: 'st-new', expectedValue: 750 });
 });
 
+test("saving a converted lead's opportunity keeps both its client and its lead", async ({ page }) => {
+  const api = await mockApi(page);
+  await page.goto('/crm/');
+  await page.getByTestId('card-o-1').getByRole('button', { name: 'Uniforms for Kim Design' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Uniforms for Kim Design' });
+  await dialog.getByLabel('Expected value').fill('1300');
+  await dialog.getByRole('button', { name: /Save/ }).click();
+  await expect.poll(() => api.last('PUT', '/api/opportunities/o-1')?.body).toMatchObject({ clientId: 'cl-2', leadId: 'l-3', expectedValue: 1300, version: 'v-1' });
+});
+
 test('leads are listed, added with a checked WhatsApp number, and made clients', async ({ page }) => {
   const api = await mockApi(page);
   await page.goto('/crm/');
