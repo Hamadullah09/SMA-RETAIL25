@@ -270,7 +270,7 @@ test('HR settings: shared lists, leave types, holidays, the rule sets with their
   await expect(page.getByRole('row', { name: /Iqbal Day/ })).toBeVisible();
   await page.getByRole('tab', { name: 'Payroll rule sets' }).click();
   await expect(page.getByTestId('budget-note')).toContainText('change with every budget');
-  await expect(page.getByText('Seeded from the Finance Act 2025. Check every figure after each budget (June).')).toBeVisible();
+  await expect(page.getByText('Tax year 2026 only (1 July 2025 to 30 June 2026). Check every figure after each budget (June).')).toBeVisible();
   await expect(page.getByRole('cell', { name: '35% of the excess' })).toBeVisible();
   await page.getByRole('button', { name: /Start the next tax year/ }).click();
   const dialog = page.getByRole('dialog', { name: 'The next tax year' });

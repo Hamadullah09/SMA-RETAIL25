@@ -121,13 +121,13 @@ export const hrSettings: HrSettingsInfo = {
 
 export const ruleSets: RuleSetInfo[] = [
   {
-    id: 'rs-1', version: 'v-1', country: 'PK', name: 'Pakistan, tax year 2025-26 (Finance Act 2025)', effectiveFrom: '2025-07-01', effectiveTo: null, taxYearStartMonth: 7,
+    id: 'rs-1', version: 'v-1', country: 'PK', name: 'Pakistan, tax year 2026 (July 2025 to June 2026)', effectiveFrom: '2025-07-01', effectiveTo: '2026-06-30', taxYearStartMonth: 7,
     minimumWage: 40000, eobiEmployerRate: 5, eobiEmployeeRate: 1, socialSecurityProvince: 'Punjab (PESSI)', socialSecurityRate: 6, socialSecurityWageCeiling: 40000,
-    socialSecurityBasis: 'Wage', workingDaysPerWeek: 6, hoursPerWeek: 48, overtimeMultiplier: 2, overtimeMinimumMinutes: 30, dailyRateBasis: 'CalendarDays',
+    socialSecurityBasis: 'MinimumWage', workingDaysPerWeek: 6, hoursPerWeek: 48, overtimeMultiplier: 2, overtimeMinimumMinutes: 30, dailyRateBasis: 'CalendarDays',
     latenessRule: 'DayPerLates', latesPerDay: 3, deductAbsences: true, surchargeThreshold: 10_000_000, surchargeRate: 9, gratuityEnabled: true, gratuityDaysPerYear: 30,
     gratuityMinimumMonths: 12, gratuityPartYearMonths: 6, gratuityOnBasic: false, cnicPattern: '^\\d{5}-\\d{7}-\\d$', cnicExample: '35202-1234567-1',
     ibanPattern: '^PK[0-9]{2}[A-Z]{4}[0-9]{16}$', ibanExample: 'PK36SCBL0000001123456702',
-    notes: 'Seeded from the Finance Act 2025. Check every figure after each budget (June).',
+    notes: 'Tax year 2026 only (1 July 2025 to 30 June 2026). Check every figure after each budget (June).',
     taxSlabs: [
       { incomeFrom: 0, incomeTo: 600000, fixedTax: 0, rate: 0 },
       { incomeFrom: 600000, incomeTo: 1200000, fixedTax: 0, rate: 1 },

@@ -31,18 +31,27 @@ public sealed class HrService(DataContext data)
     /// The note kept on Pakistan's seeded rule set and shown on the settings page: the figures change with every budget.
     /// </summary>
     public const string PakistanNote =
-        "Seeded from the Finance Act 2025 (tax year 2026, July 2025 to June 2026), the latest salaried slabs the program was given, " +
-        "with the 2025-26 minimum wage of Punjab, EOBI at 5% and 1% of the minimum wage, and PESSI (Punjab) at 6%. " +
-        "Check every figure after each budget (June) against the Finance Act, the provincial minimum wage notification, EOBI and the " +
-        "social security institution, and add the new tax year's rule set from its first day (1 July). Lateness and paternity leave " +
-        "are company policy, not law.";
+        "Tax year 2026 only (1 July 2025 to 30 June 2026). The salaried tax slabs and the 9% surcharge above Rs 10 million are " +
+        "those of the Finance Act 2025. The minimum wage is Rs 40,000 (Punjab, Sindh and Khyber Pakhtunkhwa from 1 July 2025). " +
+        "EOBI is 5% (employer) and 1% (employee) of the minimum wage. Social security (Punjab, PESSI) is 6% of the minimum wage, paid " +
+        "by the employer for employees earning up to Rs 40,000. These figures were checked against payroll advisers' summaries, not the " +
+        "Gazette. The Finance Act 2026 changed the slabs from 1 July 2026: add the rule set of tax year 2027 (Start the next tax " +
+        "year) before paying July 2026 or later. Check every figure after each budget (June). Lateness and paternity leave are " +
+        "company policy, not law.";
 
-    /// <summary>Pakistan's payroll rules as seeded (see <see cref="PakistanNote"/>).</summary>
+    /// <summary>The last day of the tax year Pakistan's seeded rule set is for.</summary>
+    public static DateOnly PakistanRuleSetEnds { get; } = new(2026, 6, 30);
+
+    /// <summary>
+    /// Pakistan's payroll rules as seeded, for tax year 2026 (see <see cref="PakistanNote"/>). It ends with its tax year, so
+    /// a later month has no rules until the next year's rule set is added: payroll then pays nobody and says why, rather
+    /// than taking tax by last year's slabs.
+    /// </summary>
     public static PayrollRuleSet PakistanRuleSet() => new()
     {
-        Country = "PK", Name = "Pakistan, tax year 2025-26 (Finance Act 2025)", EffectiveFrom = new DateOnly(2025, 7, 1), TaxYearStartMonth = 7,
-        MinimumWage = 40000m, EobiEmployerRate = 5m, EobiEmployeeRate = 1m,
-        SocialSecurityProvince = "Punjab (PESSI)", SocialSecurityRate = 6m, SocialSecurityWageCeiling = 40000m, SocialSecurityBasis = SocialSecurityBasis.Wage,
+        Country = "PK", Name = "Pakistan, tax year 2026 (July 2025 to June 2026)", EffectiveFrom = new DateOnly(2025, 7, 1), EffectiveTo = PakistanRuleSetEnds,
+        TaxYearStartMonth = 7, MinimumWage = 40000m, EobiEmployerRate = 5m, EobiEmployeeRate = 1m,
+        SocialSecurityProvince = "Punjab (PESSI)", SocialSecurityRate = 6m, SocialSecurityWageCeiling = 40000m, SocialSecurityBasis = SocialSecurityBasis.MinimumWage,
         WorkingDaysPerWeek = 6, HoursPerWeek = 48m, OvertimeMultiplier = 2m, OvertimeMinimumMinutes = 30, DailyRateBasis = DailyRateBasis.CalendarDays,
         LatenessRule = LatenessRule.DayPerLates, LatesPerDay = 3, DeductAbsences = true,
         SurchargeThreshold = 10_000_000m, SurchargeRate = 9m,

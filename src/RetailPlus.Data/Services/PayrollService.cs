@@ -622,7 +622,8 @@ public sealed class PayrollService(DataContext data)
             var rules = calendar.RulesOf(employee);
             if (rules is null)
             {
-                warnings.Add($"{employee.Code} {employee.FullName}: no payroll rules for {calendar.CountryOf(employee)}.");
+                warnings.Add($"{employee.Code} {employee.FullName}: there are no payroll rules for {calendar.CountryOf(employee)} on " +
+                    $"{run.PeriodEnd.ToString("d", CultureInfo.CurrentCulture)}; add that tax year's rule set in HR settings.");
                 continue;
             }
             var firstDay = employee.JoiningDate > run.PeriodStart ? employee.JoiningDate : run.PeriodStart;
