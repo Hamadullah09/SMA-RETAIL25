@@ -266,7 +266,7 @@ public abstract class ManufacturingTests(DatabaseFixture db)
         var mine = await ctx.JournalEntries.AsNoTracking().Include(e => e.Lines).Where(e => e.Source!.StartsWith($"prod:{order.Id:N}:")).ToListAsync();
         decimal Net(string role) => mine.SelectMany(e => e.Lines).Where(l => l.AccountId == accounts[role]).Sum(l => l.Debit - l.Credit);
         Assert.Equal(0m, Net(LedgerRoles.WorkInProgress));
-        Assert.Equal(53.50m, mine.Single(e => e.Source!.EndsWith(":issue", StringComparison.Ordinal)).Lines.Sum(l => l.Debit));
+        Assert.Equal(53.50m, mine.Single(e => e.Source!.Contains(":issue:", StringComparison.Ordinal)).Lines.Sum(l => l.Debit));
         Assert.Equal(-257.68m, Net(LedgerRoles.ManufacturingOverhead)); // 255 for time, 2.68 on 53.50 of material
         Assert.Equal(309.08m - 53.50m, Net(LedgerRoles.Inventory));
         Assert.Equal(2.10m, Net(LedgerRoles.ProductionVariance));
