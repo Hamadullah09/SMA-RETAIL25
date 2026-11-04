@@ -196,7 +196,8 @@ public static partial class Endpoints
         }
         var store = api.AskedStore ?? api.User.StoreId ?? await SingleStoreAsync(api);
         if (store is not Guid s) throw ApiException.Bad("Choose the store or location.");
-        api.RequireStore(s, "That store");
+        // A storeId the user cannot see is 403, as for every list.
+        if (!api.User.CanSee(s)) throw ApiException.Forbidden("You may not see that store.");
         await using var db = api.Root.Create();
         return await db.Locations.AsNoTracking().Where(l => l.StoreId == s).OrderBy(l => l.Code).Select(l => (Guid?)l.Id).FirstOrDefaultAsync()
                ?? throw ApiException.Bad("That store has no location yet.");

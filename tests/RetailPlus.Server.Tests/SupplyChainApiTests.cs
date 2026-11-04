@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RetailPlus.Core.Model;
@@ -13,7 +14,7 @@ namespace RetailPlus.Server.Tests;
 
 /// <summary>
 /// The supply chain endpoints (phase E2) on stores and SQLite tills of their own: a requisition approved and ordered on
-/// the web, the order received there with batches, the batches reaching the till and the till's own receipt reaching the
+/// the web, another rejected, changed and approved within the role's limit, the order received there with batches, the batches reaching the till and the till's own receipt reaching the
 /// server, bins and their lists, the three-way match on bills from the in-memory bill source, landed costs, reorder
 /// suggestions, supplier performance and the settings; each with the permission it needs, the store scope and 409 on an
 /// old version.
@@ -248,7 +249,7 @@ public sealed class SupplyChainApiTests(SyncWorld world) : IClassFixture<SyncWor
             Assert.All(entry.Lines, l => Assert.Equal(a.Id, l.StoreId));
         }
         Assert.DoesNotContain(await GetAsync<List<MatchReportInfo>>(buyer, "/api/matching/received-not-billed"), r => r.PurchaseOrderId == po.Id);
-        Assert.Empty((await GetAsync<List<MatchReportInfo>>(buyer, "/api/matching/billed-not-received")).Where(r => r.PurchaseOrderId == po.Id));
+        Assert.DoesNotContain(await GetAsync<List<MatchReportInfo>>(buyer, "/api/matching/billed-not-received"), r => r.PurchaseOrderId == po.Id);
 
         // Landed costs: freight over the order, by value; only those who may approve purchases make and post vouchers.
         var receipts = await GetAsync<List<ReceiptChoiceInfo>>(buyer, "/api/landed-costs/receipts");
@@ -317,6 +318,61 @@ public sealed class SupplyChainApiTests(SyncWorld world) : IClassFixture<SyncWor
         var after = await PutAsync<List<ApprovalLimitRow>>(super, $"/api/supply/approval-limits/{manager.RoleId}", new ApprovalLimitRequest(1000));
         Assert.Equal(1000m, after.Single(l => l.RoleId == manager.RoleId).MaxAmount);
         await PutAsync<List<ApprovalLimitRow>>(super, $"/api/supply/approval-limits/{manager.RoleId}", new ApprovalLimitRequest(null));
+    }
+
+    [SkippableFact]
+    public async Task A_rejected_requisition_says_why_is_changed_and_sent_again_and_the_role_limit_holds()
+    {
+        Require();
+        var (a, b, _, milk, rice, _) = await CompanyAsync();
+        using var adminB = await world.AdminOfAsync(b.Id);
+        using var clerk = await UserWithAsync(a.Id, Permissions.PurchasingManage, Permissions.InventoryBatches);
+        using var approver = await UserWithAsync(a.Id, Permissions.PurchasingManage, Permissions.PurchasingApprove);
+
+        var made = await PostAsync<RequisitionDetail>(clerk, $"/api/requisitions?storeId={a.Id}", new RequisitionRequest(null, null, null, null,
+            [new RequisitionLineRequest(rice.Id, null, 100, null, null, null, null)]));
+        Assert.Equal(600m, made.Total);
+        Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(adminB, $"/api/requisitions?storeId={a.Id}", new RequisitionRequest(null, null, null, null, [])));
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(approver, $"/api/requisitions/{made.Id}/approve", new VersionRequest(made.Version)));   // not sent yet
+        var sent = await PostAsync<RequisitionDetail>(clerk, $"/api/requisitions/{made.Id}/submit", new VersionRequest(made.Version));
+
+        // A rejection needs the reason; the clerk sees it, changes the requisition and sends it again.
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(approver, $"/api/requisitions/{made.Id}/reject", new VersionRequest(sent.Version)));
+        var rejected = await PostAsync<RequisitionDetail>(approver, $"/api/requisitions/{made.Id}/reject", new VersionRequest(sent.Version, "Too much rice"));
+        Assert.Equal((RequisitionStatus.Rejected, "Too much rice"), (rejected.Status, rejected.DecisionNote));
+        var changed = await PutAsync<RequisitionDetail>(clerk, $"/api/requisitions/{made.Id}", new RequisitionRequest(rejected.Version, null, Today.AddDays(3), "Less",
+            [new RequisitionLineRequest(rice.Id, null, 40, null, null, null, null), new RequisitionLineRequest(milk.Id, null, 12, null, null, 2.5m, null)]));
+        Assert.Equal((RequisitionStatus.Draft, 270m, 2), (changed.Status, changed.Total, changed.Lines.Count));   // 40 × 6 + 12 × 2.50
+        Assert.Equal(HttpStatusCode.Conflict, await PutStatusAsync(clerk, $"/api/requisitions/{made.Id}", new RequisitionRequest(rejected.Version, null, null, null, [])));
+        sent = await PostAsync<RequisitionDetail>(clerk, $"/api/requisitions/{made.Id}/submit", new VersionRequest(changed.Version));
+
+        // The approver's role may approve up to 200: this one is refused, until the limit is raised.
+        using var super = await world.SuperAsync();
+        var me = await GetAsync<JsonElement>(approver, "/api/auth/me");
+        var approverRole = (await new SetupService(world.ServerData).GetRolesAsync()).Single(r => r.Name == me.GetProperty("role").GetString()).Id;
+        await PutAsync<List<ApprovalLimitRow>>(super, $"/api/supply/approval-limits/{approverRole}", new ApprovalLimitRequest(200));
+        using (var refused = await approver.PostAsJsonAsync($"/api/requisitions/{made.Id}/approve", new VersionRequest(sent.Version), SyncWorld.Json))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+            Assert.Contains("200.00", await refused.Content.ReadAsStringAsync());
+        }
+        await PutAsync<List<ApprovalLimitRow>>(super, $"/api/supply/approval-limits/{approverRole}", new ApprovalLimitRequest(500));
+        var approved = await PostAsync<RequisitionDetail>(approver, $"/api/requisitions/{made.Id}/approve", new VersionRequest(sent.Version));
+        Assert.Equal(RequisitionStatus.Approved, approved.Status);
+        Assert.Equal(HttpStatusCode.BadRequest, await StatusAsync(clerk.DeleteAsync($"/api/requisitions/{made.Id}")));   // approved: it stays
+
+        // A draft is deleted; another store's administrator does not find it.
+        var draft = await PostAsync<RequisitionDetail>(clerk, "/api/requisitions", new RequisitionRequest(null, null, null, null, [new RequisitionLineRequest(null, rice.Plu, 1, null, null, null, null)]));
+        Assert.Equal(HttpStatusCode.NotFound, await StatusAsync(adminB.DeleteAsync($"/api/requisitions/{draft.Id}")));
+        Assert.Equal(HttpStatusCode.NoContent, await StatusAsync(clerk.DeleteAsync($"/api/requisitions/{draft.Id}")));
+        Assert.Equal(HttpStatusCode.NotFound, await StatusAsync(clerk.GetAsync($"/api/requisitions/{draft.Id}")));
+
+        // Batches are added by hand only to items kept in batches.
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(clerk, "/api/batches", new BatchRequest(null, rice.Id, "R-1", null, null, null, null)));
+        var added = await PostAsync<BatchInfoRow>(clerk, "/api/batches", new BatchRequest(null, milk.Id, "hand-1", Today.AddDays(4), Today, null, null));
+        Assert.Equal(("HAND-1", 0m, 4), (added.BatchNumber, added.OnHand, added.DaysLeft));
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(clerk, "/api/batches", new BatchRequest(null, milk.Id, "HAND-1", null, null, null, null)));
+        await PutAsync<List<ApprovalLimitRow>>(super, $"/api/supply/approval-limits/{approverRole}", new ApprovalLimitRequest(null));
     }
 
     private sealed record ReorderAnswer(Guid LocationId, List<ReorderRow> Rows);
