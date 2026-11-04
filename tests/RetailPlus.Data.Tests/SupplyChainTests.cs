@@ -191,6 +191,34 @@ public abstract class SupplyChainTests(DatabaseFixture db)
     }
 
     [SkippableFact]
+    public async Task The_pos_learns_before_payment_which_batch_a_sale_takes_and_what_has_expired()
+    {
+        var (_, location) = await SetUpAsync(blockExpired: true);
+        var milk = await ItemAsync(location.Id, Unique("MLK"), cost: 2m, batches: true, shelfLife: 7);
+        var salt = await ItemAsync(location.Id, Unique("SLT"), onHand: 4);
+        await ReceivedOrderAsync(location.Id, null, [(milk, 6, 2m, [new ReceivedBatch("OLD", 2, Today.AddDays(-2)), new ReceivedBatch("NEW", 4, Today.AddDays(6))])]);
+        var batches = new BatchService(Data);
+
+        // Receiving: only the items kept in batches are asked about, with their shelf life.
+        Assert.Equal([new BatchItem(milk.Id, 7)], await batches.KeptInBatchesAsync([milk.Id, salt.Id, milk.Id]));
+        Assert.Null(await batches.PickForSaleAsync(salt.Id, 1));
+
+        // Expired stock is stopped: the sale takes the good batch, and no more than it holds.
+        var pick = (await batches.PickForSaleAsync(milk.Id, 3))!;
+        Assert.Equal([("NEW", 3m)], pick.Takes.Select(t => (t.BatchNumber!, t.Quantity)));
+        Assert.Equal((2m, true, 4m, "OLD"), (pick.Expired, pick.ExpiredBlocked, pick.Sellable, pick.ExpiredBatches[0].BatchNumber));
+        Assert.Equal(Today.AddDays(6), pick.ExpiryOf(pick.Takes[0].BatchId));
+
+        // With the setting off, the expired batch leaves first, as the sale will take it.
+        var supply = await new SupplySettingsService(Data).GetAsync(db.Station!.StoreId);
+        supply.BlockExpiredSales = false;
+        await new SupplySettingsService(Data).SaveAsync(db.Station.StoreId, supply);
+        pick = (await batches.PickForSaleAsync(milk.Id, 3))!;
+        Assert.Equal([("OLD", 2m), ("NEW", 1m)], pick.Takes.Select(t => (t.BatchNumber!, t.Quantity)));
+        Assert.Equal((false, 6m), (pick.ExpiredBlocked, pick.Sellable));
+    }
+
+    [SkippableFact]
     public async Task Expiring_lists_batches_within_the_days_asked()
     {
         var (_, location) = await SetUpAsync();
@@ -520,6 +548,30 @@ public abstract class SupplyChainTests(DatabaseFixture db)
         // An order received and not billed shows in that report.
         var po3 = await ReceivedOrderAsync(location.Id, vendor.Id, [(cups, 2, 5m, null)]);
         Assert.Contains(await match.ReceivedNotBilledAsync(store), r => r.PurchaseOrderId == po3.Id && r.Received == 2 && r.Billed == 0 && r.Value == 10m);
+
+        // The first bill is voided: the source no longer gives its lines, matching the bill again takes them out, the tea's
+        // price difference comes back out of its cost and its ledger entry is reversed.
+        bills.Remove(teaBill.BillLineId);
+        bills.Remove(cupBill.BillLineId);
+        await match.MatchBillAsync(billId);
+        Assert.Empty(await match.ListAsync(store, purchaseOrderId: po.Id));
+        Assert.Equal(10m, (await new InventoryService(Data).GetAsync(tea.Id))!.AverageCost);   // 10.082 after PO 2, less 0.90 over 11
+        await using (var ctx = db.CreateContext())
+        {
+            var variance = await ctx.PriceVariances.AsNoTracking().SingleAsync(v => v.PurchaseOrderLineId == teaLine.Id);
+            Assert.Equal((0m, 0m, 0m), (variance.Difference, variance.ToInventory, variance.ToCostOfGoods));
+            Assert.Equal(JournalStatus.Reversed, (await ctx.JournalEntries.AsNoTracking().SingleAsync(e => e.Source == $"match:{teaLine.Id}")).Status);
+        }
+
+        // Billed again at the higher price: posted under the line's next source.
+        var again = Bill(po, teaLine, 10, 10.15m, "B-3");
+        bills.Add(again);
+        await match.MatchBillAsync(again.BillId);
+        await using (var ctx = db.CreateContext())
+        {
+            var entry = await ctx.JournalEntries.AsNoTracking().Include(e => e.Lines).SingleAsync(e => e.Source == $"match:{teaLine.Id}/2");
+            Assert.Equal((JournalStatus.Posted, 1.50m), (entry.Status, entry.Lines.Sum(l => l.Debit)));
+        }
     }
 
     // Landed costs -----------------------------------------------------------------------------------------------------

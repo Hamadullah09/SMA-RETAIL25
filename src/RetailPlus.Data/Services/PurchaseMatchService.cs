@@ -74,11 +74,18 @@ public sealed class PurchaseMatchService(DataContext data, IBillLineSource bills
     public async Task<MatchRun> MatchOrderAsync(Guid purchaseOrderId, CancellationToken cancellationToken = default) =>
         await MatchAsync([purchaseOrderId], cancellationToken);
 
-    /// <summary>Checks the lines of one bill (and the other bills of the same order lines), as the payables module does when a bill is saved.</summary>
+    /// <summary>
+    /// Checks the lines of one bill (and the other bills of the same order lines), as the payables module does when a bill
+    /// is posted, changed or voided. The orders the bill was matched to before are checked too, so a voided bill (whose
+    /// lines the source no longer returns) leaves the match and its price differences are taken back.
+    /// </summary>
     public async Task<MatchRun> MatchBillAsync(Guid billId, CancellationToken cancellationToken = default)
     {
         var lines = await bills.LinesOfBillAsync(billId, cancellationToken);
-        return await MatchAsync([.. lines.Select(l => l.PurchaseOrderId).Distinct()], cancellationToken);
+        List<Guid> before;
+        await using (var db = data.Create())
+            before = await db.BillMatches.AsNoTracking().Where(m => m.BillId == billId).Select(m => m.PurchaseOrderId).Distinct().ToListAsync(cancellationToken);
+        return await MatchAsync([.. lines.Select(l => l.PurchaseOrderId).Concat(before).Distinct()], cancellationToken);
     }
 
     /// <summary>Checks every purchase order a bill names.</summary>
@@ -193,7 +200,9 @@ public sealed class PurchaseMatchService(DataContext data, IBillLineSource bills
                     else if (billedSoFar - received > qtyAllowed) reasons.Add($"{billedSoFar:0.###} billed in all for {received:0.###} received");
                     if (!MatchTolerance.Within(orderedCost, bill.UnitCost, settings.PriceTolerancePercent, settings.PriceToleranceAmount))
                         reasons.Add($"billed at {bill.UnitCost:N2} each for {orderedCost:N2} ordered");
-                    decimal covered = Math.Clamp(received - before, 0, bill.Quantity);
+                    // The received pieces this bill line covers: what all bills so far cover less what the earlier ones did (a
+                    // debit note, billed in negative pieces, takes some back).
+                    decimal covered = Math.Clamp(billedSoFar, 0, Math.Max(0, received)) - Math.Clamp(before, 0, Math.Max(0, received));
                     var row = existing.FirstOrDefault(m => m.BillLineId == bill.BillLineId);
                     bool changed = row is null || row.QuantityBilled != bill.Quantity || row.BilledCost != bill.UnitCost || row.QuantityReceived != received
                                    || row.ReceivedCost != receivedCost || row.OrderedCost != orderedCost;
@@ -285,8 +294,9 @@ public sealed class PurchaseMatchService(DataContext data, IBillLineSource bills
 
     /// <summary>
     /// Posts (or posts again) the price difference of one order line from its accepted bill lines. What was already put
-    /// into the item's cost stays there; a change is split between the stock on hand now and cost of goods. Returns true
-    /// when something was posted.
+    /// into the item's cost stays there; a change is split between the stock on hand now and cost of goods. When the
+    /// difference goes back to none (the bill was voided, or corrected to the price received), all that went into the
+    /// item's cost comes back out and the ledger entry is reversed. Returns true when something was posted.
     /// </summary>
     private async Task<bool> PostVarianceAsync(Guid purchaseOrderLineId, CancellationToken cancellationToken)
     {
@@ -300,7 +310,7 @@ public sealed class PurchaseMatchService(DataContext data, IBillLineSource bills
         var variance = await db.PriceVariances.SingleOrDefaultAsync(v => v.PurchaseOrderLineId == purchaseOrderLineId, cancellationToken);
         decimal before = variance?.Difference ?? 0;
         if (difference == before) return false;
-        // Nothing to post where nothing was ever posted, nor (for want of a zero entry) once a difference went back to none.
+        // Nothing to post where nothing was ever posted.
         if (difference == 0 && variance is null) return false;
 
         var line = await db.PurchaseOrderLines.AsNoTracking().SingleAsync(l => l.Id == purchaseOrderLineId, cancellationToken);
@@ -308,9 +318,10 @@ public sealed class PurchaseMatchService(DataContext data, IBillLineSource bills
         decimal change = difference - before;
         decimal changeToStock = 0;
         Item? item = line.ItemId is Guid itemId ? await db.Items.SingleOrDefaultAsync(i => i.Id == itemId, cancellationToken) : null;
-        if (item is not null && quantity > 0)
+        if (item is not null && (quantity > 0 || variance is not null))
         {
-            changeToStock = LandedCosts.ToInventory(change, quantity, item.OnHand);
+            // Back to no difference: exactly what went into the item's cost comes out of it.
+            changeToStock = difference == 0 ? -variance!.ToInventory : LandedCosts.ToInventory(change, quantity, item.OnHand);
             if (changeToStock != 0 && item.OnHand > 0)
                 item.AverageCost = Math.Max(0, Math.Round(item.AverageCost + changeToStock / item.OnHand, 3, MidpointRounding.AwayFromZero));
         }
@@ -321,24 +332,36 @@ public sealed class PurchaseMatchService(DataContext data, IBillLineSource bills
         variance.ToCostOfGoods = difference - variance.ToInventory;
         variance.PostedAtUtc = DateTime.UtcNow;
 
-        if (difference != 0)
+        var lines = new List<JournalDraftLine>();
+        void Side(string role, decimal amount, string memo)
         {
-            var lines = new List<JournalDraftLine>();
-            void Side(string role, decimal amount, string memo)
+            if (amount > 0) lines.Add(JournalDraftLine.Role(role, amount, 0, po.StoreId, memo));
+            else if (amount < 0) lines.Add(JournalDraftLine.Role(role, 0, -amount, po.StoreId, memo));
+        }
+        string what = $"PO {po.Number} {line.Plu}";
+        Side(LedgerRoles.Inventory, variance.ToInventory, $"{what}: price difference on stock");
+        Side(LedgerRoles.CostOfGoods, variance.ToCostOfGoods, $"{what}: price difference on goods sold");
+        Side(LedgerRoles.PurchasesClearing, -difference, $"{what}: billed {quantity:0.###} at another price than received");
+        var ledger = new LedgerService(data.For(new StationIdentity(po.StoreId, 0), data.CurrentUser));
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        string source = await VarianceSourceAsync(db, purchaseOrderLineId, cancellationToken);
+        if (lines.Count > 0)
+        {
+            var entry = await ledger.PostAsync(new JournalDraft(today, JournalKind.Inventory, $"Purchase price difference, {what}", lines)
             {
-                if (amount > 0) lines.Add(JournalDraftLine.Role(role, amount, 0, po.StoreId, memo));
-                else if (amount < 0) lines.Add(JournalDraftLine.Role(role, 0, -amount, po.StoreId, memo));
-            }
-            string what = $"PO {po.Number} {line.Plu}";
-            Side(LedgerRoles.Inventory, variance.ToInventory, $"{what}: price difference on stock");
-            Side(LedgerRoles.CostOfGoods, variance.ToCostOfGoods, $"{what}: price difference on goods sold");
-            Side(LedgerRoles.PurchasesClearing, -difference, $"{what}: billed {quantity:0.###} at another price than received");
-            var ledger = new LedgerService(data.For(new StationIdentity(po.StoreId, 0), data.CurrentUser));
-            var entry = await ledger.PostAsync(new JournalDraft(DateOnly.FromDateTime(DateTime.Now), JournalKind.Inventory, $"Purchase price difference, {what}", lines)
-            {
-                Source = $"match:{purchaseOrderLineId}", StoreId = po.StoreId, Reference = $"PO {po.Number}",
+                Source = source, StoreId = po.StoreId, Reference = $"PO {po.Number}",
             }, cancellationToken);
             variance.JournalEntryId = entry.Id;
+        }
+        else
+        {
+            // Nothing left to post: what was posted for the line is reversed (with any adjustments of a locked period), and
+            // a later difference is posted under the next source.
+            var posted = await db.JournalEntries.AsNoTracking()
+                .Where(e => (e.Source == source || e.Source!.StartsWith(source + "#adj")) && e.Status == JournalStatus.Posted && e.Kind != JournalKind.Reversal)
+                .Select(e => e.Id).ToListAsync(cancellationToken);
+            foreach (var id in posted) await ledger.ReverseAsync(id, today, "The price difference went back to none");
+            variance.JournalEntryId = null;
         }
         await db.SaveChangesAsync(cancellationToken);
         return true;
@@ -362,6 +385,20 @@ public sealed class PurchaseMatchService(DataContext data, IBillLineSource bills
             return new MatchReportRow(po.Id, po.Number, l.Id, po.StoreId, l.Plu, l.Description, supplier, l.OrderQuantity * l.CaseQuantity, l.QuantityReceived, b, diff,
                 l.CostEach, Money.Round(Math.Abs(diff) * l.CostEach), po.ReceivedAt);
         }));
+
+    /// <summary>
+    /// The ledger source an order line's price difference is posted under: <c>match:{purchaseOrderLineId}</c>, and after a
+    /// difference that went back to none was reversed, <c>match:{purchaseOrderLineId}/2</c>, <c>/3</c> and so on.
+    /// </summary>
+    private static async Task<string> VarianceSourceAsync(RetailPlusDbContext db, Guid purchaseOrderLineId, CancellationToken cancellationToken)
+    {
+        string root = $"match:{purchaseOrderLineId}";
+        var entries = await db.JournalEntries.AsNoTracking().Where(e => e.Source == root || e.Source!.StartsWith(root + "/"))
+            .Select(e => new { e.Source, e.Status }).ToListAsync(cancellationToken);
+        var originals = entries.Where(e => !e.Source!.Contains("#adj", StringComparison.Ordinal)).ToList();
+        return originals.FirstOrDefault(e => e.Status != JournalStatus.Reversed)?.Source
+               ?? (originals.Count == 0 ? root : $"{root}/{originals.Count + 1}");
+    }
 
     private static string Capital(string text) => text.Length == 0 ? text : char.ToUpperInvariant(text[0]) + text[1..];
 
