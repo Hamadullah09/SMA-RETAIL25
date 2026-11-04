@@ -12,6 +12,7 @@ import type {
   PayrollRunStatus,
   PayslipLineInfo,
   PayslipLineKind,
+  RuleSetInfo,
 } from './types';
 
 export const ATTENDANCE_STATUS: Record<AttendanceStatus, { label: string; tone: ChipTone }> = {
@@ -156,6 +157,28 @@ export function taxYearName(startYear: number, startMonth = 7): string {
 /** The tax year (by its first calendar year) holding a day, for a year that starts in `startMonth`. */
 export function taxYearOf(date: Date = new Date(), startMonth = 7): number {
   return date.getMonth() + 1 >= startMonth ? date.getFullYear() : date.getFullYear() - 1;
+}
+
+/**
+ * The rule set of the tax year after `set`, to change what the new budget changed: a year later, with no end, a name of
+ * its own, and a note asking for the figures to be checked instead of last year's note.
+ */
+export function nextTaxYear(set: RuleSetInfo): RuleSetInfo {
+  const [y, m, d] = set.effectiveFrom.split('-').map(Number);
+  const from = `${y + 1}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  return {
+    ...set,
+    id: null,
+    version: null,
+    effectiveFrom: from,
+    effectiveTo: null,
+    name: `${set.country}, tax year ${taxYearName(y + 1, set.taxYearStartMonth)}`,
+    notes:
+      `Started from ${set.name}. Check every figure against this year's Finance Act and the minimum wage, EOBI and ` +
+      'social security notifications, and write here where each one comes from.',
+    taxSlabs: set.taxSlabs.map((x) => ({ ...x })),
+    allowances: set.allowances.map((a) => ({ ...a })),
+  };
 }
 
 // Payroll runs -------------------------------------------------------------------------------------------------------

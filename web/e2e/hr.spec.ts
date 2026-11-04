@@ -280,6 +280,26 @@ test('HR settings: shared lists, leave types, holidays, the rule sets with their
   await expect(page.getByRole('row', { name: /WEST/ })).toContainText('Its own');
 });
 
+test('the next tax year starts from the last one and is saved as a new rule set with what the budget changed', async ({ page }) => {
+  const api = await mockApi(page);
+  await page.goto('/hr/settings/');
+  await page.getByRole('tab', { name: 'Payroll rule sets' }).click();
+  await expect(page.getByRole('row', { name: /Pakistan, tax year 2026/ })).toContainText('Jun 30, 2026');
+  await page.getByRole('button', { name: /Start the next tax year/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'The next tax year' });
+  await expect(dialog.locator('#rs-name')).toHaveValue('PK, tax year 2026-27');
+  await expect(dialog.locator('#rs-from')).toHaveValue('2026-07-01');
+  await expect(dialog.locator('#rs-to')).toHaveValue('');
+  await expect(dialog.locator('#rs-notes')).toHaveValue(/^Started from Pakistan, tax year 2026 .*Check every figure/);
+  await dialog.getByLabel('Rate %').nth(3).fill('20');
+  await dialog.locator('#rs-surchargeRate').fill('0');
+  await dialog.getByRole('button', { name: /^Save/ }).click();
+  await expect(page.getByText('PK, tax year 2026-27 is saved.')).toBeVisible();
+  const body = api.last('POST', '/api/hr/rule-sets')?.body as { taxSlabs: unknown[] };
+  expect(body).toMatchObject({ id: null, version: null, country: 'PK', effectiveFrom: '2026-07-01', effectiveTo: null, surchargeRate: 0 });
+  expect(body.taxSlabs[3]).toEqual({ incomeFrom: 2200000, incomeTo: 3200000, fixedTax: 116000, rate: 20 });
+});
+
 test('a store administrator reads the shared HR lists but does not change them', async ({ page }) => {
   await mockApi(page, { user: hrOfficer });
   await page.goto('/hr/settings/');

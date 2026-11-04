@@ -17,7 +17,7 @@ import { api, ApiError } from '@/lib/api';
 import { isBusinessDate } from '@/lib/dates';
 import { numberText, parseNumber, textOrNull } from '@/lib/forms';
 import { formatDate, formatMoney, formatPercent } from '@/lib/format';
-import { DAILY_RATE_BASIS, formatDays, GENDERS, LATENESS_RULES, LEAVE_KINDS, SOCIAL_SECURITY_BASIS } from '@/lib/hr';
+import { DAILY_RATE_BASIS, formatDays, GENDERS, LATENESS_RULES, LEAVE_KINDS, nextTaxYear, SOCIAL_SECURITY_BASIS } from '@/lib/hr';
 import type { HolidayInfo, HrListItem, HrStoreCountry, LeaveKind, LeaveTypeInfo, RuleSetInfo } from '@/lib/types';
 
 /** A rate as people write it: 35%, 1.5%. */
@@ -618,7 +618,7 @@ function RuleSets() {
       </div>
       {rights.editShared && (
         <Toolbar>
-          <Button variant="sun" icon={Copy} disabled={!shown} onClick={() => shown && setEditing({ set: nextYear(shown), copy: true })}>
+          <Button variant="sun" icon={Copy} disabled={!shown} onClick={() => shown && setEditing({ set: nextTaxYear(shown), copy: true })}>
             Start the next tax year
           </Button>
           <Button icon={Pencil} disabled={!shown} onClick={() => shown && setEditing({ set: shown, copy: false })}>
@@ -666,13 +666,6 @@ function RuleSets() {
       />
     </>
   );
-}
-
-/** A copy of a rule set for the year after it, to change what the new budget changed. */
-function nextYear(set: RuleSetInfo): RuleSetInfo {
-  const [y, m, d] = set.effectiveFrom.split('-').map(Number);
-  const from = `${y + 1}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-  return { ...set, id: null, version: null, effectiveFrom: from, effectiveTo: null, name: `${set.country}, tax year from ${from}`, notes: set.notes };
 }
 
 function RuleSetSummary({ set }: { set: RuleSetInfo }) {

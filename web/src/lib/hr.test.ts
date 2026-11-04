@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { addMonths, daysText, formatDays, formatMinutes, markTone, monthKey, monthName, payslipSections, runActions, taxYearName, taxYearOf } from './hr';
+import { addMonths, daysText, formatDays, formatMinutes, markTone, monthKey, monthName, nextTaxYear, payslipSections, runActions, taxYearName, taxYearOf } from './hr';
 import { canOpen, commandsFor, navFor, navKeyForPath, pageForPath, searchCommands } from './nav';
+import type { RuleSetInfo } from './types';
 
 describe('HR words', () => {
   it('writes the days of a shift short', () => {
@@ -69,6 +70,34 @@ describe('a payroll run', () => {
       ['Paid by the employer', 2000],
     ]);
     expect(payslipSections([]).length).toBe(0);
+  });
+});
+
+describe('the payroll rules of the next tax year', () => {
+  const pakistan: RuleSetInfo = {
+    id: 'rs-1', version: 'v-1', country: 'PK', name: 'Pakistan, tax year 2026 (July 2025 to June 2026)', effectiveFrom: '2025-07-01',
+    effectiveTo: '2026-06-30', taxYearStartMonth: 7, minimumWage: 40000, eobiEmployerRate: 5, eobiEmployeeRate: 1, socialSecurityProvince: 'Punjab (PESSI)',
+    socialSecurityRate: 6, socialSecurityWageCeiling: 40000, socialSecurityBasis: 'MinimumWage', workingDaysPerWeek: 6, hoursPerWeek: 48,
+    overtimeMultiplier: 2, overtimeMinimumMinutes: 30, dailyRateBasis: 'CalendarDays', latenessRule: 'DayPerLates', latesPerDay: 3, deductAbsences: true,
+    surchargeThreshold: 10_000_000, surchargeRate: 9, gratuityEnabled: true, gratuityDaysPerYear: 30, gratuityMinimumMonths: 12, gratuityPartYearMonths: 6,
+    gratuityOnBasic: false, cnicPattern: null, cnicExample: null, ibanPattern: null, ibanExample: null, notes: 'Tax year 2026 only.',
+    taxSlabs: [{ incomeFrom: 0, incomeTo: 600000, fixedTax: 0, rate: 0 }, { incomeFrom: 600000, incomeTo: null, fixedTax: 0, rate: 1 }],
+    allowances: [{ code: 'MEDICAL', name: 'Medical', isTaxable: false, exemptPercentOfBasic: 10, sortOrder: 1 }],
+  };
+
+  it('starts a year later as a new rule set without an end, named for its year', () => {
+    const next = nextTaxYear(pakistan);
+    expect([next.id, next.version, next.effectiveFrom, next.effectiveTo, next.name]).toEqual([null, null, '2026-07-01', null, 'PK, tax year 2026-27']);
+    expect(nextTaxYear({ ...pakistan, effectiveFrom: '2026-01-01', taxYearStartMonth: 1 }).name).toBe('PK, tax year 2027');
+  });
+
+  it('keeps the figures to change, but asks for them to be checked instead of keeping last year’s note', () => {
+    const next = nextTaxYear(pakistan);
+    expect([next.minimumWage, next.surchargeRate, next.taxSlabs, next.allowances]).toEqual([40000, 9, pakistan.taxSlabs, pakistan.allowances]);
+    expect(next.notes).toContain('Started from Pakistan, tax year 2026 (July 2025 to June 2026).');
+    expect(next.notes).toContain('Check every figure');
+    next.taxSlabs[1].rate = 5;
+    expect(pakistan.taxSlabs[1].rate).toBe(1);
   });
 });
 

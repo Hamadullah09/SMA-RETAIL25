@@ -154,11 +154,13 @@ function formOf(e: EmployeeDetail | null, storeId: string | null): Form {
   };
 }
 
-/** The rule set of a country in effect today: the latest that has started. */
+/**
+ * The rule set of a country in effect today: the latest that has started. When none is (a tax year ended before the next
+ * one was added), the latest of all, as the server does: the formats of identity numbers and IBANs do not change with it.
+ */
 function inEffect(sets: RuleSetInfo[] | undefined, today: string): RuleSetInfo | undefined {
-  return (sets ?? [])
-    .filter((s) => s.effectiveFrom <= today && (!s.effectiveTo || s.effectiveTo >= today))
-    .sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom))[0];
+  const latest = [...(sets ?? [])].sort((a, b) => b.effectiveFrom.localeCompare(a.effectiveFrom));
+  return latest.find((s) => s.effectiveFrom <= today && (!s.effectiveTo || s.effectiveTo >= today)) ?? latest[0];
 }
 
 function EmployeeEditor({ employee }: { employee: EmployeeDetail | null }) {

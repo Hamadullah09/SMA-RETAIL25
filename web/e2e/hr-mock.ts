@@ -42,6 +42,10 @@ export function createHrMock() {
         return { json: h.hrSettings };
       case key === 'GET /api/hr/rule-sets':
         return { json: h.ruleSets };
+      case key === 'POST /api/hr/rule-sets':
+        return { status: 201, json: { ...(r.body as object), id: 'rs-new', version: 'v-1' } };
+      case /^PUT \/api\/hr\/rule-sets\/[^/]+$/.test(key):
+        return { json: { ...(r.body as object), version: 'v-2' } };
       case key === 'GET /api/hr/leave-types':
         return { json: h.leaveTypes };
       case key === 'GET /api/hr/holidays':
