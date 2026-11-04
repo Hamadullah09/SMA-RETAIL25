@@ -107,8 +107,9 @@ public sealed class PayWindow : Window
         list.ItemTemplate = new DataTemplate { VisualTree = TenderTemplate() };
         root.Children.Add(list);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) };
+        // The same key as the Coupon button of the Point of Sale screen.
         var coupon = new Button { Content = "Coupon", MinHeight = 60, Margin = new Thickness(0, 0, 10, 0) };
-        Infrastructure.Look.SetShortcut(coupon, "Ctrl+O");
+        Infrastructure.Look.SetShortcut(coupon, "Ctrl+J");
         Infrastructure.Look.SetIcon(coupon, "");
         coupon.Click += (_, _) =>
         {

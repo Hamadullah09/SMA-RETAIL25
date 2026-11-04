@@ -64,6 +64,7 @@ public static class HelpTopics
                 [
                     ("Ctrl+F Find item", "Search the inventory by name."),
                     ("Ctrl+M Item without code", "Sell something that is not in the inventory, at a price you type."),
+                    ("Ctrl+J Coupon", "Type a coupon code for a promotion (or scan it into the code box). Press it again with the same code to take the coupon off."),
                     ("F4 Choose client", "Put a client on the sale, for their prices, points and account. Shift+F4 removes them."),
                     ("F5 Change quantity", "Change how many of the chosen line."),
                     ("F6 Change price, F7 Discount on line, F8 Discount on sale", "May need a supervisor; see When a supervisor is needed."),
@@ -74,9 +75,22 @@ public static class HelpTopics
                     ("Ctrl+Q Save as quote, Ctrl+L Layaway", "Keep the sale as a price quote, or as a layaway with a deposit."),
                     ("Esc Cancel sale", "Clear the whole sale. Nothing is saved."),
                 ]),
+            new("Promotions and coupons",
+                Paragraphs:
+                [
+                    "Promotions are set on the web back office and reach this till with the sync. They apply by themselves: the line shows the promotion's name in green, the Discount column what it takes off, and the panel on the right what the promotions save in all. The receipt shows them too.",
+                    "A promotion with a coupon code applies only after the code is scanned or typed: in the code box, with Coupon (Ctrl+J), or with Coupon in the Pay window. A code that is not known, used up or out of date is refused in red.",
+                    "A line whose price or discount you changed by hand takes no promotion. When several promotions could apply, the customer gets the best price.",
+                ]),
+            new("WhatsApp messages",
+                Paragraphs:
+                [
+                    "The first time a client is chosen for a sale, the till asks you to put a question to them: may we send you our offers and news on WhatsApp? Choose Yes with their number (with + and the country code), No, or Ask later.",
+                    "Yes and No are kept on the client, so they are not asked again. Messages are only ever sent to clients who said yes. To change the answer later, open the client on the Clients screen.",
+                ]),
             new("Training mode",
                 Paragraphs: ["Users with the Trainee role see TRAINING MODE: their sales are rung up and printed but never saved, and stock does not change."]),
-        ], "sell sale scan barcode quantity price discount return refund hold suspend recall quote layaway cancel training"),
+        ], "sell sale scan barcode quantity price discount return refund hold suspend recall quote layaway cancel training promotion coupon whatsapp consent offers"),
 
         new("paying", "Paying and receipts", "Taking the money, change, split payments and printing the receipt.", "pos",
         [

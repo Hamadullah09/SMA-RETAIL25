@@ -58,12 +58,13 @@ public static class ReceiptFormatter
         if (r.Customer is not null) yield return Fit("Customer: " + r.Customer, width);
     }
 
-    /// <summary>Under an item's name: code, quantity x price and the amount; then its discount and note.</summary>
+    /// <summary>Under an item's name: code, quantity x price and the amount; then its discount, its promotion and note.</summary>
     public static IEnumerable<string> ItemDetail(ReceiptItem i, int width, CultureInfo culture)
     {
         var qty = $"{i.Quantity.ToString("0.###", culture)} x {i.UnitPrice.ToString("N2", culture)}";
         yield return Pair("  " + (string.IsNullOrWhiteSpace(i.Code) ? "" : i.Code + "  ") + qty, i.Gross.ToString("N2", culture), width);
-        if (i.Discount != 0) yield return Pair("  Discount", (-i.Discount).ToString("N2", culture), width);
+        if (i.OtherDiscount != 0) yield return Pair("  Discount", (-i.OtherDiscount).ToString("N2", culture), width);
+        if (i.PromotionDiscount != 0) yield return Pair("  " + Fit(i.Promotion ?? "Promotion", width - 14), (-i.PromotionDiscount).ToString("N2", culture), width);
         if (i.Note is not null) yield return Fit("  " + i.Note, width);
     }
 

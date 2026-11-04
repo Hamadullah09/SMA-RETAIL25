@@ -23,6 +23,8 @@
                         ToolTip="Search the inventory by name" Click="Find_Click" />
                 <Button DockPanel.Dock="Right" Content="Item without code" infra:Look.Icon="&#xE710;" infra:Look.Shortcut="Ctrl+M" Margin="10,0,0,0" MinHeight="62"
                         ToolTip="Sell something that is not in the inventory" Click="OpenItem_Click" />
+                <Button DockPanel.Dock="Right" Content="Coupon" infra:Look.Icon="&#xE8EC;" infra:Look.Shortcut="Ctrl+J" Margin="10,0,0,0" MinHeight="62"
+                        ToolTip="A coupon code for a promotion (it can also be scanned into the code box)" Click="Coupon_Click" />
                 <Grid>
                     <TextBox x:Name="CodeBox" FontSize="22" MinHeight="62" Padding="50,10,12,10" Text="{Binding CodeText, UpdateSourceTrigger=PropertyChanged}" KeyDown="CodeBox_KeyDown" />
                     <TextBlock Text="&#xE8EC;" Style="{StaticResource Icon}" HorizontalAlignment="Left" Margin="18,0,0,0" FontSize="20" Foreground="{StaticResource Muted}" IsHitTestVisible="False" />
@@ -78,13 +80,36 @@
                     </Style>
                 </DataGrid.RowStyle>
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="Item" Binding="{Binding Description}" Width="*" />
+                    <!-- The item, and under it the promotion that applies to the line. -->
+                    <DataGridTemplateColumn Header="Item" Width="*" SortMemberPath="Description">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Description}" TextTrimming="CharacterEllipsis" />
+                                    <TextBlock Text="{Binding PromotionName}" FontSize="14" FontWeight="SemiBold" Foreground="{StaticResource Ok}" TextTrimming="CharacterEllipsis">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding PromotionName}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsPromotionLine}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Code" Binding="{Binding Plu}" Width="120" />
                     <DataGridTextColumn Header="Option" Binding="{Binding VariantText}" Width="90" />
                     <DataGridTextColumn Header="Qty" Binding="{Binding Quantity, StringFormat=0.###}" Width="70" ElementStyle="{StaticResource Right}" />
                     <DataGridTextColumn Header="RFID" Binding="{Binding Epcs.Count, StringFormat={}{0:#}}" Width="70" ElementStyle="{StaticResource Right}" />
                     <DataGridTextColumn Header="Price" Binding="{Binding UnitPrice, StringFormat=N2}" Width="100" ElementStyle="{StaticResource Right}" />
-                    <DataGridTextColumn Header="Discount" Binding="{Binding DiscountAmount, StringFormat=N2}" Width="100" ElementStyle="{StaticResource Right}" />
+                    <DataGridTextColumn Header="Discount" Binding="{Binding TotalDiscount, StringFormat=N2}" Width="100" ElementStyle="{StaticResource Right}" />
                     <DataGridTextColumn Header="Total" Binding="{Binding LineTotal, StringFormat=N2}" Width="110" ElementStyle="{StaticResource Right}" FontWeight="Bold" />
                 </DataGrid.Columns>
             </DataGrid>
@@ -193,6 +218,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <TextBlock Text="Subtotal" Foreground="#B9B5AC" />
                     <TextBlock Grid.Column="1" Text="{Binding SubtotalText}" HorizontalAlignment="Right" />
@@ -205,6 +231,19 @@
                     <Border Grid.Row="4" Grid.ColumnSpan="2" Height="1" Background="#4A4A4A" Margin="0,12,0,8" />
                     <TextBlock Grid.Row="5" Text="Total to pay" FontSize="19" VerticalAlignment="Center" />
                     <TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding TotalText}" FontFamily="{StaticResource DisplayFont}" FontSize="52" Foreground="{StaticResource Sun}" />
+                    <!-- What the promotions take off (already in the lines), and the coupons entered. -->
+                    <TextBlock Grid.Row="6" Grid.ColumnSpan="2" Text="{Binding PromotionText}" Foreground="{StaticResource Sun}" FontSize="16" FontWeight="SemiBold"
+                               TextWrapping="Wrap" Margin="0,6,0,0">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding PromotionText}" Value="">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
                 </Grid>
             </Border>
 

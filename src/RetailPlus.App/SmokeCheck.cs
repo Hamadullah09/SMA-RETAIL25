@@ -126,6 +126,15 @@ public static class SmokeCheck
 
         try
         {
+            failures.AddRange(await PromotionCheckAsync(main));
+        }
+        catch (Exception ex)
+        {
+            failures.Add("Promotions: " + ex);
+        }
+
+        try
+        {
             failures.AddRange(await SyncCheckAsync(main));
         }
         catch (Exception ex)
@@ -520,6 +529,151 @@ public static class SmokeCheck
             }
         }
         await pos.Vm.ClearSaleAsync(ask: false);
+        return failures;
+    }
+
+    /// <summary>
+    /// Promotions and WhatsApp consent at the till (phase E4). A sale rung up through the POS screen's own code gets 10% off
+    /// one item, buy 2 get 1 free on another and a one-use coupon typed into the code box; the saved sale keeps each
+    /// line's promotion, the coupon's use is recorded, the receipt names the promotions, and the used coupon is refused
+    /// on the next sale. A client's yes and another's no to WhatsApp messages are recorded when they are chosen, and
+    /// neither is asked again. The promotions are switched off afterwards.
+    /// </summary>
+    private static async Task<List<string>> PromotionCheckAsync(MainWindow main)
+    {
+        var failures = new List<string>();
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        string stamp = DateTime.Now.ToString("HHmmssfff", culture);
+        var here = AppServices.Session.LocationId;
+        if (AppServices.Data.Station is null)
+        {
+            failures.Add("promotions: the database has no station, so the till does not know its store");
+            return failures;
+        }
+        Task<Item> NewItem(string plu, decimal price) => AppServices.Inventory.SaveAsync(new Item
+        {
+            LocationId = here, Plu = plu, Name = "Smoke promo " + plu[4..], Price1 = price, LastCost = 1m, AverageCost = 1m, OnHand = 50,
+        }, null, null, null);
+        var shirt = await NewItem("SMK-A" + stamp, 10m);
+        var socks = await NewItem("SMK-B" + stamp, 4m);
+        string code = "SMK" + stamp;
+        var percent = await AppServices.Promotions.SaveAsync(new Promotion
+        {
+            Name = "Smoke 10% off", Kind = PromotionKind.PercentOff, Percent = 10, Scope = PromotionScope.Items, Combinable = true,
+            StartsOn = DateOnly.FromDateTime(DateTime.Today), EndsOn = DateOnly.FromDateTime(DateTime.Today),
+            Targets = [new PromotionTarget { Role = PromotionTargetRole.Qualifies, Plu = shirt.Plu }],
+        });
+        var threeForTwo = await AppServices.Promotions.SaveAsync(new Promotion
+        {
+            Name = "Smoke buy 2 get 1", Kind = PromotionKind.BuyXGetY, BuyQuantity = 2, GetQuantity = 1, GetPercent = 100, Scope = PromotionScope.Items,
+            Combinable = true, Targets = [new PromotionTarget { Role = PromotionTargetRole.Qualifies, Plu = socks.Plu }],
+        });
+        var coupon = await AppServices.Promotions.SaveAsync(new Promotion
+        {
+            Name = "Smoke coupon", Kind = PromotionKind.SpendOver, SpendThreshold = 5, Amount = 2, Scope = PromotionScope.AllItems, Combinable = true,
+            CouponCode = code, CouponMaxUses = 1,
+        });
+        var promotions = new[] { percent, threeForTwo, coupon };
+        try
+        {
+            main.Navigate("pos");
+            await MainWindow.Settle();
+            var pos = main.GetView<PosView>() ?? throw new InvalidOperationException("POS screen did not open");
+            pos.Vm.StopRfid();
+            await pos.Vm.ClearSaleAsync(ask: false);
+            await pos.Vm.LoadPromotionsAsync();
+            await pos.Vm.AddCodeAsync(shirt.Plu!);
+            await pos.Vm.AddCodeAsync(socks.Plu!, 3);
+            await pos.Vm.AddCodeAsync(code.ToLowerInvariant());
+            var lines = pos.Vm.Lines.ToList();
+            var shirtLine = lines.FirstOrDefault(l => l.Plu == shirt.Plu);
+            var socksLine = lines.FirstOrDefault(l => l.Plu == socks.Plu);
+            var couponLine = lines.FirstOrDefault(l => l.IsPromotionLine);
+            if (shirtLine is not { PromotionName: "Smoke 10% off", PromotionDiscount: 1m })
+                failures.Add($"10% off gave {shirtLine?.PromotionName ?? "nothing"} {shirtLine?.PromotionDiscount} on the item of 10.00");
+            if (socksLine is not { PromotionName: "Smoke buy 2 get 1", PromotionDiscount: 4m })
+                failures.Add($"buy 2 get 1 gave {socksLine?.PromotionName ?? "nothing"} {socksLine?.PromotionDiscount} on 3 items of 4.00");
+            if (couponLine is not { Description: "Smoke coupon", LineTotal: -2m })
+                failures.Add($"coupon {code} typed in the code box gave the line {couponLine?.Description ?? "none"} {couponLine?.LineTotal}");
+            if (string.IsNullOrEmpty(pos.Vm.PromotionText)) failures.Add("the POS does not show what the promotions save");
+            var subtotal = pos.Vm.Draft.Calculate(pos.Vm.Draft.EffectiveTax(AppServices.Settings)).Subtotal;
+            if (subtotal != 15m) failures.Add($"the subtotal with promotions is {subtotal}, expected 15.00");
+            var total = pos.Vm.Total;
+            var cash = Money.RoundToMinimumTender(total, AppServices.Settings.MinimumTender);
+            if (!await pos.Vm.PostAsync([new TenderEntry("Cash", TenderKind.Cash, cash, cash)])) failures.Add("the sale with promotions was not saved");
+            Log.Write($"Sale with promotions: subtotal {subtotal}, total {total}");
+
+            if (!AppServices.Session.IsTrainee)
+            {
+                await using (var db = AppServices.Data.Create())
+                {
+                    var sale = await db.Sales.AsNoTracking().Include(x => x.Lines).Where(x => x.Lines.Any(l => l.Plu == shirt.Plu)).SingleOrDefaultAsync();
+                    var named = sale?.Lines.Where(l => l.PromotionId != null).Select(l => l.PromotionName).OrderBy(n => n).ToList() ?? [];
+                    if (!named.SequenceEqual(["Smoke 10% off", "Smoke buy 2 get 1", "Smoke coupon"]))
+                        failures.Add("the saved sale's lines name the promotions " + string.Join(", ", named));
+                    if (await db.CouponUses.CountAsync(u => u.PromotionId == coupon.Id) != 1) failures.Add($"the use of coupon {code} was not recorded once");
+                }
+                var newest = new System.IO.DirectoryInfo(AppServices.Config.ReceiptFolderOrDefault).GetFiles("receipt_*.txt").MaxBy(f => f.LastWriteTimeUtc);
+                var printed = newest is null ? "" : await System.IO.File.ReadAllTextAsync(newest.FullName);
+                if (!printed.Contains("Smoke 10% off", StringComparison.Ordinal) || !printed.Contains("You saved 7", StringComparison.Ordinal))
+                    failures.Add($"the receipt does not name the promotions and what they saved ({newest?.Name ?? "no file"})");
+
+                // The coupon had one use: the next sale refuses it.
+                await pos.Vm.AddCodeAsync(shirt.Plu!);
+                if (await pos.Vm.EnterCouponAsync(code) || pos.Vm.Lines.Any(l => l.IsPromotionLine))
+                    failures.Add($"coupon {code} was taken again after its one use");
+                await pos.Vm.ClearSaleAsync(ask: false);
+            }
+
+            // WhatsApp: asked once per client when chosen; yes needs the number, no is kept too.
+            int asked = 0;
+            pos.Vm.WhatsAppPrompt = c =>
+            {
+                asked++;
+                return Task.FromResult<Dialogs.WhatsAppAnswer?>(c.LastName!.EndsWith('Y') ? new(true, "+1 555 555 0100") : new(false, null));
+            };
+            try
+            {
+                var yes = await AppServices.Parties.SaveClientAsync(new Client { LastName = "Smoke WA " + stamp[..6] + " Y" });
+                var no = await AppServices.Parties.SaveClientAsync(new Client { LastName = "Smoke WA " + stamp[..6] + " N" });
+                await pos.Vm.SetClientAsync(yes.Id);
+                await pos.Vm.SetClientAsync(no.Id);
+                await pos.Vm.SetClientAsync(yes.Id);
+                var yesNow = (await AppServices.Parties.GetClientAsync(yes.Id))!;
+                var noNow = (await AppServices.Parties.GetClientAsync(no.Id))!;
+                // A trainee is never asked: their sales are not saved.
+                if (AppServices.Session.IsTrainee) { }
+                else if (asked != 2) failures.Add($"the WhatsApp question was put {asked} times for two clients, expected 2");
+                else if (yesNow is not { WhatsAppOptIn: true, WhatsAppNumber: "+15555550100", WhatsAppOptInAt: not null, WhatsAppAskedAt: not null })
+                    failures.Add("a client's yes to WhatsApp messages was not recorded with the number and the time");
+                else if (noNow is not { WhatsAppOptIn: false, WhatsAppAskedAt: not null })
+                    failures.Add("a client's no to WhatsApp messages was not recorded");
+                else if (!pos.Vm.ClientDetail.Contains("WhatsApp offers: yes", StringComparison.Ordinal))
+                    failures.Add("the POS does not show the client's WhatsApp answer");
+            }
+            finally
+            {
+                pos.Vm.WhatsAppPrompt = null;
+                pos.Vm.ClearClient();
+            }
+
+            var window = new Dialogs.WhatsAppConsentWindow("Smoke client", null) { Owner = main };
+            window.Show();
+            await MainWindow.Settle();
+            window.Close();
+            Log.Write("Promotions and WhatsApp consent ok");
+        }
+        finally
+        {
+            // Off again, so they do not touch later sales on this database (a promotion that was used is kept).
+            foreach (var p in promotions)
+            {
+                var fresh = await AppServices.Promotions.GetAsync(p.Id);
+                if (fresh is null) continue;
+                fresh.IsActive = false;
+                await AppServices.Promotions.SaveAsync(fresh);
+            }
+        }
         return failures;
     }
 
