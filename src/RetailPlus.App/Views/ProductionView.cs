@@ -71,7 +71,8 @@ public sealed class ProductionView : UserControl, IRefreshable
         entry.Children.Add(_code);
         entry.Children.Add(Layout.Label("Quantity"));
         entry.Children.Add(_quantity);
-        entry.Children.Add(Layout.Button("Issue it", async (_, _) => await Ui.Try(IssueEnteredAsync), true));
+        // The code box issues on Enter; the badge says so.
+        entry.Children.Add(Keyed(Layout.Button("Issue it", async (_, _) => await Ui.Try(IssueEnteredAsync), true), "Enter"));
 
         var right = new DockPanel { Margin = new Thickness(16, 0, 0, 0) };
         var operationsTitle = new TextBlock { Text = "Operations", Style = Layout.S("FieldLabel"), Margin = new Thickness(0, 4, 0, 4) };
@@ -85,13 +86,14 @@ public sealed class ProductionView : UserControl, IRefreshable
 
         Content = Layout.Page("Production", out var bar, StockCountsView.Split(_orders, right));
         bar.Children.Add(Layout.Button("Refresh", async (_, _) => await Ui.Try(RefreshAsync)));
-        bar.Children.Add(Layout.Button("Start operation", async (_, _) => await Ui.Try(() => StartAsync())));
-        bar.Children.Add(Layout.Button("Finish operation", async (_, _) => await Ui.Try(() => FinishAsync())));
-        bar.Children.Add(Layout.Button("Report work…", Report_Click));
-        bar.Children.Add(Layout.Button("Issue the list", async (_, _) => await Ui.Try(IssueListAsync)));
-        bar.Children.Add(Layout.Button("Scrap material…", Scrap_Click));
-        bar.Children.Add(Layout.Button("Receive output…", Receive_Click));
-        bar.Children.Add(Layout.Button("Finish order…", Complete_Click));
+        // Every action shows its key (F5 refreshes and Ctrl+P prints, as on every screen; F1 to F3 stay with Windows).
+        bar.Children.Add(Keyed(Layout.Button("Start operation", async (_, _) => await Ui.Try(() => StartAsync())), "F6"));
+        bar.Children.Add(Keyed(Layout.Button("Finish operation", async (_, _) => await Ui.Try(() => FinishAsync())), "F7"));
+        bar.Children.Add(Keyed(Layout.Button("Report work…", Report_Click), "F8"));
+        bar.Children.Add(Keyed(Layout.Button("Issue the list", async (_, _) => await Ui.Try(IssueListAsync)), "F9"));
+        bar.Children.Add(Keyed(Layout.Button("Scrap material…", Scrap_Click), "F4"));
+        bar.Children.Add(Keyed(Layout.Button("Receive output…", Receive_Click), "F11"));
+        bar.Children.Add(Keyed(Layout.Button("Finish order…", Complete_Click), "F12"));
         bar.Children.Add(Layout.Button("Print labels…", async (_, _) => await Ui.Try(PrintLabelsAsync)));
 
         _orders.SelectionChanged += async (_, _) => await Ui.Try(LoadCurrentAsync);
@@ -108,6 +110,12 @@ public sealed class ProductionView : UserControl, IRefreshable
 
     /// <summary>The order chosen, when it may still be worked on.</summary>
     public ProductionOrder? CurrentOrder => _current?.Order;
+
+    private static Button Keyed(Button button, string key)
+    {
+        Look.SetShortcut(button, key);
+        return button;
+    }
 
     public async Task RefreshAsync()
     {
