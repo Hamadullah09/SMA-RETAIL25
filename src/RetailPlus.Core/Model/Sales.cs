@@ -47,6 +47,11 @@ public class Sale : Entity, IFlaggable, IStationStamped
     public string? VoidedBy { get; set; }
     public Guid? VoidedById { get; set; }
     public bool IsFlagged { get; set; }
+    /// <summary>
+    /// The tax office's number for the sale (FBR's POS integration in Pakistan), written by the server once the sale was
+    /// reported; printed on reprints. Null while not reported, or when the integration is off.
+    /// </summary>
+    public string? FiscalInvoiceNumber { get; set; }
     public List<SaleLine> Lines { get; set; } = [];
     public List<SalePayment> Payments { get; set; } = [];
 }

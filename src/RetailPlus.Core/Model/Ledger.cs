@@ -28,6 +28,8 @@ public class LedgerAccount : Entity, ILocalOnly
     /// <summary>One of <see cref="LedgerRoles"/> when the program posts to this account by itself; at most one account each.</summary>
     public string? Role { get; set; }
     public string? Description { get; set; }
+    /// <summary>Where its movement shows in the cash flow statement; null: equity under financing, everything else operating.</summary>
+    public CashFlowSection? CashFlow { get; set; }
 }
 
 /// <summary>
@@ -67,6 +69,10 @@ public static class LedgerRoles
     public const string LandedCostsClearing = "LandedCostsClearing";
     public const string ExchangeDifferences = "ExchangeDifferences";
     public const string GeneralExpenses = "GeneralExpenses";
+    /// <summary>Income tax withheld from supplier payments, owed to the tax office.</summary>
+    public const string WithholdingTaxPayable = "WithholdingTaxPayable";
+    /// <summary>Bank charges found on bank statements.</summary>
+    public const string BankCharges = "BankCharges";
 
     public static IReadOnlyList<string> All { get; } =
     [
@@ -74,7 +80,7 @@ public static class LedgerRoles
         WorkInProgress, AccountsPayable, PurchasesClearing, SalesTaxPayable, GiftCardLiability, SalariesPayable, PayrollTaxPayable,
         StatutoryContributionsPayable, Sales, Discounts, OtherIncome, CostOfGoods, StockAdjustments, GiftCardAdjustments, Rounding,
         SalariesExpense, EmployerContributionsExpense, ManufacturingOverhead, ProductionVariance, LandedCostsClearing,
-        ExchangeDifferences, GeneralExpenses,
+        ExchangeDifferences, GeneralExpenses, WithholdingTaxPayable, BankCharges,
     ];
 }
 

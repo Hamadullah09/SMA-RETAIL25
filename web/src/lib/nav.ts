@@ -22,6 +22,15 @@ export const P = {
   storesAll: 'stores.all',
   audit: 'audit.view',
   syncSend: 'sync.send',
+  accountingExport: 'accounting.export',
+  financeView: 'finance.view',
+  financePost: 'finance.post',
+  financeApprove: 'finance.approve',
+  financeClose: 'finance.close',
+  financeSetup: 'finance.setup',
+  financePayables: 'finance.payables',
+  financeBank: 'finance.bank',
+  financeBudget: 'finance.budget',
 } as const;
 
 /** The icon of a page, by name; `components/shell/icons.tsx` maps the names to lucide icons. */
@@ -46,7 +55,18 @@ export type IconName =
   | 'new'
   | 'upload'
   | 'signout'
-  | 'report';
+  | 'report'
+  | 'finance'
+  | 'ledger'
+  | 'journals'
+  | 'bills'
+  | 'payments'
+  | 'expenses'
+  | 'bank'
+  | 'budgets'
+  | 'years'
+  | 'suspense'
+  | 'statements';
 
 export interface PageDef {
   key: string;
@@ -63,6 +83,8 @@ export interface PageDef {
   shortcut?: string;
   /** More words the palette finds the page by. */
   keywords?: string;
+  /** The heading the navigation shows the page under (Finance); none for the first pages. */
+  group?: string;
 }
 
 export const PAGES: readonly PageDef[] = [
@@ -86,6 +108,23 @@ export const PAGES: readonly PageDef[] = [
   { key: 'item', title: 'Item', path: '/items/edit/', icon: 'inventory', permission: P.inventoryEdit, nav: false, parent: 'items' },
   { key: 'report', title: 'Report', path: '/reports/view/', icon: 'reports', permission: P.reports, nav: false, parent: 'reports' },
   { key: 'account', title: 'Change password', path: '/account/', icon: 'account', permission: null, nav: false, keywords: 'account password' },
+  // Finance (phase E1).
+  { key: 'finance', title: 'Finance', path: '/finance/', icon: 'finance', permission: P.financeView, nav: true, group: 'Finance', keywords: 'accounting books cash bank profit payables' },
+  { key: 'finance-accounts', title: 'Chart of accounts', path: '/finance/accounts/', icon: 'ledger', permission: P.financeView, nav: true, group: 'Finance', keywords: 'ledger accounts roles' },
+  { key: 'finance-journals', title: 'Journals', path: '/finance/journals/', icon: 'journals', permission: P.financeView, nav: true, group: 'Finance', keywords: 'journal entries general ledger approve' },
+  { key: 'finance-bills', title: 'Bills', path: '/finance/bills/', icon: 'bills', permission: P.financeView, nav: true, group: 'Finance', keywords: 'supplier bills debit notes payables ageing' },
+  { key: 'finance-payments', title: 'Supplier payments', path: '/finance/payments/', icon: 'payments', permission: P.financeView, nav: true, group: 'Finance', keywords: 'pay suppliers payment run withholding tax' },
+  { key: 'finance-expenses', title: 'Expenses', path: '/finance/expenses/', icon: 'expenses', permission: P.financeView, nav: true, group: 'Finance', keywords: 'rent electricity receipts recurring' },
+  { key: 'finance-bank', title: 'Bank and cash', path: '/finance/bank/', icon: 'bank', permission: P.financeView, nav: true, group: 'Finance', keywords: 'bank accounts transfers deposits reconciliation statement' },
+  { key: 'finance-reports', title: 'Statements', path: '/finance/reports/', icon: 'statements', permission: P.financeView, nav: true, group: 'Finance', keywords: 'trial balance profit and loss balance sheet cash flow sales tax ageing exports tally quickbooks' },
+  { key: 'finance-budgets', title: 'Budgets', path: '/finance/budgets/', icon: 'budgets', permission: P.financeView, nav: true, group: 'Finance', keywords: 'budget against actual' },
+  { key: 'finance-years', title: 'Years and periods', path: '/finance/years/', icon: 'years', permission: P.financeView, nav: true, group: 'Finance', keywords: 'financial year close lock periods opening balances' },
+  { key: 'finance-suspense', title: 'Suspense', path: '/finance/suspense/', icon: 'suspense', permission: P.financeView, nav: true, group: 'Finance', keywords: 'post days unmapped daily journal' },
+  { key: 'finance-settings', title: 'Finance setup', path: '/finance/settings/', icon: 'setup', permission: P.financeView, nav: true, group: 'Finance', keywords: 'ledger settings tax rules withholding mapping fbr' },
+  { key: 'finance-journal', title: 'Journal entry', path: '/finance/journals/edit/', icon: 'journals', permission: P.financeView, nav: false, parent: 'finance-journals' },
+  { key: 'finance-bill', title: 'Bill', path: '/finance/bills/edit/', icon: 'bills', permission: P.financeView, nav: false, parent: 'finance-bills' },
+  { key: 'finance-reconcile', title: 'Reconcile', path: '/finance/bank/reconcile/', icon: 'bank', permission: P.financeView, nav: false, parent: 'finance-bank' },
+  { key: 'finance-report', title: 'Statement', path: '/finance/reports/view/', icon: 'statements', permission: P.financeView, nav: false, parent: 'finance-reports' },
 ];
 
 /** Whether a user with these permissions may open the page. */
@@ -159,6 +198,12 @@ export const ACTIONS: readonly Command[] = [
   { id: 'add-store', title: 'Add store', kind: 'Action', icon: 'new', path: '/stores/?new=1', permission: P.storesManage, keywords: 'new branch' },
   { id: 'password', title: 'Change password', kind: 'Action', icon: 'account', path: '/account/', permission: null, keywords: 'account' },
   { id: 'sign-out', title: 'Sign out', kind: 'Action', icon: 'signout', action: 'sign-out', permission: null, keywords: 'log out switch user' },
+  { id: 'new-bill', title: 'New supplier bill', kind: 'Action', icon: 'new', path: '/finance/bills/edit/', permission: P.financePayables, keywords: 'enter bill invoice payable' },
+  { id: 'pay-bills', title: 'Pay bills', kind: 'Action', icon: 'payments', path: '/finance/payments/?run=1', permission: P.financePayables, keywords: 'payment run suppliers' },
+  { id: 'new-expense', title: 'New expense', kind: 'Action', icon: 'new', path: '/finance/expenses/?new=1', permission: P.financePost, keywords: 'rent receipt' },
+  { id: 'new-journal', title: 'New journal entry', kind: 'Action', icon: 'new', path: '/finance/journals/edit/', permission: P.financePost, keywords: 'manual entry' },
+  { id: 'post-days', title: 'Post days to the ledger', kind: 'Action', icon: 'suspense', path: '/finance/suspense/?post=1', permission: P.financePost, keywords: 'daily journal' },
+  { id: 'bank-transfer', title: 'Transfer between accounts', kind: 'Action', icon: 'bank', path: '/finance/bank/?transfer=1', permission: P.financeBank, keywords: 'bank cash' },
 ];
 
 /** Everything the palette may offer this user: the pages, the actions and the reports of the catalog. */

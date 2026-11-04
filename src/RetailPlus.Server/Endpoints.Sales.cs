@@ -10,7 +10,7 @@ public sealed record SaleLineInfo(int LineNumber, string? Plu, string Descriptio
 public sealed record SalePaymentInfo(string Tender, decimal Amount, string? Currency, decimal ForeignAmount);
 public sealed record SaleDetail(Guid Id, string StoreCode, int StationNumber, long InvoiceNumber, DateTime At, string? Staff, string? Client, decimal Units,
     decimal NetSales, decimal Tax, decimal Total, string Tenders, bool Voided, IReadOnlyList<SaleLineInfo> Lines, IReadOnlyList<SalePaymentInfo> Payments,
-    string? VoidedBy, DateTime? VoidedAt);
+    string? VoidedBy, DateTime? VoidedAt, string? FiscalInvoiceNumber = null);
 
 public static partial class Endpoints
 {
@@ -64,7 +64,7 @@ public static partial class Endpoints
             sale.Tax1 + sale.Tax2, sale.Total, string.Join(", ", sale.Payments.Select(p => p.TenderType).Distinct()), sale.Status == SaleStatus.Voided,
             [.. sale.Lines.OrderBy(l => l.LineNumber).Select(l => new SaleLineInfo(l.LineNumber, l.Plu, l.Description, l.Quantity, l.UnitPrice, l.DiscountAmount, l.Tax1 + l.Tax2, l.LineTotal))],
             [.. sale.Payments.Select(p => new SalePaymentInfo(p.TenderType, p.Amount, p.Currency, p.ForeignAmount))],
-            sale.VoidedBy, sale.VoidedAt));
+            sale.VoidedBy, sale.VoidedAt, sale.FiscalInvoiceNumber));
     }
 
     private static Task<Dictionary<Guid, string>> StoreCodesAsync(Data.RetailPlusDbContext db) => db.Stores.AsNoTracking().ToDictionaryAsync(s => s.Id, s => s.Code);

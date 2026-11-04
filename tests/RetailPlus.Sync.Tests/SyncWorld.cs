@@ -95,6 +95,8 @@ public sealed class SyncWorld : IAsyncLifetime
             builder.UseSetting("Bootstrap:AdminUserName", AdminUser);
             builder.UseSetting("Bootstrap:AdminPassword", AdminPassword);
             builder.UseSetting("Jwt:Key", "sync-tests-signing-key-0123456789abcdef");
+            // The finance jobs do not run by themselves here; the tests that need them run them (FinanceJobs.RunOnceAsync).
+            builder.UseSetting("Finance:JobIntervalSeconds", "0");
         }
     }
 

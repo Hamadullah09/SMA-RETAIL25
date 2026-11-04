@@ -366,3 +366,71 @@ then travel like the tills' own: down to that store's tills.
   and the folders above it; when there is none, only the API is served). `/x/` serves `x/index.html` and `/x` serves
   `x.html`; any other path outside `/api` gets the export's `404.html` with status 404. Files under `/_next/static/` are
   cached for a year (`immutable`), pages are `no-cache`. Nothing under `/api` is ever served from the files.
+
+## Finance (phase E1)
+
+The books, under `/api/finance`; what each part does and how it posts is in [ERP_E1_FINANCE.md](ERP_E1_FINANCE.md).
+Store records (bills, payments, expenses, recurring expenses, deposits, a store's bank account) follow the store rules
+above: a store the user cannot see is 403 in a list and 404 for one record. What the company shares (the chart, the
+settings, tax rule sets, years and periods, a company bank account's statements, a supplier's tax details) is changed
+only by a user with `stores.all` or while there is one store (403 otherwise). Lists without `storeId` cover every store
+the user sees; amounts are in the books' currency unless a row has its own `currency`.
+
+| Method and path | Permission | Notes |
+|---|---|---|
+| `GET /home?storeId` | finance.view | `FinanceHome` (see `web/src/lib/types.ts`): cash in hand, bank accounts, payables due and overdue, receivables, the month's income, expenses and profit, suspense, drafts, FBR counts |
+| `GET /accounts?storeId` | finance.view | The chart with each account's balance today (debit positive) |
+| `POST /accounts`, `PUT /accounts/{id}`, `DELETE /accounts/{id}` | finance.setup | `{ code, name, type, parentId, isPosting, isActive, role, description, cashFlow, version }`; company-wide |
+| `GET /roles` | finance.view | The ledger roles an account can have |
+| `GET /settings`, `PUT /settings` | finance.view / finance.setup | `{ version, baseCurrency, fiscalYearStartMonth, country, manualEntriesNeedApproval, autoPostOnSync, nightlyDays, nightlyHour, attachmentMaxKilobytes, fiscalEnabled }` (`fiscalEnabled` read-only) |
+| `GET /tax-rules`, `POST /tax-rules`, `PUT /tax-rules/{id}`, `DELETE /tax-rules/{id}` | finance.view / finance.setup | Rule sets with `salesTaxRates[]` and `withholdingRules[]` |
+| `GET /stores/{id}`, `PUT /stores/{id}` | finance.view / finance.setup | A store's `taxRuleSetId`, `ruleSet` (in use) and `depositBankAccountId` |
+| `GET /mapping?storeId`, `PUT /mapping?storeId` | finance.view / finance.setup | The daily journal's mapping `[{ kind, key, accountCode, accountName }]`; codes must be posting accounts of the chart |
+| `POST /post-days` | finance.post | `{ from, to, storeId }` → `{ entries, problems[] }` |
+| `GET /suspense?storeId&from&to` | finance.view | Lines that went to suspense, newest first |
+| `GET /daily-journal?storeId&from&to` | accounting.export | The daily journal CSV, as before |
+| `GET /journals?storeId&from&to&status&kind&search` (*paged*) | finance.view | `JournalRow` |
+| `GET /journals/{id}` | finance.view | `JournalDetail` with lines, attachments and `needsApproval` |
+| `POST /journals`, `PUT /journals/{id}`, `DELETE /journals/{id}` | finance.post | `{ date, storeId, memo, reference, lines[{ accountId, debit, credit, storeId?, memo?, partyKind?, partyId? }], post, version }`; saved as a draft, posted at once with `post` when approval is not needed |
+| `POST /journals/{id}/approve` | finance.approve | Not by the one who made it while approval is needed |
+| `POST /journals/{id}/reverse` | finance.post | `{ date, reason }` → the reversing entry |
+| `POST /journals/{id}/attachments`, `POST /bills/{id}/attachments`, `POST /expenses/{id}/attachments` | finance.post, finance.payables, finance.post | Multipart field `file`: a picture or PDF within the size limit |
+| `GET /attachments/{id}`, `DELETE /attachments/{id}` | finance.view / finance.post | The file itself |
+| `GET /years`, `POST /years` | finance.view / finance.close | `[YearInfo]` with `periods[]`; POST `{ date }` makes the year holding it |
+| `POST /periods/{id}/lock`, `POST /periods/{id}/unlock` | finance.close | → `[YearInfo]` |
+| `POST /years/{id}/close`, `POST /years/{id}/reopen` | finance.close | Reopen takes `{ reason }`; → `[YearInfo]` |
+| `POST /opening-balances` | finance.post | `{ date, storeId, balanceToRetainedEarnings, lines[] }` → `JournalDetail` |
+| `GET /budgets?yearId&storeId`, `PUT /budgets?yearId&storeId` | finance.view / finance.budget | `{ yearId, yearName, storeId, months[], amounts[{ accountId, month, amount }] }` (debit positive, so income is negative); PUT `{ amounts }`, a zero removes the month |
+| `POST /budgets/copy` | finance.budget | `{ yearId, storeId, fromBudget, percent }` → `{ copied }` |
+| `GET /reports` | finance.view | `[{ key, title, usesDates, usesComparison, usesAccount, asOfDate }]` |
+| `GET /reports/{key}?storeId&from&to&compare&accountId`, `GET /reports/{key}/csv` | finance.view | The shape of `/api/reports/{key}`; `compare` is `previousPeriod`, `previousYear` or `budget` |
+| `GET /export?storeId&from&to&format` | accounting.export | `format` is `tally`, `iif`, `qbo` or `csv` |
+| `GET /fiscal?storeId&status`, `POST /fiscal/{id}/retry` | finance.view / finance.setup | `{ enabled, rows[] }` |
+| `GET /bills?storeId&supplierId&kind&status&from&to&search` (*paged*) | finance.view | `status` also takes `open`; `BillRow` |
+| `GET /bills/due?storeId&until` | finance.view | Open bills due by then |
+| `GET /bills/{id}`, `POST /bills`, `PUT /bills/{id}`, `DELETE /bills/{id}` | finance.view / finance.payables | `BillDetail`; only drafts change |
+| `POST /bills/{id}/post`, `POST /bills/{id}/void` | finance.payables | Void takes `{ date, reason }`, only without payments |
+| `GET /payments?storeId&supplierId&paymentRunId&from&to` (*paged*), `GET /payments/{id}` | finance.view | |
+| `POST /payments`, `POST /payment-runs` | finance.payables | `{ bankAccountId, date, bills[{ billId, amount }], withholdingAmount, exchangeRate, reference, notes }`; a run makes one payment per supplier and store, all checked before the first is posted |
+| `POST /payments/{id}/void`, `GET /payment-runs?storeId` | finance.payables / finance.view | |
+| `GET /withholding?supplierId&storeId` | finance.view | `{ kind, rate, threshold, section, ruleSet }` |
+| `GET /suppliers/{id}`, `PUT /suppliers/{id}`, `GET /suppliers/{id}/statement?storeId&from&to` | finance.view / finance.payables | Tax number, filer, withholding kind, terms; the statement from the ledger |
+| `GET /expenses?storeId&from&to&status&search` (*paged*), `GET /expenses/{id}` | finance.view | |
+| `POST /expenses`, `PUT /expenses/{id}`, `DELETE /expenses/{id}`, `POST /expenses/{id}/post`, `POST /expenses/{id}/void` | finance.post | `post: true` posts on saving |
+| `GET /recurring-expenses?storeId`, `POST /recurring-expenses`, `PUT /recurring-expenses/{id}`, `DELETE /recurring-expenses/{id}` | finance.view / finance.post | |
+| `POST /recurring-expenses/run?storeId` | finance.post | Makes what is due for the store (every store for a user who sees all of them, without `storeId`) → `{ made }` |
+| `GET /bank-accounts?storeId`, `POST /bank-accounts`, `PUT /bank-accounts/{id}` | finance.view / finance.bank | The store's and the company's accounts with their balances |
+| `GET /bank-transfers?storeId&from&to`, `POST /bank-transfers` | finance.view / finance.bank | `{ fromAccountId, toAccountId, date, amount, toAmount, rate, toRate, reference, memo }` |
+| `GET /deposits`, `GET /deposits/candidates`, `POST /deposits` | finance.view / finance.bank | End of Day cash taken to the bank, once per drawer |
+| `GET /bank-accounts/{id}/statement-format` | finance.view | The layout kept for the account's bank |
+| `POST /bank-accounts/{id}/statements` | finance.bank | Multipart `file` plus the layout's fields (`delimiter`, `dateColumn`, `dateFormat`, `amountColumn` or `debitColumn` and `creditColumn`, `hasHeader` and so on) |
+| `GET /bank-accounts/{id}/reconciliation?asOf&from` | finance.view | The summary (statement and ledger balances, uncleared, unmatched, difference) with both sides' lines |
+| `POST /bank-accounts/{id}/auto-match` | finance.bank | → `{ matched }` |
+| `POST /statement-lines/{id}/match`, `POST /statement-lines/{id}/unmatch`, `POST /statement-lines/{id}/ignore` | finance.bank | Match takes `{ journalLineId }`; 204 |
+| `POST /statement-lines/{id}/entry` | finance.post | `{ accountId, memo }` → the `JournalDetail` posted and matched |
+
+The web pages, each opened with `finance.view` (their buttons show for the permission each change needs): `/finance/`,
+`/finance/accounts/`, `/finance/journals/` and `/finance/journals/edit/?id=`, `/finance/bills/` and
+`/finance/bills/edit/?id=`, `/finance/payments/`, `/finance/expenses/`, `/finance/bank/` and
+`/finance/bank/reconcile/?id=`, `/finance/reports/` and `/finance/reports/view/?key=`, `/finance/budgets/`,
+`/finance/years/`, `/finance/suspense/` and `/finance/settings/`.

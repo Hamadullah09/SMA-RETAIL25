@@ -71,6 +71,7 @@ public sealed class LedgerService(DataContext data)
         ("2030", "Landed costs to allocate", AccountType.Liability, LedgerRoles.LandedCostsClearing, "2000"),
         ("2100", "Sales tax payable", AccountType.Liability, LedgerRoles.SalesTaxPayable, "2000"),
         ("2110", "Second sales tax payable", AccountType.Liability, null, "2000"),
+        ("2120", "Withholding tax payable", AccountType.Liability, LedgerRoles.WithholdingTaxPayable, "2000"),
         ("2200", "Gift cards outstanding", AccountType.Liability, LedgerRoles.GiftCardLiability, "2000"),
         ("2300", "Salaries payable", AccountType.Liability, LedgerRoles.SalariesPayable, "2000"),
         ("2310", "Income tax withheld", AccountType.Liability, LedgerRoles.PayrollTaxPayable, "2000"),
@@ -97,7 +98,7 @@ public sealed class LedgerService(DataContext data)
         ("6120", "Telephone and internet", AccountType.Expense, null, "6000"),
         ("6200", "Repairs and maintenance", AccountType.Expense, null, "6000"),
         ("6300", "Marketing", AccountType.Expense, null, "6000"),
-        ("6400", "Bank charges", AccountType.Expense, null, "6000"),
+        ("6400", "Bank charges", AccountType.Expense, LedgerRoles.BankCharges, "6000"),
         ("6500", "Exchange differences", AccountType.Expense, LedgerRoles.ExchangeDifferences, "6000"),
         ("6900", "General expenses", AccountType.Expense, LedgerRoles.GeneralExpenses, "6000"),
         ("9999", "Suspense (to sort out)", AccountType.Asset, LedgerRoles.Suspense, null),
@@ -175,6 +176,7 @@ public sealed class LedgerService(DataContext data)
             }
         }
         await db.SaveChangesAsync(cancellationToken);
+        await AddMissingRolesAsync(db, cancellationToken);
 
         var accounts = await db.LedgerAccounts.AsNoTracking().ToDictionaryAsync(a => a.Code, a => a.Name, cancellationToken);
         var mapped = (await db.AccountMappings.AsNoTracking().Select(m => new { m.StoreId, m.Kind, m.Key }).ToListAsync(cancellationToken))
@@ -192,6 +194,38 @@ public sealed class LedgerService(DataContext data)
                 if (StandardTenderAccounts.TryGetValue(tender.Kind, out var code)) Map(AccountMappingKind.Tender, tender.Name, code);
         }
         await db.SaveChangesAsync(cancellationToken);
+    }
+
+    /// <summary>
+    /// A chart made before a role was added to the standard chart gets it: the standard account with that code takes the
+    /// role when it has none, else the standard account is added (under its standard header when that is still a header).
+    /// </summary>
+    private static async Task AddMissingRolesAsync(RetailPlusDbContext db, CancellationToken cancellationToken)
+    {
+        var accounts = await db.LedgerAccounts.ToListAsync(cancellationToken);
+        var roles = accounts.Where(a => a.Role is not null).Select(a => a.Role!).ToHashSet(StringComparer.Ordinal);
+        bool changed = false;
+        foreach (var (code, name, type, role, parent) in StandardChart)
+        {
+            if (role is null || roles.Contains(role)) continue;
+            var same = accounts.FirstOrDefault(a => a.Code == code);
+            if (same is not null)
+            {
+                if (same.Role is not null || !same.IsPosting) continue;
+                same.Role = role;
+            }
+            else
+            {
+                var header = parent is null ? null : accounts.FirstOrDefault(a => a.Code == parent && !a.IsPosting);
+                var account = new LedgerAccount { Code = code, Name = name, Type = type, Role = role, IsPosting = true, ParentId = header?.Id };
+                account.Id = Guid.CreateVersion7();
+                db.LedgerAccounts.Add(account);
+                accounts.Add(account);
+            }
+            roles.Add(role);
+            changed = true;
+        }
+        if (changed) await db.SaveChangesAsync(cancellationToken);
     }
 
     public async Task<List<LedgerAccount>> GetAccountsAsync()
@@ -215,6 +249,7 @@ public sealed class LedgerService(DataContext data)
         if (code.Length is 0 or > 20) throw new BusinessRuleException("An account needs a code of up to 20 characters.");
         if (name.Length is 0 or > 100) throw new BusinessRuleException("An account needs a name of up to 100 characters.");
         if (account.Role is { } role && !LedgerRoles.All.Contains(role)) throw new BusinessRuleException($"{role} is not an account role the program knows.");
+        if (account.Role is not null && !account.IsActive) throw new BusinessRuleException($"The program posts to its {account.Role} account, so it stays active; give the role to another account first.");
         await using var db = data.Create();
         if (await db.LedgerAccounts.AnyAsync(a => a.Code == code && a.Id != account.Id)) throw new BusinessRuleException($"Account code {code} is taken.");
         if (account.Role is not null && await db.LedgerAccounts.AnyAsync(a => a.Role == account.Role && a.Id != account.Id))
@@ -247,6 +282,7 @@ public sealed class LedgerService(DataContext data)
         row.IsActive = account.IsActive;
         row.Role = account.Role;
         row.Description = string.IsNullOrWhiteSpace(account.Description) ? null : account.Description.Trim();
+        row.CashFlow = account.CashFlow;
         await db.SaveChangesAsync();
         return row;
     }
@@ -594,11 +630,19 @@ public sealed class LedgerService(DataContext data)
     /// Each account's balance before <paramref name="from"/> and its debits and credits up to <paramref name="to"/>, for one
     /// store or (null) the company. Only accounts with postings are listed. Drafts do not count.
     /// </summary>
-    public async Task<List<AccountBalance>> BalancesAsync(DateOnly from, DateOnly to, Guid? store = null)
+    public Task<List<AccountBalance>> BalancesAsync(DateOnly from, DateOnly to, Guid? store = null) => BalancesAsync(from, to, store, exceptClosing: false);
+
+    /// <summary>
+    /// As <see cref="BalancesAsync(DateOnly, DateOnly, Guid?)"/>; with <paramref name="exceptClosing"/> the year-end closing
+    /// entries are left out, so income and expenses show what the period earned even across a closed year's last day.
+    /// </summary>
+    public async Task<List<AccountBalance>> BalancesAsync(DateOnly from, DateOnly to, Guid? store, bool exceptClosing)
     {
         await using var db = data.Create();
+        var entries = db.JournalEntries.AsNoTracking().Where(e => e.Status != JournalStatus.Draft && e.Date <= to);
+        if (exceptClosing) entries = entries.Where(e => e.Kind != JournalKind.Closing);
         var lines = db.JournalLines.AsNoTracking()
-            .Join(db.JournalEntries.AsNoTracking().Where(e => e.Status != JournalStatus.Draft && e.Date <= to), l => l.JournalEntryId, e => e.Id,
+            .Join(entries, l => l.JournalEntryId, e => e.Id,
                 (l, e) => new { l.AccountId, l.StoreId, e.Date, l.Debit, l.Credit });
         if (store is Guid s) lines = lines.Where(l => l.StoreId == s);
         var rows = await lines.ToListAsync();

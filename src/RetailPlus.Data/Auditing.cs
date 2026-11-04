@@ -31,6 +31,19 @@ public static class AuditActions
     public const string JournalPosted = "Journal posted";
     public const string JournalReversed = "Journal reversed";
     public const string PeriodStatus = "Period status";
+    public const string BillPosted = "Bill posted";
+    public const string BillVoided = "Bill voided";
+    public const string SupplierPaid = "Supplier paid";
+    public const string PaymentVoided = "Payment voided";
+    public const string ExpensePosted = "Expense posted";
+    public const string BankTransfer = "Bank transfer";
+    public const string BankDeposit = "Bank deposit";
+    public const string StatementImported = "Statement imported";
+    public const string StatementMatched = "Statement matched";
+    public const string YearClosed = "Year closed";
+    public const string YearReopened = "Year reopened";
+    public const string DaysPosted = "Days posted";
+    public const string FiscalSent = "Fiscal invoice sent";
 }
 
 /// <summary>
@@ -66,6 +79,15 @@ public static class AuditedTables
         [typeof(StoreImage)] = Name<StoreImage>(i => i.Kind.ToString()),
         [typeof(LedgerAccount)] = Name<LedgerAccount>(a => $"{a.Code} {a.Name}"),
         [typeof(LedgerSettings)] = Name<LedgerSettings>(_ => "Ledger settings"),
+        [typeof(FinanceSettings)] = Name<FinanceSettings>(_ => "Finance settings"),
+        [typeof(TaxRuleSet)] = Name<TaxRuleSet>(r => r.Name),
+        [typeof(SalesTaxRate)] = Name<SalesTaxRate>(r => $"{r.Name} {r.Rate}%"),
+        [typeof(WithholdingRule)] = Name<WithholdingRule>(r => $"Withholding {r.Kind}"),
+        [typeof(StoreFinance)] = Name<StoreFinance>(_ => "Store finance"),
+        [typeof(SupplierFinance)] = Name<SupplierFinance>(s => $"Supplier tax {s.TaxNumber}".Trim()),
+        [typeof(BankAccount)] = Name<BankAccount>(b => b.Name),
+        [typeof(BankStatementFormat)] = Name<BankStatementFormat>(f => f.BankName),
+        [typeof(RecurringExpense)] = Name<RecurringExpense>(r => r.Name),
     };
 
     /// <summary>Properties never written to the log: kept by the program, or marks that are not changes of substance.</summary>
