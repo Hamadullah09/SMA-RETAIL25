@@ -366,3 +366,123 @@ then travel like the tills' own: down to that store's tills.
   and the folders above it; when there is none, only the API is served). `/x/` serves `x/index.html` and `/x` serves
   `x.html`; any other path outside `/api` gets the export's `404.html` with status 404. Files under `/_next/static/` are
   cached for a year (`immutable`), pages are `no-cache`. Nothing under `/api` is ever served from the files.
+
+## Manufacturing (phase E5)
+
+Bills of materials, routings and work centres, production orders and the shop floor's work on them, planning (MRP),
+capacity, quality and the production reports. What it all means, the costing and the ledger postings:
+[ERP_E5_MANUFACTURING.md](ERP_E5_MANUFACTURING.md). The web app's types are `web/src/lib/production-types.ts`; a server
+test checks every answer below against them.
+
+- **Permissions:** `production.view` reads, `production.plan` changes bills, work centres, orders, planning and quality,
+  `production.floor` works on orders, `production.costing` closes orders, posts costs and sees money. Without
+  `production.costing` an order comes without `costs`, `variances` and `postings` (null), and with zero unit costs,
+  values and standard cost.
+- **Scope:** bills, routings, quality plans and supplier lead times are company-wide (changed only by a user for whom
+  `canChangeShared` is true; 403 otherwise); work centres, orders, planning runs, suggestions and inspections belong to a
+  store and follow the usual store scope (`storeId`; 403 for a store the user cannot see, 404 for one of its records).
+- **Versions:** work centres, bills (and their routing), quality plans and orders carry `version`; a PUT with an old one
+  is 409.
+- After every change to an order made through the API, and after every package a till sends, the server posts the
+  order's costs to the ledger; problems go to the server log, never to the answer.
+
+### Work centres
+| | | |
+|---|---|---|
+| `GET /api/work-centres?storeId` | view | `[WorkCentre { id, version, storeId, storeCode, locationId, locationCode, code, name, labourCostPerHour, machineCostPerHour, overheadPerHour, capacityHoursPerDay, daysPerWeek, isActive, notes }]` |
+| `POST /api/work-centres`, `PUT /api/work-centres/{id}` | plan | `{ version, locationId, code, name, labourCostPerHour, machineCostPerHour, overheadPerHour, capacityHoursPerDay, daysPerWeek, isActive, notes }` → `WorkCentre` (201 for POST). The store is the location's; codes are unique in a store |
+| `DELETE /api/work-centres/{id}` | plan | 204; 400 while a routing uses it |
+
+### Bills of materials and routings
+| | | |
+|---|---|---|
+| `GET /api/boms?search&active` | view | `[BomListRow { id, version, productCode, productName, revision, isActive, effectiveFrom, effectiveTo, yieldQuantity, lines, byProducts, operations, inForce }]`, every version |
+| `GET /api/boms/{id}` | view | `BomDetail { id, version, productCode, productName, revision, isActive, effectiveFrom, effectiveTo, yieldQuantity, overheadPercent, notes, lines: [{ componentCode, description, quantity, scrapPercent, issueMethod, operationSequence }], byProducts: [{ stockCode, description, quantity, costSharePercent }], operations: [{ sequence, workCentreId, workCentreCode, name, setupMinutes, runMinutesPerUnit, instructions }] }`. `issueMethod` is `Manual` or `Backflush`; `operationSequence` is null for the start of the order |
+| `POST /api/boms`, `PUT /api/boms/{id}` | plan, shared | a `BomDetail` → the saved one (201 for POST; a new bill is the product's next revision). 400 for no component, a loop through other bills, a component used at an operation the routing lacks, by-products taking 100 % or more; 403 for an operation at a work centre of a store the user cannot see |
+| `DELETE /api/boms/{id}` | plan, shared | 204; orders keep their own copy of its lines |
+| `POST /api/boms/{id}/copy` | plan, shared | `{ productCode }` (null: the same product) → the copy as the next revision, inactive (201) |
+| `PUT /api/boms/{id}/routing` | plan, shared | `{ version, operations: [...] }` → `BomDetail` |
+| `GET /api/boms/compare?from&to` | view | `[{ part, key, change, before, after }]`: `part` is Bill, Component, By-product or Operation; `change` is Added, Removed or Changed |
+| `GET /api/boms/{id}/explode?locationId` | view | `[ExplodedLine { level, path, stockCode, description, quantityPerUnit, scrapPercent, issueMethod, operationSequence, isMade, billOfMaterialsId, unitCost, cost }]` over every level; `path` is "1", "1.2", "1.2.1"; quantities for one unit of the top product, scrap included; costs at the location (every location's when left out) |
+| `GET /api/boms/{id}/cost?locationId&quantity` | view | `CostRollUp { billOfMaterialsId, productCode, revision, lotQuantity, material, labour, machine, overhead, productSharePercent, total, unitCost, lines: [{ stockCode, description, quantity, unitCost, cost, isMade }], operations: [{ sequence, name, workCentre, minutes, labour, machine, overhead }] }` for a lot of `quantity` (default: the yield) |
+
+### Production orders
+| | | |
+|---|---|---|
+| `GET /api/production-orders?storeId&status&search` | view | *paged*, newest first: `ProductionOrderRow { id, storeCode, number, status, productCode, productName, quantity, received, materialLocation, outputLocation, plannedStart, plannedEnd, priority, madeToOrder, bomRevision }`. `status` is one or more of Planned, Released, InProgress, Completed, Closed, Cancelled, separated by commas; `search` is an order number, or part of a product code or name |
+| `GET /api/production-orders/board?storeId&search` | view | `[{ status, total, orders: [ProductionOrderRow] }]`: a column per status, the most urgent first (priority, planned start, number), at most 200 a column; closed and cancelled orders of the last 30 days |
+| `GET /api/production-orders/{id}` | view | `ProductionOrderDetail` (below) |
+| `POST /api/production-orders` | plan | `{ version, productCode, quantity, materialLocationId, outputLocationId, billOfMaterialsId, plannedStart, plannedEnd, priority, customerOrderId, notes }` → `ProductionOrderDetail` (201). Without `billOfMaterialsId` the product's bill in force on the planned start is used; the product must be an item at the output location; both locations of one store |
+| `PUT /api/production-orders/{id}` | plan | the same body with the order's `version`: a planned order changes everything, a released one only its dates, priority and notes |
+| `POST /api/production-orders/{id}/release` | plan | → `{ order: ProductionOrderDetail, shortages: [{ stockCode, description, required, available, missing, isMade }] }`; what is short is suggested to planning, and the order is released all the same |
+| `POST /api/production-orders/{id}/cancel` | plan | `{ reason }` → detail; 400 once anything was issued, reported or received |
+| `POST /api/production-orders/{id}/operations/{sequence}/start` and `.../finish` | floor | → detail |
+| `POST /api/production-orders/{id}/report` | floor | `{ sequence, minutes, good, scrap, note }` → detail, under the signed-in user's name |
+| `POST /api/production-orders/{id}/issue` | floor | `{ code, quantity, note }` → detail. `code` is a stock code or barcode at the material location; a negative quantity gives material back (no more than was issued) |
+| `POST /api/production-orders/{id}/issue-remaining` | floor | `{ operationSequence }` (null: every operation) → detail: what is still due of every component issued by hand |
+| `POST /api/production-orders/{id}/scrap` | floor | `{ code, quantity, reason }` → detail: material thrown away, charged to the order |
+| `POST /api/production-orders/{id}/receive` | floor | `{ quantity, complete, byProducts: [{ stockCode, quantity }] }` → detail; `complete` takes the backflushed components, receives the by-products and completes the order |
+| `POST /api/production-orders/{id}/close` | costing | → detail; a completed order only |
+| `POST /api/production-orders/{id}/post-costs` | costing | → detail, after posting the order's costs |
+| `POST /api/production/post-costs?storeId` | costing | → `{ orders, problems: [...] }`: posts every open order and those closed in the last 31 days |
+| `GET /api/production-orders/{id}/inspections` | view | `[Inspection]` of the order's output |
+| `POST /api/production-orders/{id}/inspect` | plan | `{ quantityInspected, quantityFailed, disposition, holdLocationId, answers: [{ lineNumber, passFail, number, text }], notes }` → `Inspection`; `disposition` is `None`, `Hold` (to `holdLocationId`, another location of the store) or `Scrap` |
+| `GET /api/production/customer-orders?storeId` | plan | `[{ id, invoiceNumber, name, plu, description, quantity, orderDate }]`: unpaid customer orders, for an order made to order |
+
+`ProductionOrderDetail` has `id`, `version`, `storeId`, `storeCode`, `number`, `status`, `productCode`, `productName`,
+`quantity`, `billOfMaterialsId`, `bomRevision`, `materialLocationId`, `materialLocation`, `outputLocationId`,
+`outputLocation`, `plannedStart`, `plannedEnd`, `priority`, `customerOrderId`, `customerOrder`, `notes`,
+`standardUnitCost`, `createdAt`, `createdBy`, `releasedAt`, `releasedBy`, `startedAt`, `completedAt`, `completedBy`,
+`closedAt`, `closedBy`, `received`, `outputScrapped`, `reportedScrap`, and:
+- `lines: [{ lineId, lineNumber, kind, stockCode, description, planned, done, reserved, issueMethod, operationSequence,
+  standardUnitCost }]`; `kind` is `Component` (`done`: issued and scrapped) or `ByProduct` (`done`: received);
+- `operations: [{ sequence, name, workCentre, status, setupMinutes, runMinutesPerUnit, standardMinutes, minutes, good,
+  scrap, startedAt, finishedAt, instructions }]`; `status` is Waiting, Started or Done;
+- `movements: [{ at, kind, stockCode, quantity, unitCost, value, reason, user }]`; `kind` is ProductionIssue,
+  ProductionReceipt or ProductionScrap;
+- `reports: [{ at, operationSequence, minutes, good, scrap, userName, cost, note }]`;
+- `costs: { material, outputScrap, labour, machine, hourlyOverhead, materialOverhead, received, conversion, charged,
+  workInProgress }`;
+- `variances: { outputQuantity, standardMaterial, actualMaterial, standardLabour, actualLabour, standardMachine,
+  actualMachine, standardOverhead, actualOverhead, materials: [{ stockCode, description, standardQuantity,
+  actualQuantity, standardUnitCost, standardCost, actualCost, usageVariance, priceVariance }], materialUsageVariance,
+  materialPriceVariance, labourVariance, machineVariance, overheadVariance, standardTotal, actualTotal, totalVariance }`;
+- `postings: [{ step, entryId, number, date, amount, memo }]`; `step` is issue, conversion, receipt or close, with
+  " (change)" for a difference posted after its month was locked.
+
+Date-times without `Utc` are the store's local time, as the tills record them.
+
+### Planning and capacity
+| | | |
+|---|---|---|
+| `POST /api/mrp/run` | plan | `{ storeId, locationId, horizonDays, defaultLeadDays }` (60 and 7 by default; without `storeId`, the one chosen in the header or the user's own) → `MrpView` |
+| `GET /api/mrp/suggestions?storeId&status&kind` | view | `MrpView { run: { id, runAtUtc, runBy, locationCode, horizonDays, defaultLeadDays, suggestions } or null, suggestions: [Suggestion] }`; `status` is Open (default), Firmed, Dismissed, Superseded or `all`; `kind` Make or Buy |
+| `POST /api/mrp/firm` | plan | `{ ids: [...], quantities: { id: quantity } }` → `{ made: [...], problems: [...] }`: planned production orders, and a draft purchase order per location |
+| `POST /api/mrp/dismiss` | plan | `{ ids: [...] }` → `{ dismissed }` |
+| `GET /api/mrp/lead-times` | view | `[{ supplierId, supplier, days }]` for every supplier (`days` null: the run's default) |
+| `PUT /api/mrp/lead-times/{supplierId}` | plan, shared | `{ days }` (null clears it) → 204 |
+| `GET /api/capacity?storeId&from&weeks&suggestions` | view | `[{ workCentreId, storeCode, code, name, weekStart, capacityHours, loadHours, loadPercent }]`: a row per work centre and week (from Monday), 8 weeks by default; `suggestions=true` adds what planning suggests to make |
+
+`Suggestion` is `{ id, kind, status, stockCode, description, storeCode, locationId, locationCode, quantity, needBy,
+startBy, leadDays, supplierName, level, reason, firmedDocument, late, fromRelease }`: `late` when an open suggestion
+should have been ordered or started already, `fromRelease` for the shortage of a released order.
+
+### Quality
+| | | |
+|---|---|---|
+| `GET /api/quality/plans` | view | `[QualityPlan { id, version, productCode, name, isActive, forProduction, forIncoming, notes, checks: [{ lineNumber, name, kind, minimum, maximum, unit, required }] }]`; `kind` is PassFail, Number or Text |
+| `POST /api/quality/plans`, `PUT /api/quality/plans/{id}` | plan, shared | a `QualityPlan` → the saved one; one active plan per product |
+| `DELETE /api/quality/plans/{id}` | plan, shared | 204 |
+| `GET /api/quality/inspections?storeId&kind&from&to` | view | `[Inspection { id, kind, storeCode, documentNumber, productionOrderId, purchaseOrderId, stockCode, description, quantityInspected, quantityFailed, disposition, holdLocation, passed, inspectedAt, inspectedBy, notes, results: [{ lineNumber, checkName, kind, minimum, maximum, required, passFail, numberValue, textValue, passed }] }]`, newest first; `kind` is Production or Incoming |
+| `GET /api/quality/receipts?storeId&search&days` | view | `[{ id, number, storeCode, locationCode, receivedAt, lines: [{ plu, description, received, hasPlan, inspections }] }]`: purchase orders received in the last `days` (90) |
+| `POST /api/quality/receipts/{purchaseOrderId}/inspect` | plan | `{ stockCode, quantityInspected, quantityFailed, answers, notes }` → `Inspection`; the result is recorded only |
+
+### Production reports
+| | | |
+|---|---|---|
+| `GET /api/production/reports` | view | `[{ key, group, title, usesDates }]`; the cost reports only with `production.costing` |
+| `GET /api/production/reports/{key}?storeId&from&to` | view | `{ title, subtitle, columns: [{ header, kind, total }], rows, totals, from, to }`, as `/api/reports/{key}` |
+| `GET /api/production/reports/{key}/csv?storeId&from&to` | view | the same as `text/csv` |
+
+The keys: `production-status`, `production-costs`, `production-wip`, `production-materials`, `production-output`,
+`production-scrap`, `production-capacity`.
