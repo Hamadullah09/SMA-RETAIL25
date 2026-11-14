@@ -300,35 +300,64 @@ jobs:
             & $env:MSDEPLOY -verb:sync "-source:contentPath=$local" "-dest:contentPath=$env:SITE/$remote,$auth" -allowUntrusted | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "could not write $remote" }
           }
-          New-Item -ItemType Directory -Force diag/logs | Out-Null
-          $cfg = Join-Path (Resolve-Path diag).Path 'web.config'
-          if ((Pull 'web.config' $cfg) -ne 0) { throw 'could not read web.config from the host' }
-          $original = Get-Content $cfg -Raw
-          try {
-            ($original -replace 'stdoutLogEnabled="false"', 'stdoutLogEnabled="true"') | Set-Content $cfg -Encoding UTF8 -NoNewline
-            Send $cfg 'web.config'
-            Write-Output 'Start-up log on; waking the site (each try can take two minutes)...'
-            for ($i = 1; $i -le 2; $i++) {
-              try { $r = Invoke-WebRequest "$env:SITE_URL/api/health" -UseBasicParsing -TimeoutSec 150; Write-Output "try ${i}: HTTP $($r.StatusCode) $($r.Content)"; break }
-              catch { Write-Output "try ${i}: $(($_.Exception.Message -split "`n")[0])" }
-            }
-            if ((Pull 'logs' (Resolve-Path diag/logs).Path) -ne 0) { Write-Output 'Could not read the logs folder on the host.' }
-          }
-          finally {
-            $original | Set-Content $cfg -Encoding UTF8 -NoNewline
-            Send $cfg 'web.config'
-            Write-Output 'Start-up log off again.'
-          }
           function Mask([string]$t) {
             $t = [regex]::Replace($t, '(?i)\b(Server|Data Source|Address|Database|Initial Catalog|User ID|UID|Password|PWD)\s*=\s*[^;''"\r\n]*', '$1=***')
             $t = [regex]::Replace($t, '(?i)\bsql[a-z0-9-]*\.site4now\.net\b', 'sql***.site4now.net')
             $t = [regex]::Replace($t, '(?i)\bdb_[a-z0-9_]+', 'db_***')
             $t = [regex]::Replace($t, "(?i)login failed for user '[^']*'", "Login failed for user '***'")
-            $t = [regex]::Replace($t, '(?i)\b[a-z]:\(?:[^\\s"'']+\)*', '<host>\')
+            $t = [regex]::Replace($t, '(?i)\b[a-z]:\\(?:[^\\\s"'']+\\)*', '<host>\')
             return $t
           }
-          $files = @(Get-ChildItem diag/logs -Filter 'stdout*' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime)
-          if ($files.Count -eq 0) { Write-Output 'The host wrote no start-up log.'; exit 0 }
-          $last = $files[-1]
-          Write-Output "== $($last.Name), $($last.Length) bytes, masked:"
-          Get-Content $last.FullName -Tail 80 | ForEach-Object { Mask $_ }
+          # How the server is started: as deployed, then through "dotnet" with the .dll (some hosts do not run an app's
+          # own .exe). Each try logs at Information, so the start-up steps and database work show.
+          function Variant([string]$config, [bool]$viaDotnet, [bool]$verbose) {
+            $c = $config -replace 'stdoutLogEnabled="(true|false)"', "stdoutLogEnabled=""$($verbose.ToString().ToLower())"""
+            if ($viaDotnet) {
+              $c = $c -replace '\s+arguments="[^"]*"', ''
+              $c = $c -replace 'processPath="[^"]*"', 'processPath="dotnet" arguments=".\RetailPlus.Server.dll"'
+            }
+            if ($verbose) {
+              $extra = '<environmentVariable name="Logging__LogLevel__Default" value="Information" />' +
+                       '<environmentVariable name="Logging__LogLevel__Microsoft.EntityFrameworkCore" value="Information" />'
+              $c = $c -replace '(<environmentVariables>)', "`$1$extra"
+            }
+            return $c
+          }
+          New-Item -ItemType Directory -Force diag | Out-Null
+          $cfg = Join-Path (Resolve-Path diag).Path 'web.config'
+          if ((Pull 'web.config' $cfg) -ne 0) { throw 'could not read web.config from the host' }
+          $original = Get-Content $cfg -Raw
+          Write-Output "Deployed start: $([regex]::Match($original, 'processPath="[^"]*"( arguments="[^"]*")?').Value)"
+          $working = $null
+          try {
+            foreach ($viaDotnet in @($false, $true)) {
+              $label = if ($viaDotnet) { 'via dotnet + .dll' } else { 'as deployed' }
+              Write-Output "== Try: $label"
+              Variant $original $viaDotnet $true | Set-Content $cfg -Encoding UTF8 -NoNewline
+              Send $cfg 'web.config'
+              $healthy = $false
+              for ($i = 1; $i -le 2 -and -not $healthy; $i++) {
+                try {
+                  $r = Invoke-WebRequest "$env:SITE_URL/api/health" -UseBasicParsing -TimeoutSec 170
+                  Write-Output "   request ${i}: HTTP $($r.StatusCode) $($r.Content)"; $healthy = $r.StatusCode -eq 200
+                }
+                catch { Write-Output "   request ${i}: $(($_.Exception.Message -split "`n")[0])" }
+              }
+              $logs = Join-Path (Resolve-Path diag).Path "logs-$([int]$viaDotnet)"
+              New-Item -ItemType Directory -Force $logs | Out-Null
+              if ((Pull 'logs' $logs) -ne 0) { Write-Output '   could not read the logs folder on the host' }
+              $last = Get-ChildItem $logs -Filter 'stdout*' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1
+              if ($last) {
+                Write-Output "   log $($last.Name), $($last.Length) bytes, last lines masked:"
+                Get-Content $last.FullName -Tail 60 | ForEach-Object { '     ' + (Mask $_) }
+              } else { Write-Output '   no start-up log' }
+              if ($healthy) { $working = $viaDotnet; break }
+            }
+          }
+          finally {
+            # Leave the site as it works best: the variant that answered (quiet logging), else as it was.
+            if ($null -ne $working) { Variant $original $working $false | Set-Content $cfg -Encoding UTF8 -NoNewline }
+            else { $original | Set-Content $cfg -Encoding UTF8 -NoNewline }
+            Send $cfg 'web.config'
+            Write-Output "web.config left: $(if ($null -eq $working) { 'as it was' } elseif ($working) { 'started via dotnet + .dll' } else { 'as deployed' }), start-up log off."
+          }
