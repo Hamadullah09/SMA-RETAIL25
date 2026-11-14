@@ -37,7 +37,12 @@ jobs:
           global-json-file: global.json
       - run: dotnet build RetailPlus.sln -c Release
       # Tests that need SQL Server skip where none is reachable, as on this runner.
-      - run: dotnet test RetailPlus.sln -c Release --no-build
+      - name: Tests (all but RFID)
+        run: dotnet test RetailPlus.sln -c Release --no-build --filter "FullyQualifiedName!~RetailPlus.Rfid.Tests"
+      # The RFID tests talk to fake readers over the network stack with the driver's real time limits (3 s a command),
+      # so they run on their own: next to every other test project at once, a busy runner starves them.
+      - name: Tests (RFID)
+        run: dotnet test tests/RetailPlus.Rfid.Tests -c Release --no-build
 
   web:
     name: Web back office
