@@ -69,7 +69,8 @@ public static class HelpTopics
                     ("F5 Change quantity", "Change how many of the chosen line."),
                     ("F6 Change price, F7 Discount on line, F8 Discount on sale", "May need a supervisor; see When a supervisor is needed."),
                     ("Del Remove line", "Take the chosen line off the sale."),
-                    ("F9 Return / refund", "The next item is taken back instead of sold."),
+                    ("F9 Return / refund", "The next item is taken back instead of sold, at today's price: use it only without a receipt."),
+                    ("Shift+F9 Return with receipt", "Type the invoice number on the receipt and choose the item that comes back: the customer gets back what they paid for it."),
                     ("F11 Use points", "Turn the client's bonus points into a discount."),
                     ("Ctrl+H Put on hold, Ctrl+B Bring back", "Park a sale while you serve someone else, then recall it at any till."),
                     ("Ctrl+Q Save as quote, Ctrl+L Layaway", "Keep the sale as a price quote, or as a layaway with a deposit."),
@@ -81,6 +82,14 @@ public static class HelpTopics
                     "Promotions are set on the web back office and reach this till with the sync. They apply by themselves: the line shows the promotion's name in green, the Discount column what it takes off, and the panel on the right what the promotions save in all. The receipt shows them too.",
                     "A promotion with a coupon code applies only after the code is scanned or typed: in the code box, with Coupon (Ctrl+J), or with Coupon in the Pay window. A code that is not known, used up or out of date is refused in red.",
                     "A line whose price or discount you changed by hand takes no promotion. When several promotions could apply, the customer gets the best price.",
+                ]),
+            new("Returns",
+                Paragraphs:
+                [
+                    "With the receipt, press Return with receipt (Shift+F9), type the invoice number and choose the item and how many come back. The customer gets back what they paid: after the promotion and discounts the item had, less its share of a discount on the whole sale or a coupon. The line says \"Receipt\" in green under the item.",
+                    "Part of a buy X get Y or a bundle: the goods the customer keeps no longer earn the whole promotion, so that part is kept back. Of 3 bought as buy 2 get 1, one returned gives nothing back: the 2 kept cost what was paid for 3.",
+                    "Without a receipt, use Return / refund (F9) and scan the item: it comes back at today's price, which nobody checked against what was paid. The line says so in red, the receipt notes it, and the manager finds it in the audit log.",
+                    "A sale whose goods came back with the receipt cannot be voided until that return is voided.",
                 ]),
             new("WhatsApp messages",
                 Paragraphs:

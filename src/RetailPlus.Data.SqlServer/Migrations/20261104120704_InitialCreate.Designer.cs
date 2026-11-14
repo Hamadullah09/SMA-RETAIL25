@@ -12,7 +12,7 @@ using RetailPlus.Data;
 namespace RetailPlus.Data.SqlServer.Migrations
 {
     [DbContext(typeof(RetailPlusDbContext))]
-    [Migration("20261104092451_InitialCreate")]
+    [Migration("20261104120704_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -9268,6 +9268,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.Property<bool>("Restock")
                         .HasColumnType("bit");
 
+                    b.Property<Guid?>("ReturnedLineId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<Guid>("SaleId")
                         .HasColumnType("uniqueidentifier");
 
@@ -9317,6 +9320,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.HasIndex("Plu");
 
                     b.HasIndex("PromotionId");
+
+                    b.HasIndex("ReturnedLineId");
 
                     b.HasIndex("SaleId");
 

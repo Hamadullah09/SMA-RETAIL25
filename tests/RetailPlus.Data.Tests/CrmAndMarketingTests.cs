@@ -575,6 +575,109 @@ public abstract class CrmAndMarketingTests(DatabaseFixture db)
         var discounts = await ctx.AccountMappings.AsNoTracking().SingleAsync(m => m.StoreId == storeId && m.Kind == AccountMappingKind.Discounts);
         Assert.Equal(25m, entry.Lines.Where(l => l.Account!.Code == discounts.AccountCode).Sum(l => l.Debit - l.Credit));
     }
+
+    // Returns with the receipt ----------------------------------------------------------------------------------------
+
+    [SkippableFact]
+    public async Task A_return_with_the_receipt_refunds_what_was_paid_under_the_promotions_and_takes_them_back_everywhere()
+    {
+        var (data, session, storeId) = await StoreAsync();
+        int st = session.StationNumber;
+        var shirt = await ItemAsync(data, session, "RSH-" + st, 100m, "E4RET");
+        var socks = await ItemAsync(data, session, "RSO-" + st, 10m, "E4RET");
+        var promotions = new PromotionService(data);
+        List<PromotionStore> Here() => [new PromotionStore { StoreId = storeId }];
+        var tenOff = await promotions.SaveAsync(new Promotion
+        {
+            Name = "Return 10% " + st, Kind = PromotionKind.PercentOff, Percent = 10, Scope = PromotionScope.Items, Combinable = true,
+            AllStores = false, Stores = Here(), Targets = [new PromotionTarget { Plu = shirt.Plu }],
+        });
+        var threeForTwo = await promotions.SaveAsync(new Promotion
+        {
+            Name = "Return 3 for 2 " + st, Kind = PromotionKind.BuyXGetY, BuyQuantity = 2, GetQuantity = 1, GetPercent = 100, Scope = PromotionScope.Items,
+            Combinable = true, AllStores = false, Stores = Here(), Targets = [new PromotionTarget { Plu = socks.Plu }],
+        });
+        var code = "RET" + st;
+        var coupon = await promotions.SaveAsync(new Promotion
+        {
+            Name = "Return coupon " + st, Kind = PromotionKind.SpendOver, SpendThreshold = 100, Amount = 20, Combinable = true,
+            AllStores = false, Stores = Here(), CouponCode = code, CouponMaxUses = 1,
+        });
+
+        // 2 shirts at 10% off (180.00), 3 socks as 3 for 2 (20.00), and the coupon takes 20.00 off the 200.00 of goods.
+        var draft = new SaleDraft { Lines = [Line(shirt, 2), Line(socks, 3)], CouponCodes = [code] };
+        Assert.Equal(50m, (await promotions.ApplyAsync(draft)).Total);
+        var sale = await SellAsync(data, session, draft);
+        Assert.Equal(180m, sale.Total);
+
+        // Back with the receipt: a shirt at the 90.00 paid less its tenth of the coupon, and a sock for nothing (the two
+        // kept cost what was paid for three). The receipt gives no more shirts than are left.
+        var sales = new SalesService(data);
+        var receipt = (await sales.FindForReturnAsync(sale.InvoiceNumber))!;
+        var shirtSold = receipt.Sale.Lines.Single(l => l.Plu == shirt.Plu);
+        var socksSold = receipt.Sale.Lines.Single(l => l.Plu == socks.Plu);
+        var back = new List<SaleDraftLine>();
+        var (shirtQuote, shirtBack) = receipt.Return(shirtSold.Id, 1, back, restock: true);
+        back.Add(shirtBack);
+        var (sockQuote, sockBack) = receipt.Return(socksSold.Id, 1, back, restock: true);
+        back.Add(sockBack);
+        Assert.Equal((81m, 10m, 9m), (shirtQuote.Refund, shirtQuote.PromotionTakenBack, shirtQuote.SaleWideShare));
+        Assert.Equal((0m, 10m), (sockQuote.Refund, sockQuote.PromotionTakenBack));
+        Assert.Throws<BusinessRuleException>(() => receipt.Return(shirtSold.Id, 2, back, restock: true));
+        var returned = await SellAsync(data, session, new SaleDraft { Lines = back });
+        Assert.Equal(-81m, returned.Total);
+
+        await using (var ctx = db.CreateContext())
+        {
+            var lines = await ctx.SaleLines.AsNoTracking().Where(l => l.SaleId == returned.Id).OrderBy(l => l.LineNumber).ToListAsync();
+            Assert.Equal([shirtSold.Id, socksSold.Id], lines.Select(l => l.ReturnedLineId!.Value));
+            Assert.Equal([tenOff.Id, threeForTwo.Id], lines.Select(l => l.PromotionId!.Value));
+            Assert.Equal([-81m, 0m], lines.Select(l => l.LineTotal));
+            Assert.Equal([-10m, -10m], lines.Select(l => l.PromotionDiscount));
+            // The goods are back in stock; the coupon stays used by the sale; nothing is audited as a return without receipt.
+            Assert.Equal(99m, (await ctx.Items.AsNoTracking().SingleAsync(i => i.Id == shirt.Id)).OnHand);
+            Assert.Equal(98m, (await ctx.Items.AsNoTracking().SingleAsync(i => i.Id == socks.Id)).OnHand);
+            Assert.Equal(1, await ctx.CouponUses.CountAsync(u => u.PromotionId == coupon.Id));
+            Assert.False(await ctx.AuditEntries.AnyAsync(a => a.EntityId == returned.Id && a.Action == AuditActions.ReturnWithoutReceipt));
+        }
+
+        // The promotions report takes the promotions back with the goods: one shirt left at 10% off, and the two socks
+        // kept no longer earn 3 for 2.
+        var report = await promotions.ReportAsync(Today, Today, [storeId]);
+        var ten = report.Single(r => r.PromotionId == tenOff.Id);
+        Assert.Equal((1, 1m, 10m), (ten.Sales, ten.Units, ten.Discount));
+        var bogo = report.Single(r => r.PromotionId == threeForTwo.Id);
+        Assert.Equal((1, 2m, 0m, 20m), (bogo.Sales, bogo.Units, bogo.Discount, bogo.NetSales));
+
+        // The daily journal balances, the promotions it gave (50.00) are less the 20.00 taken back, and the takings are
+        // the 180.00 paid less the 81.00 refunded.
+        var export = await new AccountingService(data).ExportAsync(Today, Today);
+        var day = export.Lines.Where(l => l.Store == "E" + st).ToList();
+        Assert.Equal(day.Sum(l => l.Debit), day.Sum(l => l.Credit));
+        Assert.Equal(30m, day.Where(l => l.Memo == "Promotions").Sum(l => l.Debit - l.Credit));
+        Assert.Equal(99m, day.Where(l => l.Memo == "Takings Cash").Sum(l => l.Debit - l.Credit));
+
+        // The sale cannot be voided while its return stands; once the return is voided, everything can come back again,
+        // and a return made from a stale receipt is refused when it is saved.
+        await Assert.ThrowsAsync<BusinessRuleException>(() => sales.VoidSaleAsync(sale.Id, session));
+        await sales.VoidSaleAsync(returned.Id, session);
+        var again = (await sales.FindForReturnAsync(sale.InvoiceNumber))!;
+        Assert.Empty(again.Earlier);
+        Assert.Equal(2m, again.Returnable([]).Single(x => x.Line.Id == shirtSold.Id).Left);
+        var both = again.Return(shirtSold.Id, 2, [], restock: true);
+        Assert.Equal(162m, both.Quote.Refund);
+        await SellAsync(data, session, new SaleDraft { Lines = [both.Line] });
+        var stale = again.Return(shirtSold.Id, 1, [], restock: true);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => SellAsync(data, session, new SaleDraft { Lines = [stale.Line] }));
+
+        // Without the receipt: the price rung up, and the audit log keeps it for the manager.
+        var noReceipt = Line(socks, -1);
+        noReceipt.Kind = SaleLineKind.Return;
+        var plain = await SellAsync(data, session, new SaleDraft { Lines = [noReceipt] });
+        Assert.Equal(-10m, plain.Total);
+        await using (var ctx = db.CreateContext())
+            Assert.True(await ctx.AuditEntries.AnyAsync(a => a.EntityId == plain.Id && a.Action == AuditActions.ReturnWithoutReceipt));
+    }
 }
 
 public sealed class CrmAndMarketingTestsOnSqlite(SqliteFixture db) : CrmAndMarketingTests(db), IClassFixture<SqliteFixture>;

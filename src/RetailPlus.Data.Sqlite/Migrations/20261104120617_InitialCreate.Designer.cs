@@ -11,7 +11,7 @@ using RetailPlus.Data;
 namespace RetailPlus.Data.Sqlite.Migrations
 {
     [DbContext(typeof(RetailPlusDbContext))]
-    [Migration("20261104092403_InitialCreate")]
+    [Migration("20261104120617_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -8840,6 +8840,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.Property<bool>("Restock")
                         .HasColumnType("INTEGER");
 
+                    b.Property<Guid?>("ReturnedLineId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("SaleId")
                         .HasColumnType("TEXT");
 
@@ -8889,6 +8892,8 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.HasIndex("Plu");
 
                     b.HasIndex("PromotionId");
+
+                    b.HasIndex("ReturnedLineId");
 
                     b.HasIndex("SaleId");
 

@@ -4532,6 +4532,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     PromotionId = table.Column<Guid>(type: "TEXT", nullable: true),
                     PromotionName = table.Column<string>(type: "TEXT", maxLength: 60, nullable: true, collation: "NOCASE"),
                     PromotionDiscount = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
+                    ReturnedLineId = table.Column<Guid>(type: "TEXT", nullable: true),
                     SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
                     UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
@@ -7335,6 +7336,11 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "IX_SaleLines_PromotionId",
                 table: "SaleLines",
                 column: "PromotionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SaleLines_ReturnedLineId",
+                table: "SaleLines",
+                column: "ReturnedLineId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_SaleLines_SaleId",

@@ -42,6 +42,8 @@ internal sealed class SaleLineConfiguration : IEntityTypeConfiguration<SaleLine>
         e.HasOne<Sale>().WithMany(x => x.Lines).HasForeignKey(x => x.SaleId).OnDelete(DeleteBehavior.Cascade);
         e.HasIndex(x => x.ItemId);
         e.HasIndex(x => x.Plu);
+        // The returns made of a sold line with the receipt (no foreign key: the two sales sync separately).
+        e.HasIndex(x => x.ReturnedLineId);
     }
 }
 
