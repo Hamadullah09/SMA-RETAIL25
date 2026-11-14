@@ -41,6 +41,8 @@ stations, enrollment, sync batches, package upload).
 | `POST /api/stores`, `PUT /api/stores/{id}` | stores.manage | `{ code, name, timeZoneId }` |
 | `GET /api/stores/{id}/stations` | web.signin | `[StationInfo]` (see the server's `Endpoints.cs`) |
 | `POST /api/stores/{id}/stations` | stores.manage | `{ number?, name? }` → `EnrollmentCodeInfo { station, code, expiresAtUtc }` |
+| `POST /api/stores/{id}/locations` | stores.manage | `{ code, name, isHold }` → 201 `LocationInfo`; a code of 1 to 3 characters not used at the store (400 otherwise); 404 for a store the user cannot see |
+| `PUT /api/locations/{id}` | stores.manage | `{ version, code, name, isHold }` → `LocationInfo`: renames it; `code` stays (400 when changed); `isHold` true marks it as the store's hold location, false takes the mark off, null leaves it; 409 on an old version |
 | `POST /api/stations/{id}/enrollment-code` | stores.manage | new code |
 | `POST /api/stations/{id}/retire` | stores.manage | |
 | `GET /api/sync/batches?storeId&station&status&take` | web.signin | `[BatchInfo]` |
@@ -71,6 +73,10 @@ stations, enrollment, sync batches, package upload).
   "drawers":   [{ "storeCode", "stationNumber", "closedAt", "closedBy", "expected", "counted", "variance" }]
 }
 ```
+`topItems` of one store has an entry per item row. Without `storeId` (every store the user sees) each store has its own
+row of a product, so lines with the same stock code and name are one entry with their units and net sales added up;
+its `itemId` is null when more than one row sold it. The item sales report (`items`) and the department report (`dept`)
+already group by stock code and name, and by department name.
 
 ### Till monitor — `web.signin`
 `GET /api/tills?storeId` → `[{ "stationId", "storeId", "storeCode", "storeName", "number", "name", "enrolled", "retired",
@@ -100,7 +106,10 @@ stations, enrollment, sync batches, package upload).
   - `taxable1`, `taxable2`, `taxable3`
   - `reorderPoint`, `reorderQuantity`, `unitsPerCase`, `isActive`, `notes`
   - `stock: [{ "storeCode", "locationCode", "onHand" }]`
+  - `tracksBatches` (kept in batches with expiry dates) and `shelfLifeDays` (0 when not known, at most 36500)
 - `POST /api/items` and `PUT /api/items/{id}` take `ItemDetail` without `stock` and return the saved `ItemDetail`.
+  `tracksBatches` and `shelfLifeDays` left out (or null) keep what the item has; a shelf life below 0 is 400. A change
+  at every store copies them like the other fields.
 - `DELETE /api/items/{id}` deletes the item; `POST /api/items/{id}/undelete` restores it.
 - `GET /api/departments` returns `[{ "id", "name" }]`. `GET /api/categories?departmentId` returns
   `[{ "id", "name", "departmentId" }]`.
@@ -168,6 +177,17 @@ stations, enrollment, sync batches, package upload).
 - `POST /api/users/{id}/pin` takes `{ staffCode, pin }` and returns 204.
 - An administrator without `stores.all` manages only users of their own store, and can neither grant `stores.all` nor
   make a super administrator.
+- A user needs a home store unless their role has `stores.all`: a POST or PUT with `storeId` null and a role without it
+  (or no role) is 400, "Choose the store this user works at; only a role that sees every store works without one." Such
+  a user would see no store at all. The tills' own user editing has no such rule, since a till is one store.
+- **Standard roles on the web.** Manager and Administrator sign in for their own store, as does Production planner;
+  Marketing, HR officer, Accountant and Super administrator have `stores.all` and see every store. Supervisor, Cashier,
+  Trainee, Stock clerk and Production operator work at the tills only.
+- **New keys of standard roles.** When a standard role gains a key, `Permissions.KeysAddedToStandardRoles` lists it,
+  and at its next start the server gives it to that role in a database already in use (`SetupService.AddNewStandardKeysAsync`,
+  logged). Each standard permission has the same id everywhere (`SetupService.StandardGrantId`, from the role and the
+  key), so a key an administrator took away leaves a tombstone and is not given again. So far: Manager `web.signin`,
+  Marketing and HR officer `stores.all`.
 
 ### Audit log — `audit.view`
 `GET /api/audit?storeId&from&to&userId&action&search` (*paged*). Each row: `{ "id", "atUtc", "storeCode",
@@ -257,7 +277,8 @@ The rules below were decided while building the server. They add to the contract
   edits their own store's items, users, settings and pictures, but not the shared lists, once there is a second store.
 - **Users:** an administrator without `stores.all` lists and manages only users of their own store (others are 404),
   cannot make a user of every store (`storeId` null), cannot move a user to another store, and cannot give a role that
-  holds `stores.all` nor create or change such a role (403). The Super administrator role holds it.
+  holds `stores.all` nor create or change such a role (403). The Super administrator, Accountant, Marketing and HR
+  officer roles hold it. Nobody makes a user without a store whose role lacks it (400).
 
 ### Items are kept per location
 
@@ -350,8 +371,11 @@ then travel like the tills' own: down to that store's tills.
 - `UserInfo.canChangeShared`: true when the user has `stores.all` or the company has one store, the same rule the
   server applies to company-wide records; the web app hides those records' edit buttons when it is false.
 - `StoreInfo.currencySymbol`: the store's currency symbol (Setup), readable by every signed-in user.
-- `GET /api/stores/{id}/locations` (`web.signin`; 404 for a store the user cannot see) → `[{ "id", "code", "name" }]`,
-  for the location a new item goes to.
+- `GET /api/stores/{id}/locations` (`web.signin`; 404 for a store the user cannot see) → `[LocationInfo { "id",
+  "version", "code", "name", "isHold", "items" }]` by code, for the location a new item goes to. `isHold` marks the
+  store's hold location (where an output inspection's failed goods go when it names none); `items` counts the items
+  kept there. Lists and new items that name no location use the first location that is not the hold location. Adding
+  and renaming: *Already there*, above.
 - `GET /api/staff?storeId` → `[{ "id", "userName", "fullName" }]`, sorted by user name, active or not: the users of that
   store and those who work at every store (every user for `stores.all` without `storeId`). Allowed with any of
   `reports.view`, `reports.staff`, `audit.view` or `setup.users`, for the staff filters of the lists.
@@ -361,7 +385,10 @@ then travel like the tills' own: down to that store's tills.
 - The cookie lasts as long as the token (`Jwt:Hours`, 12). The CSRF guard applies to requests signed in by the cookie;
   sign-in and sign-out (open to anyone) and requests with an `Authorization` header are not checked.
 - Errors are always `{ "error" }`. A change the database refuses (a code that must be unique, a record that no longer
-  exists) is 400. An unknown address under `/api` is a JSON 404.
+  exists) is 400. Text longer than its field (the sizes are Retail Plus's: address lines 30, city 18…) is 400 naming the
+  field and its size, `Address 1 is too long: at most 30 characters.`; every save checks this before it is written, at
+  the tills too (SQLite would keep the text, and the server would then refuse the till's package). An unknown address
+  under `/api` is a JSON 404.
 - The server serves the web app's static export from `Server:WebRoot` (default: `web/out`, looked for in the content root
   and the folders above it; when there is none, only the API is served). `/x/` serves `x/index.html` and `/x` serves
   `x.html`; any other path outside `/api` gets the export's `404.html` with status 404. Files under `/_next/static/` are
@@ -439,7 +466,7 @@ The web pages, each opened with `finance.view` (their buttons show for the permi
 Employees, shifts and attendance, leave, and payroll, all kept on the server ([ERP_E3_HR.md](ERP_E3_HR.md)). The
 conventions above hold: `storeId` limits a list to one store, a change sends back the `version` it read (409 when it is
 old), refused business rules are 400 with `{ "error" }`. Employees belong to their store; one of head office (no
-store), a run of the whole company and the shared HR lists (departments, designations, rule sets, leave types,
+store), head office's payroll run and the shared HR lists (departments, designations, rule sets, leave types,
 holidays, and shifts for every store) follow the rule for company-wide records: `canChangeShared`. An employee, run,
 payslip or loan of a store the user cannot see is 404.
 
@@ -525,20 +552,29 @@ Salaries, loans, runs, payslips and the payroll reports are 403 for anyone else,
 - `GET /api/payroll/loans?employeeId&status&storeId`, `GET /api/payroll/loans/{id}` → `{ "id", "number",
   "employeeId", "code", "name", "kind", "issuedOn", "amount", "instalment", "firstMonth", "status", "recovered",
   "outstanding", "reason", "paidFromAccount", "instalments" }`. `POST /api/payroll/loans` (`payroll.run`)
-  `{ "employeeId", "kind", "issuedOn", "amount", "instalment", "firstMonth", "reason", "paidFrom" }` posts the payment
-  to the ledger (`paidFrom`: `Cash`, `Bank` or an account code); `POST /{id}/cancel` `{ "reason" }` before anything was
-  taken back.
+  `{ "employeeId", "kind", "issuedOn", "amount", "instalment", "firstMonth", "reason", "bankAccountId" }` posts the
+  payment to the ledger from the bank or cash account `bankAccountId` (its own ledger account; none: the cash in hand of
+  the employee's store); `paidFromAccount` is that ledger code, or `Cash`. `POST /{id}/cancel` `{ "reason" }` before
+  anything was taken back.
+- `GET /api/payroll/bank-accounts?storeId` (`payroll.run`) → `[{ "id", "name", "kind", "currency", "ledgerCode",
+  "storeId", "storeCode" }]`: the active bank and cash accounts pay may come from, without balances (a store's and the
+  company's with `storeId`, every one the user sees without), sorted by name.
 - `GET /api/payroll/runs?year&storeId` → `RunRow[]`: `id`, `version`, `number`, `kind` (`Monthly`, `FinalSettlement`),
   `year`, `month`, `title`, the period, store, employee, `status` (`Draft`, `Calculated`, `Approved`, `Posted`,
   `Paid`), `employees`, `gross`, `deductions`, `net`, `tax`, `employerContributions`, `notes`, `warnings`, who did each
-  step and when, `journalNumber`, `paidOn`, `paymentJournalNumber`.
-- `POST /api/payroll/runs` (`payroll.run`) `{ "year", "month", "storeId", "notes" }` (201; no `storeId` is the whole
-  company, for those who see every store; one run per month and store). `POST /api/payroll/settlements`
+  step and when, `journalNumber`, `paidOn`, `paymentJournalNumber`, `paidFrom` (the names of the bank and cash
+  accounts the payment came from).
+- `POST /api/payroll/runs` (`payroll.run`) `{ "year", "month", "storeId", "notes" }` (201; no `storeId` is head
+  office, the employees with no store, for those who see every store; one run a month for each store and one for head
+  office, else 400). Calculating leaves out, with a warning, anyone another run of the month pays; approving is refused
+  while an employee is on two runs of the month. `POST /api/payroll/settlements`
   `{ "employeeId", "notes" }` starts a leaver's final settlement. `DELETE /api/payroll/runs/{id}` while draft or
   calculated.
 - Steps, each `{ "version" }` → the run: `POST /api/payroll/runs/{id}/calculate` and `/post` (`payroll.run`),
-  `/approve` and `/reopen` (`payroll.approve`), `/pay` (`payroll.run`) `{ "version", "paidOn", "bankAccount",
-  "cashAccount" }` (default today and the Bank and Cash accounts). Calculating notes on the run the employees left out
+  `/approve` and `/reopen` (`payroll.approve`), `/pay` (`payroll.run`) `{ "version", "paidOn", "bankAccountId",
+  "cashAccountId" }` (`paidOn` defaults to today). The transfers are credited to the ledger account of `bankAccountId`,
+  needed (400 without) when anyone is paid by transfer; the cash to that of `cashAccountId`, or each store's cash in hand.
+  Both must be active, in the base currency and of a store the user sees (404 otherwise). Calculating notes on the run the employees left out
   (no salary, or no rule set for the month).
 - `GET /api/payroll/runs/{id}` → `{ "run", "payslips" }`, each payslip with the days, earnings by kind, deductions by
   kind, net and the employer's part. `GET /api/payroll/payslips/{id}` → the payslip with its lines and the tax
@@ -565,7 +601,9 @@ Salaries, loans, runs, payslips and the payroll reports are 403 for anyone else,
 Permissions: `crm.view` (read leads, opportunities and activities; mark one's own activities done), `crm.edit` (change
 them, convert leads, send a single WhatsApp message), `marketing.campaigns` (segments, WhatsApp templates and
 campaigns), `marketing.promotions` (promotions), `sales.targets` (targets). Supervisors and above have `crm.view`;
-Managers, Administrators and the new **Marketing** role have the others (Marketing has no `sales.targets`).
+Managers, Administrators and the new **Marketing** role have the others (Marketing has no `sales.targets`). Marketing
+also has `stores.all`: leads, segments and campaigns are the company's work, so its users see every store and change
+the company-wide segments and templates.
 
 **Store scope.** Leads, opportunities, activities, campaigns, WhatsApp messages and targets belong to one store and
 follow the store rules of phase 3 (lists cover the stores the user sees; another store's record is 404). Without a
@@ -666,20 +704,22 @@ for one store may be changed by that store's users; one for every store or sever
   `{Balance}`, `{Store}`, `{ClientNumber}`; any other is 400.
 - `CampaignRow`: `{ "id", "version", "name", "segmentId", "segment", "templateId", "template", "status", "storeId",
   "storeCode", "scheduledAtUtc", "startedAtUtc", "finishedAtUtc", "recipients", "counts": { "queued", "sent",
-  "delivered", "read", "failed", "error" }, "createdBy", "createdAtUtc" }`. `status` is `Draft`, `Scheduled`, `Sending`,
-  `Sent` or `Cancelled`.
+  "delivered", "read", "failed", "error", "cancelled" }, "createdBy", "createdAtUtc" }`. `status` is `Draft`, `Scheduled`,
+  `Sending`, `Sent` or `Cancelled`.
 - `GET /api/campaigns?storeId&status` (*paged*, newest first); `GET /api/campaigns/{id}`; `POST` (201, a draft),
   `PUT /{id}` (drafts only), `DELETE /{id}` (drafts, and cancelled campaigns that sent nothing). Body `{ "name",
   "segmentId", "templateId", "storeId"?, "version" (PUT) }`.
 - `POST /api/campaigns/{id}/schedule` takes `{ "sendAtUtc"?, "version" }` (null: now). The recipients are worked out
   there and then: the segment's members who agreed to WhatsApp messages and have a number, one message each, queued.
   400 when there is nobody. The server's sender sends them from `sendAtUtc` on, at most `WhatsApp:MessagesPerMinute`.
-- `POST /api/campaigns/{id}/cancel` takes `{ "version" }` (a draft, a scheduled or a sending campaign); queued messages
-  are never sent. A cancelled campaign may be deleted only while all its messages are still queued.
+- `POST /api/campaigns/{id}/cancel` takes `{ "version" }` (a draft, a scheduled or a sending campaign); its queued
+  messages become `Cancelled` and are never sent. A cancelled campaign may be deleted only while none of its messages
+  went (all are `Cancelled`).
 - `GET /api/campaigns/{id}/messages?status` (*paged*) → `WhatsAppMessageRow { "id", "campaignId", "clientId",
   "clientName", "toNumber", "template", "body", "status", "error", "sentAtUtc", "deliveredAtUtc", "readAtUtc",
-  "createdAtUtc" }`. `status` is `Queued`, `Sent`, `Delivered`, `Read`, `Failed` (WhatsApp could not deliver it) or
-  `Error` (it was not sent: refused, no consent any more, or the API failed).
+  "createdAtUtc" }`. `status` is `Queued`, `Sent`, `Delivered`, `Read`, `Failed` (WhatsApp could not deliver it),
+  `Error` (it was not sent: refused, no consent any more, or the API failed) or `Cancelled` (its campaign was cancelled
+  before it went; never sent).
 - `GET /api/campaigns/{id}/results?days=7` → `{ "counts", "recipients", "days", "buyers", "sales", "salesTotal" }`: the
   recipients' completed sales from the campaign's start to `days` days after (1–90).
 - Single messages: `POST /api/clients/{id}/whatsapp` (`crm.edit`) takes `{ "templateId", "storeId"? }` and sends at
@@ -792,7 +832,7 @@ test checks every answer below against them.
 ### Production orders
 | | | |
 |---|---|---|
-| `GET /api/production-orders?storeId&status&search` | view | *paged*, newest first: `ProductionOrderRow { id, storeCode, number, status, productCode, productName, quantity, received, materialLocation, outputLocation, plannedStart, plannedEnd, priority, madeToOrder, bomRevision }`. `status` is one or more of Planned, Released, InProgress, Completed, Closed, Cancelled, separated by commas; `search` is an order number, or part of a product code or name |
+| `GET /api/production-orders?storeId&status&search` | view | *paged*, newest first: `ProductionOrderRow { id, storeCode, number, status, productCode, productName, quantity, received, materialLocation, outputLocation, plannedStart, plannedEnd, priority, madeToOrder, bomRevision }`. `status` is one or more of Planned, Released, InProgress, Completed, Closed, Cancelled, separated by commas; `search` matches the order number, part of the product's stock code or name, or the start of its barcode, whether or not it is a number (`8201` finds order 8201 and the orders for stock code 8201) |
 | `GET /api/production-orders/board?storeId&search` | view | `[{ status, total, orders: [ProductionOrderRow] }]`: a column per status, the most urgent first (priority, planned start, number), at most 200 a column; closed and cancelled orders of the last 30 days |
 | `GET /api/production-orders/{id}` | view | `ProductionOrderDetail` (below) |
 | `POST /api/production-orders` | plan | `{ version, productCode, quantity, materialLocationId, outputLocationId, billOfMaterialsId, plannedStart, plannedEnd, priority, customerOrderId, notes }` → `ProductionOrderDetail` (201). Without `billOfMaterialsId` the product's bill in force on the planned start is used; the product must be an item at the output location; both locations of one store |
@@ -857,7 +897,7 @@ should have been ordered or started already, `fromRelease` for the shortage of a
 | `POST /api/quality/plans`, `PUT /api/quality/plans/{id}` | plan, shared | a `QualityPlan` → the saved one; one active plan per product |
 | `DELETE /api/quality/plans/{id}` | plan, shared | 204 |
 | `GET /api/quality/inspections?storeId&kind&from&to` | view | `[Inspection { id, kind, storeCode, documentNumber, productionOrderId, purchaseOrderId, stockCode, description, quantityInspected, quantityFailed, disposition, holdLocation, passed, inspectedAt, inspectedBy, notes, results: [{ lineNumber, checkName, kind, minimum, maximum, required, passFail, numberValue, textValue, passed }] }]`, newest first; `kind` is Production or Incoming |
-| `GET /api/quality/receipts?storeId&search&days` | view | `[{ id, number, storeCode, locationCode, receivedAt, lines: [{ plu, description, received, hasPlan, inspections }] }]`: purchase orders received in the last `days` (90) |
+| `GET /api/quality/receipts?storeId&search&days` | view | `[{ id, number, storeCode, locationCode, receivedAt, lines: [{ plu, description, received, hasPlan, inspections }] }]`: purchase orders received in the last `days` (90); `search` matches the order number or part of a stock code or description on it |
 | `POST /api/quality/receipts/{purchaseOrderId}/inspect` | plan | `{ stockCode, quantityInspected, quantityFailed, answers, notes }` → `Inspection`; the result is recorded only |
 
 ### Production reports
@@ -918,11 +958,19 @@ query or the body), it takes the first location of `storeId`, else of the user's
   "pieces", "costEach", "orderedCost", "orderCost", "quantityReceived", "tracksBatches", "shelfLifeDays", "bin",
   "batches": [{ "batchNumber", "pieces", "expiresOn", "madeOn" }] }]`. `orderedCost` is the cost agreed when the order
   was posted, which the three-way match compares the bill with.
-- `POST /api/purchase-orders/{id}/post` takes `{ version }`: the pieces go on order. Returns the order.
-- `POST /api/purchase-orders/{id}/receive` takes `{ version, shippingCost, lines: [{ lineId, pieces, costEach, batches }] }`
-  and returns the order, received. A line of an item kept in batches needs `batches` (`[{ batchNumber, pieces,
-  expiresOn, madeOn }]`) adding up to its pieces (400 otherwise); a batch without `expiresOn` gets one from the item's
-  shelf life. Stock, last cost and average cost change as at the till.
+- `POST /api/purchase-orders/{id}/post` takes `{ version, orderedOn }`: the pieces go on order. `orderedOn`
+  (`yyyy-MM-dd`) is the day the order was placed, today in the store's time zone when null. Returns the order.
+- `POST /api/purchase-orders/{id}/receive` takes `{ version, shippingCost, receivedOn, lines: [{ lineId, pieces, costEach,
+  batches }] }` and returns the order, received. A line of an item kept in batches needs `batches` (`[{ batchNumber,
+  pieces, expiresOn, madeOn }]`) adding up to its pieces (400 otherwise); a batch without `expiresOn` gets one from the
+  item's shelf life, counted from `madeOn` or the day received; a batch made after the day received, or expiring before
+  it was made, is 400. Batches for an item **not** kept in batches are 400 (*"… is not kept in batches; turn that on for
+  the item first."*), not dropped. Stock, last cost and average cost change as at the till.
+- `receivedOn` (`yyyy-MM-dd`, today in the store's time zone when null) dates the receipt: its stock movements (and so
+  the business-day ledger entry of that day), the batches' `receivedOn`, the order's `receivedAt` (which the three-way
+  match reports) and the items' last receipt (an older receipt does not move it back). For both steps a day later than
+  today is 400, and so is a day in a locked or closed ledger period (*"… is in a locked or closed ledger period; …"*, as
+  E1's `LedgerService` refuses postings there); a receipt dated before the order was posted is 400.
 
 ### Requisitions — `purchasing.manage`; approving and rejecting need `purchasing.approve`
 - `GET /api/requisitions?storeId&locationId&status` (*paged*, newest first). `status` is `Draft`, `Submitted`,

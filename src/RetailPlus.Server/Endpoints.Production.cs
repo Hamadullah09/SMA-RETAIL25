@@ -618,7 +618,12 @@ public static partial class Endpoints
         var since = DateTime.Now.AddDays(-(api.Number("days") ?? 90));
         var q = db.PurchaseOrders.AsNoTracking().Include(p => p.Lines).Include(p => p.Location).Where(p => p.Status == PurchaseOrderStatus.Received && p.ReceivedAt >= since);
         if (store is Guid s) q = q.Where(p => p.StoreId == s);
-        if (api.Text("search") is { } text) q = SearchNumber(text) is long n ? q.Where(p => p.Number == n) : q.Where(p => p.Lines.Any(l => l.Plu.Contains(text) || l.Description.Contains(text)));
+        if (api.Text("search") is { } text)
+        {
+            // The order's number, or a stock code or description on it (stock codes are often numbers too).
+            long? number = SearchNumber(text);
+            q = q.Where(p => (number != null && p.Number == number) || p.Lines.Any(l => l.Plu.Contains(text) || l.Description.Contains(text)));
+        }
         var orders = await q.OrderByDescending(p => p.ReceivedAt).Take(200).AsSplitQuery().ToListAsync();
         var plans = (await db.QualityPlans.AsNoTracking().Where(p => p.IsActive && p.ForIncoming).Select(p => p.ProductCode).ToListAsync()).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var ids = orders.Select(o => o.Id).ToList();

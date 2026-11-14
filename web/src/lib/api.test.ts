@@ -175,11 +175,30 @@ describe('the supply chain calls', () => {
     await api.approveRequisition('r 1', { version: 'v-3', note: 'Fine' });
     expect(calls[0].url).toBe('/api/requisitions/r%201/approve');
     expect(JSON.parse(String(calls[0].init.body))).toEqual({ version: 'v-3', note: 'Fine' });
-    await api.receivePurchaseOrder('po-1', { version: 'v-1', shippingCost: 0, lines: [{ lineId: 'l-1', pieces: 6, costEach: 2, batches: [{ batchNumber: 'L1', pieces: 6, expiresOn: '2026-12-01', madeOn: null }] }] });
+    await api.receivePurchaseOrder('po-1', {
+      version: 'v-1', shippingCost: 0, receivedOn: '2026-11-03',
+      lines: [{ lineId: 'l-1', pieces: 6, costEach: 2, batches: [{ batchNumber: 'L1', pieces: 6, expiresOn: '2026-12-01', madeOn: null }] }],
+    });
     expect(calls[1].url).toBe('/api/purchase-orders/po-1/receive');
     expect(JSON.parse(String(calls[1].init.body)).lines[0].batches[0].batchNumber).toBe('L1');
+    expect(JSON.parse(String(calls[1].init.body)).receivedOn).toBe('2026-11-03');
     await api.runMatch(null);
     expect(calls[2].url).toBe('/api/matching/run');
     expect(calls[2].init.method).toBe('POST');
+    await api.postPurchaseOrder('po-1', { version: 'v-1', orderedOn: null });
+    expect(calls[3].url).toBe('/api/purchase-orders/po-1/post');
+    expect(JSON.parse(String(calls[3].init.body))).toEqual({ version: 'v-1', orderedOn: null });
+  });
+
+  it('adds a location to a store and renames one by its id', async () => {
+    const { fetch, calls } = fakeFetch(200, {});
+    const api = createApi({ base: '', fetch });
+    await api.addLocation('s 1', { version: null, code: 'HLD', name: 'Hold', isHold: true });
+    expect(calls[0].url).toBe('/api/stores/s%201/locations');
+    expect(calls[0].init.method).toBe('POST');
+    await api.saveLocation('l-1', { version: 'v-1', code: 'HLD', name: 'Quarantine', isHold: null });
+    expect(calls[1].url).toBe('/api/locations/l-1');
+    expect(calls[1].init.method).toBe('PUT');
+    expect(JSON.parse(String(calls[1].init.body))).toEqual({ version: 'v-1', code: 'HLD', name: 'Quarantine', isHold: null });
   });
 });

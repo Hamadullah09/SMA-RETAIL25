@@ -120,6 +120,7 @@ public partial class PosView : UserControl, IRefreshable
     private void LineDiscount_Click(object sender, RoutedEventArgs e) { Vm.LineDiscount(); CodeBox.Focus(); }
     private void SubtotalDiscount_Click(object sender, RoutedEventArgs e) { Vm.SubtotalDiscount(); CodeBox.Focus(); }
     private async void Remove_Click(object sender, RoutedEventArgs e) { await Vm.RemoveLineAsync(); CodeBox.Focus(); }
+    private async void ReturnWithReceipt_Click(object sender, RoutedEventArgs e) { await Ui.Try(Vm.ReturnWithReceiptAsync); CodeBox.Focus(); }
     private async void Suspend_Click(object sender, RoutedEventArgs e) { await Ui.Try(Vm.SuspendAsync); CodeBox.Focus(); }
     private async void Recall_Click(object sender, RoutedEventArgs e) { await Ui.Try(Vm.RecallAsync); CodeBox.Focus(); }
     private async void Quote_Click(object sender, RoutedEventArgs e) { await Vm.SaveQuoteAsync(); CodeBox.Focus(); }

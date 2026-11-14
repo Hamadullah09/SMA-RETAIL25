@@ -100,6 +100,22 @@
                                             </Style>
                                         </TextBlock.Style>
                                     </TextBlock>
+                                    <!-- A return: with the receipt at the price paid, or without one at today's price (in red: nobody checked it). -->
+                                    <TextBlock Text="{Binding ReturnNote}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource Ok}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding ReturnNote}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsUnverifiedReturn}" Value="True">
+                                                        <Setter Property="Foreground" Value="{StaticResource Danger}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -258,7 +274,9 @@
                     <Button Content="Discount on line" infra:Look.Icon="&#xE734;" Style="{StaticResource PosButton}" infra:Look.Shortcut="F7" Click="LineDiscount_Click" />
                     <Button Content="Discount on sale" infra:Look.Icon="&#xE735;" Style="{StaticResource PosButton}" infra:Look.Shortcut="F8" Click="SubtotalDiscount_Click" />
                     <ToggleButton Content="Return / refund" infra:Look.Icon="&#xE7A7;" Style="{StaticResource PosToggle}" infra:Look.Shortcut="F9" IsChecked="{Binding ReturnMode}"
-                                  ToolTip="The next item is taken back" />
+                                  ToolTip="The next item is taken back at today's price (no receipt)" />
+                    <Button Content="Return with receipt" infra:Look.Icon="&#xE7A7;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Shift+F9"
+                            ToolTip="Take back an item of a receipt at what the customer paid for it" Click="ReturnWithReceipt_Click" />
                     <Button Content="Put on hold" infra:Look.Icon="&#xE769;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+H" Click="Suspend_Click" />
                     <Button Content="Bring back" infra:Look.Icon="&#xE768;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+B" ToolTip="Recall a sale put on hold" Click="Recall_Click" />
                     <Button Content="Save as quote" infra:Look.Icon="&#xE8A5;" Style="{StaticResource PosButton}" infra:Look.Shortcut="Ctrl+Q" Click="Quote_Click" />

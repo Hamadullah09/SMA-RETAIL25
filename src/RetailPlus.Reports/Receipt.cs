@@ -91,8 +91,11 @@ public sealed class Receipt
 
         var notes = new List<string>();
         // What the promotions took off: their share of the item lines, and the lines of sale-wide ones (spend over an amount).
-        decimal saved = sale.Lines.Where(l => l.PromotionId is not null).Sum(l => l.Kind == SaleLineKind.Coupon ? -l.LineTotal : l.PromotionDiscount);
+        // A return with the receipt shows under its line what it takes back of a promotion, but saves nothing.
+        decimal saved = sale.Lines.Where(l => l.PromotionId is not null && l.Kind != SaleLineKind.Return).Sum(l => l.Kind == SaleLineKind.Coupon ? -l.LineTotal : l.PromotionDiscount);
         if (saved > 0) notes.Add("You saved " + saved.ToString("N2", culture) + " with promotions");
+        if (sale.Lines.Any(l => l.Kind == SaleLineKind.Return && l.ReturnedLineId is null && l.ItemId is not null))
+            notes.Add("Returned without a receipt: at today's price");
         if (store.BonusPointsEnabled && store.PrintPointsOnSlips && sale.PointsEarned > 0) notes.Add("Points earned: " + sale.PointsEarned.ToString("0.##", culture));
         if (!string.IsNullOrWhiteSpace(store.TaxRegistrationNumber)) notes.Add("Tax reg. " + store.TaxRegistrationNumber);
         // The tax office's number (FBR's POS integration), once the server reported the sale: reprints show it.

@@ -78,8 +78,23 @@ export interface StoreInfo {
 /** A stock location of a store (`GET /api/stores/{id}/locations`). */
 export interface LocationInfo {
   id: string;
+  version: string;
+  /** 1 to 3 characters, fixed once made: a till finds the location it sells from by its code. */
   code: string;
-  name: string;
+  name: string | null;
+  /** The store's hold location: where an inspection's failed goods go when no other is chosen. */
+  isHold: boolean;
+  /** Items kept there (not deleted). */
+  items: number;
+}
+
+/** Adds a location (`POST /api/stores/{id}/locations`) or renames one (`PUT /api/locations/{id}`, with its version; the code stays). */
+export interface LocationRequest {
+  version: string | null;
+  code: string | null;
+  name: string | null;
+  /** True marks it as the store's hold location, false takes the mark off, null leaves it. */
+  isHold: boolean | null;
 }
 
 /** Someone to filter by (`GET /api/staff`): active and inactive users, sorted by user name. */
@@ -349,6 +364,10 @@ export interface ItemDetail {
   notes: string | null;
   /** The same stock code at every location of the stores the user sees. */
   stock?: ItemStock[];
+  /** Kept in batches with expiry dates: receiving asks for them, the till sells the batch that expires first. Left out: unchanged. */
+  tracksBatches?: boolean | null;
+  /** Days the goods keep once made (0 when not known); receiving offers the expiry from it. Left out: unchanged. */
+  shelfLifeDays?: number | null;
 }
 
 /** One location's row of a stock code. */
@@ -1921,8 +1940,8 @@ export interface LoanBody {
   instalment: number;
   firstMonth: BusinessDate | null;
   reason: string | null;
-  /** A role (Cash, Bank) or an account code. */
-  paidFrom: string | null;
+  /** The bank or cash account it is paid from (`/payroll/bank-accounts`); null: the cash in hand of the employee's store. */
+  bankAccountId: string | null;
 }
 
 export interface RunRow {
@@ -1959,11 +1978,14 @@ export interface RunRow {
   paidOn: BusinessDate | null;
   paidBy: string | null;
   paymentJournalNumber: number | null;
+  /** The bank and cash accounts the payment came from, by name. */
+  paidFrom?: string | null;
 }
 
 export interface RunBody {
   year: number;
   month: number;
+  /** null: head office, the employees with no store. */
   storeId: string | null;
   notes: string | null;
 }
@@ -1976,8 +1998,22 @@ export interface SettlementBody {
 export interface PayBody {
   version: string;
   paidOn: BusinessDate | null;
-  bankAccount: string | null;
-  cashAccount: string | null;
+  /** The bank account the transfers go from; needed when anyone is paid by transfer. */
+  bankAccountId: string | null;
+  /** The cash account the cash wages come from; null: each store's cash in hand. */
+  cashAccountId: string | null;
+}
+
+/** A bank or cash account pay may come from (`GET /api/payroll/bank-accounts`), without its balance. */
+export interface PayFromAccount {
+  id: string;
+  name: string;
+  kind: BankAccountKind;
+  currency: string;
+  ledgerCode: string;
+  /** null: the company's. */
+  storeId: string | null;
+  storeCode: string | null;
 }
 
 export interface PayslipRow {
@@ -2370,7 +2406,7 @@ export interface TemplateRequest {
 }
 
 export type CampaignStatus = 'Draft' | 'Scheduled' | 'Sending' | 'Sent' | 'Cancelled';
-export type MessageStatus = 'Queued' | 'Sent' | 'Delivered' | 'Read' | 'Failed' | 'Error';
+export type MessageStatus = 'Queued' | 'Sent' | 'Delivered' | 'Read' | 'Failed' | 'Error' | 'Cancelled';
 
 export interface MessageCounts {
   queued: number;
@@ -2379,6 +2415,8 @@ export interface MessageCounts {
   read: number;
   failed: number;
   error: number;
+  /** Not sent because the campaign was cancelled first. */
+  cancelled: number;
 }
 
 export interface CampaignRow {
@@ -2706,6 +2744,14 @@ export interface ReceiveRequest {
   version: string;
   shippingCost: number;
   lines: ReceiveLineRequest[];
+  /** The day the goods arrived (`yyyy-MM-dd`); today when null. Not later than today, nor in a locked ledger period. */
+  receivedOn: string | null;
+}
+
+/** Posting an order (`POST /api/purchase-orders/{id}/post`): the day it was placed, today when null. */
+export interface PostOrderRequest {
+  version: string;
+  orderedOn: string | null;
 }
 
 /** The version a step sends back (post, submit, approve…), and the note some steps take. */

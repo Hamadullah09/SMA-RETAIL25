@@ -114,7 +114,8 @@ public sealed class QualityService(DataContext data)
 
     /// <summary>
     /// Records an inspection of a production order's output (received into its output location). The failed quantity goes
-    /// to a hold location of the store, or is scrapped, or stays (no disposition).
+    /// to a hold location of the store (the one named, else the store's marked hold location), or is scrapped, or stays (no
+    /// disposition).
     /// </summary>
     public async Task<QualityInspection> InspectOutputAsync(Guid orderId, InspectionRequest request)
     {
@@ -144,7 +145,9 @@ public sealed class QualityService(DataContext data)
             var now = DateTime.Now;
             if (request.Disposition == InspectionDisposition.Hold)
             {
-                var holdId = request.HoldLocationId ?? throw new BusinessRuleException("Choose the hold location the failed goods go to.");
+                // The location named, else the one marked as the store's hold location (LocationService).
+                var holdId = request.HoldLocationId ?? await LocationService.HoldIdAsync(db, order.StoreId)
+                    ?? throw new BusinessRuleException("Choose the hold location the failed goods go to. A store with a second location can mark it as its hold location (Stores, Locations).");
                 var hold = await db.Locations.AsNoTracking().SingleOrDefaultAsync(l => l.Id == holdId && l.StoreId == order.StoreId)
                     ?? throw new BusinessRuleException("The hold location must be one of the order's store.");
                 if (hold.Id == order.OutputLocationId) throw new BusinessRuleException("The hold location must be another location than the output's.");

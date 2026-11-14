@@ -186,11 +186,11 @@ public static class Permissions
         [.. ClerkKeys, PosDiscount, PosVoidLine, PosVoidSale, PosNoSale, PosEndOfDay, PosApprove, InvoicesManage, RmaManage, InventoryTransfer, DashboardView, ReportsView, TimeClockEdit, CrmView];
     private static readonly string[] ManagerKeys =
         [.. SupervisorKeys, InventoryPrices, ReportsStaff, SetupStore, SetupStations, RfidManage, BackupManage, YearEndRun, AuditView, AccountingExport, FinanceView, HrView, HrLeave,
-            CrmEdit, MarketingCampaigns, MarketingPromotions, SalesTargets, ProductionView, PurchasingApprove, InventoryBins];
+            CrmEdit, MarketingCampaigns, MarketingPromotions, SalesTargets, ProductionView, PurchasingApprove, InventoryBins, WebSignIn];
     private static readonly string[] AccountantKeys =
         [WebSignIn, DashboardView, ReportsView, AuditView, AccountingExport, ClientsView, InventoryView, FinanceView, FinancePost, FinanceApprove, FinanceClose, FinanceSetup,
             FinancePayables, FinanceBank, FinanceBudget, StoresAll];
-    private static readonly string[] HrOfficerKeys = [WebSignIn, ReportsStaff, HrView, HrEdit, HrAttendance, HrLeave, PayrollRun];
+    private static readonly string[] HrOfficerKeys = [WebSignIn, ReportsStaff, HrView, HrEdit, HrAttendance, HrLeave, PayrollRun, StoresAll];
     private static readonly string[] ProductionPlannerKeys = [WebSignIn, InventoryView, ProductionView, ProductionPlan, ProductionCosting];
     private static readonly string[] ProductionOperatorKeys = [TimeClockPunch, ProductionView, ProductionFloor];
 
@@ -203,9 +203,11 @@ public static class Permissions
     public const string SuperAdministratorRole = "Super administrator";
     public const string MarketingRole = "Marketing";
 
-    /// <summary>Marketing works on the web: leads and the pipeline, segments, WhatsApp campaigns and promotions.</summary>
+    /// <summary>
+    /// Marketing works on the web, for every store: leads and the pipeline, segments, WhatsApp campaigns and promotions.
+    /// </summary>
     private static readonly string[] MarketingKeys =
-        [WebSignIn, DashboardView, ReportsView, ClientsView, ClientsEdit, CrmView, CrmEdit, MarketingCampaigns, MarketingPromotions];
+        [WebSignIn, DashboardView, ReportsView, ClientsView, ClientsEdit, CrmView, CrmEdit, MarketingCampaigns, MarketingPromotions, StoresAll];
 
     public const string AccountantRole = "Accountant";
     public const string HrOfficerRole = "HR officer";
@@ -213,8 +215,10 @@ public static class Permissions
     public const string ProductionOperatorRole = "Production operator";
 
     /// <summary>
-    /// The roles of a new database. Cashiers, supervisors and managers work at the tills; administrators look after one
-    /// store, on the web and at its tills; super administrators see every store.
+    /// The roles of a new database. Cashiers and supervisors work at the tills; managers and administrators look after one
+    /// store, at its tills and on the web; marketing, accountants and HR officers do the whole company's work on the web, and
+    /// super administrators everything, so they see every store (<see cref="StoresAll"/>). Production planners and operators
+    /// work for their own store.
     /// </summary>
     public static IReadOnlyList<DefaultRole> DefaultRoles { get; } =
     [
@@ -230,6 +234,18 @@ public static class Permissions
         new(HrOfficerRole, 3, "Employees, attendance, leave and payroll on the web; someone else approves payroll", HrOfficerKeys),
         new(ProductionPlannerRole, 3, "Bills of materials, production orders, planning, quality and production costs, on the web", ProductionPlannerKeys),
         new(ProductionOperatorRole, 1, "Works production orders on the shop floor screen at a till", ProductionOperatorKeys),
+    ];
+
+    /// <summary>
+    /// Keys a standard role gained after databases with that role were in use. The server gives each of them once to such
+    /// a database's role, at its next start (<c>SetupService.AddNewStandardKeysAsync</c>); a key an administrator takes away
+    /// afterwards stays away. Add a line here whenever a key joins a standard role in <see cref="DefaultRoles"/>.
+    /// </summary>
+    public static IReadOnlyList<(string Role, string Key)> KeysAddedToStandardRoles { get; } =
+    [
+        (ManagerRole, WebSignIn),
+        (MarketingRole, StoresAll),
+        (HrOfficerRole, StoresAll),
     ];
 
     /// <summary>The default role for a Retail Plus access level (users brought in by the importer).</summary>

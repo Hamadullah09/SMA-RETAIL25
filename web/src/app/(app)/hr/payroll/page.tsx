@@ -17,7 +17,7 @@ import { api } from '@/lib/api';
 import { isBusinessDate, toBusinessDate } from '@/lib/dates';
 import { checkNumber, parseNumber, textOrNull } from '@/lib/forms';
 import { formatCount, formatDate, formatMoney } from '@/lib/format';
-import { addMonths, LOAN_KINDS, LOAN_STATUS, monthKey, monthName, RUN_STATUS } from '@/lib/hr';
+import { addMonths, HEAD_OFFICE, LOAN_KINDS, LOAN_STATUS, monthKey, monthName, payFromLabel, RUN_STATUS } from '@/lib/hr';
 import { useSession } from '@/lib/session';
 import { useStore } from '@/lib/store';
 import type { LoanKind, LoanRow, RunRow } from '@/lib/types';
@@ -89,7 +89,7 @@ function Runs({ startNew }: { startNew: boolean }) {
         columns={[
           { key: 'no', header: 'Run', cell: (r) => <span className="font-semibold">#{r.number}</span> },
           { key: 'title', header: 'For', cell: (r) => r.title },
-          { key: 'store', header: 'Store', cell: (r) => r.storeCode ?? 'Company', hideBelow: 'md' },
+          { key: 'store', header: 'Store', cell: (r) => r.storeCode ?? 'Head office', hideBelow: 'md' },
           { key: 'status', header: 'Status', cell: (r) => <Chip tone={RUN_STATUS[r.status].tone}>{RUN_STATUS[r.status].label}</Chip> },
           { key: 'emp', header: 'Payslips', numeric: true, cell: (r) => formatCount(r.employees), total: formatCount(rows.reduce((s, r) => s + r.employees, 0)), hideBelow: 'sm' },
           { key: 'gross', header: 'Gross', numeric: true, cell: (r) => money(r.gross), total: money(rows.reduce((s, r) => s + r.gross, 0)), hideBelow: 'lg' },
@@ -139,9 +139,9 @@ function NewRunDialog({ onClose }: { onClose(): void }) {
         <Field label="Month" htmlFor="run-month" hint={monthName(month)}>
           <Input id="run-month" type="month" className="max-w-[200px]" value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} />
         </Field>
-        <Field label="Who" htmlFor="run-store" hint="A month has one run for each store, or one for the whole company.">
+        <Field label="Who" htmlFor="run-store" hint="A month has one run for each store and one for head office, the employees with no store.">
           <Select id="run-store" value={store} onChange={(e) => setStore(e.target.value)}>
-            {allStores && <option value="">The whole company</option>}
+            {allStores && <option value="">{HEAD_OFFICE}</option>}
             {stores.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.code} · {s.name}
@@ -283,6 +283,8 @@ function Loans() {
 function LoanDialog({ onClose }: { onClose(): void }) {
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { storeId } = useStore();
+  const accounts = useQuery({ queryKey: ['payroll-pay-from', storeId], queryFn: () => api.payFromAccounts({ storeId }), staleTime: 30_000 });
   const today = toBusinessDate(new Date());
   const [employeeId, setEmployeeId] = useState('');
   const [kind, setKind] = useState<LoanKind>('Loan');
@@ -290,8 +292,7 @@ function LoanDialog({ onClose }: { onClose(): void }) {
   const [amount, setAmount] = useState('');
   const [instalment, setInstalment] = useState('');
   const [firstMonth, setFirstMonth] = useState(addMonths(monthKey(), 1));
-  const [paidFrom, setPaidFrom] = useState('Cash');
-  const [account, setAccount] = useState('');
+  const [paidFrom, setPaidFrom] = useState('');
   const [reason, setReason] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
   const save = useMutation({
@@ -304,7 +305,7 @@ function LoanDialog({ onClose }: { onClose(): void }) {
         instalment: parseNumber(instalment) ?? 0,
         firstMonth: `${firstMonth}-01`,
         reason: textOrNull(reason),
-        paidFrom: paidFrom === 'account' ? textOrNull(account) : paidFrom,
+        bankAccountId: paidFrom || null,
       }),
     onSuccess: (loan) => {
       toast.ok(`Loan #${loan.number} is paid and posted.`);
@@ -319,7 +320,7 @@ function LoanDialog({ onClose }: { onClose(): void }) {
         ? 'Give the day it is paid.'
         : checkNumber(amount, { required: true, label: 'The amount' }) ??
           checkNumber(instalment, { required: true, label: 'The instalment' }) ??
-          ((parseNumber(instalment) ?? 0) > (parseNumber(amount) ?? 0) ? 'The instalment is at most the amount.' : paidFrom === 'account' && !account.trim() ? 'Give the account it is paid from.' : null);
+          ((parseNumber(instalment) ?? 0) > (parseNumber(amount) ?? 0) ? 'The instalment is at most the amount.' : null);
     setProblem(p ?? null);
     if (!p) save.mutate();
   }
@@ -365,18 +366,16 @@ function LoanDialog({ onClose }: { onClose(): void }) {
         <Field label="From the pay of" htmlFor="loan-first">
           <Input id="loan-first" type="month" className="max-w-[200px]" value={firstMonth} onChange={(e) => e.target.value && setFirstMonth(e.target.value)} />
         </Field>
-        <Field label="Paid from" htmlFor="loan-from" hint="Posted to the ledger: advances to employees against this account.">
+        <Field label="Paid from" htmlFor="loan-from" hint="Posted to the ledger: advances to employees against this account's own ledger account.">
           <Select id="loan-from" value={paidFrom} onChange={(e) => setPaidFrom(e.target.value)}>
-            <option value="Cash">Cash</option>
-            <option value="Bank">Bank</option>
-            <option value="account">Another account…</option>
+            <option value="">Cash in hand</option>
+            {(accounts.data ?? []).map((a) => (
+              <option key={a.id} value={a.id}>
+                {payFromLabel(a)}
+              </option>
+            ))}
           </Select>
         </Field>
-        {paidFrom === 'account' && (
-          <Field label="Account code" htmlFor="loan-account">
-            <Input id="loan-account" className="max-w-[200px]" value={account} maxLength={20} onChange={(e) => setAccount(e.target.value)} />
-          </Field>
-        )}
         <Field label="Reason" htmlFor="loan-reason">
           <Input id="loan-reason" value={reason} maxLength={200} onChange={(e) => setReason(e.target.value)} />
         </Field>

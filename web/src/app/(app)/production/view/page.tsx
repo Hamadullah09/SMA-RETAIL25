@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Ban, Calculator, CheckCheck, ClipboardCheck, PackageCheck, Pencil, Play, Rocket, ScanLine, Square, Trash2 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { CheckAnswers, OrderDialog, StatusChip, useLocations } from '@/components/production';
 import { Button, LinkButton } from '@/components/ui/button';
 import { ConfirmDialog, Dialog } from '@/components/ui/dialog';
@@ -16,6 +16,7 @@ import { useToast } from '@/components/ui/toast';
 import { ApiError } from '@/lib/api';
 import { formatDate, formatLocalDateTime, formatMoney, formatQuantity } from '@/lib/format';
 import { numberText, parseNumber, textOrNull } from '@/lib/forms';
+import { defaultHold } from '@/lib/locations';
 import { useHotkey } from '@/lib/hotkeys';
 import { P } from '@/lib/nav';
 import { completeAnswers, movementLabel } from '@/lib/production';
@@ -492,6 +493,11 @@ function InspectDialog({ order, onClose }: { order: ProductionOrderDetail; onClo
   const [failed, setFailed] = useState('0');
   const [disposition, setDisposition] = useState<InspectionDisposition>('Hold');
   const [hold, setHold] = useState('');
+  const holds = (locations.data ?? []).filter((l) => l.id !== order.outputLocationId);
+  // The store's hold location is offered first, once the locations are in.
+  useEffect(() => {
+    if (locations.data) setHold((h) => h || defaultHold(locations.data, order.outputLocationId));
+  }, [locations.data, order.outputLocationId]);
   const [answers, setAnswers] = useState<CheckAnswer[]>([]);
   const [notes, setNotes] = useState('');
   const save = useMutation({
@@ -550,12 +556,18 @@ function InspectDialog({ order, onClose }: { order: ProductionOrderDetail; onClo
           <Field label="Hold location" htmlFor="inspect-hold">
             <Select id="inspect-hold" value={hold} className="max-w-[260px]" onChange={(e) => setHold(e.target.value)}>
               <option value="">Choose…</option>
-              {(locations.data ?? []).filter((l) => l.id !== order.outputLocationId).map((l) => (
+              {holds.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.code} {l.name}
+                  {l.isHold ? ' (hold location)' : ''}
                 </option>
               ))}
             </Select>
+            {locations.data && holds.length === 0 && (
+              <p className="mt-1 text-note text-muted">
+                The store has no other location to hold failed goods. Add one under Stores, and mark it as the hold location.
+              </p>
+            )}
           </Field>
         )}
         <h3 className="pt-2 font-heading text-section">{plan ? plan.name : 'Checks'}</h3>

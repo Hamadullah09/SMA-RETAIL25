@@ -18,6 +18,7 @@ public static class AuditActions
     public const string Approval = "Approval";
     public const string ApprovalRefused = "Approval refused";
     public const string VoidSale = "Void sale";
+    public const string ReturnWithoutReceipt = "Return without receipt";
     public const string VoidInvoice = "Void invoice";
     public const string NoSale = "No sale";
     public const string EndOfDay = "End of day";

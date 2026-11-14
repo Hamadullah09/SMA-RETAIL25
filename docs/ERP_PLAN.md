@@ -204,3 +204,8 @@ What is not done yet (each phase's document says more):
 Local databases made before the merges must be made again, because the migrations were regenerated:
 - the server's LocalDB `RetailPlus_E2E`: drop it and run the cutover from `Retail25_E2E` again;
 - the till's `%LOCALAPPDATA%\RetailPlus\smaretail.db`: move it aside and let the app make a new one.
+
+Roles, after testing on a demo database (branch `fix-roles`): the Manager role signs in to the web, for its own store
+(`web.signin`); Marketing and HR officer see every store (`stores.all`), like the Accountant; the user API refuses a
+user without a home store whose role does not see every store. A database already in use gets these keys at the
+server's next start, once: a key an administrator takes away afterwards stays away (`docs/API.md`, Users and roles).

@@ -156,6 +156,9 @@ function Users() {
   );
 }
 
+/** What the server says, too, about a user of no store whose role sees one store. */
+const NEEDS_A_STORE = 'Choose the store this user works at; only a role that sees every store works without one.';
+
 /** The roles this user may hand out: without stores.all, none that see every store. */
 function grantable(roles: RoleInfo[], allStores: boolean): RoleInfo[] {
   return allStores ? roles : roles.filter((r) => !r.permissions.includes(P.storesAll));
@@ -177,6 +180,9 @@ function UserDialog({ user, onClose }: { user: UserRow | null; onClose(): void }
   const [conflict, setConflict] = useState(false);
 
   const choices = grantable(roles.data ?? [], allStores);
+  // A user of no store sees every store only through their role; with any other role they would see nothing.
+  const role = roles.data?.find((r) => r.id === roleId);
+  const roleSeesEveryStore = !!role?.permissions.includes(P.storesAll);
   useEffect(() => {
     if (!roleId && roles.data) setRoleId(choices.find((r) => r.name === 'Cashier')?.id ?? choices[0]?.id ?? '');
   }, [roleId, roles.data, choices]);
@@ -201,7 +207,9 @@ function UserDialog({ user, onClose }: { user: UserRow | null; onClose(): void }
         ? 'A user name has no spaces.'
         : !roleId
           ? 'Choose a role.'
-          : !user && password.length < 8
+          : !storeId && role && !roleSeesEveryStore
+            ? NEEDS_A_STORE
+            : !user && password.length < 8
             ? 'A password has at least 8 characters.'
             : null;
     setProblem(text);
@@ -243,9 +251,17 @@ function UserDialog({ user, onClose }: { user: UserRow | null; onClose(): void }
             ))}
           </Select>
         </Field>
-        <Field label="Home store" htmlFor="user-store" hint={allStores ? undefined : 'You add users to your own store.'}>
+        <Field
+          label="Home store"
+          htmlFor="user-store"
+          hint={!allStores ? 'You add users to your own store.' : role && !roleSeesEveryStore ? 'Required: this role sees only the store the user works at.' : undefined}
+        >
           <Select id="user-store" value={storeId} onChange={(e) => setStoreId(e.target.value)} disabled={!allStores}>
-            {allStores && <option value="">Every store</option>}
+            {allStores && (
+              <option value="" disabled={!!role && !roleSeesEveryStore}>
+                Every store
+              </option>
+            )}
             {stores.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.code} · {s.name}

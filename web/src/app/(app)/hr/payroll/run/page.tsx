@@ -9,7 +9,7 @@ import { ConflictDialog } from '@/components/masters';
 import { Button, LinkButton } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ConfirmDialog, Dialog } from '@/components/ui/dialog';
-import { Field, Input } from '@/components/ui/field';
+import { Field, Input, Select } from '@/components/ui/field';
 import { Chip, Detail, Toolbar } from '@/components/ui/page';
 import { EmptyState, ErrorState, FormError, Skeleton } from '@/components/ui/states';
 import { DataTable } from '@/components/ui/table';
@@ -18,9 +18,8 @@ import { useToast } from '@/components/ui/toast';
 import { api, ApiError } from '@/lib/api';
 import { cx } from '@/lib/cx';
 import { isBusinessDate, toBusinessDate } from '@/lib/dates';
-import { textOrNull } from '@/lib/forms';
 import { formatCount, formatDate, formatMoney, formatQuantity, formatShortUtc } from '@/lib/format';
-import { RUN_STATUS, RUN_STEPS, runActions, saveBlob, type RunAction } from '@/lib/hr';
+import { defaultPayFrom, payFromLabel, paySplit, RUN_STATUS, RUN_STEPS, runActions, runScope, saveBlob, type RunAction } from '@/lib/hr';
 import { useHotkey } from '@/lib/hotkeys';
 import { useStore } from '@/lib/store';
 import type { PayslipRow, RunRow } from '@/lib/types';
@@ -172,7 +171,7 @@ function RunView({ run, payslips }: { run: RunRow; payslips: PayslipRow[] }) {
             Payroll #{run.number}: {run.title}
           </h1>
           <p className="text-muted">
-            {run.storeCode ? `Store ${run.storeCode}` : 'The whole company'} · {formatDate(run.periodStart)} to {formatDate(run.periodEnd)}
+            {runScope(run)} · {formatDate(run.periodStart)} to {formatDate(run.periodEnd)}
             {run.notes ? ` · ${run.notes}` : ''}
           </p>
         </div>
@@ -219,7 +218,7 @@ function RunView({ run, payslips }: { run: RunRow; payslips: PayslipRow[] }) {
             <Detail label="Calculated">{run.calculatedBy ? `${run.calculatedBy}, ${formatShortUtc(run.calculatedAtUtc)}` : ''}</Detail>
             <Detail label="Approved">{run.approvedBy ? `${run.approvedBy}, ${formatShortUtc(run.approvedAtUtc)}` : ''}</Detail>
             <Detail label="Posted">{run.postedBy ? `${run.postedBy}${run.journalNumber ? `, entry #${run.journalNumber}` : ''}` : ''}</Detail>
-            <Detail label="Paid">{run.paidOn ? `${formatDate(run.paidOn)}${run.paidBy ? `, ${run.paidBy}` : ''}` : ''}</Detail>
+            <Detail label="Paid">{run.paidOn ? `${formatDate(run.paidOn)}${run.paidBy ? `, ${run.paidBy}` : ''}${run.paidFrom ? `, from ${run.paidFrom}` : ''}` : ''}</Detail>
           </dl>
         </Card>
       </div>
@@ -262,7 +261,7 @@ function RunView({ run, payslips }: { run: RunRow; payslips: PayslipRow[] }) {
         <CashSheet run={run} />
       )}
 
-      {paying && <PayDialog run={run} onClose={() => setPaying(false)} onPaid={refresh} onConflict={() => setConflict(true)} />}
+      {paying && <PayDialog run={run} payslips={payslips} onClose={() => setPaying(false)} onPaid={refresh} onConflict={() => setConflict(true)} />}
       <ConfirmDialog
         open={deleting}
         title={`Delete payroll run #${run.number}?`}
@@ -312,14 +311,31 @@ function CashSheet({ run }: { run: RunRow }) {
   );
 }
 
-function PayDialog({ run, onClose, onPaid, onConflict }: { run: RunRow; onClose(): void; onPaid(): void; onConflict(): void }) {
+/**
+ * Records the payment: the transfers go from one of finance's bank accounts (the run's store's first, else the
+ * company's, as supplier payments pick theirs), the cash from the cash in hand unless a cash account is chosen. Each
+ * comes off that account's own ledger account.
+ */
+function PayDialog({ run, payslips, onClose, onPaid, onConflict }: { run: RunRow; payslips: PayslipRow[]; onClose(): void; onPaid(): void; onConflict(): void }) {
   const toast = useToast();
+  const { currencySymbol: symbol } = useStore();
+  const split = paySplit(payslips);
+  const accounts = useQuery({ queryKey: ['payroll-pay-from', run.storeId], queryFn: () => api.payFromAccounts({ storeId: run.storeId }), staleTime: 30_000 });
   const [paidOn, setPaidOn] = useState(toBusinessDate(new Date()));
-  const [bank, setBank] = useState('');
+  const [picked, setPicked] = useState<string | null>(null);
   const [cash, setCash] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
+  const bank = picked ?? defaultPayFrom(accounts.data, run.storeId);
+  const money = (n: number) => formatMoney(n, symbol);
+  const people = (n: number) => `${formatCount(n)} ${n === 1 ? 'person' : 'people'}`;
   const pay = useMutation({
-    mutationFn: () => api.payPayrollRun(run.id, { version: run.version, paidOn, bankAccount: textOrNull(bank), cashAccount: textOrNull(cash) }),
+    mutationFn: () =>
+      api.payPayrollRun(run.id, {
+        version: run.version,
+        paidOn,
+        bankAccountId: split.bank.people > 0 ? bank : null,
+        cashAccountId: split.cash.people > 0 && cash ? cash : null,
+      }),
     onSuccess: (saved) => {
       toast.ok(`Paid${saved.paymentJournalNumber ? `, entry #${saved.paymentJournalNumber}` : ''}.`);
       onPaid();
@@ -332,13 +348,14 @@ function PayDialog({ run, onClose, onPaid, onConflict }: { run: RunRow; onClose(
       }
     },
   });
+  const noBank = split.bank.people > 0 && accounts.data !== undefined && !accounts.data.some((a) => a.kind === 'Bank');
   return (
     <Dialog
       open
       title={`Record the payment of run #${run.number}`}
       onClose={onClose}
       onSubmit={() => {
-        const p = isBusinessDate(paidOn) ? null : 'Give the day it was paid.';
+        const p = !isBusinessDate(paidOn) ? 'Give the day it was paid.' : split.bank.people > 0 && !bank ? 'Choose the bank account the transfers go from.' : null;
         setProblem(p);
         if (!p) pay.mutate();
       }}
@@ -353,17 +370,36 @@ function PayDialog({ run, onClose, onPaid, onConflict }: { run: RunRow; onClose(
         </>
       }
     >
-      <p className="mb-3 text-ink">Posts the net pay out of salaries payable: transfers from the bank account, cash from the cash account.</p>
+      <p className="mb-3 text-ink">Takes the net pay out of salaries payable: the transfers from the bank account, the cash from the cash account, each on its own ledger account.</p>
       <div className="space-y-3">
         <Field label="Paid on" htmlFor="pay-date">
           <Input id="pay-date" type="date" className="max-w-[200px]" value={paidOn} onChange={(e) => setPaidOn(e.target.value)} />
         </Field>
-        <Field label="Bank account" htmlFor="pay-bank" hint="Empty: the account with the role Bank.">
-          <Input id="pay-bank" className="max-w-[200px]" value={bank} maxLength={20} onChange={(e) => setBank(e.target.value)} />
-        </Field>
-        <Field label="Cash account" htmlFor="pay-cash" hint="Empty: the account with the role Cash.">
-          <Input id="pay-cash" className="max-w-[200px]" value={cash} maxLength={20} onChange={(e) => setCash(e.target.value)} />
-        </Field>
+        {split.bank.people > 0 && (
+          <Field label="Transfers from" htmlFor="pay-bank" hint={`${people(split.bank.people)} by transfer, ${money(split.bank.total)}.`}>
+            <Select id="pay-bank" value={bank ?? ''} onChange={(e) => setPicked(e.target.value || null)}>
+              {!bank && <option value="">{accounts.isLoading ? 'Loading…' : 'Choose the bank account'}</option>}
+              {(accounts.data ?? []).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {payFromLabel(a)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
+        {noBank && <p className="text-ink">There is no bank account yet. Someone with finance rights adds the one salaries are paid from under Finance, Bank and cash.</p>}
+        {split.cash.people > 0 && (
+          <Field label="Cash from" htmlFor="pay-cash" hint={`${people(split.cash.people)} in cash, ${money(split.cash.total)}.`}>
+            <Select id="pay-cash" value={cash} onChange={(e) => setCash(e.target.value)}>
+              <option value="">Cash in hand</option>
+              {(accounts.data ?? []).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {payFromLabel(a)}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        )}
       </div>
       <FormError error={problem ?? (pay.error && !(pay.error instanceof ApiError && pay.error.isConflict) ? pay.error : null)} />
     </Dialog>

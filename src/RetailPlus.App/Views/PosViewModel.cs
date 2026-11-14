@@ -196,7 +196,7 @@ public sealed partial class PosViewModel : ObservableObject
             ReturnMode = false;
             Price(same);
             SelectedLine = same;
-            Message = $"{item.Name} x {Math.Abs(same.Quantity).ToString("0.###", C)} — {same.LineTotal.ToString("N2", C)}"
+            Message = (kind == SaleLineKind.Return ? NoReceipt(same) : $"{item.Name} x {Math.Abs(same.Quantity).ToString("0.###", C)} — {same.LineTotal.ToString("N2", C)}")
                 + (epc is null && same.Epcs.Count > 0 ? "   (if this piece was already read by RFID, lower the quantity with F5)" : "");
             ShowBatch(item, batchPick);
             RefreshLines();
@@ -235,7 +235,8 @@ public sealed partial class PosViewModel : ObservableObject
         }
         Lines.Add(line);
         SelectedLine = line;
-        Message = !string.IsNullOrWhiteSpace(item.PosMessage) ? item.PosMessage! : $"{item.Name} — {line.LineTotal.ToString("N2", C)}" + (line.PriceExplanation is { } why && why != "regular price" ? $" ({why})" : "")
+        Message = line.Kind == SaleLineKind.Return ? NoReceipt(line)
+            : !string.IsNullOrWhiteSpace(item.PosMessage) ? item.PosMessage! : $"{item.Name} — {line.LineTotal.ToString("N2", C)}" + (line.PriceExplanation is { } why && why != "regular price" ? $" ({why})" : "")
             + (item.OnHand - qty < 0 && SalesService.IsStocked(item.ItemType) ? "   ⚠ stock goes below zero" : "");
         ShowBatch(item, batchPick);
         Recalculate();
@@ -434,6 +435,7 @@ public sealed partial class PosViewModel : ObservableObject
         if (ReturnMode) { line.Kind = SaleLineKind.Return; line.Quantity = -1; ReturnMode = false; }
         Lines.Add(line);
         SelectedLine = line;
+        if (line.Kind == SaleLineKind.Return) Message = NoReceipt(line);
         Recalculate();
     }
 
@@ -472,9 +474,94 @@ public sealed partial class PosViewModel : ObservableObject
         if (value && !Approval.Allowed(Permissions.PosReturn, "A return")) ReturnMode = false;
     }
 
+    /// <summary>
+    /// What the cashier hears about a return without a receipt: it is refunded at the price rung up today, which may not
+    /// be what the customer paid (a promotion, a discount), and nobody checked it.
+    /// </summary>
+    private static string NoReceipt(SaleDraftLine line) =>
+        $"⚠ {line.Description}: {(-line.LineTotal).ToString("N2", C)} back without a receipt, at today's price, not checked against what was paid. "
+        + "With the receipt, use Return with receipt (Shift+F9).";
+
+    /// <summary>A return made with the receipt is refunded at what was paid: its quantity and price are not changed on the line.</summary>
+    private bool FromReceipt(SaleDraftLine line)
+    {
+        if (line.ReturnedLineId is null) return false;
+        Alert($"{line.Description} comes back with the receipt at the price paid. To change it, remove the line and return it again (Shift+F9).");
+        return true;
+    }
+
+    /// <summary>
+    /// Asks for a return with the receipt (Shift+F9): the invoice number on the receipt, the item of it that comes back
+    /// and how many, and whether it goes back into stock. The automated check calls <see cref="AddReceiptReturnAsync"/>.
+    /// </summary>
+    public async Task ReturnWithReceiptAsync()
+    {
+        if (!Approval.Allowed(Permissions.PosReturn, "A return")) return;
+        ReturnMode = false;
+        var text = Ui.Prompt("Invoice number on the customer's receipt:", "Return with receipt");
+        if (string.IsNullOrWhiteSpace(text)) return;
+        if (!long.TryParse(text.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var invoice))
+        {
+            Alert($"{text.Trim()} is not an invoice number.");
+            return;
+        }
+        var receipt = await AppServices.Sales.FindForReturnAsync(invoice);
+        if (receipt is null)
+        {
+            Alert($"This till has no sale with the invoice number {invoice}. Without it, use Return / refund (F9) at today's price.");
+            return;
+        }
+        if (receipt.Sale.Status != SaleStatus.Completed)
+        {
+            Alert($"Invoice {invoice} was voided, so nothing on it can be returned.");
+            return;
+        }
+        var lines = receipt.Returnable(Lines);
+        if (lines.Count == 0)
+        {
+            Alert($"Everything on invoice {invoice} has already come back (or is on this sale).");
+            return;
+        }
+        int pick = lines.Count == 1 ? 0 : Ui.Choose($"Which item of invoice {invoice} ({receipt.Sale.SoldAt.ToString("g", C)}) comes back?",
+            lines.Select(x => $"{x.Line.Description}   x {x.Line.Quantity.ToString("0.###", C)}, paid {x.Line.LineTotal.ToString("N2", C)}"
+                              + (x.Left != x.Line.Quantity ? $"   ({x.Left.ToString("0.###", C)} left)" : "")).ToList(), "Return with receipt");
+        if (pick < 0) return;
+        var (sold, left) = lines[pick];
+        decimal? qty = left == 1 ? 1m : Ui.PromptDecimal($"How many {sold.Description} come back? (at most {left.ToString("0.###", C)})", "Return with receipt", Math.Min(1m, left));
+        if (qty is null || qty <= 0) return;
+        bool restock = Ui.Confirm($"Put {sold.Description} back into stock?", "Return");
+        await AddReceiptReturnAsync(receipt, sold.Id, qty.Value, restock);
+    }
+
+    /// <summary>
+    /// Adds a return of goods sold on the receipt: refunded at what the customer paid for them (after the line's promotion
+    /// and discounts and its share of the sale's), less what a buy X get Y or a bundle no longer gives the goods kept; see
+    /// <see cref="ReturnRefunds"/>. False, with the reason in red, when they cannot come back.
+    /// </summary>
+    public async Task<bool> AddReceiptReturnAsync(SaleForReturn receipt, Guid soldLineId, decimal quantity, bool restock)
+    {
+        SaleDraftLine line;
+        ReturnQuote quote;
+        try
+        {
+            (quote, line) = receipt.Return(soldLineId, quantity, Lines, restock, C);
+        }
+        catch (BusinessRuleException ex)
+        {
+            Alert(ex.Message);
+            return false;
+        }
+        if (line.ItemId is Guid id && await AppServices.Inventory.GetAsync(id) is { } item) _itemCache[id] = item;
+        Lines.Add(line);
+        SelectedLine = line;
+        Message = $"{line.Description}: {quote.Explanation}.";
+        Recalculate();
+        return true;
+    }
+
     public async Task ChangeQuantityAsync()
     {
-        if (SelectedLine is not { } line) return;
+        if (SelectedLine is not { } line || FromReceipt(line)) return;
         var q = Ui.PromptDecimal($"Quantity of {line.Description}:", "Quantity", line.Quantity);
         if (q is null || q == 0) return;
         if (line.SerialNumber is not null && Math.Abs(q.Value) != 1) { Ui.Error("A serialized item is sold one at a time."); return; }
@@ -497,7 +584,7 @@ public sealed partial class PosViewModel : ObservableObject
 
     public void ChangePrice()
     {
-        if (SelectedLine is not { } line || !MayDiscount("Changing a price")) return;
+        if (SelectedLine is not { } line || FromReceipt(line) || !MayDiscount("Changing a price")) return;
         var p = Ui.PromptDecimal($"Price of {line.Description}:", "Price", line.UnitPrice);
         if (p is null) return;
         line.UnitPrice = p.Value;
@@ -508,7 +595,7 @@ public sealed partial class PosViewModel : ObservableObject
 
     public void LineDiscount()
     {
-        if (SelectedLine is not { } line || !MayDiscount("A discount on a line")) return;
+        if (SelectedLine is not { } line || FromReceipt(line) || !MayDiscount("A discount on a line")) return;
         var p = Ui.PromptDecimal($"Discount on {line.Description} in percent (e.g. 10):", "Line discount");
         if (p is null) return;
         line.AutoPriced = false;

@@ -55,7 +55,7 @@ export function WhatsAppBanner() {
 /** The counts per status as small figures. */
 export function CountsRow({ counts, className }: { counts: MessageCounts; className?: string }) {
   return (
-    <dl className={cx('grid grid-cols-3 gap-2 sm:grid-cols-6', className)}>
+    <dl className={cx('grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-7', className)}>
       {MESSAGE_STATUSES.map((s) => {
         const info = MESSAGE_STATUS[s];
         return (
@@ -270,7 +270,7 @@ export function CancelCampaignDialog({ campaign, onClose }: { campaign: Campaign
     <ConfirmDialog
       open
       title={`Cancel ${campaign.name}?`}
-      message={`The ${formatCount(campaign.counts.queued)} messages still queued are never sent. Those already sent stay sent.`}
+      message={`The ${formatCount(campaign.counts.queued)} messages still queued are never sent: they are marked cancelled. Those already sent stay sent.`}
       confirmLabel="Cancel the campaign"
       cancelLabel="Keep sending"
       danger

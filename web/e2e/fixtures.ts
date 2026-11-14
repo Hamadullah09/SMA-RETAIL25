@@ -84,12 +84,12 @@ import type {
 } from '../src/lib/types';
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
-const today = (() => {
+export const today = (() => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 })();
 const at = (time: string, date = today) => `${date}T${time}`;
-const daysBefore = (n: number) => {
+export const daysBefore = (n: number) => {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -204,12 +204,12 @@ export const stores: StoreInfo[] = [
 ];
 
 export const locations: Record<string, LocationInfo[]> = {
-  's-main': [{ id: 'l-main-pos', code: 'POS', name: 'Downtown' }],
+  's-main': [{ id: 'l-main-pos', version: 'v-1', code: 'POS', name: 'Downtown', isHold: false, items: 412 }],
   's-west': [
-    { id: 'l-west-pos', code: 'POS', name: 'Westside Mall' },
-    { id: 'l-west-back', code: 'BACK', name: 'Back room' },
+    { id: 'l-west-back', version: 'v-1', code: 'BAK', name: 'Back room', isHold: true, items: 3 },
+    { id: 'l-west-pos', version: 'v-1', code: 'POS', name: 'Westside Mall', isHold: false, items: 388 },
   ],
-  's-north': [{ id: 'l-north-pos', code: 'POS', name: 'Northgate' }],
+  's-north': [{ id: 'l-north-pos', version: 'v-1', code: 'POS', name: 'Northgate', isHold: false, items: 120 }],
 };
 
 export const tills: TillInfo[] = [
@@ -485,6 +485,8 @@ export function itemDetail(id: string): ItemDetail {
     unitsPerCase: 12,
     isActive: true,
     notes: null,
+    tracksBatches: false,
+    shelfLifeDays: 0,
     stock: [
       { storeCode: 'MAIN', locationCode: 'POS', onHand: 84 },
       { storeCode: 'WEST', locationCode: 'POS', onHand: 40 },
@@ -682,6 +684,11 @@ export const roles: RoleInfo[] = [
   { id: 'r-1', version: 'v-1', name: 'Trainee', description: 'Practice sales that are not kept', level: 0, isSystem: true, permissions: ['pos.sell', 'inventory.view', 'clients.view', 'timeclock.punch'], userCount: 0 },
   { id: 'r-2', version: 'v-1', name: 'Cashier', description: 'Sales at the till', level: 1, isSystem: true, permissions: ['pos.sell', 'pos.return', 'pos.drawer', 'inventory.view', 'clients.view', 'clients.edit', 'giftcards.issue', 'timeclock.punch', 'sync.send'], userCount: 6 },
   { id: 'r-4', version: 'v-1', name: 'Supervisor', description: 'Approves voids, discounts and End of Day; reports', level: 3, isSystem: true, permissions: supervisor.permissions, userCount: 2 },
+  // A manager signs in to the web for their own store; marketing sees every store (Core/Rules/Permissions.cs).
+  { id: 'r-5', version: 'v-1', name: 'Manager', description: 'Runs the store: prices, staff, setup, backups', level: 3, isSystem: true,
+    permissions: [...supervisor.permissions, 'inventory.prices', 'reports.staff', 'setup.store', 'audit.view', 'finance.view', 'hr.view', 'hr.leave', 'crm.edit'], userCount: 1 },
+  { id: 'r-9', version: 'v-1', name: 'Marketing', description: 'Leads, the pipeline, segments, WhatsApp campaigns and promotions, on the web', level: 3, isSystem: true,
+    permissions: ['web.signin', 'dashboard.view', 'reports.view', 'clients.view', 'clients.edit', 'crm.view', 'crm.edit', 'marketing.campaigns', 'marketing.promotions', 'stores.all'], userCount: 0 },
   { id: 'r-6', version: 'v-1', name: 'Administrator', description: 'Everything for one store, at the tills and on the web', level: 4, isSystem: true, permissions: everything.filter((k) => k !== 'stores.all'), userCount: 1 },
   { id: 'r-7', version: 'v-1', name: 'Super administrator', description: 'Everything, for every store', level: 4, isSystem: true, permissions: everything, userCount: 1 },
   { id: 'r-8', version: 'v-1', name: 'Weekend help', description: 'Sales and stock look-ups only', level: 1, isSystem: false, permissions: ['pos.sell', 'inventory.view'], userCount: 0 },
@@ -771,12 +778,15 @@ export const settings: StoreSettings = {
 export * from './hr-fixtures';
 // Phase E4: CRM -----------------------------------------------------------------------------------------------------
 
-/** A marketing user of Downtown: CRM, segments, campaigns and promotions, but not targets nor the shared lists. */
+/**
+ * A marketing user of Downtown only: CRM, segments, campaigns and promotions, but not targets nor the shared lists. A
+ * custom role: the standard Marketing role sees every store (see the Marketing role in `roles`).
+ */
 export const marketer: UserInfo = {
   id: 'u-7',
   userName: 'nana',
   fullName: 'Nana Yeboah',
-  role: 'Marketing',
+  role: 'Store marketing',
   permissions: ['web.signin', 'dashboard.view', 'reports.view', 'clients.view', 'clients.edit', 'crm.view', 'crm.edit', 'marketing.campaigns', 'marketing.promotions'],
   storeId: 's-main',
   storeName: 'Downtown',
@@ -938,13 +948,13 @@ export const templates: WhatsAppTemplate[] = [
   { id: 't-3', version: 'v-1', name: 'old_offer', language: 'ur', category: 'Utility', body: 'Old offer', isActive: false, placeholders: [] },
 ];
 
-const noMessages = { queued: 0, sent: 0, delivered: 0, read: 0, failed: 0, error: 0 };
+const noMessages = { queued: 0, sent: 0, delivered: 0, read: 0, failed: 0, error: 0, cancelled: 0 };
 
 export const campaigns: CampaignRow[] = [
   {
     id: 'cm-1', version: 'v-1', name: 'Spring sale', segmentId: 'seg-1', segment: 'Big spenders', templateId: 't-1', template: 'spring_sale', status: 'Sent', storeId: 's-main',
     storeCode: 'MAIN', scheduledAtUtc: minutesAgo(60 * 48), startedAtUtc: minutesAgo(60 * 48), finishedAtUtc: minutesAgo(60 * 47), recipients: 40,
-    counts: { queued: 0, sent: 4, delivered: 18, read: 15, failed: 2, error: 1 }, createdBy: 'sara', createdAtUtc: minutesAgo(60 * 50),
+    counts: { queued: 0, sent: 4, delivered: 18, read: 15, failed: 2, error: 1, cancelled: 0 }, createdBy: 'sara', createdAtUtc: minutesAgo(60 * 50),
   },
   {
     id: 'cm-2', version: 'v-1', name: 'Points reminder', segmentId: 'seg-2', segment: 'Lapsed Downtown', templateId: 't-2', template: 'points_reminder', status: 'Draft',
@@ -1025,7 +1035,11 @@ export function clientWithWhatsApp(): ClientDetail {
   return { ...clientDetail('cl-1'), whatsAppNumber: '+14165550142', whatsAppOptIn: true, whatsAppOptInAtUtc: minutesAgo(60 * 24 * 40), birthday: '1990-03-14', whatsAppAskedAtUtc: minutesAgo(60 * 24 * 40) };
 }
 
-export const clientMessages: WhatsAppMessageRow[] = [campaignMessages[0]];
+export const clientMessages: WhatsAppMessageRow[] = [
+  // Of a campaign cancelled before it went.
+  { id: 'm-9', campaignId: 'cm-9', clientId: 'cl-1', clientName: 'Akua Owusu', toNumber: '+14165550142', template: 'points_reminder', body: 'Hi Akua, you have 320 points to spend.', status: 'Cancelled', error: null, sentAtUtc: null, deliveredAtUtc: null, readAtUtc: null, createdAtUtc: minutesAgo(60 * 3) },
+  campaignMessages[0],
+];
 export const purchaseOrders: PurchaseOrderRow[] = [
   { id: 'po-3', number: 10000003, storeCode: 'MAIN', locationCode: 'POS', status: 'Posted', createdAt: at('09:00:00', daysBefore(4)), postedAt: at('09:30:00', daysBefore(4)), receivedAt: null, expectedOn: today, supplier: 'Cotton Co. Ltd', description: 'Requisition 10000002 · Cotton Co. Ltd', lines: 2, totalCost: 412.8 },
   { id: 'po-2', number: 10000002, storeCode: 'MAIN', locationCode: 'POS', status: 'Draft', createdAt: at('11:00:00', daysBefore(1)), postedAt: null, receivedAt: null, expectedOn: null, supplier: 'Sole Brothers', description: 'Reorder suggestions', lines: 1, totalCost: 285 },

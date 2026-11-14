@@ -17,7 +17,8 @@ public sealed record TemporaryPasswordInfo(string TemporaryPassword);
 public sealed record PinBody(string? StaffCode, string? Pin);
 
 /// <summary>
-/// Permissions, roles and users. Roles are shared by every store; a user belongs to one store or to every store. An
+/// Permissions, roles and users. Roles are shared by every store; a user belongs to one store, or to every store when
+/// their role has <see cref="Permissions.StoresAll"/> (without it, a user of no store would see nothing). An
 /// administrator without <see cref="Permissions.StoresAll"/> manages only their own store's users, and can neither give
 /// anyone the reach over every store nor make a user of every store.
 /// </summary>
@@ -144,6 +145,7 @@ public static partial class Endpoints
             await using var db = api.Root.Create();
             ApiRequest.CheckVersion(body.Version, ApiRequest.Version((await EditedAsync(db, [existing])).GetValueOrDefault(existing)));
         }
+        bool roleSeesEveryStore = false;
         await using (var db = api.Root.Create())
         {
             if (body.StoreId is { } store && !await db.Stores.AnyAsync(s => s.Id == store)) throw ApiException.Bad("That store does not exist.");
@@ -151,7 +153,8 @@ public static partial class Endpoints
             {
                 var grants = await db.RoleGrants.AsNoTracking().Where(g => g.RoleId == roleId).Select(g => g.Permission).ToListAsync();
                 if (!await db.Roles.AnyAsync(r => r.Id == roleId)) throw ApiException.Bad("That role does not exist.");
-                if (grants.Contains(Permissions.StoresAll) && !api.User.AllStores) throw ApiException.Forbidden("Only a user who sees every store can give that role.");
+                roleSeesEveryStore = grants.Contains(Permissions.StoresAll);
+                if (roleSeesEveryStore && !api.User.AllStores) throw ApiException.Forbidden("Only a user who sees every store can give that role.");
             }
         }
         if (!api.User.AllStores)
@@ -159,6 +162,9 @@ public static partial class Endpoints
             if (body.StoreId is null) throw ApiException.Forbidden("Only a user who sees every store can make a user of every store.");
             if (body.StoreId != api.User.StoreId) throw ApiException.Forbidden("You manage the users of your own store only.");
         }
+        // Without a store and without every store, a user would see nothing at all.
+        if (body.StoreId is null && !roleSeesEveryStore)
+            throw ApiException.Bad("Choose the store this user works at; only a role that sees every store works without one.");
         var user = new UserAccount
         {
             Id = id ?? Guid.Empty, UserName = body.UserName ?? "", FullName = body.FullName, RoleId = body.RoleId, StoreId = body.StoreId, IsActive = body.IsActive,

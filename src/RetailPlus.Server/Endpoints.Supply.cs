@@ -31,7 +31,10 @@ public sealed record PurchaseOrderDetail(Guid Id, string Version, long Number, G
     string? Description, string? CreatedBy, string? ReceivedBy, IReadOnlyList<PurchaseOrderLineInfo> Lines, decimal TotalCost);
 public sealed record SupplyVersionRequest(string? Version, string? Note = null);
 public sealed record ReceiveLineRequest(Guid LineId, decimal Pieces, decimal? CostEach, IReadOnlyList<ReceivedBatchInfo>? Batches);
-public sealed record SupplyReceiveRequest(string? Version, decimal ShippingCost, IReadOnlyList<ReceiveLineRequest> Lines);
+/// <summary>A receipt: <c>receivedOn</c> is the day the goods arrived (today when null), not later than today nor in a locked ledger period.</summary>
+public sealed record SupplyReceiveRequest(string? Version, decimal ShippingCost, IReadOnlyList<ReceiveLineRequest> Lines, DateOnly? ReceivedOn = null);
+/// <summary>Posting an order: <c>orderedOn</c> is the day it was placed (today when null), not later than today nor in a locked ledger period.</summary>
+public sealed record PostOrderRequest(string? Version, DateOnly? OrderedOn = null);
 
 // Requisitions
 public sealed record RequisitionListRow(Guid Id, long Number, string StoreCode, string LocationCode, RequisitionStatus Status, DateTime CreatedAt,
@@ -181,7 +184,10 @@ public static partial class Endpoints
         return store;
     }
 
-    /// <summary>The location a request is for: the one named, else the first location of the store asked for (or of the user's store).</summary>
+    /// <summary>
+    /// The location a request is for: the one named, else the main location of the store asked for (or of the user's
+    /// store): its first by code that is not its hold location (<see cref="LocationService.MainIdAsync"/>).
+    /// </summary>
     private static async Task<Guid> RequestLocationAsync(ApiRequest api, Guid? named)
     {
         if (named is Guid id)
@@ -199,8 +205,7 @@ public static partial class Endpoints
         // A storeId the user cannot see is 403, as for every list.
         if (!api.User.CanSee(s)) throw ApiException.Forbidden("You may not see that store.");
         await using var db = api.Root.Create();
-        return await db.Locations.AsNoTracking().Where(l => l.StoreId == s).OrderBy(l => l.Code).Select(l => (Guid?)l.Id).FirstOrDefaultAsync()
-               ?? throw ApiException.Bad("That store has no location yet.");
+        return await LocationService.MainIdAsync(db, s) ?? throw ApiException.Bad("That store has no location yet.");
     }
 
     private static async Task<Guid?> SingleStoreAsync(ApiRequest api)
@@ -439,15 +444,18 @@ public static partial class Endpoints
             po.Description, po.CreatedBy, po.ReceivedBy, lines, po.Lines.Sum(l => l.OrderCost));
     }
 
-    private static async Task<IResult> PostPurchaseOrderAsync(Guid id, SupplyVersionRequest body, ApiRequest api)
+    private static async Task<IResult> PostPurchaseOrderAsync(Guid id, PostOrderRequest body, ApiRequest api)
     {
         var po = await LoadPurchaseOrderAsync(api, id);
         ApiRequest.CheckVersion(body.Version, ApiRequest.Version(po.Version));
-        await new PurchasingService(await api.ForChangeAsync(po.StoreId)).PostOrderAsync(id);
+        await new PurchasingService(await api.ForChangeAsync(po.StoreId)).PostOrderAsync(id, body.OrderedOn, await api.TodayAsync(po.StoreId));
         return Results.Ok(await PurchaseOrderDetailAsync(api, id));
     }
 
-    /// <summary>Receives an order on the web: the pieces and cost of each line, and for items kept in batches what came of each batch.</summary>
+    /// <summary>
+    /// Receives an order on the web: the pieces and cost of each line, for items kept in batches what came of each batch
+    /// (refused for an item not kept in batches), and the day it arrived.
+    /// </summary>
     private static async Task<IResult> ReceivePurchaseOrderAsync(Guid id, SupplyReceiveRequest body, ApiRequest api)
     {
         var po = await LoadPurchaseOrderAsync(api, id);
@@ -461,7 +469,7 @@ public static partial class Endpoints
                 l.Batches is { Count: > 0 } b ? [.. b.Select(x => new ReceivedBatch(x.BatchNumber, x.Pieces, x.ExpiresOn, x.MadeOn))] : null);
         }).ToList();
         if (lines.All(l => l.PiecesReceived == 0)) throw ApiException.Bad("Enter the pieces received.");
-        await new PurchasingService(await api.ForChangeAsync(po.StoreId)).PostShipmentAsync(id, lines, body.ShippingCost);
+        await new PurchasingService(await api.ForChangeAsync(po.StoreId)).PostShipmentAsync(id, lines, body.ShippingCost, body.ReceivedOn, await api.TodayAsync(po.StoreId));
         return Results.Ok(await PurchaseOrderDetailAsync(api, id));
     }
 

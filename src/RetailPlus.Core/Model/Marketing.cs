@@ -79,6 +79,8 @@ public enum WhatsAppMessageStatus
     Failed,
     /// <summary>It was not sent: refused, no consent any more, or the call to WhatsApp failed.</summary>
     Error,
+    /// <summary>Its campaign was cancelled before it went: it is never sent.</summary>
+    Cancelled,
 }
 
 /// <summary>

@@ -29,11 +29,12 @@ public static class PayslipCodes
 
 /// <summary>
 /// Payroll: each employee's salary structure with its history, loans and advances with their instalments, and payroll
-/// runs (a month of a store or of the company, or a final settlement) from Draft through Calculated, Approved and Posted
+/// runs (a month of a store or of head office, or a final settlement) from Draft through Calculated, Approved and Posted
 /// to Paid. The calculation pays the days employed (joiners and leavers pro-rated), overtime and lateness from attendance,
 /// commission from the commission rules, takes off unpaid leave and absence, income tax by the annualised projection,
 /// the employee's EOBI and loan instalments, and adds the employer's EOBI and social security. Posting and paying go to
-/// the general ledger through <see cref="LedgerService"/>. Runs and loans are numbered from the server's range.
+/// the general ledger through <see cref="LedgerService"/>; money paid out comes from one of finance's bank and cash
+/// accounts (<see cref="BankService"/>), on its own ledger account. Runs and loans are numbered from the server's range.
 /// </summary>
 public sealed class PayrollService(DataContext data)
 {
@@ -149,10 +150,11 @@ public sealed class PayrollService(DataContext data)
 
     /// <summary>
     /// Pays a loan or advance to an employee: instalments are scheduled from its first month (the last one takes what is
-    /// left), and the payment is posted to the ledger (Dr advances to employees, Cr the cash or bank account it was paid
-    /// from: a role, Cash or Bank, or an account code). Needs <see cref="Permissions.PayrollRun"/>.
+    /// left), and the payment is posted to the ledger: Dr advances to employees, Cr the ledger account of the bank or cash
+    /// account it was paid from (<paramref name="bankAccountId"/>, one of finance's), or the cash in hand of the employee's
+    /// store when none is given. Needs <see cref="Permissions.PayrollRun"/>.
     /// </summary>
-    public async Task<EmployeeLoan> IssueLoanAsync(EmployeeLoan loan, string? paidFrom, SessionInfo user)
+    public async Task<EmployeeLoan> IssueLoanAsync(EmployeeLoan loan, Guid? bankAccountId, SessionInfo user)
     {
         Require(user, Permissions.PayrollRun, "pay loans and advances");
         decimal amount = Money.Round(loan.Amount), instalment = Money.Round(loan.Instalment);
@@ -167,6 +169,7 @@ public sealed class PayrollService(DataContext data)
         await using (var read = data.Create())
             employee = await read.Employees.AsNoTracking().SingleOrDefaultAsync(e => e.Id == loan.EmployeeId) ?? throw new BusinessRuleException("That employee no longer exists.");
         if (!employee.IsEmployedOn(loan.IssuedOn)) throw new BusinessRuleException($"{employee.FullName} does not work for the company on {loan.IssuedOn:d}.");
+        var paidFrom = bankAccountId is Guid bank ? await PaidFromAsync(bank) : null;
 
         var row = new EmployeeLoan
         {
@@ -183,13 +186,12 @@ public sealed class PayrollService(DataContext data)
             row.Instalments.Add(new LoanInstalment { LoanId = row.Id, Number = i, Month = first.AddMonths(i - 1), Amount = due });
             left -= due;
         }
-        var (code, role) = Account(paidFrom, LedgerRoles.Cash);
-        row.PaidFromAccount = code ?? role;
+        row.PaidFromAccount = paidFrom ?? LedgerRoles.Cash;
         string what = loan.Kind == LoanKind.Advance ? "Salary advance" : "Loan";
         var entry = await new LedgerService(data).PostAsync(new JournalDraft(loan.IssuedOn, JournalKind.Payroll, $"{what} #{row.Number} to {employee.Code} {employee.FullName}",
         [
             JournalDraftLine.Role(LedgerRoles.EmployeeAdvances, amount, 0, employee.StoreId, null, LedgerPartyKind.Employee, employee.Id),
-            new JournalDraftLine(code, role, 0, amount, employee.StoreId),
+            paidFrom is null ? JournalDraftLine.Role(LedgerRoles.Cash, 0, amount, employee.StoreId) : JournalDraftLine.Code(paidFrom, 0, amount, employee.StoreId),
         ])
         { Source = $"loan:{row.Id}", StoreId = employee.StoreId, Reference = $"LN{row.Number}" });
         row.JournalEntryId = entry.Id;
@@ -230,7 +232,7 @@ public sealed class PayrollService(DataContext data)
 
     // Runs -------------------------------------------------------------------------------------------------------------------
 
-    /// <summary>The runs of the store scope (company runs only without one), the latest month first.</summary>
+    /// <summary>The runs of the store scope (head office's only without one), the latest month first.</summary>
     public async Task<List<PayrollRun>> GetRunsAsync(int? year = null)
     {
         await using var db = data.Create();
@@ -264,8 +266,9 @@ public sealed class PayrollService(DataContext data)
     }
 
     /// <summary>
-    /// Starts a month's payroll for one store, or (no store) for the whole company. A month has one run per store, or one
-    /// for the company instead. Needs <see cref="Permissions.PayrollRun"/>.
+    /// Starts a month's payroll for one store, or (no store) for head office: the employees who belong to no store. A
+    /// month has one run for each store and one for head office, and an employee is paid by one of them only (see
+    /// <see cref="CalculateAsync"/> and <see cref="ApproveAsync"/>). Needs <see cref="Permissions.PayrollRun"/>.
     /// </summary>
     public async Task<PayrollRun> CreateRunAsync(int year, int month, Guid? storeId, string? notes, SessionInfo user)
     {
@@ -274,10 +277,10 @@ public sealed class PayrollService(DataContext data)
         await using var db = data.Create();
         if (storeId is Guid store && !await db.Stores.AnyAsync(s => s.Id == store)) throw new BusinessRuleException("That store no longer exists.");
         var clash = await db.PayrollRuns.AsNoTracking()
-            .Where(r => r.Kind == PayrollRunKind.Monthly && r.Year == year && r.Month == month && (storeId == null || r.StoreId == null || r.StoreId == storeId))
+            .Where(r => r.Kind == PayrollRunKind.Monthly && r.Year == year && r.Month == month && r.StoreId == storeId)
             .Select(r => (long?)r.Number).FirstOrDefaultAsync();
         if (clash is not null)
-            throw new BusinessRuleException($"Payroll run #{clash} already covers {MonthName(year, month)}{(storeId is null ? " for some or all stores" : " for this store")}.");
+            throw new BusinessRuleException($"Payroll run #{clash} already covers {MonthName(year, month)}{(storeId is null ? " for head office" : " for this store")}.");
         var start = new DateOnly(year, month, 1);
         var run = new PayrollRun
         {
@@ -349,6 +352,14 @@ public sealed class PayrollService(DataContext data)
                                  where p.PayrollRunId == run.Id && s.Kind == PayrollRunKind.FinalSettlement && s.Year == run.Year && s.Month == run.Month
                                  select p.EmployeeName).FirstOrDefaultAsync();
             if (settled is not null) throw new BusinessRuleException($"{settled} has a final settlement this month; calculate the run again.");
+            // Two runs calculated at the same moment could both pay someone (the calculation leaves out who another run pays).
+            var twice = await (from p in db.Payslips.AsNoTracking()
+                               join o in db.Payslips.AsNoTracking() on p.EmployeeId equals o.EmployeeId
+                               join r in db.PayrollRuns.AsNoTracking() on o.PayrollRunId equals r.Id
+                               where p.PayrollRunId == run.Id && r.Id != run.Id && r.Kind == PayrollRunKind.Monthly && r.Year == run.Year && r.Month == run.Month
+                               orderby r.Number
+                               select new { p.EmployeeName, r.Number }).FirstOrDefaultAsync();
+            if (twice is not null) throw new BusinessRuleException($"{twice.EmployeeName} is paid by payroll run #{twice.Number} this month too; calculate the run again.");
         }
         run.Status = PayrollRunStatus.Approved;
         run.ApprovedAtUtc = SyncColumns.Now();
@@ -483,24 +494,34 @@ public sealed class PayrollService(DataContext data)
     }
 
     /// <summary>
-    /// Records that a posted run was paid on a day: Dr salaries payable (each employee's net pay), Cr the bank account for
-    /// those paid by transfer and the cash account for those paid in cash (the accounts with the roles Bank and Cash
-    /// unless others are given). Source <c>payroll-payment:{id}</c>.
+    /// Records that a posted run was paid on a day: Dr salaries payable (each employee's net pay); Cr the ledger account of
+    /// the bank account the transfers went from (<paramref name="bankAccountId"/>, one of finance's, needed when anyone is
+    /// paid by transfer) and, for those paid in cash, the ledger account of <paramref name="cashAccountId"/> or else the
+    /// cash in hand of each store. Source <c>payroll-payment:{id}</c>.
     /// </summary>
-    public async Task<PayrollRun> PayAsync(Guid id, DateOnly paidOn, string? bankAccount, string? cashAccount, SessionInfo user)
+    public async Task<PayrollRun> PayAsync(Guid id, DateOnly paidOn, Guid? bankAccountId, Guid? cashAccountId, SessionInfo user)
     {
         Require(user, Permissions.PayrollRun, "pay payroll");
         PayrollRun run;
         List<Payslip> slips;
+        bool anyBank;
         await using (var read = data.Create())
         {
             run = await read.PayrollRuns.AsNoTracking().SingleOrDefaultAsync(r => r.Id == id) ?? throw new BusinessRuleException("That payroll run no longer exists.");
             if (run.Status != PayrollRunStatus.Posted) throw new BusinessRuleException($"Run #{run.Number} is {run.Status.ToString().ToLowerInvariant()}; post it before it is paid.");
             slips = await read.Payslips.AsNoTracking().Where(p => p.PayrollRunId == id).ToListAsync();
+            anyBank = await read.BankAccounts.AnyAsync(b => b.IsActive);
         }
         if (paidOn < run.PeriodStart) throw new BusinessRuleException("Pay is paid on or after the start of its month.");
-        var (bankCode, bankRole) = Account(bankAccount, LedgerRoles.Bank);
-        var (cashCode, cashRole) = Account(cashAccount, LedgerRoles.Cash);
+        string? bankCode = null, cashCode = null;
+        if (slips.Any(s => s.Net > 0 && s.PaymentMethod == SalaryPaymentMethod.Bank))
+        {
+            if (bankAccountId is not Guid transfersFrom)
+                throw new BusinessRuleException(anyBank ? "Choose the bank account the salaries are transferred from."
+                    : "There is no bank account to transfer the salaries from; add one under Finance, Bank and cash.");
+            bankCode = await PaidFromAsync(transfersFrom);
+        }
+        if (cashAccountId is Guid cashFrom && slips.Any(s => s.Net > 0 && s.PaymentMethod == SalaryPaymentMethod.Cash)) cashCode = await PaidFromAsync(cashFrom);
         var lines = new List<JournalDraftLine>();
         var bank = new Dictionary<Guid, decimal>();
         var cash = new Dictionary<Guid, decimal>();
@@ -511,8 +532,9 @@ public sealed class PayrollService(DataContext data)
             var at = slip.StoreId ?? Guid.Empty;
             paidFrom[at] = paidFrom.GetValueOrDefault(at) + slip.Net;
         }
-        foreach (var (store, amount) in bank) lines.Add(new JournalDraftLine(bankCode, bankRole, 0, amount, store == Guid.Empty ? null : store, "Bank transfers"));
-        foreach (var (store, amount) in cash) lines.Add(new JournalDraftLine(cashCode, cashRole, 0, amount, store == Guid.Empty ? null : store, "Paid in cash"));
+        foreach (var (store, amount) in bank) lines.Add(JournalDraftLine.Code(bankCode!, 0, amount, store == Guid.Empty ? null : store, $"Salary transfers, payroll #{run.Number}"));
+        foreach (var (store, amount) in cash)
+            lines.Add(new JournalDraftLine(cashCode, cashCode is null ? LedgerRoles.Cash : null, 0, amount, store == Guid.Empty ? null : store, $"Salaries paid in cash, payroll #{run.Number}"));
         JournalEntry? entry = null;
         if (lines.Count > 0)
             entry = await new LedgerService(data).PostAsync(new JournalDraft(paidOn, JournalKind.Payroll, $"Salaries paid, payroll #{run.Number}: {Title(run)}", lines)
@@ -531,12 +553,20 @@ public sealed class PayrollService(DataContext data)
         return row;
     }
 
-    /// <summary>An account given as a role name (Cash, Bank) or as a code; nothing given is the default role.</summary>
-    private static (string? Code, string? Role) Account(string? given, string defaultRole)
+    /// <summary>
+    /// The ledger account of one of finance's bank or cash accounts that pay is paid from: it must be active and in the
+    /// base currency, since payroll is.
+    /// </summary>
+    private async Task<string> PaidFromAsync(Guid bankAccountId)
     {
-        var text = given?.Trim();
-        if (string.IsNullOrEmpty(text)) return (null, defaultRole);
-        return LedgerRoles.All.Contains(text, StringComparer.OrdinalIgnoreCase) ? (null, LedgerRoles.All.First(r => string.Equals(r, text, StringComparison.OrdinalIgnoreCase))) : (text, null);
+        await using var db = data.Create();
+        var bank = await db.BankAccounts.AsNoTracking().Include(b => b.LedgerAccount).SingleOrDefaultAsync(b => b.Id == bankAccountId)
+            ?? throw new BusinessRuleException("That bank or cash account no longer exists.");
+        if (!bank.IsActive) throw new BusinessRuleException($"{bank.Name} is inactive.");
+        var currency = await FinanceNumbers.CurrencyAsync(db, bank.Currency);
+        var baseCurrency = await FinanceNumbers.BaseCurrencyAsync(db);
+        if (currency != baseCurrency) throw new BusinessRuleException($"{bank.Name} is in {currency}; pay is paid from an account in {baseCurrency}.");
+        return bank.LedgerAccount!.Code;
     }
 
     /// <summary>The bank transfer list of a run: one line per employee paid by bank, as CSV (UTF-8).</summary>
@@ -564,8 +594,9 @@ public sealed class PayrollService(DataContext data)
 
     /// <summary>
     /// Calculates (again) every payslip of a draft or calculated run. Employees without a salary or without payroll rules
-    /// for their country are left out, with a warning on the run. <paramref name="today"/> decides which days of the month
-    /// are still to come (they are paid as worked).
+    /// for their country are left out, with a warning on the run, and so is anyone another run of the month pays already
+    /// (someone who moved between a store and head office). <paramref name="today"/> decides which days of the month are
+    /// still to come (they are paid as worked).
     /// </summary>
     public async Task<PayrollRun> CalculateAsync(Guid id, SessionInfo user, DateOnly? today = null)
     {
@@ -581,6 +612,17 @@ public sealed class PayrollService(DataContext data)
         var monthEnd = monthStart.AddMonths(1).AddDays(-1);
         var employees = await EmployeesOfAsync(db, run);
         var warnings = new List<string>();
+        if (run.Kind == PayrollRunKind.Monthly)
+        {
+            var paidElsewhere = (await (from p in db.Payslips.AsNoTracking()
+                                        join r in db.PayrollRuns.AsNoTracking() on p.PayrollRunId equals r.Id
+                                        where r.Id != run.Id && r.Kind == PayrollRunKind.Monthly && r.Year == run.Year && r.Month == run.Month
+                                        select new { p.EmployeeId, r.Number }).ToListAsync())
+                .GroupBy(p => p.EmployeeId).ToDictionary(g => g.Key, g => g.Min(p => p.Number));
+            foreach (var e in employees.Where(e => paidElsewhere.ContainsKey(e.Id)))
+                warnings.Add($"{e.Code} {e.FullName}: paid by payroll run #{paidElsewhere[e.Id]} this month.");
+            employees = [.. employees.Where(e => !paidElsewhere.ContainsKey(e.Id))];
+        }
         var calendar = await HrCalendar.LoadAsync(db, employees, monthStart, monthEnd);
         var days = (await AttendanceService.DaysAsync(db, employees, run.PeriodStart, run.PeriodEnd, today ?? DateOnly.FromDateTime(DateTime.Now))).ToLookup(d => d.EmployeeId);
         var ids = employees.Select(e => e.Id).ToList();
@@ -662,13 +704,16 @@ public sealed class PayrollService(DataContext data)
         return run;
     }
 
-    /// <summary>Who a run pays: one employee for a settlement; else everyone of its store (or the company) employed in the month, less those settled in it.</summary>
+    /// <summary>
+    /// Who a run pays: one employee for a settlement; else everyone of its store (or, without one, of head office: no
+    /// store) employed in the month, less those settled in it.
+    /// </summary>
     private static async Task<List<Employee>> EmployeesOfAsync(RetailPlusDbContext db, PayrollRun run)
     {
         if (run.Kind == PayrollRunKind.FinalSettlement)
             return await db.Employees.AsNoTracking().Where(e => e.Id == run.EmployeeId).ToListAsync();
         var q = db.Employees.AsNoTracking().Where(e => e.JoiningDate <= run.PeriodEnd && (e.LeavingDate == null || e.LeavingDate >= run.PeriodStart));
-        if (run.StoreId is Guid store) q = q.Where(e => e.StoreId == store);
+        q = run.StoreId is Guid store ? q.Where(e => e.StoreId == store) : q.Where(e => e.StoreId == null);
         q = q.Where(e => !db.PayrollRuns.Any(s => s.Kind == PayrollRunKind.FinalSettlement && s.EmployeeId == e.Id && s.Year == run.Year && s.Month == run.Month));
         return await q.OrderBy(e => e.FullName).ToListAsync();
     }

@@ -33,6 +33,13 @@ describe('the HR and payroll client', () => {
     ['POST', '/api/hr/attendance/corrections/c1/reject', (api: ReturnType<typeof createApi>) => api.rejectCorrection('c1'), { note: null }],
     ['PUT', '/api/hr/stores/s1/country', (api: ReturnType<typeof createApi>) => api.setStoreCountry('s1', null), { country: null }],
     ['POST', '/api/payroll/loans/n1/cancel', (api: ReturnType<typeof createApi>) => api.cancelLoan('n1', 'Paid back'), { reason: 'Paid back' }],
+    [
+      'POST',
+      '/api/payroll/runs/r1/pay',
+      (api: ReturnType<typeof createApi>) => api.payPayrollRun('r1', { version: 'v-5', paidOn: '2026-11-01', bankAccountId: 'b1', cashAccountId: null }),
+      { version: 'v-5', paidOn: '2026-11-01', bankAccountId: 'b1', cashAccountId: null },
+    ],
+    ['POST', '/api/payroll/runs', (api: ReturnType<typeof createApi>) => api.addPayrollRun({ year: 2026, month: 10, storeId: null, notes: null }), { year: 2026, month: 10, storeId: null, notes: null }],
   ])('%s %s carries the CSRF header and its body', async (method, url, call, body) => {
     const { fetch, calls } = fakeFetch(200, {});
     await call(createApi({ base: '', fetch }));
@@ -67,5 +74,13 @@ describe('the HR and payroll client', () => {
     await api.roster({ week: '2026-11-04' });
     await api.leaveBalances({ year: 2026, employeeId: 'e1' });
     expect(calls.map((c) => c.url)).toEqual(['/api/hr/attendance/sheet?month=2026-11&storeId=s1', '/api/hr/roster?week=2026-11-04', '/api/hr/leave-balances?year=2026&employeeId=e1']);
+  });
+
+  it("lists the accounts pay may come from, a store's or every one", async () => {
+    const { fetch, calls } = fakeFetch(200, []);
+    const api = createApi({ base: '', fetch });
+    await api.payFromAccounts({ storeId: 's1' });
+    await api.payFromAccounts({ storeId: null });
+    expect(calls.map((c) => c.url)).toEqual(['/api/payroll/bank-accounts?storeId=s1', '/api/payroll/bank-accounts']);
   });
 });

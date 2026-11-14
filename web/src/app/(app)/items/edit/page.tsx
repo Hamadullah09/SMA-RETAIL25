@@ -13,7 +13,8 @@ import { DataTable } from '@/components/ui/table';
 import { Tabs } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/toast';
 import { api, ApiError } from '@/lib/api';
-import { checkBarcode, checkNumber, numberText, parseNumber, textOrNull, type Errors } from '@/lib/forms';
+import { checkBarcode, checkNumber, checkShelfLife, numberText, parseNumber, textOrNull, type Errors } from '@/lib/forms';
+import { mainLocation } from '@/lib/locations';
 import { formatMoney, formatPercent, formatQuantity } from '@/lib/format';
 import { useHotkey } from '@/lib/hotkeys';
 import { useStore } from '@/lib/store';
@@ -53,6 +54,8 @@ interface Form {
   reorderPoint: string;
   reorderQuantity: string;
   unitsPerCase: string;
+  tracksBatches: boolean;
+  shelfLifeDays: string;
   isActive: boolean;
   notes: string;
 }
@@ -78,6 +81,8 @@ const EMPTY: Form = {
   reorderPoint: '0',
   reorderQuantity: '0',
   unitsPerCase: '1',
+  tracksBatches: false,
+  shelfLifeDays: '0',
   isActive: true,
   notes: '',
 };
@@ -102,6 +107,8 @@ function toForm(item: ItemDetail): Form {
     reorderPoint: numberText(item.reorderPoint),
     reorderQuantity: numberText(item.reorderQuantity),
     unitsPerCase: numberText(item.unitsPerCase),
+    tracksBatches: item.tracksBatches ?? false,
+    shelfLifeDays: numberText(item.shelfLifeDays ?? 0),
     isActive: item.isActive,
     notes: item.notes ?? '',
   };
@@ -117,6 +124,7 @@ const TAB_OF: Partial<Record<Key, Tab>> = {
   reorderPoint: 'stock',
   reorderQuantity: 'stock',
   unitsPerCase: 'stock',
+  shelfLifeDays: 'stock',
 };
 
 function validate(form: Form): Errors<Key> {
@@ -134,6 +142,7 @@ function validate(form: Form): Errors<Key> {
   errors.reorderPoint = checkNumber(form.reorderPoint, { label: 'Reorder point', decimals: 3 });
   errors.reorderQuantity = checkNumber(form.reorderQuantity, { label: 'Reorder quantity', decimals: 3 });
   errors.unitsPerCase = checkNumber(form.unitsPerCase, { label: 'Units per case', decimals: 3, min: 1 });
+  errors.shelfLifeDays = checkShelfLife(form.shelfLifeDays);
   for (const key of Object.keys(errors) as Key[]) if (!errors[key]) delete errors[key];
   return errors;
 }
@@ -172,7 +181,8 @@ function ItemEditor() {
   const locations = useQuery({ queryKey: ['locations', newStoreId], queryFn: () => api.locations(newStoreId), enabled: isNew && !!newStoreId, staleTime: 5 * 60_000 });
   useEffect(() => {
     const list = locations.data ?? [];
-    if (!list.some((l) => l.id === newLocationId)) setNewLocationId(list[0]?.id ?? '');
+    // The store's main location, not its hold location (where failed goods go).
+    if (!list.some((l) => l.id === newLocationId)) setNewLocationId(mainLocation(list)?.id ?? '');
   }, [locations.data, newLocationId]);
 
   // Fill the boxes from the server once per version (a reload after a conflict brings the new values in).
@@ -267,6 +277,8 @@ function ItemEditor() {
       reorderPoint: parseNumber(form.reorderPoint) ?? 0,
       reorderQuantity: parseNumber(form.reorderQuantity) ?? 0,
       unitsPerCase: parseNumber(form.unitsPerCase) ?? 1,
+      tracksBatches: form.tracksBatches,
+      shelfLifeDays: parseNumber(form.shelfLifeDays) ?? 0,
       isActive: form.isActive,
       notes: textOrNull(form.notes),
     };
@@ -379,6 +391,7 @@ function ItemEditor() {
                       {(locations.data ?? []).map((l) => (
                         <option key={l.id} value={l.id}>
                           {l.code} · {l.name}
+                          {l.isHold ? ' (hold)' : ''}
                         </option>
                       ))}
                     </Select>
@@ -468,6 +481,19 @@ function ItemEditor() {
                 {box('reorderPoint', 'Reorder point', { inputMode: 'decimal', className: 'max-w-[200px]', hint: 'Order more when stock falls to this.' })}
                 {box('reorderQuantity', 'Reorder quantity', { inputMode: 'decimal', className: 'max-w-[200px]' })}
                 {box('unitsPerCase', 'Units per case', { inputMode: 'decimal', className: 'max-w-[200px]' })}
+                <Field label="Batches" htmlFor="item-batches">
+                  <Checkbox
+                    label="Kept in batches, with expiry dates"
+                    hint="Receiving asks for the batch number and expiry; the till sells the batch that expires first."
+                    checked={form.tracksBatches}
+                    onChange={(v) => set('tracksBatches', v)}
+                  />
+                </Field>
+                {box('shelfLifeDays', 'Shelf life (days)', {
+                  inputMode: 'numeric',
+                  className: 'max-w-[200px]',
+                  hint: 'How long the goods keep once made; receiving offers the expiry from it. 0 when not known.',
+                })}
               </div>
               <div>
                 <h2 className="section-title mb-2">On hand</h2>

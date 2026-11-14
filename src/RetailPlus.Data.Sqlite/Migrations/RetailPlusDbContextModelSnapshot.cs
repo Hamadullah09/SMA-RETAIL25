@@ -8954,6 +8954,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.Property<bool>("Restock")
                         .HasColumnType("INTEGER");
 
+                    b.Property<Guid?>("ReturnedLineId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("SaleId")
                         .HasColumnType("TEXT");
 
@@ -9003,6 +9006,8 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     b.HasIndex("Plu");
 
                     b.HasIndex("PromotionId");
+
+                    b.HasIndex("ReturnedLineId");
 
                     b.HasIndex("SaleId");
 

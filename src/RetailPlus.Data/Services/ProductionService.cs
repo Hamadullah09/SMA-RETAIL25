@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using RetailPlus.Core.Model;
 using RetailPlus.Core.Rules;
@@ -77,7 +78,11 @@ public sealed class ProductionService(DataContext data)
         return await RowsAsync(db, orders);
     }
 
-    /// <summary>The orders a list shows (for paging on the server).</summary>
+    /// <summary>
+    /// The orders a list shows (for paging on the server). <paramref name="search"/> is the order's number, or part of its
+    /// product's stock code or name, or the start of the product's barcode; a number is tried as all of them, as stock
+    /// codes are often numbers too.
+    /// </summary>
     public static IQueryable<ProductionOrder> Query(RetailPlusDbContext db, Guid? store, IReadOnlyCollection<ProductionOrderStatus>? statuses, string? search)
     {
         var q = db.ProductionOrders.AsNoTracking().Include(o => o.MaterialLocation).Include(o => o.OutputLocation).AsQueryable();
@@ -86,7 +91,9 @@ public sealed class ProductionService(DataContext data)
         if (!string.IsNullOrWhiteSpace(search))
         {
             var t = search.Trim();
-            q = long.TryParse(t, out var number) ? q.Where(o => o.Number == number) : q.Where(o => o.ProductCode.Contains(t) || o.ProductName.Contains(t));
+            long? number = long.TryParse(t, NumberStyles.None, CultureInfo.InvariantCulture, out var n) ? n : null;
+            q = q.Where(o => (number != null && o.Number == number) || o.ProductCode.Contains(t) || o.ProductName.Contains(t)
+                             || db.Items.Any(i => i.Plu == o.ProductCode && ((i.Barcode != null && i.Barcode.StartsWith(t)) || i.Name.Contains(t))));
         }
         return q;
     }

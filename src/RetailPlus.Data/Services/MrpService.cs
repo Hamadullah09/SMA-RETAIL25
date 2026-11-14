@@ -7,7 +7,10 @@ namespace RetailPlus.Data.Services;
 /// <summary>What a planning run looks at.</summary>
 public sealed record MrpOptions(Guid StoreId)
 {
-    /// <summary>Where firmed orders make and receive; the store's first location when null. Stock at every location of the store counts.</summary>
+    /// <summary>
+    /// Where firmed orders make and receive; the store's first location (not its hold location) when null. Stock at every
+    /// location of the store counts, except at its hold location.
+    /// </summary>
     public Guid? LocationId { get; init; }
     /// <summary>Customer orders and production due later than this many days from today are left for a later run.</summary>
     public int HorizonDays { get; init; } = 60;
@@ -49,12 +52,14 @@ public sealed class MrpService(DataContext data)
         await using var db = data.Create();
         var locations = await db.Locations.AsNoTracking().Where(l => l.StoreId == options.StoreId).OrderBy(l => l.Code).ToListAsync();
         if (locations.Count == 0) throw new BusinessRuleException("The store has no locations.");
+        // Goods at the store's hold location failed an inspection: they are not stock to plan with, nor a place to make in.
+        var hold = await LocationService.HoldIdAsync(db, options.StoreId);
         var runLocation = options.LocationId is Guid wanted
             ? locations.SingleOrDefault(l => l.Id == wanted) ?? throw new BusinessRuleException("That location is not one of the store's.")
-            : locations[0];
-        var locationIds = locations.Select(l => l.Id).ToList();
+            : locations.FirstOrDefault(l => l.Id != hold) ?? locations[0];
+        var locationIds = locations.Where(l => l.Id != hold).Select(l => l.Id).ToList();
 
-        // Stock: every location of the store, per stock code.
+        // Stock: every location of the store but the hold location, per stock code.
         var items = await db.Items.AsNoTracking().Where(i => locationIds.Contains(i.LocationId) && !i.IsDeleted)
             .Select(i => new { i.Plu, i.Name, i.LocationId, i.OnHand, i.ReorderPoint, i.ReorderQuantity, i.BaseStock, i.SupplierId }).ToListAsync();
         var stock = items.GroupBy(i => i.Plu, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => new

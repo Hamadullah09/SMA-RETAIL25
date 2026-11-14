@@ -4717,6 +4717,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     PromotionId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     PromotionName = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: true),
                     PromotionDiscount = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    ReturnedLineId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
                     ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
                     SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
                     CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
@@ -8155,6 +8156,11 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "IX_SaleLines_PromotionId",
                 table: "SaleLines",
                 column: "PromotionId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SaleLines_ReturnedLineId",
+                table: "SaleLines",
+                column: "ReturnedLineId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_SaleLines_SaleId",

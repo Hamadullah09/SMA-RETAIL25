@@ -106,6 +106,12 @@ public class SaleLine : Entity
     public Guid? PromotionId { get; set; }
     public string? PromotionName { get; set; }
     public decimal PromotionDiscount { get; set; }
+    /// <summary>
+    /// On a return made with the receipt: the sold line (of the original sale) it takes back, refunded at what was paid
+    /// for it (see <c>Rules.ReturnRefunds</c>). Null on a return without a receipt and on every other line. No foreign key,
+    /// like <see cref="PromotionId"/>: the two sales reach the server separately.
+    /// </summary>
+    public Guid? ReturnedLineId { get; set; }
 }
 
 /// <summary>An RFID tag sold (or returned) on a sale line; a line of three tagged pieces has three.</summary>

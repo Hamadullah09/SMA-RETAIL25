@@ -155,7 +155,7 @@ export const PAGES: readonly PageDef[] = [
   { key: 'packages', title: 'Packages', path: '/packages/', icon: 'packages', permission: null, nav: true, keywords: 'upload usb smapkg sync batches' },
   { key: 'users', title: 'Users', path: '/users/', icon: 'users', permission: P.setupUsers, nav: true, keywords: 'password pin staff code' },
   { key: 'roles', title: 'Roles', path: '/roles/', icon: 'roles', permission: P.setupUsers, nav: true, keywords: 'permissions' },
-  { key: 'stores', title: 'Stores', path: '/stores/', icon: 'stores', permission: P.storesManage, nav: true, keywords: 'branches stations' },
+  { key: 'stores', title: 'Stores', path: '/stores/', icon: 'stores', permission: P.storesManage, nav: true, keywords: 'branches stations locations hold location back room' },
   { key: 'settings', title: 'Setup', path: '/settings/', icon: 'setup', permission: P.setupStore, nav: true, keywords: 'settings business receipt branding logo watermark currency' },
   { key: 'audit', title: 'Audit log', path: '/audit/', icon: 'audit', permission: P.audit, nav: true, keywords: 'history changes who' },
   { key: 'sale', title: 'Sale', path: '/sales/view/', icon: 'journal', permission: P.reports, nav: false, parent: 'sales' },

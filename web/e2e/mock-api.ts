@@ -55,6 +55,8 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
   let user: UserInfo | null = options.user === undefined ? f.superAdmin : options.user;
   // RFID hub keys change as the test adds and revokes them.
   let hubs = f.rfidHubs.map((h) => ({ ...h }));
+  // A store's locations change as the test adds, renames and marks them.
+  const locations = storeLocations();
   // E4: opportunities move between stages as the test drags them.
   const e4Opportunities = f.opportunities.map((o) => ({ ...o }));
   // Purchase orders, requisitions, match lines and vouchers change as the supply chain tests work on them.
@@ -99,8 +101,8 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
         return { json: user.permissions.includes('stores.all') ? f.stores : f.stores.filter((s) => s.id === user!.storeId) };
       case /^GET \/api\/stores\/[^/]+\/stations$/.test(key):
         return { json: f.stations[id] ?? [] };
-      case /^GET \/api\/stores\/[^/]+\/locations$/.test(key):
-        return f.locations[id] ? { json: f.locations[id] } : { status: 404, json: { error: 'No such store.' } };
+      case /^(GET|POST) \/api\/stores\/[^/]+\/locations$/.test(key) || /^PUT \/api\/locations\/[^/]+$/.test(key):
+        return locations(r);
       case /^GET \/api\/stores\/[^/]+\/rfid-hubs$/.test(key):
         return { json: hubs.filter((h) => h.storeId === id).sort((a, b) => Number(a.revoked) - Number(b.revoked)) };
       case /^POST \/api\/stores\/[^/]+\/rfid-hubs$/.test(key): {
@@ -194,6 +196,17 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
         return { json: f.roles };
       case key === 'GET /api/users':
         return { json: f.users };
+      case key === 'POST /api/users' || /^PUT \/api\/users\/[^/]+$/.test(key): {
+        // As the server: without a store, only a role that sees every store.
+        const body = r.body as { userName: string; fullName: string | null; roleId: string | null; storeId: string | null; isActive: boolean };
+        const role = f.roles.find((x) => x.id === body.roleId);
+        if (!body.storeId && !role?.permissions.includes('stores.all'))
+          return { status: 400, json: { error: 'Choose the store this user works at; only a role that sees every store works without one.' } };
+        const before = f.users.find((u) => u.id === id);
+        const saved = { ...(before ?? f.users[0]), ...body, id: before?.id ?? 'u-new', version: 'v-2', role: role?.name ?? null,
+          storeCode: f.stores.find((s) => s.id === body.storeId)?.code ?? null, staffCode: before?.staffCode ?? null, lastSignInAtUtc: before?.lastSignInAtUtc ?? null };
+        return { status: before ? 200 : 201, json: saved };
+      }
       case /^POST \/api\/users\/[^/]+\/reset-password$/.test(key):
         return { json: { temporaryPassword: 'Plum-Kite-42' } };
       case key === 'GET /api/audit':
@@ -287,7 +300,8 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
       }
       case /^POST \/api\/campaigns\/[^/]+\/cancel$/.test(key): {
         const c = f.campaigns.find((x) => x.id === id) ?? f.campaigns[2];
-        return { json: { ...c, status: 'Cancelled', version: 'v-2' } };
+        // The messages not sent yet are cancelled with it.
+        return { json: { ...c, status: 'Cancelled', counts: { ...c.counts, queued: 0, cancelled: c.counts.cancelled + c.counts.queued }, version: 'v-2' } };
       }
       case /^GET \/api\/campaigns\/[^/]+$/.test(key):
         return f.campaigns.some((c) => c.id === id) ? { json: f.campaigns.find((c) => c.id === id) } : { status: 404, json: { error: 'That campaign was not found.' } };
@@ -363,6 +377,47 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
   };
 }
 
+// Store locations ---------------------------------------------------------------------------------------------------
+
+/**
+ * `GET` and `POST /api/stores/{id}/locations` and `PUT /api/locations/{id}` (src/RetailPlus.Server/Endpoints.cs): a code
+ * of 1 to 3 characters once per store that stays as made, a name, and one hold location per store.
+ */
+function storeLocations(): (r: SentRequest) => Answer {
+  const byStore = new Map(Object.entries(f.locations).map(([store, list]) => [store, list.map((l) => ({ ...l }))]));
+  const sorted = (store: string) => [...(byStore.get(store) ?? [])].sort((a, b) => a.code.localeCompare(b.code));
+  const mark = (store: string, holdId: string | null) => {
+    for (const l of byStore.get(store) ?? []) l.isHold = l.id === holdId;
+  };
+  return (r) => {
+    const parts = r.path.split('/');
+    const body = (r.body ?? {}) as { version?: string | null; code?: string | null; name?: string | null; isHold?: boolean | null };
+    if (r.method === 'PUT') {
+      const store = [...byStore.keys()].find((s) => byStore.get(s)!.some((l) => l.id === parts[3]));
+      const location = store ? byStore.get(store)!.find((l) => l.id === parts[3])! : undefined;
+      if (!store || !location) return { status: 404, json: { error: 'That location was not found.' } };
+      if (body.version !== location.version) return { status: 409, json: { error: 'Someone else changed this record. Load it again and make your changes again.' } };
+      if (body.code && body.code.trim().toUpperCase() !== location.code)
+        return { status: 400, json: { error: `A location's code stays ${location.code}: the tills find the location they sell from by its code. Change its name instead.` } };
+      location.name = body.name?.trim() || null;
+      location.version = `${location.version}+`;
+      if (body.isHold === true) mark(store, location.id);
+      else if (body.isHold === false && location.isHold) mark(store, null);
+      return { json: location };
+    }
+    const store = parts[3];
+    if (!byStore.has(store)) return { status: 404, json: { error: 'That store was not found.' } };
+    if (r.method === 'GET') return { json: sorted(store) };
+    const code = (body.code ?? '').trim().toUpperCase();
+    if (code.length < 1 || code.length > 3) return { status: 400, json: { error: 'A location code has 1 to 3 characters.' } };
+    if (byStore.get(store)!.some((l) => l.code === code)) return { status: 400, json: { error: `The store has a location ${code} already.` } };
+    const made = { id: `l-${store}-${code.toLowerCase()}`, version: 'v-1', code, name: body.name?.trim() || null, isHold: false, items: 0 };
+    byStore.get(store)!.push(made);
+    if (body.isHold) mark(store, made.id);
+    return { status: 201, json: made };
+  };
+}
+
 // Supply chain (phase E2) -----------------------------------------------------------------------------------------
 
 /**
@@ -372,6 +427,8 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
  */
 function supplyMock(): (r: SentRequest) => Answer {
   const orderStatus = new Map<string, PurchaseOrderStatus>();
+  // The day an order was posted or received on, when the test gave one.
+  const orderDays = new Map<string, { postedOn?: string; receivedOn?: string }>();
   const requisitions = new Map<string, ReturnType<typeof f.requisitionDetail>>([
     ['rq-2', f.requisitionDetail('rq-2', 'Submitted')],
     ['rq-1', f.requisitionDetail('rq-1', 'Draft')],
@@ -380,7 +437,18 @@ function supplyMock(): (r: SentRequest) => Answer {
   const vouchers = new Map<string, ReturnType<typeof f.landedCostDetail>>(f.landedCostRows.map((v) => [v.id, f.landedCostDetail(v.id)]));
   let settings = { ...f.supplySettings };
 
-  const order = (id: string) => f.purchaseOrderDetail(id, orderStatus.get(id));
+  const order = (id: string) => {
+    const detail = f.purchaseOrderDetail(id, orderStatus.get(id));
+    const days = orderDays.get(id);
+    return {
+      ...detail,
+      postedAt: days?.postedOn ? `${days.postedOn}T10:00:00` : orderStatus.get(id) === 'Posted' ? detail.postedAt ?? `${f.today}T10:00:00` : detail.postedAt,
+      receivedAt: days?.receivedOn ? `${days.receivedOn}T10:00:00` : detail.receivedAt,
+    };
+  };
+  /** 400 for a day later than today, as the server answers. */
+  const future = (day: unknown): Answer =>
+    typeof day === 'string' && day > f.today ? { status: 400, json: { error: `The date ${day} is in the future; choose today (${f.today}) or an earlier day.` } } : undefined;
   const requisitionRow = (d: ReturnType<typeof f.requisitionDetail>) => ({
     id: d.id, number: d.number, storeCode: d.storeCode, locationCode: d.locationCode, status: d.status, createdAt: d.createdAt, requestedBy: d.requestedBy, neededBy: d.neededBy,
     lines: d.lines.length, total: d.total, decidedBy: d.decidedBy, decidedAt: d.decidedAt, note: d.note,
@@ -411,12 +479,20 @@ function supplyMock(): (r: SentRequest) => Answer {
         return { json: paged(f.purchaseOrders.map((p) => ({ ...p, status: orderStatus.get(p.id) ?? p.status })), query) };
       case /^GET \/api\/purchase-orders\/[^/]+$/.test(key):
         return { json: order(id) };
-      case /^POST \/api\/purchase-orders\/[^/]+\/post$/.test(key):
+      case /^POST \/api\/purchase-orders\/[^/]+\/post$/.test(key): {
+        const refused = future(body.orderedOn);
+        if (refused) return refused;
         orderStatus.set(id, 'Posted');
+        orderDays.set(id, { ...orderDays.get(id), postedOn: (body.orderedOn as string | null) ?? undefined });
         return { json: order(id) };
-      case /^POST \/api\/purchase-orders\/[^/]+\/receive$/.test(key):
+      }
+      case /^POST \/api\/purchase-orders\/[^/]+\/receive$/.test(key): {
+        const refused = future(body.receivedOn);
+        if (refused) return refused;
         orderStatus.set(id, 'Received');
+        orderDays.set(id, { ...orderDays.get(id), receivedOn: (body.receivedOn as string | null) ?? f.today });
         return { json: order(id) };
+      }
       case /^GET \/api\/purchase-orders\/[^/]+\/put-away$/.test(key):
         return { json: f.putAwayList(id) };
 

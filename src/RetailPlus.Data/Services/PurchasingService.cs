@@ -144,46 +144,80 @@ public sealed class PurchasingService(DataContext data)
         }
     }
 
-    /// <summary>Post Order: the ordered pieces are added to each item's On Order count.</summary>
-    public async Task PostOrderAsync(Guid purchaseOrderId)
+    /// <summary>
+    /// Post Order: the ordered pieces are added to each item's On Order count. The order is dated
+    /// <paramref name="orderedOn"/> (today when not given), which may not be later than <paramref name="today"/> (the
+    /// store's today; the computer's when not given) nor in a locked ledger period.
+    /// </summary>
+    public async Task PostOrderAsync(Guid purchaseOrderId, DateOnly? orderedOn = null, DateOnly? today = null)
     {
+        var day = await StepDateAsync(orderedOn, today, "order");
         await using var db = data.Create();
         await using var tx = await db.Database.BeginTransactionAsync();
         var po = await db.PurchaseOrders.Include(p => p.Lines).SingleAsync(p => p.Id == purchaseOrderId);
         if (po.Status != PurchaseOrderStatus.Draft) throw new BusinessRuleException("This order was already posted.");
-        var today = DateOnly.FromDateTime(DateTime.Today);
         foreach (var line in po.Lines.Where(l => l.ItemId is not null && l.OrderQuantity > 0))
         {
             decimal pieces = line.OrderQuantity * line.CaseQuantity;
+            // An order dated before the item's last one leaves its last order date alone.
             await db.Items.Where(i => i.Id == line.ItemId).ExecuteUpdateAsync(s => s
-                .SetProperty(i => i.OnOrder, i => i.OnOrder + pieces).SetProperty(i => i.LastOrderDate, today).Touched());
+                .SetProperty(i => i.OnOrder, i => i.OnOrder + pieces)
+                .SetProperty(i => i.LastOrderDate, i => i.LastOrderDate == null || i.LastOrderDate < day ? day : i.LastOrderDate).Touched());
         }
         // The price agreed, which the supplier's bill is matched against (receiving may value the goods otherwise).
         foreach (var line in po.Lines) line.OrderedCost = line.CostEach;
         po.Status = PurchaseOrderStatus.Posted;
-        po.PostedAt = DateTime.Now;
+        po.PostedAt = At(day);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
     }
 
     /// <summary>
+    /// The day a step of an order is recorded on: the one asked for, else today. Not later than today (the store's, when
+    /// the caller knows it), and not in a locked or closed period of the ledger (<see cref="LedgerService.IsOpenAsync(DateOnly)"/>):
+    /// a receipt's stock movements go into that day's ledger entry. A till has no ledger periods, so only the first rule
+    /// holds there.
+    /// </summary>
+    private async Task<DateOnly> StepDateAsync(DateOnly? wanted, DateOnly? today, string what)
+    {
+        var now = today ?? DateOnly.FromDateTime(DateTime.Today);
+        var day = wanted ?? now;
+        if (day > now) throw new BusinessRuleException($"The {what} date {Day(day)} is in the future; choose today ({Day(now)}) or an earlier day.");
+        if (!await new LedgerService(data).IsOpenAsync(day))
+            throw new BusinessRuleException($"{Day(day)} is in a locked or closed ledger period; choose a later {what} date, or open the period under Finance, Years and periods.");
+        return day;
+    }
+
+    private static string Day(DateOnly day) => day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>A step dated <paramref name="day"/>, at the time of day it is recorded (so today is simply now).</summary>
+    private static DateTime At(DateOnly day) => day.ToDateTime(TimeOnly.FromDateTime(DateTime.Now));
+
+    /// <summary>
     /// Post Shipment: adds what arrived to On Hand, takes the ordered pieces off On Order, and updates last cost and
     /// average cost (with the shipping cost spread over the pieces received, by value). An item kept in batches is
     /// received per batch: each batch named on its line is found (or made, with its expiry date, or one worked out from the
-    /// item's shelf life) and gets a receipt movement of its own.
+    /// item's shelf life) and gets a receipt movement of its own. Batches for an item not kept in batches are refused.
+    /// The shipment is dated <paramref name="receivedOn"/> (today when not given): its stock movements, the batches'
+    /// received date and the order's received time. The date may not be later than <paramref name="today"/>, before the
+    /// order was posted, nor in a locked ledger period.
     /// </summary>
-    public async Task PostShipmentAsync(Guid purchaseOrderId, IReadOnlyList<ReceivedLine> received, decimal shippingCost = 0)
+    public async Task PostShipmentAsync(Guid purchaseOrderId, IReadOnlyList<ReceivedLine> received, decimal shippingCost = 0, DateOnly? receivedOn = null,
+        DateOnly? today = null)
     {
+        var day = await StepDateAsync(receivedOn, today, "received");
         await using var db = data.Create();
         // The receipt is its own record (stock movements): the item counts and costs it changes are not audited one by one.
         db.SuppressAudit = true;
         await using var tx = await db.Database.BeginTransactionAsync();
         var po = await db.PurchaseOrders.Include(p => p.Lines).SingleAsync(p => p.Id == purchaseOrderId);
         if (po.Status == PurchaseOrderStatus.Received) throw new BusinessRuleException("This shipment was already posted.");
+        if (po.PostedAt is DateTime posted && day < DateOnly.FromDateTime(posted))
+            throw new BusinessRuleException($"Order {po.Number} was posted on {Day(DateOnly.FromDateTime(posted))}; it cannot be received before that.");
         bool wasPosted = po.Status == PurchaseOrderStatus.Posted;
         var byLine = received.ToDictionary(r => r.LineId);
         decimal totalValue = received.Sum(r => r.PiecesReceived * r.CostEach);
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var at = At(day);
         foreach (var line in po.Lines)
         {
             byLine.TryGetValue(line.Id, out var r);
@@ -192,15 +226,28 @@ public sealed class PurchasingService(DataContext data)
             if (line.OrderedCost == 0) line.OrderedCost = line.CostEach;
             line.QuantityReceived = pieces;
             line.CostEach = cost;
-            if (line.ItemId is not Guid itemId) continue;
+            bool sentBatches = r?.Batches?.Any(b => b.Pieces != 0 || !string.IsNullOrWhiteSpace(b.BatchNumber)) == true;
+            if (line.ItemId is not Guid itemId)
+            {
+                if (sentBatches) throw new BusinessRuleException($"{line.Plu} {line.Description} is not an item of this location, so it is not kept in batches.");
+                continue;
+            }
             var item = await db.Items.SingleAsync(i => i.Id == itemId);
+            // Batches for an item that is not kept in them would be thrown away without a word: they are refused, as the
+            // till never offers them for such an item.
+            if (sentBatches && !item.TracksBatches)
+                throw new BusinessRuleException($"{item.Plu} {item.Name} is not kept in batches; turn that on for the item first.");
             if (wasPosted) item.OnOrder = Math.Max(0, item.OnOrder - line.OrderQuantity * line.CaseQuantity);
             if (pieces == 0) continue;
             decimal share = totalValue == 0 ? 0 : shippingCost * (pieces * cost) / totalValue;
             item.AverageCost = Reordering.AverageCostAfterReceipt(item.OnHand, item.AverageCost, pieces, cost, share);
-            item.LastCost = cost;
-            item.LastReceivedDate = today;
-            item.LastReceivedQuantity = pieces;
+            // A shipment dated before the item's last receipt leaves its last cost, date and quantity alone.
+            if (item.LastReceivedDate is not DateOnly last || last <= day)
+            {
+                item.LastCost = cost;
+                item.LastReceivedDate = day;
+                item.LastReceivedQuantity = pieces;
+            }
             if (item.TracksBatches && pieces > 0)
             {
                 var batches = (r?.Batches ?? []).Where(b => b.Pieces != 0).ToList();
@@ -212,21 +259,25 @@ public sealed class PurchasingService(DataContext data)
                 foreach (var b in batches)
                 {
                     if (string.IsNullOrWhiteSpace(b.BatchNumber)) throw new BusinessRuleException($"{item.Plu}: enter the batch number.");
-                    var batch = await BatchService.FindOrMakeAsync(db, itemId, po.StoreId, b.BatchNumber, b.ExpiresOn ?? Fefo.SuggestedExpiry(item.ShelfLifeDays, b.MadeOn, today),
-                        b.MadeOn, line.SupplierId ?? po.SupplierId, po.Number, today);
-                    InventoryService.Record(db, itemId, StockMovementKind.Receipt, b.Pieces, running += b.Pieces, document: po.Number, unitCost: cost, batchId: batch.Id);
+                    if (b.MadeOn is DateOnly made && made > day)
+                        throw new BusinessRuleException($"{item.Plu} batch {b.BatchNumber.Trim().ToUpperInvariant()} was made on {Day(made)}, after the day it was received ({Day(day)}).");
+                    if (b.MadeOn is DateOnly m && b.ExpiresOn is DateOnly e && e < m)
+                        throw new BusinessRuleException($"{item.Plu} batch {b.BatchNumber.Trim().ToUpperInvariant()} cannot expire before it was made.");
+                    var batch = await BatchService.FindOrMakeAsync(db, itemId, po.StoreId, b.BatchNumber, b.ExpiresOn ?? Fefo.SuggestedExpiry(item.ShelfLifeDays, b.MadeOn, day),
+                        b.MadeOn, line.SupplierId ?? po.SupplierId, po.Number, day);
+                    InventoryService.Record(db, itemId, StockMovementKind.Receipt, b.Pieces, running += b.Pieces, at: at, document: po.Number, unitCost: cost, batchId: batch.Id);
                 }
                 item.OnHand += pieces;
             }
             else
             {
                 item.OnHand += pieces;
-                InventoryService.Record(db, itemId, StockMovementKind.Receipt, pieces, item.OnHand, document: po.Number, unitCost: cost);
+                InventoryService.Record(db, itemId, StockMovementKind.Receipt, pieces, item.OnHand, at: at, document: po.Number, unitCost: cost);
             }
             if (item.Price1 > 0) item.MarginPercent = Money.MarginPercent(item.Price1, item.AverageCost);
         }
         po.Status = PurchaseOrderStatus.Received;
-        po.ReceivedAt = DateTime.Now;
+        po.ReceivedAt = at;
         po.ReceivedBy = data.CurrentUser?.UserName;
         po.ReceivedById = data.CurrentUser?.UserId;
         await db.SaveChangesAsync();

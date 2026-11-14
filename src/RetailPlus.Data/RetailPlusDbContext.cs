@@ -264,6 +264,7 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
+        CheckTextLengths();
         AuditChangesAsync(sync: true, default).AsTask().GetAwaiter().GetResult();
         Stamp();
         return base.SaveChanges(acceptAllChangesOnSuccess);
@@ -271,6 +272,7 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
 
     public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
+        CheckTextLengths();
         await AuditChangesAsync(sync: false, cancellationToken);
         Stamp();
         return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
