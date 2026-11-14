@@ -488,4 +488,63 @@ public sealed class SyncScenarioTests(SyncWorld world) : IClassFixture<SyncWorld
         Assert.Equal(SyncBatchStatus.Applied, loaded.Status);
         Assert.Equal(6m, (await b.Inventory.GetAsync(item.Id))!.OnHand);
     }
+
+    [SkippableFact]
+    public async Task A_gate_alarm_raised_and_resolved_at_a_till_reaches_the_server_with_the_tags_flag()
+    {
+        Require();
+        var store = await world.AddStoreAsync();
+        var a = await world.NewJoinedTillAsync(store.Id);
+        var b = await world.NewJoinedTillAsync(store.Id);
+        var item = await ItemAsync(a, "GATE1", 1);
+        var epc = "E2801191" + Guid.NewGuid().ToString("N")[..16].ToUpperInvariant();
+        await new RfidService(a.Data).RegisterTagAsync(epc, item.Id);
+        int station = a.Data.Station!.StationNumber;
+        var gate = new GateAlarmService(a.Data);
+        var alarm = (await gate.ReadAsync(new GateRead(epc, station, DateTime.Now, "Door", 2))).Alarm!;
+        await a.SyncAsync();
+
+        await using (var server = world.ServerData.Create())
+        {
+            var up = await server.GateAlarms.AsNoTracking().SingleAsync(x => x.Id == alarm.Id);
+            Assert.Equal((GateAlarmResolution.Open, store.Id, station, item.Id, epc), (up.Resolution, up.StoreId, up.StationNumber, up.ItemId, up.Epc));
+            Assert.Equal(ItemTagStatus.Unsold, (await server.ItemTags.AsNoTracking().SingleAsync(t => t.Epc == epc)).Status);
+        }
+
+        await gate.ResolveAsync(alarm.Id, GateAlarmResolution.LeftStore, new SessionInfo { UserName = "boss", StationNumber = station });
+        await a.SyncAsync();
+        await b.SyncAsync();
+        await using (var server = world.ServerData.Create())
+        {
+            var up = await server.GateAlarms.AsNoTracking().SingleAsync(x => x.Id == alarm.Id);
+            Assert.Equal((GateAlarmResolution.LeftStore, "boss"), (up.Resolution, up.ResolvedBy));
+            Assert.Equal(ItemTagStatus.Lost, (await server.ItemTags.AsNoTracking().SingleAsync(t => t.Epc == epc)).Status);
+            Assert.Equal([AuditActions.GateAlarm, AuditActions.GateAlarmResolved],
+                (await server.AuditEntries.AsNoTracking().Where(e => e.EntityId == alarm.Id).OrderBy(e => e.AtUtc).ToListAsync()).Select(e => e.Action));
+        }
+        // The other till of the store has it too.
+        await using (var tillB = b.Data.Create())
+            Assert.Equal(GateAlarmResolution.LeftStore, (await tillB.GateAlarms.AsNoTracking().SingleAsync(x => x.Id == alarm.Id)).Resolution);
+    }
+}
+
+/// <summary>Where gate alarms travel, from the sync rules alone (no server needed).</summary>
+public sealed class GateAlarmSyncRuleTests
+{
+    [Fact]
+    public void Gate_alarms_go_up_from_the_till_and_down_to_the_tills_of_their_store()
+    {
+        var policy = SyncPolicy.Default;
+        Assert.True(policy.IsSynced(typeof(GateAlarm)));
+        Assert.Equal(SyncFlow.Both, policy.FlowOf(typeof(GateAlarm)));
+        Assert.False(policy.IsDownEverywhere(typeof(GateAlarm)));
+        using var db = RetailPlusDb.CreateContext(DatabaseConnection.SqliteFile(Path.Combine(Path.GetTempPath(), "RetailPlus_never_opened.db")));
+        var model = SyncModel.For(db.Model);
+        var table = model.Find(typeof(GateAlarm));
+        Assert.NotNull(table);
+        Assert.True(table.HasStore);
+        // Applied after the items they point at.
+        var names = model.Tables.Select(t => t.Name).ToList();
+        Assert.True(names.IndexOf(nameof(Item)) < names.IndexOf(nameof(GateAlarm)));
+    }
 }

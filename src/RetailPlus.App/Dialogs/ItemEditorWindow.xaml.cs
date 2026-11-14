@@ -145,9 +145,13 @@ public partial class ItemEditorWindow : Window
     {
         var tags = await AppServices.RfidData.GetTagsAsync(_item.Id);
         TagsGrid.ItemsSource = tags;
-        int inStock = tags.Count(t => t.Status == ItemTagStatus.InStock);
-        TagSummary.Text = tags.Count == 0 ? "No tags yet" : $"{tags.Count} tag(s): {inStock} in stock, {tags.Count - inStock} sold or away";
+        TagSummary.Text = tags.Count == 0 ? "No tags yet" : TagCounts(tags);
     }
+
+    /// <summary>"5 tag(s): 3 in stock, ready to sell (flag 1) · 1 sold (flag 2) · 1 unsold at the gate (flag 3)", in flag order.</summary>
+    internal static string TagCounts(IReadOnlyCollection<ItemTag> tags) =>
+        $"{tags.Count} tag(s): " + string.Join(" · ", tags.GroupBy(t => t.Status).OrderBy(g => TagFlags.Number(g.Key) ?? 9)
+            .Select(g => $"{g.Count()} {TagFlags.Name(g.Key).ToLowerInvariant()}" + (TagFlags.Number(g.Key) is int n ? $" (flag {n})" : "")));
 
     private void SeeTags_Click(object sender, RoutedEventArgs e) => Tabs.SelectedItem = TagsTab;
 
@@ -202,7 +206,7 @@ public partial class ItemEditorWindow : Window
         TagsHint.Text = "Reading... keep the items on the antenna.";
         try
         {
-            await foreach (var tag in rfid.ListenAsync(AppServices.Session.StationNumber, cts.Token))
+            await foreach (var tag in rfid.ListenAsync(AppServices.Session.StationNumber, Rfid.RfidListen.Counter, cts.Token))
             {
                 if (!seen.Add(tag.Epc)) continue;
                 try

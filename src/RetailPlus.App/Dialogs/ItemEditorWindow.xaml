@@ -240,7 +240,7 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Tag code (EPC)" Binding="{Binding Epc}" Width="*" FontFamily="Consolas" />
                             <DataGridTextColumn Header="Piece / label" Binding="{Binding SerialNumber}" Width="170" />
-                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="110" />
+                            <DataGridTextColumn Header="Flag" Binding="{Binding Status, Converter={StaticResource TagFlag}}" Width="210" />
                             <DataGridTextColumn Header="Registered" Binding="{Binding RegisteredAt, StringFormat=g}" Width="170" />
                             <DataGridTextColumn Header="Sold" Binding="{Binding SoldAt, StringFormat=g}" Width="170" />
                             <DataGridTextColumn Header="Invoice" Binding="{Binding SoldOnInvoice}" Width="90" />

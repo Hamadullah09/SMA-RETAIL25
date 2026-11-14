@@ -12,10 +12,11 @@ namespace RetailPlus.Rfid;
 /// <list type="bullet">
 /// <item>One background loop per reader (async I/O, so 63 readers cost 63 sockets, not 63 threads).</item>
 /// <item>Every enabled reader is connected as soon as the hub starts and kept connected (a keep-alive every 30
-/// seconds notices a pulled cable); an antenna is read only while the station it is assigned to has someone listening,
-/// so idle counters do not transmit and nearby antennas interfere less.</item>
+/// seconds notices a pulled cable); an antenna is read only while the station it is assigned to has someone listening
+/// to antennas for its purpose (the sale to point-of-sale antennas, the gate alarm to gate antennas), so idle counters
+/// do not transmit and nearby antennas interfere less.</item>
 /// <item>Reads below the reader's RSSI threshold are dropped, and a tag is reported to a station at most once per
-/// <see cref="RfidReader.DedupSeconds"/>.</item>
+/// <see cref="RfidReader.DedupSeconds"/> for each antenna purpose.</item>
 /// <item>Each listener has a bounded queue; a slow listener loses its oldest reads instead of slowing the readers.</item>
 /// <item>Offline readers are retried with back-off up to 30 seconds without affecting the others.</item>
 /// </list>
@@ -25,8 +26,8 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
 {
     private readonly Func<RfidReader, IRfidDevice> _deviceFactory = deviceFactory ?? DefaultDevice;
     private readonly ConcurrentDictionary<Guid, Worker> _workers = new();
-    private readonly ConcurrentDictionary<int, ConcurrentDictionary<Guid, Channel<RfidTagEvent>>> _listeners = new();
-    private readonly ConcurrentDictionary<(int Station, string Epc), DateTime> _lastSent = new();
+    private readonly ConcurrentDictionary<int, ConcurrentDictionary<Guid, Listener>> _listeners = new();
+    private readonly ConcurrentDictionary<(int Station, RfidAntennaPurpose Purpose, string Epc), DateTime> _lastSent = new();
     private readonly SemaphoreSlim _reloadGate = new(1, 1);
     private IReadOnlyList<RfidReader> _disabled = [];
     private CancellationTokenSource _stopping = new();
@@ -145,10 +146,11 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
 
     // Reading ----------------------------------------------------------------------------------------------------
 
-    private bool HasListeners(int station) => _listeners.TryGetValue(station, out var set) && !set.IsEmpty;
+    private bool HasListeners(int station, RfidAntennaPurpose purpose) =>
+        _listeners.TryGetValue(station, out var set) && set.Values.Any(l => RfidListen.Hears(l.Purposes, purpose));
 
     private List<int> ActiveAntennas(RfidReader reader) => reader.Antennas
-        .Where(a => a.IsEnabled && a.StationNumber is int s && HasListeners(s))
+        .Where(a => a.IsEnabled && a.StationNumber is int s && HasListeners(s, a.Purpose))
         .Select(a => a.Port).Distinct().Order().ToList();
 
     private async Task RunAsync(Worker w, CancellationToken cancellationToken)
@@ -311,14 +313,15 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
         var antenna = reader.Antennas.FirstOrDefault(a => a.Port == tag.Antenna);
         if (antenna?.StationNumber is not int station || !antenna.IsEnabled) return;
         if (tag.RssiDbm < reader.RssiThresholdDbm) return;
-        var key = (station, tag.Epc);
+        var key = (station, antenna.Purpose, tag.Epc);
         var now = tag.SeenAt;
         if (_lastSent.TryGetValue(key, out var last) && now - last < TimeSpan.FromSeconds(Math.Max(0, reader.DedupSeconds))) return;
         _lastSent[key] = now;
         if (_lastSent.Count > 20_000) Prune(now);
         if (!_listeners.TryGetValue(station, out var set)) return;
-        var e = new RfidTagEvent(tag.Epc, station, reader.Id, reader.Name, tag.Antenna, tag.RssiDbm, now);
-        foreach (var channel in set.Values) channel.Writer.TryWrite(e);
+        var e = new RfidTagEvent(tag.Epc, station, reader.Id, reader.Name, tag.Antenna, tag.RssiDbm, now, antenna.Purpose);
+        foreach (var listener in set.Values)
+            if (RfidListen.Hears(listener.Purposes, antenna.Purpose)) listener.Channel.Writer.TryWrite(e);
     }
 
     private void Prune(DateTime now)
@@ -333,7 +336,11 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
             w.WakeUp();
     }
 
-    public async IAsyncEnumerable<RfidTagEvent> ListenAsync(int stationNumber, [EnumeratorCancellation] CancellationToken cancellationToken)
+    public IAsyncEnumerable<RfidTagEvent> ListenAsync(int stationNumber, CancellationToken cancellationToken) =>
+        ListenAsync(stationNumber, null, cancellationToken);
+
+    public async IAsyncEnumerable<RfidTagEvent> ListenAsync(int stationNumber, IReadOnlySet<RfidAntennaPurpose>? purposes,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var channel = Channel.CreateBounded<RfidTagEvent>(new BoundedChannelOptions(1000)
         {
@@ -341,7 +348,7 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
             SingleReader = true,
         });
         var id = Guid.NewGuid();
-        _listeners.GetOrAdd(stationNumber, _ => new())[id] = channel;
+        _listeners.GetOrAdd(stationNumber, _ => new())[id] = new Listener(channel, purposes);
         WakeAll();
         try
         {
@@ -431,6 +438,9 @@ public sealed class RfidHub(Func<CancellationToken, Task<IReadOnlyList<RfidReade
         }
         w.Beeper = mode;
     }
+
+    /// <summary>One listener of a station: its queue, and the antenna purposes it hears (null: every antenna).</summary>
+    private sealed record Listener(Channel<RfidTagEvent> Channel, IReadOnlySet<RfidAntennaPurpose>? Purposes);
 
     private sealed class Worker(RfidReader settings, IRfidDevice device, CancellationTokenSource cancellation)
     {

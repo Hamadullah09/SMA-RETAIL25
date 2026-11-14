@@ -230,4 +230,17 @@ public static class Log
         }
         catch (IOException) { }
     }
+
+    /// <summary>
+    /// Written only while looking into a problem (the automated checks, or the environment variable RETAILPLUS_DEBUG=1),
+    /// and to the debugger's output.
+    /// </summary>
+    public static bool DebugEnabled { get; set; } = Environment.GetEnvironmentVariable("RETAILPLUS_DEBUG") == "1";
+
+    /// <summary>A detail at debug level: an unknown tag at the exit gate, a sold one going out.</summary>
+    public static void Debug(string message)
+    {
+        System.Diagnostics.Debug.WriteLine(message);
+        if (DebugEnabled) Write("DEBUG " + message);
+    }
 }

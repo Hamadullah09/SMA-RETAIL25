@@ -22,6 +22,15 @@ public sealed class BoolToVisibilityConverter : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => value is Visibility.Visible;
 }
 
+/// <summary>An RFID tag's status as the flag the till shows: "1 · In stock, ready to sell", "2 · Sold", "3 · Unsold at the gate".</summary>
+public sealed class TagFlagConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
+        value is Core.Model.ItemTagStatus status ? Core.Rules.TagFlags.Text(status) : value;
+
+    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => throw new NotSupportedException();
+}
+
 public sealed class InverseBoolConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) => value is not true;

@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Channels;
+using RetailPlus.Core.Model;
 
 namespace RetailPlus.Rfid;
 
@@ -33,24 +34,31 @@ public sealed class RfidHubClient : IRfidControl, IDisposable
         }
     }
 
-    public IAsyncEnumerable<RfidTagEvent> ListenAsync(int stationNumber, CancellationToken cancellationToken)
+    public IAsyncEnumerable<RfidTagEvent> ListenAsync(int stationNumber, CancellationToken cancellationToken) =>
+        ListenAsync(stationNumber, null, cancellationToken);
+
+    /// <summary>
+    /// The hub is asked for these purposes only; reads are checked here as well, since a hub from before antenna purposes
+    /// sends every read without one (taken as point of sale).
+    /// </summary>
+    public IAsyncEnumerable<RfidTagEvent> ListenAsync(int stationNumber, IReadOnlySet<RfidAntennaPurpose>? purposes, CancellationToken cancellationToken)
     {
         var channel = Channel.CreateBounded<RfidTagEvent>(new BoundedChannelOptions(1000) { FullMode = BoundedChannelFullMode.DropOldest, SingleReader = true });
-        _ = Task.Run(() => PumpAsync(stationNumber, channel.Writer, cancellationToken), CancellationToken.None);
+        _ = Task.Run(() => PumpAsync(stationNumber, purposes, channel.Writer, cancellationToken), CancellationToken.None);
         return channel.Reader.ReadAllAsync(cancellationToken);
     }
 
     /// <summary>Raised when the event stream connects or drops (true = connected).</summary>
     public event Action<bool>? StreamStateChanged;
 
-    private async Task PumpAsync(int station, ChannelWriter<RfidTagEvent> writer, CancellationToken cancellationToken)
+    private async Task PumpAsync(int station, IReadOnlySet<RfidAntennaPurpose>? purposes, ChannelWriter<RfidTagEvent> writer, CancellationToken cancellationToken)
     {
         var backoff = TimeSpan.FromSeconds(1);
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                using var response = await _stream.GetAsync($"stations/{station}/events", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                using var response = await _stream.GetAsync($"stations/{station}/events{RfidListen.Query(purposes)}", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                 response.EnsureSuccessStatusCode();
                 StreamStateChanged?.Invoke(true);
                 backoff = TimeSpan.FromSeconds(1);
@@ -61,7 +69,7 @@ public sealed class RfidHubClient : IRfidControl, IDisposable
                     if (line is null) break;
                     if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
                     var e = JsonSerializer.Deserialize<RfidTagEvent>(line.AsSpan(5).Trim(), Json);
-                    if (e is not null) await writer.WriteAsync(e, cancellationToken);
+                    if (e is not null && RfidListen.Hears(purposes, e.Purpose)) await writer.WriteAsync(e, cancellationToken);
                 }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

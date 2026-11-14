@@ -4031,6 +4031,59 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "GateAlarms",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StoreId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StationNumber = table.Column<int>(type: "int", nullable: false),
+                    LocationId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Epc = table.Column<string>(type: "varchar(128)", unicode: false, maxLength: 128, nullable: false),
+                    TagId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ItemId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    VariantId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    Plu = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    ItemName = table.Column<string>(type: "nvarchar(60)", maxLength: 60, nullable: false),
+                    Price = table.Column<decimal>(type: "decimal(12,2)", precision: 12, scale: 2, nullable: false),
+                    ReaderName = table.Column<string>(type: "nvarchar(40)", maxLength: 40, nullable: true),
+                    Antenna = table.Column<int>(type: "int", nullable: false),
+                    RaisedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    LastSeenAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: false),
+                    Passes = table.Column<int>(type: "int", nullable: false),
+                    Resolution = table.Column<string>(type: "nvarchar(16)", maxLength: 16, nullable: false),
+                    ResolvedAt = table.Column<DateTime>(type: "datetime2(0)", precision: 0, nullable: true),
+                    ResolvedBy = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: true),
+                    ResolvedById = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    SoldOnInvoice = table.Column<long>(type: "bigint", nullable: true),
+                    ChangeNumber = table.Column<byte[]>(type: "rowversion", nullable: false),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "datetime2(3)", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_GateAlarms", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_GateAlarms_Items_ItemId",
+                        column: x => x.ItemId,
+                        principalTable: "Items",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_GateAlarms_Locations_LocationId",
+                        column: x => x.LocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_GateAlarms_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ItemBatches",
                 columns: table => new
                 {
@@ -6474,6 +6527,46 @@ namespace RetailPlus.Data.SqlServer.Migrations
             migrationBuilder.CreateIndex(
                 name: "IX_FxRates_UpdatedAtUtc",
                 table: "FxRates",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_ChangeNumber",
+                table: "GateAlarms",
+                column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_Epc_Resolution",
+                table: "GateAlarms",
+                columns: new[] { "Epc", "Resolution" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_ItemId",
+                table: "GateAlarms",
+                column: "ItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_LocationId",
+                table: "GateAlarms",
+                column: "LocationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_RaisedAt",
+                table: "GateAlarms",
+                column: "RaisedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_StationNumber_Resolution",
+                table: "GateAlarms",
+                columns: new[] { "StationNumber", "Resolution" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_StoreId",
+                table: "GateAlarms",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_UpdatedAtUtc",
+                table: "GateAlarms",
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
@@ -9101,6 +9194,9 @@ namespace RetailPlus.Data.SqlServer.Migrations
 
             migrationBuilder.DropTable(
                 name: "FxRates");
+
+            migrationBuilder.DropTable(
+                name: "GateAlarms");
 
             migrationBuilder.DropTable(
                 name: "GiftCardTransactions");

@@ -33,8 +33,14 @@ public partial class App : Application
         var tourFolder = Arg("--screenshot-tour");
         bool smoke = args.Any(a => string.Equals(a, "--smoke", StringComparison.OrdinalIgnoreCase));
         AppServices.Unattended = smoke || tourFolder is not null;
-        if (AppServices.Unattended) Log.FilePath = System.IO.Path.Combine(StationConfig.DefaultFolder, "retailplus-check.log");
+        if (AppServices.Unattended)
+        {
+            Log.FilePath = System.IO.Path.Combine(StationConfig.DefaultFolder, "retailplus-check.log");
+            Log.DebugEnabled = true;
+        }
         AppServices.Initialize(config);
+        // The exit-gate alarm opens its window on top of whatever is on screen, also the sign-in window.
+        GateAlarmWindow.Attach();
 
         var splash = new SplashWindow();
         splash.Show();
@@ -63,8 +69,9 @@ public partial class App : Application
             }
         }
 
-        // RFID connects now, before the login window: readers set up for this PC are connected straight away, and on the
-        // first start (Automatic, no readers yet) the network is searched in the background while the user logs in.
+        // RFID connects now, before the login window: readers set up for this PC are connected straight away (the exit
+        // gate sounds while nobody is signed in), and on the first start (Automatic, no readers yet) the network is
+        // searched in the background while the user logs in.
         await AppServices.StartRfidAsync();
         if (!AppServices.Unattended && AppServices.Config.RfidMode == Settings.RfidMode.Auto) _ = AppServices.DiscoverReadersAsync();
         var users = await AppServices.Setup.GetUsersAsync();
@@ -78,6 +85,7 @@ public partial class App : Application
         {
             AppServices.Session.UserName = "Admin";
             AppServices.Session.AccessLevel = 4;
+            AppServices.OpenWithoutSignIn = true;
         }
         splash.Close();
 

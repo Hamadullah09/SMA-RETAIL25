@@ -176,7 +176,8 @@ public sealed class ApprovalWindow : Window
         p.Children.Add(new TextBlock { Text = "Approval needed", FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 26 });
         p.Children.Add(new TextBlock
         {
-            Text = $"{action} needs a supervisor: someone who may approve it signs in here. {AppServices.Session.UserName} stays signed in.",
+            Text = $"{action} needs a supervisor: someone who may approve it signs in here. "
+                   + (AppServices.SignedIn ? $"{AppServices.Session.UserName} stays signed in." : "Nobody is signed in at this till."),
             TextWrapping = TextWrapping.Wrap, FontSize = 17, Foreground = Look.Brush("Muted"), Margin = new Thickness(0, 6, 0, 16),
         });
         p.Children.Add(_credentials);
@@ -221,6 +222,21 @@ public static class Approval
     public static SessionInfo? SessionFor(string permission, string action)
     {
         if (AppServices.Can(permission) || AppServices.Unattended) return AppServices.Session;
+        return Ask(permission, action);
+    }
+
+    /// <summary>
+    /// Like <see cref="SessionFor"/> for what can come up before anyone signed in (the exit-gate alarm): the signed-in user
+    /// only when someone did sign in and may; otherwise the approval window.
+    /// </summary>
+    public static SessionInfo? SignedInFor(string permission, string action)
+    {
+        if (AppServices.Unattended || (AppServices.SignedIn && AppServices.Can(permission))) return AppServices.Session;
+        return Ask(permission, action);
+    }
+
+    private static SessionInfo? Ask(string permission, string action)
+    {
         var window = new ApprovalWindow(permission, action);
         return window.ShowDialog() == true && window.Approver is { } approver ? AppServices.Session.As(approver) : null;
     }

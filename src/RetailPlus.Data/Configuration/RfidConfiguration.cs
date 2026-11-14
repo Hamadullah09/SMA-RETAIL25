@@ -51,6 +51,26 @@ internal sealed class ItemTagConfiguration : IEntityTypeConfiguration<ItemTag>
     }
 }
 
+internal sealed class GateAlarmConfiguration : IEntityTypeConfiguration<GateAlarm>
+{
+    public void Configure(EntityTypeBuilder<GateAlarm> e)
+    {
+        e.Property(x => x.Epc).HasMaxLength(128).IsUnicode(false);
+        e.Property(x => x.Plu).HasMaxLength(16);
+        e.Property(x => x.ItemName).HasMaxLength(60);
+        e.Property(x => x.ReaderName).HasMaxLength(40);
+        e.Property(x => x.Resolution).HasConversion<string>().HasMaxLength(16);
+        e.Property(x => x.ResolvedBy).HasMaxLength(50);
+        e.Ignore(x => x.IsOpen);
+        e.HasOne<Item>().WithMany().HasForeignKey(x => x.ItemId).OnDelete(DeleteBehavior.Cascade);
+        e.HasOne<Location>().WithMany().HasForeignKey(x => x.LocationId).OnDelete(DeleteBehavior.Restrict);
+        // The gate looks up the open alarm of a tag; the till lists its station's open alarms.
+        e.HasIndex(x => new { x.Epc, x.Resolution });
+        e.HasIndex(x => new { x.StationNumber, x.Resolution });
+        e.HasIndex(x => x.RaisedAt);
+    }
+}
+
 internal sealed class RfidHubLinkConfiguration : IEntityTypeConfiguration<RfidHubLink>
 {
     public void Configure(EntityTypeBuilder<RfidHubLink> e)

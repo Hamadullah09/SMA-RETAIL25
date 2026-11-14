@@ -179,6 +179,16 @@ public sealed class RfidService(DataContext data)
     }
 
     /// <summary>
+    /// The item's tagged pieces that are the shop's stock: in stock (flag 1) and unsold at the gate (flag 3), which were
+    /// not sold either.
+    /// </summary>
+    public async Task<int> CountShopStockTagsAsync(Guid itemId)
+    {
+        await using var db = data.Create();
+        return await db.ItemTags.CountAsync(t => t.ItemId == itemId && (t.Status == ItemTagStatus.InStock || t.Status == ItemTagStatus.Unsold));
+    }
+
+    /// <summary>
     /// Ties a tag to an item. A tag already on another item is refused unless <paramref name="move"/> is set
     /// (relabelling).
     /// </summary>

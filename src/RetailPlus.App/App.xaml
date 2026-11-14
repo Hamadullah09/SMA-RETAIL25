@@ -106,6 +106,7 @@
             <infra:DateOnlyConverter x:Key="DateOnly" />
             <infra:BoolToVisibilityConverter x:Key="BoolToVis" />
             <infra:InverseBoolConverter x:Key="Not" />
+            <infra:TagFlagConverter x:Key="TagFlag" />
 
             <!-- ============================================================================================
                  Text

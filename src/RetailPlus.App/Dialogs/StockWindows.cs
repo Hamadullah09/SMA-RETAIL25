@@ -69,7 +69,7 @@ public sealed class RfidCountWindow : Window
         _listening = new CancellationTokenSource();
         try
         {
-            await foreach (var tag in rfid.ListenAsync(AppServices.Session.StationNumber, _listening.Token))
+            await foreach (var tag in rfid.ListenAsync(AppServices.Session.StationNumber, Rfid.RfidListen.Counter, _listening.Token))
                 Add(tag.Epc);
         }
         catch (OperationCanceledException)

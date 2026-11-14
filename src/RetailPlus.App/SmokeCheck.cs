@@ -109,6 +109,7 @@ public static class SmokeCheck
             failures.AddRange(await PictureCheckAsync(main));
             failures.AddRange(await TaggedStockCheckAsync(main));
             failures.AddRange(await RfidCheckAsync(main));
+            failures.AddRange(await GateCheckAsync(main));
         }
         catch (Exception ex)
         {
@@ -941,6 +942,124 @@ public static class SmokeCheck
         }
         finally
         {
+            await AppServices.RfidData.DeleteReaderAsync(reader.Id);
+            AppServices.Config.RfidMode = mode;
+            await AppServices.StartRfidAsync();
+        }
+        return failures;
+    }
+
+    /// <summary>
+    /// The exit gate end to end, with a simulated reader whose antenna 2 is this station's exit gate and antenna 1 its
+    /// counter. A piece in stock, a sold piece and an unknown tag go through the gate: only the piece in stock sounds
+    /// (flag 3, one alarm, the red window, the siren), and the sale at the counter takes none of them. Silence stops the
+    /// siren; a later pass brings the alarm back without a second record; a second piece joins the same window; the
+    /// window puts the first back in stock (flag 1); paying for the second at the POS resolves its alarm and closes the
+    /// window.
+    /// </summary>
+    private static async Task<List<string>> GateCheckAsync(MainWindow main)
+    {
+        var failures = new List<string>();
+        int station = AppServices.Session.StationNumber;
+        string stamp = DateTime.Now.ToString("HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
+        var item = await AppServices.Inventory.SaveAsync(new Item
+        {
+            LocationId = AppServices.Session.LocationId, Plu = "SMK-G" + stamp, Name = "Smoke gate jacket", Price1 = 25m, LastCost = 10m, AverageCost = 10m, OnHand = 3,
+        }, "SMOKE", null, null);
+        string first = "E2801192" + stamp + "00001", second = "E2801192" + stamp + "00002", sold = "E2801192" + stamp + "00003";
+        string unknown = "E2809999" + stamp + "00009";
+        foreach (var epc in new[] { first, second, sold }) await AppServices.RfidData.RegisterTagAsync(epc, item.Id);
+        await AppServices.Sales.PostSaleAsync(new SaleDraft
+        {
+            Lines = [new SaleDraftLine { ItemId = item.Id, ItemType = item.ItemType, Plu = item.Plu, Description = item.Name, Quantity = 1, UnitPrice = 25m, Epcs = [sold] }],
+        }, [new TenderEntry("Cash", TenderKind.Cash, 25m, 25m)], AppServices.Session);
+
+        var reader = Data.Services.RfidService.NewReader("Smoke gate " + stamp);
+        reader.Host = "sim";
+        reader.Notes = $"2:{first}\n2:{sold}\n2:{unknown}";
+        reader.Antennas[0].StationNumber = station;
+        reader.Antennas[0].IsEnabled = true;
+        reader.Antennas[1].StationNumber = station;
+        reader.Antennas[1].IsEnabled = true;
+        reader.Antennas[1].Purpose = RfidAntennaPurpose.Gate;
+        reader = await AppServices.RfidData.SaveReaderAsync(reader);
+
+        var mode = AppServices.Config.RfidMode;
+        AppServices.Config.RfidMode = Settings.RfidMode.ThisComputer;
+        AppServices.Config.RfidAutoAdd = true;
+        main.Navigate("pos");
+        await MainWindow.Settle();
+        var pos = main.GetView<PosView>() ?? throw new InvalidOperationException("POS screen did not open");
+        async Task<ItemTagStatus?> Flag(string epc) => (await AppServices.RfidData.GetTagsAsync(item.Id)).FirstOrDefault(t => t.Epc == epc)?.Status;
+        static async Task WaitFor(Func<bool> done)
+        {
+            var until = DateTime.Now.AddSeconds(10);
+            while (DateTime.Now < until && !done()) await Task.Delay(200);
+        }
+        try
+        {
+            await pos.Vm.ClearSaleAsync(ask: false);
+            await AppServices.StartRfidAsync();
+            pos.Vm.StartRfid();
+            await WaitFor(() => Dialogs.GateAlarmWindow.Current?.Alarms.Any(a => a.Epc == first) == true);
+            await Task.Delay(1500);   // time for a wrong alarm, or for the counter ringing up a gate read
+            var window = Dialogs.GateAlarmWindow.Current;
+            if (window is null || window.Alarms.Count != 1 || window.Alarms[0].Epc != first)
+            {
+                failures.Add($"the exit gate did not show one alarm for the piece in stock (window: {(window is null ? "none" : string.Join(", ", window.Alarms.Select(a => a.Epc)))})");
+                return failures;
+            }
+            if (!window.IsVisible || !window.Topmost) failures.Add("the gate alarm window is not shown on top");
+            if (!Sounds.SirenOn) failures.Add("the gate siren did not start");
+            if (await Flag(first) != ItemTagStatus.Unsold) failures.Add($"the piece that went through the gate has flag {await Flag(first)}, expected 3 (Unsold)");
+            if (await Flag(sold) != ItemTagStatus.Sold) failures.Add($"the sold piece at the gate has flag {await Flag(sold)}, expected 2 (Sold)");
+            if ((await AppServices.GateAlarms.GetForTagAsync(sold)).Count != 0 || (await AppServices.GateAlarms.GetForTagAsync(unknown)).Count != 0)
+                failures.Add("a sold piece or an unknown tag at the gate raised an alarm");
+            if (pos.Vm.Lines.Count != 0) failures.Add($"the counter rang up what the exit gate read: {string.Join(", ", pos.Vm.Lines.Select(l => l.Description))}");
+            Log.Write($"Exit gate: alarm for {first} (flag 3), none for the sold piece or the unknown tag, nothing on the sale");
+            var device = (AppServices.Rfid as Rfid.RfidHub)?.DeviceOf(reader.Id) as Rfid.SimulatedRfidDevice;
+            if (device is null) failures.Add("the simulated gate reader is not running");
+            foreach (var epc in new[] { first, sold, unknown }) device?.Remove(2, epc);
+
+            window.Silence();
+            if (Sounds.SirenOn || Dialogs.GateAlarmWindow.Current is null) failures.Add("Silence did not stop the siren, or it closed the window");
+
+            // The same piece goes through again later: the alarm comes back and sounds, with no second record.
+            var again = await AppServices.OnGateReadAsync(new Rfid.RfidTagEvent(first, station, reader.Id, reader.Name, 2, -40, DateTime.Now.AddMinutes(1), RfidAntennaPurpose.Gate));
+            await MainWindow.Settle();
+            var records = await AppServices.GateAlarms.GetForTagAsync(first);
+            if (again?.Outcome != GateOutcome.OpenAlarm || records.Count != 1 || records[0].Passes != 2 || !Sounds.SirenOn)
+                failures.Add($"a second pass with the alarm open gave {again?.Outcome}, {records.Count} record(s), siren {(Sounds.SirenOn ? "on" : "off")}; expected the open alarm again, one record, siren on");
+
+            // A second piece passes: it joins the same window.
+            device?.Place(2, second);
+            await WaitFor(() => Dialogs.GateAlarmWindow.Current?.Alarms.Count == 2);
+            window = Dialogs.GateAlarmWindow.Current;
+            device?.Remove(2, second);
+            if (window?.Alarms.Count != 2) failures.Add($"a second piece at the gate gave {window?.Alarms.Count} alarm(s) in the window, expected 2");
+
+            // The first is brought back (a supervisor resolves it); the customer comes back and pays for the second.
+            if (window?.Alarms.FirstOrDefault(a => a.Epc == first) is { } back && !await window.ResolveAsync(back, GateAlarmResolution.BackInStock))
+                failures.Add("resolving the gate alarm as back in stock failed");
+            if (await Flag(first) != ItemTagStatus.InStock) failures.Add($"back in stock left flag {await Flag(first)}, expected 1");
+            if (Dialogs.GateAlarmWindow.Current?.Alarms.Count != 1) failures.Add("the window does not show the one alarm left");
+            await pos.Vm.ClearSaleAsync(ask: false);
+            await pos.Vm.OnTagAsync(new Rfid.RfidTagEvent(second, station, reader.Id, reader.Name, 1, -40, DateTime.Now));
+            if (!pos.Vm.Lines.Any(l => l.Epcs.Contains(second))) failures.Add($"a piece at flag 3 could not be rung up: {pos.Vm.Message}");
+            var cash = Money.RoundToMinimumTender(pos.Vm.Total, AppServices.Settings.MinimumTender);
+            if (!await pos.Vm.PostAsync([new TenderEntry("Cash", TenderKind.Cash, cash, cash)])) failures.Add("the sale of the piece at flag 3 was not saved");
+            var paid = (await AppServices.GateAlarms.GetForTagAsync(second)).SingleOrDefault();
+            if (await Flag(second) != ItemTagStatus.Sold || paid?.Resolution != GateAlarmResolution.SoldAfterwards || paid.SoldOnInvoice is null)
+                failures.Add($"selling the piece at flag 3 gave flag {await Flag(second)} and alarm {paid?.Resolution}; expected Sold and sold afterwards");
+            if (Dialogs.GateAlarmWindow.Current is not null || Sounds.SirenOn) failures.Add("the gate alarm window stayed open (or the siren on) with no alarm left");
+            Log.Write("Exit gate check done: silenced, back again, one window for two pieces, back in stock, sold afterwards");
+        }
+        finally
+        {
+            Dialogs.GateAlarmWindow.Current?.Close();
+            Sounds.StopSiren();
+            pos.Vm.StopRfid();
+            await pos.Vm.ClearSaleAsync(ask: false);
             await AppServices.RfidData.DeleteReaderAsync(reader.Id);
             AppServices.Config.RfidMode = mode;
             await AppServices.StartRfidAsync();

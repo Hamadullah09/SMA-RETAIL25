@@ -102,6 +102,7 @@ public partial class RetailPlusDbContext(DbContextOptions<RetailPlusDbContext> o
     public DbSet<RfidReader> RfidReaders => Set<RfidReader>();
     public DbSet<RfidAntenna> RfidAntennas => Set<RfidAntenna>();
     public DbSet<ItemTag> ItemTags => Set<ItemTag>();
+    public DbSet<GateAlarm> GateAlarms => Set<GateAlarm>();
     public DbSet<ItemPicture> ItemPictures => Set<ItemPicture>();
     public DbSet<ImportBatch> ImportBatches => Set<ImportBatch>();
     public DbSet<ImportSourceRow> ImportSourceRows => Set<ImportSourceRow>();

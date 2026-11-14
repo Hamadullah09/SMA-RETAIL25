@@ -306,7 +306,11 @@ public sealed class SalesService(DataContext data)
         public decimal Left { get; set; }
     }
 
-    /// <summary>RFID tags of sold lines become Sold, of returned lines In stock; <paramref name="sign"/> -1 undoes a sale.</summary>
+    /// <summary>
+    /// RFID tags of sold lines become Sold (flag 2), of returned lines In stock (flag 1); <paramref name="sign"/> -1 undoes a
+    /// sale. A tag sold with an open gate alarm (flag 3: the customer came back and paid) has its alarm resolved as sold
+    /// afterwards.
+    /// </summary>
     private static async Task UpdateTagsAsync(RetailPlusDbContext db, Sale sale, int sign)
     {
         var sold = sale.Lines.Where(l => l.Kind == SaleLineKind.Sale).SelectMany(l => l.Tags).Select(t => t.Epc).ToList();
@@ -317,6 +321,7 @@ public sealed class SalesService(DataContext data)
         if (sold.Count > 0)
             await db.ItemTags.Where(t => sold.Contains(t.Epc)).ExecuteUpdateAsync(s => s
                 .SetProperty(t => t.Status, ItemTagStatus.Sold).SetProperty(t => t.SoldAt, at).SetProperty(t => t.SoldOnInvoice, invoice).Edited());
+        if (sign > 0) await GateAlarmService.ResolveSoldAsync(db, sold, invoice, at, sale.Staff, sale.StaffId);
         if (returned.Count > 0)
             await db.ItemTags.Where(t => returned.Contains(t.Epc)).ExecuteUpdateAsync(s => s
                 .SetProperty(t => t.Status, ItemTagStatus.InStock).SetProperty(t => t.SoldAt, (DateTime?)null).SetProperty(t => t.SoldOnInvoice, (long?)null).Edited());

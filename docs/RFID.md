@@ -24,8 +24,11 @@ reader's four antenna ports are given to POS stations by an administrator.
 
 * **One owner per reader.** A D2184 accepts one TCP client, so exactly one process talks to each reader: the RFID
   hub. Stations never connect to readers directly when there is a hub.
-* **Antenna → station.** Each antenna port has a station number. The hub reads an antenna only while that station's
-  POS screen is open (someone is listening), so idle counters do not transmit.
+* **Antenna → station.** Each antenna port has a station number and a purpose: *Point of sale* (the counter),
+  *Tag registration*, *Exit gate* or *Shelf*. The hub reads an antenna only while someone at that station listens to
+  antennas of its purpose: the POS screen hears point-of-sale antennas only, the exit-gate alarm hears gate antennas
+  only (all the time the program runs), and registering tags or counting stock hears every antenna but the gate's. So
+  idle counters do not transmit, and a tag passing the gate is never rung up.
 * **Connected from the moment the program opens.** The app starts RFID before the login window: every reader is
   connected straight away and kept connected: a keep-alive every 5 seconds notices a pulled cable, and a lost reader is
   tried again every 1 to 5 seconds, at once when Windows reports a network change (a cable plugged back in), so it is
@@ -133,8 +136,8 @@ writes to the server, so a stolen hub PC can read reader addresses and settings 
 |---|---|---|
 | GET | `/health` | Up, where the readers come from (`source`, `store`, `loaded`), number of readers, connected readers |
 | GET | `/readers` | Live status of every reader (state, last error, tags read, active antennas, firmware) |
-| GET | `/stations/{n}/events` | Server-sent events: one JSON tag read per `data:` line, for station *n* (used by the app) |
-| GET (WebSocket) | `/stations/{n}/ws` | The same tag reads as WebSocket text messages, for browsers and other programs |
+| GET | `/stations/{n}/events` | Server-sent events: one JSON tag read per `data:` line, for station *n* (used by the app). `?purposes=PointOfSale,Gate` limits it to antennas for those purposes; each read carries its antenna's `purpose` |
+| GET (WebSocket) | `/stations/{n}/ws` | The same tag reads as WebSocket text messages, for browsers and other programs (also `?purposes=`) |
 | POST | `/reload` | Re-read readers and assignments from the database or the server (also done every `--poll` seconds) |
 | GET | `/readers/{id}/info` | Read firmware, temperature, power, region, profile, DRM, detection, fast TID, GPIO |
 | POST | `/readers/{id}/apply` | Write the stored settings to the reader |
@@ -147,9 +150,9 @@ writes to the server, so a stolen hub PC can read reader addresses and settings 
 A tag (EPC) is matched to an item in this order:
 
 1. **Registered tag**: *Inventory › item › RFID tags* lists the tags on that item (type the code, or *Read tags at
-   this counter* to register everything the station's antenna sees for 10 seconds). Registered tags are tracked: a
-   sale marks the tag *Sold*, a void or return puts it back *In stock*, and the POS refuses a sold tag unless
-   *Return / refund* is on.
+   this counter* to register everything the station's antennas, apart from the exit gate, see for 10 seconds).
+   Registered tags are tracked by a flag (below): a sale marks the tag *Sold*, a void or return puts it back *In
+   stock*, and the POS refuses a sold tag unless *Return / refund* is on.
 2. **GS1 SGTIN-96**: tags encoded from the product barcode (header 0x30) are decoded to the GTIN and matched to the
    item's stock code or supplier code (14-, 13- and 12-digit forms), so supplier-tagged goods need no registration.
 3. **Item code as text**: tags whose EPC holds the stock code in ASCII.
@@ -165,6 +168,56 @@ the line the same way. Serialized items, gift cards and weighed goods keep a lin
 quantity or removing the line puts its tags aside, so they are not added again while they lie on the antenna, and tags
 sold in the last ten minutes are ignored too. The sale keeps every tag of every line (`SaleLineTags`), so a void puts
 all of them back in stock.
+
+### Tag flags
+
+Every registered tag shows a flag at the till (*RFID tags* tab of the item, with the number of tags at each flag):
+
+| Flag | Status (`ItemTags.Status`) | Meaning |
+|---|---|---|
+| 1 | `InStock` | In the shop, ready to sell. Registering a tag, a return, a void, or *Back in stock* after a gate alarm |
+| 2 | `Sold` | Sold (with the time and invoice) |
+| 3 | `Unsold` | Not sold, and read by the exit gate: the gate alarm went off |
+| – | `Lost` | Written off: *Left the store* after a gate alarm (or carried over from Retail Plus) |
+
+The status is stored by name, so `Unsold` was added without changing the stored values of the others. Flag 3 is still
+the shop's stock: the limit on how many tagged pieces of an item a sale may take counts flags 1 and 3. The CSV
+exchange keeps writing `SSTATUS` 1 for sold and 0 for anything else.
+
+## Exit gate alarm
+
+An antenna at the shop's door is given the purpose *Exit gate* and the station of the till that should sound
+(*RFID readers › Antennas and stations*, or the reader's *Antennas* tab). That till listens to its gate antennas from
+the moment the program starts, before anyone signs in, whatever screen is open. A station that uses an RFID hub on
+another computer needs a hub of this version: an older hub sends every read without its antenna's purpose, so the
+gate stays silent (and its reads would reach the sale, as before).
+
+* **A piece that was not sold** (flag 1, or 3 without an open alarm) read at the gate gets flag 3 and an open gate
+  alarm (`GateAlarms`: tag code, tag, item with its code, name and price at that moment, location, store, station,
+  reader and antenna, time). The till plays a loud siren, made in code, over and over until someone presses
+  *Silence*, and opens a red window on top of every window of the program with the item's name, PLU, price, tag code
+  and time. Pieces passing together are listed in the same window.
+* **A sold piece** (flag 2), a lost one, and **a code no tag has** pass without an alarm (logged at debug level,
+  `RETAILPLUS_DEBUG=1`).
+* **A piece whose alarm is still open** brings the window back and sounds again, without a second alarm (the alarm
+  counts its passes).
+* **One pass is one read.** A gate antenna reads a tag many times as it passes, and the hub repeats a tag that stays
+  in the field every few seconds; a read counts as a new pass only after the tag was not read for 10 seconds.
+
+**Resolving.** *Silence* (Esc) needs nobody's approval. Each item is then resolved in the window as *Back in stock*
+(it was brought back: flag 1) or *Left the store* (the tag becomes *Lost*). That needs a supervisor (`pos.approve`):
+the signed-in user when they have it, otherwise someone who signs in for it in the till's *Approval needed* window,
+also while nobody is signed in. The alarm keeps who resolved it and when. Closing the window leaves the alarms open:
+*Ctrl+K › Exit gate alarms* shows them again, and the next pass of one of their items brings the window back.
+
+**Paying afterwards.** A piece at flag 3 can be rung up as usual: the sale marks the tag sold and resolves its open
+alarm as *sold afterwards*, with the invoice. A later return puts the tag back to flag 1 as before.
+
+**Records.** The audit log has a *Gate alarm* line when an alarm goes off and a *Gate alarm resolved* line when it is
+resolved (by whom, and how). Gate alarms belong to their store and station: they go up to the server with the till's
+next sync and down to the other tills of the store, like other store records; the tag's flag travels with the item's
+tags. The decision itself is `GateRules` and `GateDebouncer` (`RetailPlus.Core`) and `GateAlarmService`
+(`RetailPlus.Data`); the window and the siren only show it.
 
 ### Why TCP, server-sent events and WebSocket
 
@@ -200,4 +253,5 @@ Tested on a real D2184 (firmware 6.09): discovery, reading settings, return loss
 both server-sent events and WebSocket.
 
 A reader whose IP address is `sim` is simulated (no hardware); demo tags go in its *Notes*, one `antenna:EPC` per
-line. The tests and the app's `--smoke` check use this.
+line. The tests and the app's `--smoke` check use this; the smoke check drives the exit gate with one (a piece in
+stock, a sold piece and an unknown tag at a gate antenna, then silence, a second pass, back in stock and a sale).

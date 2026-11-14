@@ -1,4 +1,5 @@
 using RetailPlus.Core.Model;
+using RetailPlus.Core.Rules;
 using RetailPlus.Data.Services;
 using RetailPlus.Devices;
 using RetailPlus.Integrations;
@@ -29,6 +30,8 @@ public static class AppServices
     public static ReportService Reports { get; private set; } = null!;
     public static CsvExchange Csv { get; private set; } = null!;
     public static RfidService RfidData { get; private set; } = null!;
+    /// <summary>The exit-gate alarm (one for the program: it remembers the tags the gate just read).</summary>
+    public static GateAlarmService GateAlarms { get; private set; } = null!;
     public static StaffService Staff { get; private set; } = null!;
     public static AuditService Audit { get; private set; } = null!;
     public static StockCountService StockCounts { get; private set; } = null!;
@@ -60,6 +63,15 @@ public static class AppServices
     /// <summary>True when the program was started for an automated check (no printing, no message boxes).</summary>
     public static bool Unattended { get; set; }
 
+    /// <summary>True when the program opened without a sign-in (a database without users, or an automated check).</summary>
+    public static bool OpenWithoutSignIn { get; set; }
+
+    /// <summary>
+    /// True once someone signed in (or nobody needs to). Before that the session allows everything, as for a database
+    /// without users, so what can come up at the sign-in window (the gate alarm) asks for an approval instead.
+    /// </summary>
+    public static bool SignedIn => Session.UserId is not null || OpenWithoutSignIn;
+
     public static void Initialize(StationConfig config)
     {
         Config = config;
@@ -76,6 +88,7 @@ public static class AppServices
         Reports = new ReportService(Data);
         Csv = new CsvExchange(Data);
         RfidData = new RfidService(Data);
+        GateAlarms = new GateAlarmService(Data);
         Staff = new StaffService(Data);
         Audit = new AuditService(Data);
         StockCounts = new StockCountService(Data);
@@ -283,7 +296,84 @@ public static class AppServices
             Log.Write("RFID could not start: " + ex.Message);
             Rfid = null;
         }
+        StartGateWatch();
         RfidChanged?.Invoke();
+    }
+
+    // Exit gate -------------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Raised on the UI thread when this station's exit gate sounds: a tagged item that was not sold went through it (a
+    /// new alarm, or one still open). The alarm window shows it, on top of every screen.
+    /// </summary>
+    public static event Action<GateReadResult>? GateAlarmRaised;
+
+    private static CancellationTokenSource? _gateWatch;
+
+    /// <summary>
+    /// Listens to this station's exit-gate antennas for as long as RFID runs, whoever is signed in and whatever screen is
+    /// open (from before the sign-in window). The hub reads gate antennas only, so the counter's antennas stay quiet.
+    /// </summary>
+    private static void StartGateWatch()
+    {
+        StopGateWatch();
+        if (Rfid is not { } rfid) return;
+        var stop = _gateWatch = new CancellationTokenSource();
+        _ = WatchGateAsync(rfid, Session.StationNumber, stop.Token);
+    }
+
+    private static void StopGateWatch()
+    {
+        _gateWatch?.Cancel();
+        _gateWatch?.Dispose();
+        _gateWatch = null;
+    }
+
+    private static async Task WatchGateAsync(IRfidControl rfid, int station, CancellationToken stop)
+    {
+        try
+        {
+            await foreach (var read in rfid.ListenAsync(station, RfidListen.Gate, stop))
+                await OnGateReadAsync(read);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            Log.Write("Exit gate stopped listening: " + ex.Message);
+        }
+    }
+
+    /// <summary>A read of this station's exit-gate antenna (the automated check sends some itself).</summary>
+    public static async Task<GateReadResult?> OnGateReadAsync(RfidTagEvent read)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        GateReadResult result;
+        try
+        {
+            result = await GateAlarms.ReadAsync(new GateRead(read.Epc, read.StationNumber, read.SeenAt, read.ReaderName, read.Antenna));
+        }
+        catch (Exception ex)
+        {
+            Log.Write($"Exit gate, tag {read.Epc}: {ex.Message}");
+            return null;
+        }
+        switch (result.Outcome)
+        {
+            case GateOutcome.Unknown:
+                Log.Debug($"Exit gate: tag {result.Epc} is not registered to an item; no alarm.");
+                break;
+            case GateOutcome.Sold or GateOutcome.Lost:
+                Log.Debug($"Exit gate: tag {result.Epc} is {result.Outcome.ToString().ToLowerInvariant()}; no alarm.");
+                break;
+            case GateOutcome.NewAlarm or GateOutcome.OpenAlarm:
+                Log.Write($"Exit gate alarm{(result.Outcome == GateOutcome.OpenAlarm ? " (still open)" : "")}: {result.Alarm!.Plu} {result.Alarm.ItemName}, tag {result.Epc}, "
+                          + $"{read.ReaderName} antenna {read.Antenna}");
+                break;
+        }
+        if (result.Sounds) GateAlarmRaised?.Invoke(result);
+        return result;
     }
 
     /// <summary>Name of the shop-wide setting that sends every Automatic station to one RFID hub.</summary>
@@ -352,6 +442,7 @@ public static class AppServices
 
     public static async Task StopRfidAsync()
     {
+        StopGateWatch();
         RfidHubAddress = null;
         if (_localHub is not null)
         {

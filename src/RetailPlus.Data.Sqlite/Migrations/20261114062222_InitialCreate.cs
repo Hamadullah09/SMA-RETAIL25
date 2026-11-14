@@ -3916,6 +3916,58 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "GateAlarms",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StoreId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    StationNumber = table.Column<int>(type: "INTEGER", nullable: false),
+                    LocationId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    Epc = table.Column<string>(type: "TEXT", unicode: false, maxLength: 128, nullable: false, collation: "NOCASE"),
+                    TagId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    ItemId = table.Column<Guid>(type: "TEXT", nullable: false),
+                    VariantId = table.Column<Guid>(type: "TEXT", nullable: true),
+                    Plu = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false, collation: "NOCASE"),
+                    ItemName = table.Column<string>(type: "TEXT", maxLength: 60, nullable: false, collation: "NOCASE"),
+                    Price = table.Column<decimal>(type: "TEXT", precision: 12, scale: 2, nullable: false),
+                    ReaderName = table.Column<string>(type: "TEXT", maxLength: 40, nullable: true, collation: "NOCASE"),
+                    Antenna = table.Column<int>(type: "INTEGER", nullable: false),
+                    RaisedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
+                    LastSeenAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: false),
+                    Passes = table.Column<int>(type: "INTEGER", nullable: false),
+                    Resolution = table.Column<string>(type: "TEXT", maxLength: 16, nullable: false),
+                    ResolvedAt = table.Column<DateTime>(type: "TEXT", precision: 0, nullable: true),
+                    ResolvedBy = table.Column<string>(type: "TEXT", maxLength: 50, nullable: true, collation: "NOCASE"),
+                    ResolvedById = table.Column<Guid>(type: "TEXT", nullable: true),
+                    SoldOnInvoice = table.Column<long>(type: "INTEGER", nullable: true),
+                    SyncEditedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false),
+                    UpdatedAtUtc = table.Column<DateTime>(type: "TEXT", precision: 3, nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_GateAlarms", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_GateAlarms_Items_ItemId",
+                        column: x => x.ItemId,
+                        principalTable: "Items",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_GateAlarms_Locations_LocationId",
+                        column: x => x.LocationId,
+                        principalTable: "Locations",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "FK_GateAlarms_Stores_StoreId",
+                        column: x => x.StoreId,
+                        principalTable: "Stores",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ItemBatches",
                 columns: table => new
                 {
@@ -6120,6 +6172,41 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 column: "UpdatedAtUtc");
 
             migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_Epc_Resolution",
+                table: "GateAlarms",
+                columns: new[] { "Epc", "Resolution" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_ItemId",
+                table: "GateAlarms",
+                column: "ItemId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_LocationId",
+                table: "GateAlarms",
+                column: "LocationId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_RaisedAt",
+                table: "GateAlarms",
+                column: "RaisedAt");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_StationNumber_Resolution",
+                table: "GateAlarms",
+                columns: new[] { "StationNumber", "Resolution" });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_StoreId",
+                table: "GateAlarms",
+                column: "StoreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_GateAlarms_UpdatedAtUtc",
+                table: "GateAlarms",
+                column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_GiftCards_ClientId",
                 table: "GiftCards",
                 column: "ClientId");
@@ -8164,6 +8251,9 @@ namespace RetailPlus.Data.Sqlite.Migrations
 
             migrationBuilder.DropTable(
                 name: "FxRates");
+
+            migrationBuilder.DropTable(
+                name: "GateAlarms");
 
             migrationBuilder.DropTable(
                 name: "GiftCardTransactions");

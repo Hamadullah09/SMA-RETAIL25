@@ -217,9 +217,22 @@ public static class HelpTopics
                     "When the counter's antenna reads a tagged item it is added to the sale by itself, with a beep. Tagged pieces already sold are not added again.",
                     "The RFID pill on the POS pauses and resumes reading (Ctrl+Shift+P). The chip at the top of the window says whether the readers are connected.",
                 ]),
+            new("Tag flags",
+                Paragraphs:
+                [
+                    "Every tagged piece has a flag: 1 in stock, ready to sell; 2 sold; 3 unsold at the gate (it went through the exit gate without being sold). A piece written off after a gate alarm is Lost. The item's RFID tags tab shows each tag's flag and how many tags have each one.",
+                    "A sale gives flag 2, a return or void flag 1 again. Pieces at flag 3 still count as stock when the till checks how many tagged pieces can be sold.",
+                ]),
+            new("Exit gate alarm",
+                Paragraphs:
+                [
+                    "An antenna set to Exit gate in RFID readers, and given to this station, watches the door. When a piece that was not sold goes through, it gets flag 3, a siren sounds at this till and a red window shows the item, its PLU, price, tag code and the time, on top of every screen, also before anyone has signed in. Pieces passing together are listed in one window. Sold pieces and unknown tags pass without an alarm.",
+                    "Silence (Esc) stops the siren; it needs no supervisor. Then, for each item, press Back in stock when it was brought back (flag 1 again) or Left the store when it is gone (the tag becomes Lost). That needs a supervisor: the one signed in, or one who signs in for it in the Approval needed window. Who resolved it and when is kept, and the audit log has a line for every alarm and every resolution.",
+                    "Closing the window leaves the alarms open: Ctrl+K › Exit gate alarms shows them again, and the next pass of one of the items brings the window back with the siren. If the customer comes back and pays, ring the piece up as usual: the tag becomes sold and its alarm is resolved by the sale.",
+                ]),
             new("Setting up readers",
-                Paragraphs: ["RFID readers lists the readers, their four antennas and the station each antenna serves. Find readers searches the network. A site with many readers runs the RFID hub on one PC, and every station points at it in Setup › This station."]),
-        ], "rfid tag epc reader antenna hub"),
+                Paragraphs: ["RFID readers lists the readers, their four antennas and the station each antenna serves. Find readers searches the network. A site with many readers runs the RFID hub on one PC, and every station points at it in Setup › This station. Give an antenna the purpose Exit gate to use it for the gate alarm; only Point of sale antennas add items to the sale."]),
+        ], "rfid tag epc reader antenna hub gate alarm siren flag unsold theft"),
 
         new("clients", "Clients", "Customer records, bonus points and accounts.", "clients",
         [

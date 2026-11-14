@@ -126,7 +126,8 @@ app.MapPost("/readers/{id:guid}/gpio", (Guid id, int gpio, bool high, RfidHub hu
 }));
 
 // Server-sent events: one "data:" line of JSON per tag read, and a comment every 15 seconds so idle connections stay open.
-app.MapGet("/stations/{station:int}/events", async (int station, HttpContext context, RfidHub hub) =>
+// ?purposes=PointOfSale,Gate limits a stream to the antennas for those purposes (the sale, the exit-gate alarm).
+app.MapGet("/stations/{station:int}/events", async (int station, string? purposes, HttpContext context, RfidHub hub) =>
 {
     var ct = context.RequestAborted;
     context.Response.Headers.ContentType = "text/event-stream";
@@ -160,7 +161,7 @@ app.MapGet("/stations/{station:int}/events", async (int station, HttpContext con
     }, CancellationToken.None);
     try
     {
-        await foreach (var e in hub.ListenAsync(station, ct))
+        await foreach (var e in hub.ListenAsync(station, RfidListen.Parse(purposes), ct))
             await Send("data: " + JsonSerializer.Serialize(e, json) + "\n\n");
     }
     catch (OperationCanceledException)
@@ -171,7 +172,7 @@ app.MapGet("/stations/{station:int}/events", async (int station, HttpContext con
 
 // WebSocket: the same tag reads as text messages (one JSON object each), for browsers and other programs.
 app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(15) });
-app.Map("/stations/{station:int}/ws", async (int station, HttpContext context, RfidHub hub) =>
+app.Map("/stations/{station:int}/ws", async (int station, string? purposes, HttpContext context, RfidHub hub) =>
 {
     if (!context.WebSockets.IsWebSocketRequest)
     {
@@ -201,7 +202,7 @@ app.Map("/stations/{station:int}/ws", async (int station, HttpContext context, R
     }, CancellationToken.None);
     try
     {
-        await foreach (var e in hub.ListenAsync(station, done.Token))
+        await foreach (var e in hub.ListenAsync(station, RfidListen.Parse(purposes), done.Token))
             await socket.SendAsync(JsonSerializer.SerializeToUtf8Bytes(e, json), System.Net.WebSockets.WebSocketMessageType.Text, true, done.Token);
     }
     catch (Exception ex) when (ex is OperationCanceledException or System.Net.WebSockets.WebSocketException)

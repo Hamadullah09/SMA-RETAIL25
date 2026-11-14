@@ -36,7 +36,10 @@ public enum RfidLinkProfile
     Profile3 = 3,
 }
 
-/// <summary>What an antenna is used for. Only point-of-sale antennas send reads to a station's sale.</summary>
+/// <summary>
+/// What an antenna is used for. Only point-of-sale antennas send reads to a station's sale; exit-gate antennas sound the
+/// gate alarm at their station for tagged items that were not sold.
+/// </summary>
 public enum RfidAntennaPurpose
 {
     PointOfSale,
@@ -115,11 +118,20 @@ public class RfidAntenna : Entity
     public int? StationNumber { get; set; }
 }
 
+/// <summary>
+/// Where a tagged piece is. Stored by name, so values can be added without changing the stored ones. The till shows the
+/// shop's flag numbers (see <see cref="Rules.TagFlags"/>): 1 in stock, 2 sold, 3 unsold at the gate.
+/// </summary>
 public enum ItemTagStatus
 {
+    /// <summary>Flag 1: in the shop, ready to sell.</summary>
     InStock,
+    /// <summary>Flag 2: sold.</summary>
     Sold,
+    /// <summary>Gone without being sold, as decided when a gate alarm was resolved (or carried over from Retail Plus).</summary>
     Lost,
+    /// <summary>Flag 3: not sold, and read by an exit-gate antenna (a <see cref="GateAlarm"/> went off). Still the shop's stock.</summary>
+    Unsold,
 }
 
 /// <summary>An RFID tag (EPC) attached to one physical item, so ringing it up twice or walking out with it can be told.</summary>
@@ -134,6 +146,58 @@ public class ItemTag : Entity
     public DateTime RegisteredAt { get; set; }
     public DateTime? SoldAt { get; set; }
     public long? SoldOnInvoice { get; set; }
+}
+
+/// <summary>What became of a gate alarm.</summary>
+public enum GateAlarmResolution
+{
+    /// <summary>Not dealt with yet.</summary>
+    Open,
+    /// <summary>The item was brought back: its tag is in stock again (flag 1).</summary>
+    BackInStock,
+    /// <summary>The item left the store: its tag is Lost.</summary>
+    LeftStore,
+    /// <summary>The customer came back and paid: the tag was sold afterwards.</summary>
+    SoldAfterwards,
+}
+
+/// <summary>
+/// A tagged item that was not sold, read by an exit-gate antenna: the alarm went off at the station the gate antenna
+/// belongs to. One alarm stays open per tag until someone resolves it at the till, or the item is sold. The item's code,
+/// name and price are kept as they were at that moment.
+/// </summary>
+public class GateAlarm : Entity, IStationStamped
+{
+    public Guid StoreId { get; set; }
+    /// <summary>The station whose gate antenna read the tag (where the alarm sounded).</summary>
+    public int StationNumber { get; set; }
+    /// <summary>The location of the item the tag belongs to.</summary>
+    public Guid LocationId { get; set; }
+    /// <summary>Upper-case hexadecimal, as <see cref="ItemTag.Epc"/>; the tag is found by it.</summary>
+    public string Epc { get; set; } = "";
+    public Guid? TagId { get; set; }
+    public Guid ItemId { get; set; }
+    public Guid? VariantId { get; set; }
+    public string Plu { get; set; } = "";
+    public string ItemName { get; set; } = "";
+    public decimal Price { get; set; }
+    public string? ReaderName { get; set; }
+    public int Antenna { get; set; }
+    /// <summary>When the gate first read the tag (the station's local time).</summary>
+    public DateTime RaisedAt { get; set; }
+    /// <summary>When the gate last read the tag while the alarm was open.</summary>
+    public DateTime LastSeenAt { get; set; }
+    /// <summary>How many times the tag went through the gate while the alarm was open (1 at first).</summary>
+    public int Passes { get; set; } = 1;
+    public GateAlarmResolution Resolution { get; set; }
+    public DateTime? ResolvedAt { get; set; }
+    /// <summary>The user who resolved it (the supervisor who approved it), or the cashier of the sale that sold it.</summary>
+    public string? ResolvedBy { get; set; }
+    public Guid? ResolvedById { get; set; }
+    /// <summary>The invoice that sold the item afterwards.</summary>
+    public long? SoldOnInvoice { get; set; }
+
+    public bool IsOpen => Resolution == GateAlarmResolution.Open;
 }
 
 /// <summary>

@@ -360,7 +360,8 @@ public sealed partial class PosViewModel : ObservableObject
     private async Task<(decimal InStock, decimal Left)?> TaggedPiecesAsync(Item item)
     {
         if (!SalesService.IsStocked(item.ItemType)) return null;
-        int tagged = await AppServices.RfidData.CountTagsAsync(item.Id, ItemTagStatus.InStock);
+        // Flag 1 and flag 3 (unsold at the gate): both are the shop's stock.
+        int tagged = await AppServices.RfidData.CountShopStockTagsAsync(item.Id);
         if (tagged == 0) return null;
         decimal inStock = Math.Max(tagged, item.OnHand);
         decimal onSale = Lines.Where(l => l.ItemId == item.Id && l.Kind == SaleLineKind.Sale).Sum(l => l.Quantity);
@@ -689,6 +690,8 @@ public sealed partial class PosViewModel : ObservableObject
         }
         _lastSale = sale;
         foreach (var t in sale.Lines.SelectMany(l => l.Tags)) _recentlySold[t.Epc] = DateTime.Now;
+        // A piece with a gate alarm that the customer came back to pay for: its alarm was resolved with the sale.
+        if (sale.Lines.Any(l => l.Tags.Count > 0)) await GateAlarmWindow.UpdateOpenAsync();
         var change = tenders.Sum(t => t.Change);
         var kinds = await AppServices.Setup.GetTenderTypesAsync(false);
         bool open = tenders.Any(t => kinds.FirstOrDefault(k => k.Name == t.TenderType)?.OpensDrawer ?? t.Kind == TenderKind.Cash);
@@ -951,7 +954,8 @@ public sealed partial class PosViewModel : ObservableObject
             int n = antennas.Count(a => a.IsEnabled && a.Purpose == RfidAntennaPurpose.PointOfSale);
             RfidText = n == 0 ? "RFID: no antenna for this counter" : $"RFID on · {n} antenna{(n == 1 ? "" : "s")}";
             RfidBrush = n == 0 ? Look.Brush("Sun") : Look.Brush("Ok");
-            await foreach (var tag in rfid.ListenAsync(Session.StationNumber, cancellationToken))
+            // Point-of-sale antennas only: the exit gate's reads go to the gate alarm, never to the sale.
+            await foreach (var tag in rfid.ListenAsync(Session.StationNumber, RfidListen.Sale, cancellationToken))
                 await OnTagAsync(tag);
         }
         catch (OperationCanceledException)

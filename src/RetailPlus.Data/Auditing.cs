@@ -73,6 +73,8 @@ public static class AuditActions
     public const string MatchRejected = "Bill line rejected";
     public const string LandedCostPosted = "Landed cost posted";
     public const string BatchAdjusted = "Batch adjusted";
+    public const string GateAlarm = "Gate alarm";
+    public const string GateAlarmResolved = "Gate alarm resolved";
 }
 
 /// <summary>

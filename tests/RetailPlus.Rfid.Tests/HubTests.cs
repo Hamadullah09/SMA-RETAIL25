@@ -48,6 +48,90 @@ public class HubTests
         Assert.All(one, e => Assert.Equal(1, e.StationNumber));
     }
 
+    private static async Task<List<RfidTagEvent>> Collect(RfidHub hub, int station, IReadOnlySet<RfidAntennaPurpose>? purposes, TimeSpan time)
+    {
+        var list = new List<RfidTagEvent>();
+        using var cts = new CancellationTokenSource(time);
+        try
+        {
+            await foreach (var e in hub.ListenAsync(station, purposes, cts.Token)) list.Add(e);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        return list;
+    }
+
+    /// <summary>A reader whose antenna 1 is the counter of station 1 and antenna 2 the exit gate of the same station.</summary>
+    private static RfidReader CounterAndGate(int station) => new()
+    {
+        Id = Id(1), Name = "R1", Host = "sim", Port = 4001, RssiThresholdDbm = -70, DedupSeconds = 60,
+        Antennas =
+        [
+            new RfidAntenna { Port = 1, StationNumber = station, IsEnabled = true, Purpose = RfidAntennaPurpose.PointOfSale },
+            new RfidAntenna { Port = 2, StationNumber = station, IsEnabled = true, Purpose = RfidAntennaPurpose.Gate },
+        ],
+    };
+
+    [Fact]
+    public async Task Exit_gate_reads_go_to_the_gate_alarm_and_never_to_the_sale()
+    {
+        var readers = new List<RfidReader> { CounterAndGate(1) };
+        await using var hub = new RfidHub(_ => Task.FromResult<IReadOnlyList<RfidReader>>(readers));
+        await hub.StartAsync();
+        var device = (SimulatedRfidDevice)hub.DeviceOf(Id(1))!;
+        device.Place(1, "AAAA0001");
+        device.Place(2, "6A7E0002");
+        // The same tag on both: the sale and the gate each hear it once (separate dedup).
+        device.Place(1, "BBBB0003");
+        device.Place(2, "BBBB0003");
+
+        var sale = Collect(hub, 1, RfidListen.Sale, TimeSpan.FromSeconds(1.5));
+        var gate = Collect(hub, 1, RfidListen.Gate, TimeSpan.FromSeconds(1.5));
+        var all = Collect(hub, 1, TimeSpan.FromSeconds(1.5));
+
+        var atSale = await sale;
+        var atGate = await gate;
+        Assert.Equal(["AAAA0001", "BBBB0003"], atSale.Select(e => e.Epc).Order());
+        Assert.All(atSale, e => Assert.Equal(RfidAntennaPurpose.PointOfSale, e.Purpose));
+        Assert.Equal(["6A7E0002", "BBBB0003"], atGate.Select(e => e.Epc).Order());
+        Assert.All(atGate, e => Assert.Equal((RfidAntennaPurpose.Gate, 2), (e.Purpose, e.Antenna)));
+        // A listener without purposes (the RFID screen's monitor) hears both.
+        Assert.Equal(["6A7E0002", "AAAA0001", "BBBB0003"], (await all).Select(e => e.Epc).Distinct().Order());
+    }
+
+    [Fact]
+    public async Task A_gate_antenna_is_read_only_while_the_gate_listens()
+    {
+        var reader = CounterAndGate(8);
+        reader.Antennas.RemoveAt(0);   // the gate antenna only
+        var readers = new List<RfidReader> { reader };
+        await using var hub = new RfidHub(_ => Task.FromResult<IReadOnlyList<RfidReader>>(readers));
+        await hub.StartAsync();
+        var device = (SimulatedRfidDevice)hub.DeviceOf(Id(1))!;
+        device.Place(2, "6A7E0002");
+
+        Assert.Empty(await Collect(hub, 8, RfidListen.Sale, TimeSpan.FromMilliseconds(600)));
+        Assert.Equal(0, device.Rounds);   // the POS screen listening does not switch the gate on
+        Assert.Equal(["6A7E0002"], (await Collect(hub, 8, RfidListen.Gate, TimeSpan.FromMilliseconds(600))).Select(e => e.Epc));
+        Assert.True(device.Rounds > 0);
+    }
+
+    [Fact]
+    public void Purposes_travel_in_the_query_string()
+    {
+        Assert.Equal("", RfidListen.Query(null));
+        Assert.Equal("?purposes=Gate", RfidListen.Query(RfidListen.Gate));
+        Assert.Equal("?purposes=PointOfSale,TagRegistration,Shelf", RfidListen.Query(RfidListen.Counter));
+        Assert.Equal([RfidAntennaPurpose.Gate], RfidListen.Parse("gate")!);
+        Assert.Equal([RfidAntennaPurpose.PointOfSale, RfidAntennaPurpose.Shelf], RfidListen.Parse("PointOfSale, Shelf")!.Order());
+        Assert.Null(RfidListen.Parse(null));
+        Assert.Null(RfidListen.Parse("Gate,Door"));   // a purpose this hub does not know: every antenna, as before
+        Assert.True(RfidListen.Hears(null, RfidAntennaPurpose.Gate));
+        Assert.False(RfidListen.Hears(RfidListen.Sale, RfidAntennaPurpose.Gate));
+        Assert.False(RfidListen.Hears(RfidListen.Counter, RfidAntennaPurpose.Gate));
+    }
+
     [Fact]
     public async Task Same_tag_is_reported_once_per_dedup_period_and_weak_tags_are_ignored()
     {
@@ -298,6 +382,27 @@ public class HubClientTests
         Assert.Equal("E200AA", first.Epc);
         Assert.Equal(2, first.Antenna);
         Assert.Contains("/stations/4/events", handler.Paths);
+        Assert.Equal(RfidAntennaPurpose.PointOfSale, first.Purpose);   // a hub from before purposes sends none
         Assert.Empty(await client.GetStatusAsync(cts.Token));
+    }
+
+    [Fact]
+    public async Task The_gate_asks_the_hub_for_gate_reads_and_drops_the_others()
+    {
+        var body = ": station 4\n\n" +
+                   "data: {\"epc\":\"AAAA01\",\"stationNumber\":4,\"readerId\":\"00000001-0000-0000-0000-000000000000\",\"readerName\":\"R1\",\"antenna\":1,\"rssiDbm\":-48,\"seenAt\":\"2026-11-14T10:00:00\"}\n\n" +
+                   "data: {\"epc\":\"6A7E02\",\"stationNumber\":4,\"readerId\":\"00000001-0000-0000-0000-000000000000\",\"readerName\":\"R1\",\"antenna\":2,\"rssiDbm\":-50,\"seenAt\":\"2026-11-14T10:00:01\",\"purpose\":2}\n\n";
+        var handler = new SseHandler(body);
+        using var client = new RfidHubClient("http://hub:5280", null, handler);
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        RfidTagEvent? first = null;
+        await foreach (var e in client.ListenAsync(4, RfidListen.Gate, cts.Token))
+        {
+            first = e;
+            break;
+        }
+        Assert.NotNull(first);
+        Assert.Equal(("6A7E02", RfidAntennaPurpose.Gate), (first.Epc, first.Purpose));
+        Assert.Contains("/stations/4/events?purposes=Gate", handler.Paths);
     }
 }

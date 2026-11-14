@@ -93,6 +93,10 @@ public sealed class SyncPolicy
         policy.Everywhere<GiftCard>(SyncFlow.Both);
         policy.Everywhere<GiftCardTransaction>(SyncFlow.Both);
         policy.Everywhere<LoyaltyTransaction>(SyncFlow.Both);
+        // Gate alarms (a tagged item that was not sold, read by an exit-gate antenna) are raised and resolved at the till
+        // with the gate. They go up to the server and down to the other tills of their store, like other store records;
+        // the tag's flag travels with the item's tags.
+        policy.Table<GateAlarm>(SyncFlow.Both);
         // HR and payroll tables stay on the server (ILocalOnly); so do the audit lines about them, which would otherwise go
         // down to the tills of the store they were written for. So do the lines about ledger entries, which also stay on the
         // server and in which payroll names employees with their pay and loans. A till's own audit lines go up as before.

@@ -177,6 +177,7 @@ public sealed class CommandPalette : Window
             list.Add(new PaletteCommand("Back up the database now", "Action", "backup copy save", () => Open<ToolsView>("tools")?.BackUpNow()));
         if (AppServices.Can(Permissions.TimeClockPunch))
             list.Add(new PaletteCommand("Punch in or out", "Action", "time clock shift start end", () => new PunchWindow { Owner = main }.ShowDialog(), "Ctrl+T"));
+        list.Add(new PaletteCommand("Exit gate alarms", "Action", "rfid gate alarm unsold theft door siren", () => _ = GateAlarmWindow.ShowOpenAsync()));
         list.Add(new PaletteCommand("Switch user", "Action", "log in sign in out", main.SwitchUser, "Ctrl+Shift+U"));
         list.Add(new PaletteCommand("Keyboard keys", "Action", "shortcuts hotkeys", main.ShowKeys, "Ctrl+Shift+K"));
 

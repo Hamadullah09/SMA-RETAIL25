@@ -349,7 +349,8 @@ public partial class RfidView : UserControl, IRefreshable
                     var found = await AppServices.RfidData.ResolveAsync(AppServices.Session.LocationId, tag.Epc);
                     name = _names[tag.Epc] = found is null ? "(unknown tag)" : found.Item.Name;
                 }
-                _monitorLines.Insert(0, $"{tag.SeenAt:HH:mm:ss} {tag.ReaderName}/{tag.Antenna} {tag.RssiDbm,4} dBm  {name}\n         {tag.Epc}");
+                var gate = tag.Purpose == RfidAntennaPurpose.Gate ? "  [exit gate]" : "";
+                _monitorLines.Insert(0, $"{tag.SeenAt:HH:mm:ss} {tag.ReaderName}/{tag.Antenna} {tag.RssiDbm,4} dBm  {name}{gate}\n         {tag.Epc}");
                 while (_monitorLines.Count > 100) _monitorLines.RemoveAt(_monitorLines.Count - 1);
             }
         }
