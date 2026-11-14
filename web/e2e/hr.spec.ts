@@ -187,16 +187,55 @@ test('a payroll run goes from draft to paid, each step sending its version', asy
   await page.getByRole('button', { name: /Post to the ledger/ }).click();
   await expect(page.getByText(/Posted to the ledger as entry #10000000042/)).toBeVisible();
   await page.getByRole('button', { name: /Record payment/ }).click();
-  await page.getByRole('dialog').getByRole('button', { name: /Record payment/ }).click();
+  // The pay step asks which bank account the transfers go from: the run's store's own by default, as for supplier
+  // payments, and the cash from the cash in hand unless a cash account is chosen.
+  const pay = page.getByRole('dialog', { name: /Record the payment of run #10000000001/ });
+  await expect(pay.getByLabel('Transfers from')).toHaveValue('ba-main');
+  await expect(pay.getByText('1 person by transfer, $73,645.50.')).toBeVisible();
+  await expect(pay.getByLabel('Transfers from').locator('option')).toHaveText(['HBL Company · 1051', 'Meezan Downtown (MAIN) · 1052', 'Office safe · 1053']);
+  await expect(pay.getByLabel('Cash from')).toHaveValue('');
+  await expect(pay.getByText('1 person in cash, $74,600.00.')).toBeVisible();
+  expect(api.last('GET', '/api/payroll/bank-accounts')?.query.get('storeId')).toBe('s-main');
+  await pay.getByLabel('Cash from').selectOption('ba-safe');
+  await pay.getByRole('button', { name: /Record payment/ }).click();
   await expect(page.getByText(/Paid, entry #10000000043/)).toBeVisible();
-  expect(api.last('POST', '/api/payroll/runs/run-1/pay')?.body).toMatchObject({ version: 'v-Posted', bankAccount: null, cashAccount: null });
+  expect(api.last('POST', '/api/payroll/runs/run-1/pay')?.body).toMatchObject({ version: 'v-Posted', bankAccountId: 'ba-main', cashAccountId: 'ba-safe' });
   await expect(page.getByRole('list', { name: 'Steps' }).getByText('5. Paid')).toHaveAttribute('aria-current', 'step');
+  await expect(page.getByText(/from Meezan Downtown/)).toBeVisible();
 
   await page.getByRole('tab', { name: 'Cash sheet' }).click();
   await expect(page.getByRole('row', { name: /Bilal Ahmed/ })).toContainText('$74,600.00');
   await page.getByRole('tab', { name: 'Salary sheet' }).click();
   await page.getByRole('button', { name: /Bank transfer list/ }).click();
   await expect.poll(() => api.last('GET', '/api/payroll/runs/run-1/bank-transfers')).toBeTruthy();
+});
+
+test('the pay step says when there is no bank account to pay the transfers from', async ({ page }) => {
+  const api = await mockApi(page, {
+    overrides: { 'GET /api/payroll/bank-accounts': () => ({ json: [] }) },
+  });
+  await page.goto('/hr/payroll/run/?id=run-1');
+  for (const step of [/^Calculate/, /^Approve/, /Post to the ledger/]) await page.getByRole('button', { name: step }).click();
+  await page.getByRole('button', { name: /Record payment/ }).click();
+  const pay = page.getByRole('dialog', { name: /Record the payment/ });
+  await expect(pay.getByText(/There is no bank account yet/)).toBeVisible();
+  await pay.getByRole('button', { name: /Record payment/ }).click();
+  await expect(pay.getByText('Choose the bank account the transfers go from.')).toBeVisible();
+  expect(api.last('POST', '/api/payroll/runs/run-1/pay')).toBeUndefined();
+});
+
+test('a new run is for a store or for head office, the employees with no store', async ({ page }) => {
+  const api = await mockApi(page);
+  await page.goto('/hr/payroll/');
+  await page.getByRole('button', { name: /New payroll run/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'New payroll run' });
+  await expect(dialog.getByText('A month has one run for each store and one for head office, the employees with no store.')).toBeVisible();
+  await expect(dialog.getByLabel('Who').locator('option').first()).toHaveText('Head office (no store)');
+  await dialog.getByLabel('Who').selectOption({ label: 'Head office (no store)' });
+  await dialog.getByRole('button', { name: /Start/ }).click();
+  await expect(page).toHaveURL(/\/hr\/payroll\/run\/\?id=run-1$/);
+  expect(api.last('POST', '/api/payroll/runs')?.body).toMatchObject({ storeId: null });
+  await expect(page.getByText(/^Head office \(no store\) · /)).toBeVisible();
 });
 
 test('an HR officer prepares payroll but does not approve it', async ({ page }) => {
@@ -237,9 +276,10 @@ test('loans are listed and paid', async ({ page }) => {
   await dialog.locator('#loan-employee').selectOption('e-2');
   await dialog.getByLabel('Amount').fill('12000');
   await dialog.getByLabel('Taken back a month').fill('3000');
-  await dialog.locator('#loan-from').selectOption('Bank');
+  await expect(dialog.locator('#loan-from')).toHaveValue('');   // the cash in hand, unless an account is chosen
+  await dialog.locator('#loan-from').selectOption({ label: 'Meezan Downtown (MAIN) · 1052' });
   await dialog.getByRole('button', { name: /Pay it/ }).click();
-  await expect.poll(() => api.last('POST', '/api/payroll/loans')?.body).toMatchObject({ employeeId: 'e-2', amount: 12000, instalment: 3000, paidFrom: 'Bank' });
+  await expect.poll(() => api.last('POST', '/api/payroll/loans')?.body).toMatchObject({ employeeId: 'e-2', amount: 12000, instalment: 3000, bankAccountId: 'ba-main' });
 });
 
 test('HR reports run with their parameters and download as CSV', async ({ page }) => {

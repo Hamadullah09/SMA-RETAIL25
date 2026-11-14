@@ -23,6 +23,9 @@ function paged<T>(items: T[], query: URLSearchParams) {
 export function createHrMock() {
   const runs: Record<string, RunRow['status']> = { 'run-1': 'Draft', 'run-2': 'Calculated' };
   const next: Record<string, RunRow['status']> = { calculate: 'Calculated', approve: 'Approved', reopen: 'Calculated', post: 'Posted', pay: 'Paid' };
+  // The store a new run was started for (null: head office), kept for the answers about it.
+  const scopes: Record<string, Pick<RunRow, 'storeId' | 'storeCode'>> = {};
+  const runRow = (runId: string) => ({ ...h.payrollRun(runId, runs[runId]), ...scopes[runId] });
 
   return function hrAnswer(r: Request): Answer {
     const { method, path, query } = r;
@@ -117,15 +120,22 @@ export function createHrMock() {
         return { status: 201, json: { ...h.loans[1], id: 'ln-new', number: 10000000003 } };
       case /^POST \/api\/payroll\/loans\/[^/]+\/cancel$/.test(key):
         return { json: { ...h.loans[1], status: 'Cancelled' } };
+      case key === 'GET /api/payroll/bank-accounts': {
+        const store = query.get('storeId');
+        return { json: h.payFromAccounts.filter((a) => !store || a.storeId === null || a.storeId === store) };
+      }
       case key === 'GET /api/payroll/runs':
-        return { json: Object.keys(runs).map((runId) => h.payrollRun(runId, runs[runId])) };
-      case key === 'POST /api/payroll/runs':
+        return { json: Object.keys(runs).map(runRow) };
+      case key === 'POST /api/payroll/runs': {
         runs['run-1'] = 'Draft';
-        return { status: 201, json: h.payrollRun('run-1', 'Draft') };
+        const store = (r.body as { storeId?: string | null }).storeId ?? null;
+        scopes['run-1'] = { storeId: store, storeCode: store === 's-main' ? 'MAIN' : store === null ? null : 'WEST' };
+        return { status: 201, json: runRow('run-1') };
+      }
       case key === 'POST /api/payroll/settlements':
         return { status: 201, json: h.payrollRun('run-2', runs['run-2']) };
       case /^GET \/api\/payroll\/runs\/[^/]+$/.test(key):
-        return runs[id] ? { json: h.runDetail(id, runs[id]) } : { status: 404, json: { error: 'That payroll run was not found.' } };
+        return runs[id] ? { json: { ...h.runDetail(id, runs[id]), run: runRow(id) } } : { status: 404, json: { error: 'That payroll run was not found.' } };
       case /^GET \/api\/payroll\/runs\/[^/]+\/cash-sheet$/.test(key):
         return { json: h.cashSheet(runs[id] ?? 'Calculated') };
       case /^GET \/api\/payroll\/runs\/[^/]+\/bank-transfers$/.test(key):
@@ -136,7 +146,7 @@ export function createHrMock() {
         if (!runs[id]) return { status: 404, json: { error: 'That payroll run was not found.' } };
         if (sent !== `v-${runs[id]}`) return { status: 409, json: { error: 'Someone else changed this record. Load it again and make your changes again.' } };
         runs[id] = next[action];
-        return { json: h.payrollRun(id, runs[id]) };
+        return { json: runRow(id) };
       }
       case /^DELETE \/api\/payroll\/runs\/[^/]+$/.test(key):
         delete runs[id];

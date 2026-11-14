@@ -10,8 +10,9 @@ namespace RetailPlus.Server.Tests;
 
 /// <summary>
 /// The HR and payroll API (phase E3) through WebApplicationFactory: who may open what, store limits, versions, a payroll
-/// run from draft to paid with its payslips, lists and reports, leave and corrections, and that nothing of it reaches the
-/// tills but the users they sign in with.
+/// run from draft to paid with its payslips, lists and reports, pay paid from a chosen bank account, head office's run
+/// next to the stores' without paying anyone twice, leave and corrections, and that nothing of it reaches the tills but
+/// the users they sign in with.
 /// </summary>
 public sealed class HrApiTests(SyncWorld world) : IClassFixture<SyncWorld>
 {
@@ -59,6 +60,31 @@ public sealed class HrApiTests(SyncWorld world) : IClassFixture<SyncWorld>
         using var response = await client.PostAsJsonAsync($"/api/payroll/runs/{run.Id}/{step}", new RunActionBody(run.Version), SyncWorld.Json);
         Assert.Equal(expected, response.StatusCode);
         return expected == HttpStatusCode.OK ? await ReadAsync<RunRow>(response) : run;
+    }
+
+    private static async Task<RunRow> PayAsync(HttpClient client, RunRow run, DateOnly paidOn, Guid? bankAccountId, HttpStatusCode expected = HttpStatusCode.OK)
+    {
+        using var response = await client.PostAsJsonAsync($"/api/payroll/runs/{run.Id}/pay", new PayBody(run.Version, paidOn, bankAccountId, null), SyncWorld.Json);
+        Assert.Equal(expected, response.StatusCode);
+        return expected == HttpStatusCode.OK ? await ReadAsync<RunRow>(response) : run;
+    }
+
+    /// <summary>A bank account of finance's (the company's, or a store's), with its own ledger account, whose code is returned.</summary>
+    private async Task<(BankAccount Account, string Code)> BankAsync(Guid? store = null)
+    {
+        var banks = new BankService(world.ServerData);
+        var bank = await banks.SaveAccountAsync(new BankAccount { Name = "Test Salaries " + Guid.NewGuid().ToString("N")[..6], Kind = BankAccountKind.Bank, StoreId = store });
+        return (bank, (await banks.GetAccountAsync(bank.Id))!.LedgerAccount!.Code);
+    }
+
+    /// <summary>What a ledger entry puts on each account (debit positive), by the account's code.</summary>
+    private async Task<Dictionary<string, decimal>> EntryAsync(long? number)
+    {
+        await using var db = world.ServerData.Create();
+        var lines = await db.JournalLines.AsNoTracking().Include(l => l.Account)
+            .Where(l => db.JournalEntries.Any(e => e.Id == l.JournalEntryId && e.Number == number)).ToListAsync();
+        Assert.NotEmpty(lines);
+        return lines.GroupBy(l => l.Account!.Code).ToDictionary(g => g.Key, g => g.Sum(l => l.Debit - l.Credit));
     }
 
     [SkippableFact]
@@ -176,13 +202,19 @@ public sealed class HrApiTests(SyncWorld world) : IClassFixture<SyncWorld>
         Assert.Equal((PayrollRunStatus.Approved, 2), (run.Status, run.Employees));
         run = await StepAsync(officer, run, "post");
         Assert.NotNull(run.JournalNumber);
-        using (var pay = await officer.PostAsJsonAsync($"/api/payroll/runs/{run.Id}/pay", new PayBody(run.Version, new DateOnly(2026, 4, 1), null, null), SyncWorld.Json))
-        {
-            Assert.Equal(HttpStatusCode.OK, pay.StatusCode);
-            run = await ReadAsync<RunRow>(pay);
-        }
-        Assert.Equal((PayrollRunStatus.Paid, new DateOnly(2026, 4, 1)), (run.Status, run.PaidOn));
+        // The officer (no finance rights) lists the accounts pay may come from: the store's and the company's, active ones.
+        var (bank, bankCode) = await BankAsync(store.Id);
+        var accounts = (await officer.GetFromJsonAsync<List<PayFromAccount>>("/api/payroll/bank-accounts", SyncWorld.Json))!;
+        Assert.Contains(accounts, a => a.Id == bank.Id && a.LedgerCode == bankCode && a.StoreId == store.Id);
+        Assert.All(accounts, a => Assert.True(a.StoreId is null || a.StoreId == store.Id));
+        await PayAsync(officer, run, new DateOnly(2026, 4, 1), null, HttpStatusCode.BadRequest);   // someone is paid by transfer
+        run = await PayAsync(officer, run, new DateOnly(2026, 4, 1), bank.Id);
+        Assert.Equal((PayrollRunStatus.Paid, new DateOnly(2026, 4, 1), bank.Name), (run.Status, run.PaidOn, run.PaidFrom));
         Assert.NotNull(run.PaymentJournalNumber);
+        // The transfers come off the chosen bank's own ledger account, the cash off the cash in hand, nothing off 1050.
+        var paid = await EntryAsync(run.PaymentJournalNumber);
+        Assert.Equal((183_200m, -143_600m, -39_600m), (paid["2300"], paid[bankCode], paid["1010"]));
+        Assert.False(paid.ContainsKey("1050"));
 
         var detail = (await officer.GetFromJsonAsync<RunDetail>($"/api/payroll/runs/{run.Id}", SyncWorld.Json))!;
         var slip = detail.Payslips.Single(p => p.EmployeeId == banked.Id);
@@ -206,6 +238,64 @@ public sealed class HrApiTests(SyncWorld world) : IClassFixture<SyncWorld>
         // Paid is the last step: it cannot be deleted or calculated again.
         Assert.Equal(HttpStatusCode.BadRequest, await WebClients.StatusAsync(officer.DeleteAsync($"/api/payroll/runs/{run.Id}")));
         await StepAsync(officer, run, "calculate", HttpStatusCode.BadRequest);
+    }
+
+    [SkippableFact]
+    public async Task Head_office_is_run_next_to_the_store_runs_and_nobody_is_paid_twice()
+    {
+        Require();
+        var store = await world.AddStoreAsync();
+        using var super = await world.SuperAsync();
+        var atStore = await AddEmployeeAsync(super, NewEmployee("Test API Store Person", store.Id, "PK36SCBL0000001123456702"));
+        var atOffice = await AddEmployeeAsync(super, NewEmployee("Test API Office Person", null, "PK36SCBL0000001123456702"));
+        foreach (var id in new[] { atStore.Id!.Value, atOffice.Id!.Value })
+            using (var salary = await super.PostAsJsonAsync($"/api/hr/employees/{id}/salary", new SalaryInfo(null, new DateOnly(2025, 7, 1), 90_000m, null, null, []), SyncWorld.Json))
+                Assert.Equal(HttpStatusCode.Created, salary.StatusCode);
+
+        // April 2026 (this class's only head-office month): the store's run, then head office's next to it.
+        RunRow storeRun, office;
+        using (var created = await super.PostAsJsonAsync("/api/payroll/runs", new RunBody(2026, 4, store.Id, null), SyncWorld.Json))
+            storeRun = await ReadAsync<RunRow>(created);
+        storeRun = await StepAsync(super, storeRun, "calculate");
+        using (var created = await super.PostAsJsonAsync("/api/payroll/runs", new RunBody(2026, 4, null, null), SyncWorld.Json))
+        {
+            Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+            office = await ReadAsync<RunRow>(created);
+        }
+        Assert.Null(office.StoreId);
+        Assert.Null(office.StoreCode);
+        using (var twice = await super.PostAsJsonAsync("/api/payroll/runs", new RunBody(2026, 4, null, null), SyncWorld.Json))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, twice.StatusCode);
+            Assert.Contains($"#{office.Number} already covers April 2026 for head office", await twice.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        }
+        office = await StepAsync(super, office, "calculate");
+        var slips = (await super.GetFromJsonAsync<RunDetail>($"/api/payroll/runs/{office.Id}", SyncWorld.Json))!.Payslips;
+        Assert.Contains(slips, p => p.EmployeeId == atOffice.Id);
+        Assert.DoesNotContain(slips, p => p.EmployeeId == atStore.Id);
+
+        // The store's employee moves to head office after the store's run paid them: head office's run leaves them out.
+        using (var moved = await super.PutAsJsonAsync($"/api/hr/employees/{atStore.Id}", atStore with { StoreId = null }, SyncWorld.Json))
+            Assert.Equal(HttpStatusCode.OK, moved.StatusCode);
+        office = await StepAsync(super, office, "calculate");
+        slips = (await super.GetFromJsonAsync<RunDetail>($"/api/payroll/runs/{office.Id}", SyncWorld.Json))!.Payslips;
+        Assert.DoesNotContain(slips, p => p.EmployeeId == atStore.Id);
+        Assert.Contains($"{atStore.Code} Test API Store Person: paid by payroll run #{storeRun.Number} this month.", office.Warnings);
+
+        // Both are approved, posted and paid, head office from the company's bank account.
+        foreach (var step in new[] { "approve", "post" })
+        {
+            storeRun = await StepAsync(super, storeRun, step);
+            office = await StepAsync(super, office, step);
+        }
+        var (bank, bankCode) = await BankAsync();
+        office = await PayAsync(super, office, new DateOnly(2026, 5, 1), bank.Id);
+        Assert.Equal(bank.Name, office.PaidFrom);
+        var paid = await EntryAsync(office.PaymentJournalNumber);
+        Assert.Equal(-slips.Single(p => p.EmployeeId == atOffice.Id).Net, paid[bankCode]);
+        Assert.False(paid.ContainsKey("1050"));
+        storeRun = await PayAsync(super, storeRun, new DateOnly(2026, 5, 1), bank.Id);
+        Assert.Equal(PayrollRunStatus.Paid, storeRun.Status);
     }
 
     [SkippableFact]

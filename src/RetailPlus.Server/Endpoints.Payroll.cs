@@ -15,16 +15,23 @@ public sealed record SalaryInfo(Guid? Id, DateOnly EffectiveFrom, decimal Basic,
 public sealed record LoanInstalmentInfo(int Number, DateOnly Month, decimal Amount, decimal Recovered);
 public sealed record LoanRow(Guid Id, long Number, Guid EmployeeId, string Code, string Name, LoanKind Kind, DateOnly IssuedOn, decimal Amount, decimal Instalment,
     DateOnly FirstMonth, LoanStatus Status, decimal Recovered, decimal Outstanding, string? Reason, string? PaidFromAccount, IReadOnlyList<LoanInstalmentInfo> Instalments);
-public sealed record LoanBody(Guid EmployeeId, LoanKind Kind, DateOnly IssuedOn, decimal Amount, decimal Instalment, DateOnly? FirstMonth, string? Reason, string? PaidFrom);
+/// <summary>A loan or advance to pay; <c>BankAccountId</c> is the bank or cash account it is paid from (none: the cash in hand).</summary>
+public sealed record LoanBody(Guid EmployeeId, LoanKind Kind, DateOnly IssuedOn, decimal Amount, decimal Instalment, DateOnly? FirstMonth, string? Reason, Guid? BankAccountId);
 public sealed record ReasonBody(string? Reason);
+/// <summary>A payroll run; <c>PaidFrom</c> names the bank and cash accounts its payment came from.</summary>
 public sealed record RunRow(Guid Id, string Version, long Number, PayrollRunKind Kind, int Year, int Month, string Title, DateOnly PeriodStart, DateOnly PeriodEnd,
     Guid? StoreId, string? StoreCode, Guid? EmployeeId, string? EmployeeName, PayrollRunStatus Status, int Employees, decimal Gross, decimal Deductions, decimal Net,
     decimal Tax, decimal EmployerContributions, string? Notes, IReadOnlyList<string> Warnings, string? CreatedBy, string? CalculatedBy, DateTime? CalculatedAtUtc,
-    string? ApprovedBy, DateTime? ApprovedAtUtc, string? PostedBy, DateTime? PostedAtUtc, long? JournalNumber, DateOnly? PaidOn, string? PaidBy, long? PaymentJournalNumber);
+    string? ApprovedBy, DateTime? ApprovedAtUtc, string? PostedBy, DateTime? PostedAtUtc, long? JournalNumber, DateOnly? PaidOn, string? PaidBy, long? PaymentJournalNumber,
+    string? PaidFrom = null);
+/// <summary>A month's run of a store, or of head office (no store).</summary>
 public sealed record RunBody(int Year, int Month, Guid? StoreId, string? Notes);
 public sealed record SettlementBody(Guid EmployeeId, string? Notes);
 public sealed record RunActionBody(string? Version);
-public sealed record PayBody(string? Version, DateOnly? PaidOn, string? BankAccount, string? CashAccount);
+/// <summary>The payment of a run: the bank account the transfers go from, and the cash account (none: each store's cash in hand).</summary>
+public sealed record PayBody(string? Version, DateOnly? PaidOn, Guid? BankAccountId, Guid? CashAccountId);
+/// <summary>A bank or cash account pay may be paid from, without its balance.</summary>
+public sealed record PayFromAccount(Guid Id, string Name, BankAccountKind Kind, string Currency, string LedgerCode, Guid? StoreId, string? StoreCode);
 public sealed record PayslipRow(Guid Id, Guid EmployeeId, string Code, string Name, string? Designation, string? Department, string? StoreCode, SalaryPaymentMethod PaymentMethod,
     int DaysEmployed, decimal DaysPresent, decimal PaidLeaveDays, decimal UnpaidLeaveDays, int AbsentDays, int LateDays, decimal OvertimeHours, decimal Basic,
     decimal Allowances, decimal Overtime, decimal Commission, decimal OtherEarnings, decimal Gross, decimal Attendance, decimal Tax, decimal Eobi, decimal Loans,
@@ -91,11 +98,12 @@ public static partial class Endpoints
         api.MapPost("/payroll/loans", async (LoanBody body, ApiRequest api) =>
         {
             var employee = await VisibleEmployeeAsync(api, body.EmployeeId);
+            await CheckBankAsync(api, body.BankAccountId);
             var saved = await new PayrollService(await api.ForChangeAsync(employee.StoreId)).IssueLoanAsync(new EmployeeLoan
             {
                 EmployeeId = body.EmployeeId, Kind = body.Kind, IssuedOn = body.IssuedOn, Amount = body.Amount, Instalment = body.Instalment,
                 FirstMonth = body.FirstMonth ?? default, Reason = body.Reason,
-            }, body.PaidFrom, api.Session);
+            }, body.BankAccountId, api.Session);
             var row = (await LoanRowsAsync(api, [(await new PayrollService(api.Root).GetLoanAsync(saved.Id))!])).Single();
             return Results.Created($"/api/payroll/loans/{saved.Id}", row);
         }).RequireAuthorization(Need(Permissions.PayrollRun));
@@ -118,7 +126,7 @@ public static partial class Endpoints
         api.MapPost("/payroll/runs", async (RunBody body, ApiRequest api) =>
         {
             if (body.StoreId is Guid store && !api.User.CanSee(store)) throw ApiException.Forbidden("You may not see that store.");
-            if (body.StoreId is null && !api.User.AllStores) throw ApiException.Forbidden("A payroll of the whole company is run by a user who sees every store.");
+            if (body.StoreId is null && !api.User.AllStores) throw ApiException.Forbidden("Head office's payroll is run by a user who sees every store.");
             var run = await new PayrollService(await api.ForChangeAsync(body.StoreId)).CreateRunAsync(body.Year, body.Month, body.StoreId, body.Notes, api.Session);
             return Results.Created($"/api/payroll/runs/{run.Id}", (await RunRowsAsync(api, [run])).Single());
         }).RequireAuthorization(Need(Permissions.PayrollRun));
@@ -153,7 +161,19 @@ public static partial class Endpoints
         api.MapPost("/payroll/runs/{id:guid}/pay", async (Guid id, PayBody body, ApiRequest api) =>
         {
             var today = await api.TodayAsync(null);
-            return await RunActionAsync(id, body.Version, api, (payroll, session) => payroll.PayAsync(id, body.PaidOn ?? today, body.BankAccount, body.CashAccount, session));
+            await CheckBankAsync(api, body.BankAccountId);
+            await CheckBankAsync(api, body.CashAccountId);
+            return await RunActionAsync(id, body.Version, api, (payroll, session) => payroll.PayAsync(id, body.PaidOn ?? today, body.BankAccountId, body.CashAccountId, session));
+        }).RequireAuthorization(Need(Permissions.PayrollRun));
+        // The accounts pay may come from, for those who pay it (finance's list, with balances, needs finance.view).
+        api.MapGet("/payroll/bank-accounts", async (ApiRequest api) =>
+        {
+            var store = api.ListStore();
+            var accounts = await new BankService(api.Root).GetAccountsAsync(store, activeOnly: true);
+            var codes = await StoreCodesAsync(api);
+            return Results.Ok(accounts.Where(b => b.Account.StoreId is not Guid s || api.User.CanSee(s))
+                .Select(b => new PayFromAccount(b.Account.Id, b.Account.Name, b.Account.Kind, b.Account.Currency, b.LedgerCode, b.Account.StoreId,
+                    b.Account.StoreId is Guid s ? codes.GetValueOrDefault(s) : null)));
         }).RequireAuthorization(Need(Permissions.PayrollRun));
         api.MapGet("/payroll/runs/{id:guid}/bank-transfers", async (Guid id, ApiRequest api) =>
         {
@@ -270,6 +290,12 @@ public static partial class Endpoints
         var names = await db.Employees.AsNoTracking().Where(e => employeeIds.Contains(e.Id)).ToDictionaryAsync(e => e.Id, e => e.FullName);
         var entryIds = runs.SelectMany(r => new[] { r.JournalEntryId, r.PaymentEntryId }).Where(i => i is not null).Select(i => i!.Value).ToList();
         var numbers = await db.JournalEntries.AsNoTracking().Where(j => entryIds.Contains(j.Id)).ToDictionaryAsync(j => j.Id, j => j.Number);
+        var paymentIds = runs.Where(r => r.PaymentEntryId is not null).Select(r => r.PaymentEntryId!.Value).ToList();
+        var paidFrom = (await (from l in db.JournalLines.AsNoTracking()
+                               join b in db.BankAccounts.AsNoTracking() on l.AccountId equals b.LedgerAccountId
+                               where paymentIds.Contains(l.JournalEntryId) && l.Credit > 0
+                               select new { l.JournalEntryId, b.Name }).ToListAsync())
+            .GroupBy(l => l.JournalEntryId).ToDictionary(g => g.Key, g => string.Join(", ", g.Select(l => l.Name).Distinct().Order(StringComparer.CurrentCultureIgnoreCase)));
         return [.. runs.Where(r => Sees(api, r.StoreId)).Select(r => new RunRow(r.Id, ApiRequest.Version(r.Version), r.Number, r.Kind, r.Year, r.Month,
             r.Kind == PayrollRunKind.FinalSettlement && r.EmployeeId is Guid who ? $"Final settlement of {names.GetValueOrDefault(who)}" : PayrollService.MonthName(r.Year, r.Month),
             r.PeriodStart, r.PeriodEnd, r.StoreId, r.StoreId is Guid s ? codes.GetValueOrDefault(s) : null, r.EmployeeId,
@@ -277,7 +303,8 @@ public static partial class Endpoints
             r.Warnings is { } w ? w.Split('\n', StringSplitOptions.RemoveEmptyEntries) : [], r.CreatedBy, r.CalculatedBy, ApiRequest.Utc(r.CalculatedAtUtc),
             r.ApprovedBy, ApiRequest.Utc(r.ApprovedAtUtc), r.PostedBy, ApiRequest.Utc(r.PostedAtUtc),
             r.JournalEntryId is Guid j && numbers.TryGetValue(j, out var jn) ? jn : null, r.PaidOn, r.PaidBy,
-            r.PaymentEntryId is Guid p && numbers.TryGetValue(p, out var pn) ? pn : null))];
+            r.PaymentEntryId is Guid p && numbers.TryGetValue(p, out var pn) ? pn : null,
+            r.PaymentEntryId is Guid q && paidFrom.TryGetValue(q, out var from) ? from : null))];
     }
 
     private static readonly HashSet<string> OwnEarnings = [PayslipCodes.Basic, PayslipCodes.Overtime, PayslipCodes.Commission, PayslipCodes.LeaveEncashment, PayslipCodes.Gratuity];
@@ -329,7 +356,7 @@ public static partial class Endpoints
                 var codes = await StoreCodesAsync(api);
                 var table = new ReportTable
                 {
-                    Title = $"Salary sheet, payroll #{run.Number}", Subtitle = $"{PayrollService.Title(run)}{(run.StoreId is Guid s ? $", store {codes.GetValueOrDefault(s)}" : "")}, {run.Status}",
+                    Title = $"Salary sheet, payroll #{run.Number}", Subtitle = $"{PayrollService.Title(run)}{(run.StoreId is Guid s ? $", store {codes.GetValueOrDefault(s)}" : ", head office")}, {run.Status}",
                     Columns =
                     [
                         new("Code"), new("Employee"), new("Designation"), new("Days paid", ColumnKind.Quantity), new("Basic", ColumnKind.Money, true),
