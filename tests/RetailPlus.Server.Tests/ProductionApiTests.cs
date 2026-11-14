@@ -173,6 +173,31 @@ public sealed class ProductionApiTests(SyncWorld world) : IClassFixture<SyncWorl
     }
 
     [SkippableFact]
+    public async Task Orders_are_found_by_a_stock_code_that_is_a_number_as_by_their_own_number_barcode_or_name()
+    {
+        Require();
+        var store = await world.AddStoreAsync();
+        var pos = await PosOfAsync(store.Id);
+        var inventory = new InventoryService(world.ServerData.For(new StationIdentity(store.Id, ProductionService.ServerStation), null));
+        string riceCode = Unique("RC"), plu = Random.Shared.Next(10_000_000, 99_999_999).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string barcode = Upc.InStore(Random.Shared.NextInt64(1_000_000, 9_999_999));
+        await inventory.SaveAsync(new Item { LocationId = pos, Plu = riceCode, Name = "Loose rice", AverageCost = 1m, LastCost = 1m, OnHand = 100 }, null, null, null);
+        await inventory.SaveAsync(new Item { LocationId = pos, Plu = plu, Name = "Basmati rice 5 kg", Barcode = barcode }, null, null, null);
+        using var super = await world.SuperAsync();
+        using var admin = await world.AdminOfAsync(store.Id);
+        await PostAsync<BomDetail>(super, "/api/boms", new BomDetail(null, null, plu, null, 0, true, null, null, 1, 0, null,
+            [new BomLineInfo(riceCode, null, 5, 0, IssueMethod.Manual, null)], [], []));
+        var order = await PostAsync<ProductionOrderDetail>(admin, "/api/production-orders", new ProductionOrderRequest(null, plu, 10, pos, pos, null, null, null, 5, null, null));
+
+        foreach (var text in new[] { plu, order.Number.ToString(System.Globalization.CultureInfo.InvariantCulture), "basmati", barcode[..9] })
+        {
+            var found = await GetAsync<PageOf<ProductionOrderListRow>>(admin, $"/api/production-orders?search={Uri.EscapeDataString(text)}");
+            Assert.Equal(order.Id, Assert.Single(found.Items).Id);
+        }
+        Assert.Empty((await GetAsync<PageOf<ProductionOrderListRow>>(admin, $"/api/production-orders?search=9{plu}")).Items);
+    }
+
+    [SkippableFact]
     public async Task Planning_capacity_quality_and_reports_answer_per_store_and_permission()
     {
         Require();

@@ -311,6 +311,28 @@ public abstract class ManufacturingTests(DatabaseFixture db)
         await Assert.ThrowsAsync<BusinessRuleException>(() => production.CreateAsync(new NewProductionOrder(flour.Plu, 1, loc.Id, loc.Id)));
     }
 
+    [SkippableFact]
+    public async Task Orders_are_found_by_number_stock_code_barcode_or_name_also_when_the_stock_code_is_a_number()
+    {
+        var loc = await LocationAsync();
+        var flour = await ItemAsync(loc.Id, Unique("FL"), 100, 2m);
+        // A stock code that is a number, as in many shops (8201): it used to be taken only as an order number.
+        string plu = Random.Shared.Next(10_000_000, 99_999_999).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var bread = await ItemAsync(loc.Id, plu, 0, 0, price: 3, barcode: Upc.InStore(Random.Shared.NextInt64(10_000, 99_999)));
+        await new ManufacturingService(Data).SaveAsync(new BillOfMaterials { ProductCode = plu, YieldQuantity = 1, Lines = [new BomLine { ComponentCode = flour.Plu, Quantity = 1 }] });
+        var production = new ProductionService(Data);
+        var order = await production.CreateAsync(new NewProductionOrder(plu, 5, loc.Id, loc.Id));
+        var other = await production.CreateAsync(new NewProductionOrder(plu, 2, loc.Id, loc.Id));
+
+        async Task<List<Guid>> FindAsync(string text) => [.. (await production.ListAsync(loc.StoreId, search: text)).Select(o => o.Id)];
+        Assert.Equal([other.Id, order.Id], await FindAsync(plu));
+        Assert.Contains(order.Id, await FindAsync(plu[2..6]));
+        Assert.Equal([order.Id], await FindAsync(order.Number.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        Assert.Contains(order.Id, await FindAsync(bread.Barcode![..9]));
+        Assert.Contains(order.Id, await FindAsync(bread.Name));
+        Assert.Empty(await FindAsync("9" + plu));
+    }
+
     // Planning --------------------------------------------------------------------------------------------------------------
 
     [SkippableFact]

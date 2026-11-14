@@ -797,7 +797,7 @@ test checks every answer below against them.
 ### Production orders
 | | | |
 |---|---|---|
-| `GET /api/production-orders?storeId&status&search` | view | *paged*, newest first: `ProductionOrderRow { id, storeCode, number, status, productCode, productName, quantity, received, materialLocation, outputLocation, plannedStart, plannedEnd, priority, madeToOrder, bomRevision }`. `status` is one or more of Planned, Released, InProgress, Completed, Closed, Cancelled, separated by commas; `search` is an order number, or part of a product code or name |
+| `GET /api/production-orders?storeId&status&search` | view | *paged*, newest first: `ProductionOrderRow { id, storeCode, number, status, productCode, productName, quantity, received, materialLocation, outputLocation, plannedStart, plannedEnd, priority, madeToOrder, bomRevision }`. `status` is one or more of Planned, Released, InProgress, Completed, Closed, Cancelled, separated by commas; `search` matches the order number, part of the product's stock code or name, or the start of its barcode, whether or not it is a number (`8201` finds order 8201 and the orders for stock code 8201) |
 | `GET /api/production-orders/board?storeId&search` | view | `[{ status, total, orders: [ProductionOrderRow] }]`: a column per status, the most urgent first (priority, planned start, number), at most 200 a column; closed and cancelled orders of the last 30 days |
 | `GET /api/production-orders/{id}` | view | `ProductionOrderDetail` (below) |
 | `POST /api/production-orders` | plan | `{ version, productCode, quantity, materialLocationId, outputLocationId, billOfMaterialsId, plannedStart, plannedEnd, priority, customerOrderId, notes }` → `ProductionOrderDetail` (201). Without `billOfMaterialsId` the product's bill in force on the planned start is used; the product must be an item at the output location; both locations of one store |
@@ -862,7 +862,7 @@ should have been ordered or started already, `fromRelease` for the shortage of a
 | `POST /api/quality/plans`, `PUT /api/quality/plans/{id}` | plan, shared | a `QualityPlan` → the saved one; one active plan per product |
 | `DELETE /api/quality/plans/{id}` | plan, shared | 204 |
 | `GET /api/quality/inspections?storeId&kind&from&to` | view | `[Inspection { id, kind, storeCode, documentNumber, productionOrderId, purchaseOrderId, stockCode, description, quantityInspected, quantityFailed, disposition, holdLocation, passed, inspectedAt, inspectedBy, notes, results: [{ lineNumber, checkName, kind, minimum, maximum, required, passFail, numberValue, textValue, passed }] }]`, newest first; `kind` is Production or Incoming |
-| `GET /api/quality/receipts?storeId&search&days` | view | `[{ id, number, storeCode, locationCode, receivedAt, lines: [{ plu, description, received, hasPlan, inspections }] }]`: purchase orders received in the last `days` (90) |
+| `GET /api/quality/receipts?storeId&search&days` | view | `[{ id, number, storeCode, locationCode, receivedAt, lines: [{ plu, description, received, hasPlan, inspections }] }]`: purchase orders received in the last `days` (90); `search` matches the order number or part of a stock code or description on it |
 | `POST /api/quality/receipts/{purchaseOrderId}/inspect` | plan | `{ stockCode, quantityInspected, quantityFailed, answers, notes }` → `Inspection`; the result is recorded only |
 
 ### Production reports
