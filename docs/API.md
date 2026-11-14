@@ -439,7 +439,7 @@ The web pages, each opened with `finance.view` (their buttons show for the permi
 Employees, shifts and attendance, leave, and payroll, all kept on the server ([ERP_E3_HR.md](ERP_E3_HR.md)). The
 conventions above hold: `storeId` limits a list to one store, a change sends back the `version` it read (409 when it is
 old), refused business rules are 400 with `{ "error" }`. Employees belong to their store; one of head office (no
-store), a run of the whole company and the shared HR lists (departments, designations, rule sets, leave types,
+store), head office's payroll run and the shared HR lists (departments, designations, rule sets, leave types,
 holidays, and shifts for every store) follow the rule for company-wide records: `canChangeShared`. An employee, run,
 payslip or loan of a store the user cannot see is 404.
 
@@ -525,20 +525,29 @@ Salaries, loans, runs, payslips and the payroll reports are 403 for anyone else,
 - `GET /api/payroll/loans?employeeId&status&storeId`, `GET /api/payroll/loans/{id}` → `{ "id", "number",
   "employeeId", "code", "name", "kind", "issuedOn", "amount", "instalment", "firstMonth", "status", "recovered",
   "outstanding", "reason", "paidFromAccount", "instalments" }`. `POST /api/payroll/loans` (`payroll.run`)
-  `{ "employeeId", "kind", "issuedOn", "amount", "instalment", "firstMonth", "reason", "paidFrom" }` posts the payment
-  to the ledger (`paidFrom`: `Cash`, `Bank` or an account code); `POST /{id}/cancel` `{ "reason" }` before anything was
-  taken back.
+  `{ "employeeId", "kind", "issuedOn", "amount", "instalment", "firstMonth", "reason", "bankAccountId" }` posts the
+  payment to the ledger from the bank or cash account `bankAccountId` (its own ledger account; none: the cash in hand of
+  the employee's store); `paidFromAccount` is that ledger code, or `Cash`. `POST /{id}/cancel` `{ "reason" }` before
+  anything was taken back.
+- `GET /api/payroll/bank-accounts?storeId` (`payroll.run`) → `[{ "id", "name", "kind", "currency", "ledgerCode",
+  "storeId", "storeCode" }]`: the active bank and cash accounts pay may come from, without balances (a store's and the
+  company's with `storeId`, every one the user sees without), sorted by name.
 - `GET /api/payroll/runs?year&storeId` → `RunRow[]`: `id`, `version`, `number`, `kind` (`Monthly`, `FinalSettlement`),
   `year`, `month`, `title`, the period, store, employee, `status` (`Draft`, `Calculated`, `Approved`, `Posted`,
   `Paid`), `employees`, `gross`, `deductions`, `net`, `tax`, `employerContributions`, `notes`, `warnings`, who did each
-  step and when, `journalNumber`, `paidOn`, `paymentJournalNumber`.
-- `POST /api/payroll/runs` (`payroll.run`) `{ "year", "month", "storeId", "notes" }` (201; no `storeId` is the whole
-  company, for those who see every store; one run per month and store). `POST /api/payroll/settlements`
+  step and when, `journalNumber`, `paidOn`, `paymentJournalNumber`, `paidFrom` (the names of the bank and cash
+  accounts the payment came from).
+- `POST /api/payroll/runs` (`payroll.run`) `{ "year", "month", "storeId", "notes" }` (201; no `storeId` is head
+  office, the employees with no store, for those who see every store; one run a month for each store and one for head
+  office, else 400). Calculating leaves out, with a warning, anyone another run of the month pays; approving is refused
+  while an employee is on two runs of the month. `POST /api/payroll/settlements`
   `{ "employeeId", "notes" }` starts a leaver's final settlement. `DELETE /api/payroll/runs/{id}` while draft or
   calculated.
 - Steps, each `{ "version" }` → the run: `POST /api/payroll/runs/{id}/calculate` and `/post` (`payroll.run`),
-  `/approve` and `/reopen` (`payroll.approve`), `/pay` (`payroll.run`) `{ "version", "paidOn", "bankAccount",
-  "cashAccount" }` (default today and the Bank and Cash accounts). Calculating notes on the run the employees left out
+  `/approve` and `/reopen` (`payroll.approve`), `/pay` (`payroll.run`) `{ "version", "paidOn", "bankAccountId",
+  "cashAccountId" }` (`paidOn` defaults to today). The transfers are credited to the ledger account of `bankAccountId`,
+  needed (400 without) when anyone is paid by transfer; the cash to that of `cashAccountId`, or each store's cash in hand.
+  Both must be active, in the base currency and of a store the user sees (404 otherwise). Calculating notes on the run the employees left out
   (no salary, or no rule set for the month).
 - `GET /api/payroll/runs/{id}` → `{ "run", "payslips" }`, each payslip with the days, earnings by kind, deductions by
   kind, net and the employer's part. `GET /api/payroll/payslips/{id}` → the payslip with its lines and the tax

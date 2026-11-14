@@ -9,8 +9,9 @@ namespace RetailPlus.Data.Tests;
 /// Payroll on both engines, with Pakistan's seeded rules of tax year 2026: payslips for salaries in every tax slab (worked
 /// out by hand below), allowances exempt up to a share of basic pay, joiners, unpaid leave, absence and overtime, the tax
 /// projection across months and a previous employer, loans, the final settlement with gratuity and leave paid out, the
-/// steps from draft to paid with who may take them, and the ledger entries, which must balance. Each test pays a store of
-/// its own, because the tests share one database.
+/// steps from draft to paid with who may take them, the ledger entries, which must balance, with pay paid from a bank
+/// account's own ledger account, and head office's run next to the stores'. Each test pays a store of its own, because
+/// the tests share one database; the head-office test has its month to itself.
 /// </summary>
 public abstract class PayrollTests(DatabaseFixture db)
 {
@@ -35,8 +36,8 @@ public abstract class PayrollTests(DatabaseFixture db)
         return (data, store.Id);
     }
 
-    /// <summary>An employee of the store with a monthly salary from the day they joined; attendance is presumed unless tracked.</summary>
-    private static async Task<Employee> PaidAsync(DataContext data, Guid store, string name, decimal basic, DateOnly joined, Employee? details = null,
+    /// <summary>An employee of the store (none: head office) with a monthly salary from the day they joined; attendance is presumed unless tracked.</summary>
+    private static async Task<Employee> PaidAsync(DataContext data, Guid? store, string name, decimal basic, DateOnly joined, Employee? details = null,
         params (string Code, decimal Amount)[] allowances)
     {
         var employee = details ?? new Employee { TracksAttendance = false };
@@ -62,6 +63,13 @@ public abstract class PayrollTests(DatabaseFixture db)
     }
 
     private static decimal Line(Payslip slip, string code) => slip.Lines.Where(l => l.Code == code).Sum(l => l.Amount);
+
+    /// <summary>A bank account of finance's, with a ledger account of its own; the currency is the base currency unless given.</summary>
+    private static async Task<(BankAccount Account, string Code)> BankAsync(DataContext data, string currency = "")
+    {
+        var bank = await new BankService(data).SaveAccountAsync(new BankAccount { Name = Unique("Salaries bank "), Kind = BankAccountKind.Bank, Currency = currency });
+        return (bank, (await new BankService(data).GetAccountAsync(bank.Id))!.LedgerAccount!.Code);
+    }
 
     /// <summary>What an entry puts on an account: debit positive, credit negative.</summary>
     private static decimal On(JournalEntry entry, string code) => entry.Lines.Where(l => l.Account!.Code == code).Sum(l => l.Debit - l.Credit);
@@ -211,6 +219,15 @@ public abstract class PayrollTests(DatabaseFixture db)
         Assert.Equal([new DateOnly(2025, 7, 1), new DateOnly(2025, 8, 1), new DateOnly(2025, 9, 1)], loan.Instalments.Select(i => i.Month));
         var lent = (await ledger.GetEntryAsync(loan.JournalEntryId!.Value))!;
         Assert.Equal((30_000m, -30_000m), (On(lent, "1150"), On(lent, "1010")));
+        Assert.Equal(LedgerRoles.Cash, loan.PaidFromAccount);
+        // An advance paid from a bank account comes off that account's own ledger account, not the chart's 1050.
+        var (bank, bankCode) = await BankAsync(data);
+        Assert.NotEqual("1050", bankCode);
+        var advance = await payroll.IssueLoanAsync(new EmployeeLoan
+            { EmployeeId = borrower.Id, Kind = LoanKind.Advance, IssuedOn = new DateOnly(2025, 9, 2), Amount = 5_000m, Instalment = 5_000m, FirstMonth = new DateOnly(2025, 10, 1) }, bank.Id, Admin);
+        var advanced = (await ledger.GetEntryAsync(advance.JournalEntryId!.Value))!;
+        Assert.Equal((5_000m, -5_000m, 0m, 0m), (On(advanced, "1150"), On(advanced, bankCode), On(advanced, "1050"), On(advanced, "1010")));
+        Assert.Equal(bankCode, advance.PaidFromAccount);
 
         var (run, slips) = await CalculatedAsync(data, store, 2025, 7);
         Assert.Equal((143_600m, 38_600m, 77_300m, 49_500m), (slips[banked.Id].Net, slips[canteen.Id].Net, slips[fund.Id].Net, slips[borrower.Id].Net));
@@ -239,11 +256,19 @@ public abstract class PayrollTests(DatabaseFixture db)
         await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.CancelLoanAsync(loan.Id, "Changed mind", Admin));
         await Assert.ThrowsAsync<BusinessRuleException>(() => new HrService(data).DeleteEmployeeAsync(borrower.Id));
 
-        await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.PayAsync(run.Id, new DateOnly(2025, 6, 30), null, null, Admin));
-        run = await payroll.PayAsync(run.Id, new DateOnly(2025, 8, 1), null, null, Admin);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.PayAsync(run.Id, new DateOnly(2025, 6, 30), bank.Id, null, Admin));
+        // Someone is paid by transfer, so the bank account it goes from is named; one in another currency is refused.
+        var refused = await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.PayAsync(run.Id, new DateOnly(2025, 8, 1), null, null, Admin));
+        Assert.Contains("bank account", refused.Message, StringComparison.Ordinal);
+        var (dollars, _) = await BankAsync(data, "USD");
+        await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.PayAsync(run.Id, new DateOnly(2025, 8, 1), dollars.Id, null, Admin));
+        run = await payroll.PayAsync(run.Id, new DateOnly(2025, 8, 1), bank.Id, null, Admin);
         var paid = (await ledger.GetEntryAsync(run.PaymentEntryId!.Value))!;
         Assert.Equal(paid.Lines.Sum(l => l.Debit), paid.Lines.Sum(l => l.Credit));
-        Assert.Equal((309_000m, -143_600m, -165_400m), (On(paid, "2300"), On(paid, "1050"), On(paid, "1010")));
+        Assert.Equal((309_000m, -143_600m, -165_400m, 0m), (On(paid, "2300"), On(paid, bankCode), On(paid, "1010"), On(paid, "1050")));
+        Assert.All(paid.Lines.Where(l => l.Account!.Code == bankCode), l => Assert.Equal(store, l.StoreId));
+        // The bank account's own ledger lines show the payment, for its reconciliation.
+        Assert.Contains(await new BankService(data).LedgerLinesAsync(bank.Id), l => l.EntryId == paid.Id && l.Amount == -143_600m);
         Assert.Equal((PayrollRunStatus.Paid, new DateOnly(2025, 8, 1)), (run.Status, run.PaidOn));
 
         // What is left in salaries payable for the store is the staff fund, owed to whoever keeps it.
@@ -270,7 +295,6 @@ public abstract class PayrollTests(DatabaseFixture db)
         var run = await payroll.CreateRunAsync(2025, 12, store, "December", runner);
         Assert.Equal(PayrollRunStatus.Draft, run.Status);
         await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.CreateRunAsync(2025, 12, store, null, runner));
-        await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.CreateRunAsync(2025, 12, null, null, runner));
         await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.ApproveAsync(run.Id, approver));   // not calculated yet
 
         run = await payroll.CalculateAsync(run.Id, runner, new DateOnly(2026, 1, 15));
@@ -293,7 +317,7 @@ public abstract class PayrollTests(DatabaseFixture db)
 
         await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.PostAsync(run.Id, approver));     // posting is payroll.run's
         run = await payroll.PostAsync(run.Id, runner);
-        run = await payroll.PayAsync(run.Id, new DateOnly(2026, 1, 1), "Bank", null, runner);
+        run = await payroll.PayAsync(run.Id, new DateOnly(2026, 1, 1), (await BankAsync(data)).Account.Id, null, runner);
         Assert.Equal(PayrollRunStatus.Paid, run.Status);
 
         // The bank list keeps a name that looks like a formula as text.
@@ -304,6 +328,67 @@ public abstract class PayrollTests(DatabaseFixture db)
         await using var ctx = db.CreateContext();
         var steps = await ctx.AuditEntries.AsNoTracking().Where(a => a.EntityId == run.Id && a.Action == AuditActions.PayrollRun).Select(a => a.Details).ToListAsync();
         Assert.Equal(7, steps.Count);   // started, calculated, approved, reopened, approved, posted, paid
+    }
+
+    // Head office ---------------------------------------------------------------------------------------------------------
+
+    [SkippableFact]
+    public async Task Head_office_is_paid_by_its_own_run_next_to_the_store_runs_and_nobody_is_paid_twice()
+    {
+        var (data, store) = await StoreAsync();
+        var payroll = new PayrollService(data);
+        var ledger = new LedgerService(data);
+        var joined = new DateOnly(2024, 1, 1);
+        var cashier = await PaidAsync(data, store, "Test Store Cashier", 50_000m, joined);
+        var mover = await PaidAsync(data, store, "Test Mover", 60_000m, joined);
+        var accountant = await PaidAsync(data, null, "Test Head Office", 120_000m, joined,
+            new Employee { TracksAttendance = false, PaymentMethod = SalaryPaymentMethod.Bank, BankName = "Test Bank", Iban = "PK36SCBL0000001123456702" });
+
+        // February 2026: the store's run, then head office's next to it (no other test runs head office that month).
+        var (storeRun, storeSlips) = await CalculatedAsync(data, store, 2026, 2);
+        Assert.Equal(new HashSet<Guid> { cashier.Id, mover.Id }, storeSlips.Keys.ToHashSet());
+        var office = await payroll.CreateRunAsync(2026, 2, null, null, Admin);
+        Assert.Null(office.StoreId);
+        var again = await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.CreateRunAsync(2026, 2, null, null, Admin));
+        Assert.Equal($"Payroll run #{office.Number} already covers February 2026 for head office.", again.Message);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.CreateRunAsync(2026, 2, store, null, Admin));
+        office = await payroll.CalculateAsync(office.Id, Admin, new DateOnly(2026, 4, 1));
+        var officeSlips = (await payroll.GetPayslipsAsync(office.Id)).ToDictionary(p => p.EmployeeId);
+        Assert.Contains(accountant.Id, officeSlips.Keys);
+        Assert.DoesNotContain(cashier.Id, officeSlips.Keys);
+        Assert.DoesNotContain(mover.Id, officeSlips.Keys);
+        Assert.Null(officeSlips[accountant.Id].StoreId);
+
+        // Someone moved to head office after the store's run paid them is left out of head office's run, with a warning.
+        mover.StoreId = null;
+        await new HrService(data).SaveEmployeeAsync(mover);
+        office = await payroll.CalculateAsync(office.Id, Admin, new DateOnly(2026, 4, 1));
+        Assert.DoesNotContain(mover.Id, (await payroll.GetPayslipsAsync(office.Id)).Select(p => p.EmployeeId));
+        Assert.Contains($"{mover.Code} Test Mover: paid by payroll run #{storeRun.Number} this month.", office.Warnings, StringComparison.Ordinal);
+
+        // Two runs calculated at the same moment could both pay the mover: neither is approved until one is calculated again.
+        await using (var ctx = db.CreateContext())
+        {
+            ctx.Payslips.Add(new Payslip { PayrollRunId = office.Id, EmployeeId = mover.Id, EmployeeCode = mover.Code, EmployeeName = mover.FullName, Gross = 1m, Net = 1m });
+            await ctx.SaveChangesAsync();
+        }
+        var twice = await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.ApproveAsync(office.Id, Admin));
+        Assert.Equal($"Test Mover is paid by payroll run #{storeRun.Number} this month too; calculate the run again.", twice.Message);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => payroll.ApproveAsync(storeRun.Id, Admin));
+        office = await payroll.CalculateAsync(office.Id, Admin, new DateOnly(2026, 4, 1));
+        await payroll.ApproveAsync(storeRun.Id, Admin);
+        office = await payroll.ApproveAsync(office.Id, Admin);
+
+        // Head office's entries carry no store, and its transfers come off the chosen bank account.
+        office = await payroll.PostAsync(office.Id, Admin);
+        var posted = (await ledger.GetEntryAsync(office.JournalEntryId!.Value))!;
+        Assert.All(posted.Lines, l => Assert.Null(l.StoreId));
+        var (bank, bankCode) = await BankAsync(data);
+        office = await payroll.PayAsync(office.Id, new DateOnly(2026, 3, 1), bank.Id, null, Admin);
+        var paid = (await ledger.GetEntryAsync(office.PaymentEntryId!.Value))!;
+        var net = (await payroll.GetPayslipsAsync(office.Id)).Single(p => p.EmployeeId == accountant.Id).Net;
+        Assert.Equal((net, -net, 0m), (On(paid, "2300"), On(paid, bankCode), On(paid, "1050")));
+        Assert.All(paid.Lines, l => Assert.Null(l.StoreId));
     }
 
     [SkippableFact]

@@ -25,6 +25,7 @@ import type {
   LoanRow,
   Paged,
   PayBody,
+  PayFromAccount,
   PayslipDetail,
   ReportTable,
   RosterChangeInfo,
@@ -144,6 +145,8 @@ export function hrEndpoints({ get, post, put, del, blob, upload }: HrClientParts
     reopenRun: (runId: string, version: string) => post<RunRow>(`/payroll/runs/${id(runId)}/reopen`, { version }),
     postRun: (runId: string, version: string) => post<RunRow>(`/payroll/runs/${id(runId)}/post`, { version }),
     payPayrollRun: (runId: string, pay: PayBody) => post<RunRow>(`/payroll/runs/${id(runId)}/pay`, pay),
+    /** The active bank and cash accounts pay may come from: a store's and the company's (`storeId`), or every one. */
+    payFromAccounts: (query: Query) => get<PayFromAccount[]>('/payroll/bank-accounts', query),
     /** The bank transfer list, as a CSV file. */
     payrollBankTransfers: (runId: string) => blob(`/payroll/runs/${id(runId)}/bank-transfers`),
     cashSheet: (runId: string) => get<CashSheet>(`/payroll/runs/${id(runId)}/cash-sheet`),

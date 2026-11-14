@@ -1921,8 +1921,8 @@ export interface LoanBody {
   instalment: number;
   firstMonth: BusinessDate | null;
   reason: string | null;
-  /** A role (Cash, Bank) or an account code. */
-  paidFrom: string | null;
+  /** The bank or cash account it is paid from (`/payroll/bank-accounts`); null: the cash in hand of the employee's store. */
+  bankAccountId: string | null;
 }
 
 export interface RunRow {
@@ -1959,11 +1959,14 @@ export interface RunRow {
   paidOn: BusinessDate | null;
   paidBy: string | null;
   paymentJournalNumber: number | null;
+  /** The bank and cash accounts the payment came from, by name. */
+  paidFrom?: string | null;
 }
 
 export interface RunBody {
   year: number;
   month: number;
+  /** null: head office, the employees with no store. */
   storeId: string | null;
   notes: string | null;
 }
@@ -1976,8 +1979,22 @@ export interface SettlementBody {
 export interface PayBody {
   version: string;
   paidOn: BusinessDate | null;
-  bankAccount: string | null;
-  cashAccount: string | null;
+  /** The bank account the transfers go from; needed when anyone is paid by transfer. */
+  bankAccountId: string | null;
+  /** The cash account the cash wages come from; null: each store's cash in hand. */
+  cashAccountId: string | null;
+}
+
+/** A bank or cash account pay may come from (`GET /api/payroll/bank-accounts`), without its balance. */
+export interface PayFromAccount {
+  id: string;
+  name: string;
+  kind: BankAccountKind;
+  currency: string;
+  ledgerCode: string;
+  /** null: the company's. */
+  storeId: string | null;
+  storeCode: string | null;
 }
 
 export interface PayslipRow {

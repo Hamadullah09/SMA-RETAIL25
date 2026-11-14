@@ -1,7 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { addMonths, daysText, formatDays, formatMinutes, markTone, monthKey, monthName, nextTaxYear, payslipSections, runActions, taxYearName, taxYearOf } from './hr';
+import {
+  addMonths,
+  daysText,
+  defaultPayFrom,
+  formatDays,
+  formatMinutes,
+  HEAD_OFFICE,
+  markTone,
+  monthKey,
+  monthName,
+  nextTaxYear,
+  payFromLabel,
+  payslipSections,
+  paySplit,
+  runActions,
+  runScope,
+  taxYearName,
+  taxYearOf,
+} from './hr';
 import { canOpen, commandsFor, navFor, navKeyForPath, pageForPath, searchCommands } from './nav';
-import type { RuleSetInfo } from './types';
+import type { PayFromAccount, RuleSetInfo } from './types';
 
 describe('HR words', () => {
   it('writes the days of a shift short', () => {
@@ -70,6 +88,56 @@ describe('a payroll run', () => {
       ['Paid by the employer', 2000],
     ]);
     expect(payslipSections([]).length).toBe(0);
+  });
+
+  it('names a run without a store head office', () => {
+    expect(runScope({ storeCode: 'MAIN' })).toBe('Store MAIN');
+    expect(runScope({ storeCode: null })).toBe('Head office (no store)');
+    expect(HEAD_OFFICE).toBe('Head office (no store)');
+  });
+
+  it('adds up what is paid by transfer and in cash, leaving out nothing to pay', () => {
+    expect(
+      paySplit([
+        { paymentMethod: 'Bank', net: 73645.5 },
+        { paymentMethod: 'Bank', net: 1000.25 },
+        { paymentMethod: 'Cash', net: 74600 },
+        { paymentMethod: 'Cash', net: 0 },
+      ]),
+    ).toEqual({ bank: { people: 2, total: 74645.75 }, cash: { people: 1, total: 74600 } });
+    expect(paySplit([])).toEqual({ bank: { people: 0, total: 0 }, cash: { people: 0, total: 0 } });
+  });
+});
+
+describe('the account a run is paid from', () => {
+  const account = (id: string, storeId: string | null, kind: PayFromAccount['kind'] = 'Bank'): PayFromAccount => ({
+    id,
+    name: `Account ${id}`,
+    kind,
+    currency: 'PKR',
+    ledgerCode: `10${id}`,
+    storeId,
+    storeCode: storeId ? storeId.toUpperCase() : null,
+  });
+
+  it("is the run's store's own bank account first, then the company's, then any", () => {
+    const accounts = [account('51', null), account('52', 's-main'), account('53', 's-west')];
+    expect(defaultPayFrom(accounts, 's-main')).toBe('52');
+    expect(defaultPayFrom(accounts, 's-north')).toBe('51');
+    expect(defaultPayFrom(accounts, null)).toBe('51');
+    expect(defaultPayFrom([account('53', 's-west')], null)).toBe('53');
+  });
+
+  it('is a bank account, and nothing when there is none', () => {
+    expect(defaultPayFrom([account('54', 's-main', 'Cash'), account('55', null, 'Wallet')], 's-main')).toBeNull();
+    expect(defaultPayFrom([account('54', 's-main', 'Cash'), account('51', null)], 's-main')).toBe('51');
+    expect(defaultPayFrom([], null)).toBeNull();
+    expect(defaultPayFrom(undefined, 's-main')).toBeNull();
+  });
+
+  it('is listed with its store and ledger account', () => {
+    expect(payFromLabel(account('52', 's-main'))).toBe('Account 52 (S-MAIN) · 1052');
+    expect(payFromLabel(account('51', null))).toBe('Account 51 · 1051');
   });
 });
 

@@ -11,8 +11,8 @@ leave, and payroll to the server and the web back office. Payroll posts to the g
 | Employees | Identity (CNIC), contact, emergency contact, joining, confirmation and leaving dates, type, HR department, designation, store (none for head office), manager, user at the tills, usual shift, bank and statutory numbers, income from a previous employer, documents (up to 10 MB each). The CNIC and IBAN are checked against the rule set's formats and the IBAN check digits | `HrService` |
 | Shifts and attendance | Shifts with break, grace minutes and days of the week; a roster per week with changes per day. Attendance is worked out from the time clock (`TimeClockEntry`) when asked, never stored: present, late, left early, absent, on leave, holiday, day off, overtime. A correction counts once someone other than the one who asked approves it | `AttendanceRules`, `AttendanceService`, `HrCalendar` |
 | Leave | Requests with half days, counted in working days (or calendar days for maternity). The employee's manager or someone with `hr.leave` decides, never the employee. Balances per calendar year: earned a twelfth a month where the type says so, carried over up to a limit, adjusted by hand | `LeaveService` |
-| Salaries and loans | A salary is a basic pay with allowances and fixed deductions from a date; a change is a new row. Loans and salary advances are paid through the ledger and taken back in monthly instalments | `PayrollService` |
-| Payroll runs | A month for one store or the whole company, or a final settlement for one leaver: Draft → Calculated → Approved (by someone with `payroll.approve`) → Posted → Paid. The bank transfer list (CSV), the cash sheet and printable payslips | `PayrollService`, `PayrollRules` |
+| Salaries and loans | A salary is a basic pay with allowances and fixed deductions from a date; a change is a new row. Loans and salary advances are paid from one of finance's bank or cash accounts (or the cash in hand) through the ledger and taken back in monthly instalments | `PayrollService` |
+| Payroll runs | A month for one store or for head office (the employees with no store), or a final settlement for one leaver: Draft → Calculated → Approved (by someone with `payroll.approve`) → Posted → Paid. A month has one run for each store and one for head office; nobody is paid by two runs of a month. Paid from a bank account chosen at the pay step. The bank transfer list (CSV), the cash sheet and printable payslips | `PayrollService`, `PayrollRules` |
 | Reports | Salary sheet, tax deducted (certificate), EOBI return, social security return, attendance, leave taken, overtime, headcount and turnover; as tables or CSV | `Endpoints.Payroll.cs` |
 | Web | An HR group at the end of the navigation: Employees, Attendance, Shifts and rosters, Leave, Payroll, HR reports, HR settings. Ctrl+K finds them by typing "hr" | `web/src/app/(app)/hr/` |
 
@@ -135,10 +135,27 @@ that does not balance. For a run:
 | | 1150 Advances to employees: loan instalments, with the employee as party |
 | | The account of a fixed deduction that names one (a canteen, a fund) |
 
-Paying a run (`payroll-payment:{run id}`) debits 2300 for each net pay and credits the bank (1050) for transfers and the
-cash (1010) for cash, or the accounts given. A loan is paid with Dr 1150 and Cr the cash or bank it was paid from, and a
-cancelled loan is reversed. The tests post a run with a bank-paid, a cash-paid, a canteen and a fund deduction and a loan
-instalment, and check every account, that both entries balance, and that salaries payable keeps only the fund.
+Paying a run (`payroll-payment:{run id}`, reference `PR{number}`) debits 2300 for each net pay and credits, for the
+transfers, the ledger account of the bank account chosen at the pay step (one of E1's bank accounts, each with its own
+ledger account, so the payment shows on that account's balance and reconciliation), and for the cash, the ledger account
+of the cash account chosen, or else each store's cash in hand (1010). A run with anyone paid by transfer is not paid
+without a bank account: the old fall-back to the chart's Bank account (1050), which no bank account uses, is gone, as
+supplier payments and bank-paid expenses have none either. Runs paid before keep their entries. The account must be
+active and in the base currency. A loan or advance is paid with Dr 1150 and Cr the ledger account of the bank or cash
+account it was paid from, or the cash in hand of the employee's store; a cancelled loan is reversed. The tests post a run
+with a bank-paid, a cash-paid, a canteen and a fund deduction and a loan instalment, and check every account, that both
+entries balance, that the transfers land on the bank account's own ledger account and none on 1050, and that salaries
+payable keeps only the fund.
+
+### Who a run pays
+
+A run of a store pays the employees of that store; a run without a store pays head office, the employees with no store.
+A month has one run for each store and one for head office (there is no run of the whole company any more: a run
+without a store started before this change paid everyone and keeps its payslips). An employee is never paid twice in a
+month: calculating a run leaves out, with a warning on the run, anyone another monthly run of the month already has a
+payslip for (someone who moved between a store and head office), and approving a run is refused while one of its
+employees is on another run of the month (two runs calculated at the same moment). A final settlement already keeps its
+leaver out of the month's run.
 
 ## 4. Sync placement
 
@@ -166,8 +183,9 @@ or audit lines about them.
 Salaries, loans, runs, payslips and the payroll reports are read with `payroll.run` or `payroll.approve` only. The
 standard **HR officer** role has every HR key and `payroll.run`, but not `payroll.approve`, so a second person approves.
 The Manager role has `hr.view` and `hr.leave`. Administrators of one store see that store's employees; head office
-employees, company-wide runs and the shared HR lists (when there is more than one store) are for users who see every
-store.
+employees, head office's payroll runs and the shared HR lists (when there is more than one store) are for users who
+see every store. Paying needs only `payroll.run`: the pay step lists the active bank and cash accounts from
+`/api/payroll/bank-accounts`, without their balances, so an HR officer needs no finance rights.
 
 Employees, HR lists, shifts, leave types, holidays and rule sets are audited tables; the CNIC, IBAN, NTN, EOBI and social
 security numbers and the previous employer's figures are written as "(hidden)". Salary changes, loans, leave decisions,
@@ -184,10 +202,10 @@ amounts.
 |---|---|
 | `tests/RetailPlus.Core.Tests/HrRulesTests.cs` | Tax by slabs and surcharge, the projection, tax years, service and gratuity, CNIC and IBAN checks, lateness, overtime, night shifts, leave days |
 | `tests/RetailPlus.Data.Tests/HrTests.cs` | On SQLite and SQL Server: the seeded rule set, rule sets as data, employees and the hidden audit values, lists and documents, attendance with holidays, roster and corrections, leave with approvals and balances |
-| `tests/RetailPlus.Data.Tests/PayrollTests.cs` | On SQLite and SQL Server: the payslips of section 2.4, joiners, leave, absence and overtime, the projection, loans, the steps and who may take them, a month without rules, the final settlement, the ledger entries |
-| `tests/RetailPlus.Server.Tests/HrApiTests.cs` | Permissions, store limits, versions, a run from draft to paid through the API, leave and corrections, what reaches a till |
-| `web/src/lib/hr.test.ts`, `hr-api.test.ts` | The HR client, words, run buttons, payslip sections, navigation, starting the next tax year |
-| `web/e2e/hr.spec.ts`, `hr-layout.spec.ts` | Every HR page against the mocked API, payroll from draft to paid, starting the next tax year; no sideways scroll on desktop or a phone |
+| `tests/RetailPlus.Data.Tests/PayrollTests.cs` | On SQLite and SQL Server: the payslips of section 2.4, joiners, leave, absence and overtime, the projection, loans, the steps and who may take them, a month without rules, the final settlement, the ledger entries, paying from a bank account's own ledger account, head office's run next to a store's and nobody paid twice |
+| `tests/RetailPlus.Server.Tests/HrApiTests.cs` | Permissions, store limits, versions, a run from draft to paid through the API and paid from the chosen bank account, head office's run next to a store's and nobody paid twice, leave and corrections, what reaches a till |
+| `web/src/lib/hr.test.ts`, `hr-api.test.ts` | The HR client, words, run buttons, who a run pays, the bank account the pay step picks, payslip sections, navigation, starting the next tax year |
+| `web/e2e/hr.spec.ts`, `hr-layout.spec.ts` | Every HR page against the mocked API, payroll from draft to paid with the bank account chosen, a head-office run, starting the next tax year; no sideways scroll on desktop or a phone |
 
 ## 8. Still to do
 
@@ -197,5 +215,7 @@ amounts.
 - Nothing for employees themselves: no "my payslips" or "ask for leave" at the till or on the web for an employee who
   is not an HR user; payslips are printed, not sent.
 - Bank files are a plain CSV; no bank's own upload format.
+- A run does not keep which bank account paid it; the run shows it from its payment entry. A company that wants one
+  run for every store and head office together makes one run each.
 - Anyone with `hr.view` sees an employee's CNIC and IBAN. A stricter rule (only `hr.edit` and payroll) would need the
   API and the employee page changed together.

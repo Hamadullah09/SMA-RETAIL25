@@ -1,6 +1,7 @@
 /**
  * Words, chips and small rules of the HR and payroll pages: statuses as people read them, minutes and months, the
- * payroll run's steps and which of its buttons a role gets, and the payslip's sections.
+ * payroll run's steps and which of its buttons a role gets, who a run pays and what it is paid from, and the payslip's
+ * sections.
  */
 import type { ChipTone } from '@/components/ui/page';
 import type {
@@ -9,9 +10,11 @@ import type {
   HrApproval,
   LeaveRequestStatus,
   LoanStatus,
+  PayFromAccount,
   PayrollRunStatus,
   PayslipLineInfo,
   PayslipLineKind,
+  PayslipRow,
   RuleSetInfo,
 } from './types';
 
@@ -200,6 +203,41 @@ export function runActions(status: PayrollRunStatus, can: { run: boolean; approv
   if (can.run && status === 'Posted') actions.push('pay');
   if (can.run && (status === 'Draft' || status === 'Calculated')) actions.push('delete');
   return actions;
+}
+
+/** How a run without a store is named: it pays the employees who belong to no store. */
+export const HEAD_OFFICE = 'Head office (no store)';
+
+/** Who a run pays, for its heading: its store, or head office. */
+export function runScope(run: { storeCode: string | null }): string {
+  return run.storeCode ? `Store ${run.storeCode}` : HEAD_OFFICE;
+}
+
+/** What a run pays out by transfer and in cash: how many people and how much (nothing for a net pay of zero). */
+export function paySplit(payslips: readonly Pick<PayslipRow, 'paymentMethod' | 'net'>[]): Record<'bank' | 'cash', { people: number; total: number }> {
+  const split = { bank: { people: 0, total: 0 }, cash: { people: 0, total: 0 } };
+  for (const p of payslips) {
+    if (p.net <= 0) continue;
+    const side = p.paymentMethod === 'Bank' ? split.bank : split.cash;
+    side.people += 1;
+    side.total = Math.round((side.total + p.net) * 100) / 100;
+  }
+  return split;
+}
+
+/** An account in a list to pay from: its name, its store (none: the company's) and its ledger account. */
+export function payFromLabel(a: PayFromAccount): string {
+  return `${a.name}${a.storeCode ? ` (${a.storeCode})` : ''} · ${a.ledgerCode}`;
+}
+
+/**
+ * The bank account a run's transfers come from unless someone picks another: the first bank account of the run's store,
+ * else the company's first, else the first there is (the list comes sorted by name, as for supplier payments). Cash
+ * and wallet accounts are not picked for transfers; with no bank account at all there is nothing to pick.
+ */
+export function defaultPayFrom(accounts: readonly PayFromAccount[] | undefined, storeId: string | null): string | null {
+  const banks = (accounts ?? []).filter((a) => a.kind === 'Bank');
+  return (storeId ? banks.find((a) => a.storeId === storeId) : undefined)?.id ?? banks.find((a) => a.storeId === null)?.id ?? banks[0]?.id ?? null;
 }
 
 // Payslips -----------------------------------------------------------------------------------------------------------

@@ -521,7 +521,7 @@ public class EmployeeLoan : Entity, ILocalOnly
     public DateOnly FirstMonth { get; set; }
     public LoanStatus Status { get; set; }
     public string? Reason { get; set; }
-    /// <summary>The account it was paid from.</summary>
+    /// <summary>The ledger code of the bank or cash account it was paid from, or Cash: the cash in hand of the employee's store.</summary>
     public string? PaidFromAccount { get; set; }
     public Guid? JournalEntryId { get; set; }
     public string? CreatedBy { get; set; }
@@ -571,7 +571,7 @@ public class PayrollRun : Entity, ILocalOnly, IVersioned
     public int Month { get; set; }
     public DateOnly PeriodStart { get; set; }
     public DateOnly PeriodEnd { get; set; }
-    /// <summary>The store whose employees it pays; null for the whole company.</summary>
+    /// <summary>The store whose employees it pays; null for head office: the employees with no store.</summary>
     public Guid? StoreId { get; set; }
     /// <summary>For a final settlement: the employee who leaves.</summary>
     public Guid? EmployeeId { get; set; }

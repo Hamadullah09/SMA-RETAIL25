@@ -19,6 +19,7 @@ import type {
   LeaveRequestRow,
   LeaveTypeInfo,
   LoanRow,
+  PayFromAccount,
   PayslipDetail,
   PayslipRow,
   ReportTable,
@@ -280,9 +281,17 @@ function run(id: string, number: number, status: RunRow['status'], extra: Partia
     approvedAtUtc: ['Approved', 'Posted', 'Paid'].includes(status) ? '2026-11-03T11:00:00Z' : null, postedBy: ['Posted', 'Paid'].includes(status) ? 'hina' : null,
     postedAtUtc: ['Posted', 'Paid'].includes(status) ? '2026-11-03T12:00:00Z' : null, journalNumber: ['Posted', 'Paid'].includes(status) ? 10000000042 : null,
     paidOn: status === 'Paid' ? day(now) : null, paidBy: status === 'Paid' ? 'hina' : null, paymentJournalNumber: status === 'Paid' ? 10000000043 : null,
+    paidFrom: status === 'Paid' ? 'Meezan Downtown' : null,
     ...extra,
   };
 }
+
+/** The bank and cash accounts pay may come from, sorted by name as the server sends them: the company's, Downtown's, a cash box. */
+export const payFromAccounts: PayFromAccount[] = [
+  { id: 'ba-hbl', name: 'HBL Company', kind: 'Bank', currency: 'PKR', ledgerCode: '1051', storeId: null, storeCode: null },
+  { id: 'ba-main', name: 'Meezan Downtown', kind: 'Bank', currency: 'PKR', ledgerCode: '1052', storeId: 's-main', storeCode: 'MAIN' },
+  { id: 'ba-safe', name: 'Office safe', kind: 'Cash', currency: 'PKR', ledgerCode: '1053', storeId: null, storeCode: null },
+];
 
 export function payrollRun(id: string, status: RunRow['status']): RunRow {
   return id === 'run-2' ? run('run-2', 10000000002, status, { kind: 'FinalSettlement', title: 'Final settlement of Sana Malik', employeeId: 'e-3', employeeName: 'Sana Malik', storeId: 's-west', storeCode: 'WEST' }) : run('run-1', 10000000001, status);
