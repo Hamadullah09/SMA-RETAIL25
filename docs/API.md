@@ -361,7 +361,10 @@ then travel like the tills' own: down to that store's tills.
 - The cookie lasts as long as the token (`Jwt:Hours`, 12). The CSRF guard applies to requests signed in by the cookie;
   sign-in and sign-out (open to anyone) and requests with an `Authorization` header are not checked.
 - Errors are always `{ "error" }`. A change the database refuses (a code that must be unique, a record that no longer
-  exists) is 400. An unknown address under `/api` is a JSON 404.
+  exists) is 400. Text longer than its field (the sizes are Retail Plus's: address lines 30, city 18…) is 400 naming the
+  field and its size, `Address 1 is too long: at most 30 characters.`; every save checks this before it is written, at
+  the tills too (SQLite would keep the text, and the server would then refuse the till's package). An unknown address
+  under `/api` is a JSON 404.
 - The server serves the web app's static export from `Server:WebRoot` (default: `web/out`, looked for in the content root
   and the folders above it; when there is none, only the API is served). `/x/` serves `x/index.html` and `/x` serves
   `x.html`; any other path outside `/api` gets the export's `404.html` with status 404. Files under `/_next/static/` are
