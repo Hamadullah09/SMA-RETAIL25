@@ -813,8 +813,8 @@ public static class SmokeCheck
             };
             try
             {
-                var yes = await AppServices.Parties.SaveClientAsync(new Client { LastName = "Smoke WA " + stamp[..6] + " Y" });
-                var no = await AppServices.Parties.SaveClientAsync(new Client { LastName = "Smoke WA " + stamp[..6] + " N" });
+                var yes = await AppServices.Parties.SaveClientAsync(new Client { LastName = "SmokeWA " + stamp[..6] + " Y" });
+                var no = await AppServices.Parties.SaveClientAsync(new Client { LastName = "SmokeWA " + stamp[..6] + " N" });
                 await pos.Vm.SetClientAsync(yes.Id);
                 await pos.Vm.SetClientAsync(no.Id);
                 await pos.Vm.SetClientAsync(yes.Id);
