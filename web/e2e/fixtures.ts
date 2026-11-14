@@ -938,13 +938,13 @@ export const templates: WhatsAppTemplate[] = [
   { id: 't-3', version: 'v-1', name: 'old_offer', language: 'ur', category: 'Utility', body: 'Old offer', isActive: false, placeholders: [] },
 ];
 
-const noMessages = { queued: 0, sent: 0, delivered: 0, read: 0, failed: 0, error: 0 };
+const noMessages = { queued: 0, sent: 0, delivered: 0, read: 0, failed: 0, error: 0, cancelled: 0 };
 
 export const campaigns: CampaignRow[] = [
   {
     id: 'cm-1', version: 'v-1', name: 'Spring sale', segmentId: 'seg-1', segment: 'Big spenders', templateId: 't-1', template: 'spring_sale', status: 'Sent', storeId: 's-main',
     storeCode: 'MAIN', scheduledAtUtc: minutesAgo(60 * 48), startedAtUtc: minutesAgo(60 * 48), finishedAtUtc: minutesAgo(60 * 47), recipients: 40,
-    counts: { queued: 0, sent: 4, delivered: 18, read: 15, failed: 2, error: 1 }, createdBy: 'sara', createdAtUtc: minutesAgo(60 * 50),
+    counts: { queued: 0, sent: 4, delivered: 18, read: 15, failed: 2, error: 1, cancelled: 0 }, createdBy: 'sara', createdAtUtc: minutesAgo(60 * 50),
   },
   {
     id: 'cm-2', version: 'v-1', name: 'Points reminder', segmentId: 'seg-2', segment: 'Lapsed Downtown', templateId: 't-2', template: 'points_reminder', status: 'Draft',
@@ -1025,7 +1025,11 @@ export function clientWithWhatsApp(): ClientDetail {
   return { ...clientDetail('cl-1'), whatsAppNumber: '+14165550142', whatsAppOptIn: true, whatsAppOptInAtUtc: minutesAgo(60 * 24 * 40), birthday: '1990-03-14', whatsAppAskedAtUtc: minutesAgo(60 * 24 * 40) };
 }
 
-export const clientMessages: WhatsAppMessageRow[] = [campaignMessages[0]];
+export const clientMessages: WhatsAppMessageRow[] = [
+  // Of a campaign cancelled before it went.
+  { id: 'm-9', campaignId: 'cm-9', clientId: 'cl-1', clientName: 'Akua Owusu', toNumber: '+14165550142', template: 'points_reminder', body: 'Hi Akua, you have 320 points to spend.', status: 'Cancelled', error: null, sentAtUtc: null, deliveredAtUtc: null, readAtUtc: null, createdAtUtc: minutesAgo(60 * 3) },
+  campaignMessages[0],
+];
 export const purchaseOrders: PurchaseOrderRow[] = [
   { id: 'po-3', number: 10000003, storeCode: 'MAIN', locationCode: 'POS', status: 'Posted', createdAt: at('09:00:00', daysBefore(4)), postedAt: at('09:30:00', daysBefore(4)), receivedAt: null, expectedOn: today, supplier: 'Cotton Co. Ltd', description: 'Requisition 10000002 · Cotton Co. Ltd', lines: 2, totalCost: 412.8 },
   { id: 'po-2', number: 10000002, storeCode: 'MAIN', locationCode: 'POS', status: 'Draft', createdAt: at('11:00:00', daysBefore(1)), postedAt: null, receivedAt: null, expectedOn: null, supplier: 'Sole Brothers', description: 'Reorder suggestions', lines: 1, totalCost: 285 },

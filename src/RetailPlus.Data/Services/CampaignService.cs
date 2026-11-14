@@ -6,11 +6,11 @@ using RetailPlus.Core.Rules;
 namespace RetailPlus.Data.Services;
 
 /// <summary>How many of a campaign's messages stand where.</summary>
-public sealed record CampaignCounts(int Queued, int Sent, int Delivered, int Read, int Failed, int Error)
+public sealed record CampaignCounts(int Queued, int Sent, int Delivered, int Read, int Failed, int Error, int Cancelled)
 {
-    public static readonly CampaignCounts None = new(0, 0, 0, 0, 0, 0);
+    public static readonly CampaignCounts None = new(0, 0, 0, 0, 0, 0, 0);
 
-    public int Total => Queued + Sent + Delivered + Read + Failed + Error;
+    public int Total => Queued + Sent + Delivered + Read + Failed + Error + Cancelled;
 }
 
 /// <summary>A campaign's results: its messages, and what its recipients bought within some days of it.</summary>
@@ -84,12 +84,13 @@ public sealed class CampaignService(DataContext data)
         return c;
     }
 
-    /// <summary>Deletes a draft, or a cancelled campaign that sent nothing (with its queued messages).</summary>
+    /// <summary>Deletes a draft, or a cancelled campaign that sent nothing (with its messages, none of which went).</summary>
     public async Task DeleteCampaignAsync(Guid id)
     {
         await using var db = data.Create();
         var c = await db.Campaigns.SingleOrDefaultAsync(x => x.Id == id) ?? throw new BusinessRuleException("That campaign no longer exists.");
-        bool sentSome = await db.WhatsAppMessages.AnyAsync(m => m.CampaignId == id && m.Status != WhatsAppMessageStatus.Queued);
+        bool sentSome = await db.WhatsAppMessages.AnyAsync(m => m.CampaignId == id
+            && m.Status != WhatsAppMessageStatus.Queued && m.Status != WhatsAppMessageStatus.Cancelled);
         if (c.Status is not (CampaignStatus.Draft or CampaignStatus.Cancelled) || sentSome)
             throw new BusinessRuleException("A campaign that sent messages is kept with its results.");
         db.WhatsAppMessages.RemoveRange(await db.WhatsAppMessages.Where(m => m.CampaignId == id).ToListAsync());
@@ -151,17 +152,25 @@ public sealed class CampaignService(DataContext data)
         };
     }
 
-    /// <summary>Cancels a scheduled or sending campaign (or a draft): its queued messages are never sent.</summary>
-    public async Task CancelAsync(Guid id, Guid version)
+    /// <summary>
+    /// Cancels a scheduled or sending campaign (or a draft): its messages not sent yet are marked cancelled, so they are
+    /// never sent, and its report and the clients' WhatsApp history show them so. Returns how many.
+    /// </summary>
+    public async Task<int> CancelAsync(Guid id, Guid version)
     {
         await using var db = data.Create();
         var c = await db.Campaigns.SingleOrDefaultAsync(x => x.Id == id) ?? throw new BusinessRuleException("That campaign no longer exists.");
         if (c.Version != version) throw new ConcurrencyConflictException("Someone else changed this campaign. Load it again and make your changes again.");
         if (c.Status is CampaignStatus.Sent or CampaignStatus.Cancelled) throw new BusinessRuleException("This campaign is already finished.");
+        await using var tx = await db.Database.BeginTransactionAsync();
+        int cancelled = await db.WhatsAppMessages.Where(m => m.CampaignId == id && m.Status == WhatsAppMessageStatus.Queued)
+            .ExecuteUpdateAsync(s => s.SetProperty(m => m.Status, WhatsAppMessageStatus.Cancelled).Edited());
         c.Status = CampaignStatus.Cancelled;
         c.FinishedAtUtc = DateTime.UtcNow;
-        db.Audit(AuditActions.CampaignCancelled, c.Name, nameof(Campaign), c.Id);
+        db.Audit(AuditActions.CampaignCancelled, $"{c.Name}: {cancelled} messages not sent", nameof(Campaign), c.Id);
         await SaveAsync(db, "campaign");
+        await tx.CommitAsync();
+        return cancelled;
     }
 
     /// <summary>The message counts of campaigns, by campaign.</summary>
@@ -176,7 +185,7 @@ public sealed class CampaignService(DataContext data)
 
     private static CampaignCounts Counts(IReadOnlyDictionary<WhatsAppMessageStatus, int> n) => new(n.GetValueOrDefault(WhatsAppMessageStatus.Queued),
         n.GetValueOrDefault(WhatsAppMessageStatus.Sent), n.GetValueOrDefault(WhatsAppMessageStatus.Delivered), n.GetValueOrDefault(WhatsAppMessageStatus.Read),
-        n.GetValueOrDefault(WhatsAppMessageStatus.Failed), n.GetValueOrDefault(WhatsAppMessageStatus.Error));
+        n.GetValueOrDefault(WhatsAppMessageStatus.Failed), n.GetValueOrDefault(WhatsAppMessageStatus.Error), n.GetValueOrDefault(WhatsAppMessageStatus.Cancelled));
 
     /// <summary>
     /// The campaign's messages by status, and the completed sales its recipients made from the campaign's start (in the
@@ -209,7 +218,7 @@ public sealed class CampaignService(DataContext data)
     /// <summary>
     /// Sends up to <paramref name="max"/> queued messages of the campaigns that are due, oldest first: scheduled campaigns
     /// whose time has come start sending, and those with nothing left to send are marked sent. Returns how many messages
-    /// were handled (sent or refused).
+    /// were handled (sent or refused); a message cancelled meanwhile is left alone.
     /// </summary>
     public async Task<int> SendDueAsync(IWhatsAppSender sender, int max, DateTime? nowUtc = null, CancellationToken cancellationToken = default)
     {
@@ -227,7 +236,9 @@ public sealed class CampaignService(DataContext data)
             var sending = db.Campaigns.Where(c => c.Status == CampaignStatus.Sending).Select(c => c.Id);
             var queued = await db.WhatsAppMessages.Where(m => m.Status == WhatsAppMessageStatus.Queued && m.CampaignId != null && sending.Contains(m.CampaignId.Value))
                 .OrderBy(m => m.CreatedAtUtc).Take(Math.Max(0, max)).ToListAsync(cancellationToken);
-            foreach (var message in queued) await SendAsync(db, message, sender, cancellationToken);
+            int handled = 0;
+            foreach (var message in queued)
+                if (await SendAsync(db, message, sender, cancellationToken)) handled++;
             foreach (var done in await db.Campaigns.Where(c => c.Status == CampaignStatus.Sending
                          && !db.WhatsAppMessages.Any(m => m.CampaignId == c.Id && m.Status == WhatsAppMessageStatus.Queued)).ToListAsync(cancellationToken))
             {
@@ -237,7 +248,7 @@ public sealed class CampaignService(DataContext data)
                 AuditCampaign(db, done, AuditActions.CampaignSent, $"{done.Name}: {count} messages sent");
             }
             await db.SaveChangesAsync(cancellationToken);
-            return queued.Count;
+            return handled;
         }
         finally
         {
@@ -247,10 +258,16 @@ public sealed class CampaignService(DataContext data)
 
     /// <summary>
     /// Sends one queued message, saved at once: consent and the number are checked again on the client as it is now, and
-    /// what WhatsApp answers (its message id, or why not) is kept on the message.
+    /// what WhatsApp answers (its message id, or why not) is kept on the message. False, with nothing sent, when the
+    /// message is no longer queued (its campaign was cancelled after the message was picked).
     /// </summary>
-    private static async Task SendAsync(RetailPlusDbContext db, WhatsAppMessage message, IWhatsAppSender sender, CancellationToken cancellationToken)
+    private static async Task<bool> SendAsync(RetailPlusDbContext db, WhatsAppMessage message, IWhatsAppSender sender, CancellationToken cancellationToken)
     {
+        if (!await db.WhatsAppMessages.AnyAsync(m => m.Id == message.Id && m.Status == WhatsAppMessageStatus.Queued, cancellationToken))
+        {
+            await db.Entry(message).ReloadAsync(cancellationToken);
+            return false;
+        }
         var client = await db.Clients.AsNoTracking().Where(c => c.Id == message.ClientId).Select(c => new { c.WhatsAppOptIn, c.WhatsAppNumber, c.IsDeleted })
             .SingleOrDefaultAsync(cancellationToken);
         var template = await db.WhatsAppTemplates.AsNoTracking().SingleAsync(t => t.Id == message.TemplateId, cancellationToken);
@@ -278,6 +295,7 @@ public sealed class CampaignService(DataContext data)
         }
         if (message.Status == WhatsAppMessageStatus.Queued) message.Status = WhatsAppMessageStatus.Error;
         await db.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     /// <summary>

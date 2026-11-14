@@ -669,20 +669,22 @@ for one store may be changed by that store's users; one for every store or sever
   `{Balance}`, `{Store}`, `{ClientNumber}`; any other is 400.
 - `CampaignRow`: `{ "id", "version", "name", "segmentId", "segment", "templateId", "template", "status", "storeId",
   "storeCode", "scheduledAtUtc", "startedAtUtc", "finishedAtUtc", "recipients", "counts": { "queued", "sent",
-  "delivered", "read", "failed", "error" }, "createdBy", "createdAtUtc" }`. `status` is `Draft`, `Scheduled`, `Sending`,
-  `Sent` or `Cancelled`.
+  "delivered", "read", "failed", "error", "cancelled" }, "createdBy", "createdAtUtc" }`. `status` is `Draft`, `Scheduled`,
+  `Sending`, `Sent` or `Cancelled`.
 - `GET /api/campaigns?storeId&status` (*paged*, newest first); `GET /api/campaigns/{id}`; `POST` (201, a draft),
   `PUT /{id}` (drafts only), `DELETE /{id}` (drafts, and cancelled campaigns that sent nothing). Body `{ "name",
   "segmentId", "templateId", "storeId"?, "version" (PUT) }`.
 - `POST /api/campaigns/{id}/schedule` takes `{ "sendAtUtc"?, "version" }` (null: now). The recipients are worked out
   there and then: the segment's members who agreed to WhatsApp messages and have a number, one message each, queued.
   400 when there is nobody. The server's sender sends them from `sendAtUtc` on, at most `WhatsApp:MessagesPerMinute`.
-- `POST /api/campaigns/{id}/cancel` takes `{ "version" }` (a draft, a scheduled or a sending campaign); queued messages
-  are never sent. A cancelled campaign may be deleted only while all its messages are still queued.
+- `POST /api/campaigns/{id}/cancel` takes `{ "version" }` (a draft, a scheduled or a sending campaign); its queued
+  messages become `Cancelled` and are never sent. A cancelled campaign may be deleted only while none of its messages
+  went (all are `Cancelled`).
 - `GET /api/campaigns/{id}/messages?status` (*paged*) → `WhatsAppMessageRow { "id", "campaignId", "clientId",
   "clientName", "toNumber", "template", "body", "status", "error", "sentAtUtc", "deliveredAtUtc", "readAtUtc",
-  "createdAtUtc" }`. `status` is `Queued`, `Sent`, `Delivered`, `Read`, `Failed` (WhatsApp could not deliver it) or
-  `Error` (it was not sent: refused, no consent any more, or the API failed).
+  "createdAtUtc" }`. `status` is `Queued`, `Sent`, `Delivered`, `Read`, `Failed` (WhatsApp could not deliver it),
+  `Error` (it was not sent: refused, no consent any more, or the API failed) or `Cancelled` (its campaign was cancelled
+  before it went; never sent).
 - `GET /api/campaigns/{id}/results?days=7` → `{ "counts", "recipients", "days", "buyers", "sales", "salesTotal" }`: the
   recipients' completed sales from the campaign's start to `days` days after (1–90).
 - Single messages: `POST /api/clients/{id}/whatsapp` (`crm.edit`) takes `{ "templateId", "storeId"? }` and sends at

@@ -2370,7 +2370,7 @@ export interface TemplateRequest {
 }
 
 export type CampaignStatus = 'Draft' | 'Scheduled' | 'Sending' | 'Sent' | 'Cancelled';
-export type MessageStatus = 'Queued' | 'Sent' | 'Delivered' | 'Read' | 'Failed' | 'Error';
+export type MessageStatus = 'Queued' | 'Sent' | 'Delivered' | 'Read' | 'Failed' | 'Error' | 'Cancelled';
 
 export interface MessageCounts {
   queued: number;
@@ -2379,6 +2379,8 @@ export interface MessageCounts {
   read: number;
   failed: number;
   error: number;
+  /** Not sent because the campaign was cancelled first. */
+  cancelled: number;
 }
 
 export interface CampaignRow {

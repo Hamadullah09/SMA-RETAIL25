@@ -13,7 +13,7 @@ branch `erp-e4-crm`, 2026-11-04. The API is in [API.md](API.md), section "New in
 | Won and lost | Web, CRM › Won and lost | What closed in a period: count and value won and lost, the win rate, per owner, and the reasons for losing |
 | Activities | Web, CRM › Activities; My tasks; the dashboard | Calls, visits, meetings, notes and tasks on a client, lead or opportunity, with a due time in the store's time. *My tasks* and the dashboard show the user's overdue and today's |
 | Segments | Web, Segments | Clients chosen by rules: spend and visits in a period, last purchase (lapsed or recent), a store, a department bought, birthday month, points, balance owing, WhatsApp consent. Preview, the count when last evaluated, CSV of the members |
-| WhatsApp | Web, Campaigns; a client's page | Templates as WhatsApp approves them (`{FirstName}`, `{Points}`… become numbered parameters). A campaign sends one template to a segment, now or later; the recipients are the members who agreed and have a number. Counts per status (queued, sent, delivered, read, failed, refused) and the recipients' sales afterwards. One message to one client from their page |
+| WhatsApp | Web, Campaigns; a client's page | Templates as WhatsApp approves them (`{FirstName}`, `{Points}`… become numbered parameters). A campaign sends one template to a segment, now or later; the recipients are the members who agreed and have a number. Counts per status (queued, sent, delivered, read, failed, refused, cancelled) and the recipients' sales afterwards. Cancelling a campaign marks its messages not sent yet as cancelled: they are never sent, and its report and the clients' message history show them as cancelled. One message to one client from their page |
 | Consent | The till, the desktop client editor, the web client page | A client's WhatsApp number (international form) and whether they agree, with the time. The till asks a client once (see below). Nothing is ever sent without consent, which is checked again just before each message goes |
 | Promotions | Web, Promotions; every till | Percent or amount off, buy X get Y (free or at a discount), bundle price, spend over an amount; for all items, departments, categories or stock codes; dates, days of the week and a happy hour; every store or some; a priority; whether it combines; an optional coupon code with a limit of uses. A report of what each promotion cost and earned |
 | Targets | Web, Targets; the dashboard | A monthly sales target per store and per salesperson, against net sales as the dashboard counts them |
@@ -63,7 +63,8 @@ Sending is behind `IWhatsAppSender` (`RetailPlus.Data/Services/WhatsAppSender.cs
   environment variables on the server, never in the repository). `appsettings.json` has it off, with empty values.
 - Until then, and in every test, `RecordingWhatsAppSender` keeps what would have been sent and sends nothing.
 - A background worker on the server sends due campaigns a few at a time (at most `WhatsApp:MessagesPerMinute`, every
-  `WhatsApp:WorkerIntervalSeconds`). `/api/whatsapp/webhook` takes Meta's delivery and read statuses, checking
+  `WhatsApp:WorkerIntervalSeconds`). It takes only queued messages of campaigns that are sending, and checks again
+  that each is still queued just before it goes, so a message cancelled meanwhile is never sent. `/api/whatsapp/webhook` takes Meta's delivery and read statuses, checking
   `WhatsApp:VerifyToken` and the `X-Hub-Signature-256` signature made with `WhatsApp:AppSecret`.
 - Another provider (SMS, e-mail) is another `IWhatsAppSender`-like sender; nothing else needs to change.
 

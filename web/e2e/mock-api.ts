@@ -287,7 +287,8 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
       }
       case /^POST \/api\/campaigns\/[^/]+\/cancel$/.test(key): {
         const c = f.campaigns.find((x) => x.id === id) ?? f.campaigns[2];
-        return { json: { ...c, status: 'Cancelled', version: 'v-2' } };
+        // The messages not sent yet are cancelled with it.
+        return { json: { ...c, status: 'Cancelled', counts: { ...c.counts, queued: 0, cancelled: c.counts.cancelled + c.counts.queued }, version: 'v-2' } };
       }
       case /^GET \/api\/campaigns\/[^/]+$/.test(key):
         return f.campaigns.some((c) => c.id === id) ? { json: f.campaigns.find((c) => c.id === id) } : { status: 404, json: { error: 'That campaign was not found.' } };

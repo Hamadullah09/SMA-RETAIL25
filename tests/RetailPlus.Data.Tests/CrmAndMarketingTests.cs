@@ -307,7 +307,7 @@ public abstract class CrmAndMarketingTests(DatabaseFixture db)
         Assert.True(await campaigns.ApplyStatusAsync(sent.Id, "failed", DateTime.UtcNow, "131026 Undeliverable"));
         Assert.False(await campaigns.ApplyStatusAsync("wamid.unknown", "read", DateTime.UtcNow));
         var counts = (await campaigns.CountsAsync([campaign.Id]))[campaign.Id];
-        Assert.Equal(new CampaignCounts(0, 0, 0, 1, 0, 2), counts);
+        Assert.Equal(new CampaignCounts(0, 0, 0, 1, 0, 2, 0), counts);
 
         // Results: the recipients' sales after the campaign started.
         await SellAsync(data, session, yes1, item, 4);
@@ -342,10 +342,74 @@ public abstract class CrmAndMarketingTests(DatabaseFixture db)
         await campaigns.ScheduleAsync(campaign.Id, campaign.Version, null, Today);
         await using (var ctx = db.CreateContext())
             campaign = await ctx.Campaigns.AsNoTracking().SingleAsync(c => c.Id == campaign.Id);
-        await campaigns.CancelAsync(campaign.Id, campaign.Version);
+        Assert.Equal(1, await campaigns.CancelAsync(campaign.Id, campaign.Version));
         Assert.Equal(0, await campaigns.SendDueAsync(sender, 10, DateTime.UtcNow.AddMinutes(1)));
         Assert.Single(sender.Sent);
+        // The message not sent says so, in the campaign's counts and the client's messages; none went, so it may be deleted.
+        Assert.Equal(new CampaignCounts(0, 0, 0, 0, 0, 0, 1), (await campaigns.CountsAsync([campaign.Id]))[campaign.Id]);
+        await using (var ctx = db.CreateContext())
+            Assert.Equal(WhatsAppMessageStatus.Cancelled, (await ctx.WhatsAppMessages.SingleAsync(m => m.CampaignId == campaign.Id && m.ClientId == yes.Id)).Status);
         await campaigns.DeleteCampaignAsync(campaign.Id);
+    }
+
+    [SkippableFact]
+    public async Task Cancelling_while_sending_stops_the_messages_not_sent_yet_even_those_already_picked()
+    {
+        var (data, session, storeId) = await StoreAsync();
+        var item = await ItemAsync(data, session, "CNS-" + session.StationNumber, 5m);
+        var clients = new List<Client>();
+        for (int i = 1; i <= 3; i++)
+        {
+            var client = await ClientAsync(data, "Racer" + i, "+92300444000" + i, optIn: true);
+            await SellAsync(data, session, client, item, 1);
+            clients.Add(client);
+        }
+        var template = await TemplateAsync(data);
+        var campaigns = new CampaignService(data);
+        var segment = await new SegmentService(data).SaveAsync(new CustomerSegment { Name = "Racers" }, new SegmentRules { StoreId = storeId, MinVisits = 1 });
+        var campaign = await campaigns.SaveCampaignAsync(new Campaign { Name = "Stop it", SegmentId = segment.Id, TemplateId = template.Id });
+        Assert.Equal(3, await campaigns.ScheduleAsync(campaign.Id, campaign.Version, null, Today));
+
+        // The sender picks all three; while the first goes out, someone cancels the campaign.
+        var sender = new SenderThat(async () =>
+        {
+            Guid version;
+            await using (var ctx = db.CreateContext())
+                version = await ctx.Campaigns.Where(c => c.Id == campaign.Id).Select(c => c.Version).SingleAsync();
+            Assert.Equal(3, await campaigns.CancelAsync(campaign.Id, version));
+        });
+        Assert.Equal(1, await campaigns.SendDueAsync(sender, 10, DateTime.UtcNow.AddMinutes(1)));
+        Assert.Single(sender.Inner.Sent);
+        Assert.Equal(0, await campaigns.SendDueAsync(sender, 10, DateTime.UtcNow.AddMinutes(2)));
+        Assert.Single(sender.Inner.Sent);
+
+        Assert.Equal(new CampaignCounts(0, 1, 0, 0, 0, 0, 2), (await campaigns.CountsAsync([campaign.Id]))[campaign.Id]);
+        await using (var ctx = db.CreateContext())
+        {
+            Assert.Equal(CampaignStatus.Cancelled, (await ctx.Campaigns.SingleAsync(c => c.Id == campaign.Id)).Status);
+            var cancelled = await ctx.WhatsAppMessages.Where(m => m.CampaignId == campaign.Id && m.Status == WhatsAppMessageStatus.Cancelled).ToListAsync();
+            Assert.Equal(2, cancelled.Count);
+            Assert.All(cancelled, m => Assert.Null(m.SentAtUtc));
+            Assert.Contains(await ctx.AuditEntries.Where(e => e.EntityId == campaign.Id).Select(e => e.Details).ToListAsync(), d => d == "Stop it: 3 messages not sent");
+        }
+        // One message went, so the campaign is kept with its results.
+        await Assert.ThrowsAsync<BusinessRuleException>(() => campaigns.DeleteCampaignAsync(campaign.Id));
+    }
+
+    /// <summary>Sends through a recording sender, and does something once, while the first message is going.</summary>
+    private sealed class SenderThat(Func<Task> whileSending) : IWhatsAppSender
+    {
+        private Func<Task>? _once = whileSending;
+
+        public RecordingWhatsAppSender Inner { get; } = new();
+
+        public string Provider => "recording";
+
+        public async Task<WhatsAppSendResult> SendAsync(WhatsAppOutgoing message, CancellationToken cancellationToken = default)
+        {
+            if (Interlocked.Exchange(ref _once, null) is { } run) await run();
+            return await Inner.SendAsync(message, cancellationToken);
+        }
     }
 
     // Promotions on sales ---------------------------------------------------------------------------------------------

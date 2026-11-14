@@ -13,6 +13,7 @@ test("a campaign's page shows its counts, the recipients' sales and its messages
 
   await expect(page.getByTestId('count-Read')).toHaveText('15');
   await expect(page.getByTestId('count-Failed')).toHaveText('2');
+  await expect(page.getByTestId('count-Cancelled')).toHaveText('0');
   await expect(page.getByText('84.6% of the messages sent reached the phone.')).toBeVisible();
   await expect(page.getByTestId('result-Bought since')).toHaveText('9');
   await expect(page.getByTestId('result-Their sales')).toHaveText('$1,432.75');

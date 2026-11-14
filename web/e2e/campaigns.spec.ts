@@ -35,7 +35,7 @@ test('campaigns are listed, a draft is made and sent now, and a scheduled one is
   await expect(page.getByRole('button', { name: /^Edit/ })).toBeDisabled();
   await page.getByRole('button', { name: /Cancel sending/ }).click();
   const cancel = page.getByRole('dialog', { name: 'Cancel Weekend launch?' });
-  await expect(cancel).toContainText('The 40 messages still queued are never sent.');
+  await expect(cancel).toContainText('The 40 messages still queued are never sent: they are marked cancelled.');
   await cancel.getByRole('button', { name: /Cancel the campaign/ }).click();
   await expect.poll(() => api.last('POST', '/api/campaigns/cm-3/cancel')?.body).toEqual({ version: 'v-1' });
 });

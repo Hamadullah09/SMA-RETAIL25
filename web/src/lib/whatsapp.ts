@@ -83,13 +83,14 @@ export const MESSAGE_STATUS: Record<MessageStatus, { label: string; tone: ChipTo
   Read: { label: 'Read', tone: 'ok', key: 'read' },
   Failed: { label: 'Failed', tone: 'danger', key: 'failed' },
   Error: { label: 'Error', tone: 'danger', key: 'error' },
+  Cancelled: { label: 'Cancelled', tone: 'plain', key: 'cancelled' },
 };
 
 export const MESSAGE_STATUSES = Object.keys(MESSAGE_STATUS) as MessageStatus[];
 
 /** All the messages of the counts. */
 export function countsTotal(counts: MessageCounts): number {
-  return counts.queued + counts.sent + counts.delivered + counts.read + counts.failed + counts.error;
+  return counts.queued + counts.sent + counts.delivered + counts.read + counts.failed + counts.error + counts.cancelled;
 }
 
 /** Messages that reached the phone (delivered or read) out of those sent, in percent; 0 before any was sent. */
@@ -99,8 +100,8 @@ export function deliveredPercent(counts: MessageCounts): number {
 }
 
 /**
- * A draft can be changed and scheduled; a draft, or a cancelled one whose messages all stayed queued, can be deleted (the
- * server keeps a campaign once any message went out or was refused).
+ * A draft can be changed and scheduled; a draft, or a cancelled one none of whose messages went (all cancelled), can be
+ * deleted (the server keeps a campaign once any message went out or was refused).
  */
 export function campaignActions(status: CampaignStatus, counts: MessageCounts) {
   const sentSome = counts.sent + counts.delivered + counts.read + counts.failed + counts.error > 0;
