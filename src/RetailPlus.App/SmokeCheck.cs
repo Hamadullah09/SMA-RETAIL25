@@ -1026,7 +1026,7 @@ public static class SmokeCheck
 
             // The same piece goes through again later: the alarm comes back and sounds, with no second record.
             var again = await AppServices.OnGateReadAsync(new Rfid.RfidTagEvent(first, station, reader.Id, reader.Name, 2, -40, DateTime.Now.AddMinutes(1), RfidAntennaPurpose.Gate));
-            await MainWindow.Settle();
+            await WaitFor(() => Sounds.SirenOn);   // the window reads the open alarms first, then sounds
             var records = await AppServices.GateAlarms.GetForTagAsync(first);
             if (again?.Outcome != GateOutcome.OpenAlarm || records.Count != 1 || records[0].Passes != 2 || !Sounds.SirenOn)
                 failures.Add($"a second pass with the alarm open gave {again?.Outcome}, {records.Count} record(s), siren {(Sounds.SirenOn ? "on" : "off")}; expected the open alarm again, one record, siren on");

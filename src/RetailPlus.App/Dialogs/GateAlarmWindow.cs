@@ -154,6 +154,8 @@ public sealed class GateAlarmWindow : Window
         {
             Sounds.StopSiren();
             if (ReferenceEquals(Current, this)) Current = null;
+            Log.Write($"Gate alarm window closed, {Alarms.Count} alarm(s) shown");
+            if (Log.DebugEnabled) Log.Debug("Closed from " + Environment.StackTrace);
         };
     }
 

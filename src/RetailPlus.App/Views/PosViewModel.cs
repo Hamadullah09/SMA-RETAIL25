@@ -988,7 +988,7 @@ public sealed partial class PosViewModel : ObservableObject
         if (found.Tag is { Status: ItemTagStatus.Sold } sold && !ReturnMode)
         {
             if (_rfidNotices.Add(tag.Epc))
-                Alert($"{found.Item.Name}: this tag was already sold on {sold.SoldAt:g} (invoice {sold.SoldOnInvoice}). Use Return / refund to take it back.");
+                Alert($"{found.Item.Name}: this tag was already sold (flag 2) on {sold.SoldAt:g} (invoice {sold.SoldOnInvoice}). Use Return / refund to take it back.");
             return;
         }
         // A piece already rung up by its barcode: the tag joins that piece instead of adding another one.
@@ -1003,6 +1003,9 @@ public sealed partial class PosViewModel : ObservableObject
             return;
         }
         await AddItemAsync(found.Item, found.Variant, 1, tag.Epc, found.Tag?.SerialNumber);
-        if (Lines.Any(l => l.Epcs.Contains(tag.Epc))) Sounds.TagRead();
+        if (!Lines.Any(l => l.Epcs.Contains(tag.Epc))) return;
+        Sounds.TagRead();
+        if (found.Tag is { Status: ItemTagStatus.Unsold } && !ReturnMode)
+            Message += "   · flag 3: this piece set off the exit gate; paying for it resolves the alarm.";
     }
 }
