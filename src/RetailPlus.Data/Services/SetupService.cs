@@ -193,8 +193,8 @@ public sealed class SetupService(DataContext data)
         if (roles.Count == 0)
             foreach (var preset in Permissions.DefaultRoles)
             {
-                var role = new Role { Name = preset.Name, Level = preset.Level, Description = preset.Description, IsSystem = true };
-                role.Permissions.AddRange(preset.Permissions.Select(p => new RoleGrant { Permission = p }));
+                var role = new Role { Id = Guid.CreateVersion7(), Name = preset.Name, Level = preset.Level, Description = preset.Description, IsSystem = true };
+                role.Permissions.AddRange(preset.Permissions.Select(p => new RoleGrant { Id = StandardGrantId(role.Id, p), Permission = p }));
                 db.Roles.Add(role);
                 roles.Add(role);
             }
@@ -204,6 +204,49 @@ public sealed class SetupService(DataContext data)
             user.RoleId = role.Id;
             user.Role = role;
         }
+    }
+
+    /// <summary>
+    /// The id a standard role's permission has: made from the role and the key, so that once the permission is taken
+    /// away its tombstone says so (<see cref="AddNewStandardKeysAsync"/>). Permissions added later by hand get ids of
+    /// their own.
+    /// </summary>
+    public static Guid StandardGrantId(Guid roleId, string permission)
+    {
+        Span<byte> hash = stackalloc byte[32];
+        SHA256.HashData(System.Text.Encoding.UTF8.GetBytes($"standard-role-grant/{roleId:N}/{permission}"), hash);
+        var bytes = hash[..16];
+        bytes[6] = (byte)((bytes[6] & 0x0F) | 0x80);   // version 8: custom
+        bytes[8] = (byte)((bytes[8] & 0x3F) | 0x80);   // RFC 9562 variant
+        return new Guid(bytes, bigEndian: true);
+    }
+
+    /// <summary>
+    /// Gives the standard roles of a database already in use the keys they gained since
+    /// (<see cref="Permissions.KeysAddedToStandardRoles"/>), each once: the grant gets its standard id
+    /// (<see cref="StandardGrantId"/>), and a standard grant with a tombstone was taken away by an administrator and is not
+    /// given again. A key the role already holds under another id (given by hand) moves to the standard id, so that taking
+    /// it away later lasts too. The server does this at every start; the tills get the roles from the server. Saved with
+    /// the caller's next SaveChanges. Returns the keys given, as "role: key".
+    /// </summary>
+    public static async Task<List<string>> AddNewStandardKeysAsync(RetailPlusDbContext db, CancellationToken cancellationToken = default)
+    {
+        var given = new List<string>();
+        foreach (var (name, key) in Permissions.KeysAddedToStandardRoles)
+        {
+            var role = await db.Roles.Include(r => r.Permissions).SingleOrDefaultAsync(r => r.IsSystem && r.Name == name, cancellationToken);
+            if (role is null) continue;
+            var id = StandardGrantId(role.Id, key);
+            if (role.Permissions.Any(g => g.Id == id)
+                || await db.Tombstones.AnyAsync(t => t.EntityName == nameof(RoleGrant) && t.RowId == id && t.MergedIntoId == null, cancellationToken))
+                continue;
+            var byHand = role.Permissions.Where(g => g.Permission == key).ToList();
+            db.RoleGrants.RemoveRange(byHand);
+            // Added through the set: a new row whose id is already set would otherwise be taken for one to update.
+            db.RoleGrants.Add(new RoleGrant { Id = id, RoleId = role.Id, Permission = key });
+            if (byHand.Count == 0) given.Add($"{name}: {key}");
+        }
+        return given;
     }
 
     public async Task<List<Role>> GetRolesAsync()

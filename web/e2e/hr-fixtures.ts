@@ -43,22 +43,35 @@ const thisMonth = `${now.getFullYear()}-${pad(now.getMonth() + 1)}`;
 
 export const hrPermissionKeys = ['hr.view', 'hr.edit', 'hr.attendance', 'hr.leave', 'payroll.run', 'payroll.approve'];
 
-/** The standard HR officer: everything of HR but approving payroll. */
+/** The standard HR officer: everything of HR but approving payroll, for every store (head office). */
 export const hrOfficer: UserInfo = {
   id: 'u-hr',
   userName: 'hina',
   fullName: 'Hina Raza',
   role: 'HR officer',
-  permissions: ['web.signin', 'reports.staff', 'hr.view', 'hr.edit', 'hr.attendance', 'hr.leave', 'payroll.run'],
+  permissions: ['web.signin', 'reports.staff', 'hr.view', 'hr.edit', 'hr.attendance', 'hr.leave', 'payroll.run', 'stores.all'],
+  storeId: null,
+  storeName: null,
+  mustChangePassword: false,
+  canChangeShared: true,
+};
+
+/** HR at one store: the HR officer's permissions in a custom role without every store. */
+export const storeHrClerk: UserInfo = {
+  ...hrOfficer,
+  id: 'u-hrs',
+  userName: 'saima',
+  fullName: 'Saima Iqbal',
+  role: 'HR clerk',
+  permissions: hrOfficer.permissions.filter((k) => k !== 'stores.all'),
   storeId: 's-main',
   storeName: 'Downtown',
-  mustChangePassword: false,
   canChangeShared: false,
 };
 
-/** A manager on the web: sees HR and approves leave, but no payroll. */
+/** A manager on the web, for their own store: sees HR and approves leave, but no payroll. */
 export const hrManager: UserInfo = {
-  ...hrOfficer,
+  ...storeHrClerk,
   id: 'u-mgr',
   userName: 'omar',
   fullName: 'Omar Farooq',

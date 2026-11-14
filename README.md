@@ -115,9 +115,10 @@ serves the web back office and its API. Settings come from `appsettings.json`, e
 
 **The first sign-in.** Set `Bootstrap:AdminUserName` and `Bootstrap:AdminPassword` before the first start (or read the
 made-up password in the log once), sign in to the web back office as that super administrator and change the password.
-Then add the stores, their tills and the users: an Administrator with a home store sees and manages that store only; a
-user whose role has `stores.all` (Super administrator) sees every store and changes what the stores share (clients,
-suppliers, departments, categories, roles, commission rules).
+Then add the stores, their tills and the users: an Administrator or a Manager with a home store sees and manages that
+store only; a user whose role has `stores.all` (Super administrator, and Accountant, Marketing and HR officer for their
+work) sees every store and changes what the stores share (clients, suppliers, departments, categories, roles, commission
+rules). Every other user needs a home store.
 
 **The web back office** is the web app's static export (`web/out`, made by building `web/`), served at `/`; while the web
 app is developed, its own server on port 3000 calls the API instead (allowed by `Cors:Origins`). Signing in sets an

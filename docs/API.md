@@ -168,6 +168,17 @@ stations, enrollment, sync batches, package upload).
 - `POST /api/users/{id}/pin` takes `{ staffCode, pin }` and returns 204.
 - An administrator without `stores.all` manages only users of their own store, and can neither grant `stores.all` nor
   make a super administrator.
+- A user needs a home store unless their role has `stores.all`: a POST or PUT with `storeId` null and a role without it
+  (or no role) is 400, "Choose the store this user works at; only a role that sees every store works without one." Such
+  a user would see no store at all. The tills' own user editing has no such rule, since a till is one store.
+- **Standard roles on the web.** Manager and Administrator sign in for their own store, as does Production planner;
+  Marketing, HR officer, Accountant and Super administrator have `stores.all` and see every store. Supervisor, Cashier,
+  Trainee, Stock clerk and Production operator work at the tills only.
+- **New keys of standard roles.** When a standard role gains a key, `Permissions.KeysAddedToStandardRoles` lists it,
+  and at its next start the server gives it to that role in a database already in use (`SetupService.AddNewStandardKeysAsync`,
+  logged). Each standard permission has the same id everywhere (`SetupService.StandardGrantId`, from the role and the
+  key), so a key an administrator took away leaves a tombstone and is not given again. So far: Manager `web.signin`,
+  Marketing and HR officer `stores.all`.
 
 ### Audit log — `audit.view`
 `GET /api/audit?storeId&from&to&userId&action&search` (*paged*). Each row: `{ "id", "atUtc", "storeCode",
@@ -257,7 +268,8 @@ The rules below were decided while building the server. They add to the contract
   edits their own store's items, users, settings and pictures, but not the shared lists, once there is a second store.
 - **Users:** an administrator without `stores.all` lists and manages only users of their own store (others are 404),
   cannot make a user of every store (`storeId` null), cannot move a user to another store, and cannot give a role that
-  holds `stores.all` nor create or change such a role (403). The Super administrator role holds it.
+  holds `stores.all` nor create or change such a role (403). The Super administrator, Accountant, Marketing and HR
+  officer roles hold it. Nobody makes a user without a store whose role lacks it (400).
 
 ### Items are kept per location
 
@@ -565,7 +577,9 @@ Salaries, loans, runs, payslips and the payroll reports are 403 for anyone else,
 Permissions: `crm.view` (read leads, opportunities and activities; mark one's own activities done), `crm.edit` (change
 them, convert leads, send a single WhatsApp message), `marketing.campaigns` (segments, WhatsApp templates and
 campaigns), `marketing.promotions` (promotions), `sales.targets` (targets). Supervisors and above have `crm.view`;
-Managers, Administrators and the new **Marketing** role have the others (Marketing has no `sales.targets`).
+Managers, Administrators and the new **Marketing** role have the others (Marketing has no `sales.targets`). Marketing
+also has `stores.all`: leads, segments and campaigns are the company's work, so its users see every store and change
+the company-wide segments and templates.
 
 **Store scope.** Leads, opportunities, activities, campaigns, WhatsApp messages and targets belong to one store and
 follow the store rules of phase 3 (lists cover the stores the user sees; another store's record is 404). Without a

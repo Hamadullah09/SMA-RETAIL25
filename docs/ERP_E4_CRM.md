@@ -78,7 +78,8 @@ Sending is behind `IWhatsAppSender` (`RetailPlus.Data/Services/WhatsAppSender.cs
 
 - Permissions (`Core.Rules.Permissions`): `crm.view`, `crm.edit`, `marketing.campaigns`, `marketing.promotions`,
   `sales.targets`. Supervisors get `crm.view`; Managers and Administrators get all five; the new **Marketing** role
-  works on the web with leads, the pipeline, segments, campaigns and promotions (not targets).
+  works on the web with leads, the pipeline, segments, campaigns and promotions (not targets), for every store
+  (`stores.all`), since segments and templates are the company's.
 - Store rules: leads, opportunities, activities, campaigns, messages and targets belong to a store; stages, templates
   and segments without a store are the company's; a promotion for one store may be changed by that store's users.
 - Audit log: changes to leads, stages, opportunities, targets, segments, templates, campaigns and promotions, plus

@@ -3,7 +3,7 @@
  * open payroll, and a payroll run from draft to paid.
  */
 import { expect, test } from '@playwright/test';
-import { hrManager, hrOfficer, supervisor } from './fixtures';
+import { hrManager, hrOfficer, storeHrClerk, supervisor } from './fixtures';
 import { mockApi } from './mock-api';
 
 test('the HR group lists its pages under a heading, and Ctrl+K finds them by typing hr', async ({ page }) => {
@@ -300,10 +300,17 @@ test('the next tax year starts from the last one and is saved as a new rule set 
   expect(body.taxSlabs[3]).toEqual({ incomeFrom: 2200000, incomeTo: 3200000, fixedTax: 116000, rate: 20 });
 });
 
-test('a store administrator reads the shared HR lists but does not change them', async ({ page }) => {
-  await mockApi(page, { user: hrOfficer });
+test('HR at one store reads the shared HR lists but does not change them', async ({ page }) => {
+  await mockApi(page, { user: storeHrClerk });
   await page.goto('/hr/settings/');
   await expect(page.getByRole('row', { name: /Sales floor/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /New department/ })).toHaveCount(0);
   await expect(page.getByText('These lists are shared by every store; a super administrator changes them.')).toBeVisible();
+});
+
+test('the HR officer works for every store and changes the shared HR lists', async ({ page }) => {
+  await mockApi(page, { user: hrOfficer });
+  await page.goto('/hr/settings/');
+  await expect(page.getByRole('row', { name: /Sales floor/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /New department/ })).toBeVisible();
 });

@@ -238,9 +238,9 @@ public sealed class CrmApiTests(BackOffice office) : IClassFixture<BackOffice>
         }
         Assert.Equal(HttpStatusCode.Conflict, await Put(marketer, $"/api/segments/{segment.Id}", new { name = "Renamed", rules, version = Guid.NewGuid().ToString("N") }));
 
-        // Templates are the company's: changed by the super administrator here (two stores).
+        // Templates are the company's: with two stores, changed by those who see every store, not a store's administrator.
         var templateBody = new { name = "visit_thanks_" + Guid.NewGuid().ToString("N")[..6], language = "en", category = "Marketing", body = "Thank you {FirstName}! See you at {Store}.", isActive = true };
-        Assert.Equal(HttpStatusCode.Forbidden, await Post(marketer, "/api/whatsapp/templates", templateBody));
+        Assert.Equal(HttpStatusCode.Forbidden, await Post(adminA, "/api/whatsapp/templates", templateBody));
         Assert.Equal(HttpStatusCode.BadRequest, await Post(super, "/api/whatsapp/templates", templateBody with { body = "Hi {Nickname}" }));
         var template = await PostAsync<TemplateRow>(super, "/api/whatsapp/templates", templateBody);
         Assert.Equal(["FirstName", "Store"], template.Placeholders);
@@ -297,6 +297,25 @@ public sealed class CrmApiTests(BackOffice office) : IClassFixture<BackOffice>
         Assert.Equal(HttpStatusCode.BadRequest, await StatusAsync(marketer.DeleteAsync($"/api/campaigns/{campaign.Id}")));
         Assert.Equal(HttpStatusCode.BadRequest, await StatusAsync(super.DeleteAsync($"/api/whatsapp/templates/{template.Id}")));
         Assert.Equal(HttpStatusCode.BadRequest, await StatusAsync(marketer.DeleteAsync($"/api/segments/{segment.Id}")));
+    }
+
+    [SkippableFact]
+    public async Task A_marketing_user_sees_every_store_and_makes_the_company_segments()
+    {
+        Require();
+        using var adminA = await office.SignInAsync(office.AdminA);
+        // The standard Marketing role works for the whole company, so its users need no home store.
+        using var marketer = await office.SignInAsync(await office.UserAsync(Permissions.MarketingRole, null));
+        var rules = new SegmentRules { PeriodDays = 30, MinVisits = 1 };
+        string suffix = Guid.NewGuid().ToString("N")[..6];
+
+        // With two stores, a segment of the whole company is changed by a user who sees every store.
+        Assert.Equal(HttpStatusCode.Forbidden, await Post(adminA, "/api/segments", new { name = "Company regulars " + suffix, rules }));
+        var company = await PostAsync<SegmentRow>(marketer, "/api/segments", new { name = "Company regulars " + suffix, rules });
+        Assert.Null(company.StoreId);
+        var atB = await PostAsync<SegmentRow>(marketer, "/api/segments", new { name = "Store B regulars " + suffix, rules = rules with { StoreId = office.StoreB.Id } });
+        Assert.Equal(office.StoreB.Id, atB.StoreId);
+        Assert.Contains(await GetAsync<List<SegmentRow>>(marketer, "/api/segments"), s => s.Id == atB.Id);
     }
 
     [SkippableFact]
