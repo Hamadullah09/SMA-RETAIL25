@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { checkBarcode, checkEmail, checkNumber, numberText, parseNumber, textOrNull } from './forms';
+import { checkBarcode, checkEmail, checkNumber, checkShelfLife, numberText, parseNumber, textOrNull } from './forms';
 
 describe('form helpers', () => {
   it('reads numbers people type', () => {
@@ -32,6 +32,16 @@ describe('form helpers', () => {
     expect(checkBarcode('036000291453')).toBe("The barcode's check digit is not right.");
     expect(checkBarcode('12345')).toBe('A barcode is 8, 12 or 13 digits (EAN-8, UPC-A or EAN-13).');
     expect(checkBarcode('ABCDEFGH')).toBe('A barcode is 8, 12 or 13 digits (EAN-8, UPC-A or EAN-13).');
+  });
+
+  it('checks a shelf life: whole days from 0 to a hundred years', () => {
+    expect(checkShelfLife('0')).toBeUndefined();
+    expect(checkShelfLife('365')).toBeUndefined();
+    expect(checkShelfLife('-1')).toBe('Shelf life cannot be negative.');
+    expect(checkShelfLife('2.5')).toBe('Shelf life is a whole number of days.');
+    expect(checkShelfLife('36501')).toBe('Shelf life is at most 36500 days.');
+    expect(checkShelfLife('')).toBe('Enter the shelf life in days (0 when not known).');
+    expect(checkShelfLife('a week')).toBe('Shelf life is not a number.');
   });
 
   it('checks e-mail addresses', () => {

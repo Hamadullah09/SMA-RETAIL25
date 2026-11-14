@@ -85,6 +85,36 @@ answer and request of the server has the fields of its type in `web/src/lib/type
 union), `web/src/lib/supply.test.ts` and `api.test.ts` (Vitest),
 `web/e2e/supply.spec.ts` (Playwright, answered from `web/e2e/fixtures.ts` and `mock-api.ts`).
 
+## Fixes after the demo: batches from the web, the day received, locations
+
+Testing on a demo database found three gaps, closed on the branch `fix-supply`:
+
+- **Batches are set up on the web, and receiving no longer drops batch data.** The item API (`ItemDetail.tracksBatches`,
+  `shelfLifeDays`) and the web item editor (*Stock* tab: *Kept in batches, with expiry dates* and *Shelf life (days)*)
+  carry both fields; left out of a request they stay as they are, and a shelf life is 0 to 36500 days
+  (`InventoryService.SaveAsync`, so the till's editor checks it too). Receiving batches for an item that is not kept in
+  batches is refused, as a 400 on the web: *"2001 Milk pack 1 L is not kept in batches; turn that on for the item
+  first."* (`PurchasingService.PostShipmentAsync`). The till never offers batch boxes for such an item, and neither does
+  the web's receive dialog; the refusal guards the API, which used to answer 200 and throw the batches away.
+- **Orders are posted and received on the day given.** `POST /api/purchase-orders/{id}/post` takes `orderedOn` and
+  `.../receive` takes `receivedOn` (both `yyyy-MM-dd`, today where the store is when left out). A later day than today
+  is refused, a receipt dated before the order was posted is refused, and so is a day in a locked or closed ledger
+  period (`LedgerService.IsOpenAsync`, E1's rule for postings; open the period under *Finance › Years and periods*
+  first). The receipt's stock movements, its batches' received date (and the expiry offered from the shelf life), the
+  order's `PostedAt` and `ReceivedAt` (the day given, at the time it was recorded), the items' last order and receipt
+  dates (not moved back by an older receipt) and so the three-way match's *received* date and the business-day ledger
+  entry of that day all take it. The web's receive dialog has *Received on*, and *Post order* asks for *Ordered on*,
+  both today unless changed; today is sent as `null`, so the store's own today applies.
+- **Locations are managed on the web, and one is the store's hold location.** `POST /api/stores/{id}/locations` and
+  `PUT /api/locations/{id}` (`stores.manage`, like stations) add a location (code of 1 to 3 characters, once per store)
+  and rename it; the code stays, because a till finds the location it sells from by its code. `isHold` marks the
+  store's hold location, kept as the store setting `QUALITY_HOLD` (`LocationService`; no model change). An output
+  inspection that holds failed goods without naming a location moves them there, the web's inspection dialog offers it
+  first, and planning (MRP) does not count its stock. Lists and new items that name no location go to the store's first
+  location that is not the hold location. Locations and store settings are master data: both reach the store's tills at
+  their next download (`SyncPolicy`: locations both ways with their store and down to every till; settings with their
+  store). The web shows them on *Stores*, a *Locations* section per store.
+
 ## The link to E1 (supplier bills)
 
 E1 owns supplier bills (`SupplierBill` and `SupplierBillLine` in `Core/Model/Finance.cs`); E2 does not copy those
@@ -116,6 +146,11 @@ tables. The three-way match reads bill lines through one interface, `IBillLineSo
 
 ## What is left
 
+- The till's own Post order and Post shipment are still dated today: the date is on the web and in the API
+  (`PurchasingService` takes it), not yet in the desktop's Purchase Orders screen.
+- The price difference of a matched or accepted bill line is posted on the day of the match, not on the day received.
+- A location cannot be deleted (items, movements and documents point at it); a location's code cannot change.
+- Stock on hold still shows in the store's stock lists with its location; only planning leaves it out.
 - Bins and batch lists on the till: the till sells and receives in batches, but the batch lists, bin set-up and the
   put-away, pick and count lists are on the web only. A till prints the put-away list from the web for now.
 - Choosing a batch by hand at the POS: the data layer takes `SaleDraftLine.BatchId`, but the POS has no key for it yet

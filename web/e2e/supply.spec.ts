@@ -4,8 +4,13 @@
  * costs, reorder suggestions and supplier performance. Approving is hidden from a role without purchasing.approve.
  */
 import { expect, test } from '@playwright/test';
+import { addDays } from '../src/lib/dates';
 import { buyer, supervisor } from './fixtures';
 import { mockApi } from './mock-api';
+
+/** Today where the browser is (playwright.config.ts runs it in Toronto), which the date boxes start at. */
+const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto' }).format(new Date());
+const daysBefore = (days: number) => addDays(today, -days);
 
 test('the supply chain pages sit under their heading, each for its permission', async ({ page }) => {
   await mockApi(page);
@@ -58,8 +63,12 @@ test('receiving an order asks for the batches of items kept in batches, then sho
   await receive.getByRole('button', { name: /Post the receipt/ }).click();
 
   await expect(page.getByText('Order 10000003 is received: stock and costs are updated.')).toBeVisible();
-  const sent = api.last('POST', '/api/purchase-orders/po-3/receive')?.body as { version: string; lines: Array<{ lineId: string; batches: Array<{ batchNumber: string; pieces: number }> | null }> };
+  const sent = api.last('POST', '/api/purchase-orders/po-3/receive')?.body as {
+    version: string; receivedOn: string | null; lines: Array<{ lineId: string; batches: Array<{ batchNumber: string; pieces: number }> | null }>;
+  };
   expect(sent.version).toBe('v-1');
+  // Received today: the server takes today where the store is.
+  expect(sent.receivedOn).toBeNull();
   expect(sent.lines.find((l) => l.lineId === 'po-3-l2')?.batches).toEqual([
     expect.objectContaining({ batchNumber: 'OAT-0912', pieces: 20 }),
     expect.objectContaining({ batchNumber: 'OAT-0913', pieces: 4 }),
@@ -71,13 +80,56 @@ test('receiving an order asks for the batches of items kept in batches, then sho
   await expect(putAway.getByRole('cell', { name: 'OAT-0912' })).toBeVisible();
 });
 
-test('a draft order is posted from its panel', async ({ page }) => {
+test('goods that arrived yesterday are received on that day, with the expiry counted from it', async ({ page }) => {
+  const api = await mockApi(page);
+  await page.goto('/purchase-orders/');
+  await page.getByRole('row', { name: /10000003/ }).click();
+  await page.getByRole('dialog', { name: 'Purchase order 10000003' }).getByRole('button', { name: /^Receive/ }).click();
+  const receive = page.getByRole('dialog', { name: 'Receive order 10000003' });
+  await expect(receive.getByLabel('Received on')).toHaveValue(today);
+  await expect(receive.getByLabel('Expiry of batch 1 of MK-500')).toHaveValue(addDays(today, 60));
+
+  // Not later than today.
+  await receive.getByLabel('Received on').fill(addDays(today, 1));
+  await receive.getByLabel('Batch number 1 of MK-500').fill('OAT-0912');
+  await receive.getByRole('button', { name: /Post the receipt/ }).click();
+  await expect(receive.getByText('Goods cannot be received later than today.')).toBeVisible();
+
+  const yesterday = daysBefore(1);
+  await receive.getByLabel('Received on').fill(yesterday);
+  // The expiry offered from the 60-day shelf life moves with the day received.
+  await expect(receive.getByLabel('Expiry of batch 1 of MK-500')).toHaveValue(addDays(yesterday, 60));
+  await receive.getByRole('button', { name: /Post the receipt/ }).click();
+  await expect(page.getByText('Order 10000003 is received: stock and costs are updated.')).toBeVisible();
+  expect(api.last('POST', '/api/purchase-orders/po-3/receive')?.body).toMatchObject({ receivedOn: yesterday });
+});
+
+test('a draft order is posted from its panel, today or on the day it was placed', async ({ page }) => {
   const api = await mockApi(page);
   await page.goto('/purchase-orders/');
   await page.getByRole('row', { name: /10000002/ }).click();
   await page.getByRole('dialog', { name: 'Purchase order 10000002' }).getByRole('button', { name: /Post order/ }).click();
+  const post = page.getByRole('dialog', { name: 'Post order 10000002' });
+  await expect(post.getByLabel('Ordered on')).toHaveValue(today);
+  await post.getByRole('button', { name: /Post order/ }).click();
   await expect(page.getByText('Order 10000002 is posted: the pieces are on order.')).toBeVisible();
-  expect(api.last('POST', '/api/purchase-orders/po-2/post')?.body).toEqual({ version: 'v-1' });
+  expect(api.last('POST', '/api/purchase-orders/po-2/post')?.body).toEqual({ version: 'v-1', orderedOn: null });
+});
+
+test('an order placed two days ago is posted on that day, not on a later one', async ({ page }) => {
+  const api = await mockApi(page);
+  await page.goto('/purchase-orders/');
+  await page.getByRole('row', { name: /10000002/ }).click();
+  await page.getByRole('dialog', { name: 'Purchase order 10000002' }).getByRole('button', { name: /Post order/ }).click();
+  const post = page.getByRole('dialog', { name: 'Post order 10000002' });
+  await post.getByLabel('Ordered on').fill(addDays(today, 1));
+  await post.getByRole('button', { name: /Post order/ }).click();
+  await expect(post.getByText('An order cannot be placed later than today.')).toBeVisible();
+  expect(api.last('POST', '/api/purchase-orders/po-2/post')).toBeUndefined();
+  await post.getByLabel('Ordered on').fill(daysBefore(2));
+  await post.getByRole('button', { name: /Post order/ }).click();
+  await expect(page.getByText('Order 10000002 is posted: the pieces are on order.')).toBeVisible();
+  expect(api.last('POST', '/api/purchase-orders/po-2/post')?.body).toEqual({ version: 'v-1', orderedOn: daysBefore(2) });
 });
 
 test('a requisition is approved and made into purchase orders by someone who may approve', async ({ page }) => {

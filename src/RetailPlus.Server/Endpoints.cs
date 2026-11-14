@@ -16,7 +16,10 @@ public sealed record UserInfo(Guid Id, string UserName, string? FullName, string
 public sealed record SignInResponse(string Token, DateTime ExpiresAtUtc, UserInfo User);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record StoreInfo(Guid Id, string Code, string Name, string? TimeZoneId, string? CurrencySymbol = null);
-public sealed record LocationInfo(Guid Id, string Code, string? Name);
+/// <summary>A location of a store: <c>isHold</c> for the store's hold location (where failed goods go), <c>items</c> it keeps.</summary>
+public sealed record LocationInfo(Guid Id, string Version, string Code, string? Name, bool IsHold, int Items);
+/// <summary>A location to add (<c>code</c>, 1 to 3 characters, fixed once made) or rename; <c>isHold</c> marks it as the store's hold location.</summary>
+public sealed record LocationRequest(string? Version, string? Code, string? Name, bool? IsHold);
 public sealed record StaffInfo(Guid Id, string UserName, string? FullName);
 public sealed record StoreRequest(string Code, string Name, string? TimeZoneId);
 public sealed record BatchInfo(Guid Id, Guid BatchId, Guid? StoreId, int StationNumber, SyncDirection Direction, SyncBatchStatus Status, string? FileName,
@@ -152,10 +155,28 @@ public static partial class Endpoints
         api.MapGet("/stores/{id:guid}/locations", async (Guid id, ApiRequest api) =>
         {
             api.RequireStore(id, "That store");
-            await using var db = api.Root.Create();
-            return Results.Ok(await db.Locations.AsNoTracking().Where(l => l.StoreId == id).OrderBy(l => l.Code)
-                .Select(l => new LocationInfo(l.Id, l.Code, l.Name)).ToListAsync());
+            return Results.Ok((await new LocationService(api.Root).ListAsync(id)).Select(ToInfo).ToList());
         }).RequireAuthorization(Need(Permissions.WebSignIn));
+
+        // A store's locations are set up like its tills: by a user who manages stores and sees that store.
+        api.MapPost("/stores/{id:guid}/locations", async (Guid id, LocationRequest body, ApiRequest api) =>
+        {
+            api.RequireStore(id, "That store");
+            await using (var db = api.Root.Create())
+                if (!await db.Stores.AnyAsync(s => s.Id == id)) throw ApiException.NotFound("That store");
+            var made = await new LocationService(await api.ForChangeAsync(id)).AddAsync(id, body.Code, body.Name, body.IsHold ?? false);
+            return Results.Created($"/api/locations/{made.Id}", ToInfo(made));
+        }).RequireAuthorization(Need(Permissions.StoresManage));
+
+        api.MapPut("/locations/{id:guid}", async (Guid id, LocationRequest body, ApiRequest api) =>
+        {
+            var current = await new LocationService(api.Root).GetAsync(id) ?? throw ApiException.NotFound("That location");
+            api.RequireStore(current.StoreId, "That location");
+            ApiRequest.CheckVersion(body.Version, ApiRequest.Version(current.UpdatedAtUtc));
+            if (body.Code is { } code && !string.Equals(code.Trim(), current.Code, StringComparison.OrdinalIgnoreCase))
+                throw ApiException.Bad($"A location's code stays {current.Code}: the tills find the location they sell from by its code. Change its name instead.");
+            return Results.Ok(ToInfo(await new LocationService(await api.ForChangeAsync(current.StoreId)).RenameAsync(id, body.Name, body.IsHold)));
+        }).RequireAuthorization(Need(Permissions.StoresManage));
 
         // The people a list can be filtered by: the store's users and those who work at every store.
         api.MapGet("/staff", async (ApiRequest api) =>
@@ -261,6 +282,8 @@ public static partial class Endpoints
             return Results.Ok(await StationInfoAsync(db, station, options.Value));
         }).RequireAuthorization(Need(Permissions.StoresManage));
     }
+
+    private static LocationInfo ToInfo(LocationRow l) => new(l.Id, ApiRequest.Version(l.UpdatedAtUtc), l.Code, l.Name, l.IsHold, l.Items);
 
     private static string? Validate(StoreRequest request) =>
         string.IsNullOrWhiteSpace(request.Code) || request.Code.Trim().Length > 10 ? "A store code has 1 to 10 characters."

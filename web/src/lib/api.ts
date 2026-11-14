@@ -39,6 +39,7 @@ import type {
   SignInRequest,
   SignInResponse,
   LocationInfo,
+  LocationRequest,
   NewRfidHubResponse,
   RfidHubInfo,
   StaffMember,
@@ -154,6 +155,7 @@ import type {
   MatchRow,
   MatchRun,
   OrdersMade,
+  PostOrderRequest,
   PurchaseOrderDetail,
   PurchaseOrderRow,
   ReceiptChoice,
@@ -418,6 +420,8 @@ export function createApi(options: ApiOptions = {}) {
     saveStore: (storeId: string, request: StoreRequest) => put<StoreInfo>(`/stores/${id(storeId)}`, request),
     stations: (storeId: string) => get<StationInfo[]>(`/stores/${id(storeId)}/stations`),
     locations: (storeId: string) => get<LocationInfo[]>(`/stores/${id(storeId)}/locations`),
+    addLocation: (storeId: string, request: LocationRequest) => post<LocationInfo>(`/stores/${id(storeId)}/locations`, request),
+    saveLocation: (locationId: string, request: LocationRequest) => put<LocationInfo>(`/locations/${id(locationId)}`, request),
     rfidHubs: (storeId: string) => get<RfidHubInfo[]>(`/stores/${id(storeId)}/rfid-hubs`),
     /** Makes a hub key; the answer is the only place the key is ever seen. */
     addRfidHub: (storeId: string, name: string) => post<NewRfidHubResponse>(`/stores/${id(storeId)}/rfid-hubs`, { name }),
@@ -727,7 +731,7 @@ export function createApi(options: ApiOptions = {}) {
     // Supply chain: purchase orders and receiving
     purchaseOrders: (query: Query, signal?: AbortSignal) => get<Paged<PurchaseOrderRow>>('/purchase-orders', query, signal),
     purchaseOrder: (orderId: string) => get<PurchaseOrderDetail>(`/purchase-orders/${id(orderId)}`),
-    postPurchaseOrder: (orderId: string, request: VersionRequest) => post<PurchaseOrderDetail>(`/purchase-orders/${id(orderId)}/post`, request),
+    postPurchaseOrder: (orderId: string, request: PostOrderRequest) => post<PurchaseOrderDetail>(`/purchase-orders/${id(orderId)}/post`, request),
     receivePurchaseOrder: (orderId: string, request: ReceiveRequest) => post<PurchaseOrderDetail>(`/purchase-orders/${id(orderId)}/receive`, request),
 
     // Supply chain: requisitions

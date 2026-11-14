@@ -39,6 +39,17 @@ export function checkNumber(
   return undefined;
 }
 
+/** The longest shelf life the server takes, in days (`InventoryService.MaxShelfLifeDays`). */
+export const MAX_SHELF_LIFE_DAYS = 36500;
+
+/** An item's shelf life: whole days from 0 (not known) up to a hundred years, as the server checks it. */
+export function checkShelfLife(text: string): string | undefined {
+  if (text.trim() === '') return 'Enter the shelf life in days (0 when not known).';
+  const problem = checkNumber(text, { label: 'Shelf life', decimals: 0 });
+  if (problem) return problem === 'Shelf life has at most 0 decimals.' ? 'Shelf life is a whole number of days.' : problem;
+  return (parseNumber(text) ?? 0) > MAX_SHELF_LIFE_DAYS ? `Shelf life is at most ${MAX_SHELF_LIFE_DAYS} days.` : undefined;
+}
+
 /**
  * A product barcode: empty, or EAN-8, UPC-A (12 digits) or EAN-13 with a right check digit, as the desktop checks it.
  */

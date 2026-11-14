@@ -12,7 +12,7 @@ public sealed record ItemStock(string StoreCode, string LocationCode, decimal On
 public sealed record ItemDetail(Guid? Id, string? Version, string Plu, string Name, string? Description, Guid? DepartmentId, Guid? CategoryId, Guid? SupplierId,
     decimal Price1, decimal Price2, decimal Price3, decimal LastCost, decimal AverageCost, bool Taxable1, bool Taxable2, bool Taxable3,
     decimal ReorderPoint, decimal ReorderQuantity, decimal UnitsPerCase, bool IsActive, string? Notes, IReadOnlyList<ItemStock>? Stock,
-    Guid? LocationId = null, string? Barcode = null);
+    Guid? LocationId = null, string? Barcode = null, bool? TracksBatches = null, int? ShelfLifeDays = null);
 /// <summary>One location's row of a stock code.</summary>
 public sealed record ItemPlace(Guid ItemId, string StoreCode, string LocationCode);
 /// <summary>A location an every-store change did not reach, and why.</summary>
@@ -202,7 +202,7 @@ public static partial class Endpoints
             item.Price1, item.Price2, item.Price3, item.LastCost, item.AverageCost, item.Taxable1, item.Taxable2, false, item.ReorderPoint, item.ReorderQuantity,
             item.UnitsPerCase, !item.IsDeleted, item.PosMessage,
             [.. stock.Where(s => api.User.CanSee(s.StoreId)).OrderBy(s => s.Store, StringComparer.Ordinal).ThenBy(s => s.Location, StringComparer.Ordinal).Select(s => new ItemStock(s.Store, s.Location, s.OnHand))],
-            item.LocationId, item.Barcode);
+            item.LocationId, item.Barcode, item.TracksBatches, item.ShelfLifeDays);
     }
 
     private static async Task<IResult> SaveItemAsync(Guid? id, ItemDetail body, ApiRequest api)
@@ -237,6 +237,9 @@ public static partial class Endpoints
             item.LastCost = body.LastCost; item.AverageCost = body.AverageCost;
             item.Taxable1 = body.Taxable1; item.Taxable2 = body.Taxable2;
             item.ReorderPoint = body.ReorderPoint; item.ReorderQuantity = body.ReorderQuantity; item.UnitsPerCase = body.UnitsPerCase;
+            // Left out (an older client), batches and shelf life stay as they are.
+            item.TracksBatches = body.TracksBatches ?? item.TracksBatches;
+            item.ShelfLifeDays = body.ShelfLifeDays ?? item.ShelfLifeDays;
             string? department = body.DepartmentId is { } d ? await db.Departments.Where(x => x.Id == d).Select(x => x.Name).SingleOrDefaultAsync() ?? throw ApiException.Bad("That department does not exist.") : null;
             string? category = body.CategoryId is { } c ? await db.Categories.Where(x => x.Id == c).Select(x => x.Name).SingleOrDefaultAsync() ?? throw ApiException.Bad("That category does not exist.") : null;
             string? supplier = body.SupplierId is { } s ? await db.Suppliers.Where(x => x.Id == s).Select(x => x.Company).SingleOrDefaultAsync() ?? throw ApiException.Bad("That supplier does not exist.") : null;
@@ -257,14 +260,15 @@ public static partial class Endpoints
 
     /// <summary>
     /// The fields a change at every store copies to the code's other rows. Supplier, units per case, stock and the stock
-    /// code itself stay each location's own.
+    /// code itself stay each location's own; batches and shelf life belong to the product, so they are copied.
     /// </summary>
     private sealed record ItemFields(string Name, string? Description, string? Notes, string? Barcode, decimal Price1, decimal Price2, decimal Price3,
         decimal LastCost, decimal AverageCost, Guid? DepartmentId, Guid? CategoryId, bool Taxable1, bool Taxable2, decimal ReorderPoint, decimal ReorderQuantity,
-        bool IsActive)
+        bool IsActive, bool TracksBatches, int ShelfLifeDays)
     {
         public static ItemFields Of(Item i) => new(i.Name, i.Notes, i.PosMessage, string.IsNullOrWhiteSpace(i.Barcode) ? null : i.Barcode.Trim(), i.Price1, i.Price2,
-            i.Price3, i.LastCost, i.AverageCost, i.DepartmentId, i.CategoryId, i.Taxable1, i.Taxable2, i.ReorderPoint, i.ReorderQuantity, !i.IsDeleted);
+            i.Price3, i.LastCost, i.AverageCost, i.DepartmentId, i.CategoryId, i.Taxable1, i.Taxable2, i.ReorderPoint, i.ReorderQuantity, !i.IsDeleted, i.TracksBatches,
+            i.ShelfLifeDays);
 
         /// <summary>The names (as in <see cref="ItemDetail"/>) of the fields that differ.</summary>
         public static List<string> Changed(ItemFields a, ItemFields b)
@@ -286,6 +290,8 @@ public static partial class Endpoints
             if (a.ReorderPoint != b.ReorderPoint) names.Add("reorderPoint");
             if (a.ReorderQuantity != b.ReorderQuantity) names.Add("reorderQuantity");
             if (a.IsActive != b.IsActive) names.Add("isActive");
+            if (a.TracksBatches != b.TracksBatches) names.Add("tracksBatches");
+            if (a.ShelfLifeDays != b.ShelfLifeDays) names.Add("shelfLifeDays");
             return names;
         }
 
@@ -306,7 +312,9 @@ public static partial class Endpoints
             fields.Contains("taxable2") ? source.Taxable2 : Taxable2,
             fields.Contains("reorderPoint") ? source.ReorderPoint : ReorderPoint,
             fields.Contains("reorderQuantity") ? source.ReorderQuantity : ReorderQuantity,
-            fields.Contains("isActive") ? source.IsActive : IsActive);
+            fields.Contains("isActive") ? source.IsActive : IsActive,
+            fields.Contains("tracksBatches") ? source.TracksBatches : TracksBatches,
+            fields.Contains("shelfLifeDays") ? source.ShelfLifeDays : ShelfLifeDays);
 
         /// <summary>Writes the fields onto an item (not the department, category or deletion, which the service sets).</summary>
         public void WriteTo(Item i)
@@ -314,6 +322,7 @@ public static partial class Endpoints
             i.Name = Name; i.Notes = Description; i.PosMessage = Notes; i.Barcode = Barcode;
             i.Price1 = Price1; i.Price2 = Price2; i.Price3 = Price3; i.LastCost = LastCost; i.AverageCost = AverageCost;
             i.Taxable1 = Taxable1; i.Taxable2 = Taxable2; i.ReorderPoint = ReorderPoint; i.ReorderQuantity = ReorderQuantity;
+            i.TracksBatches = TracksBatches; i.ShelfLifeDays = ShelfLifeDays;
         }
     }
 
@@ -406,8 +415,8 @@ public static partial class Endpoints
     }
 
     /// <summary>
-    /// Where a new item goes: the location given, else the first location of the store asked for, of the user's store, or of
-    /// the only store.
+    /// Where a new item goes: the location given, else the main location (the first that is not the hold location) of the
+    /// store asked for, of the user's store, or of the only store.
     /// </summary>
     private static async Task<Location> LocationForNewItemAsync(ApiRequest api, Guid? locationId)
     {
@@ -422,8 +431,8 @@ public static partial class Endpoints
         if (store is null && await db.Stores.CountAsync() == 1) store = await db.Stores.Select(s => s.Id).SingleAsync();
         if (store is null) throw ApiException.Bad("Say which store the item is for (storeId or locationId).");
         if (!api.User.CanSee(store.Value)) throw ApiException.Forbidden("You may not add items to that store.");
-        return await db.Locations.AsNoTracking().Where(l => l.StoreId == store).OrderBy(l => l.Code).FirstOrDefaultAsync()
-               ?? throw ApiException.Bad("That store has no location yet.");
+        var main = await LocationService.MainIdAsync(db, store.Value) ?? throw ApiException.Bad("That store has no location yet.");
+        return await db.Locations.AsNoTracking().SingleAsync(l => l.Id == main);
     }
 
     private static async Task<IResult> ItemTrashAsync(Guid id, ApiRequest api, bool delete)

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using RetailPlus.Core.Model;
 using RetailPlus.Core.Rules;
+using RetailPlus.Data;
 using RetailPlus.Data.Services;
 using RetailPlus.Sync.Tests;
 using static RetailPlus.Server.Tests.BackOffice;
@@ -54,6 +55,27 @@ public sealed class SupplyChainApiTests(SyncWorld world) : IClassFixture<SyncWor
 
     private static async Task<HttpStatusCode> PutStatusAsync(HttpClient client, string url, object body) =>
         await StatusAsync(client.PutAsJsonAsync(url, body, SyncWorld.Json));
+
+    /// <summary>The status of a request and the <c>error</c> it answered with, if any.</summary>
+    private static async Task<(HttpStatusCode Status, string? Error)> SendAsync(Task<HttpResponseMessage> request)
+    {
+        using var response = await request;
+        var text = await response.Content.ReadAsStringAsync();
+        string? error = null;
+        if (!response.IsSuccessStatusCode && text.StartsWith('{'))
+            error = JsonDocument.Parse(text).RootElement.TryGetProperty("error", out var e) ? e.GetString() : null;
+        return (response.StatusCode, error);
+    }
+
+    /// <summary>A draft order of the items, made on the server for the store's POS location, as the API shows it.</summary>
+    private async Task<PurchaseOrderDetail> OrderOnServerAsync(HttpClient reader, Guid store, Guid? supplierId, IReadOnlyList<OrderItem> items)
+    {
+        Guid location;
+        await using (var db = world.ServerData.Create())
+            location = await db.Locations.AsNoTracking().Where(l => l.StoreId == store && l.Code == "POS").Select(l => l.Id).SingleAsync();
+        var po = await new PurchasingService(world.ServerData.For(new StationIdentity(store, 0), null)).CreateFromItemsAsync(location, supplierId, "Server order", items);
+        return await GetAsync<PurchaseOrderDetail>(reader, $"/api/purchase-orders/{po.Id}");
+    }
 
     /// <summary>Two stores; store A has a till with a supplier's items (one kept in batches) sent to the server.</summary>
     private async Task<(StoreInfo A, StoreInfo B, Till Till, Item Milk, Item Rice, Supplier Supplier)> CompanyAsync()
@@ -168,6 +190,166 @@ public sealed class SupplyChainApiTests(SyncWorld world) : IClassFixture<SyncWor
         Assert.Equal(6m, onServer.Single(x => x.BatchNumber == "TILL-1").OnHand);
         await using (var db = world.ServerData.Create())
             Assert.Equal(29m, await db.Items.Where(i => i.Id == milk.Id).Select(i => i.OnHand).SingleAsync());
+    }
+
+    [SkippableFact]
+    public async Task Batches_and_shelf_life_are_set_on_the_web_and_batches_for_an_item_not_kept_in_them_are_refused()
+    {
+        Require();
+        var (a, _, _, milk, rice, supplier) = await CompanyAsync();
+        using var adminA = await world.AdminOfAsync(a.Id);
+
+        // The item API carries both fields; left out (an older client) they stay as they are; a shelf life below 0 is refused.
+        var milkDetail = await GetAsync<ItemDetail>(adminA, $"/api/items/{milk.Id}");
+        Assert.Equal((true, 7), (milkDetail.TracksBatches, milkDetail.ShelfLifeDays));
+        var kept = await PutAsync<ItemDetail>(adminA, $"/api/items/{milk.Id}", milkDetail with { Name = "Milk, full cream", TracksBatches = null, ShelfLifeDays = null });
+        Assert.Equal((true, 7, "Milk, full cream"), (kept.TracksBatches, kept.ShelfLifeDays, kept.Name));
+        var riceDetail = await GetAsync<ItemDetail>(adminA, $"/api/items/{rice.Id}");
+        Assert.Equal((false, 0), (riceDetail.TracksBatches, riceDetail.ShelfLifeDays));
+        Assert.Equal(HttpStatusCode.BadRequest, await PutStatusAsync(adminA, $"/api/items/{rice.Id}", riceDetail with { TracksBatches = true, ShelfLifeDays = -1 }));
+        var made = await PostAsync<ItemDetail>(adminA, $"/api/items?storeId={a.Id}", new ItemDetail(null, null, "YOG" + Guid.NewGuid().ToString("N")[..4].ToUpperInvariant(),
+            "Yoghurt", null, null, null, null, 2m, 0, 0, 1m, 1m, true, false, false, 0, 0, 1, true, null, null, TracksBatches: true, ShelfLifeDays: 21));
+        Assert.Equal((true, 21), (made.TracksBatches, made.ShelfLifeDays));
+
+        // Rice received with a batch number: refused, saying why, and nothing is received.
+        var po = await OrderOnServerAsync(adminA, a.Id, supplier.Id, [new OrderItem(rice.Id, 10, 6m)]);
+        var line = po.Lines.Single();
+        Assert.False(line.TracksBatches);
+        var withBatch = new SupplyReceiveRequest(po.Version, 0, [new ReceiveLineRequest(line.Id, 10, null, [new ReceivedBatchInfo("R-1", 10, Today.AddDays(90), null)])]);
+        var (status, error) = await SendAsync(adminA.PostAsJsonAsync($"/api/purchase-orders/{po.Id}/receive", withBatch, SyncWorld.Json));
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+        Assert.Equal($"{rice.Plu} Rice is not kept in batches; turn that on for the item first.", error);
+        Assert.Equal(PurchaseOrderStatus.Draft, (await GetAsync<PurchaseOrderDetail>(adminA, $"/api/purchase-orders/{po.Id}")).Status);
+
+        // Turned on on the web, with its shelf life, the same receipt goes in with its batch.
+        var turnedOn = await PutAsync<ItemDetail>(adminA, $"/api/items/{rice.Id}", riceDetail with { TracksBatches = true, ShelfLifeDays = 365 });
+        Assert.Equal((true, 365), (turnedOn.TracksBatches, turnedOn.ShelfLifeDays));
+        po = await GetAsync<PurchaseOrderDetail>(adminA, $"/api/purchase-orders/{po.Id}");
+        Assert.Equal((true, 365), (po.Lines.Single().TracksBatches, po.Lines.Single().ShelfLifeDays));
+        var received = await PostAsync<PurchaseOrderDetail>(adminA, $"/api/purchase-orders/{po.Id}/receive", withBatch with { Version = po.Version });
+        Assert.Equal("R-1", received.Lines.Single().Batches.Single().BatchNumber);
+    }
+
+    [SkippableFact]
+    public async Task An_order_is_posted_and_received_on_the_days_given_but_not_a_future_day_nor_one_in_a_locked_period()
+    {
+        Require();
+        var (a, _, _, milk, rice, supplier) = await CompanyAsync();
+        using var adminA = await world.AdminOfAsync(a.Id);
+        var po = await OrderOnServerAsync(adminA, a.Id, supplier.Id, [new OrderItem(milk.Id, 6, 2m), new OrderItem(rice.Id, 10, 6m)]);
+
+        // Posted four days ago, not tomorrow.
+        var (status, error) = await SendAsync(adminA.PostAsJsonAsync($"/api/purchase-orders/{po.Id}/post", new PostOrderRequest(po.Version, Today.AddDays(1)), SyncWorld.Json));
+        Assert.Equal(HttpStatusCode.BadRequest, status);
+        Assert.Contains("is in the future", error, StringComparison.Ordinal);
+        var posted = await PostAsync<PurchaseOrderDetail>(adminA, $"/api/purchase-orders/{po.Id}/post", new PostOrderRequest(po.Version, Today.AddDays(-4)));
+        Assert.Equal((PurchaseOrderStatus.Posted, Today.AddDays(-4)), (posted.Status, DateOnly.FromDateTime(posted.PostedAt!.Value)));
+
+        var milkLine = posted.Lines.Single(l => l.ItemId == milk.Id);
+        var riceLine = posted.Lines.Single(l => l.ItemId == rice.Id);
+        SupplyReceiveRequest Receipt(DateOnly? on) => new(posted.Version, 0,
+            [new ReceiveLineRequest(milkLine.Id, 6, null, [new ReceivedBatchInfo("DAY-1", 6, null, null)]), new ReceiveLineRequest(riceLine.Id, 10, null, null)], on);
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(adminA, $"/api/purchase-orders/{po.Id}/receive", Receipt(Today.AddDays(1))));
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(adminA, $"/api/purchase-orders/{po.Id}/receive", Receipt(Today.AddDays(-5))));   // before it was ordered
+
+        // Yesterday, while its ledger period is locked: refused, until the period is open again.
+        var yesterday = Today.AddDays(-1);
+        var ledger = new LedgerService(world.ServerData);
+        await ledger.EnsureYearAsync(yesterday);
+        var period = (await ledger.GetYearsAsync()).SelectMany(y => y.Periods).Single(p => p.StartDate <= yesterday && p.EndDate >= yesterday);
+        await ledger.SetPeriodStatusAsync(period.Id, FiscalStatus.Locked);
+        try
+        {
+            (status, error) = await SendAsync(adminA.PostAsJsonAsync($"/api/purchase-orders/{po.Id}/receive", Receipt(yesterday), SyncWorld.Json));
+            Assert.Equal(HttpStatusCode.BadRequest, status);
+            Assert.Contains("locked or closed ledger period", error, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await ledger.SetPeriodStatusAsync(period.Id, FiscalStatus.Open);
+        }
+
+        var received = await PostAsync<PurchaseOrderDetail>(adminA, $"/api/purchase-orders/{po.Id}/receive", Receipt(yesterday));
+        Assert.Equal((PurchaseOrderStatus.Received, yesterday), (received.Status, DateOnly.FromDateTime(received.ReceivedAt!.Value)));
+        // The batch arrived yesterday, and its expiry counts the shelf life from then; the match reports it as received then.
+        var batch = (await GetAsync<List<BatchInfoRow>>(adminA, $"/api/items/{milk.Id}/batches")).Single(x => x.BatchNumber == "DAY-1");
+        Assert.Equal((yesterday, yesterday.AddDays(7)), (batch.ReceivedOn, batch.ExpiresOn));
+        Assert.Contains(await GetAsync<List<MatchReportInfo>>(adminA, "/api/matching/received-not-billed"),
+            r => r.PurchaseOrderId == po.Id && DateOnly.FromDateTime(r.ReceivedAt!.Value) == yesterday);
+        await using var db = world.ServerData.Create();
+        var moves = await db.StockMovements.AsNoTracking()
+            .Where(m => m.Kind == StockMovementKind.Receipt && m.DocumentNumber == po.Number && (m.ItemId == milk.Id || m.ItemId == rice.Id)).ToListAsync();
+        Assert.Equal(2, moves.Count);
+        Assert.All(moves, m => Assert.Equal(yesterday, DateOnly.FromDateTime(m.At)));
+    }
+
+    [SkippableFact]
+    public async Task Locations_are_added_renamed_and_marked_for_failed_goods_and_reach_the_till()
+    {
+        Require();
+        var (a, b, till, _, _, _) = await CompanyAsync();
+        using var adminA = await world.AdminOfAsync(a.Id);
+        using var adminB = await world.AdminOfAsync(b.Id);
+        using var clerk = await UserWithAsync(a.Id, Permissions.PurchasingManage);
+        var pos = Assert.Single(await GetAsync<List<LocationInfo>>(clerk, $"/api/stores/{a.Id}/locations"));
+        Assert.Equal(("POS", false), (pos.Code, pos.IsHold));
+
+        // Adding and renaming need stores.manage and the store; a code has 1 to 3 characters, once per store, and stays.
+        var hld = new LocationRequest(null, "hld", "Quality hold", true);
+        Assert.Equal(HttpStatusCode.Forbidden, await PostStatusAsync(clerk, $"/api/stores/{a.Id}/locations", hld));
+        Assert.Equal(HttpStatusCode.NotFound, await PostStatusAsync(adminB, $"/api/stores/{a.Id}/locations", hld));
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(adminA, $"/api/stores/{a.Id}/locations", hld with { Code = "HOLD" }));
+        Assert.Equal(HttpStatusCode.BadRequest, await PostStatusAsync(adminA, $"/api/stores/{a.Id}/locations", hld with { Code = "pos" }));
+        var hold = await PostAsync<LocationInfo>(adminA, $"/api/stores/{a.Id}/locations", hld);
+        Assert.Equal(("HLD", "Quality hold", true, 0), (hold.Code, hold.Name, hold.IsHold, hold.Items));
+        var rename = new LocationRequest(hold.Version, "HLD", "Quarantine", null);
+        Assert.Equal(HttpStatusCode.Forbidden, await PutStatusAsync(clerk, $"/api/locations/{hold.Id}", rename));
+        Assert.Equal(HttpStatusCode.NotFound, await PutStatusAsync(adminB, $"/api/locations/{hold.Id}", rename));
+        Assert.Equal(HttpStatusCode.BadRequest, await PutStatusAsync(adminA, $"/api/locations/{hold.Id}", rename with { Code = "QH" }));
+        var renamed = await PutAsync<LocationInfo>(adminA, $"/api/locations/{hold.Id}", rename);
+        Assert.Equal(("HLD", "Quarantine", true), (renamed.Code, renamed.Name, renamed.IsHold));
+        Assert.Equal(HttpStatusCode.Conflict, await PutStatusAsync(adminA, $"/api/locations/{hold.Id}", rename with { Name = "Old" }));
+        // HLD comes first by code, yet lists and new items stay at the POS location.
+        var reorder = await GetAsync<JsonElement>(clerk, $"/api/reorder?storeId={a.Id}");
+        Assert.Equal(pos.Id, reorder.GetProperty("locationId").GetGuid());
+        var item = await PostAsync<ItemDetail>(adminA, $"/api/items?storeId={a.Id}", new ItemDetail(null, null, "BUN" + Guid.NewGuid().ToString("N")[..4].ToUpperInvariant(),
+            "Bun", null, null, null, null, 1m, 0, 0, 0, 0, true, false, false, 0, 0, 1, true, null, null));
+        Assert.Equal(pos.Id, item.LocationId);
+
+        // An output inspection that holds failed goods without naming where moves them to the hold location.
+        var onServer = world.ServerData.For(new StationIdentity(a.Id, ProductionService.ServerStation), null);
+        string flourCode = "FL" + Guid.NewGuid().ToString("N")[..6].ToUpperInvariant(), cakeCode = "CK" + Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+        await new InventoryService(onServer).SaveAsync(new Item { LocationId = pos.Id, Plu = flourCode, Name = "Flour", AverageCost = 1m, LastCost = 1m, OnHand = 20 }, null, null, null);
+        await new InventoryService(onServer).SaveAsync(new Item { LocationId = pos.Id, Plu = cakeCode, Name = "Cake" }, null, null, null);
+        await new ManufacturingService(onServer).SaveAsync(new BillOfMaterials { ProductCode = cakeCode, Lines = [new BomLine { ComponentCode = flourCode, Quantity = 1 }] });
+        var production = new ProductionService(onServer);
+        var order = await production.CreateAsync(new NewProductionOrder(cakeCode, 10, pos.Id, pos.Id));
+        await production.ReleaseAsync(order.Id);
+        await production.IssueAsync(order.Id, flourCode, 10);
+        await production.ReceiveAsync(order.Id, 10, complete: true);
+        var inspection = await PostAsync<InspectionInfo>(adminA, $"/api/production-orders/{order.Id}/inspect",
+            new OutputInspectionRequest(10, 3, InspectionDisposition.Hold, null, [], "Burnt"));
+        Assert.Equal((InspectionDisposition.Hold, "HLD"), (inspection.Disposition, inspection.HoldLocation));
+        await using (var db = world.ServerData.Create())
+        {
+            Assert.Equal(7m, await db.Items.Where(i => i.LocationId == pos.Id && i.Plu == cakeCode).Select(i => i.OnHand).SingleAsync());
+            Assert.Equal(3m, await db.Items.Where(i => i.LocationId == hold.Id && i.Plu == cakeCode).Select(i => i.OnHand).SingleAsync());
+        }
+        Assert.Equal(1, (await GetAsync<List<LocationInfo>>(clerk, $"/api/stores/{a.Id}/locations")).Single(l => l.Id == hold.Id).Items);
+
+        // Locations are master data: the new one, its name and the hold mark reach the store's till at its next download.
+        await till.SyncAsync();
+        await using (var tillDb = till.Data.Create())
+        {
+            var atTill = await tillDb.Locations.AsNoTracking().SingleAsync(l => l.Id == hold.Id);
+            Assert.Equal(("HLD", "Quarantine"), (atTill.Code, atTill.Name));
+        }
+        Assert.Equal(hold.Id, await new LocationService(till.Data).HoldLocationAsync(a.Id));
+
+        // The mark comes off again.
+        var unmarked = await PutAsync<LocationInfo>(adminA, $"/api/locations/{hold.Id}", new LocationRequest(renamed.Version, null, "Quarantine", false));
+        Assert.False(unmarked.IsHold);
+        Assert.Null(await new LocationService(world.ServerData).HoldLocationAsync(a.Id));
     }
 
     [SkippableFact]

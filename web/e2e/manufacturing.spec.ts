@@ -96,6 +96,8 @@ test('an output inspection sends the answers, and failed goods go to a hold loca
   await page.getByRole('button', { name: /Inspect output/ }).click();
   const dialog = page.getByRole('dialog', { name: /Inspect order/ });
   await dialog.getByLabel('Failed', { exact: true }).fill('1');
+  // The store's hold location is offered first.
+  await expect(dialog.getByLabel('Hold location')).toHaveValue('l-west-back');
   await dialog.getByLabel('Hold location').selectOption('l-west-back');
   await dialog.getByLabel('Weight').fill('1010');
   await dialog.getByRole('button', { name: /Record the inspection/ }).click();

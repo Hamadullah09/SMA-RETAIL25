@@ -5,6 +5,7 @@ import { Pencil, Plus, Save } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
 import { RfidHubs } from '@/components/rfid-hubs';
+import { StoreLocations } from '@/components/store-locations';
 import { Button, LinkButton } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Field, Input } from '@/components/ui/field';
@@ -146,6 +147,7 @@ function StoreCard({ store, onEdit }: { store: StoreInfo; onEdit(): void }) {
           { key: 'ver', header: 'Version', cell: (t) => t.appVersion ?? '', hideBelow: 'md' },
         ]}
       />
+      <StoreLocations store={store} />
       <RfidHubs store={store} />
     </section>
   );
@@ -191,7 +193,7 @@ function StoreDialog({ store, onClose }: { store: StoreInfo | null; onClose(): v
         </>
       }
     >
-      {!store && <p className="mb-4 text-ink">A new store starts with its settings and a POS location. Then enrol its tills.</p>}
+      {!store && <p className="mb-4 text-ink">A new store starts with its settings and a POS location. Then enrol its tills, and add its other locations.</p>}
       <div className="space-y-3">
         <Field label="Code" htmlFor="store-code" hint="Short, on reports and receipts: MAIN, WEST.">
           <Input id="store-code" value={code} maxLength={10} className="max-w-[200px] uppercase" onChange={(e) => setCode(e.target.value)} />

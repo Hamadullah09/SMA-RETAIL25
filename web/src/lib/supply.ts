@@ -165,11 +165,49 @@ export function receiveErrors(lines: readonly PurchaseOrderLine[], forms: readon
   return errors;
 }
 
-/** The receipt the server takes from the dialog (call {@link receiveErrors} first). */
-export function receiveRequest(version: string, shippingCost: number, lines: readonly PurchaseOrderLine[], forms: readonly ReceiveForm[]): ReceiveRequest {
+/**
+ * When the received day changes, the expiries still offered from the old day (a batch without its day made) move with
+ * it, as the server works them out from the day received.
+ */
+export function moveReceivedDay(lines: readonly PurchaseOrderLine[], forms: readonly ReceiveForm[], from: string, to: string): ReceiveForm[] {
+  return forms.map((form) => {
+    const line = lines.find((l) => l.id === form.lineId);
+    if (!line?.tracksBatches || !line.shelfLifeDays) return form;
+    const offered = suggestedExpiry(line.shelfLifeDays, null, from) ?? '';
+    return { ...form, batches: form.batches.map((b) => (!b.madeOn && b.expiresOn === offered ? { ...b, expiresOn: suggestedExpiry(line.shelfLifeDays, null, to) ?? '' } : b)) };
+  });
+}
+
+/**
+ * What is wrong with the day an order was placed or received (`yyyy-MM-dd`): empty, or later than today. The server also
+ * refuses a day in a locked ledger period, and a receipt before the order was posted.
+ */
+export function stepDayError(day: string, today: string, what: 'ordered' | 'received'): string | undefined {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return what === 'ordered' ? 'Enter the day the order was placed.' : 'Enter the day the goods arrived.';
+  if (day > today) return what === 'ordered' ? 'An order cannot be placed later than today.' : 'Goods cannot be received later than today.';
+  return undefined;
+}
+
+/**
+ * The day to send for a step: null for today, so the server takes today where the store is (the browser's date can be
+ * a day off for a store in another time zone).
+ */
+export function stepDay(day: string, today: string): string | null {
+  return day && day !== today ? day : null;
+}
+
+/** The receipt the server takes from the dialog (call {@link receiveErrors} first), received on `receivedOn` (null: today). */
+export function receiveRequest(
+  version: string,
+  shippingCost: number,
+  lines: readonly PurchaseOrderLine[],
+  forms: readonly ReceiveForm[],
+  receivedOn: string | null = null,
+): ReceiveRequest {
   return {
     version,
     shippingCost,
+    receivedOn,
     lines: forms.map((form) => {
       const line = lines.find((l) => l.id === form.lineId);
       const batches: ReceivedBatch[] = (line?.tracksBatches ? form.batches : [])
