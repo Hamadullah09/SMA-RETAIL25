@@ -171,6 +171,12 @@ public static class PromotionEngine
         return new PromotionOutcome(results, sale, []);
     }
 
+    /// <summary>
+    /// What one promotion alone gives these lines, whatever its dates, stores and coupon. The refund rules use it to work
+    /// out what the goods a customer keeps after a return still earn under a buy X get Y or a bundle.
+    /// </summary>
+    public static decimal DiscountOn(Promotion p, IReadOnlyList<PromotionLine> lines) => EvaluateSet(lines, [p]).Total;
+
     private static Step Better(Step? current, Step candidate)
     {
         if (current is null) return candidate;
@@ -300,12 +306,13 @@ public static class PromotionEngine
     /// <summary>
     /// Works the promotions out again for a sale being rung up: clears what they gave before, sets each line's promotion
     /// and discount, and adds the coupon line of a sale-wide promotion. Sale lines of goods (not gift cards) whose price
-    /// came from the pricing rules may take a promotion; returns, coupons and text lines never do.
+    /// came from the pricing rules may take a promotion; returns, coupons and text lines never do. A return keeps what it
+    /// has: one made with the receipt carries the promotion its sold line had (<see cref="ReturnRefunds"/>).
     /// </summary>
     public static PromotionOutcome Apply(SaleDraft draft, IReadOnlyList<Promotion> promotions, PromotionContext context)
     {
         draft.Lines.RemoveAll(l => l.IsPromotionLine);
-        foreach (var line in draft.Lines)
+        foreach (var line in draft.Lines.Where(l => l.Kind != SaleLineKind.Return))
         {
             line.PromotionId = null;
             line.PromotionName = null;

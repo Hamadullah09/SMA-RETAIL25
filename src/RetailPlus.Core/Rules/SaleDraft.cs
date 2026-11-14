@@ -52,9 +52,23 @@ public sealed class SaleDraftLine
     /// </summary>
     public Guid? BatchId { get; set; }
     public string? BatchNumber { get; set; }
+    /// <summary>
+    /// A return made with the receipt: the sold line it takes back and the invoice of that sale. Its price and discounts
+    /// are what was paid (<see cref="ReturnRefunds"/>), so nothing reprices it. Null on a return without a receipt.
+    /// </summary>
+    public Guid? ReturnedLineId { get; set; }
+    public long? ReturnedInvoice { get; set; }
 
     /// <summary>Every discount on the line: pricing, the cashier's and the promotion's.</summary>
     public decimal TotalDiscount => DiscountAmount + PromotionDiscount;
+
+    /// <summary>A return without a receipt: refunded at the price rung up now, which nobody checked against what was paid.</summary>
+    public bool IsUnverifiedReturn => Kind == SaleLineKind.Return && ReturnedLineId is null;
+
+    /// <summary>What the POS shows under a returned item: where its refund comes from.</summary>
+    public string? ReturnNote => Kind != SaleLineKind.Return ? null
+        : ReturnedLineId is null ? "No receipt: today's price, not checked"
+        : $"Receipt {ReturnedInvoice}: the price paid";
 
     /// <summary>A line the engine added for a sale-wide promotion (spend over an amount).</summary>
     public bool IsPromotionLine => Kind == SaleLineKind.Coupon && PromotionId is not null;
@@ -104,7 +118,7 @@ public sealed class SaleDraft
     public static SaleDraftLine? LineToJoin(IEnumerable<SaleDraftLine> lines, Item item, Guid? variantId, SaleLineKind kind, decimal quantity)
     {
         if (item.ItemType is ItemType.Serialized or ItemType.GiftCard || item.ReadScale || quantity != decimal.Truncate(quantity)) return null;
-        return lines.LastOrDefault(l => l.ItemId == item.Id && l.VariantId == variantId && l.Kind == kind && l.SerialNumber is null
+        return lines.LastOrDefault(l => l.ItemId == item.Id && l.VariantId == variantId && l.Kind == kind && l.SerialNumber is null && l.ReturnedLineId is null
                                         && l.Quantity == decimal.Truncate(l.Quantity) && (l.AutoPriced || l.DiscountAmount == 0));
     }
 }

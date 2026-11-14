@@ -10,6 +10,50 @@ public sealed record SaleRow(Guid Id, long InvoiceNumber, int StationNumber, Dat
     decimal Subtotal, decimal Tax1, decimal Tax2, decimal Total, SaleStatus Status, string Tenders);
 
 /// <summary>
+/// A sale found by the invoice number on its receipt, for a return: the sale, the returns already made of it (on sales
+/// not voided), the promotions its lines name, and the department, category and type of its items. See
+/// <see cref="ReturnRefunds"/> for what comes back.
+/// </summary>
+public sealed record SaleForReturn(Sale Sale, IReadOnlyList<EarlierReturn> Earlier, IReadOnlyDictionary<Guid, Promotion> Promotions,
+    IReadOnlyDictionary<Guid, ItemGroups> ItemGroups, IReadOnlyDictionary<Guid, ItemType> ItemTypes)
+{
+    /// <summary>The returns made of the sale, with those on the sale being rung up (<paramref name="pending"/>).</summary>
+    public List<EarlierReturn> With(IEnumerable<SaleDraftLine> pending) =>
+    [
+        .. Earlier,
+        .. pending.Where(l => l.ReturnedLineId is Guid id && Sale.Lines.Any(s => s.Id == id))
+            .Select(l => new EarlierReturn(l.ReturnedLineId!.Value, -l.Quantity, -l.LineTotal)),
+    ];
+
+    /// <summary>The lines that can still come back, with how many of each, the sale being rung up included.</summary>
+    public List<(SaleLine Line, decimal Left)> Returnable(IEnumerable<SaleDraftLine> pending)
+    {
+        var earlier = With(pending);
+        return [.. Sale.Lines.Where(ReturnRefunds.Returnable).OrderBy(l => l.LineNumber).Select(l => (l, ReturnRefunds.Left(l, earlier))).Where(x => x.Item2 > 0)];
+    }
+
+    /// <summary>
+    /// The refund for some units of one of the sale's lines and the return line that gives it, after the returns already
+    /// made and those on the sale being rung up. Refused when the sale was voided or that many are not left to return.
+    /// </summary>
+    public (ReturnQuote Quote, SaleDraftLine Line) Return(Guid lineId, decimal quantity, IEnumerable<SaleDraftLine> pending, bool restock,
+        System.Globalization.CultureInfo? culture = null)
+    {
+        if (Sale.Status != SaleStatus.Completed) throw new BusinessRuleException($"Invoice {Sale.InvoiceNumber} was voided, so nothing on it can be returned.");
+        var line = Sale.Lines.FirstOrDefault(l => l.Id == lineId) ?? throw new BusinessRuleException($"That line is not on invoice {Sale.InvoiceNumber}.");
+        if (!ReturnRefunds.Returnable(line)) throw new BusinessRuleException($"{line.Description} is not goods sold, so it is not returned with the receipt.");
+        var earlier = With(pending);
+        decimal left = ReturnRefunds.Left(line, earlier);
+        if (left <= 0) throw new BusinessRuleException($"{line.Description} of invoice {Sale.InvoiceNumber} has already come back.");
+        if (quantity <= 0 || quantity > left)
+            throw new BusinessRuleException($"{line.Description}: {left.ToString("0.###", culture)} of invoice {Sale.InvoiceNumber} can still come back.");
+        var quote = ReturnRefunds.Quote(Sale, lineId, quantity, earlier, Promotions, ItemGroups, culture);
+        var type = line.ItemId is Guid item ? ItemTypes.GetValueOrDefault(item, ItemType.Standard) : ItemType.NonStock;
+        return (quote, ReturnRefunds.DraftLine(Sale, quote, type, restock));
+    }
+}
+
+/// <summary>
 /// Saving sales from the POS: invoice numbers, stock, sales statistics, the client's points and account, and the
 /// station's drawer totals, all in one transaction.
 /// </summary>
@@ -53,6 +97,7 @@ public sealed class SalesService(DataContext data)
             throw new BusinessRuleException($"{card.Description}: enter the number of the gift card sold.");
         if (tenders.FirstOrDefault(t => t.Kind == TenderKind.GiftCard && t.Amount != 0 && string.IsNullOrWhiteSpace(t.Reference)) is { } giftTender)
             throw new BusinessRuleException($"Enter the card number of the {giftTender.TenderType} payment.");
+        await CheckReturnsWithReceiptAsync(db, lines);
 
         var now = DateTime.Now;
         var sale = new Sale
@@ -92,6 +137,7 @@ public sealed class SalesService(DataContext data)
                 GiftCardNumber = string.IsNullOrWhiteSpace(l.GiftCardNumber) ? null : GiftCardService.Normalize(l.GiftCardNumber),
                 Tags = l.Epcs.Distinct().Select(e => new SaleLineTag { Epc = e }).ToList(),
                 PromotionId = l.PromotionId, PromotionName = l.PromotionName is null ? null : Trim(l.PromotionName, 60), PromotionDiscount = l.PromotionDiscount,
+                ReturnedLineId = l.Kind == SaleLineKind.Return ? l.ReturnedLineId : null,
             });
         }
         sale.Cogs = sale.Lines.Sum(l => l.Cogs);
@@ -143,9 +189,67 @@ public sealed class SalesService(DataContext data)
 
         var drawer = await DrawerService.GetOpenSessionAsync(db, session.StationNumber, session.LocationId);
         AddToDrawer(drawer, sale, tenders.Where(t => t.Kind != TenderKind.OnAccount), +1, await HomeCashAsync(db));
+        // A return without the receipt is refunded at the price rung up, which nobody checked against what was paid: the
+        // audit log keeps each one for the manager.
+        foreach (var r in sale.Lines.Where(l => l.Kind == SaleLineKind.Return && l.ReturnedLineId is null))
+            db.Audit(AuditActions.ReturnWithoutReceipt, $"Invoice {sale.InvoiceNumber}: {r.Description} x {-r.Quantity:0.###}, {-r.LineTotal:N2} back at the price rung up",
+                nameof(Sale), sale.Id, userId: sale.StaffId, userName: sale.Staff);
         await db.SaveChangesAsync();
         await tx.CommitAsync();
         return sale;
+    }
+
+    /// <summary>
+    /// Finds a sale by the invoice number on its receipt for a return (the newest, if two have the number), with what was
+    /// already returned of it. Null when this till has no such sale (a sale of another store, or not synced here yet).
+    /// </summary>
+    public async Task<SaleForReturn?> FindForReturnAsync(long invoiceNumber)
+    {
+        await using var db = data.Create();
+        var sale = await db.Sales.AsNoTracking().AsSplitQuery().Include(s => s.Lines.OrderBy(l => l.LineNumber)).ThenInclude(l => l.Tags)
+            .Where(s => s.InvoiceNumber == invoiceNumber).OrderByDescending(s => s.SoldAt).FirstOrDefaultAsync();
+        if (sale is null) return null;
+        var lineIds = sale.Lines.Select(l => l.Id).ToList();
+        var earlier = await (from l in db.SaleLines.AsNoTracking()
+                             join s in db.Sales on l.SaleId equals s.Id
+                             where l.ReturnedLineId != null && lineIds.Contains(l.ReturnedLineId.Value) && s.Status == SaleStatus.Completed
+                             select new { Id = l.ReturnedLineId!.Value, l.Quantity, l.LineTotal }).ToListAsync();
+        var promotionIds = sale.Lines.Where(l => l.PromotionId != null).Select(l => l.PromotionId!.Value).Distinct().ToList();
+        var promotions = await db.Promotions.AsNoTracking().AsSplitQuery().Include(p => p.Targets).Include(p => p.Stores)
+            .Where(p => promotionIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+        var itemIds = sale.Lines.Where(l => l.ItemId != null).Select(l => l.ItemId!.Value).Distinct().ToList();
+        var items = await db.Items.AsNoTracking().Where(i => itemIds.Contains(i.Id)).Select(i => new { i.Id, i.DepartmentId, i.CategoryId, i.ItemType }).ToListAsync();
+        return new SaleForReturn(sale, [.. earlier.Select(e => new EarlierReturn(e.Id, -e.Quantity, -e.LineTotal))], promotions,
+            items.ToDictionary(i => i.Id, i => new ItemGroups(i.DepartmentId, i.CategoryId)), items.ToDictionary(i => i.Id, i => i.ItemType));
+    }
+
+    /// <summary>
+    /// The lines returned with the receipt: each is a return of the item sold on a line of a sale that was not voided, and
+    /// with the returns already made no more comes back than was sold.
+    /// </summary>
+    private static async Task CheckReturnsWithReceiptAsync(RetailPlusDbContext db, IReadOnlyList<SaleDraftLine> lines)
+    {
+        foreach (var g in lines.Where(l => l.ReturnedLineId is not null).GroupBy(l => l.ReturnedLineId!.Value))
+        {
+            var first = g.First();
+            if (g.Any(l => l.Kind != SaleLineKind.Return || l.Quantity >= 0))
+                throw new BusinessRuleException($"{first.Description}: a line taken back with the receipt is a return.");
+            var sold = await (from l in db.SaleLines.AsNoTracking()
+                              join s in db.Sales on l.SaleId equals s.Id
+                              where l.Id == g.Key
+                              select new { l.Kind, l.ItemId, l.Quantity, s.Status, s.InvoiceNumber }).SingleOrDefaultAsync();
+            if (sold is null || sold.Kind != SaleLineKind.Sale || sold.ItemId != first.ItemId)
+                throw new BusinessRuleException($"{first.Description}: the sale it is returned from is not at this till.");
+            if (sold.Status != SaleStatus.Completed)
+                throw new BusinessRuleException($"{first.Description}: invoice {sold.InvoiceNumber} was voided, so nothing on it can be returned.");
+            var returned = await (from l in db.SaleLines.AsNoTracking()
+                                  join s in db.Sales on l.SaleId equals s.Id
+                                  where l.ReturnedLineId == g.Key && s.Status == SaleStatus.Completed
+                                  select l.Quantity).ToListAsync();
+            decimal left = sold.Quantity + returned.Sum();
+            if (g.Sum(l => -l.Quantity) > left)
+                throw new BusinessRuleException($"{first.Description}: only {left:0.###} of invoice {sold.InvoiceNumber} are left to return.");
+        }
     }
 
     /// <summary>The home-currency cash tender, which gives the change for payments in a foreign currency.</summary>
@@ -381,6 +485,14 @@ public sealed class SalesService(DataContext data)
         await using var tx = await db.Database.BeginTransactionAsync();
         var sale = await db.Sales.Include(s => s.Lines).ThenInclude(l => l.Tags).Include(s => s.Payments).SingleAsync(s => s.Id == saleId);
         if (sale.Status == SaleStatus.Voided) throw new BusinessRuleException("This sale is already voided.");
+        // Goods of the sale returned with the receipt were refunded at what was paid for them: that return goes first.
+        var lineIds = sale.Lines.Select(l => l.Id).ToList();
+        var returnedOn = await (from l in db.SaleLines.AsNoTracking()
+                                join s in db.Sales on l.SaleId equals s.Id
+                                where l.ReturnedLineId != null && lineIds.Contains(l.ReturnedLineId.Value) && s.Status == SaleStatus.Completed
+                                select s.InvoiceNumber).Distinct().ToListAsync();
+        if (returnedOn.Count > 0)
+            throw new BusinessRuleException($"Goods of this sale were returned on invoice {string.Join(", ", returnedOn.Order())}. Void that return first.");
         await ApplyStockAndStatisticsAsync(db, sale, -1, sale.SoldAt, session.UserName, session.UserId, session.StationNumber);
         await UpdateTagsAsync(db, sale, -1);
         await GiftCardService.ReverseSaleAsync(db, sale, session.UserName);

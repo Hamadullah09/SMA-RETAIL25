@@ -664,6 +664,57 @@ public static class SmokeCheck
     /// on the next sale. A client's yes and another's no to WhatsApp messages are recorded when they are chosen, and
     /// neither is asked again. The promotions are switched off afterwards.
     /// </summary>
+    /// <summary>
+    /// Returns of the sale with promotions (shirt 10.00 at 10% off, 3 socks of 4.00 as buy 2 get 1, a coupon of 2.00 off
+    /// the 17.00 of goods): with the receipt the shirt comes back at what was paid (9.00 less its share of the coupon,
+    /// 7.94) and one sock gives nothing back; the same shirt cannot come back twice; the promotions report takes both
+    /// promotions back; the sale cannot be voided while the return stands. Without a receipt, the till says the price is
+    /// not checked.
+    /// </summary>
+    private static async Task<List<string>> ReturnCheckAsync(PosView pos, Sale sale, Item shirt, Item socks)
+    {
+        var failures = new List<string>();
+        var receipt = await AppServices.Sales.FindForReturnAsync(sale.InvoiceNumber);
+        if (receipt is null) return ["the sale with promotions was not found by its invoice number for a return"];
+        var shirtSold = receipt.Sale.Lines.Single(l => l.Plu == shirt.Plu);
+        var socksSold = receipt.Sale.Lines.Single(l => l.Plu == socks.Plu);
+        if (!await pos.Vm.AddReceiptReturnAsync(receipt, shirtSold.Id, 1, restock: true)) failures.Add("the shirt could not be returned with the receipt");
+        if (!await pos.Vm.AddReceiptReturnAsync(receipt, socksSold.Id, 1, restock: true)) failures.Add("a sock could not be returned with the receipt");
+        if (await pos.Vm.AddReceiptReturnAsync(receipt, shirtSold.Id, 1, restock: true)) failures.Add("the shirt came back twice on one receipt");
+        var back = pos.Vm.Lines.Where(l => l.ReturnedLineId != null).ToList();
+        if (back is not [{ LineTotal: -7.94m, PromotionDiscount: -1m }, { LineTotal: 0m, PromotionDiscount: -4m }])
+            failures.Add("the returns with the receipt give back " + string.Join(", ", back.Select(l => $"{l.Description} {l.LineTotal} (promotion {l.PromotionDiscount})")));
+        if (!pos.Vm.Lines.All(l => l.ReturnNote?.StartsWith("Receipt", StringComparison.Ordinal) == true)) failures.Add("the POS does not say the returns come with the receipt");
+        decimal total = pos.Vm.Total;
+        decimal cash = Money.RoundToMinimumTender(total, AppServices.Settings.MinimumTender);
+        if (!await pos.Vm.PostAsync([new TenderEntry("Cash", TenderKind.Cash, cash, cash)])) failures.Add("the return with the receipt was not saved");
+        Log.Write($"Return with the receipt: total {total}");
+
+        var day = DateOnly.FromDateTime(DateTime.Today);
+        var report = await AppServices.Promotions.ReportAsync(day, day);
+        if (report.FirstOrDefault(r => r.Name == "Smoke 10% off") is not { Units: 0m, Discount: 0m })
+            failures.Add("the promotions report did not take the 10% off back with the shirt");
+        if (report.FirstOrDefault(r => r.Name == "Smoke buy 2 get 1") is not { Units: 2m, Discount: 0m })
+            failures.Add("the promotions report did not take buy 2 get 1 back when a sock came back");
+        try
+        {
+            await AppServices.Sales.VoidSaleAsync(sale.Id, AppServices.Session, "smoke");
+            failures.Add("a sale whose goods came back with the receipt was voided");
+        }
+        catch (Data.Services.BusinessRuleException)
+        {
+        }
+
+        // Without a receipt: today's price, in red under the item, and the message says it was not checked.
+        pos.Vm.ReturnMode = true;
+        await pos.Vm.AddCodeAsync(shirt.Plu!);
+        var noReceipt = pos.Vm.Lines.LastOrDefault();
+        if (noReceipt is not { IsUnverifiedReturn: true, LineTotal: -10m } || !pos.Vm.Message.Contains("not checked", StringComparison.Ordinal))
+            failures.Add("a return without a receipt does not say its price is not checked");
+        await pos.Vm.ClearSaleAsync(ask: false);
+        return failures;
+    }
+
     private static async Task<List<string>> PromotionCheckAsync(MainWindow main)
     {
         var failures = new List<string>();
@@ -730,9 +781,10 @@ public static class SmokeCheck
 
             if (!AppServices.Session.IsTrainee)
             {
+                Sale? sale;
                 await using (var db = AppServices.Data.Create())
                 {
-                    var sale = await db.Sales.AsNoTracking().Include(x => x.Lines).Where(x => x.Lines.Any(l => l.Plu == shirt.Plu)).SingleOrDefaultAsync();
+                    sale = await db.Sales.AsNoTracking().Include(x => x.Lines).Where(x => x.Lines.Any(l => l.Plu == shirt.Plu)).SingleOrDefaultAsync();
                     var named = sale?.Lines.Where(l => l.PromotionId != null).Select(l => l.PromotionName).OrderBy(n => n).ToList() ?? [];
                     if (!named.SequenceEqual(["Smoke 10% off", "Smoke buy 2 get 1", "Smoke coupon"]))
                         failures.Add("the saved sale's lines name the promotions " + string.Join(", ", named));
@@ -748,6 +800,8 @@ public static class SmokeCheck
                 if (await pos.Vm.EnterCouponAsync(code) || pos.Vm.Lines.Any(l => l.IsPromotionLine))
                     failures.Add($"coupon {code} was taken again after its one use");
                 await pos.Vm.ClearSaleAsync(ask: false);
+
+                if (sale is not null) failures.AddRange(await ReturnCheckAsync(pos, sale, shirt, socks));
             }
 
             // WhatsApp: asked once per client when chosen; yes needs the number, no is kept too.

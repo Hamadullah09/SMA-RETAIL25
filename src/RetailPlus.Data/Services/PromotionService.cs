@@ -219,11 +219,12 @@ public sealed partial class PromotionService(DataContext data)
 
     /// <summary>
     /// The coupons a sale used, in the sale's transaction: one use for each promotion with a coupon code that applied
-    /// to it. A coupon already used up (at any till this one has heard from) refuses the sale.
+    /// to it. A coupon already used up (at any till this one has heard from) refuses the sale. A return carrying the
+    /// promotion of the line it takes back uses no coupon (and gives none back: the coupon was used on that sale).
     /// </summary>
     internal static async Task RecordCouponsAsync(RetailPlusDbContext db, Sale sale, SaleDraft draft)
     {
-        var ids = sale.Lines.Where(l => l.PromotionId is not null).Select(l => l.PromotionId!.Value).Distinct().ToList();
+        var ids = sale.Lines.Where(l => l.PromotionId is not null && l.Kind != SaleLineKind.Return).Select(l => l.PromotionId!.Value).Distinct().ToList();
         if (ids.Count == 0) return;
         var coupons = await db.Promotions.AsNoTracking().Where(p => ids.Contains(p.Id) && p.CouponCode != null).ToListAsync();
         foreach (var p in coupons)
@@ -241,7 +242,10 @@ public sealed partial class PromotionService(DataContext data)
 
     /// <summary>
     /// What each promotion cost and earned on the completed sales of a period (store days), at some stores (null: every
-    /// store): line promotions by their lines, sale-wide ones by the sales they applied to.
+    /// store): line promotions by their lines, sale-wide ones by the sales they applied to. A return made with the
+    /// receipt carries the promotion of the line it takes back, with what it takes back of the discount (negative): the
+    /// units, net sales and discount go down by the goods returned, in the period of the return; the sales counted are
+    /// those that gave the promotion.
     /// </summary>
     public async Task<List<PromotionReportRow>> ReportAsync(DateOnly from, DateOnly to, IReadOnlyCollection<Guid>? stores = null)
     {
@@ -267,7 +271,8 @@ public sealed partial class PromotionService(DataContext data)
             var items = g.Where(l => l.Kind != SaleLineKind.Coupon).ToList();
             decimal net = items.Sum(l => l.LineTotal) + wide.DistinctBy(l => l.SaleId).Sum(l => l.SaleNet);
             decimal discount = items.Sum(l => l.PromotionDiscount) + wide.Sum(l => -l.LineTotal);
-            return new PromotionReportRow(g.Key, known?.Name ?? g.First().PromotionName ?? "", known?.Kind, g.Select(l => l.SaleId).Distinct().Count(),
+            return new PromotionReportRow(g.Key, known?.Name ?? g.First().PromotionName ?? "", known?.Kind,
+                g.Where(l => l.Kind != SaleLineKind.Return).Select(l => l.SaleId).Distinct().Count(),
                 items.Sum(l => l.Quantity), net, discount, uses.GetValueOrDefault(g.Key));
         }).OrderByDescending(r => r.Discount)];
     }

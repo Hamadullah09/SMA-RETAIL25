@@ -46,6 +46,43 @@ branch `erp-e4-crm`, 2026-11-04. The API is in [API.md](API.md), section "New in
 - The keys stay the desktop's: every new button shows its key, F1–F3 are left to Windows, and the help (Ctrl+Shift+H,
   *Selling*) and the key list (Ctrl+Shift+K) describe promotions, coupons and the WhatsApp question.
 
+### Returns and promotions
+
+A return with the receipt is refunded at what the customer paid, not at the price rung up today. The rule is
+`ReturnRefunds` in `RetailPlus.Core/Rules/Returns.cs`:
+
+- **Return with receipt** (*Return with receipt*, Shift+F9): the cashier types the invoice number, chooses the item and
+  how many come back (no more than were sold, less earlier returns). The return line points at the sold line
+  (`SaleLine.ReturnedLineId`), carries its price, taxes, cost and promotion, and refunds what was paid for those units:
+  after the line's promotion and its own discounts, less its share of the sale-wide discounts. Its quantity and price
+  cannot be changed (remove it and return again). A sale with returns like this cannot be voided until they are.
+- **The rule**: refund = what was paid for the receipt's goods still held − what the goods kept would cost on their own
+  (their regular price less what the promotion still gives them). Never below 0, never more than what is left of what
+  was paid, and the last unit back brings the refunds to exactly what was paid.
+  - *No promotion, percent or amount off*: the discount is the same on each unit, so a unit comes back at the line's
+    total shared over its quantity (10% off a 100.00 shirt: 90.00 back).
+  - *Buy X get Y, bundle*: the promotion is worked out again on the units the customer keeps. What it no longer gives
+    them is kept back. Of 3 bought as buy 2 get 1 (paid for 2), one back gives 0.00: the 2 kept cost what was paid. The
+    next two give a full price each. Of 6, three back give the price of 2, since the 3 kept still make a group. A
+    bundle part back gives what was paid less what the part kept now costs on its own. If the till does not know the
+    promotion (not synced yet), its discount is shared over its units like a percent off.
+  - *Sale-wide discounts* (discount on the sale, a spend-over promotion's line, a points reward): shared over the
+    goods sold by value. A coupon of 20.00 on 200.00 of goods takes a tenth off each refund.
+- **Return without receipt** (*Return / refund*, F9, as before): the till cannot know the price paid, so the item comes
+  back at today's price. The line says "No receipt: today's price, not checked" in red. The message bar says the
+  same and points at Shift+F9. The receipt notes "Returned without a receipt". Each one is audited ("Return without
+  receipt", with the item and amount) for the manager. There is no amount limit or extra approval: the store has no
+  setting for one, and returns already need the `pos.return` permission or a supervisor.
+- **What follows the refund**: the drawer and the daily journal take the refund as it is. The return line's promotion
+  discount is negative, so the journal credits *Discounts* ("Promotions") with what is taken back and debits the
+  department's sales with the regular price. The promotions report lowers that promotion's units, net sales and
+  discount (sales counted are those that gave it). Stock comes back as for any return; when the whole line comes back,
+  its RFID tags do too. Taken-back coupons are not given back to be used again. Points are not taken back on returns
+  (as before): a return earns none, and an exchange earns on the net.
+- Two small things stay approximate. The share of a sale-wide discount reduces the sales taken back, not the
+  *Discounts* account, and a spend-over promotion's row in the report is not lowered. The till finds receipts of its
+  own store only, once they have synced to it.
+
 ### In the books
 
 Promotions reach the general ledger through the existing daily posting (`LedgerService.PostDailyAsync`, which posts
@@ -74,7 +111,7 @@ Sending is behind `IWhatsAppSender` (`RetailPlus.Data/Services/WhatsAppSender.cs
 | `Lead`, `OpportunityStage`, `Opportunity`, `CrmActivity`, `CustomerSegment`, `WhatsAppTemplate`, `Campaign`, `WhatsAppMessage`, `SalesTarget` | Server only (`ILocalOnly`) |
 | `Promotion`, `PromotionTarget`, `PromotionStore` | Set on the server, sent down to every till (`SyncFlow.Down`); each till uses those of its store |
 | `CouponUse` | Written at the till with the sale; goes up and to every till (`Everywhere`, both ways), so each till knows how often a coupon was used |
-| `Client` (WhatsApp number, consent, `WhatsAppAskedAt`), `SaleLine` (promotion columns) | As before: clients everywhere both ways, sales up |
+| `Client` (WhatsApp number, consent, `WhatsAppAskedAt`), `SaleLine` (promotion columns, `ReturnedLineId`) | As before: clients everywhere both ways, sales up |
 
 - Permissions (`Core.Rules.Permissions`): `crm.view`, `crm.edit`, `marketing.campaigns`, `marketing.promotions`,
   `sales.targets`. Supervisors get `crm.view`; Managers and Administrators get all five; the new **Marketing** role
@@ -83,31 +120,34 @@ Sending is behind `IWhatsAppSender` (`RetailPlus.Data/Services/WhatsAppSender.cs
 - Store rules: leads, opportunities, activities, campaigns, messages and targets belong to a store; stages, templates
   and segments without a store are the company's; a promotion for one store may be changed by that store's users.
 - Audit log: changes to leads, stages, opportunities, targets, segments, templates, campaigns and promotions, plus
-  "Lead converted", "Opportunity won/lost", "Campaign scheduled/cancelled/sent", "WhatsApp message" and "WhatsApp
-  consent".
-- Both `InitialCreate` migrations are made again for the model (last: `Client.WhatsAppAskedAt`).
+  "Lead converted", "Opportunity won/lost", "Campaign scheduled/cancelled/sent", "WhatsApp message", "WhatsApp
+  consent" and "Return without receipt".
+- Both `InitialCreate` migrations are made again for the model (last: `SaleLine.ReturnedLineId`, with an index).
 
 ## Code
 
 | Where | What |
 |---|---|
 | `src/RetailPlus.Core/Model/Crm.cs`, `Marketing.cs`, `Promotions.cs` | The model |
-| `src/RetailPlus.Core/Rules/Promotions.cs`, `Segments.cs`, `WhatsApp.cs` | The promotions engine, segment rules in words, WhatsApp numbers and templates |
+| `src/RetailPlus.Core/Rules/Promotions.cs`, `Returns.cs`, `Segments.cs`, `WhatsApp.cs` | The promotions engine, refunds of returns with the receipt, segment rules in words, WhatsApp numbers and templates |
 | `src/RetailPlus.Data/Services/CrmService.cs`, `SegmentService.cs`, `CampaignService.cs`, `PromotionService.cs`, `TargetService.cs`, `WhatsAppSender.cs`, `PartyService.RecordWhatsAppAnswerAsync` | The services |
 | `src/RetailPlus.Server/Endpoints.Crm.cs`, `Endpoints.Marketing.cs`, `Endpoints.Promotions.cs`, `WhatsApp.cs` | The API, the Meta sender, the worker and the webhook |
-| `src/RetailPlus.App/Views/PosViewModel.cs` (Promotions and coupons), `Dialogs/WhatsAppConsentWindow.cs`, `Dialogs/PayWindow.cs`, `Dialogs/PartyEditorWindow.xaml` | The till |
+| `src/RetailPlus.App/Views/PosViewModel.cs` (Promotions and coupons, returns with the receipt), `SalesService.FindForReturnAsync`, `Dialogs/WhatsAppConsentWindow.cs`, `Dialogs/PayWindow.cs`, `Dialogs/PartyEditorWindow.xaml` | The till |
 | `src/RetailPlus.Reports/Receipt.cs`, `ReceiptFormatter.cs` | Promotions on the receipt |
 | `web/src/app/(app)/crm`, `tasks`, `segments`, `campaigns`, `promotions`, `targets`; `web/src/components/crm.tsx`, `campaigns.tsx`, `client-whatsapp.tsx`, `dashboard-extras.tsx` | The web pages |
 
 ## Tests
 
 - `tests/RetailPlus.Core.Tests/PromotionTests.cs`, `MarketingRulesTests.cs`: every kind of promotion, combining, the
-  best price, coupons, happy hours and dates; segment rules, numbers and templates.
+  best price, coupons, happy hours and dates; segment rules, numbers and templates. `ReturnRefundTests.cs`: refunds with
+  the receipt (no promotion, percent off, buy 2 get 1 partly returned, bundles, a coupon and a discount on the sale
+  shared, earlier returns).
 - `tests/RetailPlus.Data.Tests/CrmAndMarketingTests.cs`, on SQLite and on SQL Server: leads to clients, the pipeline,
   my tasks, segments, campaigns only to consenting numbers (with the recording sender), single messages, promotions on
   posted sales (lines, coupons, voids, the report), targets, consent, the till's WhatsApp answer (kept, audited and
-  followed by a campaign), and promotions in the daily journal and the ledger. `ReceiptTests`: promotions on the
-  receipt.
+  followed by a campaign), promotions in the daily journal and the ledger, and a return with the receipt of a sale
+  with promotions and a coupon (refunds, stock, coupon, report, journal, voids, a stale receipt, the audit of a return
+  without one). `ReceiptTests`: promotions on the receipt.
 - `tests/RetailPlus.Server.Tests/CrmApiTests.cs`: every group of endpoints with its permission, store scope and 409 on
   an old version; a promotion that goes down to a till whose coupon use comes back up and reaches the other store's
   till.
@@ -115,12 +155,14 @@ Sending is behind `IWhatsAppSender` (`RetailPlus.Data/Services/WhatsAppSender.cs
   answered from the fixtures in `web/e2e/fixtures.ts` and `mock-api.ts`.
 - The desktop `--smoke` check rings up a sale with 10% off one item, buy 2 get 1 free on another and a one-use coupon
   typed into the code box; it checks the lines, the saved sale, the coupon's use, the receipt, that the used coupon is
-  refused next time, and that a client's yes and another's no to WhatsApp are recorded once each.
+  refused next time, and that a client's yes and another's no to WhatsApp are recorded once each. It then returns the
+  shirt and a sock with the receipt (7.94 and 0.00 back), refuses the shirt twice, checks the report and that the sale
+  cannot be voided, and that a return without a receipt says its price is not checked.
 
 ## Not done yet
 
 - Promotions are set on the web only: a shop that runs its tills without a server has no screen for them on the desktop.
 - Only WhatsApp is wired; SMS and e-mail campaigns need a sender of their own.
 - The real WhatsApp sender has been tested against a stand-in, never against Meta's API (no account, no keys).
-- Returns do not take back the promotion a sold line had: an item returned on its own is refunded at the price the
-  cashier rings up.
+- A return without a receipt is still refunded at the price rung up (see *Returns and promotions*): it is marked and
+  audited, but has no amount limit or approval of its own.
