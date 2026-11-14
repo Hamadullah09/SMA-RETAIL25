@@ -50,11 +50,12 @@ In the control panel, *Databases › MSSQL*, add a **new** database, for example
 - **Retail25's front end.** Switch off its Node.js app when you go live; the deploy replaces its files.
 - **.NET.** Check that the site runs ASP.NET Core / .NET 10. The server runs out of process (`web.config`), so it does
   not compete with Retail25's API for the one in-process app the plan allows.
-- **Settings.** *Application Pool › Environment Variables* (never in a file: the repository is public):
-  - `ConnectionStrings__RetailPlus` = the panel's connection string for the new database, plus
-    `;Encrypt=True;TrustServerCertificate=True`.
-  - Only for an empty database, until the first sign-in: `Bootstrap__AdminUserName` and `Bootstrap__AdminPassword`.
-    Remove them after the first sign-in; they are never used on a database that has users.
+- **Database connection.** It is the GitHub secret `MYASP_CONNECTION_STRING` (step 3). The deploy writes it into the
+  site's `web.config` on the host, so it is in neither the repository nor the build's packages. Without it the server
+  stops at once with "No database is set".
+- **First administrator, only for an empty database.** Set `Bootstrap__AdminUserName` and `Bootstrap__AdminPassword` as
+  environment variables of the site, if the panel offers them, until the first sign-in. They are never used on a
+  database that has users, for example one restored from a backup.
 - **HTTPS.** Install the SSL certificate and switch on *Force HTTPS*. Sign-in cookies are sent only over HTTPS.
 
 ### 3. GitHub (repository *Settings › Secrets and variables › Actions*)
@@ -66,6 +67,7 @@ From the site's **Web Deploy publish profile** (control panel › the site › *
 | Secret | `MYASP_SITE_NAME` | `msdeploySite` in the profile |
 | Secret | `MYASP_DEPLOY_USER` | `userName` in the profile |
 | Secret | `MYASP_DEPLOY_PASSWORD` | `userPWD` in the profile |
+| Secret | `MYASP_CONNECTION_STRING` | the panel's connection string for the new database (*Databases › MSSQL › the database › Connection string*) with your database password, followed by `;Encrypt=True;TrustServerCertificate=True` |
 | Variable | `MYASP_WEBDEPLOY_HOST` | only if `publishUrl` is not `win8238.site4now.net` |
 | Variable | `MYASP_DEPLOY_ENABLED` | `true` **only when you go live** (step 5) |
 

@@ -18,6 +18,12 @@ builder.Services.Configure<ServerOptions>(configuration.GetSection("Server"));
 builder.Services.Configure<JwtOptions>(configuration.GetSection("Jwt"));
 builder.Services.Configure<BootstrapOptions>(configuration.GetSection("Bootstrap"));
 
+// A hosted server has no LocalDB to fall back on: without its database it stops at once and says why, rather than
+// trying a local database for a minute while IIS waits.
+if (builder.Environment.IsProduction() && string.IsNullOrWhiteSpace(configuration.GetConnectionString("RetailPlus")))
+    throw new InvalidOperationException(
+        "No database is set: give the server ConnectionStrings:RetailPlus (the environment variable ConnectionStrings__RetailPlus).");
+
 // The server works for no station: every row it adds is given its store explicitly.
 builder.Services.AddSingleton(provider => new DataContext(DatabaseConnection.SqlServer(
     provider.GetRequiredService<IConfiguration>().GetConnectionString("RetailPlus") is { Length: > 0 } connection

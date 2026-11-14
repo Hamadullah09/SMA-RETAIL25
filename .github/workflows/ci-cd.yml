@@ -85,11 +85,12 @@ jobs:
           global-json-file: global.json
 
       # For IIS: framework-dependent on the host's .NET 10, Windows x64 only, no debug symbols (a native library ships
-      # 95 MB of them per platform). web.config runs it out of process (see src/RetailPlus.Server/web.config).
+      # 95 MB of them per platform), and no .exe launcher: web.config starts it as "dotnet RetailPlus.Server.dll", out of
+      # process (see src/RetailPlus.Server/web.config).
       - name: Publish the server
         shell: pwsh
         run: |
-          dotnet publish src/RetailPlus.Server/RetailPlus.Server.csproj -c Release -r win-x64 --self-contained false -p:DebugType=none -o artifacts/server
+          dotnet publish src/RetailPlus.Server/RetailPlus.Server.csproj -c Release -r win-x64 --self-contained false -p:UseAppHost=false -p:DebugType=none -o artifacts/server
           Get-ChildItem artifacts/server -Recurse -Filter *.pdb | Remove-Item -Force
           New-Item -ItemType Directory -Force artifacts/server/logs | Out-Null
           Set-Content artifacts/server/logs/README.txt 'IIS writes the server''s start-up log here when stdoutLogEnabled is true in web.config.'
@@ -103,11 +104,12 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          foreach ($f in 'RetailPlus.Server.dll', 'RetailPlus.Server.exe', 'web.config', 'appsettings.json', 'appsettings.Production.json', 'web/index.html', 'web/sign-in/index.html') {
+          foreach ($f in 'RetailPlus.Server.dll', 'web.config', 'appsettings.json', 'appsettings.Production.json', 'web/index.html', 'web/sign-in/index.html') {
             if (-not (Test-Path "artifacts/server/$f")) { throw "the server package is missing $f" }
           }
           $config = Get-Content artifacts/server/web.config -Raw
           if ($config -notmatch 'hostingModel="outofprocess"') { throw 'web.config does not run the server out of process' }
+          if ($config -notmatch 'processPath="dotnet"' -or $config -notmatch 'arguments="[^"]*RetailPlus[.]Server[.]dll"') { throw 'web.config must start the server as dotnet RetailPlus.Server.dll (the host does not run an app''s own .exe)' }
           if ($config -notmatch 'inheritInChildApplications="false"') { throw 'web.config would reach into /backend' }
           if (Select-String -Path artifacts/server/appsettings*.json -Pattern 'Password=' -Quiet) { throw 'a password is in appsettings' }
           if (Test-Path artifacts/server/App_Data) { throw 'the package must not carry App_Data (the host keeps its own)' }
@@ -171,12 +173,32 @@ jobs:
           SITE: ${{ secrets.MYASP_SITE_NAME }}
           DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
           DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+          CONNECTION: ${{ secrets.MYASP_CONNECTION_STRING }}
         run: |
           $missing = @()
           if (-not $env:SITE) { $missing += 'MYASP_SITE_NAME' }
           if (-not $env:DEPLOY_USER) { $missing += 'MYASP_DEPLOY_USER' }
           if (-not $env:DEPLOY_PASS) { $missing += 'MYASP_DEPLOY_PASSWORD' }
+          if (-not $env:CONNECTION) { $missing += 'MYASP_CONNECTION_STRING' }
           if ($missing.Count -gt 0) { Write-Output "::error::Missing repository secrets: $($missing -join ', ')"; exit 1 }
+
+      # The database connection travels as a secret and is written into the site's web.config on the host only: it is in
+      # neither the repository nor the build's packages. (IIS never serves web.config.)
+      - name: Give the site its database
+        shell: pwsh
+        env:
+          CONNECTION: ${{ secrets.MYASP_CONNECTION_STRING }}
+        run: |
+          $path = (Resolve-Path artifacts/server/web.config).Path
+          [xml]$config = Get-Content $path -Raw
+          $vars = $config.SelectSingleNode("/configuration/location[@path='.']/system.webServer/aspNetCore/environmentVariables")
+          if ($null -eq $vars) { throw 'web.config has no aspNetCore environmentVariables to add the database to' }
+          $variable = $config.CreateElement('environmentVariable')
+          $variable.SetAttribute('name', 'ConnectionStrings__RetailPlus')
+          $variable.SetAttribute('value', $env:CONNECTION)
+          [void]$vars.AppendChild($variable)
+          $config.Save($path)
+          Write-Output 'The database connection is in the deployed web.config.'
 
       - name: Make sure Web Deploy is installed
         shell: pwsh
