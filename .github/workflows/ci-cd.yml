@@ -21,6 +21,10 @@ on:
         description: 'Preview only: list what the deploy would change on the host, write nothing'
         type: boolean
         default: false
+      diagnose:
+        description: 'Only read the live site''s start-up log (no build, no deploy); secrets in it are masked'
+        type: boolean
+        default: false
 
 env:
   DOTNET_NOLOGO: true
@@ -29,6 +33,7 @@ env:
 jobs:
   dotnet:
     name: .NET build and tests
+    if: ${{ !inputs.diagnose }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -46,6 +51,7 @@ jobs:
 
   web:
     name: Web back office
+    if: ${{ !inputs.diagnose }}
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -256,3 +262,73 @@ jobs:
           $page = Invoke-WebRequest -Uri "$env:SITE_URL/sign-in/" -UseBasicParsing -MaximumRetryCount 5 -RetryIntervalSec 10
           if ($page.StatusCode -ne 200 -or $page.Content -notmatch 'SMA RETAIL') { throw "the sign-in page did not come up (HTTP $($page.StatusCode))" }
           Write-Output "Deployed: $($health | ConvertTo-Json -Compress)"
+
+  diagnose:
+    name: Read the live site's start-up log
+    # Only by hand: Run workflow with "diagnose" ticked (gh workflow run ci-cd.yml --ref integration-all-phases -f diagnose=true).
+    # It switches IIS's start-up log on, wakes the site, prints the log's end with names and passwords masked (the logs
+    # of this public repository can be read by anyone), and switches the log off again.
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.diagnose }}
+    runs-on: windows-latest
+    env:
+      WEBDEPLOY_HOST: ${{ vars.MYASP_WEBDEPLOY_HOST || 'win8238.site4now.net' }}
+      SITE_URL: https://pos.sma-techno.net
+    steps:
+      - name: Make sure Web Deploy is installed
+        shell: pwsh
+        run: |
+          $msdeploy = 'C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe'
+          if (-not (Test-Path $msdeploy)) { choco install webdeploy -y --no-progress | Out-Null }
+          if (-not (Test-Path $msdeploy)) { throw 'Web Deploy (msdeploy.exe) could not be installed' }
+          "MSDEPLOY=$msdeploy" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Read the start-up log
+        shell: pwsh
+        env:
+          SITE: ${{ secrets.MYASP_SITE_NAME }}
+          DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
+          DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $endpoint = "https://$env:WEBDEPLOY_HOST`:8172/msdeploy.axd?site=$env:SITE"
+          $auth = "computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic"
+          function Pull([string]$remote, [string]$local) {
+            & $env:MSDEPLOY -verb:sync "-source:contentPath=$env:SITE/$remote,$auth" "-dest:contentPath=$local" -allowUntrusted | Out-Null
+            return $LASTEXITCODE
+          }
+          function Send([string]$local, [string]$remote) {
+            & $env:MSDEPLOY -verb:sync "-source:contentPath=$local" "-dest:contentPath=$env:SITE/$remote,$auth" -allowUntrusted | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "could not write $remote" }
+          }
+          New-Item -ItemType Directory -Force diag/logs | Out-Null
+          $cfg = Join-Path (Resolve-Path diag).Path 'web.config'
+          if ((Pull 'web.config' $cfg) -ne 0) { throw 'could not read web.config from the host' }
+          $original = Get-Content $cfg -Raw
+          try {
+            ($original -replace 'stdoutLogEnabled="false"', 'stdoutLogEnabled="true"') | Set-Content $cfg -Encoding UTF8 -NoNewline
+            Send $cfg 'web.config'
+            Write-Output 'Start-up log on; waking the site (each try can take two minutes)...'
+            for ($i = 1; $i -le 2; $i++) {
+              try { $r = Invoke-WebRequest "$env:SITE_URL/api/health" -UseBasicParsing -TimeoutSec 150; Write-Output "try ${i}: HTTP $($r.StatusCode) $($r.Content)"; break }
+              catch { Write-Output "try ${i}: $(($_.Exception.Message -split "`n")[0])" }
+            }
+            if ((Pull 'logs' (Resolve-Path diag/logs).Path) -ne 0) { Write-Output 'Could not read the logs folder on the host.' }
+          }
+          finally {
+            $original | Set-Content $cfg -Encoding UTF8 -NoNewline
+            Send $cfg 'web.config'
+            Write-Output 'Start-up log off again.'
+          }
+          function Mask([string]$t) {
+            $t = [regex]::Replace($t, '(?i)\b(Server|Data Source|Address|Database|Initial Catalog|User ID|UID|Password|PWD)\s*=\s*[^;''"\r\n]*', '$1=***')
+            $t = [regex]::Replace($t, '(?i)\bsql[a-z0-9-]*\.site4now\.net\b', 'sql***.site4now.net')
+            $t = [regex]::Replace($t, '(?i)\bdb_[a-z0-9_]+', 'db_***')
+            $t = [regex]::Replace($t, "(?i)login failed for user '[^']*'", "Login failed for user '***'")
+            $t = [regex]::Replace($t, '(?i)\b[a-z]:\(?:[^\\s"'']+\)*', '<host>\')
+            return $t
+          }
+          $files = @(Get-ChildItem diag/logs -Filter 'stdout*' -File -ErrorAction SilentlyContinue | Sort-Object LastWriteTime)
+          if ($files.Count -eq 0) { Write-Output 'The host wrote no start-up log.'; exit 0 }
+          $last = $files[-1]
+          Write-Output "== $($last.Name), $($last.Length) bytes, masked:"
+          Get-Content $last.FullName -Tail 80 | ForEach-Object { Mask $_ }
