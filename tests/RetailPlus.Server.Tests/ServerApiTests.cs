@@ -66,6 +66,63 @@ public sealed class ServerApiTests(SyncWorld world) : IClassFixture<SyncWorld>
     }
 
     [SkippableFact]
+    public async Task A_manager_signs_in_to_the_web_for_their_own_store()
+    {
+        Require();
+        var store = await world.AddStoreAsync();
+        await world.AddStoreAsync();
+        var manager = await UserAsync(Permissions.ManagerRole, store.Id);
+        using var client = world.Server.CreateClient();
+        using (var response = await client.PostAsJsonAsync("/api/auth/sign-in", new SignInRequest(manager, "Password-1")))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var signedIn = await ReadAsync<SignInResponse>(response);
+            Assert.Equal((Permissions.ManagerRole, store.Id), (signedIn.User.Role, signedIn.User.StoreId));
+            Assert.Contains(Permissions.WebSignIn, signedIn.User.Permissions);
+            Assert.DoesNotContain(Permissions.StoresAll, signedIn.User.Permissions);
+        }
+        using var web = await world.SignInAsync(manager, "Password-1");
+        var stores = (await web.GetFromJsonAsync<List<StoreInfo>>("/api/stores", SyncWorld.Json))!;
+        Assert.Equal(store.Id, Assert.Single(stores).Id);
+
+        // A supervisor still works at the tills only.
+        var supervisor = await UserAsync(Permissions.SupervisorRole, store.Id);
+        using var refused = await client.PostAsJsonAsync("/api/auth/sign-in", new SignInRequest(supervisor, "Password-1"));
+        Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+    }
+
+    [SkippableFact]
+    public async Task A_user_without_a_store_needs_a_role_that_sees_every_store()
+    {
+        Require();
+        var store = await world.AddStoreAsync();
+        using var super = await world.SuperAsync();
+        var roles = (await new SetupService(world.ServerData).GetRolesAsync()).ToDictionary(r => r.Name, r => r.Id);
+        UserBody Body(string role, Guid? at) => new(null, "nostore-" + Guid.NewGuid().ToString("N")[..8], null, roles[role], at, true, "Password-1");
+
+        using (var refused = await super.PostAsJsonAsync("/api/users", Body(Permissions.ManagerRole, null)))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, refused.StatusCode);
+            Assert.Contains("Choose the store this user works at; only a role that sees every store works without one.", await refused.Content.ReadAsStringAsync(),
+                StringComparison.Ordinal);
+        }
+        Assert.Equal(HttpStatusCode.BadRequest, await WebClients.StatusAsync(super.PostAsJsonAsync("/api/users", Body(Permissions.CashierRole, null) with { RoleId = null })));
+        foreach (var role in new[] { Permissions.MarketingRole, Permissions.HrOfficerRole, Permissions.AccountantRole, Permissions.SuperAdministratorRole })
+            Assert.Equal(HttpStatusCode.Created, await WebClients.StatusAsync(super.PostAsJsonAsync("/api/users", Body(role, null))));
+
+        // Nor can a change take a user's store away while their role sees one store.
+        using var created = await super.PostAsJsonAsync("/api/users", Body(Permissions.ManagerRole, store.Id));
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var user = await ReadAsync<UserRow>(created);
+        var change = new UserBody(user.Version, user.UserName, "Mona Manager", user.RoleId, null, true, null);
+        Assert.Equal(HttpStatusCode.BadRequest, await WebClients.StatusAsync(super.PutAsJsonAsync($"/api/users/{user.Id}", change)));
+        Assert.Equal(HttpStatusCode.OK, await WebClients.StatusAsync(super.PutAsJsonAsync($"/api/users/{user.Id}", change with { StoreId = store.Id })));
+        Assert.Equal(HttpStatusCode.OK, await WebClients.StatusAsync(super.PutAsJsonAsync($"/api/users/{user.Id}",
+            change with { Version = (await ReadAsync<List<UserRow>>(await super.GetAsync("/api/users"))).Single(u => u.Id == user.Id).Version,
+                RoleId = roles[Permissions.MarketingRole] })));
+    }
+
+    [SkippableFact]
     public async Task A_user_changes_their_password()
     {
         Require();

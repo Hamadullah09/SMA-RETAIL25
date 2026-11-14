@@ -128,3 +128,50 @@ public class ApprovalRuleTests
         Assert.False(Permissions.CanApprove(Of(Permissions.SupervisorRole), Permissions.SetupUsers));
     }
 }
+
+public class StandardRoleTests
+{
+    private static HashSet<string> Of(string role) => [.. Permissions.DefaultRoles.Single(r => r.Name == role).Permissions];
+
+    [Fact]
+    public void Managers_sign_in_to_the_web_for_their_own_store_and_supervisors_work_at_the_tills()
+    {
+        Assert.Contains(Permissions.WebSignIn, Of(Permissions.ManagerRole));
+        Assert.DoesNotContain(Permissions.StoresAll, Of(Permissions.ManagerRole));
+        Assert.DoesNotContain(Permissions.WebSignIn, Of(Permissions.SupervisorRole));
+    }
+
+    [Fact]
+    public void Marketing_hr_and_the_accountant_work_for_every_store_and_production_for_its_own()
+    {
+        foreach (var role in new[] { Permissions.MarketingRole, Permissions.HrOfficerRole, Permissions.AccountantRole, Permissions.SuperAdministratorRole })
+            Assert.Contains(Permissions.StoresAll, Of(role));
+        foreach (var role in new[] { Permissions.ManagerRole, Permissions.AdministratorRole, Permissions.ProductionPlannerRole, Permissions.ProductionOperatorRole })
+            Assert.DoesNotContain(Permissions.StoresAll, Of(role));
+        // HR officers still need a second person to approve payroll.
+        Assert.DoesNotContain(Permissions.PayrollApprove, Of(Permissions.HrOfficerRole));
+    }
+
+    [Fact]
+    public void The_web_roles_of_one_store_are_the_administrator_the_manager_and_the_production_planner()
+    {
+        // Their users sign in to the web without seeing every store, so they need a home store.
+        var oneStore = Permissions.DefaultRoles.Where(r => r.Permissions.Contains(Permissions.WebSignIn) && !r.Permissions.Contains(Permissions.StoresAll))
+            .Select(r => r.Name).Order(StringComparer.Ordinal);
+        Assert.Equal([Permissions.AdministratorRole, Permissions.ManagerRole, Permissions.ProductionPlannerRole], oneStore);
+    }
+
+    [Fact]
+    public void The_keys_added_to_standard_roles_are_in_those_roles()
+    {
+        Assert.NotEmpty(Permissions.KeysAddedToStandardRoles);
+        foreach (var (role, key) in Permissions.KeysAddedToStandardRoles)
+        {
+            Assert.True(Permissions.IsKnown(key), key);
+            Assert.Contains(key, Of(role));
+        }
+        Assert.Contains((Permissions.ManagerRole, Permissions.WebSignIn), Permissions.KeysAddedToStandardRoles);
+        Assert.Contains((Permissions.MarketingRole, Permissions.StoresAll), Permissions.KeysAddedToStandardRoles);
+        Assert.Contains((Permissions.HrOfficerRole, Permissions.StoresAll), Permissions.KeysAddedToStandardRoles);
+    }
+}

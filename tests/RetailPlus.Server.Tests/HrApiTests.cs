@@ -89,6 +89,12 @@ public sealed class HrApiTests(SyncWorld world) : IClassFixture<SyncWorld>
         Assert.Contains(officerReports!, r => r.Key == "salary-sheet");
         Assert.Equal(HttpStatusCode.Forbidden, await WebClients.StatusAsync(viewer.GetAsync("/api/hr/reports/eobi?month=2026-03")));
         Assert.Equal(HttpStatusCode.OK, await WebClients.StatusAsync(viewer.GetAsync("/api/hr/reports/headcount")));
+
+        // The HR officer does the whole company's HR: every store's employees, and the shared lists with several stores.
+        var elsewhere = await world.AddStoreAsync();
+        await AddEmployeeAsync(officer, NewEmployee("Test Other Store Person", elsewhere.Id));
+        Assert.Equal(HttpStatusCode.Created, await WebClients.StatusAsync(officer.PostAsJsonAsync("/api/hr/departments",
+            new HrListItem(null, null, "Test Officer Shared " + Guid.NewGuid().ToString("N")[..4], true), SyncWorld.Json)));
     }
 
     [SkippableFact]

@@ -27,6 +27,9 @@ internal static partial class ServerLog
     [LoggerMessage(8, LogLevel.Warning, "Nobody could manage every store, so {User} (Bootstrap:AdminUserName) was made super administrator.")]
     public static partial void AdministratorPromoted(ILogger logger, string user);
 
+    [LoggerMessage(9, LogLevel.Information, "A standard role gained a permission of this version: {RoleAndKey}.")]
+    public static partial void StandardRoleGotKey(ILogger logger, string roleAndKey);
+
     // Phase E4 (ids from 401).
     [LoggerMessage(401, LogLevel.Information, "{Count} campaign messages sent ({Provider}).")]
     public static partial void CampaignMessagesSent(ILogger logger, int count, string provider);

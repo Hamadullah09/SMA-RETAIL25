@@ -49,7 +49,8 @@ public sealed partial class CutoverRunner
             if (existingRoles.TryGetValue(preset.Name.ToUpperInvariant(), out var have)) { roleIds[preset.Name] = (have.Id, have.Level); continue; }
             var id = StableIds.For("standard-role", preset.Name);
             roles.Add(new Role { Id = id, Name = preset.Name, Level = preset.Level, Description = preset.Description, IsSystem = true });
-            grants.AddRange(preset.Permissions.Select(p => new RoleGrant { Id = StableIds.For("role-grant", id.ToString("N") + "/" + p), RoleId = id, Permission = p }));
+            // The ids a new database gives them, so the server can tell a permission taken away from one given since.
+            grants.AddRange(preset.Permissions.Select(p => new RoleGrant { Id = SetupService.StandardGrantId(id, p), RoleId = id, Permission = p }));
             roleIds[preset.Name] = (id, preset.Level);
         }
 

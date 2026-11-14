@@ -10,9 +10,10 @@ namespace RetailPlus.Server;
 
 /// <summary>
 /// What the server does before it takes requests: bring the database up to date, give it the standard roles and tender
-/// types every store shares, and make sure someone can manage every store: on the very first start a new super
-/// administrator, and on a database that has users but nobody with <see cref="Permissions.StoresAll"/> (one filled by
-/// the Retail25 cutover) the user named in <c>Bootstrap:AdminUserName</c>.
+/// types every store shares (and the standard roles of a database in use the keys they gained since), and make sure
+/// someone can manage every store: on the very first start a new super administrator, and on a database that has users
+/// but nobody with <see cref="Permissions.StoresAll"/> (one filled by the Retail25 cutover) the user named in
+/// <c>Bootstrap:AdminUserName</c>.
 /// </summary>
 public sealed class ServerStartup(DataContext data, IOptions<BootstrapOptions> bootstrap, ILogger<ServerStartup> log)
 {
@@ -21,6 +22,8 @@ public sealed class ServerStartup(DataContext data, IOptions<BootstrapOptions> b
         await data.MigrateAsync(cancellationToken);
         await using var db = data.Create();
         await SetupService.SeedRolesAsync(db, cancellationToken);
+        foreach (var given in await SetupService.AddNewStandardKeysAsync(db, cancellationToken))
+            ServerLog.StandardRoleGotKey(log, given);
         await new LedgerService(data).SeedAsync(cancellationToken);
         await new FinanceSetupService(data).SeedAsync(cancellationToken);
         await new HrService(data).SeedAsync(cancellationToken);

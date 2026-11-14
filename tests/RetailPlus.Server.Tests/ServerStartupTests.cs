@@ -71,4 +71,81 @@ public sealed class ServerStartupTests : IDisposable
         await StartAsync("someone-else");
         Assert.Null(await UserAsync("someone-else"));
     }
+
+    // The standard roles of a database in use --------------------------------------------------------------------------
+
+    private async Task<List<RoleGrant>> GrantsOfAsync(string role)
+    {
+        await using var db = _data.Create();
+        var id = await db.Roles.Where(r => r.Name == role).Select(r => r.Id).SingleAsync();
+        return await db.RoleGrants.AsNoTracking().Where(g => g.RoleId == id).ToListAsync();
+    }
+
+    private async Task<bool> HasAsync(string role, string key) => (await GrantsOfAsync(role)).Any(g => g.Permission == key);
+
+    /// <summary>Takes the permission away as an administrator does, on the Roles page.</summary>
+    private async Task TakeAwayAsync(string role, string key)
+    {
+        var setup = new SetupService(_data);
+        var stored = (await setup.GetRolesAsync()).Single(r => r.Name == role);
+        await setup.SaveRoleAsync(stored, stored.Permissions.Select(p => p.Permission).Where(p => p != key));
+    }
+
+    [Fact]
+    public async Task A_database_in_use_gets_the_new_keys_of_its_standard_roles_once()
+    {
+        await StartAsync("boss", "Boss-pass-1");
+        var manager = await GrantsOfAsync(Permissions.ManagerRole);
+        Assert.All(manager, g => Assert.Equal(SetupService.StandardGrantId(g.RoleId, g.Permission), g.Id));
+
+        // As a database made before managers signed in to the web and marketing and HR saw every store.
+        await using (var db = _data.Create())
+            foreach (var (role, key) in Permissions.KeysAddedToStandardRoles)
+            {
+                var roleId = await db.Roles.Where(r => r.Name == role).Select(r => r.Id).SingleAsync();
+                await db.RoleGrants.Where(g => g.RoleId == roleId && g.Permission == key).ExecuteDeleteAsync();
+            }
+        Assert.False(await HasAsync(Permissions.ManagerRole, Permissions.WebSignIn));
+
+        await StartAsync(null);
+        Assert.True(await HasAsync(Permissions.ManagerRole, Permissions.WebSignIn));
+        Assert.True(await HasAsync(Permissions.MarketingRole, Permissions.StoresAll));
+        Assert.True(await HasAsync(Permissions.HrOfficerRole, Permissions.StoresAll));
+        Assert.False(await HasAsync(Permissions.ManagerRole, Permissions.StoresAll));
+        Assert.False(await HasAsync(Permissions.ProductionPlannerRole, Permissions.StoresAll));
+
+        // An administrator's choice wins: a key taken away stays away at the next starts.
+        await TakeAwayAsync(Permissions.ManagerRole, Permissions.WebSignIn);
+        await TakeAwayAsync(Permissions.MarketingRole, Permissions.StoresAll);
+        await StartAsync(null);
+        await StartAsync(null);
+        Assert.False(await HasAsync(Permissions.ManagerRole, Permissions.WebSignIn));
+        Assert.False(await HasAsync(Permissions.MarketingRole, Permissions.StoresAll));
+        Assert.True(await HasAsync(Permissions.HrOfficerRole, Permissions.StoresAll));
+    }
+
+    [Fact]
+    public async Task A_new_key_given_by_hand_before_is_kept_and_can_then_be_taken_away_for_good()
+    {
+        await StartAsync("boss", "Boss-pass-1");
+        Guid handMade;
+        await using (var db = _data.Create())
+        {
+            // Managers could not sign in to the web, so an administrator gave them the key by hand.
+            var roleId = await db.Roles.Where(r => r.Name == Permissions.ManagerRole).Select(r => r.Id).SingleAsync();
+            await db.RoleGrants.Where(g => g.RoleId == roleId && g.Permission == Permissions.WebSignIn).ExecuteDeleteAsync();
+            var grant = new RoleGrant { RoleId = roleId, Permission = Permissions.WebSignIn };
+            db.RoleGrants.Add(grant);
+            await db.SaveChangesAsync();
+            handMade = grant.Id;
+        }
+
+        await StartAsync(null);
+        var signIn = Assert.Single(await GrantsOfAsync(Permissions.ManagerRole), g => g.Permission == Permissions.WebSignIn);
+        Assert.NotEqual(handMade, signIn.Id);
+
+        await TakeAwayAsync(Permissions.ManagerRole, Permissions.WebSignIn);
+        await StartAsync(null);
+        Assert.False(await HasAsync(Permissions.ManagerRole, Permissions.WebSignIn));
+    }
 }
