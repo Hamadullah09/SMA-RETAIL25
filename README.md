@@ -133,6 +133,10 @@ stay in `outbox` next to the database file. Without a connection a package can b
 copy of the database) and uploaded on the web, and the server's package for the till loaded from a file. How the sync
 works: [docs/WEB_INTEGRATION_PLAN.md](docs/WEB_INTEGRATION_PLAN.md), section 10.
 
+**Hosting.** The server and the web back office are deployed together to pos.sma-techno.net (myASP.NET, IIS) by
+`.github/workflows/ci-cd.yml`, which also builds the desktop till as one `RetailPlus.exe` on every push. Deploying is
+switched on by a repository variable; the setup is in [docs/DEPLOY_MYASP.md](docs/DEPLOY_MYASP.md).
+
 ## Import a store's Retail Plus data
 
 From the app: Tools › Import from Retail Plus 5. From the command line:

@@ -1,0 +1,250 @@
+# CI/CD for SMA RETAIL.
+#
+# Every push and pull request: build and test the .NET solution, check and build the web back office, and package
+#   - the server with the web back office in .\web (sma-retail-server), ready for IIS on myASP.NET;
+#   - the database migration script (sma-retail-database), to read or apply by hand;
+#   - the desktop till as one self-contained RetailPlus.exe (sma-retail-desktop).
+# The packages are kept with the run for 30 days (Actions › the run › Artifacts).
+#
+# Deploy to pos.sma-techno.net (myASP.NET, Web Deploy): on a push to integration-all-phases, or by "Run workflow" on the
+# Actions tab, and ONLY while the repository variable MYASP_DEPLOY_ENABLED is 'true'. Until then nothing is deployed.
+# What to set up first (database, control panel, secrets, the switch) is in docs/DEPLOY_MYASP.md.
+
+name: CI/CD
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview only: list what the deploy would change on the host, write nothing'
+        type: boolean
+        default: false
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  dotnet:
+    name: .NET build and tests
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      - run: dotnet build RetailPlus.sln -c Release
+      # Tests that need SQL Server skip where none is reachable, as on this runner.
+      - run: dotnet test RetailPlus.sln -c Release --no-build
+
+  web:
+    name: Web back office
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-out
+          path: web/out
+          retention-days: 1
+
+  package:
+    name: Packages
+    needs: [dotnet, web]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # For IIS: framework-dependent on the host's .NET 10, Windows x64 only, no debug symbols (a native library ships
+      # 95 MB of them per platform). web.config runs it out of process (see src/RetailPlus.Server/web.config).
+      - name: Publish the server
+        shell: pwsh
+        run: |
+          dotnet publish src/RetailPlus.Server/RetailPlus.Server.csproj -c Release -r win-x64 --self-contained false -p:DebugType=none -o artifacts/server
+          Get-ChildItem artifacts/server -Recurse -Filter *.pdb | Remove-Item -Force
+          New-Item -ItemType Directory -Force artifacts/server/logs | Out-Null
+          Set-Content artifacts/server/logs/README.txt 'IIS writes the server''s start-up log here when stdoutLogEnabled is true in web.config.'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-out
+          path: artifacts/server/web
+
+      - name: Prove the package is complete
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($f in 'RetailPlus.Server.dll', 'RetailPlus.Server.exe', 'web.config', 'appsettings.json', 'appsettings.Production.json', 'web/index.html', 'web/sign-in/index.html') {
+            if (-not (Test-Path "artifacts/server/$f")) { throw "the server package is missing $f" }
+          }
+          $config = Get-Content artifacts/server/web.config -Raw
+          if ($config -notmatch 'hostingModel="outofprocess"') { throw 'web.config does not run the server out of process' }
+          if ($config -notmatch 'inheritInChildApplications="false"') { throw 'web.config would reach into /backend' }
+          if (Select-String -Path artifacts/server/appsettings*.json -Pattern 'Password=' -Quiet) { throw 'a password is in appsettings' }
+          if (Test-Path artifacts/server/App_Data) { throw 'the package must not carry App_Data (the host keeps its own)' }
+          $mb = [math]::Round(((Get-ChildItem artifacts/server -Recurse -File | Measure-Object Length -Sum).Sum / 1MB), 1)
+          Write-Output "Server package: $mb MB"
+
+      - name: Script the database migrations
+        shell: pwsh
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.13
+          dotnet ef migrations script --idempotent --project src/RetailPlus.Data.SqlServer --startup-project src/RetailPlus.Data.SqlServer --output artifacts/database/migrate.sql
+
+      - name: Publish the desktop till
+        run: dotnet publish src/RetailPlus.App/RetailPlus.App.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -o artifacts/desktop
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sma-retail-server
+          path: artifacts/server
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sma-retail-database
+          path: artifacts/database
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sma-retail-desktop
+          path: artifacts/desktop
+          retention-days: 30
+
+  deploy:
+    name: Deploy to pos.sma-techno.net
+    needs: [package]
+    # Off until the repository variable MYASP_DEPLOY_ENABLED is 'true' (Settings › Secrets and variables › Actions ›
+    # Variables). Then every push to integration-all-phases that passes the jobs above goes live. A manual run with
+    # "Preview only" ticked works before that: it lists what would change on the host and writes nothing.
+    if: >-
+      (vars.MYASP_DEPLOY_ENABLED == 'true' &&
+       ((github.event_name == 'push' && github.ref == 'refs/heads/integration-all-phases') || github.event_name == 'workflow_dispatch'))
+      || (github.event_name == 'workflow_dispatch' && inputs.dry_run)
+    runs-on: windows-latest
+    environment:
+      name: production
+      url: https://pos.sma-techno.net
+    concurrency:
+      group: deploy-pos-sma-techno-net
+      cancel-in-progress: false
+    env:
+      WEBDEPLOY_HOST: ${{ vars.MYASP_WEBDEPLOY_HOST || 'win8238.site4now.net' }}
+      SITE_URL: https://pos.sma-techno.net
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: sma-retail-server
+          path: artifacts/server
+
+      - name: Check the deployment credentials
+        shell: pwsh
+        env:
+          SITE: ${{ secrets.MYASP_SITE_NAME }}
+          DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
+          DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+        run: |
+          $missing = @()
+          if (-not $env:SITE) { $missing += 'MYASP_SITE_NAME' }
+          if (-not $env:DEPLOY_USER) { $missing += 'MYASP_DEPLOY_USER' }
+          if (-not $env:DEPLOY_PASS) { $missing += 'MYASP_DEPLOY_PASSWORD' }
+          if ($missing.Count -gt 0) { Write-Output "::error::Missing repository secrets: $($missing -join ', ')"; exit 1 }
+
+      - name: Make sure Web Deploy is installed
+        shell: pwsh
+        run: |
+          $msdeploy = 'C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe'
+          if (-not (Test-Path $msdeploy)) { choco install webdeploy -y --no-progress | Out-Null }
+          if (-not (Test-Path $msdeploy)) { throw 'Web Deploy (msdeploy.exe) could not be installed' }
+          "MSDEPLOY=$msdeploy" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      # Windows locks the files of a running site, so the site is taken offline first (app_offline.htm), synced, and
+      # brought back even when the sync fails: a failed deploy leaves the previous build in place.
+      - name: Take the site offline
+        if: ${{ !inputs.dry_run }}
+        shell: pwsh
+        env:
+          SITE: ${{ secrets.MYASP_SITE_NAME }}
+          DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
+          DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $endpoint = "https://$env:WEBDEPLOY_HOST`:8172/msdeploy.axd?site=$env:SITE"
+          New-Item -ItemType Directory -Force -Path offline | Out-Null
+          '<html><body style="font-family:sans-serif"><p>SMA RETAIL is being updated and will be back in a minute. The tills keep selling meanwhile.</p></body></html>' |
+            Set-Content -Path offline/app_offline.htm -Encoding UTF8
+          & $env:MSDEPLOY -verb:sync "-source:contentPath=$((Resolve-Path offline/app_offline.htm).Path)" `
+            "-dest:contentPath=$env:SITE/app_offline.htm,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic" -allowUntrusted
+          if ($LASTEXITCODE -ne 0) { throw "could not take the site offline (exit $LASTEXITCODE)" }
+          Start-Sleep -Seconds 20
+
+      - name: Deploy the site
+        shell: pwsh
+        env:
+          SITE: ${{ secrets.MYASP_SITE_NAME }}
+          DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
+          DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $endpoint = "https://$env:WEBDEPLOY_HOST`:8172/msdeploy.axd?site=$env:SITE"
+          $msargs = @(
+            '-verb:sync',
+            "-source:contentPath=$((Resolve-Path artifacts/server).Path)",
+            "-dest:contentPath=$env:SITE,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic",
+            '-allowUntrusted',
+            # Left alone on the host: the server's keys and the tills' packages, the logs, the offline page, and
+            # Retail25's API application while it is still there.
+            '-skip:objectName=dirPath,absolutePath=\\App_Data$',
+            '-skip:objectName=filePath,absolutePath=\\App_Data\\.*',
+            '-skip:objectName=dirPath,absolutePath=\\App_Data\\.*',
+            '-skip:objectName=dirPath,absolutePath=\\logs$',
+            '-skip:objectName=filePath,absolutePath=\\logs\\.*',
+            '-skip:objectName=filePath,absolutePath=\\app_offline\.htm$',
+            '-skip:objectName=dirPath,absolutePath=\\backend$',
+            '-skip:objectName=filePath,absolutePath=\\backend\\.*',
+            '-skip:objectName=dirPath,absolutePath=\\backend\\.*'
+          )
+          if ($env:DRY_RUN -eq 'true') { $msargs += '-whatif' }
+          & $env:MSDEPLOY @msargs
+          if ($LASTEXITCODE -ne 0) { throw "deploy failed (exit $LASTEXITCODE)" }
+
+      - name: Bring the site back
+        if: ${{ always() && !inputs.dry_run }}
+        shell: pwsh
+        env:
+          SITE: ${{ secrets.MYASP_SITE_NAME }}
+          DEPLOY_USER: ${{ secrets.MYASP_DEPLOY_USER }}
+          DEPLOY_PASS: ${{ secrets.MYASP_DEPLOY_PASSWORD }}
+        run: |
+          $endpoint = "https://$env:WEBDEPLOY_HOST`:8172/msdeploy.axd?site=$env:SITE"
+          & $env:MSDEPLOY -verb:delete "-dest:contentPath=$env:SITE/app_offline.htm,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic" -allowUntrusted
+          exit 0
+
+      - name: Check the site and its database answer
+        if: ${{ !inputs.dry_run }}
+        shell: pwsh
+        run: |
+          Start-Sleep -Seconds 15
+          $health = Invoke-RestMethod -Uri "$env:SITE_URL/api/health" -MaximumRetryCount 8 -RetryIntervalSec 10
+          if ($health.status -ne 'ok' -or $health.database -ne 'ok') { throw "the server answers but is not healthy: $($health | ConvertTo-Json -Compress)" }
+          $page = Invoke-WebRequest -Uri "$env:SITE_URL/sign-in/" -UseBasicParsing -MaximumRetryCount 5 -RetryIntervalSec 10
+          if ($page.StatusCode -ne 200 -or $page.Content -notmatch 'SMA RETAIL') { throw "the sign-in page did not come up (HTTP $($page.StatusCode))" }
+          Write-Output "Deployed: $($health | ConvertTo-Json -Compress)"
