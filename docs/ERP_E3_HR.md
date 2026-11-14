@@ -165,7 +165,8 @@ or audit lines about them.
 
 Salaries, loans, runs, payslips and the payroll reports are read with `payroll.run` or `payroll.approve` only. The
 standard **HR officer** role has every HR key and `payroll.run`, but not `payroll.approve`, so a second person approves.
-The Manager role has `hr.view` and `hr.leave`. Administrators of one store see that store's employees; head office
+It also has `stores.all`: HR officers do the whole company's HR and payroll, so they see every store. The Manager role
+has `hr.view` and `hr.leave`, for its own store. Administrators of one store see that store's employees; head office
 employees, company-wide runs and the shared HR lists (when there is more than one store) are for users who see every
 store.
 

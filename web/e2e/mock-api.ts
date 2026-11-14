@@ -194,6 +194,17 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
         return { json: f.roles };
       case key === 'GET /api/users':
         return { json: f.users };
+      case key === 'POST /api/users' || /^PUT \/api\/users\/[^/]+$/.test(key): {
+        // As the server: without a store, only a role that sees every store.
+        const body = r.body as { userName: string; fullName: string | null; roleId: string | null; storeId: string | null; isActive: boolean };
+        const role = f.roles.find((x) => x.id === body.roleId);
+        if (!body.storeId && !role?.permissions.includes('stores.all'))
+          return { status: 400, json: { error: 'Choose the store this user works at; only a role that sees every store works without one.' } };
+        const before = f.users.find((u) => u.id === id);
+        const saved = { ...(before ?? f.users[0]), ...body, id: before?.id ?? 'u-new', version: 'v-2', role: role?.name ?? null,
+          storeCode: f.stores.find((s) => s.id === body.storeId)?.code ?? null, staffCode: before?.staffCode ?? null, lastSignInAtUtc: before?.lastSignInAtUtc ?? null };
+        return { status: before ? 200 : 201, json: saved };
+      }
       case /^POST \/api\/users\/[^/]+\/reset-password$/.test(key):
         return { json: { temporaryPassword: 'Plum-Kite-42' } };
       case key === 'GET /api/audit':

@@ -682,6 +682,11 @@ export const roles: RoleInfo[] = [
   { id: 'r-1', version: 'v-1', name: 'Trainee', description: 'Practice sales that are not kept', level: 0, isSystem: true, permissions: ['pos.sell', 'inventory.view', 'clients.view', 'timeclock.punch'], userCount: 0 },
   { id: 'r-2', version: 'v-1', name: 'Cashier', description: 'Sales at the till', level: 1, isSystem: true, permissions: ['pos.sell', 'pos.return', 'pos.drawer', 'inventory.view', 'clients.view', 'clients.edit', 'giftcards.issue', 'timeclock.punch', 'sync.send'], userCount: 6 },
   { id: 'r-4', version: 'v-1', name: 'Supervisor', description: 'Approves voids, discounts and End of Day; reports', level: 3, isSystem: true, permissions: supervisor.permissions, userCount: 2 },
+  // A manager signs in to the web for their own store; marketing sees every store (Core/Rules/Permissions.cs).
+  { id: 'r-5', version: 'v-1', name: 'Manager', description: 'Runs the store: prices, staff, setup, backups', level: 3, isSystem: true,
+    permissions: [...supervisor.permissions, 'inventory.prices', 'reports.staff', 'setup.store', 'audit.view', 'finance.view', 'hr.view', 'hr.leave', 'crm.edit'], userCount: 1 },
+  { id: 'r-9', version: 'v-1', name: 'Marketing', description: 'Leads, the pipeline, segments, WhatsApp campaigns and promotions, on the web', level: 3, isSystem: true,
+    permissions: ['web.signin', 'dashboard.view', 'reports.view', 'clients.view', 'clients.edit', 'crm.view', 'crm.edit', 'marketing.campaigns', 'marketing.promotions', 'stores.all'], userCount: 0 },
   { id: 'r-6', version: 'v-1', name: 'Administrator', description: 'Everything for one store, at the tills and on the web', level: 4, isSystem: true, permissions: everything.filter((k) => k !== 'stores.all'), userCount: 1 },
   { id: 'r-7', version: 'v-1', name: 'Super administrator', description: 'Everything, for every store', level: 4, isSystem: true, permissions: everything, userCount: 1 },
   { id: 'r-8', version: 'v-1', name: 'Weekend help', description: 'Sales and stock look-ups only', level: 1, isSystem: false, permissions: ['pos.sell', 'inventory.view'], userCount: 0 },
@@ -771,12 +776,15 @@ export const settings: StoreSettings = {
 export * from './hr-fixtures';
 // Phase E4: CRM -----------------------------------------------------------------------------------------------------
 
-/** A marketing user of Downtown: CRM, segments, campaigns and promotions, but not targets nor the shared lists. */
+/**
+ * A marketing user of Downtown only: CRM, segments, campaigns and promotions, but not targets nor the shared lists. A
+ * custom role: the standard Marketing role sees every store (see the Marketing role in `roles`).
+ */
 export const marketer: UserInfo = {
   id: 'u-7',
   userName: 'nana',
   fullName: 'Nana Yeboah',
-  role: 'Marketing',
+  role: 'Store marketing',
   permissions: ['web.signin', 'dashboard.view', 'reports.view', 'clients.view', 'clients.edit', 'crm.view', 'crm.edit', 'marketing.campaigns', 'marketing.promotions'],
   storeId: 's-main',
   storeName: 'Downtown',
