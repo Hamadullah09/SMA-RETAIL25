@@ -299,6 +299,21 @@ public sealed class BackOfficeTests(BackOffice office) : IClassFixture<BackOffic
         Assert.False(Assert.Single((await GetAsync<PageOf<SupplierListRow>>(super, $"/api/suppliers?search={company}")).Items).IsDeleted);
     }
 
+    [SkippableFact]
+    public async Task A_supplier_with_text_longer_than_its_field_is_refused_naming_the_field()
+    {
+        Require();
+        using var super = await office.SignInAsync();
+        string company = "Long " + Guid.NewGuid().ToString("N")[..4];
+        var body = new SupplierDetail(null, null, null, company, null, new string('x', 31), null, "Lahore", null, null, null, null, null, null, null);
+
+        using var response = await super.PostAsJsonAsync("/api/suppliers", body);
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var answer = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal("Address 1 is too long: at most 30 characters.", answer.GetProperty("error").GetString());
+        Assert.Empty((await GetAsync<PageOf<SupplierListRow>>(super, $"/api/suppliers?search={company}")).Items);
+    }
+
     // Stock and gift cards -----------------------------------------------------------------------------------------------
 
     [SkippableFact]

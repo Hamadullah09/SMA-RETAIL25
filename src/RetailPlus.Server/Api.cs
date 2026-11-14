@@ -190,19 +190,21 @@ public sealed class ApiErrors(RequestDelegate next)
         {
             await next(http);
         }
-        catch (Exception ex) when (!http.Response.HasStarted && Map(ex) is { } answer)
+        catch (Exception ex) when (!http.Response.HasStarted && Map(ex, http) is { } answer)
         {
             http.Response.StatusCode = answer.Status;
             await http.Response.WriteAsJsonAsync(new { error = answer.Message });
         }
     }
 
-    private static (int Status, string Message)? Map(Exception ex) => ex switch
+    private static (int Status, string Message)? Map(Exception ex, HttpContext http) => ex switch
     {
         ApiException api => (api.Status, api.Message),
         BusinessRuleException rule => (400, rule.Message),
         ConcurrencyConflictException conflict => (409, conflict.Message),
         DbUpdateConcurrencyException => (409, "Someone else changed this record. Load it again and make your changes again."),
+        // Text longer than its column that was not checked before saving (saves are; bulk updates and plain SQL are not).
+        _ when TextLimits.FromSqlServer(ex, http.RequestServices.GetService<DataContext>()) is { } tooLong => (400, tooLong),
         // A duplicate key or a missing reference the services did not check first.
         DbUpdateException => (400, "The change could not be saved: it repeats a record that must be unique, or names a record that does not exist."),
         BadHttpRequestException bad => (bad.StatusCode, bad.Message),

@@ -93,10 +93,9 @@ public static partial class Endpoints
         var paymentMix = (await db.SalePayments.AsNoTracking().Where(p => completed.Any(s => s.Id == p.SaleId))
                 .GroupBy(p => p.TenderType).Select(g => new { g.Key, Amount = g.Sum(p => p.Amount), Count = g.Count() }).ToListAsync())
             .OrderByDescending(x => x.Amount).Select(x => new DashboardTender(x.Key, x.Amount, x.Count)).ToList();
-        var topItems = (await db.SaleLines.AsNoTracking().Where(l => (l.Kind == SaleLineKind.Sale || l.Kind == SaleLineKind.Return) && completed.Any(s => s.Id == l.SaleId))
-                .GroupBy(l => new { l.ItemId, l.Plu, l.Description }).Select(g => new { g.Key, Units = g.Sum(l => l.Quantity), Net = g.Sum(l => l.LineTotal) })
-                .OrderByDescending(x => x.Net).Take(10).ToListAsync())
-            .Select(x => new DashboardItem(x.Key.ItemId, x.Key.Plu, x.Key.Description, x.Units, x.Net)).ToList();
+        var topItems = await TopItemsAsync(
+            db.SaleLines.AsNoTracking().Where(l => (l.Kind == SaleLineKind.Sale || l.Kind == SaleLineKind.Return) && completed.Any(s => s.Id == l.SaleId)),
+            acrossStores: store is null);
         var byCashier = (await completed.GroupBy(s => new { s.StaffId, s.Staff }).Select(g => new { g.Key, Net = g.Sum(s => s.Subtotal - s.SubtotalDiscount), Count = g.Count() }).ToListAsync())
             .GroupBy(x => x.Key.StaffId?.ToString() ?? "name:" + (x.Key.Staff ?? "").ToUpperInvariant())
             .Select(g => new DashboardCashier(g.First().Key.StaffId, g.First().Key.Staff ?? "(none)", g.Sum(x => x.Net), g.Sum(x => x.Count)))
@@ -117,6 +116,31 @@ public static partial class Endpoints
                 d.OpeningFloat + d.Tenders.Where(t => cash.Contains(t.TenderType)).Sum(t => t.Amount) + d.PayIns - d.PayOuts, null, null)).ToList();
 
         return Results.Ok(new Dashboard(from, to, totals, previous, byStore, byDay, byHour, paymentMix, topItems, byCashier, byStation, drawers));
+    }
+
+    /// <summary>
+    /// The ten items with the most net sales among <paramref name="lines"/>. In one store, each item row is one entry. Across
+    /// stores every store has its own row of a product, so lines with the same stock code and name are one entry with their
+    /// units and sales added up, carrying the item's id only when they all are of one row.
+    /// </summary>
+    private static async Task<List<DashboardItem>> TopItemsAsync(IQueryable<SaleLine> lines, bool acrossStores)
+    {
+        if (!acrossStores)
+            return [.. (await lines.GroupBy(l => new { l.ItemId, l.Plu, l.Description }).Select(g => new { g.Key, Units = g.Sum(l => l.Quantity), Net = g.Sum(l => l.LineTotal) })
+                    .OrderByDescending(x => x.Net).Take(10).ToListAsync())
+                .Select(x => new DashboardItem(x.Key.ItemId, x.Key.Plu, x.Key.Description, x.Units, x.Net))];
+        var top = await lines.GroupBy(l => new { l.Plu, l.Description }).Select(g => new { g.Key, Units = g.Sum(l => l.Quantity), Net = g.Sum(l => l.LineTotal) })
+            .OrderByDescending(x => x.Net).Take(10).ToListAsync();
+        var codes = top.Select(t => t.Key.Plu).Distinct().ToList();
+        var names = top.Select(t => t.Key.Description).Distinct().ToList();
+        var rows = await lines.Where(l => codes.Contains(l.Plu) && names.Contains(l.Description)).Select(l => new { l.Plu, l.Description, l.ItemId }).Distinct().ToListAsync();
+        return [.. top.Select(t =>
+        {
+            // The database grouped the stock codes and names ignoring case.
+            var ids = rows.Where(r => string.Equals(r.Plu, t.Key.Plu, StringComparison.OrdinalIgnoreCase) && string.Equals(r.Description, t.Key.Description, StringComparison.OrdinalIgnoreCase))
+                .Select(r => r.ItemId).Distinct().ToList();
+            return new DashboardItem(ids is [var only] ? only : null, t.Key.Plu, t.Key.Description, t.Units, t.Net);
+        })];
     }
 
     private static async Task<IResult> TillsAsync(ApiRequest api, IOptions<ServerOptions> options)

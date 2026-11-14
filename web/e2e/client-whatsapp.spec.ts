@@ -14,6 +14,8 @@ test("a client's WhatsApp number and consent are kept, and a message goes from a
   await expect(dialog.getByText(/^Agreed /)).toBeVisible();
   await expect(dialog.getByLabel('Birthday')).toHaveValue('1990-03-14');
   await expect(dialog.getByRole('list', { name: 'Messages sent' })).toContainText('Hi Akua, our spring sale at Downtown starts Saturday: 20% off.');
+  // A message of a campaign cancelled before it went says so, not that it is still waiting.
+  await expect(dialog.getByRole('listitem').filter({ hasText: 'you have 320 points to spend' })).toContainText('Cancelled');
 
   await dialog.getByRole('button', { name: /Send on WhatsApp/ }).click();
   const send = page.getByRole('dialog', { name: 'WhatsApp to Akua Owusu' });

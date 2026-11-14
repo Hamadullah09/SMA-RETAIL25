@@ -73,6 +73,10 @@ stations, enrollment, sync batches, package upload).
   "drawers":   [{ "storeCode", "stationNumber", "closedAt", "closedBy", "expected", "counted", "variance" }]
 }
 ```
+`topItems` of one store has an entry per item row. Without `storeId` (every store the user sees) each store has its own
+row of a product, so lines with the same stock code and name are one entry with their units and net sales added up;
+its `itemId` is null when more than one row sold it. The item sales report (`items`) and the department report (`dept`)
+already group by stock code and name, and by department name.
 
 ### Till monitor — `web.signin`
 `GET /api/tills?storeId` → `[{ "stationId", "storeId", "storeCode", "storeName", "number", "name", "enrolled", "retired",
@@ -381,7 +385,10 @@ then travel like the tills' own: down to that store's tills.
 - The cookie lasts as long as the token (`Jwt:Hours`, 12). The CSRF guard applies to requests signed in by the cookie;
   sign-in and sign-out (open to anyone) and requests with an `Authorization` header are not checked.
 - Errors are always `{ "error" }`. A change the database refuses (a code that must be unique, a record that no longer
-  exists) is 400. An unknown address under `/api` is a JSON 404.
+  exists) is 400. Text longer than its field (the sizes are Retail Plus's: address lines 30, city 18…) is 400 naming the
+  field and its size, `Address 1 is too long: at most 30 characters.`; every save checks this before it is written, at
+  the tills too (SQLite would keep the text, and the server would then refuse the till's package). An unknown address
+  under `/api` is a JSON 404.
 - The server serves the web app's static export from `Server:WebRoot` (default: `web/out`, looked for in the content root
   and the folders above it; when there is none, only the API is served). `/x/` serves `x/index.html` and `/x` serves
   `x.html`; any other path outside `/api` gets the export's `404.html` with status 404. Files under `/_next/static/` are
@@ -697,20 +704,22 @@ for one store may be changed by that store's users; one for every store or sever
   `{Balance}`, `{Store}`, `{ClientNumber}`; any other is 400.
 - `CampaignRow`: `{ "id", "version", "name", "segmentId", "segment", "templateId", "template", "status", "storeId",
   "storeCode", "scheduledAtUtc", "startedAtUtc", "finishedAtUtc", "recipients", "counts": { "queued", "sent",
-  "delivered", "read", "failed", "error" }, "createdBy", "createdAtUtc" }`. `status` is `Draft`, `Scheduled`, `Sending`,
-  `Sent` or `Cancelled`.
+  "delivered", "read", "failed", "error", "cancelled" }, "createdBy", "createdAtUtc" }`. `status` is `Draft`, `Scheduled`,
+  `Sending`, `Sent` or `Cancelled`.
 - `GET /api/campaigns?storeId&status` (*paged*, newest first); `GET /api/campaigns/{id}`; `POST` (201, a draft),
   `PUT /{id}` (drafts only), `DELETE /{id}` (drafts, and cancelled campaigns that sent nothing). Body `{ "name",
   "segmentId", "templateId", "storeId"?, "version" (PUT) }`.
 - `POST /api/campaigns/{id}/schedule` takes `{ "sendAtUtc"?, "version" }` (null: now). The recipients are worked out
   there and then: the segment's members who agreed to WhatsApp messages and have a number, one message each, queued.
   400 when there is nobody. The server's sender sends them from `sendAtUtc` on, at most `WhatsApp:MessagesPerMinute`.
-- `POST /api/campaigns/{id}/cancel` takes `{ "version" }` (a draft, a scheduled or a sending campaign); queued messages
-  are never sent. A cancelled campaign may be deleted only while all its messages are still queued.
+- `POST /api/campaigns/{id}/cancel` takes `{ "version" }` (a draft, a scheduled or a sending campaign); its queued
+  messages become `Cancelled` and are never sent. A cancelled campaign may be deleted only while none of its messages
+  went (all are `Cancelled`).
 - `GET /api/campaigns/{id}/messages?status` (*paged*) → `WhatsAppMessageRow { "id", "campaignId", "clientId",
   "clientName", "toNumber", "template", "body", "status", "error", "sentAtUtc", "deliveredAtUtc", "readAtUtc",
-  "createdAtUtc" }`. `status` is `Queued`, `Sent`, `Delivered`, `Read`, `Failed` (WhatsApp could not deliver it) or
-  `Error` (it was not sent: refused, no consent any more, or the API failed).
+  "createdAtUtc" }`. `status` is `Queued`, `Sent`, `Delivered`, `Read`, `Failed` (WhatsApp could not deliver it),
+  `Error` (it was not sent: refused, no consent any more, or the API failed) or `Cancelled` (its campaign was cancelled
+  before it went; never sent).
 - `GET /api/campaigns/{id}/results?days=7` → `{ "counts", "recipients", "days", "buyers", "sales", "salesTotal" }`: the
   recipients' completed sales from the campaign's start to `days` days after (1–90).
 - Single messages: `POST /api/clients/{id}/whatsapp` (`crm.edit`) takes `{ "templateId", "storeId"? }` and sends at
@@ -823,7 +832,7 @@ test checks every answer below against them.
 ### Production orders
 | | | |
 |---|---|---|
-| `GET /api/production-orders?storeId&status&search` | view | *paged*, newest first: `ProductionOrderRow { id, storeCode, number, status, productCode, productName, quantity, received, materialLocation, outputLocation, plannedStart, plannedEnd, priority, madeToOrder, bomRevision }`. `status` is one or more of Planned, Released, InProgress, Completed, Closed, Cancelled, separated by commas; `search` is an order number, or part of a product code or name |
+| `GET /api/production-orders?storeId&status&search` | view | *paged*, newest first: `ProductionOrderRow { id, storeCode, number, status, productCode, productName, quantity, received, materialLocation, outputLocation, plannedStart, plannedEnd, priority, madeToOrder, bomRevision }`. `status` is one or more of Planned, Released, InProgress, Completed, Closed, Cancelled, separated by commas; `search` matches the order number, part of the product's stock code or name, or the start of its barcode, whether or not it is a number (`8201` finds order 8201 and the orders for stock code 8201) |
 | `GET /api/production-orders/board?storeId&search` | view | `[{ status, total, orders: [ProductionOrderRow] }]`: a column per status, the most urgent first (priority, planned start, number), at most 200 a column; closed and cancelled orders of the last 30 days |
 | `GET /api/production-orders/{id}` | view | `ProductionOrderDetail` (below) |
 | `POST /api/production-orders` | plan | `{ version, productCode, quantity, materialLocationId, outputLocationId, billOfMaterialsId, plannedStart, plannedEnd, priority, customerOrderId, notes }` → `ProductionOrderDetail` (201). Without `billOfMaterialsId` the product's bill in force on the planned start is used; the product must be an item at the output location; both locations of one store |
@@ -888,7 +897,7 @@ should have been ordered or started already, `fromRelease` for the shortage of a
 | `POST /api/quality/plans`, `PUT /api/quality/plans/{id}` | plan, shared | a `QualityPlan` → the saved one; one active plan per product |
 | `DELETE /api/quality/plans/{id}` | plan, shared | 204 |
 | `GET /api/quality/inspections?storeId&kind&from&to` | view | `[Inspection { id, kind, storeCode, documentNumber, productionOrderId, purchaseOrderId, stockCode, description, quantityInspected, quantityFailed, disposition, holdLocation, passed, inspectedAt, inspectedBy, notes, results: [{ lineNumber, checkName, kind, minimum, maximum, required, passFail, numberValue, textValue, passed }] }]`, newest first; `kind` is Production or Incoming |
-| `GET /api/quality/receipts?storeId&search&days` | view | `[{ id, number, storeCode, locationCode, receivedAt, lines: [{ plu, description, received, hasPlan, inspections }] }]`: purchase orders received in the last `days` (90) |
+| `GET /api/quality/receipts?storeId&search&days` | view | `[{ id, number, storeCode, locationCode, receivedAt, lines: [{ plu, description, received, hasPlan, inspections }] }]`: purchase orders received in the last `days` (90); `search` matches the order number or part of a stock code or description on it |
 | `POST /api/quality/receipts/{purchaseOrderId}/inspect` | plan | `{ stockCode, quantityInspected, quantityFailed, answers, notes }` → `Inspection`; the result is recorded only |
 
 ### Production reports

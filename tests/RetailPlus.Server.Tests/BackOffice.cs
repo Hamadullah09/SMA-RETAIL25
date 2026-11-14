@@ -184,7 +184,7 @@ public sealed class BackOffice : IAsyncLifetime
         return session;
     }
 
-    private static async Task<Sale> SellAsync(Till till, UserAccount user, Item item, decimal quantity, string tender = "Cash", int daysAgo = 0) =>
+    internal static async Task<Sale> SellAsync(Till till, UserAccount user, Item item, decimal quantity, string tender = "Cash", int daysAgo = 0) =>
         await PostAsync(till, user, Draft(item, quantity), tender, daysAgo);
 
     /// <summary>Posts a sale paid in full by one tender, dated some days back if asked (before the till sends it).</summary>
