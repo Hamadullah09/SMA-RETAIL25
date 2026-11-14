@@ -50,6 +50,13 @@ describe('form helpers', () => {
     expect(checkEmail('a@b')).toBe('This is not an e-mail address.');
   });
 
+  it("checks a user's e-mail as the server does: one @, a dot after it, no spaces", () => {
+    // The same cases as SignInNameTests in RetailPlus.Core.Tests.
+    for (const ok of ['ann@example.com', ' Ann.Lee@Example.COM ', 'first.last@mail.example.com', 'a@b..c']) expect(checkEmail(ok)).toBeUndefined();
+    const bad = ['annexample.com', '@example.com', 'ann@@example.com', 'ann@shop@example.com', 'ann@example', 'ann@example.', 'ann@.com', 'ann lee@example.com', 'ann@exa\tmple.com'];
+    for (const text of bad) expect(checkEmail(text)).toBe('This is not an e-mail address.');
+  });
+
   it('turns empty text into null', () => {
     expect(textOrNull('  ')).toBeNull();
     expect(textOrNull(' x ')).toBe('x');

@@ -142,6 +142,107 @@ public abstract class StaffSecurityTests(DatabaseFixture db)
         Assert.Equal(SignInFailure.OtherStore, (await setup.SignInAsync(away.UserName, "pass")).Failure);
     }
 
+    // Signing in with an e-mail ---------------------------------------------------------------------------------
+
+    [SkippableFact]
+    public async Task A_user_signs_in_with_their_user_name_or_e_mail_in_any_case_with_the_same_password()
+    {
+        Skip.IfNot(db.Available, db.UnavailableReason);
+        var setup = new SetupService(db.Data);
+        var name = Unique("Mail");
+        var saved = await setup.SaveUserAsync(new UserAccount { UserName = name, Email = $"  {name}.Owner@Example.COM ", RoleId = await RoleIdAsync(Permissions.CashierRole) }, "pass");
+        var email = $"{name}.owner@example.com".ToLowerInvariant();
+        Assert.Equal(email, saved.Email);
+        Assert.Equal(email, (await setup.GetUsersAsync()).Single(u => u.Id == saved.Id).Email);
+
+        foreach (var typed in new[] { name, name.ToUpperInvariant(), name.ToLowerInvariant(), email, email.ToUpperInvariant(), $" {name}.Owner@example.com " })
+        {
+            var signIn = await setup.SignInAsync(typed, "pass");
+            Assert.Equal(saved.Id, signIn.User?.Id);
+            Assert.Equal(name, signIn.User!.UserName);
+        }
+        Assert.Equal(SignInFailure.WrongCredentials, (await setup.SignInAsync(email, "Pass")).Failure);
+        Assert.Equal(SignInFailure.WrongCredentials, (await setup.SignInAsync("nobody-" + email, "pass")).Failure);
+        // An approval takes the e-mail too, and the staff code and PIN stay as they were.
+        var supervisor = await UserAsync(Permissions.SupervisorRole, pin: "8642");
+        var mail = $"{supervisor.UserName}@example.com";
+        supervisor.Email = mail;
+        await setup.SaveUserAsync(supervisor, null);
+        Assert.Equal(supervisor.Id, (await setup.ApproveAsync(mail.ToUpperInvariant(), "pass", false, Permissions.PosVoidSale, "Voiding a sale")).Approver?.Id);
+        Assert.Equal(supervisor.Id, (await setup.SignInWithPinAsync(supervisor.StaffCode!, "8642")).User?.Id);
+        Assert.Null((await setup.SignInWithPinAsync(mail, "8642")).User);
+
+        // The audit log names the account, whichever name was typed.
+        var history = await new AuditService(db.Data).HistoryAsync(nameof(UserAccount), saved.Id);
+        Assert.Contains(history, a => a.Action == AuditActions.SignIn && a.UserName == name && a.Details == name);
+        Assert.Contains(history, a => a.Action == AuditActions.FailedSignIn && a.UserName == name && a.Details == $"{name}: wrong password");
+        Assert.DoesNotContain(history, a => (a.Action is AuditActions.SignIn or AuditActions.FailedSignIn) && (a.Details ?? "").Contains('@', StringComparison.Ordinal));
+    }
+
+    [SkippableFact]
+    public async Task Wrong_passwords_by_e_mail_and_by_user_name_count_together_and_lock_the_account()
+    {
+        Skip.IfNot(db.Available, db.UnavailableReason);
+        var setup = new SetupService(db.Data);
+        var user = await UserAsync(Permissions.CashierRole);
+        var email = $"{user.UserName}@example.com";
+        user.Email = email;
+        await setup.SaveUserAsync(user, null);
+
+        for (int i = 1; i < SetupService.SignInAttempts; i++)
+            Assert.Equal(SignInFailure.WrongCredentials, (await setup.SignInAsync(i % 2 == 0 ? email.ToUpperInvariant() : user.UserName, "wrong")).Failure);
+        var locked = await setup.SignInAsync(email, "wrong");
+        Assert.Equal(SignInFailure.Locked, locked.Failure);
+        Assert.Equal(SignInFailure.Locked, (await setup.SignInAsync(user.UserName, "pass")).Failure);
+        Assert.Equal(SignInFailure.Locked, (await setup.SignInAsync(email, "pass")).Failure);
+
+        // A reset unlocks it under both names; a right password clears the count.
+        await setup.ResetPasswordAsync(user.Id, "temp");
+        Assert.True((await setup.SignInAsync(email, "temp")).User!.MustChangePassword);
+        Assert.Equal(0, (await setup.GetUsersAsync()).Single(u => u.Id == user.Id).FailedSignIns);
+    }
+
+    [SkippableFact]
+    public async Task An_e_mail_is_one_users_and_never_another_users_user_name()
+    {
+        Skip.IfNot(db.Available, db.UnavailableReason);
+        var setup = new SetupService(db.Data);
+        var cashier = await RoleIdAsync(Permissions.CashierRole);
+        var first = await setup.SaveUserAsync(new UserAccount { UserName = Unique("one"), Email = Unique("one") + "@example.com", RoleId = cashier }, "pass");
+
+        // The same e-mail, in another case, for another user.
+        var taken = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            setup.SaveUserAsync(new UserAccount { UserName = Unique("two"), Email = first.Email!.ToUpperInvariant(), RoleId = cashier }, "pass"));
+        Assert.Equal("Another user has that e-mail.", taken.Message);
+        // An e-mail that is another user's user name, and a user name that is another user's e-mail.
+        var withAt = await setup.SaveUserAsync(new UserAccount { UserName = Unique("at") + "@example.com", RoleId = cashier }, "pass");
+        var nameTaken = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            setup.SaveUserAsync(new UserAccount { UserName = Unique("three"), Email = withAt.UserName.ToUpperInvariant(), RoleId = cashier }, "pass"));
+        Assert.Contains("another user's user name", nameTaken.Message, StringComparison.Ordinal);
+        var emailTaken = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            setup.SaveUserAsync(new UserAccount { UserName = first.Email!.ToUpperInvariant(), RoleId = cashier }, "pass"));
+        Assert.Contains("another user's e-mail", emailTaken.Message, StringComparison.Ordinal);
+
+        // A user's own user name may be their e-mail; saving them again keeps it.
+        withAt.Email = withAt.UserName;
+        await setup.SaveUserAsync(withAt, null);
+        await setup.SaveUserAsync(withAt, null);
+        Assert.Equal(withAt.UserName.ToLowerInvariant(), (await setup.GetUsersAsync()).Single(u => u.Id == withAt.Id).Email);
+
+        // Not an e-mail: no @, two, no dot after it, a space; too long. An empty one removes it.
+        foreach (var bad in new[] { "no-at.example.com", "two@@example.com", "a@b@example.com", "dot@example", "dot@example.", "@example.com", "sp ace@example.com" })
+        {
+            var refused = await Assert.ThrowsAsync<BusinessRuleException>(() => setup.SaveUserAsync(new UserAccount { UserName = Unique("bad"), Email = bad, RoleId = cashier }, "pass"));
+            Assert.Contains("is not an e-mail address", refused.Message, StringComparison.Ordinal);
+        }
+        var tooLong = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            setup.SaveUserAsync(new UserAccount { UserName = Unique("long"), Email = new string('a', 90) + "@example.com", RoleId = cashier }, "pass"));
+        Assert.Contains("at most 100 characters", tooLong.Message, StringComparison.Ordinal);
+        first.Email = "  ";
+        await setup.SaveUserAsync(first, null);
+        Assert.Null((await setup.GetUsersAsync()).Single(u => u.Id == first.Id).Email);
+    }
+
     // Approval ----------------------------------------------------------------------------------------------------
 
     [SkippableFact]

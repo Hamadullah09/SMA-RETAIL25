@@ -320,18 +320,27 @@ public static class SmokeCheck
     }
 
     /// <summary>
-    /// Staff and audit: a user is added (audited), signs in with a staff code and PIN, punches in and out, a supervisor's
-    /// correction across midnight shows in the hours, and the Staff and Audit screens show it. The user and their entries
-    /// are removed again so the database still opens without a login.
+    /// Staff and audit: a user is added (audited), signs in with their e-mail and password in the login window's fields and
+    /// with a staff code and PIN, punches in and out, a supervisor's correction across midnight shows in the hours, and the
+    /// Staff and Audit screens show it. The user and their entries are removed again so the database still opens without a
+    /// login.
     /// </summary>
     private static async Task<List<string>> StaffCheckAsync(MainWindow main)
     {
         var failures = new List<string>();
         var name = "smoke" + DateTime.Now.ToString("HHmmssfff", System.Globalization.CultureInfo.InvariantCulture);
         var roles = await AppServices.Setup.GetRolesAsync();
-        var user = await AppServices.Setup.SaveUserAsync(new UserAccount { UserName = name, RoleId = roles.Single(r => r.Name == Permissions.CashierRole).Id }, "smoke-pass");
+        var user = await AppServices.Setup.SaveUserAsync(new UserAccount
+        {
+            UserName = name, Email = name + "@Example.com", RoleId = roles.Single(r => r.Name == Permissions.CashierRole).Id,
+        }, "smoke-pass");
         try
         {
+            var credentials = new Dialogs.CredentialsPanel();
+            credentials.NameBox.Text = (name + "@example.com").ToUpperInvariant();
+            credentials.Secret.Password = "smoke-pass";
+            var byEmail = await credentials.SignInAsync();
+            if (byEmail.User?.Id != user.Id || user.Email != name + "@example.com") failures.Add($"the sign-in with the e-mail failed: {byEmail.Message}");
             await AppServices.Setup.SetPinAsync(user.Id, name[^8..], "4711");
             var signIn = await AppServices.Setup.SignInWithPinAsync(name[^8..], "4711");
             if (signIn.User?.Id != user.Id) failures.Add($"staff code and PIN sign-in failed: {signIn.Message}");
@@ -362,7 +371,7 @@ public static class SmokeCheck
             main.Navigate("audit");
             await MainWindow.Settle();
             if (main.GetView<AuditView>() is null) failures.Add("the Audit screen did not open");
-            Log.Write($"Staff: {name} signed in with a PIN, punched in and out, a corrected night shift counts {hours.Sum(h => h.Hours)} hours; {history.Count} audit lines");
+            Log.Write($"Staff: {name} signed in with the e-mail and with a PIN, punched in and out, a corrected night shift counts {hours.Sum(h => h.Hours)} hours; {history.Count} audit lines");
         }
         finally
         {

@@ -19,7 +19,7 @@ export default function SignInPage() {
   );
 }
 
-/** The sign-in window, like the desktop's login: the SMA mark, user name and password, Log in (Enter). */
+/** The sign-in window, like the desktop's login: the SMA mark, user name or e-mail and password, Log in (Enter). */
 function SignIn() {
   const router = useRouter();
   const params = useSearchParams();
@@ -38,7 +38,7 @@ function SignIn() {
 
   async function submit() {
     if (!userName.trim() || !password) {
-      setError('Type your user name and password.');
+      setError('Type your user name or e-mail and your password.');
       return;
     }
     setBusy(true);
@@ -74,10 +74,10 @@ function SignIn() {
         </div>
 
         <h1 className="font-heading text-[28px] leading-9">Welcome to the back office</h1>
-        <p className="mb-6 text-muted">Sign in with your name and password.</p>
+        <p className="mb-6 text-muted">Sign in with your user name or e-mail and your password.</p>
 
         <label htmlFor="userName" className="mb-1.5 block px-0.5">
-          User name
+          User name or e-mail
         </label>
         <input
           ref={nameBox}

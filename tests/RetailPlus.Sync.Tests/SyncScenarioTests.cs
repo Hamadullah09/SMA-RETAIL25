@@ -1,9 +1,12 @@
 using System.IO.Compression;
+using System.Net;
+using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using RetailPlus.Core.Model;
 using RetailPlus.Core.Rules;
 using RetailPlus.Data;
 using RetailPlus.Data.Services;
+using RetailPlus.Server;
 
 namespace RetailPlus.Sync.Tests;
 
@@ -525,6 +528,38 @@ public sealed class SyncScenarioTests(SyncWorld world) : IClassFixture<SyncWorld
         // The other till of the store has it too.
         await using (var tillB = b.Data.Create())
             Assert.Equal(GateAlarmResolution.LeftStore, (await tillB.GateAlarms.AsNoTracking().SingleAsync(x => x.Id == alarm.Id)).Resolution);
+    }
+
+    [SkippableFact]
+    public async Task A_user_made_on_the_web_signs_in_at_a_till_by_e_mail_with_the_password_set_on_the_web()
+    {
+        Require();
+        var store = await world.AddStoreAsync();
+        var till = await world.NewJoinedTillAsync(store.Id);
+        using var web = await world.SignInAsync();
+        var manager = (await new SetupService(world.ServerData).GetRolesAsync()).Single(r => r.Name == Permissions.ManagerRole).Id;
+        var name = "tess-" + Guid.NewGuid().ToString("N")[..6];
+        var email = name + "@example.com";
+        using (var post = await web.PostAsJsonAsync("/api/users", new UserBody(null, name, "Tess Till", manager, store.Id, true, "Web-pass-1", email.ToUpperInvariant()), SyncWorld.Json))
+            Assert.Equal(HttpStatusCode.Created, post.StatusCode);
+        Assert.Null((await till.Setup.SignInAsync(email, "Web-pass-1")).User);
+
+        // One download later the till has the user with the e-mail and the password's hash: the e-mail signs in there with
+        // the password given on the web.
+        await till.SyncAsync();
+        await using (var db = till.Data.Create())
+            Assert.Equal(email, (await db.UserAccounts.AsNoTracking().SingleAsync(u => u.UserName == name)).Email);
+        Assert.Equal(name, (await till.Setup.SignInAsync(email.ToUpperInvariant(), "Web-pass-1")).User?.UserName);
+
+        // The user changes the password on the web, signed in there by e-mail; the till takes the new one at its next download.
+        using (var self = await world.SignInAsync(email, "Web-pass-1"))
+        using (var change = await self.PostAsJsonAsync("/api/auth/change-password", new ChangePasswordRequest("Web-pass-1", "Web-pass-2"), SyncWorld.Json))
+            Assert.Equal(HttpStatusCode.NoContent, change.StatusCode);
+        Assert.NotNull((await till.Setup.SignInAsync(email, "Web-pass-1")).User);
+        await till.SyncAsync();
+        Assert.Equal(SignInFailure.WrongCredentials, (await till.Setup.SignInAsync(email, "Web-pass-1")).Failure);
+        Assert.Equal(name, (await till.Setup.SignInAsync(email, "Web-pass-2")).User?.UserName);
+        Assert.Equal(name, (await till.Setup.SignInAsync(name, "Web-pass-2")).User?.UserName);
     }
 }
 

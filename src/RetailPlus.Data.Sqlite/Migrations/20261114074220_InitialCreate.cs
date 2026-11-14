@@ -2106,6 +2106,7 @@ namespace RetailPlus.Data.Sqlite.Migrations
                     Id = table.Column<Guid>(type: "TEXT", nullable: false),
                     UserName = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false, collation: "NOCASE"),
                     FullName = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true, collation: "NOCASE"),
+                    Email = table.Column<string>(type: "TEXT", maxLength: 100, nullable: true, collation: "NOCASE"),
                     PasswordHash = table.Column<string>(type: "TEXT", maxLength: 200, nullable: true, collation: "NOCASE"),
                     AccessLevel = table.Column<int>(type: "INTEGER", nullable: false),
                     MustChangePassword = table.Column<bool>(type: "INTEGER", nullable: false),
@@ -8079,6 +8080,11 @@ namespace RetailPlus.Data.Sqlite.Migrations
                 name: "IX_Tombstones_UpdatedAtUtc",
                 table: "Tombstones",
                 column: "UpdatedAtUtc");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserAccounts_Email",
+                table: "UserAccounts",
+                column: "Email");
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserAccounts_RoleId",

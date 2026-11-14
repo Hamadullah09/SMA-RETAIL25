@@ -12,6 +12,7 @@ public sealed record UserRow(UserAccount User, string Role, string Store, bool H
 {
     public string UserName => User.UserName;
     public string? FullName => User.FullName;
+    public string? Email => User.Email;
     public bool IsActive => User.IsActive;
     public string? StaffCode => User.StaffCode;
     public bool MustChangePassword => User.MustChangePassword;
@@ -23,6 +24,7 @@ public sealed class UsersPanel : DockPanel
     private readonly DataGrid _grid = Layout.Grid(
         Layout.Col("User", nameof(UserRow.UserName), 150),
         Layout.Col("Full name", nameof(UserRow.FullName)),
+        Layout.Col("E-mail", nameof(UserRow.Email), 200),
         Layout.Col("Role", nameof(UserRow.Role), 150),
         Layout.Col("Store", nameof(UserRow.Store), 130),
         Layout.Col("Staff code", nameof(UserRow.StaffCode), 90),
@@ -43,7 +45,8 @@ public sealed class UsersPanel : DockPanel
         var note = new TextBlock
         {
             Foreground = Look.Brush("Muted"), Margin = new Thickness(0, 8, 0, 0), TextWrapping = TextWrapping.Wrap,
-            Text = "What a user may do comes from their role (Roles tab). A staff code and PIN let them sign in quickly at the till. "
+            Text = "What a user may do comes from their role (Roles tab). They sign in with their user name or e-mail and their password; "
+                   + "a staff code and PIN let them sign in quickly at the till. "
                    + "Five wrong passwords or PINs lock the account for five minutes; Reset password unlocks it. When there are no users the program starts without a login.",
         };
         SetDock(note, Dock.Bottom);
@@ -87,12 +90,13 @@ public sealed class UsersPanel : DockPanel
     }
 }
 
-/// <summary>Adds or changes a user: names, role, home store, active, password, staff code and PIN.</summary>
+/// <summary>Adds or changes a user: names, e-mail, role, home store, active, password, staff code and PIN.</summary>
 public sealed class UserEditorWindow : Window
 {
     private readonly UserAccount? _user;
     private readonly TextBox _name = new();
     private readonly TextBox _fullName = new();
+    private readonly TextBox _email = new() { MaxLength = SignInNames.EmailLength };
     private readonly ComboBox _role = new() { DisplayMemberPath = nameof(Role.Name) };
     private readonly ComboBox _store = new();
     private readonly CheckBox _active = new() { Content = "Active (may sign in)" };
@@ -119,6 +123,7 @@ public sealed class UserEditorWindow : Window
         p.Children.Add(new TextBlock { Text = Title, FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 24, Margin = new Thickness(0, 0, 0, 14) });
         p.Children.Add(Row("User name", _name));
         p.Children.Add(Row("Full name", _fullName));
+        p.Children.Add(Row("E-mail", _email, "They can sign in with it instead of the user name, with the same password."));
         p.Children.Add(Row("Role", _role));
         p.Children.Add(Row("Home store", _store));
         p.Children.Add(Row("", _active));
@@ -140,6 +145,7 @@ public sealed class UserEditorWindow : Window
 
         _name.Text = user?.UserName ?? "";
         _fullName.Text = user?.FullName ?? "";
+        _email.Text = user?.Email ?? "";
         _role.SelectedItem = roles.FirstOrDefault(r => r.Id == user?.RoleId) ?? roles.FirstOrDefault(r => r.Name == Permissions.CashierRole);
         _store.SelectedIndex = Math.Max(0, _stores.ToList().FindIndex(s => s?.Id == user?.StoreId));
         _active.IsChecked = user?.IsActive ?? true;
@@ -169,12 +175,13 @@ public sealed class UserEditorWindow : Window
     private async Task SaveAsync()
     {
         if (_role.SelectedItem is not Role role) { Ui.Error("Choose a role."); return; }
+        if (SignInNames.Email(_email.Text) is { } email && !SignInNames.IsEmail(email)) { Ui.Error("Type the e-mail as name@example.com: one @, a dot after it, and no spaces."); return; }
         var code = _staffCode.Text.Trim();
         bool codeChanged = !string.Equals(code, _user?.StaffCode ?? "", StringComparison.Ordinal);
         if (codeChanged && code.Length > 0 && _pin.Password.Length == 0) { Ui.Error("Type a PIN for the staff code."); return; }
         var edited = new UserAccount
         {
-            Id = _user?.Id ?? Guid.Empty, UserName = _name.Text, FullName = _fullName.Text, RoleId = role.Id, AccessLevel = role.Level,
+            Id = _user?.Id ?? Guid.Empty, UserName = _name.Text, FullName = _fullName.Text, Email = _email.Text, RoleId = role.Id, AccessLevel = role.Level,
             StoreId = _stores[Math.Max(0, _store.SelectedIndex)]?.Id, IsActive = _active.IsChecked == true, MustChangePassword = _mustChange.IsChecked == true,
         };
         bool saved = await Ui.Try(async () =>

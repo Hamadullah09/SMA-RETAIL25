@@ -10,8 +10,8 @@ using RetailPlus.Data.Services;
 namespace RetailPlus.App.Dialogs;
 
 /// <summary>
-/// The fields of a sign-in: a user name and password, or a staff code and PIN (the quick sign-in at the till). F4
-/// switches between the two.
+/// The fields of a sign-in: a user name or e-mail and the password, or a staff code and PIN (the quick sign-in at the
+/// till). F4 switches between the two.
 /// </summary>
 internal sealed class CredentialsPanel : StackPanel
 {
@@ -22,7 +22,7 @@ internal sealed class CredentialsPanel : StackPanel
     public TextBox NameBox { get; } = new() { FontSize = 20, MinHeight = 54 };
     public PasswordBox Secret { get; } = new() { FontSize = 20, MinHeight = 54 };
 
-    /// <summary>True for a staff code and PIN, false for a user name and password.</summary>
+    /// <summary>True for a staff code and PIN, false for a user name (or e-mail) and password.</summary>
     public bool UsesPin { get; private set; }
 
     public CredentialsPanel(bool pin = false)
@@ -41,7 +41,7 @@ internal sealed class CredentialsPanel : StackPanel
     public void SetMode(bool pin)
     {
         UsesPin = pin;
-        _nameLabel.Text = pin ? "Staff code" : "User name";
+        _nameLabel.Text = pin ? "Staff code" : "User name or e-mail";
         _secretLabel.Text = pin ? "PIN" : "Password";
         _switch.Content = pin ? "Use name and password" : "Use staff code and PIN";
         Secret.Clear();
@@ -54,8 +54,8 @@ internal sealed class CredentialsPanel : StackPanel
 }
 
 /// <summary>
-/// Signing in: a user name and password, or a staff code and PIN. A user imported without a password, or given a
-/// temporary one, chooses a new password here. Staff can also punch in and out of the time clock from this window.
+/// Signing in: a user name or e-mail and the password, or a staff code and PIN. A user imported without a password, or
+/// given a temporary one, chooses a new password here. Staff can also punch in and out of the time clock from this window.
 /// </summary>
 public sealed class LoginWindow : Window
 {
@@ -79,7 +79,7 @@ public sealed class LoginWindow : Window
         p.Children.Add(brand);
         p.Children.Add(new TextBlock { Text = string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? "Welcome" : "Welcome to " + AppServices.Settings.CompanyName,
             FontFamily = (FontFamily)Application.Current.FindResource("DisplayFont"), FontSize = 26, Margin = new Thickness(0, 22, 0, 4) });
-        p.Children.Add(new TextBlock { Text = "Sign in with your name and password, or your staff code and PIN.", Foreground = Look.Brush("Muted"), FontSize = 17,
+        p.Children.Add(new TextBlock { Text = "Sign in with your user name or e-mail and your password, or your staff code and PIN.", Foreground = Look.Brush("Muted"), FontSize = 17,
             TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 14) });
         p.Children.Add(_credentials);
         p.Children.Add(_message);
@@ -149,8 +149,8 @@ public sealed class LoginWindow : Window
 }
 
 /// <summary>
-/// "Needs a supervisor": another user signs in here (name and password, or staff code and PIN) and is accepted when
-/// their role may approve and may do the action themselves.
+/// "Needs a supervisor": another user signs in here (user name or e-mail and password, or staff code and PIN) and is
+/// accepted when their role may approve and may do the action themselves.
 /// </summary>
 public sealed class ApprovalWindow : Window
 {

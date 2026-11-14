@@ -179,6 +179,8 @@ public sealed partial class CutoverRunner
                 mapped.PinHash = keptPin;
                 mapped.StaffCode = stored.StaffCode;
             }
+            // So does an e-mail given in the new program (Retail25's are not carried over).
+            mapped.Email = stored.Email;
             mapped.FailedSignIns = stored.FailedSignIns;
             mapped.LockedUntilUtc = stored.LockedUntilUtc;
         });

@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using RetailPlus.Core.Model;
 using RetailPlus.Core.Rules;
+using RetailPlus.Data;
 using RetailPlus.Data.Services;
 using RetailPlus.Server;
 using RetailPlus.Sync;
@@ -89,6 +90,58 @@ public sealed class ServerApiTests(SyncWorld world) : IClassFixture<SyncWorld>
         var supervisor = await UserAsync(Permissions.SupervisorRole, store.Id);
         using var refused = await client.PostAsJsonAsync("/api/auth/sign-in", new SignInRequest(supervisor, "Password-1"));
         Assert.Equal(HttpStatusCode.Forbidden, refused.StatusCode);
+    }
+
+    [SkippableFact]
+    public async Task A_user_signs_in_to_the_web_with_their_e_mail_under_their_own_store()
+    {
+        Require();
+        var store = await world.AddStoreAsync();
+        using var super = await world.SuperAsync();
+        var manager = (await new SetupService(world.ServerData).GetRolesAsync()).Single(r => r.Name == Permissions.ManagerRole).Id;
+        var name = "mail-" + Guid.NewGuid().ToString("N")[..6];
+        var email = name + "@example.com";
+        var body = new UserBody(null, name, "Eve Mail", manager, store.Id, true, "Password-1", " " + email.ToUpperInvariant());
+        using var created = await super.PostAsJsonAsync("/api/users", body);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var user = await ReadAsync<UserRow>(created);
+        Assert.Equal(email, user.Email);
+        Assert.Equal(email, (await ReadAsync<List<UserRow>>(await super.GetAsync("/api/users"))).Single(u => u.Id == user.Id).Email);
+
+        // Another user cannot have it, nor have it as their user name; and it has to be an e-mail.
+        using (var twice = await super.PostAsJsonAsync("/api/users", body with { UserName = "other-" + name }))
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, twice.StatusCode);
+            Assert.Contains("Another user has that e-mail.", await twice.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+        }
+        Assert.Equal(HttpStatusCode.BadRequest, await WebClients.StatusAsync(super.PostAsJsonAsync("/api/users", body with { UserName = email, Email = null })));
+        Assert.Equal(HttpStatusCode.BadRequest, await WebClients.StatusAsync(super.PostAsJsonAsync("/api/users", body with { UserName = "bad-" + name, Email = "not an e-mail" })));
+
+        // A change from a client that sends no e-mail keeps it.
+        var renamed = await ReadAsync<UserRow>(await super.PutAsJsonAsync($"/api/users/{user.Id}",
+            new UserBody(user.Version, name, "Eve M.", manager, store.Id, true, null)));
+        Assert.Equal(("Eve M.", email), (renamed.FullName, renamed.Email));
+
+        // The same password signs in by user name or e-mail, in any case; the sign-ins are logged under the user's store.
+        using var client = world.Server.CreateClient();
+        using (var response = await client.PostAsJsonAsync("/api/auth/sign-in", new SignInRequest(email.ToUpperInvariant(), "Password-1")))
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var signedIn = await ReadAsync<SignInResponse>(response);
+            Assert.Equal((user.Id, name, email, store.Id), (signedIn.User.Id, signedIn.User.UserName, signedIn.User.Email, signedIn.User.StoreId));
+        }
+        using var byMail = await world.SignInAsync(email, "Password-1");
+        Assert.Equal(email, (await ReadAsync<UserInfo>(await byMail.GetAsync("/api/auth/me"))).Email);
+        using var byName = await world.SignInAsync(name.ToUpperInvariant(), "Password-1");
+        using (var wrong = await client.PostAsJsonAsync("/api/auth/sign-in", new SignInRequest(email, "Password-2")))
+            Assert.Equal(HttpStatusCode.Unauthorized, wrong.StatusCode);
+        await using var db = world.ServerData.Create();
+        var lines = await db.AuditEntries.AsNoTracking()
+            .Where(a => a.EntityId == user.Id && (a.Action == AuditActions.SignIn || a.Action == AuditActions.FailedSignIn)).ToListAsync();
+        Assert.Equal(3, lines.Count(a => a.Action == AuditActions.SignIn));
+        Assert.All(lines, a => Assert.Equal((store.Id, 0, name, (Guid?)user.Id), (a.StoreId, a.StationNumber, a.UserName, a.UserId)));
+        Assert.Contains(lines, a => a.Action == AuditActions.FailedSignIn && a.Details == name + ": wrong password");
+        Assert.Equal(1, (await db.UserAccounts.AsNoTracking().SingleAsync(u => u.Id == user.Id)).FailedSignIns);
     }
 
     [SkippableFact]

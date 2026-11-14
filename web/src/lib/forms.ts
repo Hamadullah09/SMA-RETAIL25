@@ -64,7 +64,10 @@ export function checkBarcode(text: string): string | undefined {
   return (10 - (sum % 10)) % 10 === check ? undefined : 'The barcode\'s check digit is not right.';
 }
 
-/** A simple e-mail check: something@something.something. */
+/**
+ * A simple e-mail check: something@something.something, with one @ and no spaces. The server checks a user's e-mail the
+ * same way (`SignInNames.IsEmail`).
+ */
 export function checkEmail(text: string): string | undefined {
   const t = text.trim();
   if (!t) return undefined;

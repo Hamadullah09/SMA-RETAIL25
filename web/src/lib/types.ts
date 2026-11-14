@@ -40,9 +40,12 @@ export interface UserInfo {
    * with `stores.all`, or while the company has a single store.
    */
   canChangeShared?: boolean;
+  /** The e-mail the user may sign in with instead of the user name (kept in lower case). */
+  email?: string | null;
 }
 
 export interface SignInRequest {
+  /** The user name or the e-mail address, in any case. */
   userName: string;
   password: string;
 }
@@ -631,6 +634,8 @@ export interface UserRow {
   version: string;
   userName: string;
   fullName: string | null;
+  /** Kept trimmed and in lower case; the user signs in with it or with the user name, with the same password. */
+  email: string | null;
   roleId: string | null;
   role: string | null;
   storeId: string | null;
@@ -645,6 +650,8 @@ export interface UserRow {
 export interface UserRequest {
   userName: string;
   fullName: string | null;
+  /** Left out, a change keeps the user's e-mail; empty removes it. */
+  email?: string;
   roleId: string | null;
   storeId: string | null;
   isActive: boolean;

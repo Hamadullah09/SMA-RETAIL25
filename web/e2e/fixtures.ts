@@ -167,6 +167,7 @@ export const superAdmin: UserInfo = {
   storeName: null,
   mustChangePassword: false,
   canChangeShared: true,
+  email: 'sara@example.com',
 };
 
 /** A supervisor: dashboard, sales and reports, stock and clients, but no staff, users, setup or audit. */
@@ -180,6 +181,7 @@ export const supervisor: UserInfo = {
   storeName: 'Downtown',
   mustChangePassword: false,
   canChangeShared: false,
+  email: 'kofi@example.com',
 };
 
 /** One store's administrator in a company of several stores: everything but stores.all, so not the shared lists. */
@@ -695,11 +697,11 @@ export const roles: RoleInfo[] = [
 ];
 
 export const users: UserRow[] = [
-  { id: 'u-1', version: 'v-1', userName: 'sara', fullName: 'Sara Mensah', roleId: 'r-7', role: 'Super administrator', storeId: null, storeCode: null, staffCode: '100', isActive: true, locked: false, mustChangePassword: false, lastSignInAtUtc: minutesAgo(2) },
-  { id: 'u-2', version: 'v-1', userName: 'kofi', fullName: 'Kofi Boateng', roleId: 'r-4', role: 'Supervisor', storeId: 's-main', storeCode: 'MAIN', staffCode: '201', isActive: true, locked: false, mustChangePassword: false, lastSignInAtUtc: minutesAgo(60 * 5) },
-  { id: 'u-3', version: 'v-1', userName: 'ama', fullName: 'Ama Darko', roleId: 'r-2', role: 'Cashier', storeId: 's-main', storeCode: 'MAIN', staffCode: '301', isActive: true, locked: false, mustChangePassword: false, lastSignInAtUtc: minutesAgo(30) },
-  { id: 'u-4', version: 'v-1', userName: 'yaw', fullName: 'Yaw Asante', roleId: 'r-2', role: 'Cashier', storeId: 's-west', storeCode: 'WEST', staffCode: '302', isActive: true, locked: true, mustChangePassword: false, lastSignInAtUtc: minutesAgo(60 * 26) },
-  { id: 'u-5', version: 'v-1', userName: 'efua', fullName: 'Efua Quaye', roleId: 'r-2', role: 'Cashier', storeId: 's-west', storeCode: 'WEST', staffCode: null, isActive: false, locked: false, mustChangePassword: true, lastSignInAtUtc: null },
+  { id: 'u-1', version: 'v-1', userName: 'sara', fullName: 'Sara Mensah', email: 'sara@example.com', roleId: 'r-7', role: 'Super administrator', storeId: null, storeCode: null, staffCode: '100', isActive: true, locked: false, mustChangePassword: false, lastSignInAtUtc: minutesAgo(2) },
+  { id: 'u-2', version: 'v-1', userName: 'kofi', fullName: 'Kofi Boateng', email: 'kofi@example.com', roleId: 'r-4', role: 'Supervisor', storeId: 's-main', storeCode: 'MAIN', staffCode: '201', isActive: true, locked: false, mustChangePassword: false, lastSignInAtUtc: minutesAgo(60 * 5) },
+  { id: 'u-3', version: 'v-1', userName: 'ama', fullName: 'Ama Darko', email: 'ama.darko@example.com', roleId: 'r-2', role: 'Cashier', storeId: 's-main', storeCode: 'MAIN', staffCode: '301', isActive: true, locked: false, mustChangePassword: false, lastSignInAtUtc: minutesAgo(30) },
+  { id: 'u-4', version: 'v-1', userName: 'yaw', fullName: 'Yaw Asante', email: null, roleId: 'r-2', role: 'Cashier', storeId: 's-west', storeCode: 'WEST', staffCode: '302', isActive: true, locked: true, mustChangePassword: false, lastSignInAtUtc: minutesAgo(60 * 26) },
+  { id: 'u-5', version: 'v-1', userName: 'efua', fullName: 'Efua Quaye', email: null, roleId: 'r-2', role: 'Cashier', storeId: 's-west', storeCode: 'WEST', staffCode: null, isActive: false, locked: false, mustChangePassword: true, lastSignInAtUtc: null },
 ];
 
 /** `GET /api/staff`: active and inactive users, sorted by user name. */

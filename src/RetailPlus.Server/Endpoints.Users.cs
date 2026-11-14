@@ -10,9 +10,13 @@ namespace RetailPlus.Server;
 public sealed record PermissionRow(string Key, string Group, string Description);
 public sealed record RoleRow(Guid Id, string Version, string Name, string? Description, int Level, bool IsSystem, IReadOnlyList<string> Permissions, int UserCount);
 public sealed record RoleBody(string? Version, string Name, string? Description, int Level, IReadOnlyList<string>? Permissions);
-public sealed record UserRow(Guid Id, string Version, string UserName, string? FullName, Guid? RoleId, string? Role, Guid? StoreId, string? StoreCode,
+public sealed record UserRow(Guid Id, string Version, string UserName, string? FullName, string? Email, Guid? RoleId, string? Role, Guid? StoreId, string? StoreCode,
     string? StaffCode, bool IsActive, bool Locked, bool MustChangePassword, DateTime? LastSignInAtUtc);
-public sealed record UserBody(string? Version, string UserName, string? FullName, Guid? RoleId, Guid? StoreId, bool IsActive, string? Password);
+/// <summary>
+/// A user to add or change. <c>Email</c> is optional: left out (or null), a change keeps the user's e-mail; empty removes
+/// it.
+/// </summary>
+public sealed record UserBody(string? Version, string UserName, string? FullName, Guid? RoleId, Guid? StoreId, bool IsActive, string? Password, string? Email = null);
 public sealed record TemporaryPasswordInfo(string TemporaryPassword);
 public sealed record PinBody(string? StaffCode, string? Pin);
 
@@ -121,7 +125,7 @@ public static partial class Endpoints
             .GroupBy(a => a.UserId!.Value).Select(g => new { g.Key, Last = g.Max(a => a.AtUtc) }).ToDictionaryAsync(x => x.Key, x => x.Last);
         var edited = await EditedAsync(db, ids.Select(i => i!.Value).ToList());
         var now = DateTime.UtcNow;
-        return Results.Ok(list.Select(u => new UserRow(u.Id, ApiRequest.Version(edited.GetValueOrDefault(u.Id)), u.UserName, u.FullName, u.RoleId, u.Role?.Name, u.StoreId,
+        return Results.Ok(list.Select(u => new UserRow(u.Id, ApiRequest.Version(edited.GetValueOrDefault(u.Id)), u.UserName, u.FullName, u.Email, u.RoleId, u.Role?.Name, u.StoreId,
             u.StoreId is { } us ? codes.GetValueOrDefault(us) : null, u.StaffCode, u.IsActive, u.LockedUntilUtc > now, u.MustChangePassword,
             lastSignIn.TryGetValue(u.Id, out var at) ? ApiRequest.Utc(at) : null)));
     }
@@ -167,14 +171,14 @@ public static partial class Endpoints
             throw ApiException.Bad("Choose the store this user works at; only a role that sees every store works without one.");
         var user = new UserAccount
         {
-            Id = id ?? Guid.Empty, UserName = body.UserName ?? "", FullName = body.FullName, RoleId = body.RoleId, StoreId = body.StoreId, IsActive = body.IsActive,
-            AccessLevel = 1, MustChangePassword = stored?.MustChangePassword ?? false,
+            Id = id ?? Guid.Empty, UserName = body.UserName ?? "", FullName = body.FullName, Email = body.Email ?? stored?.Email, RoleId = body.RoleId,
+            StoreId = body.StoreId, IsActive = body.IsActive, AccessLevel = 1, MustChangePassword = stored?.MustChangePassword ?? false,
         };
         var saved = await new SetupService(await api.ForChangeAsync(body.StoreId)).SaveUserAsync(user, string.IsNullOrEmpty(body.Password) ? null : body.Password);
         await using var check = api.Root.Create();
         var u = await check.UserAccounts.AsNoTracking().Include(x => x.Role).SingleAsync(x => x.Id == saved.Id);
         var codes = await StoreCodesAsync(check);
-        var row = new UserRow(u.Id, ApiRequest.Version((await EditedAsync(check, [u.Id])).GetValueOrDefault(u.Id)), u.UserName, u.FullName, u.RoleId, u.Role?.Name, u.StoreId,
+        var row = new UserRow(u.Id, ApiRequest.Version((await EditedAsync(check, [u.Id])).GetValueOrDefault(u.Id)), u.UserName, u.FullName, u.Email, u.RoleId, u.Role?.Name, u.StoreId,
             u.StoreId is { } us ? codes.GetValueOrDefault(us) : null, u.StaffCode, u.IsActive, u.LockedUntilUtc > DateTime.UtcNow, u.MustChangePassword, null);
         return id is null ? Results.Created($"/api/users/{u.Id}", row) : Results.Ok(row);
     }

@@ -27,6 +27,28 @@ test('a signed-out visitor goes to the sign-in page and back to where they were 
   expect(stored).not.toContain('not-for-javascript');
 });
 
+test('a user signs in with their e-mail instead of the user name, in any case', async ({ page }) => {
+  const api = await mockApi(page, { user: null });
+  await page.goto('/sign-in/');
+  await expect(page.getByText('Sign in with your user name or e-mail and your password.')).toBeVisible();
+
+  await page.getByLabel('User name or e-mail').fill('  Kofi@Example.com ');
+  await page.getByLabel('Password', { exact: true }).fill('secret');
+  await page.getByRole('button', { name: /Log in/ }).click();
+  await expect(page).not.toHaveURL(/\/sign-in\//);
+  expect(api.last('POST', '/api/auth/sign-in')?.body).toEqual({ userName: 'Kofi@Example.com', password: 'secret' });
+  // The server answers with the account the e-mail belongs to.
+  await expect(page.getByTitle('Change password').first()).toContainText('Kofi Boateng');
+});
+
+test('the sign-in asks for a name or e-mail and a password', async ({ page }) => {
+  const api = await mockApi(page, { user: null });
+  await page.goto('/sign-in/');
+  await page.getByRole('button', { name: /Log in/ }).click();
+  await expect(page.getByRole('alert').filter({ hasText: 'Type your user name or e-mail and your password.' })).toBeVisible();
+  expect(api.last('POST', '/api/auth/sign-in')).toBeUndefined();
+});
+
 test('signing out goes back to the sign-in page', async ({ page }) => {
   const api = await mockApi(page);
   await page.goto('/tills/');

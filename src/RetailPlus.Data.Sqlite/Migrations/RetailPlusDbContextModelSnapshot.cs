@@ -11545,6 +11545,11 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .HasPrecision(3)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
                     b.Property<int>("FailedSignIns")
                         .HasColumnType("INTEGER");
 
@@ -11601,6 +11606,8 @@ namespace RetailPlus.Data.Sqlite.Migrations
                         .UseCollation("NOCASE");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Email");
 
                     b.HasIndex("RoleId");
 

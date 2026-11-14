@@ -104,11 +104,15 @@ internal sealed class UserAccountConfiguration : IEntityTypeConfiguration<UserAc
     {
         e.Property(x => x.UserName).HasMaxLength(50);
         e.Property(x => x.FullName).HasMaxLength(100);
+        e.Property(x => x.Email).HasMaxLength(Core.Rules.SignInNames.EmailLength);
         e.Property(x => x.PasswordHash).HasMaxLength(200);
         e.Property(x => x.StaffCode).HasMaxLength(10);
         e.Property(x => x.PinHash).HasMaxLength(200);
         e.Property(x => x.IsActive).HasDefaultValue(true);
         e.HasIndex(x => x.UserName).IsUnique();
+        // For the sign-in by e-mail. SetupService.SaveUserAsync keeps e-mails unique; the index does not, so a package
+        // from a till that gave an e-mail before it heard of another user's is still taken (the sign-in then refuses it).
+        e.HasIndex(x => x.Email);
         e.HasIndex(x => x.StaffCode).IsUnique().HasFilter("[StaffCode] IS NOT NULL");
         e.HasOne(x => x.Role).WithMany().HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Restrict);
         e.HasOne<Store>().WithMany().HasForeignKey(x => x.StoreId).OnDelete(DeleteBehavior.Restrict);

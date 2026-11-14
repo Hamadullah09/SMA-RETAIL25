@@ -12121,6 +12121,10 @@ namespace RetailPlus.Data.SqlServer.Migrations
                         .HasPrecision(3)
                         .HasColumnType("datetime2(3)");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<int>("FailedSignIns")
                         .HasColumnType("int");
 
@@ -12174,6 +12178,8 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ChangeNumber");
+
+                    b.HasIndex("Email");
 
                     b.HasIndex("RoleId");
 

@@ -29,7 +29,7 @@ public static class HelpTopics
             new("Signing in",
                 Steps:
                 [
-                    "Type your user name and password, then press Enter.",
+                    "Type your user name or your e-mail, and your password, then press Enter. It is the same password as on the web back office.",
                     "Or press F4 to use your staff code and PIN instead: the quick sign-in at the till.",
                     "The first time, or after a manager reset your password, you are asked to choose a new password. Type it twice.",
                 ]),
@@ -150,7 +150,7 @@ public static class HelpTopics
             new("Approving",
                 Steps:
                 [
-                    "The supervisor types their name and password, or presses F4 and types their staff code and PIN.",
+                    "The supervisor types their user name or e-mail and their password, or presses F4 and types their staff code and PIN.",
                     "They are accepted when their own role may approve and may do the action themselves.",
                     "You stay signed in. The approval, or the refusal, is written in the audit log with both names.",
                 ]),

@@ -73,7 +73,9 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
     if (key === 'POST /api/auth/sign-in') {
       const body = r.body as { userName?: string; password?: string };
       if (body?.password !== 'secret') return { status: 401, json: { error: 'Wrong user name or password, or the account is locked for a few minutes.' } };
-      user = body.userName === 'kofi' ? f.supervisor : f.superAdmin;
+      // As the server: the user name or the e-mail, in any case.
+      const typed = (body.userName ?? '').trim().toLowerCase();
+      user = [f.supervisor.userName, f.supervisor.email].some((name) => name?.toLowerCase() === typed) ? f.supervisor : f.superAdmin;
       return { json: { token: 'not-for-javascript', expiresAtUtc: new Date(Date.now() + 8 * 3600_000).toISOString(), user } };
     }
     if (key === 'POST /api/auth/sign-out') {
@@ -197,13 +199,17 @@ export async function mockApi(page: Page, options: MockOptions = {}): Promise<Mo
       case key === 'GET /api/users':
         return { json: f.users };
       case key === 'POST /api/users' || /^PUT \/api\/users\/[^/]+$/.test(key): {
-        // As the server: without a store, only a role that sees every store.
-        const body = r.body as { userName: string; fullName: string | null; roleId: string | null; storeId: string | null; isActive: boolean };
+        // As the server: without a store, only a role that sees every store; an e-mail in lower case that is nobody else's
+        // (left out, the user keeps theirs).
+        const body = r.body as { userName: string; fullName: string | null; email?: string; roleId: string | null; storeId: string | null; isActive: boolean };
         const role = f.roles.find((x) => x.id === body.roleId);
         if (!body.storeId && !role?.permissions.includes('stores.all'))
           return { status: 400, json: { error: 'Choose the store this user works at; only a role that sees every store works without one.' } };
         const before = f.users.find((u) => u.id === id);
-        const saved = { ...(before ?? f.users[0]), ...body, id: before?.id ?? 'u-new', version: 'v-2', role: role?.name ?? null,
+        const email = body.email === undefined ? before?.email ?? null : body.email.trim().toLowerCase() || null;
+        if (email && f.users.some((u) => u.id !== before?.id && (u.email === email || u.userName.toLowerCase() === email)))
+          return { status: 400, json: { error: 'Another user has that e-mail.' } };
+        const saved = { ...(before ?? f.users[0]), ...body, email, id: before?.id ?? 'u-new', version: 'v-2', role: role?.name ?? null,
           storeCode: f.stores.find((s) => s.id === body.storeId)?.code ?? null, staffCode: before?.staffCode ?? null, lastSignInAtUtc: before?.lastSignInAtUtc ?? null };
         return { status: before ? 200 : 201, json: saved };
       }

@@ -13,6 +13,7 @@ import { EmptyState, FormError } from '@/components/ui/states';
 import { DataTable } from '@/components/ui/table';
 import { useToast } from '@/components/ui/toast';
 import { api, ApiError } from '@/lib/api';
+import { checkEmail } from '@/lib/forms';
 import { formatAgo, formatUtc } from '@/lib/format';
 import { useNow } from '@/lib/hooks';
 import { P } from '@/lib/nav';
@@ -105,6 +106,7 @@ function Users() {
         columns={[
           { key: 'user', header: 'User', cell: (u) => <span className="font-semibold">{u.userName}</span> },
           { key: 'name', header: 'Full name', cell: (u) => u.fullName ?? '', hideBelow: 'sm' },
+          { key: 'email', header: 'E-mail', cell: (u) => u.email ?? '', hideBelow: 'lg' },
           { key: 'role', header: 'Role', cell: (u) => u.role ?? '' },
           { key: 'store', header: 'Store', cell: (u) => u.storeCode ?? 'Every store', hideBelow: 'md' },
           { key: 'code', header: 'Staff code', cell: (u) => u.staffCode ?? '', hideBelow: 'lg' },
@@ -124,8 +126,9 @@ function Users() {
         ]}
       />
       <p className="mt-3 max-w-4xl px-1 text-ink">
-        What a user may do comes from their role (Roles page). A staff code and PIN let them sign in quickly at the till. Five wrong passwords or PINs lock the account for five
-        minutes; Reset password unlocks it. Changes reach the tills with their next download.
+        What a user may do comes from their role (Roles page). They sign in, here and at the tills, with their user name or e-mail and the same password; a staff code and PIN
+        let them sign in quickly at the till. Five wrong passwords or PINs lock the account for five minutes; Reset password unlocks it. Changes reach the tills with their next
+        download.
       </p>
 
       {editing && <UserDialog user={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
@@ -159,6 +162,9 @@ function Users() {
 /** What the server says, too, about a user of no store whose role sees one store. */
 const NEEDS_A_STORE = 'Choose the store this user works at; only a role that sees every store works without one.';
 
+/** An e-mail the server would refuse (SignInNames.IsEmail): it checks the same way. */
+const EMAIL_PROBLEM = 'Type the e-mail as name@example.com: one @, a dot after it, and no spaces.';
+
 /** The roles this user may hand out: without stores.all, none that see every store. */
 function grantable(roles: RoleInfo[], allStores: boolean): RoleInfo[] {
   return allStores ? roles : roles.filter((r) => !r.permissions.includes(P.storesAll));
@@ -172,6 +178,7 @@ function UserDialog({ user, onClose }: { user: UserRow | null; onClose(): void }
   const roles = useQuery({ queryKey: ['roles'], queryFn: () => api.roles() });
   const [userName, setUserName] = useState(user?.userName ?? '');
   const [fullName, setFullName] = useState(user?.fullName ?? '');
+  const [email, setEmail] = useState(user?.email ?? '');
   const [roleId, setRoleId] = useState(user?.roleId ?? '');
   const [storeId, setStoreId] = useState<string>(user ? user.storeId ?? '' : allStores ? currentStore ?? '' : me.storeId ?? '');
   const [isActive, setIsActive] = useState(user?.isActive ?? true);
@@ -189,7 +196,8 @@ function UserDialog({ user, onClose }: { user: UserRow | null; onClose(): void }
 
   const save = useMutation({
     mutationFn: () => {
-      const body = { userName: userName.trim(), fullName: fullName.trim() || null, roleId: roleId || null, storeId: storeId || null, isActive };
+      // The e-mail is always sent: empty removes it (the server keeps it when a client sends none).
+      const body = { userName: userName.trim(), fullName: fullName.trim() || null, email: email.trim(), roleId: roleId || null, storeId: storeId || null, isActive };
       return user ? api.saveUser(user.id, { ...body, version: user.version }) : api.addUser({ ...body, password });
     },
     onSuccess: () => {
@@ -200,18 +208,18 @@ function UserDialog({ user, onClose }: { user: UserRow | null; onClose(): void }
     onError: (e) => e instanceof ApiError && e.isConflict && setConflict(true),
   });
 
+  function problemOf(): string | null {
+    if (!userName.trim()) return 'Type a user name.';
+    if (/\s/.test(userName.trim())) return 'A user name has no spaces.';
+    if (checkEmail(email)) return EMAIL_PROBLEM;
+    if (!roleId) return 'Choose a role.';
+    if (!storeId && role && !roleSeesEveryStore) return NEEDS_A_STORE;
+    if (!user && password.length < 8) return 'A password has at least 8 characters.';
+    return null;
+  }
+
   function submit() {
-    const text = !userName.trim()
-      ? 'Type a user name.'
-      : /\s/.test(userName.trim())
-        ? 'A user name has no spaces.'
-        : !roleId
-          ? 'Choose a role.'
-          : !storeId && role && !roleSeesEveryStore
-            ? NEEDS_A_STORE
-            : !user && password.length < 8
-            ? 'A password has at least 8 characters.'
-            : null;
+    const text = problemOf();
     setProblem(text);
     if (!text) save.mutate();
   }
@@ -239,6 +247,19 @@ function UserDialog({ user, onClose }: { user: UserRow | null; onClose(): void }
         </Field>
         <Field label="Full name" htmlFor="user-full">
           <Input id="user-full" value={fullName} maxLength={60} onChange={(e) => setFullName(e.target.value)} />
+        </Field>
+        <Field label="E-mail" htmlFor="user-email" hint="Optional. They can sign in with it instead of the user name, with the same password.">
+          <Input
+            id="user-email"
+            type="email"
+            inputMode="email"
+            value={email}
+            maxLength={100}
+            autoComplete="off"
+            autoCapitalize="none"
+            spellCheck={false}
+            onChange={(e) => setEmail(e.target.value)}
+          />
         </Field>
         <Field label="Role" htmlFor="user-role">
           <Select id="user-role" value={roleId} onChange={(e) => setRoleId(e.target.value)}>

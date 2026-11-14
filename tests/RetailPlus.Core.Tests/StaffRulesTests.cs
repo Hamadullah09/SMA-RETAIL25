@@ -175,3 +175,34 @@ public class StandardRoleTests
         Assert.Contains((Permissions.HrOfficerRole, Permissions.StoresAll), Permissions.KeysAddedToStandardRoles);
     }
 }
+
+public class SignInNameTests
+{
+    [Fact]
+    public void An_e_mail_is_kept_trimmed_and_in_lower_case()
+    {
+        Assert.Equal("ann.lee@example.com", SignInNames.Email("  Ann.Lee@Example.COM "));
+        Assert.Null(SignInNames.Email("   "));
+        Assert.Null(SignInNames.Email(null));
+    }
+
+    [Theory]
+    [InlineData("ann@example.com", true)]
+    [InlineData("a@b.co", true)]
+    [InlineData("first.last@mail.example.com", true)]
+    [InlineData("a@b..c", true)]
+    [InlineData("annexample.com", false)]
+    [InlineData("@example.com", false)]
+    [InlineData("ann@@example.com", false)]
+    [InlineData("ann@shop@example.com", false)]
+    [InlineData("ann@example", false)]
+    [InlineData("ann@example.", false)]
+    [InlineData("ann@.com", false)]
+    [InlineData("ann lee@example.com", false)]
+    [InlineData("ann@exa\tmple.com", false)]
+    public void An_e_mail_has_one_at_a_dot_after_it_and_no_spaces(string text, bool email)
+    {
+        Assert.Equal(email, SignInNames.IsEmail(text));
+        Assert.Equal(text.Contains('@', StringComparison.Ordinal), SignInNames.MayBeEmail(text));
+    }
+}

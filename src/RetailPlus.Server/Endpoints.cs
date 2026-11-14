@@ -9,10 +9,11 @@ using RetailPlus.Sync;
 
 namespace RetailPlus.Server;
 
+/// <summary>A web sign-in: <c>UserName</c> is the user name or the e-mail address, in any case.</summary>
 public sealed record SignInRequest(string UserName, string Password);
 /// <summary>The signed-in user. <c>CanChangeShared</c>: may change the records every store shares (see <see cref="ApiRequest.RequireCompanyChangeAsync"/>).</summary>
 public sealed record UserInfo(Guid Id, string UserName, string? FullName, string? Role, IReadOnlyList<string> Permissions, Guid? StoreId, string? StoreName, bool MustChangePassword,
-    bool CanChangeShared = false);
+    bool CanChangeShared = false, string? Email = null);
 public sealed record SignInResponse(string Token, DateTime ExpiresAtUtc, UserInfo User);
 public sealed record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 public sealed record StoreInfo(Guid Id, string Code, string Name, string? TimeZoneId, string? CurrencySymbol = null);
@@ -81,10 +82,11 @@ public static partial class Endpoints
         auth.MapPost("/sign-in", async (SignInRequest request, HttpContext http, DataContext data, TokenService tokens, IWebHostEnvironment environment) =>
         {
             // The sign-in goes to the audit log like one at a till, under the user's store (or the first store), station 0.
+            // The user is found as SetupService finds them: by user name or e-mail.
             var name = (request.UserName ?? "").Trim();
             Guid? store;
             await using (var db = data.Create())
-                store = await db.UserAccounts.Where(u => u.UserName == name).Select(u => u.StoreId).FirstOrDefaultAsync()
+                store = (await SetupService.FindForSignInAsync(db.UserAccounts.AsNoTracking(), name))?.StoreId
                         ?? await db.Stores.OrderBy(s => s.Code).Select(s => (Guid?)s.Id).FirstOrDefaultAsync();
             var audited = data.For(store is { } s ? new StationIdentity(s, 0) : null, null);
             var user = (await new SetupService(audited).SignInAsync(name, request.Password ?? "")).User;
@@ -135,7 +137,7 @@ public static partial class Endpoints
         var permissions = SetupService.PermissionsOf(user);
         bool shared = permissions.Contains(Permissions.StoresAll) || await db.Stores.CountAsync() <= 1;
         return new UserInfo(user.Id, user.UserName, user.FullName, user.Role?.Name, [.. permissions.Order(StringComparer.Ordinal)],
-            user.StoreId, store, user.MustChangePassword, shared);
+            user.StoreId, store, user.MustChangePassword, shared, user.Email);
     }
 
     // Stores and tills ------------------------------------------------------------------------------------------------

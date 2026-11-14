@@ -2179,6 +2179,7 @@ namespace RetailPlus.Data.SqlServer.Migrations
                     Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     UserName = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     FullName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
+                    Email = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
                     PasswordHash = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     AccessLevel = table.Column<int>(type: "int", nullable: false),
                     MustChangePassword = table.Column<bool>(type: "bit", nullable: false),
@@ -9002,6 +9003,11 @@ namespace RetailPlus.Data.SqlServer.Migrations
                 name: "IX_UserAccounts_ChangeNumber",
                 table: "UserAccounts",
                 column: "ChangeNumber");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_UserAccounts_Email",
+                table: "UserAccounts",
+                column: "Email");
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserAccounts_RoleId",

@@ -34,8 +34,8 @@ stations, enrollment, sync batches, package upload).
 | Method and path | Permission | Notes |
 |---|---|---|
 | `GET /api/health` | none | `{ status, database, version }` |
-| `POST /api/auth/sign-in` | none | body `{ userName, password }` → `{ token, expiresAtUtc, user: UserInfo }` + cookie |
-| `GET /api/auth/me` | web.signin | `UserInfo { id, userName, fullName, role, permissions[], storeId, storeName, mustChangePassword, canChangeShared }` |
+| `POST /api/auth/sign-in` | none | body `{ userName, password }` → `{ token, expiresAtUtc, user: UserInfo }` + cookie; `userName` is the user name or the e-mail address, in any case |
+| `GET /api/auth/me` | web.signin | `UserInfo { id, userName, fullName, role, permissions[], storeId, storeName, mustChangePassword, canChangeShared, email }` |
 | `POST /api/auth/change-password` | web.signin | `{ currentPassword, newPassword }` → 204 |
 | `GET /api/stores` | web.signin | `[StoreInfo { id, code, name, timeZoneId, currencySymbol }]` |
 | `POST /api/stores`, `PUT /api/stores/{id}` | stores.manage | `{ code, name, timeZoneId }` |
@@ -168,10 +168,16 @@ already group by stock code and name, and by department name.
 - `GET /api/permissions` returns `[{ "key", "group", "description" }]`.
 - `GET /api/roles` returns `[{ "id", "version", "name", "description", "level", "isSystem", "permissions": [...],
   "userCount" }]`. `POST`, `PUT /api/roles/{id}` and `DELETE` use the same shape, without `userCount`.
-- `GET /api/users?storeId` returns `[{ "id", "version", "userName", "fullName", "roleId", "role", "storeId",
+- `GET /api/users?storeId` returns `[{ "id", "version", "userName", "fullName", "email", "roleId", "role", "storeId",
   "storeCode", "staffCode", "isActive", "locked", "mustChangePassword", "lastSignInAtUtc" }]`.
-- `POST /api/users` takes `{ userName, fullName, roleId, storeId, isActive, password? }`.
-- `PUT /api/users/{id}` takes the same body plus `version`.
+- `POST /api/users` takes `{ userName, fullName, email?, roleId, storeId, isActive, password? }`.
+- `PUT /api/users/{id}` takes the same body plus `version`. Without `email` (or with null) the user keeps their
+  e-mail; an empty `email` removes it.
+- A user signs in, at the tills and here, with their user name or their e-mail and the same password; neither depends
+  on case. The server keeps the e-mail trimmed and in lower case, and refuses (400) one that is not `name@domain.tld`
+  (one @, a dot after it, no spaces), one another user has ("Another user has that e-mail."), one that is another
+  user's user name, and a user name with an @ that is another user's e-mail. Wrong passwords count against the
+  account, whichever of its names was typed.
 - `DELETE /api/users/{id}` deletes the user.
 - `POST /api/users/{id}/reset-password` returns `{ "temporaryPassword" }`.
 - `POST /api/users/{id}/pin` takes `{ staffCode, pin }` and returns 204.

@@ -169,6 +169,11 @@ public class UserAccount : Entity
 {
     public string UserName { get; set; } = "";
     public string? FullName { get; set; }
+    /// <summary>
+    /// The user's e-mail address, kept trimmed and in lower case (<see cref="Rules.SignInNames.Email"/>): they sign in
+    /// with it or with <see cref="UserName"/>, with the same password.
+    /// </summary>
+    public string? Email { get; set; }
     public string? PasswordHash { get; set; }
     /// <summary>0 = trainee, 1–4 as in the Security tab; the level of <see cref="Role"/>.</summary>
     public int AccessLevel { get; set; }

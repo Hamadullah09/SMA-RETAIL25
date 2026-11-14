@@ -347,15 +347,31 @@ public sealed class SetupService(DataContext data)
 
     /// <summary>
     /// Adds or changes a user. The access level follows the role; a user saved without a role gets the default role of
-    /// the access level given. A new user needs a password (or must choose one at the first sign-in).
+    /// the access level given. A new user needs a password (or must choose one at the first sign-in). The e-mail, if any,
+    /// is kept trimmed and in lower case; it is nobody else's e-mail or user name, and a user name with an @ is nobody
+    /// else's e-mail, so a name typed at the sign-in means one user.
     /// </summary>
     public async Task<UserAccount> SaveUserAsync(UserAccount user, string? newPassword)
     {
         if (string.IsNullOrWhiteSpace(user.UserName)) throw new BusinessRuleException("Enter a user name.");
         if (user.AccessLevel is < 0 or > 4) throw new BusinessRuleException("Access levels are 0 to 4.");
         var name = user.UserName.Trim();
+        var email = SignInNames.Email(user.Email);
+        if (email is not null && !SignInNames.IsEmail(email))
+            throw new BusinessRuleException($"{email} is not an e-mail address: an e-mail has one @, a dot after it, and no spaces.");
         await using var db = data.Create();
         if (await db.UserAccounts.AnyAsync(u => u.UserName == name && u.Id != user.Id)) throw new BusinessRuleException($"There is already a user called {name}.");
+        // A user signs in with their user name or their e-mail (in any case, as both engines compare text), so neither may
+        // be a name another user signs in with.
+        if (email is not null)
+        {
+            if (await db.UserAccounts.AnyAsync(u => u.Email == email && u.Id != user.Id)) throw new BusinessRuleException("Another user has that e-mail.");
+            if (await db.UserAccounts.AnyAsync(u => u.UserName == email && u.Id != user.Id))
+                throw new BusinessRuleException($"{email} is another user's user name, so it cannot be this user's e-mail.");
+        }
+        if (SignInNames.MayBeEmail(name) && SignInNames.Email(name) is { } nameAsEmail
+            && await db.UserAccounts.AnyAsync(u => u.Email == nameAsEmail && u.Id != user.Id))
+            throw new BusinessRuleException($"{name} is another user's e-mail, so it cannot be this user's user name.");
         var role = user.RoleId is { } roleId
             ? await db.Roles.SingleOrDefaultAsync(r => r.Id == roleId) ?? throw new BusinessRuleException("That role no longer exists.")
             : await db.Roles.SingleOrDefaultAsync(r => r.Name == Permissions.DefaultRoleForLevel(user.AccessLevel));
@@ -368,6 +384,7 @@ public sealed class SetupService(DataContext data)
         }
         existing.UserName = name;
         existing.FullName = string.IsNullOrWhiteSpace(user.FullName) ? null : user.FullName.Trim();
+        existing.Email = email;
         existing.RoleId = role?.Id;
         existing.AccessLevel = role?.Level ?? user.AccessLevel;
         existing.StoreId = user.StoreId;
@@ -446,15 +463,16 @@ public sealed class SetupService(DataContext data)
     public async Task<UserAccount?> AuthenticatePinAsync(string staffCode, string pin) => (await SignInWithPinAsync(staffCode, pin)).User;
 
     /// <summary>
-    /// Signs in with a user name and password, saying why when it fails (a locked account says until when). The sign-in
-    /// goes to the audit log as <paramref name="purpose"/> (null writes nothing for a success), every failure as a failed
-    /// sign-in. A password carried over from Retail25 (an ASP.NET Identity hash) is stored again in this program's own
-    /// format on the first sign-in that proves it.
+    /// Signs in with a user name or e-mail address and the password, saying why when it fails (a locked account says until
+    /// when). Wrong passwords count against the account found, whichever of its names was typed. The sign-in goes to the
+    /// audit log as <paramref name="purpose"/> (null writes nothing for a success), every failure as a failed sign-in,
+    /// under the account's user name. A password carried over from Retail25 (an ASP.NET Identity hash) is stored again in
+    /// this program's own format on the first sign-in that proves it.
     /// </summary>
     public Task<SignInResult> SignInAsync(string userName, string password, string? purpose = AuditActions.SignIn)
     {
         var name = userName.Trim();
-        return CheckAsync(u => u.UserName == name, name, false,
+        return CheckAsync(users => FindForSignInAsync(users, name), name, false,
             user => user.PasswordHash is null ? user.MustChangePassword : VerifyPassword(password, user.PasswordHash), purpose,
             user =>
             {
@@ -465,13 +483,29 @@ public sealed class SetupService(DataContext data)
     }
 
     /// <summary>
+    /// The user a name typed at a sign-in means: the one with that user name or that e-mail address, in any case (text
+    /// compares without case on both engines, NOCASE on SQLite, and e-mails are kept in lower case). The rules of
+    /// <see cref="SaveUserAsync"/> keep each name to one user; should two still answer to one (e-mails given at two tills
+    /// before they synchronised), the user name wins, and otherwise nobody is found. The server finds the store of a web
+    /// sign-in with it.
+    /// </summary>
+    public static async Task<UserAccount?> FindForSignInAsync(IQueryable<UserAccount> users, string typed)
+    {
+        var name = typed.Trim();
+        if (name.Length == 0) return null;
+        var email = SignInNames.Email(name);
+        var found = await users.Where(u => u.UserName == name || u.Email == email).ToListAsync();
+        return found.Count == 1 ? found[0] : found.FirstOrDefault(u => string.Equals(u.UserName, name, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
     /// Signs in with a staff code and PIN, by the same rules as <see cref="SignInAsync"/>. A PIN carried over from Retail25
     /// (an Argon2id hash) is stored again in this program's own format on the first sign-in that proves it.
     /// </summary>
     public Task<SignInResult> SignInWithPinAsync(string staffCode, string pin, string? purpose = AuditActions.SignIn)
     {
         var code = staffCode.Trim();
-        return CheckAsync(u => u.StaffCode == code, code, true, user => user.PinHash is not null && VerifyPin(pin, user.PinHash), purpose,
+        return CheckAsync(users => users.SingleOrDefaultAsync(u => u.StaffCode == code), code, true, user => user.PinHash is not null && VerifyPin(pin, user.PinHash), purpose,
             user =>
             {
                 if (user.PinHash is not { } stored || !IsRetail25PinHash(stored)) return null;
@@ -486,13 +520,13 @@ public sealed class SetupService(DataContext data)
     /// says which secret it was ("password", "PIN"), or returns null. The secret is checked on a worker thread: a
     /// carried-over PIN takes about a second of Argon2 work, which must not freeze the login window.
     /// </summary>
-    private async Task<SignInResult> CheckAsync(System.Linq.Expressions.Expression<Func<UserAccount, bool>> find, string typed, bool pin,
+    private async Task<SignInResult> CheckAsync(Func<IQueryable<UserAccount>, Task<UserAccount?>> find, string typed, bool pin,
         Func<UserAccount, bool> check, string? purpose, Func<UserAccount, string?> upgrade)
     {
         // Nothing typed: nothing to look up, and nothing worth a line in the audit log.
         if (typed.Length == 0) return new SignInResult(null, SignInFailure.WrongCredentials, null);
         await using var db = data.Create();
-        var user = await db.UserAccounts.Include(u => u.Role).ThenInclude(r => r!.Permissions).SingleOrDefaultAsync(find);
+        var user = await find(db.UserAccounts.Include(u => u.Role).ThenInclude(r => r!.Permissions));
         var now = DateTime.UtcNow;
         string why = purpose is null or AuditActions.SignIn ? "" : $" ({purpose})";
         void Failed(string details) => db.Audit(AuditActions.FailedSignIn, details + why, nameof(UserAccount), user?.Id, userId: user?.Id, userName: user?.UserName ?? typed);
