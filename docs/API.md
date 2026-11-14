@@ -71,6 +71,10 @@ stations, enrollment, sync batches, package upload).
   "drawers":   [{ "storeCode", "stationNumber", "closedAt", "closedBy", "expected", "counted", "variance" }]
 }
 ```
+`topItems` of one store has an entry per item row. Without `storeId` (every store the user sees) each store has its own
+row of a product, so lines with the same stock code and name are one entry with their units and net sales added up;
+its `itemId` is null when more than one row sold it. The item sales report (`items`) and the department report (`dept`)
+already group by stock code and name, and by department name.
 
 ### Till monitor — `web.signin`
 `GET /api/tills?storeId` → `[{ "stationId", "storeId", "storeCode", "storeName", "number", "name", "enrolled", "retired",
