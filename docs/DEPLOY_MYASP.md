@@ -27,6 +27,7 @@ The deploy **leaves these alone on the host**:
 - `App_Data`: the server's signing keys, the tills' station keys and received packages. Never delete it: the tills
   would have to be enrolled again.
 - `logs`.
+- `.well-known`: the host's own files for domain checks and SSL renewal. `web.config` lets IIS serve them as plain files.
 - `backend`: Retail25's API application, while it is still there.
 
 Everything else in the site folder is replaced by the package, including Retail25's front end.

@@ -215,8 +215,11 @@ jobs:
             "-source:contentPath=$((Resolve-Path artifacts/server).Path)",
             "-dest:contentPath=$env:SITE,computerName=$endpoint,userName=$env:DEPLOY_USER,password=$env:DEPLOY_PASS,authType=Basic",
             '-allowUntrusted',
-            # Left alone on the host: the server's keys and the tills' packages, the logs, the offline page, and
-            # Retail25's API application while it is still there.
+            # Left alone on the host: the server's keys and the tills' packages, the logs, the offline page, the host's
+            # .well-known files (domain checks, SSL renewal), and Retail25's API application while it is still there.
+            '-skip:objectName=dirPath,absolutePath=\\\.well-known$',
+            '-skip:objectName=filePath,absolutePath=\\\.well-known\\.*',
+            '-skip:objectName=dirPath,absolutePath=\\\.well-known\\.*',
             '-skip:objectName=dirPath,absolutePath=\\App_Data$',
             '-skip:objectName=filePath,absolutePath=\\App_Data\\.*',
             '-skip:objectName=dirPath,absolutePath=\\App_Data\\.*',
