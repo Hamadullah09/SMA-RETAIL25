@@ -201,6 +201,9 @@ public sealed class InventoryService(DataContext data)
         return await db.Items.AnyAsync(i => i.LocationId == locationId && i.Plu == plu && !i.IsDeleted && i.Id != exceptId);
     }
 
+    /// <summary>The longest shelf life an item may have, in days (a hundred years).</summary>
+    public const int MaxShelfLifeDays = 36500;
+
     /// <summary>
     /// Saves an item and its lists. Department, category and supplier are given by name and created when new.
     /// Throws <see cref="ConcurrencyConflictException"/> when another station changed the item meanwhile.
@@ -209,6 +212,8 @@ public sealed class InventoryService(DataContext data)
     {
         if (string.IsNullOrWhiteSpace(item.Plu)) throw new BusinessRuleException("Enter a stock code.");
         if (string.IsNullOrWhiteSpace(item.Name)) throw new BusinessRuleException("Enter a description.");
+        if (item.ShelfLifeDays is < 0 or > MaxShelfLifeDays)
+            throw new BusinessRuleException($"The shelf life is a number of days from 0 (not known) to {MaxShelfLifeDays}.");
         item.Plu = item.Plu.Trim().ToUpperInvariant();
         if (await PluExistsAsync(item.LocationId, item.Plu, item.Id))
             throw new BusinessRuleException($"Stock code {item.Plu} is already used by another item.");

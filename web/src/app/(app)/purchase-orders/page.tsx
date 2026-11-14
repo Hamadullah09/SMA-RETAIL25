@@ -7,7 +7,7 @@ import { ConflictDialog } from '@/components/masters';
 import { BinListDialog } from '@/components/supply';
 import { Button } from '@/components/ui/button';
 import { Dialog, SidePanel } from '@/components/ui/dialog';
-import { Input, Select } from '@/components/ui/field';
+import { Field, Input, Select } from '@/components/ui/field';
 import { Chip, Detail, PageHeader, Pager, SearchBox, Toolbar } from '@/components/ui/page';
 import { EmptyState, ErrorState, FormError, Skeleton } from '@/components/ui/states';
 import { DataTable } from '@/components/ui/table';
@@ -19,7 +19,7 @@ import { parseNumber } from '@/lib/forms';
 import { useDebounced } from '@/lib/hooks';
 import { words } from '@/lib/labels';
 import { useStore } from '@/lib/store';
-import { PO_STATUS, receiveErrors, receiveForms, receiveRequest, type ReceiveForm } from '@/lib/supply';
+import { moveReceivedDay, PO_STATUS, receiveErrors, receiveForms, receiveRequest, stepDay, stepDayError, type ReceiveForm } from '@/lib/supply';
 import type { PurchaseOrderDetail, PurchaseOrderLine, PurchaseOrderRow } from '@/lib/types';
 
 const PAGE_SIZE = 50;
@@ -90,19 +90,10 @@ function OrderPanel({ id, onClose }: { id: string; onClose(): void }) {
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ['purchase-order', id], queryFn: () => api.purchaseOrder(id), staleTime: 0 });
   const [receiving, setReceiving] = useState(false);
+  const [posting, setPosting] = useState(false);
   const [putAway, setPutAway] = useState(false);
   const [conflict, setConflict] = useState(false);
   const po = query.data;
-
-  const post = useMutation({
-    mutationFn: (order: PurchaseOrderDetail) => api.postPurchaseOrder(order.id, { version: order.version }),
-    onSuccess: (saved) => {
-      queryClient.setQueryData(['purchase-order', id], saved);
-      void queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
-      toast.ok(`Order ${saved.number} is posted: the pieces are on order.`);
-    },
-    onError: (e) => (e instanceof ApiError && e.isConflict ? setConflict(true) : toast.error(e.message)),
-  });
 
   return (
     <SidePanel
@@ -115,7 +106,7 @@ function OrderPanel({ id, onClose }: { id: string; onClose(): void }) {
         po && (
           <>
             {po.status === 'Draft' && (
-              <Button icon={Send} shortcut="Ctrl+Enter" busy={post.isPending} onClick={() => post.mutate(po)}>
+              <Button icon={Send} shortcut="Ctrl+Enter" onClick={() => setPosting(true)}>
                 Post order
               </Button>
             )}
@@ -142,6 +133,7 @@ function OrderPanel({ id, onClose }: { id: string; onClose(): void }) {
           <dl className="card grid grid-cols-2 gap-4 p-5 md:grid-cols-4">
             <Detail label="Status">{PO_STATUS[po.status]?.label ?? words(po.status)}</Detail>
             <Detail label="Made">{formatLocalDateTime(po.createdAt)}</Detail>
+            <Detail label="Ordered">{formatLocalDateTime(po.postedAt)}</Detail>
             <Detail label="Expected">{formatDate(po.expectedOn)}</Detail>
             <Detail label="Received">{formatLocalDateTime(po.receivedAt)}</Detail>
             <Detail label="Made by">{po.createdBy}</Detail>
@@ -190,6 +182,22 @@ function OrderPanel({ id, onClose }: { id: string; onClose(): void }) {
           }}
         />
       )}
+      {posting && po && (
+        <PostDialog
+          order={po}
+          onClose={() => setPosting(false)}
+          onPosted={(saved) => {
+            queryClient.setQueryData(['purchase-order', id], saved);
+            void queryClient.invalidateQueries({ queryKey: ['purchase-orders'] });
+            setPosting(false);
+            toast.ok(`Order ${saved.number} is posted: the pieces are on order.`);
+          }}
+          onConflict={() => {
+            setPosting(false);
+            setConflict(true);
+          }}
+        />
+      )}
       {putAway && <PutAway orderId={id} onClose={() => setPutAway(false)} />}
       <ConflictDialog
         open={conflict}
@@ -201,6 +209,56 @@ function OrderPanel({ id, onClose }: { id: string; onClose(): void }) {
         onClose={() => setConflict(false)}
       />
     </SidePanel>
+  );
+}
+
+/** Posting an order: the day it was placed, today unless it went out earlier (the pieces go on order either way). */
+function PostDialog({
+  order,
+  onClose,
+  onPosted,
+  onConflict,
+}: {
+  order: PurchaseOrderDetail;
+  onClose(): void;
+  onPosted(saved: PurchaseOrderDetail): void;
+  onConflict(): void;
+}) {
+  const today = toBusinessDate(new Date());
+  const [day, setDay] = useState(today);
+  const [problem, setProblem] = useState<string | undefined>();
+  const post = useMutation({
+    mutationFn: () => api.postPurchaseOrder(order.id, { version: order.version, orderedOn: stepDay(day, today) }),
+    onSuccess: onPosted,
+    onError: (e) => e instanceof ApiError && e.isConflict && onConflict(),
+  });
+  return (
+    <Dialog
+      open
+      title={`Post order ${order.number}`}
+      onClose={onClose}
+      onSubmit={() => {
+        const found = stepDayError(day, today, 'ordered');
+        setProblem(found);
+        if (!found) post.mutate();
+      }}
+      footer={
+        <>
+          <Button type="submit" variant="sun" icon={Send} shortcut="Enter" busy={post.isPending}>
+            Post order
+          </Button>
+          <Button onClick={onClose} shortcut="Esc">
+            Cancel
+          </Button>
+        </>
+      }
+    >
+      <p className="mb-3 text-muted">The ordered pieces go on order. Date it the day it was placed with the supplier.</p>
+      <Field label="Ordered on" htmlFor="post-day" error={problem} hint="Not later than today, and not in a locked ledger period.">
+        <Input id="post-day" type="date" className="w-[180px]" value={day} max={today} onChange={(e) => setDay(e.target.value)} invalid={!!problem} />
+      </Field>
+      <FormError error={post.error && !(post.error instanceof ApiError && post.error.isConflict) ? post.error : null} />
+    </Dialog>
   );
 }
 
@@ -227,10 +285,11 @@ function ReceiveDialog({
   const toast = useToast();
   const today = toBusinessDate(new Date());
   const [forms, setForms] = useState<ReceiveForm[]>(() => receiveForms(order.lines, today));
+  const [day, setDay] = useState(today);
   const [shipping, setShipping] = useState('0');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const receive = useMutation({
-    mutationFn: () => api.receivePurchaseOrder(order.id, receiveRequest(order.version, parseNumber(shipping) ?? 0, order.lines, forms)),
+    mutationFn: () => api.receivePurchaseOrder(order.id, receiveRequest(order.version, parseNumber(shipping) ?? 0, order.lines, forms, stepDay(day, today))),
     onSuccess: (saved) => {
       toast.ok(`Order ${saved.number} is received: stock and costs are updated.`);
       onReceived(saved);
@@ -243,8 +302,17 @@ function ReceiveDialog({
     setErrors((e) => ({ ...e, [lineId]: '' }));
   }
 
+  function changeDay(next: string) {
+    // The expiries offered from the shelf life count from the day the goods arrived.
+    if (next && day) setForms((list) => moveReceivedDay(order.lines, list, day, next));
+    setDay(next);
+    setErrors((e) => ({ ...e, day: '' }));
+  }
+
   function submit() {
     const found = receiveErrors(order.lines, forms);
+    const dayProblem = stepDayError(day, today, 'received');
+    if (dayProblem) found.day = dayProblem;
     const ship = parseNumber(shipping);
     if (ship === null || ship < 0) found.shipping = 'Enter the shipping cost (0 for none).';
     setErrors(found);
@@ -271,6 +339,9 @@ function ReceiveDialog({
       }
     >
       <p className="mb-3 text-muted">Enter what arrived. Items kept in batches need the batch number and expiry of each batch, as printed on the goods.</p>
+      <Field label="Received on" htmlFor="receive-day" error={errors.day || undefined} hint="The day the goods arrived: the stock, the batches and the ledger take this day." className="mb-3">
+        <Input id="receive-day" type="date" className="w-[180px]" value={day} max={today} onChange={(e) => changeDay(e.target.value)} invalid={!!errors.day} />
+      </Field>
       <div className="space-y-3">
         {order.lines.map((line) => {
           const form = forms.find((f) => f.lineId === line.id)!;
@@ -360,7 +431,7 @@ function ReceiveDialog({
                   >
                     Another batch
                   </Button>
-                  {line.shelfLifeDays > 0 && <p className="text-note text-muted">Keeps {line.shelfLifeDays} days: the expiry is offered from the day made (or today).</p>}
+                  {line.shelfLifeDays > 0 && <p className="text-note text-muted">Keeps {line.shelfLifeDays} days: the expiry is offered from the day made (or the day received).</p>}
                 </div>
               )}
               {errors[line.id] && (

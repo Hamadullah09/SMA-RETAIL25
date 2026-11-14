@@ -440,6 +440,70 @@ public abstract class ManufacturingTests(DatabaseFixture db)
         Assert.Equal(11m, (await ReloadAsync(widget.Id)).OnHand);
     }
 
+    [SkippableFact]
+    public async Task A_store_marks_a_hold_location_and_failed_output_goes_there_when_none_is_named()
+    {
+        var loc = await LocationAsync();
+        var locations = new LocationService(Data);
+
+        // The rules, on a store of its own: codes and names, the only location never the hold one, and the store's main
+        // location (where lists and new items go) never the hold one.
+        var other = Guid.CreateVersion7();
+        await using (var ctx = db.CreateContext())
+        {
+            ctx.Stores.Add(new Store { Id = other, Code = Unique("L"), Name = "Locations" });
+            await ctx.SaveChangesAsync();
+        }
+        var pos = await locations.AddAsync(other, " pos ", "Front");
+        Assert.Equal(("POS", "Front", false, 0), (pos.Code, pos.Name, pos.IsHold, pos.Items));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => locations.AddAsync(other, "POS", "Twice"));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => locations.AddAsync(other, "LONG", null));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => locations.AddAsync(other, " ", null));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => locations.AddAsync(other, "X", new string('n', 51)));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => locations.SetHoldAsync(other, pos.Id));
+        var held = await locations.AddAsync(other, "HLD", "Quality hold", isHold: true);
+        Assert.True(held.IsHold);
+        Assert.Equal(held.Id, await locations.HoldLocationAsync(other));
+        await using (var ctx = db.CreateContext())
+            Assert.Equal(pos.Id, await LocationService.MainIdAsync(ctx, other));   // HLD comes first by code, but holds failed goods
+        await Assert.ThrowsAsync<BusinessRuleException>(() => locations.SetHoldAsync(other, loc.Id));   // another store's
+        var renamed = await locations.RenameAsync(held.Id, "Quarantine");
+        Assert.Equal(("HLD", "Quarantine", true), (renamed.Code, renamed.Name, renamed.IsHold));
+        Assert.False((await locations.RenameAsync(held.Id, "Quarantine", isHold: false)).IsHold);
+        Assert.Null(await locations.HoldLocationAsync(other));
+        await using (var ctx = db.CreateContext())
+            Assert.Equal(held.Id, await LocationService.MainIdAsync(ctx, other));
+
+        // An output inspection that holds failed goods without naming where: the store's hold location, once one is marked.
+        var hold = await locations.AddAsync(loc.StoreId, db.NextLocationCode(), "Hold");
+        var part = await ItemAsync(loc.Id, Unique("PT"), 100, 1m);
+        var widget = await ItemAsync(loc.Id, Unique("WG"), 0, 0);
+        await new ManufacturingService(Data).SaveAsync(new BillOfMaterials { ProductCode = widget.Plu, Lines = [new BomLine { ComponentCode = part.Plu, Quantity = 1 }] });
+        var production = new ProductionService(Data);
+        var order = await production.CreateAsync(new NewProductionOrder(widget.Plu, 10, loc.Id, loc.Id));
+        await production.ReleaseAsync(order.Id);
+        await production.IssueAsync(order.Id, part.Plu, 10);
+        await production.ReceiveAsync(order.Id, 10, complete: true);
+        var quality = new QualityService(Data);
+        var unmarked = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            quality.InspectOutputAsync(order.Id, new InspectionRequest(10, 2, []) { Disposition = InspectionDisposition.Hold }));
+        Assert.Contains("hold location", unmarked.Message, StringComparison.Ordinal);
+        Assert.Equal(10m, (await ReloadAsync(widget.Id)).OnHand);
+        await locations.SetHoldAsync(loc.StoreId, hold.Id);
+        try
+        {
+            var inspection = await quality.InspectOutputAsync(order.Id, new InspectionRequest(10, 2, []) { Disposition = InspectionDisposition.Hold });
+            Assert.Equal((InspectionDisposition.Hold, hold.Id), (inspection.Disposition, inspection.HoldLocationId));
+            Assert.Equal(8m, (await ReloadAsync(widget.Id)).OnHand);
+            Assert.Equal(2m, (await new InventoryService(Data).FindByCodeAsync(hold.Id, widget.Plu)).Item!.OnHand);
+            Assert.Equal(1, (await locations.ListAsync(loc.StoreId)).Single(l => l.Id == hold.Id).Items);
+        }
+        finally
+        {
+            await locations.SetHoldAsync(loc.StoreId, null);
+        }
+    }
+
     // Reports -------------------------------------------------------------------------------------------------------------------
 
     [SkippableFact]

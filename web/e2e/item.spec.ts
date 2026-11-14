@@ -37,6 +37,26 @@ test('saving an item someone else changed asks to reload, and reloading brings t
   await expect(page.getByLabel('Price 1')).toHaveValue('21.5');
 });
 
+test('an item is kept in batches with a shelf life, set on the Stock tab', async ({ page }) => {
+  const api = await mockApi(page);
+  await page.goto('/items/edit/?id=i-1');
+  await page.getByRole('tab', { name: 'Stock' }).click();
+  const batches = page.getByLabel('Kept in batches, with expiry dates');
+  await expect(batches).not.toBeChecked();
+  await expect(page.getByLabel('Shelf life (days)')).toHaveValue('0');
+  await batches.check();
+  await page.getByLabel('Shelf life (days)').fill('-3');
+  await page.keyboard.press('Control+s');
+  await expect(page.getByText('Shelf life cannot be negative.')).toBeVisible();
+  await page.getByLabel('Shelf life (days)').fill('7.5');
+  await page.keyboard.press('Control+s');
+  await expect(page.getByText('Shelf life is a whole number of days.')).toBeVisible();
+  await page.getByLabel('Shelf life (days)').fill('30');
+  await page.keyboard.press('Control+s');
+  await expect(page.getByText(/is saved\./)).toBeVisible();
+  expect(api.last('PUT', '/api/items/i-1')?.body).toMatchObject({ tracksBatches: true, shelfLifeDays: 30 });
+});
+
 test('the item editor checks the boxes before saving', async ({ page }) => {
   const api = await mockApi(page);
   await page.goto('/items/edit/');
@@ -44,9 +64,9 @@ test('the item editor checks the boxes before saving', async ({ page }) => {
   // Items are kept per location: a new one goes to the store chosen here.
   await expect(page.locator('#item-store')).toHaveValue('s-main');
   await page.locator('#item-store').selectOption('s-west');
-  // Westside has two locations: the item goes to the one chosen.
+  // Westside has two locations: a new item starts at POS, not at the hold location BAK, and goes to the one chosen.
   await expect(page.locator('#item-location')).toHaveValue('l-west-pos');
-  await page.locator('#item-location').selectOption({ label: 'BACK · Back room' });
+  await page.locator('#item-location').selectOption({ label: 'BAK · Back room (hold)' });
   await page.getByLabel('Stock code').fill('NEW-1');
   await page.getByLabel('Barcode').fill('036000291453');
   await page.getByRole('button', { name: /Save/ }).click();

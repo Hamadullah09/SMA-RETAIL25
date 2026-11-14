@@ -41,6 +41,8 @@ stations, enrollment, sync batches, package upload).
 | `POST /api/stores`, `PUT /api/stores/{id}` | stores.manage | `{ code, name, timeZoneId }` |
 | `GET /api/stores/{id}/stations` | web.signin | `[StationInfo]` (see the server's `Endpoints.cs`) |
 | `POST /api/stores/{id}/stations` | stores.manage | `{ number?, name? }` → `EnrollmentCodeInfo { station, code, expiresAtUtc }` |
+| `POST /api/stores/{id}/locations` | stores.manage | `{ code, name, isHold }` → 201 `LocationInfo`; a code of 1 to 3 characters not used at the store (400 otherwise); 404 for a store the user cannot see |
+| `PUT /api/locations/{id}` | stores.manage | `{ version, code, name, isHold }` → `LocationInfo`: renames it; `code` stays (400 when changed); `isHold` true marks it as the store's hold location, false takes the mark off, null leaves it; 409 on an old version |
 | `POST /api/stations/{id}/enrollment-code` | stores.manage | new code |
 | `POST /api/stations/{id}/retire` | stores.manage | |
 | `GET /api/sync/batches?storeId&station&status&take` | web.signin | `[BatchInfo]` |
@@ -100,7 +102,10 @@ stations, enrollment, sync batches, package upload).
   - `taxable1`, `taxable2`, `taxable3`
   - `reorderPoint`, `reorderQuantity`, `unitsPerCase`, `isActive`, `notes`
   - `stock: [{ "storeCode", "locationCode", "onHand" }]`
+  - `tracksBatches` (kept in batches with expiry dates) and `shelfLifeDays` (0 when not known, at most 36500)
 - `POST /api/items` and `PUT /api/items/{id}` take `ItemDetail` without `stock` and return the saved `ItemDetail`.
+  `tracksBatches` and `shelfLifeDays` left out (or null) keep what the item has; a shelf life below 0 is 400. A change
+  at every store copies them like the other fields.
 - `DELETE /api/items/{id}` deletes the item; `POST /api/items/{id}/undelete` restores it.
 - `GET /api/departments` returns `[{ "id", "name" }]`. `GET /api/categories?departmentId` returns
   `[{ "id", "name", "departmentId" }]`.
@@ -362,8 +367,11 @@ then travel like the tills' own: down to that store's tills.
 - `UserInfo.canChangeShared`: true when the user has `stores.all` or the company has one store, the same rule the
   server applies to company-wide records; the web app hides those records' edit buttons when it is false.
 - `StoreInfo.currencySymbol`: the store's currency symbol (Setup), readable by every signed-in user.
-- `GET /api/stores/{id}/locations` (`web.signin`; 404 for a store the user cannot see) → `[{ "id", "code", "name" }]`,
-  for the location a new item goes to.
+- `GET /api/stores/{id}/locations` (`web.signin`; 404 for a store the user cannot see) → `[LocationInfo { "id",
+  "version", "code", "name", "isHold", "items" }]` by code, for the location a new item goes to. `isHold` marks the
+  store's hold location (where an output inspection's failed goods go when it names none); `items` counts the items
+  kept there. Lists and new items that name no location use the first location that is not the hold location. Adding
+  and renaming: *Already there*, above.
 - `GET /api/staff?storeId` → `[{ "id", "userName", "fullName" }]`, sorted by user name, active or not: the users of that
   store and those who work at every store (every user for `stores.all` without `storeId`). Allowed with any of
   `reports.view`, `reports.staff`, `audit.view` or `setup.users`, for the staff filters of the lists.
@@ -932,11 +940,19 @@ query or the body), it takes the first location of `storeId`, else of the user's
   "pieces", "costEach", "orderedCost", "orderCost", "quantityReceived", "tracksBatches", "shelfLifeDays", "bin",
   "batches": [{ "batchNumber", "pieces", "expiresOn", "madeOn" }] }]`. `orderedCost` is the cost agreed when the order
   was posted, which the three-way match compares the bill with.
-- `POST /api/purchase-orders/{id}/post` takes `{ version }`: the pieces go on order. Returns the order.
-- `POST /api/purchase-orders/{id}/receive` takes `{ version, shippingCost, lines: [{ lineId, pieces, costEach, batches }] }`
-  and returns the order, received. A line of an item kept in batches needs `batches` (`[{ batchNumber, pieces,
-  expiresOn, madeOn }]`) adding up to its pieces (400 otherwise); a batch without `expiresOn` gets one from the item's
-  shelf life. Stock, last cost and average cost change as at the till.
+- `POST /api/purchase-orders/{id}/post` takes `{ version, orderedOn }`: the pieces go on order. `orderedOn`
+  (`yyyy-MM-dd`) is the day the order was placed, today in the store's time zone when null. Returns the order.
+- `POST /api/purchase-orders/{id}/receive` takes `{ version, shippingCost, receivedOn, lines: [{ lineId, pieces, costEach,
+  batches }] }` and returns the order, received. A line of an item kept in batches needs `batches` (`[{ batchNumber,
+  pieces, expiresOn, madeOn }]`) adding up to its pieces (400 otherwise); a batch without `expiresOn` gets one from the
+  item's shelf life, counted from `madeOn` or the day received; a batch made after the day received, or expiring before
+  it was made, is 400. Batches for an item **not** kept in batches are 400 (*"… is not kept in batches; turn that on for
+  the item first."*), not dropped. Stock, last cost and average cost change as at the till.
+- `receivedOn` (`yyyy-MM-dd`, today in the store's time zone when null) dates the receipt: its stock movements (and so
+  the business-day ledger entry of that day), the batches' `receivedOn`, the order's `receivedAt` (which the three-way
+  match reports) and the items' last receipt (an older receipt does not move it back). For both steps a day later than
+  today is 400, and so is a day in a locked or closed ledger period (*"… is in a locked or closed ledger period; …"*, as
+  E1's `LedgerService` refuses postings there); a receipt dated before the order was posted is 400.
 
 ### Requisitions — `purchasing.manage`; approving and rejecting need `purchasing.approve`
 - `GET /api/requisitions?storeId&locationId&status` (*paged*, newest first). `status` is `Draft`, `Submitted`,

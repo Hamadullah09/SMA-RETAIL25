@@ -84,12 +84,12 @@ import type {
 } from '../src/lib/types';
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
-const today = (() => {
+export const today = (() => {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 })();
 const at = (time: string, date = today) => `${date}T${time}`;
-const daysBefore = (n: number) => {
+export const daysBefore = (n: number) => {
   const d = new Date();
   d.setDate(d.getDate() - n);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -204,12 +204,12 @@ export const stores: StoreInfo[] = [
 ];
 
 export const locations: Record<string, LocationInfo[]> = {
-  's-main': [{ id: 'l-main-pos', code: 'POS', name: 'Downtown' }],
+  's-main': [{ id: 'l-main-pos', version: 'v-1', code: 'POS', name: 'Downtown', isHold: false, items: 412 }],
   's-west': [
-    { id: 'l-west-pos', code: 'POS', name: 'Westside Mall' },
-    { id: 'l-west-back', code: 'BACK', name: 'Back room' },
+    { id: 'l-west-back', version: 'v-1', code: 'BAK', name: 'Back room', isHold: true, items: 3 },
+    { id: 'l-west-pos', version: 'v-1', code: 'POS', name: 'Westside Mall', isHold: false, items: 388 },
   ],
-  's-north': [{ id: 'l-north-pos', code: 'POS', name: 'Northgate' }],
+  's-north': [{ id: 'l-north-pos', version: 'v-1', code: 'POS', name: 'Northgate', isHold: false, items: 120 }],
 };
 
 export const tills: TillInfo[] = [
@@ -485,6 +485,8 @@ export function itemDetail(id: string): ItemDetail {
     unitsPerCase: 12,
     isActive: true,
     notes: null,
+    tracksBatches: false,
+    shelfLifeDays: 0,
     stock: [
       { storeCode: 'MAIN', locationCode: 'POS', onHand: 84 },
       { storeCode: 'WEST', locationCode: 'POS', onHand: 40 },

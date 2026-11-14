@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   chargesTotal,
   expiryText,
+  moveReceivedDay,
   ordersFor,
   receiveErrors,
   receiveForms,
@@ -9,6 +10,8 @@ import {
   reorderLines,
   requisitionSteps,
   requisitionTotal,
+  stepDay,
+  stepDayError,
   suggestedExpiry,
   sum,
 } from './supply';
@@ -64,6 +67,31 @@ describe('receiving in batches', () => {
     expect(request.shippingCost).toBe(12.5);
     expect(request.lines[0]).toEqual({ lineId: 'a', pieces: 10, costEach: 2.5, batches: null });
     expect(request.lines[1].batches).toEqual([{ batchNumber: 'LOT-9', pieces: 6, expiresOn: '2026-12-04', madeOn: null }]);
+    expect(request.receivedOn).toBeNull();
+    expect(receiveRequest('v-1', 0, lines, forms, '2026-11-02').receivedOn).toBe('2026-11-02');
+  });
+});
+
+describe('the day an order is placed or received', () => {
+  const lines = [line('a', 10), line('b', 6, true, 30)];
+
+  it('moves the offered expiry with the day received, but not one typed or worked out from the day made', () => {
+    const forms = receiveForms(lines, '2026-11-04');
+    forms[1].batches.push({ batchNumber: 'B2', pieces: '0', expiresOn: '2027-01-31', madeOn: '' });
+    forms[1].batches.push({ batchNumber: 'B3', pieces: '0', expiresOn: '2026-12-04', madeOn: '2026-11-04' });
+    const moved = moveReceivedDay(lines, forms, '2026-11-04', '2026-11-01');
+    expect(moved[1].batches.map((b) => b.expiresOn)).toEqual(['2026-12-01', '2027-01-31', '2026-12-04']);
+    expect(moved[0]).toBe(forms[0]);
+  });
+
+  it('is today or earlier, and goes to the server as null for today', () => {
+    expect(stepDayError('2026-11-04', '2026-11-04', 'received')).toBeUndefined();
+    expect(stepDayError('2026-11-01', '2026-11-04', 'ordered')).toBeUndefined();
+    expect(stepDayError('2026-11-05', '2026-11-04', 'received')).toBe('Goods cannot be received later than today.');
+    expect(stepDayError('2026-11-05', '2026-11-04', 'ordered')).toBe('An order cannot be placed later than today.');
+    expect(stepDayError('', '2026-11-04', 'received')).toBe('Enter the day the goods arrived.');
+    expect(stepDay('2026-11-04', '2026-11-04')).toBeNull();
+    expect(stepDay('2026-11-03', '2026-11-04')).toBe('2026-11-03');
   });
 });
 

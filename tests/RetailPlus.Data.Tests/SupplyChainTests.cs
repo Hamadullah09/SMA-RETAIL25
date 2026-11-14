@@ -126,6 +126,103 @@ public abstract class SupplyChainTests(DatabaseFixture db)
     }
 
     [SkippableFact]
+    public async Task Batches_for_an_item_not_kept_in_batches_are_refused_not_dropped_and_the_shelf_life_is_checked()
+    {
+        var (_, location) = await SetUpAsync();
+        var rice = await ItemAsync(location.Id, Unique("RCE"));
+        var purchasing = new PurchasingService(Data);
+        var po = await purchasing.CreateFromItemsAsync(location.Id, null, "Rice", [new OrderItem(rice.Id, 10)]);
+        var line = (await purchasing.GetAsync(po.Id))!.Lines.Single();
+
+        var refused = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            purchasing.PostShipmentAsync(po.Id, [new ReceivedLine(line.Id, 10, 4m, [new ReceivedBatch("R1", 10, Today.AddDays(30))])]));
+        Assert.Equal($"{rice.Plu} {rice.Name} is not kept in batches; turn that on for the item first.", refused.Message);
+        Assert.Equal(0m, await OnHandAsync(rice.Id));
+        Assert.Equal(PurchaseOrderStatus.Draft, (await purchasing.GetAsync(po.Id))!.Status);
+
+        // Turned on for the item, the same receipt goes in with its batch.
+        var item = (await new InventoryService(Data).GetAsync(rice.Id))!;
+        item.TracksBatches = true;
+        item.ShelfLifeDays = -1;
+        await Assert.ThrowsAsync<BusinessRuleException>(() => new InventoryService(Data).SaveAsync(item, null, null, null));
+        item.ShelfLifeDays = 30;
+        await new InventoryService(Data).SaveAsync(item, null, null, null);
+        await purchasing.PostShipmentAsync(po.Id, [new ReceivedLine(line.Id, 10, 4m, [new ReceivedBatch("R1", 10)])]);
+        Assert.Equal((Today.AddDays(30), 10m), (await new BatchService(Data).OfItemAsync(rice.Id)).Select(b => (b.ExpiresOn, b.OnHand)).Single());
+    }
+
+    [SkippableFact]
+    public async Task An_order_is_posted_and_received_on_the_days_given_but_not_in_the_future_nor_in_a_locked_period()
+    {
+        var (_, location) = await SetUpAsync();
+        var store = db.Station!.StoreId;
+        var milk = await ItemAsync(location.Id, Unique("MLK"), batches: true, shelfLife: 10);
+        var rice = await ItemAsync(location.Id, Unique("RCE"));
+        var purchasing = new PurchasingService(Data);
+        int year = Today.Year - 3;
+        DateOnly ordered = new(year, 5, 20), received = new(year, 6, 3);
+        var po = await purchasing.CreateFromItemsAsync(location.Id, null, "Late paperwork", [new OrderItem(milk.Id, 6, 2m), new OrderItem(rice.Id, 10, 4m)]);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => purchasing.PostOrderAsync(po.Id, Today.AddDays(1)));
+        await purchasing.PostOrderAsync(po.Id, ordered);
+        po = (await purchasing.GetAsync(po.Id))!;
+        Assert.Equal(ordered, DateOnly.FromDateTime(po.PostedAt!.Value));
+        Assert.Equal(ordered, (await new InventoryService(Data).GetAsync(rice.Id))!.LastOrderDate);
+        var lines = po.Lines.Select(l => new ReceivedLine(l.Id, l.ItemId == milk.Id ? 6 : 10, l.CostEach, l.ItemId == milk.Id ? [new ReceivedBatch("M1", 6)] : null)).ToList();
+
+        // Not tomorrow, not before the order was posted, and not in a locked period of the ledger.
+        var future = await Assert.ThrowsAsync<BusinessRuleException>(() => purchasing.PostShipmentAsync(po.Id, lines, 0, Today.AddDays(1)));
+        Assert.Contains("is in the future", future.Message, StringComparison.Ordinal);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => purchasing.PostShipmentAsync(po.Id, lines, 0, ordered.AddDays(-1)));
+        var ledger = new LedgerService(Data);
+        await ledger.SeedAsync();
+        await ledger.EnsureYearAsync(received);
+        var june = (await ledger.GetYearsAsync()).SelectMany(y => y.Periods).Single(p => p.StartDate <= received && p.EndDate >= received);
+        await ledger.SetPeriodStatusAsync(june.Id, FiscalStatus.Locked);
+        try
+        {
+            var locked = await Assert.ThrowsAsync<BusinessRuleException>(() => purchasing.PostShipmentAsync(po.Id, lines, 0, received));
+            Assert.Contains("locked or closed ledger period", locked.Message, StringComparison.Ordinal);
+        }
+        finally
+        {
+            await ledger.SetPeriodStatusAsync(june.Id, FiscalStatus.Open);
+        }
+        Assert.Equal(0m, await OnHandAsync(rice.Id));
+
+        await purchasing.PostShipmentAsync(po.Id, lines, 0, received);
+        po = (await purchasing.GetAsync(po.Id))!;
+        Assert.Equal(received, DateOnly.FromDateTime(po.ReceivedAt!.Value));
+        // The stock movements, the batch (and its expiry from the shelf life) and the item's last receipt are of that day.
+        var moves = (await new InventoryService(Data).GetStockMovementsAsync(rice.Id)).Concat(await new InventoryService(Data).GetStockMovementsAsync(milk.Id)).ToList();
+        Assert.Equal(2, moves.Count);
+        Assert.All(moves, m => Assert.Equal(received, DateOnly.FromDateTime(m.At)));
+        var batch = (await new BatchService(Data).OfItemAsync(milk.Id)).Single();
+        Assert.Equal((received, received.AddDays(10)), (batch.ReceivedOn, batch.ExpiresOn));
+        Assert.Equal(received, (await new InventoryService(Data).GetAsync(rice.Id))!.LastReceivedDate);
+        // The three-way match reports it as received that day.
+        var unbilled = await new PurchaseMatchService(Data, new InMemoryBillLineSource()).ReceivedNotBilledAsync(store);
+        Assert.Equal(received, DateOnly.FromDateTime(unbilled.First(r => r.PurchaseOrderId == po.Id).ReceivedAt!.Value));
+
+        // The ledger gets it in that day's business-day entry.
+        await new LedgerAutomation(Data).PostDaysAsync(received, received, store);
+        await using (var ctx = db.CreateContext())
+        {
+            var day = await ctx.JournalEntries.AsNoTracking().Include(e => e.Lines).SingleAsync(e => e.Source == $"daily:{store:N}:{received:yyyy-MM-dd}");
+            Assert.Equal(received, day.Date);
+            Assert.Equal(52m, day.Lines.Where(l => (l.Memo ?? "").StartsWith("Stock received", StringComparison.Ordinal)).Sum(l => l.Debit));   // 6 x 2 + 10 x 4
+        }
+
+        // A later shipment of rice, then this older one dated earlier: the item's last receipt stays the later one.
+        var newer = await ReceivedOrderAsync(location.Id, null, [(rice, 2, 5m, null)]);
+        var older = await purchasing.CreateFromItemsAsync(location.Id, null, "Older", [new OrderItem(rice.Id, 3, 3m)]);
+        await purchasing.PostShipmentAsync(older.Id, [new ReceivedLine((await purchasing.GetAsync(older.Id))!.Lines.Single().Id, 3, 3m)], 0, Today.AddDays(-7));
+        var after = (await new InventoryService(Data).GetAsync(rice.Id))!;
+        Assert.Equal((Today, 2m, 5m), (after.LastReceivedDate, after.LastReceivedQuantity, after.LastCost));
+        Assert.Equal(15m, after.OnHand);
+        Assert.NotNull(newer.ReceivedAt);
+    }
+
+    [SkippableFact]
     public async Task The_pos_sells_the_batch_that_expires_first_splits_lines_and_a_void_puts_the_batches_back()
     {
         var (session, location) = await SetUpAsync();

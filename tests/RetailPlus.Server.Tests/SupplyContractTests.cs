@@ -30,6 +30,7 @@ public sealed partial class SupplyContractTests
         { typeof(LandedCostDetail), "LandedCostDetail" }, { typeof(LandedCostRequest), "LandedCostRequest" }, { typeof(ReceiptChoiceInfo), "ReceiptChoice" },
         { typeof(ReorderRow), "ReorderRow" }, { typeof(ReorderLineRequest), "ReorderLineRequest" }, { typeof(ReorderRequest), "ReorderRequest" },
         { typeof(SupplierPerformanceRow), "SupplierPerformanceRow" }, { typeof(SupplySettingsInfo), "SupplySettings" },
+        { typeof(PostOrderRequest), "PostOrderRequest" }, { typeof(LocationInfo), "LocationInfo" }, { typeof(LocationRequest), "LocationRequest" },
     };
 
     /// <summary>Each status the server writes as a string, and the web's union of it.</summary>
