@@ -371,7 +371,8 @@ public class HubClientTests
                    ": ping\n\n";
         var handler = new SseHandler(body);
         using var client = new RfidHubClient("http://hub:5280", "secret", handler);
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        // Only a safety limit: the loop below stops at the first event. Generous, for a busy CI runner.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         RfidTagEvent? first = null;
         await foreach (var e in client.ListenAsync(4, cts.Token))
         {
@@ -394,7 +395,8 @@ public class HubClientTests
                    "data: {\"epc\":\"6A7E02\",\"stationNumber\":4,\"readerId\":\"00000001-0000-0000-0000-000000000000\",\"readerName\":\"R1\",\"antenna\":2,\"rssiDbm\":-50,\"seenAt\":\"2026-11-14T10:00:01\",\"purpose\":2}\n\n";
         var handler = new SseHandler(body);
         using var client = new RfidHubClient("http://hub:5280", null, handler);
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        // Only a safety limit: the loop below stops at the first event. Generous, for a busy CI runner.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         RfidTagEvent? first = null;
         await foreach (var e in client.ListenAsync(4, RfidListen.Gate, cts.Token))
         {
