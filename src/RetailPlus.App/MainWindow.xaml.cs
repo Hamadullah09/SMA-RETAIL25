@@ -80,16 +80,19 @@ public partial class MainWindow : Window
         UpdateSyncText();
     }
 
-    /// <summary>The server status at the bottom: quiet, and only on a till that joined a server.</summary>
+    /// <summary>
+    /// The server status at the bottom: only when something needs attention (the server not reached, or data it refused).
+    /// When sending works, the line stays empty; the times are in Setup › Server and on the dashboard.
+    /// </summary>
     private void UpdateSyncText()
     {
-        if (AppServices.Sync is null || AppServices.SyncStatus is not { } status)
+        if (AppServices.Sync is null || AppServices.SyncStatus is not { } status || AppServices.SyncProblemLine(status) is not { } problem)
         {
             SyncText.Visibility = Visibility.Collapsed;
             return;
         }
-        SyncText.Text = AppServices.SyncLine(status);
-        SyncText.Foreground = Look.Brush(status.Refused > 0 ? "Danger" : "Muted");
+        SyncText.Text = problem;
+        SyncText.Foreground = Look.Brush("Danger");
         SyncText.Visibility = Visibility.Visible;
     }
 
@@ -163,7 +166,6 @@ public partial class MainWindow : Window
         TrainingBadge.Visibility = s.IsTrainee ? Visibility.Visible : Visibility.Collapsed;
         SettingsButton.Visibility = AppServices.CanAny(Permissions.SetupStore, Permissions.SetupUsers, Permissions.SetupStations) ? Visibility.Visible : Visibility.Collapsed;
         StationText.Text = $"Station {s.StationNumber:000}  ·  Location {s.LocationCode}";
-        DatabaseText.Text = $"Database {AppServices.Data.DatabaseName}";
         Title = string.IsNullOrWhiteSpace(AppServices.Settings.CompanyName) ? Brand.Name : $"{Brand.Name} — {AppServices.Settings.CompanyName}";
         ShowStoreLogo();
         var selected = (Nav.SelectedItem as NavEntry)?.Key;

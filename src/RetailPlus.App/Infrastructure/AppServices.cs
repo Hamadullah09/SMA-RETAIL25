@@ -230,6 +230,23 @@ public static class AppServices
         return string.Join(" · ", parts);
     }
 
+    /// <summary>
+    /// What needs attention about the server, for the bottom line of the window: the server not reached (with what is
+    /// waiting to go), or rows it refused. Null while sending works, so the line stays quiet.
+    /// </summary>
+    public static string? SyncProblemLine(TillSyncStatus status)
+    {
+        ArgumentNullException.ThrowIfNull(status);
+        var parts = new List<string>();
+        if (status.LastError is not null && status.LastAttemptAtUtc is not null && (status.LastSentAtUtc is null || status.LastAttemptAtUtc > status.LastSentAtUtc))
+        {
+            parts.Add("Server not reached");
+            if (status.Waiting > 0) parts.Add($"{status.Waiting} waiting to send");
+        }
+        if (status.Refused > 0) parts.Add($"{status.Refused} refused by the server");
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
+
     /// <summary>After End of Day: sends at once, in the background.</summary>
     public static void SyncSoon()
     {

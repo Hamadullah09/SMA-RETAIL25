@@ -142,7 +142,10 @@
                     <Grid Margin="0,8,0,8">
                         <infra:RingGauge x:Name="DrawerRing" RingBrush="{StaticResource Sun}" TickBrush="{StaticResource Charcoal}" Width="190" Height="190" />
                         <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                            <TextBlock x:Name="DrawerCash" FontFamily="{StaticResource DisplayFont}" FontSize="30" HorizontalAlignment="Center" />
+                            <!-- Inside the ticks there is room for about 104 px: a large amount shrinks to fit instead of covering them. -->
+                            <Viewbox MaxWidth="104" StretchDirection="DownOnly" HorizontalAlignment="Center">
+                                <TextBlock x:Name="DrawerCash" FontFamily="{StaticResource DisplayFont}" FontSize="30" />
+                            </Viewbox>
                             <TextBlock Text="cash in drawer" Foreground="{StaticResource Muted}" FontSize="14" HorizontalAlignment="Center" />
                         </StackPanel>
                     </Grid>
